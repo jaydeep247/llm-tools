@@ -729,6 +729,21 @@ const AppWithAuth: React.FC = () => {
               </button>
             </div>
             
+            {/* Progress Bar */}
+            {loading && (
+              <div className="mb-4">
+                <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-purple-500 via-purple-600 to-purple-500 animate-progress"></div>
+                </div>
+                <p className="text-xs text-gray-400 mt-2 flex items-center gap-2">
+                  <svg className="w-4 h-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Fetching backlinks data. Please wait...
+                </p>
+              </div>
+            )}
+            
             {/* Crawl Checkbox */}
             <div className="flex items-center gap-3 mb-4">
               <input
@@ -779,9 +794,13 @@ const AppWithAuth: React.FC = () => {
           <div className="max-w-4xl mx-auto mb-8">
             <div className="bg-red-900 border border-red-700 rounded-lg p-4 flex items-center gap-3">
               <div className="w-6 h-6 text-red-600 flex-shrink-0">⚠️</div>
-              <div>
-                <h3 className="font-semibold text-red-200">Analysis Failed</h3>
-                <p className="text-red-300">{error}</p>
+              <div className="flex-1">
+                <h3 className="font-semibold text-red-200 mb-1">
+                  {error.toLowerCase().includes('limit') || error.toLowerCase().includes('exceeded') 
+                    ? '🚫 Daily Limit Reached' 
+                    : 'Analysis Failed'}
+                </h3>
+                <p className="text-red-300 text-sm">{error}</p>
               </div>
             </div>
           </div>

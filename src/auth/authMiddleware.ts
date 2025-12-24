@@ -172,9 +172,11 @@ export const checkUsageLimit = (actionType: string) => {
                 : settings.maxCrawlsPerDay;
 
             if (todayUsage >= limit) {
+                // Format action type for display
+                const displayAction = actionType === 'aeo_analysis' ? 'analysis' : actionType;
                 res.status(429).json({ 
                     error: 'Usage limit exceeded', 
-                    message: `You have reached your daily limit of ${limit} ${actionType}s. Please upgrade or try again tomorrow.`,
+                    message: `You have reached your daily limit of ${limit} ${displayAction === 'analysis' ? 'analyses' : displayAction + 's'}. ${req.user.role === 'free' ? 'Please upgrade to Premium for higher limits or ' : ''}Try again tomorrow.`,
                     limit,
                     usage: todayUsage
                 });

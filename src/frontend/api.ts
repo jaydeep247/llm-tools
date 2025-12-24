@@ -66,6 +66,36 @@ class ApiService {
     return headers;
   }
 
+  /**
+   * Fetch with timeout support
+   * @param url - URL to fetch
+   * @param options - Fetch options
+   * @param timeout - Timeout in milliseconds (default: 5 minutes for long-running operations)
+   */
+  private async fetchWithTimeout(
+    url: string, 
+    options: RequestInit = {}, 
+    timeout: number = 300000 // 5 minutes default for AEO analysis
+  ): Promise<Response> {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal
+      });
+      clearTimeout(id);
+      return response;
+    } catch (error: any) {
+      clearTimeout(id);
+      if (error.name === 'AbortError') {
+        throw new Error('Request timeout - Analysis is taking longer than expected. This may be due to fetching all backlinks data.');
+      }
+      throw error;
+    }
+  }
+
   async analyzeUrl(url: string, crawlerOptions?: {
     allowSubdomains: boolean;
     runAudits: boolean;
@@ -78,7 +108,7 @@ class ApiService {
         // First, start the crawler
         console.log(`Starting crawler for: ${url}`, crawlerOptions);
 
-        const crawlResponse = await fetch('/crawl', {
+        const crawlResponse = await this.fetchWithTimeout('/crawl', {
           method: 'POST',
           headers: this.getAuthHeaders(),
           credentials: 'include',
@@ -90,7 +120,7 @@ class ApiService {
             captureLinkDetails: crawlerOptions.captureLinkDetails,
             forceRecrawl: Boolean(crawlerOptions.forceRecrawl)
           })
-        });
+        }, 300000); // 5 minutes for crawl + analysis
 
         if (!crawlResponse.ok) {
           const errorData = await crawlResponse.json().catch(() => ({}));
@@ -128,14 +158,15 @@ class ApiService {
         // Then get AEO analysis for the main URL
         console.log(`Getting AEO analysis for: ${url}`);
         
-        const aeoResponse = await fetch(
+        const aeoResponse = await this.fetchWithTimeout(
           `${this.baseURL}/aeo/analyze`,
           {
             method: 'POST',
             headers: this.getAuthHeaders(),
             credentials: 'include',
             body: JSON.stringify({ url: url.trim() }),
-          }
+          },
+          300000 // 5 minutes timeout for full backlinks analysis
         );
 
         if (!aeoResponse.ok) {
@@ -170,14 +201,15 @@ class ApiService {
         console.log(`Making API call to: ${this.baseURL}/aeo/analyze`);
         console.log(`Analyzing URL: ${url}`);
 
-        const response = await fetch(
+        const response = await this.fetchWithTimeout(
           `${this.baseURL}/aeo/analyze`,
           {
             method: 'POST',
             headers: this.getAuthHeaders(),
             credentials: 'include',
             body: JSON.stringify({ url: url.trim() }),
-          }
+          },
+          300000 // 5 minutes timeout for full backlinks analysis
         );
 
         if (!response.ok) {

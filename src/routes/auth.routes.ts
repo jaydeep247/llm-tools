@@ -442,7 +442,7 @@ router.get('/usage', authenticateUser, (req: Request, res: Response) => {
             today: {
                 crawls: todayCrawls,
                 audits: todayAudits,
-                limit: settings?.maxCrawlsPerDay || 10
+                limit: settings?.maxCrawlsPerDay || 100
             }
         });
     } catch (error) {

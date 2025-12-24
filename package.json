@@ -16,7 +16,13 @@
     "seo:worker": "tsx src/seo/redis-worker.ts",
     "seo:cli": "tsx src/seo/redis-cli.ts"
   },
-  "keywords": ["contentlytics", "aeo", "seo", "content-analytics", "crawler"],
+  "keywords": [
+    "contentlytics",
+    "aeo",
+    "seo",
+    "content-analytics",
+    "crawler"
+  ],
   "author": "",
   "license": "ISC",
   "description": "Contentlytics - Content Analytics & AEO Intelligence Platform with fast domain-locked crawler using Crawlee",
@@ -57,6 +63,7 @@
     "@types/node": "^24.4.0",
     "@types/nodemailer": "^7.0.1",
     "autoprefixer": "^10.4.21",
+    "baseline-browser-mapping": "^2.9.5",
     "concurrently": "^9.2.1",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.18",

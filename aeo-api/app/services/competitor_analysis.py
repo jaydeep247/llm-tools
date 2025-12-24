@@ -130,6 +130,88 @@ class CompetitorAnalysisService:
             traceback.print_exc()
             return []
     
+    def fetch_all_backlinks(
+        self, 
+        target_domain: str,
+        mode: str = 'as_is',
+        backlinks_status_type: str = 'live',
+        include_subdomains: bool = True,
+        max_results: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """
+        Fetch ALL individual backlinks for a target domain using DataForSEO API
+        
+        This method returns individual backlinks (not just referring domains).
+        It automatically handles pagination to retrieve all backlinks.
+        
+        Args:
+            target_domain: The domain to analyze (e.g., 'example.com')
+            mode: Results grouping type (as_is, one_per_domain, one_per_anchor)
+            backlinks_status_type: What backlinks to return (all, live, lost)
+            include_subdomains: Whether to include subdomains in the search
+            max_results: Maximum number of results to fetch (None = fetch all)
+            
+        Returns:
+            Dictionary containing:
+            - success: Boolean indicating success/failure
+            - backlinks: List of individual backlink objects
+            - total_count: Total number of backlinks available
+            - fetched_count: Number of backlinks actually fetched
+            - pages_fetched: Number of API requests made
+            - metrics: Aggregated backlink metrics
+            - target: Target domain
+            - mode: Mode used for fetching
+            - backlinks_status_type: Status type used
+        """
+        if not self.api_available:
+            print("WARNING: DataForSEO API not available")
+            return {
+                'success': False,
+                'error': 'DataForSEO API not configured',
+                'backlinks': [],
+                'total_count': 0,
+                'fetched_count': 0
+            }
+        
+        print(f"INFO: Fetching all backlinks for {target_domain} (mode: {mode}, status: {backlinks_status_type})")
+        
+        try:
+            result = self.client.get_all_backlinks(
+                target=target_domain,
+                mode=mode,
+                backlinks_status_type=backlinks_status_type,
+                include_subdomains=include_subdomains,
+                include_indirect_links=True,
+                exclude_internal_backlinks=True,
+                rank_scale='one_thousand',
+                max_results=max_results
+            )
+            
+            if result['success']:
+                print(f"SUCCESS: Fetched {result['fetched_count']} backlinks (total available: {result['total_count']})")
+                print(f"INFO: Made {result['pages_fetched']} API requests")
+                
+                # Safely access metrics (some may not exist for 0 backlinks)
+                metrics = result.get('metrics', {})
+                print(f"INFO: Metrics - Dofollow: {metrics.get('dofollow_count', 0)}, "
+                      f"Unique Domains: {metrics.get('unique_domains', 0)}, "
+                      f"Quality Score: {metrics.get('quality_score', 0)}")
+            else:
+                print(f"ERROR: Failed to fetch backlinks: {result.get('error')}")
+            
+            return result
+            
+        except Exception as e:
+            print(f'ERROR: Error fetching all backlinks: {e}')
+            traceback.print_exc()
+            return {
+                'success': False,
+                'error': str(e),
+                'backlinks': [],
+                'total_count': 0,
+                'fetched_count': 0
+            }
+    
     def calculate_metrics(self, backlinks: List[Dict[str, Any]]) -> Dict[str, float]:
         """
         Calculate all metrics needed for the Competitor Landscape Score
@@ -338,14 +420,21 @@ class CompetitorAnalysisService:
         
         print(f"Analyzing competitor landscape for: {target_domain}")
         
-        # Fetch backlinks data
-        referring_domains = self.fetch_backlinks_data(target_domain, limit=limit)
+        # ===== FETCH ALL INDIVIDUAL BACKLINKS WITH AUTOMATIC PAGINATION =====
+        print(f"INFO: Fetching ALL individual backlinks with automatic pagination...")
+        all_backlinks_result = self.fetch_all_backlinks(
+            target_domain=target_domain,
+            mode='as_is',  # Get all individual backlinks
+            backlinks_status_type='live',  # Only live backlinks
+            include_subdomains=True,
+            max_results=None  # Fetch ALL backlinks (no limit)
+        )
         
-        if not referring_domains:
-            print(f"WARNING: No referring domains found for {target_domain}")
+        if not all_backlinks_result.get('success'):
+            print(f"ERROR: Failed to fetch backlinks: {all_backlinks_result.get('error')}")
             return {
                 'score': 0,
-                'error': 'No backlinks data found or API error occurred',
+                'error': all_backlinks_result.get('error', 'No backlinks data found or API error occurred'),
                 'metrics': {
                     'total_referring_domains': 0,
                     'total_referring_domains_analyzed': 0,
@@ -366,22 +455,63 @@ class CompetitorAnalysisService:
                 ]
             }
         
-        # Calculate total individual backlinks across all referring domains
-        total_individual_backlinks = sum(
-            item.get("backlinks", 0) for item in referring_domains
+        # Extract comprehensive metrics from the backlinks result
+        backlinks_metrics = all_backlinks_result['metrics']
+        total_individual_backlinks = all_backlinks_result['total_count']
+        fetched_backlinks = all_backlinks_result['fetched_count']
+        unique_domains_count = backlinks_metrics['unique_domains']
+        
+        print(f"SUCCESS: Fetched {fetched_backlinks} individual backlinks out of {total_individual_backlinks} total")
+        print(f"INFO: Unique referring domains: {unique_domains_count}")
+        print(f"INFO: Dofollow backlinks: {backlinks_metrics['dofollow_count']} ({backlinks_metrics['dofollow_percentage']}%)")
+        print(f"INFO: Quality Score: {backlinks_metrics['quality_score']}/100")
+        print(f"INFO: Made {all_backlinks_result['pages_fetched']} API requests (pagination)")
+        
+        # Use comprehensive metrics from backlinks analysis
+        metrics = {
+            'total_referring_domains': unique_domains_count,
+            'total_referring_domains_analyzed': unique_domains_count,
+            'total_individual_backlinks': total_individual_backlinks,
+            'fetched_backlinks': fetched_backlinks,
+            'dofollow_backlinks': backlinks_metrics['dofollow_count'],
+            'nofollow_backlinks': backlinks_metrics['nofollow_count'],
+            'dofollow_percentage': backlinks_metrics['dofollow_percentage'],
+            'domain_quality': backlinks_metrics['avg_domain_rank'],
+            'avg_page_rank': backlinks_metrics['avg_page_rank'],
+            'avg_backlink_rank': backlinks_metrics['avg_backlink_rank'],
+            'diversity_score': min(100, unique_domains_count / 10),  # Rough diversity based on unique domains
+            'spam_score': backlinks_metrics['avg_spam_score'],
+            'new_backlinks': backlinks_metrics['new_backlinks'],
+            'lost_backlinks': backlinks_metrics['lost_backlinks'],
+            'broken_backlinks': backlinks_metrics['broken_backlinks'],
+            'unique_ips': backlinks_metrics['unique_ips'],
+            'link_types': backlinks_metrics['link_types'],
+            'quality_score': backlinks_metrics['quality_score'],
+            'top_anchors': backlinks_metrics['top_anchors'],
+            'top_referring_domains_by_count': backlinks_metrics['top_referring_domains'],
+            'tld_count': len(set(bl.get('tld_from') for bl in all_backlinks_result['backlinks'] if bl.get('tld_from'))),
+            'country_count': len(set(bl.get('domain_from_country') for bl in all_backlinks_result['backlinks'] if bl.get('domain_from_country'))),
+            'platform_count': len(set(
+                pt for bl in all_backlinks_result['backlinks'] 
+                if bl.get('domain_from_platform_type') and isinstance(bl.get('domain_from_platform_type'), list)
+                for pt in bl['domain_from_platform_type']
+            ))
+        }
+        
+        # Add normalized metrics for scoring
+        metrics['normalized_metrics'] = self._normalize_metrics(
+            unique_domains_count,
+            backlinks_metrics['dofollow_count'],
+            backlinks_metrics['avg_domain_rank'],
+            metrics['diversity_score'],
+            backlinks_metrics['avg_spam_score']
         )
-        
-        print(f"Fetched {len(referring_domains)} referring domains")
-        print(f"Total individual backlinks: {total_individual_backlinks}")
-        
-        # Calculate metrics
-        metrics = self.calculate_metrics(referring_domains)
         
         # Calculate final score
         score = self.calculate_competitor_landscape_score(metrics)
         
-        # Identify top competitors
-        top_competitors = self.identify_top_competitors(referring_domains)
+        # Get top competitors from top_referring_domains
+        top_competitors = list(backlinks_metrics['top_referring_domains'].items())[:5]
         
         # Generate recommendations
         recommendations = self._generate_recommendations(score, metrics, top_competitors)
@@ -390,21 +520,42 @@ class CompetitorAnalysisService:
             'score': score,
             'metrics': {
                 'total_referring_domains': metrics['total_referring_domains'],
-                'total_referring_domains_analyzed': len(referring_domains),
+                'total_referring_domains_analyzed': unique_domains_count,
                 'total_individual_backlinks': total_individual_backlinks,
+                'fetched_backlinks': fetched_backlinks,
                 'dofollow_backlinks': metrics['dofollow_backlinks'],
+                'nofollow_backlinks': metrics['nofollow_backlinks'],
+                'dofollow_percentage': metrics['dofollow_percentage'],
                 'domain_quality': round(metrics['domain_quality'], 2),
+                'avg_page_rank': round(metrics['avg_page_rank'], 2),
+                'avg_backlink_rank': round(metrics['avg_backlink_rank'], 2),
                 'diversity_score': metrics['diversity_score'],
                 'spam_score': round(metrics['spam_score'], 2),
+                'quality_score': metrics['quality_score'],
+                'new_backlinks': metrics['new_backlinks'],
+                'lost_backlinks': metrics['lost_backlinks'],
+                'broken_backlinks': metrics['broken_backlinks'],
+                'unique_ips': metrics['unique_ips'],
                 'tld_count': metrics['tld_count'],
                 'country_count': metrics['country_count'],
-                'platform_count': metrics['platform_count']
+                'platform_count': metrics['platform_count'],
+                'link_types': metrics['link_types'],
+                'top_anchors': metrics['top_anchors'],
+                'top_referring_domains_by_count': metrics['top_referring_domains_by_count']
             },
             'top_competitors': [
                 {'domain': domain, 'referring_domains': count}
                 for domain, count in top_competitors
             ],
-            'recommendations': recommendations
+            'recommendations': recommendations,
+            'pagination_info': {
+                'total_backlinks_available': total_individual_backlinks,
+                'backlinks_fetched': fetched_backlinks,
+                'api_requests_made': all_backlinks_result['pages_fetched'],
+                'pagination_used': True,
+                'mode': all_backlinks_result['mode'],
+                'backlinks_status_type': all_backlinks_result['backlinks_status_type']
+            }
         }
     
     def _generate_recommendations(self, score: float, metrics: Dict[str, Any], 

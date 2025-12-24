@@ -93,7 +93,7 @@ export const UserProfile: React.FC = () => {
                         <div className="stat-label">AEO Analyses</div>
                     </div>
                     <div className="stat-card">
-                        <div className="stat-value">{settings?.maxCrawlsPerDay || 10}</div>
+                        <div className="stat-value">{settings?.maxCrawlsPerDay || 100}</div>
                         <div className="stat-label">Daily Limit</div>
                     </div>
                 </div>

@@ -73,7 +73,7 @@ JSON format:
                     {"role": "user", "content": prompt}
                 ],
                 response_format={"type": "json_object"},
-                max_tokens=400,  # Reduced from 1000 to minimize costs
+                max_completion_tokens=400,  # Changed from max_tokens (required for newer models)
                 temperature=0.3
             )
             
@@ -157,7 +157,7 @@ JSON:
                     {"role": "user", "content": prompt}
                 ],
                 response_format={"type": "json_object"},
-                max_tokens=300,  # Reduced from 500
+                max_completion_tokens=300,  # Changed from max_tokens
                 temperature=0.3
             )
             
@@ -247,7 +247,7 @@ JSON:
                     {"role": "user", "content": prompt}
                 ],
                 response_format={"type": "json_object"},
-                max_tokens=400,  # Reduced from 800
+                max_completion_tokens=400,  # Changed from max_tokens
                 temperature=0.3
             )
             
@@ -298,7 +298,7 @@ JSON:
                     {"role": "system", "content": "Concise summarizer."},
                     {"role": "user", "content": prompt}
                 ],
-                max_tokens=200,  # Reduced from 300
+                max_completion_tokens=200,  # Changed from max_tokens
                 temperature=0.3
             )
             

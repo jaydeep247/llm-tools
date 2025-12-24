@@ -80,6 +80,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
   const [schemaError, setSchemaError] = useState<string | null>(null);
   const [copiedSchema, setCopiedSchema] = useState(false);
   const [schemaFormat, setSchemaFormat] = useState<'json-ld' | 'rdfa'>('json-ld');
+  const [selectedSchemaType, setSelectedSchemaType] = useState<string>('auto');
 
   // Generate schema markup
   const generateSchema = async () => {
@@ -94,7 +95,10 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ 
+          url,
+          schema_type: selectedSchemaType 
+        }),
       });
       
       const data = await response.json();
@@ -809,6 +813,40 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                 >
                   {schemaLoading ? '⏳ Generating...' : '✨ Generate Schema'}
                 </button>
+              </div>
+
+              {/* Schema Type Selector */}
+              <div className="schema-type-selector">
+                <label htmlFor="schema-type" className="schema-type-label">
+                  Select Schema Type:
+                </label>
+                <select 
+                  id="schema-type"
+                  className="schema-type-dropdown"
+                  value={selectedSchemaType}
+                  onChange={(e) => setSelectedSchemaType(e.target.value)}
+                  disabled={schemaLoading}
+                >
+                  <option value="auto">🤖 Auto-detect (Recommended)</option>
+                  <option value="Organization">🏢 Organization Markup</option>
+                  <option value="LocalBusiness">🏪 Local Business Markup</option>
+                  <option value="WebPage">📄 WebPage Markup</option>
+                  <option value="Article">📰 Article Markup</option>
+                  <option value="BlogPosting">✍️ Blog Post Markup</option>
+                  <option value="Product">🛍️ Product Markup</option>
+                  <option value="Service">⚙️ Service Markup</option>
+                  <option value="FAQPage">❓ FAQ Markup</option>
+                  <option value="BreadcrumbList">🍞 Breadcrumb Markup</option>
+                  <option value="Person">👤 Person Markup</option>
+                  <option value="Event">📅 Event Markup</option>
+                  <option value="Recipe">🍳 Recipe Markup</option>
+                  <option value="HowTo">📖 How To Markup</option>
+                  <option value="VideoObject">🎥 Video Markup</option>
+                  <option value="ImageObject">🖼️ Image Markup</option>
+                  <option value="Course">🎓 Course Markup</option>
+                  <option value="JobPosting">💼 Job Posting Markup</option>
+                  <option value="Review">⭐ Review Markup</option>
+                </select>
               </div>
 
               {schemaError && (

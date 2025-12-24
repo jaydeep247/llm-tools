@@ -24,6 +24,7 @@ class StructuredDataRequest(BaseModel):
 class SchemaGenerateRequest(BaseModel):
     url: str
     html_content: Optional[str] = None
+    schema_type: Optional[str] = 'auto'  # auto, Organization, LocalBusiness, Article, etc.
 
 # Initialize service orchestrator
 aeo_orchestrator = AEOServiceOrchestrator()
@@ -112,8 +113,8 @@ async def generate_schema(request: SchemaGenerateRequest):
                 raise HTTPException(status_code=400, detail=f'Failed to fetch URL: {str(e)}')
         
         # Generate schema markup
-        logging.info(f"Generating schema markup for {url}")
-        results = schema_generator.generate_schema(html_content, url)
+        logging.info(f"Generating schema markup for {url} with type: {request.schema_type}")
+        results = schema_generator.generate_schema(html_content, url, schema_type=request.schema_type)
         
         if not results.get('success', False):
             raise HTTPException(status_code=400, detail=results.get('message', 'Schema generation failed'))

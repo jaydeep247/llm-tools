@@ -119,7 +119,7 @@ JSON format:
                 {"role": "user", "content": prompt}
             ],
             response_format={"type": "json_object"},
-            max_tokens=400,
+            max_completion_tokens=400,
             temperature=0.3
         )
         
@@ -233,7 +233,7 @@ Respond in JSON format:
         
         response = self.claude_client.messages.create(
             model="claude-sonnet-4-5-20250929",
-            max_tokens=400,
+            max_tokens=400,  # Note: Claude uses max_tokens, not max_completion_tokens
             temperature=0.3,
             messages=[
                 {"role": "user", "content": prompt}

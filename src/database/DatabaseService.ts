@@ -233,7 +233,7 @@ export class DatabaseService {
                 user_id INTEGER PRIMARY KEY,
                 openai_api_key TEXT,
                 psi_api_key TEXT,
-                max_crawls_per_day INTEGER DEFAULT 10,
+                max_crawls_per_day INTEGER DEFAULT 100,
                 email_notifications INTEGER DEFAULT 1,
                 FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
             )
@@ -2319,7 +2319,7 @@ export class DatabaseService {
         // Create default user settings
         const settingsStmt = this.db.prepare(`
             INSERT INTO user_settings (user_id, max_crawls_per_day, email_notifications)
-            VALUES (?, 10, 1)
+            VALUES (?, 100, 1)
         `);
         settingsStmt.run(userId);
         
