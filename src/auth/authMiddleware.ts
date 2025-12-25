@@ -38,6 +38,7 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
         if (!token && req.cookies?.accessToken) {
             token = req.cookies.accessToken;
         }
+        
 
         if (!token) {
             res.status(401).json({ 
@@ -176,7 +177,7 @@ export const checkUsageLimit = (actionType: string) => {
                 const displayAction = actionType === 'aeo_analysis' ? 'analysis' : actionType;
                 res.status(429).json({ 
                     error: 'Usage limit exceeded', 
-                    message: `You have reached your daily limit of ${limit} ${displayAction === 'analysis' ? 'analyses' : displayAction + 's'}. ${req.user.role === 'free' ? 'Please upgrade to Premium for higher limits or ' : ''}Try again tomorrow.`,
+                    message: `You have reached your daily limit of ${limit} ${displayAction === 'analysis' ? 'analyses' : displayAction + 's'}. ${req.user.role === 'user' ? 'Please upgrade to Premium for higher limits or ' : ''}Try again tomorrow.`,
                     limit,
                     usage: todayUsage
                 });

@@ -51,7 +51,11 @@ const AppWithAuth: React.FC = () => {
     }
 
     console.log('SSE: Connecting for authenticated user...');
-    const eventSource = new EventSource('/events');
+    const token = localStorage.getItem('accessToken');
+    if (!token) return;
+
+    const eventSource = new EventSource(`/events?token=${token}`);
+
 
     eventSource.addEventListener('connected', (e) => {
       const data = JSON.parse(e.data);

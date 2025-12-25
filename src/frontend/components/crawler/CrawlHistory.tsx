@@ -41,21 +41,31 @@ export const CrawlHistory: React.FC<CrawlHistoryProps> = ({ onSelectCrawl }) => 
 
   // Listen for real-time status updates via SSE
   useEffect(() => {
-    const eventSource = new EventSource('/events');
-    
-    eventSource.addEventListener('session-status-update', (e) => {
-      const data = JSON.parse(e.data);
-      if (data.sessionId && data.status) {
-        setHistory(prev => prev.map(item => 
-          item.session.id === data.sessionId 
-            ? { ...item, session: { ...item.session, status: data.status } }
-            : item
-        ));
-      }
-    });
+  if (!accessToken) return;
 
-    return () => eventSource.close();
-  }, []);
+  const eventSource = new EventSource(
+    `/events?token=${accessToken}`
+  );
+
+  eventSource.addEventListener('session-status-update', (e) => {
+    const data = JSON.parse(e.data);
+    if (data.sessionId && data.status) {
+      setHistory(prev => prev.map(item =>
+        item.session.id === data.sessionId
+          ? { ...item, session: { ...item.session, status: data.status } }
+          : item
+      ));
+    }
+  });
+
+  eventSource.onerror = (err) => {
+    console.error('SSE error:', err);
+    eventSource.close();
+  };
+
+  return () => eventSource.close();
+}, [accessToken]);
+
 
   const fetchHistory = async () => {
     try {

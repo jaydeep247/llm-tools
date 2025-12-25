@@ -90,7 +90,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
     setSchemaError(null);
     
     try {
-      const response = await fetch('http://localhost:8000/api/aeo/generate-schema', {
+      const response = await fetch('/aeo/generate-schema', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

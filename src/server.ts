@@ -413,31 +413,48 @@ function sendEvent(data: unknown, event: string = 'message', userId?: number) {
 }
 
 // Protected SSE endpoint - requires authentication
-app.get('/events', authenticateUser, (req, res) => {
+app.get('/events', (req, res, next) => {
+    // ✅ Accept token from query param
+    const token = req.query.token;
+
+    if (!token || typeof token !== 'string') {
+        return res.status(401).json({
+            error: 'Authentication required',
+            message: 'No access token provided'
+        });
+    }
+
+    // ✅ Inject token so authenticateUser works
+    req.headers.authorization = `Bearer ${token}`;
+    next();
+
+}, authenticateUser, (req, res) => {
+
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+    res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders?.();
     res.write('\n');
 
     const id = nextClientId++;
-    const userId = req.user!.userId; // Get authenticated user ID
-    
+    const userId = req.user!.userId;
+
     clients.push({ id, res, userId });
     logger.info(`SSE client connected: ${id} for user ${userId}`);
 
-    // Send initial connection confirmation
-    res.write(`event: connected\ndata: ${JSON.stringify({ clientId: id, userId })}\n\n`);
+    // Initial event
+    res.write(`event: connected\ndata: ${JSON.stringify({ clientId: id })}\n\n`);
 
     req.on('close', () => {
-        const idx = clients.findIndex((c) => c.id === id);
+        const idx = clients.findIndex(c => c.id === id);
         if (idx !== -1) {
             clients.splice(idx, 1);
-            logger.info(`SSE client disconnected: ${id} for user ${userId}`);
+            logger.info(`SSE client disconnected: ${id}`);
         }
     });
 });
+
 
 /**
  * Run audits on an existing crawl session
@@ -638,7 +655,7 @@ async function runAuditsOnExistingSession(
     }
 }
 
-app.post('/crawl', 
+app.post('/api/crawl', 
     authenticateUser,              // Require authentication
     checkUsageLimit('crawl'),      // Check daily usage limit
     async (req, res) => {
