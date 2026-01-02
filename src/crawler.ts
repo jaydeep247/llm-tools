@@ -7,34 +7,13 @@ import { SitemapService } from './sitemap/SitemapService.js';
 import { CrawlAuditIntegration } from './audits/CrawlAuditIntegration.js';
 import { extractLinkMetadata } from './utils/linkAnalyzer.js';
 import { initSeoEnqueue, maybeEnqueueSeo } from './seo/redis-queue.js';
+import { extractPageMetrics } from './modules/module_A/pageMetrics/index.js';
+import { extractContentMetrics } from './modules/module_A/contentAnalysis/index.js';
+import { extractLinksForCrawling, isValidHttpLink } from './modules/module_A/linkExtractor/index.js';
+import { collectPageResources } from './modules/module_A/resourceCollector/index.js';
+import { analyzeLinkDetails } from './modules/module_A/linkAnalysis/index.js';
 
 Configuration.set('systemInfoV2', true);
-
-/**
- * Check if a URL is a valid HTTP/HTTPS link that should be processed
- */
-function isValidHttpLink(href: string): boolean {
-    if (!href) return false;
-
-    // Skip non-HTTP protocols
-    const lowerHref = href.toLowerCase();
-    if (lowerHref.startsWith('javascript:') ||
-        lowerHref.startsWith('mailto:') ||
-        lowerHref.startsWith('tel:') ||
-        lowerHref.startsWith('sms:') ||
-        lowerHref.startsWith('ftp:') ||
-        lowerHref.startsWith('file:') ||
-        lowerHref.startsWith('data:') ||
-        lowerHref.startsWith('blob:') ||
-        lowerHref.startsWith('chrome:') ||
-        lowerHref.startsWith('about:') ||
-        lowerHref.startsWith('#')) {
-        return false;
-    }
-
-    // Must be HTTP or HTTPS
-    return lowerHref.startsWith('http://') || lowerHref.startsWith('https://');
-}
 
 type CrawlOptions = {
     startUrl: string;
@@ -270,30 +249,28 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
             const startTime = requestStartTimes.get(url) || Date.now();
             const responseTime = Date.now() - startTime;
 
-            // Determine content type with fallbacks
-            const headerContentType = response?.headers?.['content-type'] || response?.responseHeaders?.['content-type'];
-            const metaContentType = $('meta[http-equiv="Content-Type"]').attr('content');
-            const resolvedContentType = headerContentType || metaContentType || 'text/html';
+            // Extract page metrics using module_A
+            const pageMetrics = extractPageMetrics(url, $, response, responseTime);
+            
+            // Extract content metrics using module_A
+            const contentMetrics = extractContentMetrics($);
+            
+            // Use extracted metrics
+            const resolvedContentType = pageMetrics.contentType;
+            const wordCount = contentMetrics.visibleWordCount;
 
-            // Compute word count from a cloned DOM to avoid affecting link extraction
-            const cheerio = await import('cheerio');
-            const $clone = cheerio.load($.html());
-            $clone('script, style, noscript, meta, link').remove();
-            const textContent = $clone('body').text().trim();
-            const wordCount = textContent ? textContent.split(/\s+/).length : 0;
-
-            // Record the page data
+            // Record the page data using extracted metrics
             const pageId = await db.insertPage({
                 sessionId,
                 url,
-                title: $('title').text().trim() || 'No title',
-                titleLength: $('title').text().trim().length,
-                description: $('meta[name="description"]').attr('content') || 'No description',
-                descriptionLength: ($('meta[name="description"]').attr('content') || '').length,
-                contentType: resolvedContentType,
-                lastModified: response?.headers?.['last-modified'] || response?.responseHeaders?.['last-modified'] || null,
-                statusCode: response?.statusCode || 200,
-                responseTime: responseTime,
+                title: pageMetrics.title,
+                titleLength: pageMetrics.titleLength,
+                description: pageMetrics.metaDescription,
+                descriptionLength: pageMetrics.metaDescriptionLength,
+                contentType: pageMetrics.contentType,
+                lastModified: pageMetrics.lastModified || null,
+                statusCode: pageMetrics.statusCode,
+                responseTime: pageMetrics.responseTime,
                 wordCount,
                 timestamp: new Date().toISOString(),
                 success: true,
@@ -321,27 +298,13 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
 
             logger.debug('Page processed', { url, responseTime });
 
-            // Enqueue same-site links discovered on the page
-            const toEnqueue: string[] = [];
-            $('a[href]')
-                .map((_i, el) => $(el).attr('href'))
-                .get()
-                .forEach((href) => {
-                    if (!href) return;
-                    let absolute: string;
-                    try {
-                        absolute = new URL(href, url).toString();
-                    } catch {
-                        return;
-                    }
-                    if (!isValidHttpLink(absolute)) return;
-                    const canon = canonicalizeUrl(absolute, {
-                        allowedHost,
-                        allowSubdomains,
-                        denyParamPrefixes,
-                    });
-                    if (canon) toEnqueue.push(canon);
-                });
+            // Extract links for crawling using module_A
+            const toEnqueue = extractLinksForCrawling($, {
+                baseUrl: url,
+                allowedHost,
+                allowSubdomains,
+                denyParamPrefixes
+            }, canonicalizeUrl, isSameSite);
 
             if (toEnqueue.length > 0) {
                 await enqueueLinks({
@@ -354,157 +317,44 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
                 });
             }
 
-            // Collect CSS files (fast: no HEAD requests)
-            const cssLinks = $('link[rel="stylesheet"][href]').map((_i, el) => $(el).attr('href')).get();
-            for (const href of cssLinks) {
-                if (!href) continue;
-                let absolute: string;
-                try { absolute = new URL(href, url).toString(); } catch { continue; }
-                if (emittedCss.has(absolute)) continue;
-                emittedCss.add(absolute);
-                await db.upsertResource({
-                    sessionId,
-                    pageId: pageId,
-                    url: absolute,
-                    resourceType: 'css',
-                    title: '',
-                    description: 'CSS file',
-                    contentType: 'text/css',
-                    statusCode: null,
-                    responseTime: null,
-                    timestamp: new Date().toISOString()
-                });
+            // Collect all resources using module_A
+            const resources = collectPageResources($, {
+                sessionId,
+                pageId,
+                baseUrl: url,
+                allowedHost,
+                allowSubdomains,
+                emittedCss,
+                emittedJs,
+                emittedImg,
+                emittedExternal
+            }, isValidHttpLink, isSameSite);
+
+            // Insert collected resources into database
+            for (const resource of resources.css) {
+                await db.upsertResource(resource);
+            }
+            for (const resource of resources.js) {
+                await db.upsertResource(resource);
+            }
+            for (const resource of resources.images) {
+                await db.upsertResource(resource);
+            }
+            for (const resource of resources.external) {
+                await db.upsertResource(resource);
             }
 
-            // Collect JS files (fast)
-            const jsLinks = $('script[src]').map((_i, el) => $(el).attr('src')).get();
-            for (const src of jsLinks) {
-                if (!src) continue;
-                let absolute: string;
-                try { absolute = new URL(src, url).toString(); } catch { continue; }
-                if (emittedJs.has(absolute)) continue;
-                emittedJs.add(absolute);
-                await db.upsertResource({
-                    sessionId,
-                    pageId: pageId,
-                    url: absolute,
-                    resourceType: 'js',
-                    title: '',
-                    description: 'JavaScript file',
-                    contentType: 'application/javascript',
-                    statusCode: null,
-                    responseTime: null,
-                    timestamp: new Date().toISOString()
-                });
-            }
-
-            // Collect images (fast)
-            const imgElems = $('img[src]').map((_i, el) => ({ src: $(el).attr('src'), alt: $(el).attr('alt') })).get();
-            for (const { src, alt } of imgElems) {
-                if (!src) continue;
-                let absolute: string;
-                try { absolute = new URL(src, url).toString(); } catch { continue; }
-                if (emittedImg.has(absolute)) continue;
-                emittedImg.add(absolute);
-                await db.upsertResource({
-                    sessionId,
-                    pageId: pageId,
-                    url: absolute,
-                    resourceType: 'image',
-                    title: alt || '',
-                    description: 'Image',
-                    contentType: 'image/*',
-                    statusCode: null,
-                    responseTime: null,
-                    timestamp: new Date().toISOString()
-                });
-            }
-
-            // Collect external links (fast)
-            const links = $('a[href]').map((_i, el) => $(el).attr('href')).get();
-            for (const href of links) {
-                if (!href) continue;
-                let absolute: string;
-                try { absolute = new URL(href, url).toString(); } catch { continue; }
-                // Only track real HTTP/HTTPS links
-                if (!isValidHttpLink(absolute)) continue;
-                if (!isSameSite(absolute, allowedHost, allowSubdomains)) {
-                    if (emittedExternal.has(absolute)) continue;
-                    emittedExternal.add(absolute);
-                    await db.upsertResource({
-                        sessionId,
-                        pageId: pageId,
-                        url: absolute,
-                        resourceType: 'external',
-                        title: '',
-                        description: 'External link',
-                        contentType: 'text/html',
-                        statusCode: null,
-                        responseTime: null,
-                        timestamp: new Date().toISOString()
-                    });
-                }
-            }
-
-            // Link analysis (if enabled)
+            // Link analysis (if enabled) using module_A
             if (captureLinkDetails) {
                 const linkAnalysisStart = Date.now();
-                const linksToInsert: Array<{
-                    sessionId: number;
-                    sourcePageId: number;
-                    sourceUrl: string;
-                    targetUrl: string;
-                    targetPageId?: number;
-                    isInternal: boolean;
-                    anchorText?: string;
-                    xpath?: string;
-                    position?: string;
-                    rel?: string;
-                    nofollow?: boolean;
-                }> = [];
-
-                const processedLinks = new Set<string>(); // For deduplication
-
-                $('a[href]').each((_i, el) => {
-                    try {
-                        const href = $(el).attr('href');
-                        if (!href) return;
-
-                        let absolute: string;
-                        try {
-                            absolute = new URL(href, url).toString();
-                        } catch {
-                            return;
-                        }
-
-                        // Only process HTTP/HTTPS links
-                        if (!isValidHttpLink(absolute)) return;
-
-                        // Deduplicate by target URL and XPath
-                        const metadata = extractLinkMetadata(el, url, $);
-                        const dedupeKey = `${metadata.targetUrl}|${metadata.xpath}`;
-                        if (processedLinks.has(dedupeKey)) return;
-                        processedLinks.add(dedupeKey);
-
-                        const isInternal = isSameSite(absolute, allowedHost, allowSubdomains);
-
-                        linksToInsert.push({
-                            sessionId,
-                            sourcePageId: pageId,
-                            sourceUrl: url,
-                            targetUrl: metadata.targetUrl,
-                            isInternal,
-                            anchorText: metadata.anchorText,
-                            xpath: metadata.xpath,
-                            position: metadata.position,
-                            rel: metadata.rel,
-                            nofollow: metadata.nofollow
-                        });
-                    } catch (error) {
-                        // Skip problematic links
-                        reqLog.debug(`Skipping link analysis for ${$(el).attr('href')}: ${(error as Error).message}`);
-                    }
-                });
+                
+                const linksToInsert = analyzeLinkDetails($, {
+                    sessionId,
+                    sourcePageId: pageId,
+                    sourceUrl: url,
+                    allowedHost,
+                    allowSubdomains
+                }, isValidHttpLink, isSameSite, extractLinkMetadata);
 
                 // Batch insert links
                 if (linksToInsert.length > 0) {
@@ -515,13 +365,13 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
                 const linkAnalysisTime = Date.now() - linkAnalysisStart;
                 if (metricsCollector) {
                     metricsCollector.recordLinkAnalysis(
-                        processedLinks.size,
+                        linksToInsert.length,
                         linksToInsert.length,
                         linkAnalysisTime
                     );
                 }
 
-                reqLog.debug(`Link analysis: found ${processedLinks.size} links, inserted ${linksToInsert.length} in ${linkAnalysisTime}ms`);
+                reqLog.debug(`Link analysis: found ${linksToInsert.length} links, inserted ${linksToInsert.length} in ${linkAnalysisTime}ms`);
             }
         },
         errorHandler: async ({ request, error }) => {
