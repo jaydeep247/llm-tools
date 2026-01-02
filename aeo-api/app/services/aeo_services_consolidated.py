@@ -47,31 +47,60 @@ class AEOServiceOrchestrator:
     
     def run_complete_analysis(self, url: str, html_content: str = None, competitor_urls: list = None) -> dict:
         """Run complete AEO analysis"""
+        import logging
+        import time
+        
         try:
             import requests
             
             # Fetch HTML content if not provided
             if not html_content:
                 try:
+                    logging.info(f"Fetching HTML for {url}...")
                     response = requests.get(url, timeout=10)
                     html_content = response.text
+                    logging.info(f"HTML fetched: {len(html_content)} bytes")
                 except Exception as e:
+                    logging.error(f"Failed to fetch HTML: {str(e)}")
                     return {
                         'error': f'Failed to fetch content: {str(e)}',
                         'url': url
                     }
             
             # Run all analyses
-            results = {
-                'url': url,
-                'ai_presence': self.analyze_ai_presence(url),
-                'knowledge_base': self.analyze_knowledge_base(url, html_content),
-                'answerability': self.analyze_answerability(url, html_content),
-                'crawler_accessibility': self.analyze_crawler_accessibility(url, html_content),
-                'structured_data': self.analyze_structured_data(url, html_content),
-                # Competitor analysis now runs automatically (uses DataForSEO API)
-                'competitor_analysis': self.analyze_competitor_landscape(url, competitor_urls or [])
-            }
+            results = {}
+            
+            logging.info("Starting AI Presence analysis...")
+            start = time.time()
+            results['ai_presence'] = self.analyze_ai_presence(url)
+            logging.info(f"AI Presence completed in {time.time() - start:.2f}s")
+            
+            logging.info("Starting Knowledge Base analysis...")
+            start = time.time()
+            results['knowledge_base'] = self.analyze_knowledge_base(url, html_content)
+            logging.info(f"Knowledge Base completed in {time.time() - start:.2f}s")
+            
+            logging.info("Starting Answerability analysis...")
+            start = time.time()
+            results['answerability'] = self.analyze_answerability(url, html_content)
+            logging.info(f"Answerability completed in {time.time() - start:.2f}s")
+            
+            logging.info("Starting Crawler Accessibility analysis...")
+            start = time.time()
+            results['crawler_accessibility'] = self.analyze_crawler_accessibility(url, html_content)
+            logging.info(f"Crawler Accessibility completed in {time.time() - start:.2f}s")
+            
+            logging.info("Starting Structured Data analysis...")
+            start = time.time()
+            results['structured_data'] = self.analyze_structured_data(url, html_content)
+            logging.info(f"Structured Data completed in {time.time() - start:.2f}s")
+            
+            logging.info("Starting Competitor Analysis (DataForSEO)...")
+            start = time.time()
+            results['competitor_analysis'] = self.analyze_competitor_landscape(url, competitor_urls or [])
+            logging.info(f"Competitor Analysis completed in {time.time() - start:.2f}s")
+            
+            results['url'] = url
             
             # Calculate overall score and module scores
             scores = []

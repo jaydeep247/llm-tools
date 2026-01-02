@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import './DataViewer.css';
 
 interface CrawlData {
   url: string;
   title: string;
+  titleLength?: number;
   description: string;
+  descriptionLength?: number;
   contentType: string;
   lastModified: string | null;
   statusCode: number | null;
@@ -24,8 +27,10 @@ interface DataViewerProps {
 }
 
 const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) => {
+  const { accessToken } = useAuth(); // ✅ GET AUTH TOKEN FROM CONTEXT
   const [data, setData] = useState<CrawlData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null); // ✅ ADD ERROR STATE
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<keyof CrawlData>('timestamp');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -37,6 +42,18 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
   const [sessions, setSessions] = useState<Array<{ id: number; startedAt: string; completedAt?: string; scheduleId?: number }>>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<number | ''>(initialSessionId ?? '');
 
+  // ✅ HELPER: Get auth headers
+  const getAuthHeaders = (): HeadersInit => {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+    console.log(`[DataViewer] Using auth headers:`, { hasToken: !!accessToken });
+    return headers;
+  };
+
   useEffect(() => {
     loadSessions();
     if (selectedSessionId !== '') {
@@ -44,7 +61,7 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
     } else {
       setLoading(false);
     }
-  }, []);
+  }, [accessToken]); // ✅ RELOAD WHEN TOKEN CHANGES
 
   // When initialSessionId changes on open, set the selected session and reload
   useEffect(() => {
@@ -53,22 +70,59 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
       setServerOffset(0);
       loadData();
     }
-  }, [initialSessionId]);
+  }, [initialSessionId, accessToken]);
 
+  // ✅ IMPROVED: Better error handling and logging
   const loadData = async (opts?: { append?: boolean }) => {
     try {
       setLoading(true);
+      setError(null); // Clear previous errors
+      
       const params = new URLSearchParams();
       params.set('limit', String(serverLimit));
       params.set('offset', String(opts?.append ? serverOffset : 0));
       if (selectedSessionId !== '') params.set('sessionId', String(selectedSessionId));
-      const response = await fetch(`/api/data/list?${params.toString()}`);
-      if (!response.ok) throw new Error('Failed to load data');
+      
+      console.log(`[DataViewer] Loading data with params:`, {
+        sessionId: selectedSessionId,
+        limit: serverLimit,
+        offset: opts?.append ? serverOffset : 0
+      });
+      
+      const url = `/api/data/list?${params.toString()}`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: getAuthHeaders(), // ✅ INCLUDE AUTH HEADERS
+        credentials: 'include'
+      });
+      
+      console.log(`[DataViewer] Response status:`, response.status);
+      
+      if (!response.ok) {
+        const errorBody = await response.text();
+        console.error(`[DataViewer] HTTP Error ${response.status}:`, errorBody);
+        
+        if (response.status === 401) {
+          setError('Authentication failed. Please log in again.');
+          return;
+        } else if (response.status === 403) {
+          setError('You do not have permission to access this session.');
+          return;
+        } else if (response.status === 404) {
+          setError('Session not found. It may have been deleted.');
+          return;
+        } else {
+          setError(`Failed to load data: HTTP ${response.status}`);
+          return;
+        }
+      }
       
       const result = await response.json();
-      console.log('DataViewer received data:', result);
-      setServerTotal(result?.paging?.total ?? null);
+      console.log('[DataViewer] Successfully received data:', result);
+      
+      setServerTotal(result?.paging?.total ?? result?.pagination?.total ?? result?.data?.length ?? null);
       const items = result.data || [];
+      
       if (opts?.append) {
         setData(prev => [...prev, ...items]);
       } else {
@@ -76,21 +130,35 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
       }
       setServerOffset((opts?.append ? serverOffset : 0) + items.length);
     } catch (error) {
-      console.error('Error loading data:', error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error('[DataViewer] Error loading data:', errorMsg);
+      setError(`Failed to load data: ${errorMsg}`);
       setData([]);
     } finally {
       setLoading(false);
     }
   };
 
+  // ✅ IMPROVED: Add auth headers to sessions endpoint too
   const loadSessions = async () => {
     try {
-      const res = await fetch('/api/data/sessions?limit=200');
-      if (!res.ok) throw new Error('Failed to load sessions');
+      console.log('[DataViewer] Loading sessions...');
+      const res = await fetch('/api/data/sessions?limit=200', {
+        headers: getAuthHeaders(), // ✅ INCLUDE AUTH HEADERS
+        credentials: 'include'
+      });
+      
+      if (!res.ok) {
+        console.warn(`[DataViewer] Sessions endpoint returned ${res.status}`);
+        setSessions([]);
+        return;
+      }
+      
       const result = await res.json();
       setSessions(result.sessions || []);
     } catch (e) {
-      console.error('Failed to load sessions', e);
+      console.error('[DataViewer] Failed to load sessions', e);
+      setSessions([]);
     }
   };
 
@@ -140,7 +208,10 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
       if (selectedSessionId !== '') {
         params.set('sessionId', String(selectedSessionId));
       }
-      const response = await fetch(`/api/export?${params.toString()}`);
+      const response = await fetch(`/api/export?${params.toString()}`, {
+        headers: getAuthHeaders(), // ✅ INCLUDE AUTH HEADERS
+        credentials: 'include'
+      });
       if (!response.ok) throw new Error('Export failed');
       
       const blob = await response.blob();
@@ -196,7 +267,47 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
     return (
       <div className="data-viewer-overlay">
         <div className="data-viewer">
-          <div className="loading">Loading data...</div>
+          <div className="data-viewer-header">
+            <h2>📊 Loading Data...</h2>
+            <button className="close-btn" onClick={onClose}>✕</button>
+          </div>
+          <div className="flex items-center justify-center py-12">
+            <div className="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+            <span className="ml-3 text-gray-300">Loading session data...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ✅ IMPROVED: Show error state to user
+  if (error) {
+    return (
+      <div className="data-viewer-overlay">
+        <div className="data-viewer">
+          <div className="data-viewer-header">
+            <h2>📊 Error Loading Data</h2>
+            <button className="close-btn" onClick={onClose}>✕</button>
+          </div>
+          <div style={{ backgroundColor: '#7f2d2d', border: '1px solid #c24646', borderRadius: '8px', padding: '16px', margin: '16px' }}>
+            <p style={{ color: '#ffcccc', fontWeight: 'bold' }}>⚠️ Error</p>
+            <p style={{ color: '#ffeeee', marginTop: '8px' }}>{error}</p>
+            <button
+              onClick={() => loadData()}
+              style={{
+                marginTop: '16px',
+                padding: '8px 16px',
+                backgroundColor: '#c24646',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}
+            >
+              Retry
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -281,11 +392,17 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                 <th onClick={() => handleSort('title')} className="sortable">
                   Title {sortField === 'title' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
+                <th onClick={() => handleSort('titleLength')} className="sortable">
+                  Title Length {sortField === 'titleLength' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
                 <th>
                   Resource Type
                 </th>
                 <th onClick={() => handleSort('description')} className="sortable">
                   Meta Description {sortField === 'description' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('descriptionLength')} className="sortable">
+                  Description Length {sortField === 'descriptionLength' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
                 <th onClick={() => handleSort('contentType')} className="sortable">
                   Content Type {sortField === 'contentType' && (sortDirection === 'asc' ? '↑' : '↓')}
@@ -319,11 +436,17 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                   <td className="title-cell" title={item.title || 'No title'}>
                     {item.title || 'No title'}
                   </td>
+                  <td className="title-length-cell">
+                    {item.titleLength ?? '—'}
+                  </td>
                   <td className="resource-type-cell">
                     {item.resourceType ? item.resourceType.toUpperCase() : 'PAGE'}
                   </td>
                   <td className="description-cell" title={item.description || 'No description'}>
                     {item.description || 'No description'}
+                  </td>
+                  <td className="description-length-cell">
+                    {item.descriptionLength ?? '—'}
                   </td>
                   <td className="content-type-cell" title={item.contentType || 'Unknown'}>
                     {item.contentType || 'Unknown'}

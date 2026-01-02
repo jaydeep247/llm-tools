@@ -36,6 +36,7 @@ interface AuthContextType {
     refreshUser: () => Promise<void>;
     updateProfile: (updates: { name?: string; currentPassword?: string; newPassword?: string }) => Promise<void>;
     updateSettings: (updates: Partial<Pick<UserSettings, 'maxCrawlsPerDay' | 'emailNotifications'>>) => Promise<void>;
+    authFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -52,13 +53,26 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     );
     const [isLoading, setIsLoading] = useState(true);
 
-    // Load user on mount if token exists
+    // Load user on mount
     useEffect(() => {
-        if (accessToken) {
-            loadUser();
-        } else {
-            setIsLoading(false);
-        }
+        const initAuth = async () => {
+            if (accessToken) {
+                console.log('[AuthContext] Token found in storage, loading user...');
+                await loadUser();
+            } else {
+                console.log('[AuthContext] No token in storage, attempting to refresh via cookie...');
+                const refreshed = await refreshAccessToken();
+                if (refreshed) {
+                    console.log('[AuthContext] Session restored via refresh token.');
+                    await loadUser();
+                } else {
+                    console.log('[AuthContext] No session found.');
+                    setIsLoading(false);
+                }
+            }
+        };
+
+        initAuth();
     }, []);
 
     // Set up token refresh interval (every 10 minutes)
@@ -73,12 +87,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }, [accessToken]);
 
     const loadUser = async () => {
+        console.log('[AuthContext] loadUser called. Has accessToken:', !!accessToken);
         if (!accessToken) {
+            console.log('[AuthContext] No access token, skipping loadUser');
             setIsLoading(false);
             return;
         }
-        
+
         try {
+            console.log(`[AuthContext] Fetching user profile from: ${API_BASE}/api/auth/me`);
             const response = await fetch(`${API_BASE}/api/auth/me`, {
                 headers: {
                     'Authorization': `Bearer ${accessToken}`
@@ -86,23 +103,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 credentials: 'include'
             });
 
+            console.log('[AuthContext] Profile fetch response status:', response.status);
+
             if (response.ok) {
                 const data = await response.json();
+                console.log('[AuthContext] User loaded successfully:', data.user.email);
                 setUser(data.user);
                 setSettings(data.settings);
                 setUsage(data.usage);
             } else {
                 // Token invalid, clear and don't retry
-                console.warn('Failed to load user, token may be invalid');
+                const errorText = await response.text();
+                console.warn('[AuthContext] Failed to load user, token may be invalid. Status:', response.status, 'Response:', errorText);
                 setAccessToken(null);
                 setUser(null);
                 localStorage.removeItem('accessToken');
             }
         } catch (error) {
-            console.error('Failed to load user:', error);
-            setAccessToken(null);
-            setUser(null);
-            localStorage.removeItem('accessToken');
+            console.error('[AuthContext] Failed to load user (Network/CORS error):', error);
+            // setAccessToken(null);
+            // setUser(null);
+            // localStorage.removeItem('accessToken');
+            // TEMPORARY: Don't wipe token on network error to debug
+            console.warn('[AuthContext] Keeping token despite network error for debugging');
         } finally {
             setIsLoading(false);
         }
@@ -153,7 +176,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const data = await response.json();
         setAccessToken(data.accessToken);
         localStorage.setItem('accessToken', data.accessToken);
-        
+
         // Load full profile with the new token
         const meResponse = await fetch(`${API_BASE}/api/auth/me`, {
             headers: {
@@ -186,7 +209,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const data = await response.json();
         setAccessToken(data.accessToken);
         localStorage.setItem('accessToken', data.accessToken);
-        
+
         // Load full profile with the new token
         const meResponse = await fetch(`${API_BASE}/api/auth/me`, {
             headers: {
@@ -267,6 +290,45 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await refreshUser();
     };
 
+    const authFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+        // Ensure Authorization header is present
+        const initHeaders = new Headers(init?.headers);
+        if (accessToken && !initHeaders.has('Authorization')) {
+            initHeaders.set('Authorization', `Bearer ${accessToken}`);
+        }
+
+        const config = {
+            ...init,
+            headers: initHeaders,
+            credentials: 'include' as RequestCredentials // Always include credentials for refresh token cookie
+        };
+
+        let response = await fetch(input, config);
+
+        if (response.status === 401) {
+            // Token might be expired, try refreshing
+            const refreshSuccess = await refreshAccessToken();
+
+            if (refreshSuccess) {
+                // Get the NEW access token from state or localStorage (refreshAccessToken updates it)
+                const newAccessToken = localStorage.getItem('accessToken');
+                if (newAccessToken) {
+                    initHeaders.set('Authorization', `Bearer ${newAccessToken}`);
+                    const newConfig = {
+                        ...init,
+                        headers: initHeaders,
+                        credentials: 'include' as RequestCredentials
+                    };
+                    return fetch(input, newConfig);
+                }
+            }
+            // If refresh failed or no new token, logout
+            logout();
+        }
+
+        return response;
+    };
+
     const value: AuthContextType = {
         user,
         settings,
@@ -279,7 +341,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         logout,
         refreshUser,
         updateProfile,
-        updateSettings
+        updateSettings,
+        authFetch
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

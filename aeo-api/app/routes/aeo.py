@@ -30,6 +30,10 @@ class SchemaGenerateRequest(BaseModel):
 aeo_orchestrator = AEOServiceOrchestrator()
 schema_generator = SchemaGenerator()
 
+# Suppress InsecureRequestWarning
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 @router.post("/analyze", response_model=AnalyzeResponse)
 async def analyze_aeo(request: AnalyzeRequest):
     """
@@ -37,34 +41,85 @@ async def analyze_aeo(request: AnalyzeRequest):
     Analyzes AI presence, competitor landscape, knowledge base, answerability, 
     crawler accessibility, and structured data
     """
+    import time
+    start_time = time.time()
+    
     try:
+        logging.info("="*50)
+        logging.info("AEO ANALYZE REQUEST RECEIVED")
+        logging.info(f"URL: {request.url}")
+        logging.info(f"Competitor URLs: {request.competitor_urls}")
+        logging.info("="*50)
+        
         # Add protocol if missing
         url = request.url
         if not url.startswith(('http://', 'https://')):
             url = 'https://' + url
+            logging.info(f"Added protocol: {url}")
         
         # Get HTML content for analysis
+        logging.info("Fetching HTML content...")
+        fetch_start = time.time()
         try:
-            html_response = requests.get(url, timeout=10)
+            # Disable SSL verification to allow analyzing sites with self-signed or invalid certs
+            html_response = requests.get(url, timeout=10, verify=False)
             html_content = html_response.text
+            fetch_duration = time.time() - fetch_start
+            logging.info(f"HTML fetched successfully in {fetch_duration:.2f}s ({len(html_content)} bytes)")
+        except requests.exceptions.SSLError:
+            logging.error("SSL Error occurred")
+            raise HTTPException(status_code=400, detail="Security Certificate Error: The website's SSL certificate could not be verified. It may be invalid or expired.")
+        except requests.exceptions.ConnectionError:
+            logging.error("Connection Error occurred")
+            raise HTTPException(status_code=400, detail="Connection Failed: Could not connect to the website. Please check if the URL is correct and the site is reachable.")
+        except requests.exceptions.Timeout:
+            logging.error("Timeout Error occurred")
+            raise HTTPException(status_code=400, detail="Request Timed Out: The website took too long to respond. Please try again later.")
+        except requests.exceptions.TooManyRedirects:
+            logging.error("Too Many Redirects Error occurred")
+            raise HTTPException(status_code=400, detail="Too Many Redirects: The website is redirecting in a loop.")
+        except requests.exceptions.RequestException as e:
+            logging.error(f"Request Exception: {str(e)}")
+            raise HTTPException(status_code=400, detail=f"Website Unreachable: Unable to access the website ({str(e)})")
         except Exception as e:
+            logging.error(f"Unexpected error fetching URL: {str(e)}")
             raise HTTPException(status_code=400, detail=f'Failed to fetch URL: {str(e)}')
         
         # Run complete analysis using orchestrator
-        logging.info("Running complete AEOCHECKER analysis...")
+        logging.info("Starting complete AEOCHECKER analysis...")
+        analysis_start = time.time()
         results = aeo_orchestrator.run_complete_analysis(
             url=url,
             html_content=html_content,
             competitor_urls=request.competitor_urls
         )
+        analysis_duration = time.time() - analysis_start
+        logging.info(f"Analysis completed in {analysis_duration:.2f}s")
         
         if 'error' in results:
+            logging.error(f"Analysis returned error: {results['error']}")
             raise HTTPException(status_code=400, detail=results['error'])
+        
+        total_duration = time.time() - start_time
+        logging.info("="*50)
+        logging.info(f"AEO ANALYZE REQUEST COMPLETE - Total time: {total_duration:.2f}s")
+        logging.info(f"Overall score: {results.get('overall_score', 'N/A')}")
+        logging.info(f"Grade: {results.get('grade', 'N/A')}")
+        logging.info("="*50)
         
         return AnalyzeResponse(success=True, results=results)
         
+    except HTTPException as e:
+        total_duration = time.time() - start_time
+        logging.error(f"HTTPException after {total_duration:.2f}s: {e.detail}")
+        return AnalyzeResponse(success=False, results={}, error=str(e.detail))
     except Exception as e:
-        return AnalyzeResponse(success=False, results={}, error=str(e))
+        total_duration = time.time() - start_time
+        logging.exception(f"Analysis failed after {total_duration:.2f}s")
+        error_msg = str(e)
+        if not error_msg:
+            error_msg = "An unexpected error occurred during analysis"
+        return AnalyzeResponse(success=False, results={}, error=error_msg)
 
 @router.post("/analyze-structured-data", response_model=AnalyzeResponse)
 async def analyze_structured_data(request: StructuredDataRequest):
@@ -89,8 +144,14 @@ async def analyze_structured_data(request: StructuredDataRequest):
         
         return AnalyzeResponse(success=True, results=results)
         
+    except HTTPException as e:
+        return AnalyzeResponse(success=False, results={}, error=str(e.detail))
     except Exception as e:
-        return AnalyzeResponse(success=False, results={}, error=str(e))
+        logging.exception("Structured data analysis failed")
+        error_msg = str(e)
+        if not error_msg:
+            error_msg = "An unexpected error occurred during analysis"
+        return AnalyzeResponse(success=False, results={}, error=error_msg)
 
 @router.post("/generate-schema", response_model=AnalyzeResponse)
 async def generate_schema(request: SchemaGenerateRequest):
@@ -102,27 +163,80 @@ async def generate_schema(request: SchemaGenerateRequest):
         url = request.url
         if not url.startswith(('http://', 'https://')):
             url = 'https://' + url
+
+        print(f"DEBUG: Received schema generation request for {url} (type: {request.schema_type})")
         
-        # Get HTML content if not provided
-        html_content = request.html_content
-        if not html_content:
+        # If HTML content is provided, use it
+        if request.html_content:
+            html_content = request.html_content
+            print(f"DEBUG: Using provided HTML content (length: {len(html_content)})")
+        else:
+            # Fetch the URL
+            print(f"DEBUG: Fetching URL: {url}")
             try:
-                html_response = requests.get(url, timeout=10)
-                html_content = html_response.text
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                }
+                response = requests.get(url, headers=headers, timeout=30, verify=False)
+                response.raise_for_status()
+                html_content = response.text
+                print(f"DEBUG: Fetched HTML content (length: {len(html_content)})")
             except Exception as e:
-                raise HTTPException(status_code=400, detail=f'Failed to fetch URL: {str(e)}')
+                print(f"ERROR: Failed to fetch URL: {str(e)}")
+                return AnalyzeResponse(
+                    success=False,
+                    results={},
+                    error=f"Failed to fetch user provided URL: {str(e)}"
+                )
+
+        # Generate schema
+        print(f"DEBUG: Calling schema generator...")
+        result = schema_generator.generate_schema(
+            html=html_content,
+            url=url,
+            schema_type=request.schema_type or 'auto'
+        )
+        print(f"DEBUG: Schema generator returned: {result.keys() if isinstance(result, dict) else result}")
         
-        # Generate schema markup
-        logging.info(f"Generating schema markup for {url} with type: {request.schema_type}")
-        results = schema_generator.generate_schema(html_content, url, schema_type=request.schema_type)
+        # Validate result structure
+        if not isinstance(result, dict):
+            print(f"ERROR: Invalid result type: {type(result)}")
+            return AnalyzeResponse(
+                success=False, 
+                results={},
+                error="Internal Error: Generator returned invalid format"
+            )
+            
+        final_response = AnalyzeResponse(
+            success=result.get('success', False),
+            results=result if result.get('success') else {},
+            error=result.get('error')
+        )
         
-        if not results.get('success', False):
-            raise HTTPException(status_code=400, detail=results.get('message', 'Schema generation failed'))
-        
-        return AnalyzeResponse(success=True, results=results)
+        import json
+        try:
+            # Verify JSON serializability
+            json_str = json.dumps(final_response.model_dump()) # Use model_dump for Pydantic v2
+            print(f"DEBUG: Sending response (length: {len(json_str)})")
+        except Exception as e:
+            print(f"ERROR: Response is not JSON serializable: {e}")
+            return AnalyzeResponse(
+                success=False,
+                results={},
+                error=f"Serialization Error: {str(e)}"
+            )
+
+        return final_response
         
     except Exception as e:
-        return AnalyzeResponse(success=False, results={}, error=str(e))
+        import traceback
+        traceback.print_exc()
+        print(f"ERROR: Schema generation failed: {str(e)}")
+        return AnalyzeResponse(
+            success=False,
+            results={},
+            error=str(e)
+        )
 
 @router.get("/health")
 async def health_check():

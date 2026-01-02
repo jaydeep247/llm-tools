@@ -15,7 +15,7 @@ import { apiService, AnalysisResult } from './api';
 type View = 'home' | 'login' | 'register' | 'profile' | 'settings' | 'history';
 
 const AppWithAuth: React.FC = () => {
-  const { user, isAuthenticated, logout, refreshUser } = useAuth();
+  const { user, isAuthenticated, logout, refreshUser, accessToken } = useAuth();
   const [currentView, setCurrentView] = useState<View>('home');
   const [url, setUrl] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
@@ -23,18 +23,18 @@ const AppWithAuth: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [runCrawl, setRunCrawl] = useState<boolean>(false);
   const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
-  
+
   // Crawler settings
   const [allowSubdomains, setAllowSubdomains] = useState<boolean>(true);
   const [runAudits, setRunAudits] = useState<boolean>(false);
   const [auditDevice, setAuditDevice] = useState<'mobile' | 'desktop'>('desktop');
   const [captureLinkDetails, setCaptureLinkDetails] = useState<boolean>(true);
-  
+
   // Live crawling state
   const [isCrawling, setIsCrawling] = useState<boolean>(false);
   const [crawlStatus, setCrawlStatus] = useState<'idle' | 'running' | 'auditing' | 'completed'>('idle');
   const [pageCount, setPageCount] = useState<number>(0);
-  const [logs, setLogs] = useState<string[]>([]);
+  const [logs, setLogs] = useState<{ message: string; timestamp: string }[]>([]);
   const [pages, setPages] = useState<string[]>([]);
   const [crawlStats, setCrawlStats] = useState<{
     count: number;
@@ -45,16 +45,15 @@ const AppWithAuth: React.FC = () => {
   // Server-Sent Events for live updates (only for authenticated users)
   React.useEffect(() => {
     // Only connect SSE if user is authenticated
-    if (!isAuthenticated) {
-      console.log('SSE: User not authenticated, skipping connection');
+    if (!isAuthenticated || !accessToken) {
+      console.log('[AppWithAuth] SSE: User not authenticated, skipping connection');
       return;
     }
 
-    console.log('SSE: Connecting for authenticated user...');
-    const token = localStorage.getItem('accessToken');
-    if (!token) return;
+    console.log('[AppWithAuth] SSE: Connecting for authenticated user...');
 
-    const eventSource = new EventSource(`/events?token=${token}`);
+    // Connect to /events with token in query param
+    const eventSource = new EventSource(`/events?token=${accessToken}`);
 
 
     eventSource.addEventListener('connected', (e) => {
@@ -64,7 +63,10 @@ const AppWithAuth: React.FC = () => {
 
     eventSource.addEventListener('log', (e) => {
       const data = JSON.parse(e.data);
-      setLogs(prev => [...prev.slice(-99), data.message]);
+      setLogs(prev => [...prev.slice(-99), {
+        message: data.message,
+        timestamp: new Date().toLocaleTimeString()
+      }]);
     });
 
     eventSource.addEventListener('page', (e) => {
@@ -82,7 +84,10 @@ const AppWithAuth: React.FC = () => {
       });
       setIsCrawling(false);
       setCrawlStatus('completed');
-      setLogs(prev => [...prev, `✅ Crawl completed! Total URLs: ${data.count}`]);
+      setLogs(prev => [...prev, {
+        message: `✅ Crawl completed! Total URLs: ${data.count}`,
+        timestamp: new Date().toLocaleTimeString()
+      }]);
     });
 
     // Session status updates (e.g., auditing started/completed)
@@ -91,7 +96,10 @@ const AppWithAuth: React.FC = () => {
         const data = JSON.parse(e.data);
         const message = data?.message || `Session ${data?.status || ''}`.trim();
         if (message) {
-          setLogs(prev => [...prev.slice(-99), message]);
+          setLogs(prev => [...prev.slice(-99), {
+            message,
+            timestamp: new Date().toLocaleTimeString()
+          }]);
         }
         // Update crawlStatus if provided
         if (data?.status) {
@@ -103,7 +111,7 @@ const AppWithAuth: React.FC = () => {
             setCrawlStatus('completed');
           }
         }
-      } catch {}
+      } catch { }
     });
 
     // Audit events stream (audit-start, audit-complete, audit-progress)
@@ -139,9 +147,12 @@ const AppWithAuth: React.FC = () => {
           message = `⏳ Audits progress: ${data.completed}/${data.total} ${pct}`.trim();
         }
         if (message) {
-          setLogs(prev => [...prev.slice(-99), message]);
+          setLogs(prev => [...prev.slice(-99), {
+            message,
+            timestamp: new Date().toLocaleTimeString()
+          }]);
         }
-      } catch {}
+      } catch { }
     });
 
     eventSource.onerror = (error) => {
@@ -178,17 +189,17 @@ const AppWithAuth: React.FC = () => {
   const normalizeUrl = (url: string): string => {
     const trimmed = url.trim();
     if (!trimmed) return trimmed;
-    
+
     // Check if URL already has https://
     if (/^https:\/\//i.test(trimmed)) {
       return trimmed;
     }
-    
+
     // Upgrade http:// to https://
     if (/^http:\/\//i.test(trimmed)) {
       return trimmed.replace(/^http:\/\//i, 'https://');
     }
-    
+
     // Add https:// if no protocol
     return `https://${trimmed}`;
   };
@@ -206,14 +217,14 @@ const AppWithAuth: React.FC = () => {
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!url.trim()) return;
-    
+
     // Normalize URL before submitting
     const normalizedUrl = normalizeUrl(url.trim());
-    
+
     setLoading(true);
     setResult(null);
     setError(null);
-    
+
     // Reset crawling state
     if (runCrawl) {
       setIsCrawling(true);
@@ -223,17 +234,17 @@ const AppWithAuth: React.FC = () => {
       setPages([]);
       setCrawlStats(null);
     }
-    
+
     try {
       const analysisResult = runCrawl
         ? await apiService.analyzeUrl(normalizedUrl, {
-            allowSubdomains,
-            runAudits,
-            auditDevice,
-            captureLinkDetails
-          })
+          allowSubdomains,
+          runAudits,
+          auditDevice,
+          captureLinkDetails
+        })
         : await apiService.analyzeUrl(normalizedUrl);
-      
+
       // Show reuse modal if server indicates reuse
       if ((analysisResult as any)?.reuseMode && (analysisResult as any)?.sessionId) {
         // Only set isCrawling to false if no audits are running
@@ -253,26 +264,29 @@ const AppWithAuth: React.FC = () => {
       }
 
       setResult(analysisResult);
-      
+
       // If this was a reused session, extract and populate the session data
       if (runCrawl && (analysisResult as any).data) {
         const data = (analysisResult as any).data;
-        
+
         // Set logs from reused session
         if ((analysisResult as any).logs && Array.isArray((analysisResult as any).logs)) {
-          setLogs((analysisResult as any).logs.map((log: any) => log.message || log));
+          setLogs((analysisResult as any).logs.map((log: any) => ({
+            message: log.message || log,
+            timestamp: log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString()
+          })));
         }
-        
+
         // Handle both array and object responses
         if (Array.isArray(data)) {
           // data is array - use it directly and extract totalPages/session from analysisResult
           const sessionPages = data
             .filter((item: any) => item.resourceType === 'page')
             .map((page: any) => page.url);
-          
+
           setPages(sessionPages);
           setPageCount((analysisResult as any).totalPages || sessionPages.length);
-          
+
           // Set crawl stats from analysisResult
           if ((analysisResult as any).session?.duration) {
             const totalItems = ((analysisResult as any).totalPages || 0) + ((analysisResult as any).totalResources || 0);
@@ -289,10 +303,10 @@ const AppWithAuth: React.FC = () => {
           const sessionPages = data.data
             .filter((item: any) => item.resourceType === 'page')
             .map((page: any) => page.url);
-          
+
           setPages(sessionPages);
           setPageCount(data.totalPages || sessionPages.length);
-          
+
           if (data.session?.duration) {
             const totalItems = (data.totalPages || 0) + (data.totalResources || 0);
             setCrawlStats({
@@ -331,7 +345,7 @@ const AppWithAuth: React.FC = () => {
           headers,
           credentials: 'include'
         });
-      } catch {}
+      } catch { }
       const sessionData = await apiService.getSessionData(reusePrompt.sessionId);
       // Fetch AEO results for this session to populate the dashboard metrics
       let aeoResult: any = null;
@@ -346,14 +360,17 @@ const AppWithAuth: React.FC = () => {
         if (aeoRes.ok) {
           aeoResult = await aeoRes.json();
         }
-      } catch {}
+      } catch { }
       const sessionPages = (sessionData.data || [])
         .filter((item: any) => item.resourceType === 'page')
         .map((page: any) => page.url);
       setPages(sessionPages);
       setPageCount(sessionData.totalPages || sessionPages.length);
       if (sessionData.logs && Array.isArray(sessionData.logs)) {
-        setLogs(sessionData.logs.map((l: any) => l.message));
+        setLogs(sessionData.logs.map((l: any) => ({
+          message: l.message,
+          timestamp: l.timestamp ? new Date(l.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString()
+        })));
       }
       if (sessionData.session) {
         const totalItems = (sessionData.totalPages || 0) + (sessionData.totalResources || 0);
@@ -364,7 +381,7 @@ const AppWithAuth: React.FC = () => {
             ? parseFloat((totalItems / sessionData.session.duration).toFixed(2))
             : 0
         });
-        
+
         // Set isCrawling based on session status
         const sessionStatus = sessionData.session.status;
         setIsCrawling(sessionStatus === 'running' || sessionStatus === 'auditing');
@@ -474,85 +491,115 @@ const AppWithAuth: React.FC = () => {
     setUrl(crawlUrl);
     setCurrentView('home');
     setLoading(true);
-    
+    setError(null);
+
     try {
       // Fetch session data (pages, stats, etc.)
       const sessionData = await apiService.getSessionData(sessionId);
-      
+
       // Extract pages from session data
-      const sessionPages = sessionData.data
+      const pagesArray = sessionData.data || [];
+      const sessionPages = pagesArray
         .filter((item: any) => item.resourceType === 'page')
         .map((page: any) => page.url);
-      
+
       // Restore pages and stats
       setPages(sessionPages);
-      setPageCount(sessionData.totalPages);
-      
+
+      // Correct mapping for page count from either session or statistics
+      const totalPages = sessionData.statistics?.totalPages ?? sessionData.session?.totalPages ?? sessionData.totalPages ?? sessionPages.length;
+      setPageCount(totalPages);
+
       // Restore logs
       if (sessionData.logs && sessionData.logs.length > 0) {
-        const logMessages = sessionData.logs.map((log: any) => log.message);
+        const logMessages = sessionData.logs.map((log: any) => ({
+          message: log.message,
+          timestamp: log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString()
+        }));
         setLogs(logMessages);
       } else {
-        // If no logs in database, show a placeholder message
-        setLogs([`📜 Crawl completed for ${crawlUrl}`, `Total pages: ${sessionData.totalPages}`]);
+        const now = new Date().toLocaleTimeString();
+        setLogs([
+          { message: `📜 Crawl completed for ${crawlUrl}`, timestamp: now },
+          { message: `Total pages: ${totalPages}`, timestamp: now }
+        ]);
       }
-      
+
       // Set crawl stats if session data available
-      if (sessionData.session) {
-        const totalItems = (sessionData.totalPages || 0) + (sessionData.totalResources || 0);
+      const statsObj = sessionData.statistics || sessionData.session;
+      if (statsObj) {
+        const totalItems = (statsObj.totalPages || 0) + (statsObj.totalResources || 0);
+        const duration = sessionData.session?.duration || 0;
         setCrawlStats({
           count: totalItems,
-          duration: sessionData.session.duration || 0,
-          pagesPerSecond: sessionData.session.duration 
-            ? parseFloat((totalItems / sessionData.session.duration).toFixed(2))
+          duration: duration,
+          pagesPerSecond: duration
+            ? parseFloat((totalItems / duration).toFixed(2))
             : 0
         });
-        
+
         // Set isCrawling based on session status
-        const sessionStatus = sessionData.session.status;
+        const sessionStatus = sessionData.session?.status || 'completed';
         setIsCrawling(sessionStatus === 'running' || sessionStatus === 'auditing');
         setCrawlStatus(sessionStatus as 'running' | 'auditing' | 'completed');
       } else {
-        // Fallback crawl stats based on available data
         setCrawlStats({
-          count: sessionData.totalPages,
+          count: totalPages,
           duration: 0,
           pagesPerSecond: 0
         });
         setIsCrawling(false);
         setCrawlStatus('completed');
       }
-      
-      // Restore AEO result if available
-      if (aeoResult) {
-        const restoredResult: AnalysisResult = {
-          success: true,
-          url: crawlUrl,
-          grade: aeoResult.grade,
-          grade_color: aeoResult.gradeColor,
-          overall_score: aeoResult.overallScore,
-          module_scores: aeoResult.moduleScores,
-          module_weights: aeoResult.moduleWeights,
-          detailed_analysis: aeoResult.detailedAnalysis,
-          structured_data: aeoResult.structuredData,
-          all_recommendations: aeoResult.recommendations,
-          errors: aeoResult.errors,
-          warnings: aeoResult.warnings,
-          analysis_timestamp: aeoResult.analysisTimestamp,
-          run_id: aeoResult.runId
-        };
-        setResult(restoredResult);
+
+      // Restore AEO result
+      // We always try to fetch the full result from the API even if a basic result was passed
+      // because the history list only provides summary stats (grade, score).
+      let restoredResult: AnalysisResult | null = null;
+
+      try {
+        const token = localStorage.getItem('accessToken');
+        const headers: HeadersInit = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const aeoRes = await fetch(`/aeo/results/${sessionId}`, {
+          headers,
+          credentials: 'include'
+        });
+
+        if (aeoRes.ok) {
+          const fetchedAeo = await aeoRes.json();
+          if (fetchedAeo && fetchedAeo.results) {
+            const r = fetchedAeo.results;
+            restoredResult = {
+              success: true,
+              url: crawlUrl,
+              grade: r.grade || 'N/A',
+              grade_color: r.gradeColor || '#666666',
+              overall_score: r.overallScore || 0,
+              module_scores: r.moduleScores,
+              module_weights: r.moduleWeights,
+              detailed_analysis: r.detailedAnalysis,
+              structured_data: r.structuredData,
+              all_recommendations: r.recommendations,
+              errors: r.errors,
+              warnings: r.warnings,
+              analysis_timestamp: r.analysisTimestamp,
+              run_id: r.runId,
+            } as AnalysisResult;
+            console.log(`[DEBUG] Successfully fetched full AEO analysis for session ${sessionId}`);
+          }
+        } else {
+          console.warn(`[DEBUG] AEO result fetch failed with status ${aeoRes.status}`);
+        }
+      } catch (aeoError) {
+        console.error('[DEBUG] Error while fetching full AEO result:', aeoError);
       }
-      
-      setRunCrawl(true); // Show crawl results including crawler tab
-      
-    } catch (error: any) {
-      console.error('Failed to restore session data:', error);
-      setError(`Failed to restore crawl data: ${error.message}`);
-      
-      // Still restore AEO result even if session data fails
-      if (aeoResult) {
-        const restoredResult: AnalysisResult = {
+
+      // Fallback to the partial aeoResult passed from history if fetch failed
+      if (!restoredResult && aeoResult) {
+        console.log('[DEBUG] Using partial AEO result from history as fallback');
+        restoredResult = {
           success: true,
           url: crawlUrl,
           grade: aeoResult.grade,
@@ -567,8 +614,70 @@ const AppWithAuth: React.FC = () => {
           warnings: aeoResult.warnings,
           analysis_timestamp: aeoResult.analysisTimestamp,
           run_id: aeoResult.runId
-        };
-        setResult(restoredResult);
+        } as AnalysisResult;
+      }
+
+      // Final fallback to placeholder if we still have nothing
+      if (!restoredResult) {
+        console.log('[DEBUG] No AEO result found, using placeholder');
+        restoredResult = {
+          success: true,
+          url: crawlUrl,
+          grade: 'N/A',
+          grade_color: '#666666',
+          overall_score: 0,
+          module_scores: { ai_presence: 0, competitor_analysis: 0, knowledge_base: 0, answerability: 0, crawler_accessibility: 0 },
+          module_weights: { ai_presence: 0, competitor: 0, strategy_review: 0 },
+          detailed_analysis: { ai_presence: {}, competitor_analysis: {}, knowledge_base: {}, answerability: {}, crawler_accessibility: {} },
+          structured_data: { total_schemas: 0, valid_schemas: 0, invalid_schemas: 0, schema_types: [], coverage_score: 0, quality_score: 0, completeness_score: 0, seo_relevance_score: 0, details: {} },
+          all_recommendations: [],
+          errors: [],
+          warnings: [],
+        } as AnalysisResult;
+      }
+
+      console.log('[DEBUG] Setting final analysis result');
+      setResult(restoredResult);
+      setRunCrawl(true); // Show crawl results including crawler tab
+      console.log('[DEBUG] handleSelectCrawl completed successfully');
+
+    } catch (error: any) {
+      console.error('[DEBUG] Failed to restore session data:', error);
+      setError(`Failed to restore crawl data: ${error.message}`);
+
+      // Still restore a placeholder AEO result even if session data fails to show something
+      if (aeoResult || true) {
+        const placeholder: AnalysisResult = aeoResult ? {
+          success: true,
+          url: crawlUrl,
+          grade: aeoResult.grade,
+          grade_color: aeoResult.gradeColor,
+          overall_score: aeoResult.overallScore,
+          module_scores: aeoResult.moduleScores,
+          module_weights: aeoResult.moduleWeights,
+          detailed_analysis: aeoResult.detailedAnalysis,
+          structured_data: aeoResult.structuredData,
+          all_recommendations: aeoResult.recommendations,
+          errors: aeoResult.errors,
+          warnings: aeoResult.warnings,
+          analysis_timestamp: aeoResult.analysisTimestamp,
+          run_id: aeoResult.runId
+        } : {
+          success: true,
+          url: crawlUrl,
+          grade: 'N/A',
+          grade_color: '#666666',
+          overall_score: 0,
+          module_scores: { ai_presence: 0, competitor_analysis: 0, knowledge_base: 0, answerability: 0, crawler_accessibility: 0 },
+          module_weights: { ai_presence: 0, competitor: 0, strategy_review: 0 },
+          detailed_analysis: { ai_presence: {}, competitor_analysis: {}, knowledge_base: {}, answerability: {}, crawler_accessibility: {} },
+          structured_data: { total_schemas: 0, valid_schemas: 0, invalid_schemas: 0, schema_types: [], coverage_score: 0, quality_score: 0, completeness_score: 0, seo_relevance_score: 0, details: {} },
+          all_recommendations: [],
+          errors: [],
+          warnings: [],
+        } as AnalysisResult;
+
+        setResult(placeholder);
         setRunCrawl(true);
       }
     } finally {
@@ -670,7 +779,7 @@ const AppWithAuth: React.FC = () => {
           onNavigate={setCurrentView}
           onLogout={logout}
         />
-        <HomePage 
+        <HomePage
           onLogin={() => setCurrentView('login')}
           onRegister={() => setCurrentView('register')}
         />
@@ -686,7 +795,7 @@ const AppWithAuth: React.FC = () => {
         isAuthenticated={isAuthenticated}
         onNavigate={async (v) => {
           if (v === 'profile') {
-            try { await refreshUser(); } catch {}
+            try { await refreshUser(); } catch { }
           }
           setCurrentView(v);
         }}
@@ -701,7 +810,7 @@ const AppWithAuth: React.FC = () => {
             Content Analytics & AEO Intelligence
           </h2>
           <p className="text-lg text-gray-300 max-w-2xl mx-auto">
-            Analyze your website's structured data and get actionable insights to improve 
+            Analyze your website's structured data and get actionable insights to improve
             your search engine visibility and Answer Engine Optimization (AEO).
           </p>
         </div>
@@ -732,7 +841,7 @@ const AppWithAuth: React.FC = () => {
                 {loading ? 'Analyzing...' : 'Analyze'}
               </button>
             </div>
-            
+
             {/* Progress Bar */}
             {loading && (
               <div className="mb-4">
@@ -747,7 +856,7 @@ const AppWithAuth: React.FC = () => {
                 </p>
               </div>
             )}
-            
+
             {/* Crawl Checkbox */}
             <div className="flex items-center gap-3 mb-4">
               <input
@@ -800,8 +909,8 @@ const AppWithAuth: React.FC = () => {
               <div className="w-6 h-6 text-red-600 flex-shrink-0">⚠️</div>
               <div className="flex-1">
                 <h3 className="font-semibold text-red-200 mb-1">
-                  {error.toLowerCase().includes('limit') || error.toLowerCase().includes('exceeded') 
-                    ? '🚫 Daily Limit Reached' 
+                  {error.toLowerCase().includes('limit') || error.toLowerCase().includes('exceeded')
+                    ? '🚫 Daily Limit Reached'
                     : 'Analysis Failed'}
                 </h3>
                 <p className="text-red-300 text-sm">{error}</p>
@@ -813,8 +922,8 @@ const AppWithAuth: React.FC = () => {
         {/* Results */}
         {result && (
           <div className="max-w-7xl mx-auto mb-8">
-            <AEODashboard 
-              url={url} 
+            <AEODashboard
+              url={url}
               result={result}
               runCrawl={runCrawl}
               isCrawling={isCrawling}
@@ -844,7 +953,7 @@ const AppWithAuth: React.FC = () => {
                 className="close-button absolute top-3 right-3"
               >
                 <svg viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"/>
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
               </button>
               <div className="px-6 pt-6 pb-4 border-b border-gray-800">

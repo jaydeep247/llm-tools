@@ -39,10 +39,10 @@ export class AuditIntegration {
     } = {}): Promise<number[]> {
         try {
             // Get URLs from the crawl session
-            const pages = this.db.getPages(sessionId);
+            const pages = await this.db.getPages(sessionId);
             const urls = pages
-                .filter(page => page.success && page.statusCode === 200)
-                .map(page => page.url)
+                .filter((page: any) => page.success && page.statusCode === 200)
+                .map((page: any) => page.url)
                 .slice(0, options.maxUrls || 50); // Limit to prevent too many audits
 
             if (urls.length === 0) {
@@ -52,7 +52,7 @@ export class AuditIntegration {
 
             // Create audit schedule
             const scheduleName = options.scheduleName || `Auto-generated from crawl session ${sessionId}`;
-            const scheduleId = this.auditScheduler.createSchedule({
+            const scheduleId = await this.auditScheduler.createSchedule({
                 name: scheduleName,
                 description: `Automatically generated audit schedule for ${urls.length} URLs from crawl session ${sessionId}`,
                 urls,
@@ -85,7 +85,7 @@ export class AuditIntegration {
         cronExpression?: string;
         enabled?: boolean;
     }): Promise<number> {
-        const scheduleId = this.auditScheduler.createSchedule({
+        const scheduleId = await this.auditScheduler.createSchedule({
             name: options.name,
             description: options.description || `Audit schedule for ${urls.length} URLs`,
             urls,
@@ -113,50 +113,50 @@ export class AuditIntegration {
     /**
      * Get all audit schedules
      */
-    getAllSchedules() {
-        return this.auditScheduler.getAllSchedules();
+    async getAllSchedules() {
+        return await this.auditScheduler.getAllSchedules();
     }
 
     /**
      * Get audit schedule by ID
      */
-    getSchedule(id: number) {
-        return this.auditScheduler.getSchedule(id);
+    async getSchedule(id: number) {
+        return await this.auditScheduler.getSchedule(id);
     }
 
     /**
      * Update audit schedule
      */
-    updateSchedule(id: number, updates: any) {
-        return this.auditScheduler.updateSchedule(id, updates);
+    async updateSchedule(id: number, updates: any) {
+        return await this.auditScheduler.updateSchedule(id, updates);
     }
 
     /**
      * Delete audit schedule
      */
-    deleteSchedule(id: number) {
-        return this.auditScheduler.deleteSchedule(id);
+    async deleteSchedule(id: number) {
+        return await this.auditScheduler.deleteSchedule(id);
     }
 
     /**
      * Toggle audit schedule
      */
-    toggleSchedule(id: number) {
-        return this.auditScheduler.toggleSchedule(id);
+    async toggleSchedule(id: number) {
+        return await this.auditScheduler.toggleSchedule(id);
     }
 
     /**
      * Trigger audit schedule manually
      */
     async triggerSchedule(id: number) {
-        return this.auditScheduler.triggerSchedule(id);
+        return await this.auditScheduler.triggerSchedule(id);
     }
 
     /**
      * Get audit executions
      */
-    getExecutions(limit: number = 100) {
-        return this.auditScheduler.getAllExecutions(limit);
+    async getExecutions(limit: number = 100) {
+        return await this.auditScheduler.getAllExecutions(limit);
     }
 
     /**

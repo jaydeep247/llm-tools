@@ -41,7 +41,7 @@ interface LinkExplorerProps {
 }
 
 export default function LinkExplorer({ onClose }: LinkExplorerProps) {
-  
+
   const [sessions, setSessions] = useState<Array<{ id: number; startUrl: string; startedAt: string; completedAt?: string; totalPages: number }>>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
   const [links, setLinks] = useState<LinkData[]>([]);
@@ -84,7 +84,7 @@ export default function LinkExplorer({ onClose }: LinkExplorerProps) {
 
   const loadData = async () => {
     if (!selectedSessionId) return;
-    
+
     try {
       setLoading(true);
       setError(null);
@@ -96,7 +96,7 @@ export default function LinkExplorer({ onClose }: LinkExplorerProps) {
       if (!statsResponse.ok) throw new Error('Failed to load link statistics');
       const statsData = await statsResponse.json();
       console.log('Stats data received:', statsData);
-      
+
       setStats(statsData.stats);
       setPageStats(statsData.pageStats);
 
@@ -116,10 +116,10 @@ export default function LinkExplorer({ onClose }: LinkExplorerProps) {
 
   const loadLinksForPage = async (pageId: number, type?: 'out' | 'in') => {
     if (!selectedSessionId) return;
-    
+
     const linkTypeToUse = type || linkType;
     console.log('Loading links for page:', pageId, 'with type:', linkTypeToUse);
-    
+
     try {
       setLoadingLinks(true);
       const response = await fetch(`/api/links?sessionId=${selectedSessionId}&pageId=${pageId}&type=${linkTypeToUse}&limit=100`);
@@ -205,8 +205,8 @@ export default function LinkExplorer({ onClose }: LinkExplorerProps) {
       filter: true,
       resizable: true,
       cellRenderer: (params: any) => (
-        <span style={{ 
-          fontFamily: 'monospace', 
+        <span style={{
+          fontFamily: 'monospace',
           fontSize: '0.8rem',
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-all',
@@ -246,15 +246,15 @@ export default function LinkExplorer({ onClose }: LinkExplorerProps) {
 
   const exportLinks = async () => {
     if (!selectedSessionId) return;
-    
+
     try {
-      const url = selectedPageId 
+      const url = selectedPageId
         ? `/api/links/export.csv?sessionId=${selectedSessionId}&pageId=${selectedPageId}&type=${linkType}`
         : `/api/links/export.csv?sessionId=${selectedSessionId}`;
-      
+
       const response = await fetch(url);
       if (!response.ok) throw new Error('Export failed');
-      
+
       const blob = await response.blob();
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -299,13 +299,13 @@ export default function LinkExplorer({ onClose }: LinkExplorerProps) {
         <h2>🔗 Link Explorer</h2>
         <button onClick={onClose} className="close-btn" title="Close Link Explorer">×</button>
       </div>
-      
+
       {/* Session Selection */}
       <div className="session-selection">
         <label htmlFor="session-select">Select Crawl Session:</label>
-        <select 
+        <select
           id="session-select"
-          value={selectedSessionId || ''} 
+          value={selectedSessionId || ''}
           onChange={(e) => setSelectedSessionId(Number(e.target.value) || null)}
           className="session-select"
         >
@@ -317,13 +317,13 @@ export default function LinkExplorer({ onClose }: LinkExplorerProps) {
           ))}
         </select>
       </div>
-      
+
       {!selectedSessionId && (
         <div className="no-session">
           <p>Please select a crawl session to view link data.</p>
         </div>
       )}
-      
+
       {selectedSessionId && (
         <>
           {stats && (
@@ -340,7 +340,7 @@ export default function LinkExplorer({ onClose }: LinkExplorerProps) {
                 <div className="stat-value">{stats.externalLinks}</div>
                 <div className="stat-label">External</div>
               </div>
-              {Object.entries(stats.linksByPosition).map(([position, count]) => (
+              {Object.entries(stats.linksByPosition || {}).map(([position, count]) => (
                 <div key={position} className="stat-card">
                   <div className="stat-value">{count}</div>
                   <div className="stat-label">{position}</div>
@@ -351,106 +351,106 @@ export default function LinkExplorer({ onClose }: LinkExplorerProps) {
 
           <div className="link-explorer-content">
             <div className="page-selector">
-            <h3>Select Page</h3>
-            <div className="page-list">
-              {pageStats.map(page => (
-                <div 
-                  key={page.pageId} 
-                  className={`page-item ${selectedPageId === page.pageId ? 'selected' : ''}`}
-                  onClick={() => handlePageSelect(page.pageId)}
-                >
-                  <div className="page-title">{page.title}</div>
-                  <div className="page-url">{page.url}</div>
-                  <div className="page-stats">
-                    {page.outlinks} out • {page.inlinks} in
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {selectedPageId && (
-            <div className="links-section">
-              <div className="links-controls">
-                <div className="control-group">
-                  <label>Link Type:</label>
-                  <select value={linkType} onChange={(e) => handleTypeChange(e.target.value as 'out' | 'in')}>
-                    <option value="out">Outlinks</option>
-                    <option value="in">Inlinks</option>
-                  </select>
-                </div>
-                
-                <div className="control-group">
-                  <label>Position:</label>
-                  <select value={positionFilter} onChange={(e) => setPositionFilter(e.target.value)}>
-                    <option value="all">All</option>
-                    <option value="Header">Header</option>
-                    <option value="Footer">Footer</option>
-                    <option value="Navigation">Navigation</option>
-                    <option value="Main">Main</option>
-                    <option value="Sidebar">Sidebar</option>
-                  </select>
-                </div>
-                
-                <div className="control-group">
-                  <label>Type:</label>
-                  <select value={internalFilter} onChange={(e) => setInternalFilter(e.target.value)}>
-                    <option value="all">All</option>
-                    <option value="internal">Internal</option>
-                    <option value="external">External</option>
-                  </select>
-                </div>
-                
-                <div className="control-group">
-                  <input
-                    type="text"
-                    placeholder="Search links..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-                
-                <button onClick={exportLinks} className="export-btn">
-                  📥 Export CSV
-                </button>
-              </div>
-
-              <div className="links-table-container" style={{ height: '600px', width: '100%', position: 'relative' }}>
-                {loadingLinks && (
-                  <div className="links-loading-overlay">
-                    <div className="loading-spinner">
-                      <div className="spinner"></div>
-                      <div className="loading-text">Loading links...</div>
+              <h3>Select Page</h3>
+              <div className="page-list">
+                {pageStats.map(page => (
+                  <div
+                    key={page.pageId}
+                    className={`page-item ${selectedPageId === page.pageId ? 'selected' : ''}`}
+                    onClick={() => handlePageSelect(page.pageId)}
+                  >
+                    <div className="page-title">{page.title}</div>
+                    <div className="page-url">{page.url}</div>
+                    <div className="page-stats">
+                      {page.outlinks} out • {page.inlinks} in
                     </div>
                   </div>
-                )}
-                <div className="ag-theme-alpine" style={{ height: '100%', width: '100%', opacity: loadingLinks ? 0.3 : 1, transition: 'opacity 0.2s ease' }}>
-                  <AgGridReact
-                    rowData={filteredLinks}
-                    columnDefs={columnDefs}
-                    onGridReady={onGridReady}
-    defaultColDef={{
-      resizable: true,
-      sortable: true,
-      filter: true,
-      floatingFilter: true,
-      cellStyle: { display: 'flex', alignItems: 'center' }
-    }}
-                    pagination={true}
-                    paginationPageSize={50}
-                    suppressRowClickSelection={true}
-                    rowSelection="multiple"
-                    animateRows={true}
-                    enableCellTextSelection={true}
-                    ensureDomOrder={true}
-                    suppressCopyRowsToClipboard={false}
-                    copyHeadersToClipboard={true}
-                    suppressExcelExport={false}
-                  />
-                </div>
+                ))}
               </div>
             </div>
-          )}
+
+            {selectedPageId && (
+              <div className="links-section">
+                <div className="links-controls">
+                  <div className="control-group">
+                    <label>Link Type:</label>
+                    <select value={linkType} onChange={(e) => handleTypeChange(e.target.value as 'out' | 'in')}>
+                      <option value="out">Outlinks</option>
+                      <option value="in">Inlinks</option>
+                    </select>
+                  </div>
+
+                  <div className="control-group">
+                    <label>Position:</label>
+                    <select value={positionFilter} onChange={(e) => setPositionFilter(e.target.value)}>
+                      <option value="all">All</option>
+                      <option value="Header">Header</option>
+                      <option value="Footer">Footer</option>
+                      <option value="Navigation">Navigation</option>
+                      <option value="Main">Main</option>
+                      <option value="Sidebar">Sidebar</option>
+                    </select>
+                  </div>
+
+                  <div className="control-group">
+                    <label>Type:</label>
+                    <select value={internalFilter} onChange={(e) => setInternalFilter(e.target.value)}>
+                      <option value="all">All</option>
+                      <option value="internal">Internal</option>
+                      <option value="external">External</option>
+                    </select>
+                  </div>
+
+                  <div className="control-group">
+                    <input
+                      type="text"
+                      placeholder="Search links..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+
+                  <button onClick={exportLinks} className="export-btn">
+                    📥 Export CSV
+                  </button>
+                </div>
+
+                <div className="links-table-container" style={{ height: '600px', width: '100%', position: 'relative' }}>
+                  {loadingLinks && (
+                    <div className="links-loading-overlay">
+                      <div className="loading-spinner">
+                        <div className="spinner"></div>
+                        <div className="loading-text">Loading links...</div>
+                      </div>
+                    </div>
+                  )}
+                  <div className="ag-theme-alpine" style={{ height: '100%', width: '100%', opacity: loadingLinks ? 0.3 : 1, transition: 'opacity 0.2s ease' }}>
+                    <AgGridReact
+                      rowData={filteredLinks}
+                      columnDefs={columnDefs}
+                      onGridReady={onGridReady}
+                      defaultColDef={{
+                        resizable: true,
+                        sortable: true,
+                        filter: true,
+                        floatingFilter: true,
+                        cellStyle: { display: 'flex', alignItems: 'center' }
+                      }}
+                      pagination={true}
+                      paginationPageSize={50}
+                      suppressRowClickSelection={true}
+                      rowSelection="multiple"
+                      animateRows={true}
+                      enableCellTextSelection={true}
+                      ensureDomOrder={true}
+                      suppressCopyRowsToClipboard={false}
+                      copyHeadersToClipboard={true}
+                      suppressExcelExport={false}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}

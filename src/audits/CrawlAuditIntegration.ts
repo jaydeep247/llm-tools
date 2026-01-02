@@ -31,10 +31,10 @@ export class CrawlAuditIntegration {
      */
     async runAuditForUrl(url: string, device: DeviceStrategy = 'desktop'): Promise<CrawlAuditResult> {
         const startTime = Date.now();
-        
+
         try {
             this.logger.debug(`Running audit for ${url} (${device})`);
-            
+
             const result = await fetchPsi(url, device, {
                 timeoutMs: 45000, // 45 second timeout (reduced from 60)
                 retries: 1,
@@ -66,8 +66,8 @@ export class CrawlAuditIntegration {
                 lab: result.lab,
                 psiReportUrl: result.psiReportUrl,
             };
-            
-            saveAudit(result.url, result.device, parsed, result.raw, this.sessionId);
+
+            await saveAudit(result.url, result.device, parsed, result.raw, this.sessionId);
 
             this.logger.info(`Audit completed for ${url}`, {
                 lcp: auditResult.lcp,
@@ -89,7 +89,7 @@ export class CrawlAuditIntegration {
             };
 
             this.auditResults.set(url, auditResult);
-            
+
             this.logger.error(`Audit failed for ${url}`, error as Error);
             return auditResult;
         }
@@ -100,17 +100,17 @@ export class CrawlAuditIntegration {
      */
     async runAuditsForUrls(urls: string[], device: DeviceStrategy = 'desktop'): Promise<CrawlAuditResult[]> {
         const results: CrawlAuditResult[] = [];
-        
+
         this.logger.info(`Starting audits for ${urls.length} URLs (${device})`);
-        
+
         for (const url of urls) {
             try {
                 const result = await this.runAuditForUrl(url, device);
                 results.push(result);
-                
+
                 // Small delay between audits to avoid rate limiting
                 await new Promise(resolve => setTimeout(resolve, 2000));
-                
+
             } catch (error) {
                 this.logger.error(`Failed to audit ${url}`, error as Error);
                 results.push({
@@ -125,9 +125,9 @@ export class CrawlAuditIntegration {
 
         const successful = results.filter(r => r.success).length;
         const failed = results.filter(r => !r.success).length;
-        
+
         this.logger.info(`Audit batch completed: ${successful} successful, ${failed} failed`);
-        
+
         return results;
     }
 
@@ -160,19 +160,19 @@ export class CrawlAuditIntegration {
     } {
         const results = this.getAllAuditResults();
         const successful = results.filter(r => r.success);
-        
-        const averageDuration = results.length > 0 
-            ? results.reduce((sum, r) => sum + r.duration, 0) / results.length 
+
+        const averageDuration = results.length > 0
+            ? results.reduce((sum, r) => sum + r.duration, 0) / results.length
             : 0;
-            
+
         const averageLcp = successful.length > 0 && successful.some(r => r.lcp)
             ? successful.reduce((sum, r) => sum + (r.lcp || 0), 0) / successful.filter(r => r.lcp).length
             : 0;
-            
+
         const averageTbt = successful.length > 0 && successful.some(r => r.tbt)
             ? successful.reduce((sum, r) => sum + (r.tbt || 0), 0) / successful.filter(r => r.tbt).length
             : 0;
-            
+
         const averageCls = successful.length > 0 && successful.some(r => r.cls)
             ? successful.reduce((sum, r) => sum + (r.cls || 0), 0) / successful.filter(r => r.cls).length
             : 0;
@@ -212,7 +212,7 @@ export class CrawlAuditIntegration {
         output += `Failed: ${stats.failed}\n`;
         output += `Success Rate: ${stats.successRate.toFixed(1)}%\n`;
         output += `Average Duration: ${Math.round(stats.averageDuration)}ms\n`;
-        
+
         if (stats.averageLcp > 0) {
             output += `Average LCP: ${Math.round(stats.averageLcp)}ms\n`;
         }
@@ -222,7 +222,7 @@ export class CrawlAuditIntegration {
         if (stats.averageCls > 0) {
             output += `Average CLS: ${stats.averageCls.toFixed(3)}\n`;
         }
-        
+
         output += `\nDetailed Results:\n`;
         results.forEach(result => {
             if (result.success) {
@@ -235,7 +235,7 @@ export class CrawlAuditIntegration {
                 output += `✗ ${result.url} - ${result.error}\n`;
             }
         });
-        
+
         return output;
     }
 }

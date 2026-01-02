@@ -10,12 +10,12 @@ interface NavbarProps {
     currentView?: string;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ 
-    user, 
-    isAuthenticated, 
-    onNavigate, 
+export const Navbar: React.FC<NavbarProps> = ({
+    user,
+    isAuthenticated,
+    onNavigate,
     onLogout,
-    currentView 
+    currentView
 }) => {
     const getRoleBadge = (role: string) => {
         switch (role) {
@@ -43,8 +43,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <div className="navbar-actions">
                     {isAuthenticated && user ? (
                         <>
-                            {/* User Info */}
-                            <div className="user-info">
+                            {/* User Info - Clickable to go to Home */}
+                            <button
+                                type="button"
+                                onClick={() => onNavigate('home')}
+                                className="user-info"
+                                style={{ cursor: 'pointer', background: 'none', border: 'none', padding: '0' }}
+                            >
                                 <span className="user-role-badge">
                                     <span className={`role-dot ${roleBadge?.class}`}></span>
                                     <span className="role-text">{roleBadge?.text}</span>
@@ -52,7 +57,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                                 <span className="user-name">
                                     {user.name || user.email}
                                 </span>
-                            </div>
+                            </button>
 
                             {/* Navigation Buttons */}
                             <button type="button"
@@ -70,7 +75,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                                 <span className="btn-icon">👤</span>
                                 <span>Profile</span>
                             </button>
-                            
+
                             <button type="button"
                                 onClick={() => onNavigate('settings')}
                                 className={`nav-btn ${currentView === 'settings' ? 'nav-btn-active' : ''}`}
@@ -78,7 +83,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                                 <span className="btn-icon">⚙️</span>
                                 <span>Settings</span>
                             </button>
-                            
+
                             <button type="button"
                                 onClick={onLogout}
                                 className="nav-btn nav-btn-danger"

@@ -36,21 +36,21 @@ export interface ScheduleExecution {
 export class ScheduleManager {
     private db = getDatabase();
     private logger = Logger.getInstance();
-    
+
     /**
      * Create a new crawl schedule
      */
-    createSchedule(data: Omit<CrawlSchedule, 'id' | 'createdAt' | 'totalRuns' | 'successfulRuns' | 'failedRuns'> & { userId?: number }): number {
+    async createSchedule(data: Omit<CrawlSchedule, 'id' | 'createdAt' | 'totalRuns' | 'successfulRuns' | 'failedRuns'> & { userId?: number }): Promise<number> {
         // Validate cron expression
         const validation = CronParser.validateCronExpression(data.cronExpression);
         if (!validation.isValid) {
             throw new Error(`Invalid cron expression: ${validation.error}`);
         }
-        
+
         // Calculate next run time
         const nextRun = validation.nextRun ? validation.nextRun.toISOString() : null;
-        
-        const scheduleId = this.db.insertCrawlSchedule({
+
+        const scheduleId = await this.db.insertCrawlSchedule({
             name: data.name,
             description: data.description,
             startUrl: data.startUrl,
@@ -66,26 +66,26 @@ export class ScheduleManager {
             successfulRuns: 0,
             failedRuns: 0
         });
-        
-        this.logger.info('Crawl schedule created', { 
-            scheduleId, 
-            name: data.name, 
-            cronExpression: data.cronExpression 
+
+        this.logger.info('Crawl schedule created', {
+            scheduleId,
+            name: data.name,
+            cronExpression: data.cronExpression
         });
-        
+
         return scheduleId;
     }
-    
+
     /**
      * Update an existing schedule
      */
-    updateSchedule(id: number, updates: Partial<CrawlSchedule>): void {
+    async updateSchedule(id: number, updates: Partial<CrawlSchedule>): Promise<void> {
         if (updates.cronExpression) {
             const validation = CronParser.validateCronExpression(updates.cronExpression);
             if (!validation.isValid) {
                 throw new Error(`Invalid cron expression: ${validation.error}`);
             }
-            
+
             // Recalculate next run time when cron expression changes
             let nextRun = null;
             if (validation.nextRun) {
@@ -94,10 +94,10 @@ export class ScheduleManager {
                     if (!isNaN(validation.nextRun.getTime())) {
                         nextRun = validation.nextRun.toISOString();
                     } else {
-                        this.logger.warn('Invalid next run date calculated', { 
-                            scheduleId: id, 
+                        this.logger.warn('Invalid next run date calculated', {
+                            scheduleId: id,
                             cronExpression: updates.cronExpression,
-                            nextRun: validation.nextRun 
+                            nextRun: validation.nextRun
                         });
                     }
                 } catch (error) {
@@ -113,53 +113,53 @@ export class ScheduleManager {
             }
             updates.nextRun = nextRun ?? undefined;
         }
-        
-        this.db.updateCrawlSchedule(id, updates);
+
+        await this.db.updateCrawlSchedule(id, updates);
         this.logger.info('Crawl schedule updated', { scheduleId: id, updates });
     }
-    
+
     /**
      * Delete a schedule
      */
-    deleteSchedule(id: number): void {
-        this.db.deleteCrawlSchedule(id);
+    async deleteSchedule(id: number): Promise<void> {
+        await this.db.deleteCrawlSchedule(id);
         this.logger.info('Crawl schedule deleted', { scheduleId: id });
     }
-    
+
     /**
      * Get all schedules
      */
-    getAllSchedules(): CrawlSchedule[] {
+    async getAllSchedules(): Promise<CrawlSchedule[]> {
         return this.db.getAllCrawlSchedules();
     }
-    
+
     /**
      * Get a specific schedule
      */
-    getSchedule(id: number): CrawlSchedule | null {
+    async getSchedule(id: number): Promise<CrawlSchedule | null> {
         return this.db.getCrawlSchedule(id);
     }
-    
+
     /**
      * Get enabled schedules that should run now
      */
-    getSchedulesToRun(): CrawlSchedule[] {
+    async getSchedulesToRun(): Promise<CrawlSchedule[]> {
         const now = new Date();
-        const schedules = this.db.getEnabledCrawlSchedules();
-        
+        const schedules = await this.db.getEnabledCrawlSchedules();
+
         return schedules.filter(schedule => {
             if (!schedule.enabled) return false;
-            
+
             // Check if it's time to run
             return CronParser.shouldRun(schedule.cronExpression, now);
         });
     }
-    
+
     /**
      * Record a schedule execution
      */
-    recordExecution(scheduleId: number, sessionId: number): number {
-        const executionId = this.db.insertScheduleExecution({
+    async recordExecution(scheduleId: number, sessionId: number): Promise<number> {
+        const executionId = await this.db.insertScheduleExecution({
             scheduleId,
             sessionId,
             startedAt: new Date().toISOString(),
@@ -168,57 +168,57 @@ export class ScheduleManager {
             resourcesFound: 0,
             duration: 0
         });
-        
-        this.logger.info('Schedule execution recorded', { 
-            scheduleId, 
-            sessionId, 
-            executionId 
+
+        this.logger.info('Schedule execution recorded', {
+            scheduleId,
+            sessionId,
+            executionId
         });
-        
+
         return executionId;
     }
-    
+
     /**
      * Update execution status
      */
-    updateExecution(executionId: number, updates: Partial<ScheduleExecution>): void {
-        this.db.updateScheduleExecution(executionId, updates);
+    async updateExecution(executionId: number, updates: Partial<ScheduleExecution>): Promise<void> {
+        await this.db.updateScheduleExecution(executionId, updates);
     }
-    
+
     /**
      * Get execution history for a schedule
      */
-    getExecutionHistory(scheduleId: number, limit: number = 50): ScheduleExecution[] {
+    async getExecutionHistory(scheduleId: number, limit: number = 50): Promise<ScheduleExecution[]> {
         return this.db.getScheduleExecutions(scheduleId, limit);
     }
-    
+
     /**
      * Get all executions
      */
-    getAllExecutions(limit: number = 100): ScheduleExecution[] {
+    async getAllExecutions(limit: number = 100): Promise<ScheduleExecution[]> {
         return this.db.getAllScheduleExecutions(limit);
     }
-    
+
     /**
      * Toggle schedule enabled/disabled
      */
-    toggleSchedule(id: number): void {
-        const schedule = this.getSchedule(id);
+    async toggleSchedule(id: number): Promise<void> {
+        const schedule = await this.getSchedule(id);
         if (!schedule) {
             throw new Error('Schedule not found');
         }
-        
-        this.updateSchedule(id, { enabled: !schedule.enabled });
-        this.logger.info('Schedule toggled', { 
-            scheduleId: id, 
-            enabled: !schedule.enabled 
+
+        await this.updateSchedule(id, { enabled: !schedule.enabled });
+        this.logger.info('Schedule toggled', {
+            scheduleId: id,
+            enabled: !schedule.enabled
         });
     }
-    
+
     /**
      * Get schedule statistics
      */
-    getScheduleStats(scheduleId: number): {
+    async getScheduleStats(scheduleId: number): Promise<{
         totalRuns: number;
         successfulRuns: number;
         failedRuns: number;
@@ -226,19 +226,19 @@ export class ScheduleManager {
         averageDuration: number;
         lastRun?: string;
         nextRun?: string;
-    } {
-        const schedule = this.getSchedule(scheduleId);
+    }> {
+        const schedule = await this.getSchedule(scheduleId);
         if (!schedule) {
             throw new Error('Schedule not found');
         }
-        
-        const executions = this.getExecutionHistory(scheduleId, 100);
+
+        const executions = await this.getExecutionHistory(scheduleId, 100);
         const completedExecutions = executions.filter(e => e.status === 'completed' || e.status === 'failed');
-        
+
         const averageDuration = completedExecutions.length > 0
             ? completedExecutions.reduce((sum, e) => sum + e.duration, 0) / completedExecutions.length
             : 0;
-        
+
         return {
             totalRuns: schedule.totalRuns,
             successfulRuns: schedule.successfulRuns,
@@ -249,21 +249,21 @@ export class ScheduleManager {
             nextRun: schedule.nextRun
         };
     }
-    
+
     /**
      * Validate cron expression
      */
     validateCronExpression(cronExpression: string): CronValidation {
         return CronParser.validateCronExpression(cronExpression);
     }
-    
+
     /**
      * Get human-readable description of cron expression
      */
     getCronDescription(cronExpression: string): string {
         return CronParser.getDescription(cronExpression);
     }
-    
+
     /**
      * Get database instance
      */

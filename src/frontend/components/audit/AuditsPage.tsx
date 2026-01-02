@@ -40,7 +40,7 @@ function statusFromVitals(lcp?: number, tbt?: number, cls?: number): 'Good' | 'N
 }
 
 export default function AuditsPage() {
-  const [device, setDevice] = useState<'all' | 'mobile' | 'desktop'>('mobile');
+  const [device, setDevice] = useState<'all' | 'mobile' | 'desktop'>('all');
   const [items, setItems] = useState<AuditItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -96,8 +96,8 @@ export default function AuditsPage() {
     <div className="panel audits-dark">
       <div className="panel-header" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <h3 style={{ margin: 0 }}>📈 Audits</h3>
-        <select 
-          value={selectedSessionId} 
+        <select
+          value={selectedSessionId}
           onChange={(e) => setSelectedSessionId(e.target.value === 'all' ? 'all' : Number(e.target.value))}
           className="select"
         >
@@ -155,33 +155,33 @@ export default function AuditsPage() {
                 }
               })
               .map((it) => {
-              const status = statusFromVitals(it.LCP_ms, it.TBT_ms, it.CLS);
-              return (
-                <tr key={it.id}>
-                  <td>{new Date(it.runAt).toLocaleString()}</td>
-                  <td>{it.device}</td>
-                  <td style={{ maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    <a href={it.url} target="_blank" rel="noreferrer noopener">{it.url}</a>
-                  </td>
-                  <td>
-                    {it.performanceScore ? (
-                      <span className="performance-score-badge">{formatScore(it.performanceScore)}</span>
-                    ) : '-'}
-                  </td>
-                  <td>{formatMs(it.LCP_ms)}</td>
-                  <td>{formatMs(it.TBT_ms)}</td>
-                  <td>{it.CLS == null ? '-' : it.CLS.toFixed(3)}</td>
-                  <td>{formatMs(it.FCP_ms)}</td>
-                  <td>{formatMs(it.TTFB_ms)}</td>
-                  <td>
-                    <span className={`chip ${status === 'Good' ? 'success' : status === 'Poor' ? 'error' : status === 'NI' ? 'warn' : ''}`}>{status}</span>
-                  </td>
-                  <td>
-                    {it.psiReportUrl ? <a href={it.psiReportUrl} target="_blank" rel="noreferrer noopener">Open</a> : '-'}
-                  </td>
-                </tr>
-              );
-            })}
+                const status = statusFromVitals(it.LCP_ms, it.TBT_ms, it.CLS);
+                return (
+                  <tr key={it.id}>
+                    <td>{new Date(it.runAt).toLocaleString()}</td>
+                    <td>{it.device}</td>
+                    <td style={{ maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <a href={it.url} target="_blank" rel="noreferrer noopener">{it.url}</a>
+                    </td>
+                    <td>
+                      {it.performanceScore ? (
+                        <span className="performance-score-badge">{formatScore(it.performanceScore)}</span>
+                      ) : '-'}
+                    </td>
+                    <td>{formatMs(it.LCP_ms)}</td>
+                    <td>{formatMs(it.TBT_ms)}</td>
+                    <td>{it.CLS == null ? '-' : it.CLS.toFixed(3)}</td>
+                    <td>{formatMs(it.FCP_ms)}</td>
+                    <td>{formatMs(it.TTFB_ms)}</td>
+                    <td>
+                      <span className={`chip ${status === 'Good' ? 'success' : status === 'Poor' ? 'error' : status === 'NI' ? 'warn' : ''}`}>{status}</span>
+                    </td>
+                    <td>
+                      {it.psiReportUrl ? <a href={it.psiReportUrl} target="_blank" rel="noreferrer noopener">Open</a> : '-'}
+                    </td>
+                  </tr>
+                );
+              })}
           </tbody>
         </table>
       </div>

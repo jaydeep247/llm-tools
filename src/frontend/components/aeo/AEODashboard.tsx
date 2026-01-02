@@ -57,13 +57,13 @@ interface AEODashboardProps {
     duration: number;
     pagesPerSecond: number;
   } | null;
-  logs?: string[];
+  logs?: { message: string; timestamp: string }[];
   discoveredPages?: any[];
 }
 
-const AEODashboard: React.FC<AEODashboardProps> = ({ 
-  url = 'https://yogreet.com', 
-  result, 
+const AEODashboard: React.FC<AEODashboardProps> = ({
+  url = 'https://yogreet.com',
+  result,
   onAnalyze,
   runCrawl = false,
   isCrawling = false,
@@ -85,24 +85,24 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
   // Generate schema markup
   const generateSchema = async () => {
     if (!url) return;
-    
+
     setSchemaLoading(true);
     setSchemaError(null);
-    
+
     try {
       const response = await fetch('/aeo/generate-schema', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           url,
-          schema_type: selectedSchemaType 
+          schema_type: selectedSchemaType
         }),
       });
-      
+
       const data = await response.json();
-      
+
       if (data.success) {
         setSchemaData(data.results);
       } else {
@@ -119,7 +119,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
   const copySchemaToClipboard = () => {
     const textToCopy = schemaFormat === 'json-ld' ? schemaData?.schema_text : schemaData?.rdfa_markup;
     if (!textToCopy) return;
-    
+
     navigator.clipboard.writeText(textToCopy).then(() => {
       setCopiedSchema(true);
       setTimeout(() => setCopiedSchema(false), 2000);
@@ -129,7 +129,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
   // Get recommendations for specific modules
   const getModuleRecommendations = (moduleName: string): string[] => {
     if (!result?.detailed_analysis) return [];
-    
+
     const module = result.detailed_analysis[moduleName];
     return module?.recommendations || [];
   };
@@ -137,7 +137,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
   // Determine priority level for a recommendation
   const getRecommendationPriority = (rec: string): 'high' | 'medium' | 'low' => {
     const recLower = rec.toLowerCase();
-    
+
     // High priority keywords
     const highPriorityKeywords = [
       'add title tag',
@@ -153,7 +153,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
       'website schema',
       'webpage schema'
     ];
-    
+
     // Medium priority keywords
     const mediumPriorityKeywords = [
       'improve',
@@ -167,15 +167,15 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
       'open graph',
       'twitter card'
     ];
-    
+
     if (highPriorityKeywords.some(keyword => recLower.includes(keyword))) {
       return 'high';
     }
-    
+
     if (mediumPriorityKeywords.some(keyword => recLower.includes(keyword))) {
       return 'medium';
     }
-    
+
     return 'low';
   };
 
@@ -231,16 +231,16 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
 
     // Track which platforms we've already added to avoid duplicates
     const addedPlatforms = new Set<string>();
-    
+
     // Process platforms data from backend
     // Backend already handles: score calculation, AI understanding merging, bot accessibility
     if (aiData.platforms && typeof aiData.platforms === 'object') {
       Object.entries(aiData.platforms).forEach(([name, data]: [string, any]) => {
         // Map bot names to AI provider names for display
-        const displayName = name === 'GPTBot' ? 'ChatGPT' : 
-                          name === 'Google-Extended' ? 'Gemini' : 
-                          name === 'ClaudeBot' ? 'Claude' : name;
-        
+        const displayName = name === 'GPTBot' ? 'ChatGPT' :
+          name === 'Google-Extended' ? 'Gemini' :
+            name === 'ClaudeBot' ? 'Claude' : name;
+
         // Backend already provides the correct score and all details
         // Score is either:
         // - AI understanding score (if bot allowed + API key exists)
@@ -267,7 +267,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
     // or if there are platforms with understanding but no bot entry
     if (aiData.ai_understanding && typeof aiData.ai_understanding === 'object') {
       const multiAI = aiData.ai_understanding;
-      
+
       // Check if there are any providers with understanding data but no platform entry
       // (This should be rare, as backend handles merging)
       if (multiAI.openai || multiAI.gemini || multiAI.claude) {
@@ -276,18 +276,18 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
           { name: 'Gemini', key: 'gemini', icon: '🧠' },
           { name: 'Claude', key: 'claude', icon: '🎭' }
         ];
-        
+
         aiProviders.forEach(provider => {
           const data = multiAI[provider.key];
           const platformKey = provider.name.toLowerCase();
-          
+
           // Only add if this provider isn't already in platforms
           // (Backend should have already included it, but handle edge cases)
           if (data && !data.error) {
-            const existingIndex = platforms.findIndex(p => 
+            const existingIndex = platforms.findIndex(p =>
               p.name.toLowerCase() === platformKey
             );
-            
+
             if (existingIndex === -1) {
               // Edge case: Provider has understanding but no bot/platform entry
               // This shouldn't happen normally, but handle gracefully
@@ -336,14 +336,14 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
     }
 
     const compData = result.detailed_analysis.competitor_analysis;
-    
+
     // Check if there's an error (API not configured)
     if (compData.error) {
       return [
         { name: 'Not Configured', count: 0 }
       ];
     }
-    
+
     // DataForSEO API returns: top_competitors as array of {domain, referring_domains}
     if (compData.top_competitors && Array.isArray(compData.top_competitors)) {
       // Map top competitors to display format
@@ -456,7 +456,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
       {/* Overall Score and Report Summary */}
       <div className="overall-section">
         <div className="overall-score">
-          <div 
+          <div
             className="score-circle"
             style={{ '--progress': scores.overall } as React.CSSProperties}
           >
@@ -465,7 +465,11 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
           </div>
         </div>
         <div className="report-summary">
-          <div className="summary-date">{new Date().toLocaleDateString('en-GB')}</div>
+          <div className="summary-date">
+            {result?.analysis_timestamp
+              ? new Date(result.analysis_timestamp).toLocaleDateString('en-GB')
+              : new Date().toLocaleDateString('en-GB')}
+          </div>
           <div className="summary-text">{getScoreText(scores.overall)}</div>
         </div>
       </div>
@@ -477,24 +481,24 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
           <div className="card-header">
             <h3>AI Presence</h3>
             {getModuleRecommendations('ai_presence').length > 0 && (
-              <button 
+              <button
                 className="info-button"
                 onClick={() => setShowRecommendations('ai_presence')}
                 title={`View ${getModuleRecommendations('ai_presence').length} recommendations`}
               >
                 <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="10" cy="10" r="9" stroke="currentColor" strokeWidth="1.5"/>
-                  <path d="M10 14V10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                  <circle cx="10" cy="7" r="0.75" fill="currentColor"/>
+                  <circle cx="10" cy="10" r="9" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M10 14V10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <circle cx="10" cy="7" r="0.75" fill="currentColor" />
                 </svg>
                 <span className="info-badge">{getModuleRecommendations('ai_presence').length}</span>
               </button>
             )}
           </div>
           <div className="card-score">
-            <div 
+            <div
               className="score-circle-metric"
-              style={{ 
+              style={{
                 '--progress': scores.ai_presence,
                 '--color': getScoreColor(scores.ai_presence)
               } as React.CSSProperties}
@@ -524,24 +528,24 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
           <div className="card-header">
             <h3>Competitor Landscape</h3>
             {getModuleRecommendations('competitor_analysis').length > 0 && (
-              <button 
+              <button
                 className="info-button"
                 onClick={() => setShowRecommendations('competitor_analysis')}
                 title={`View ${getModuleRecommendations('competitor_analysis').length} recommendations`}
               >
                 <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="10" cy="10" r="9" stroke="currentColor" strokeWidth="1.5"/>
-                  <path d="M10 14V10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                  <circle cx="10" cy="7" r="0.75" fill="currentColor"/>
+                  <circle cx="10" cy="10" r="9" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M10 14V10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <circle cx="10" cy="7" r="0.75" fill="currentColor" />
                 </svg>
                 <span className="info-badge">{getModuleRecommendations('competitor_analysis').length}</span>
               </button>
             )}
           </div>
           <div className="card-score">
-            <div 
+            <div
               className="score-circle-metric"
-              style={{ 
+              style={{
                 '--progress': scores.competitor_landscape,
                 '--color': getScoreColor(scores.competitor_landscape)
               } as React.CSSProperties}
@@ -552,7 +556,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
           <div className="competitor-description">
             {result?.detailed_analysis?.competitor_analysis?.metrics ? (
               <>
-                Your domain has <strong>{result.detailed_analysis.competitor_analysis.metrics.total_referring_domains || 0}</strong> referring domains 
+                Your domain has <strong>{result.detailed_analysis.competitor_analysis.metrics.total_referring_domains || 0}</strong> referring domains
                 with <strong>{result.detailed_analysis.competitor_analysis.metrics.total_individual_backlinks || 0}</strong> total backlinks.
               </>
             ) : (
@@ -570,8 +574,8 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                 ))
               ) : (
                 <span className="competitor-tag-empty">
-                  {competitors[0]?.name === 'Not Configured' 
-                    ? 'Configure DataForSEO API to see competitor data' 
+                  {competitors[0]?.name === 'Not Configured'
+                    ? 'Configure DataForSEO API to see competitor data'
                     : 'No competitor data available'}
                 </span>
               )}
@@ -583,33 +587,33 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
         <div className="dashboard-card">
           <div className="card-header">
             <h3>Strategy Review</h3>
-            {(getModuleRecommendations('answerability').length > 0 || 
-              getModuleRecommendations('knowledge_base').length > 0 || 
-              getModuleRecommendations('structured_data').length > 0 || 
+            {(getModuleRecommendations('answerability').length > 0 ||
+              getModuleRecommendations('knowledge_base').length > 0 ||
+              getModuleRecommendations('structured_data').length > 0 ||
               getModuleRecommendations('crawler_accessibility').length > 0) && (
-              <button 
-                className="info-button"
-                onClick={() => setShowRecommendations('strategy_review')}
-                title={`View ${getModuleRecommendations('answerability').length + getModuleRecommendations('knowledge_base').length + getModuleRecommendations('structured_data').length + getModuleRecommendations('crawler_accessibility').length} recommendations`}
-              >
-                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="10" cy="10" r="9" stroke="currentColor" strokeWidth="1.5"/>
-                  <path d="M10 14V10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                  <circle cx="10" cy="7" r="0.75" fill="currentColor"/>
-                </svg>
-                <span className="info-badge">
-                  {getModuleRecommendations('answerability').length + 
-                   getModuleRecommendations('knowledge_base').length + 
-                   getModuleRecommendations('structured_data').length + 
-                   getModuleRecommendations('crawler_accessibility').length}
-                </span>
-              </button>
-            )}
+                <button
+                  className="info-button"
+                  onClick={() => setShowRecommendations('strategy_review')}
+                  title={`View ${getModuleRecommendations('answerability').length + getModuleRecommendations('knowledge_base').length + getModuleRecommendations('structured_data').length + getModuleRecommendations('crawler_accessibility').length} recommendations`}
+                >
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="10" cy="10" r="9" stroke="currentColor" strokeWidth="1.5" />
+                    <path d="M10 14V10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    <circle cx="10" cy="7" r="0.75" fill="currentColor" />
+                  </svg>
+                  <span className="info-badge">
+                    {getModuleRecommendations('answerability').length +
+                      getModuleRecommendations('knowledge_base').length +
+                      getModuleRecommendations('structured_data').length +
+                      getModuleRecommendations('crawler_accessibility').length}
+                  </span>
+                </button>
+              )}
           </div>
           <div className="card-score">
-            <div 
+            <div
               className="score-circle-metric"
-              style={{ 
+              style={{
                 '--progress': scores.strategy_review,
                 '--color': getScoreColor(scores.strategy_review)
               } as React.CSSProperties}
@@ -623,12 +627,12 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                 <div className="metric-name">{metric.name}</div>
                 <div className="metric-progress">
                   <div className="progress-bar">
-                    <div 
-                      className="progress-fill" 
-                      style={{ 
+                    <div
+                      className="progress-fill"
+                      style={{
                         width: `${metric.score}%`,
-                        backgroundColor: metric.color === 'green' ? '#10B981' : 
-                                       metric.color === 'orange' ? '#F59E0B' : '#EF4444'
+                        backgroundColor: metric.color === 'green' ? '#10B981' :
+                          metric.color === 'orange' ? '#F59E0B' : '#EF4444'
                       }}
                     ></div>
                   </div>
@@ -697,9 +701,9 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                   <div className="status-indicator">
                     <div className={`status-dot ${isCrawling ? 'active' : ''}`}></div>
                     <span>
-                      {crawlStatus === 'running' ? 'Crawling...' : 
-                       crawlStatus === 'auditing' ? 'Auditing...' : 
-                       'Completed'}
+                      {crawlStatus === 'running' ? 'Crawling...' :
+                        crawlStatus === 'auditing' ? 'Auditing...' :
+                          'Completed'}
                     </span>
                   </div>
                 </div>
@@ -734,10 +738,10 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                         {isCrawling ? 'Crawling in progress...' : 'Waiting for crawl to start...'}
                       </div>
                     ) : (
-                      logs.slice(-50).map((log, idx) => (
+                      logs.slice(-50).reverse().map((log, idx) => (
                         <div key={idx} className="log-entry">
-                          <span className="log-time">{new Date().toLocaleTimeString()}</span>
-                          <span className="log-text">{log}</span>
+                          <span className="log-time">{log.timestamp}</span>
+                          <span className="log-text">{log.message}</span>
                         </div>
                       ))
                     )}
@@ -753,11 +757,11 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                         No pages discovered yet...
                       </div>
                     ) : (
-                      discoveredPages.map((page, idx) => (
+                      discoveredPages.slice().reverse().map((page, idx) => (
                         <div key={idx} className="page-entry">
-                          <a 
-                            href={page.url || page} 
-                            target="_blank" 
+                          <a
+                            href={page.url || page}
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="page-url"
                           >
@@ -771,34 +775,34 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
               </div>
             </div>
           )}
-          
+
           {activeView === 'data' && (
             <div className="data-content-embedded">
               <DataViewer
-                onClose={() => {}}
+                onClose={() => { }}
                 initialSessionId={result?.session_id || null}
               />
             </div>
           )}
-          
+
           {activeView === 'links' && (
             <div className="links-content-embedded">
               <LinkExplorer
-                onClose={() => {}}
+                onClose={() => { }}
               />
             </div>
           )}
-          
+
           {activeView === 'tree' && (
             <div className="tree-content-embedded">
               <WebTree
-                onClose={() => {}}
+                onClose={() => { }}
               />
             </div>
           )}
-          
+
           {activeView === 'audits' && <AuditsPage />}
-          
+
           {activeView === 'schema' && (
             <div className="schema-generator-content">
               <div className="content-header">
@@ -806,7 +810,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                   <h3>📝 Schema.org Markup Generator</h3>
                   <p>Generate SEO-optimized Schema.org JSON-LD markup using AI</p>
                 </div>
-                <button 
+                <button
                   className="action-button primary"
                   onClick={generateSchema}
                   disabled={schemaLoading || !url}
@@ -820,7 +824,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                 <label htmlFor="schema-type" className="schema-type-label">
                   Select Schema Type:
                 </label>
-                <select 
+                <select
                   id="schema-type"
                   className="schema-type-dropdown"
                   value={selectedSchemaType}
@@ -876,13 +880,13 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                       <div className="schema-header-left">
                         <h4>Schema Markup</h4>
                         <div className="schema-format-toggle">
-                          <button 
+                          <button
                             className={`format-button ${schemaFormat === 'json-ld' ? 'active' : ''}`}
                             onClick={() => setSchemaFormat('json-ld')}
                           >
                             JSON-LD
                           </button>
-                          <button 
+                          <button
                             className={`format-button ${schemaFormat === 'rdfa' ? 'active' : ''}`}
                             onClick={() => setSchemaFormat('rdfa')}
                           >
@@ -890,7 +894,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                           </button>
                         </div>
                       </div>
-                      <button 
+                      <button
                         className="copy-button"
                         onClick={copySchemaToClipboard}
                       >
@@ -951,13 +955,13 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                   </p>
                 </div>
               </div>
-              <button 
+              <button
                 className="close-button"
                 onClick={() => setShowRecommendations(null)}
                 aria-label="Close modal"
               >
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </button>
             </div>
@@ -1080,12 +1084,12 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
               ) : (
                 <div>
                   {(() => {
-                    const moduleName = showRecommendations === 'ai_presence' ? 'AI Presence' : 
-                                      showRecommendations === 'competitor_analysis' ? 'Competitor Analysis' : '';
-                    const moduleIcon = showRecommendations === 'ai_presence' ? '🤖' : 
-                                     showRecommendations === 'competitor_analysis' ? '🎯' : '';
+                    const moduleName = showRecommendations === 'ai_presence' ? 'AI Presence' :
+                      showRecommendations === 'competitor_analysis' ? 'Competitor Analysis' : '';
+                    const moduleIcon = showRecommendations === 'ai_presence' ? '🤖' :
+                      showRecommendations === 'competitor_analysis' ? '🎯' : '';
                     const recommendations = getModuleRecommendations(showRecommendations);
-                    
+
                     if (recommendations.length === 0) {
                       return (
                         <div className="no-recommendations">
@@ -1096,7 +1100,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                         </div>
                       );
                     }
-                    
+
                     return (
                       <div className="module-section">
                         {moduleName && (

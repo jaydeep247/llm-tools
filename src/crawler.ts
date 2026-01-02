@@ -1,4 +1,4 @@
-import { CheerioCrawler, log, RequestQueue ,Configuration } from 'crawlee';
+import { CheerioCrawler, log, RequestQueue, Configuration } from 'crawlee';
 import { canonicalizeUrl, isSameSite } from './utils/url.js';
 import { Logger } from './logging/Logger.js';
 import { MetricsCollector } from './monitoring/MetricsCollector.js';
@@ -15,7 +15,7 @@ Configuration.set('systemInfoV2', true);
  */
 function isValidHttpLink(href: string): boolean {
     if (!href) return false;
-    
+
     // Skip non-HTTP protocols
     const lowerHref = href.toLowerCase();
     if (lowerHref.startsWith('javascript:') ||
@@ -31,7 +31,7 @@ function isValidHttpLink(href: string): boolean {
         lowerHref.startsWith('#')) {
         return false;
     }
-    
+
     // Must be HTTP or HTTPS
     return lowerHref.startsWith('http://') || lowerHref.startsWith('https://');
 }
@@ -48,6 +48,7 @@ type CrawlOptions = {
     runAudits?: boolean;
     auditDevice?: 'mobile' | 'desktop';
     captureLinkDetails?: boolean;
+    sessionId?: number;
 };
 
 type CrawlEvents = {
@@ -57,6 +58,8 @@ type CrawlEvents = {
     onAuditStart?: (url: string) => void;
     onAuditComplete?: (url: string, success: boolean, lcp?: number, tbt?: number, cls?: number, performanceScore?: number) => void;
     onAuditResults?: (results: any) => void;
+    onAuditsComplete?: () => void;
+    onSessionStart?: (sessionId: number) => void;
 };
 
 // Global flag to control audit cancellation
@@ -72,7 +75,7 @@ export function resetAuditCancellation(): void {
 
 export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, metricsCollector?: MetricsCollector): Promise<void> {
     const { startUrl, allowSubdomains, maxConcurrency, perHostDelayMs, denyParamPrefixes, scheduleId, userId, runAudits = false, auditDevice = 'desktop', captureLinkDetails = false } = options;
-    const { onLog, onPage, onDone, onAuditStart, onAuditComplete, onAuditResults } = events;
+    const { onLog, onPage, onDone, onAuditStart, onAuditComplete, onAuditResults, onAuditsComplete, onSessionStart } = events;
     const logger = Logger.getInstance();
     const db = getDatabase();
 
@@ -83,12 +86,12 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
         start = new URL(startUrl);
         allowedHost = start.hostname;
 
-    const startMsg = `Starting crawl for ${startUrl} (host=${allowedHost}, allowSubdomains=${allowSubdomains})`;
-    log.info(startMsg);
-    onLog?.(startMsg);
-        
+        const startMsg = `Starting crawl for ${startUrl} (host=${allowedHost}, allowSubdomains=${allowSubdomains})`;
+        log.info(startMsg);
+        onLog?.(startMsg);
+
         // Initialize SEO enqueue with the crawl's origin
-        try { await initSeoEnqueue(start.href); } catch {}
+        try { await initSeoEnqueue(start.href); } catch { }
     } catch (error) {
         const errorMsg = `Invalid start URL: ${startUrl}`;
         logger.error(errorMsg, error as Error);
@@ -96,35 +99,43 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
         throw error;
     }
 
-    // Create crawl session
+    // Create crawl session (only if not provided)
     let sessionId: number;
-    try {
-        sessionId = db.createCrawlSession({
-            startUrl,
-            allowSubdomains,
-            maxConcurrency,
-            mode: 'html',
-            scheduleId,
-            userId,
-            startedAt: new Date().toISOString(),
-            totalPages: 0,
-            totalResources: 0,
-            duration: 0,
-            status: 'running'
-        });
-        logger.info(`Created crawl session: ${sessionId}`);
-    } catch (error) {
-        const errorMsg = `Failed to create crawl session: ${(error as Error).message}`;
-        logger.error(errorMsg, error as Error);
-        onLog?.(errorMsg);
-        throw error;
+    if (options.sessionId) {
+        sessionId = options.sessionId;
+        logger.info(`Using provided crawl session: ${sessionId}`);
+    } else {
+        try {
+            sessionId = await db.createCrawlSession({
+                startUrl,
+                allowSubdomains,
+                maxConcurrency,
+                mode: 'html',
+                scheduleId,
+                userId,
+                startedAt: new Date().toISOString(),
+                totalPages: 0,
+                totalResources: 0,
+                duration: 0,
+                status: 'running'
+            });
+            logger.info(`Created crawl session: ${sessionId}`);
+        } catch (error) {
+            const errorMsg = `Failed to create crawl session: ${(error as Error).message}`;
+            logger.error(errorMsg, error as Error);
+            onLog?.(errorMsg);
+            throw error;
+        }
     }
 
+    // Notify listeners about the session ID
+    onSessionStart?.(sessionId);
+
     // Helper function to log and save to database
-    const logAndSave = (message: string, level: string = 'info') => {
+    const logAndSave = async (message: string, level: string = 'info') => {
         onLog?.(message);
         try {
-            db.saveCrawlLog(sessionId, message, level);
+            await db.saveCrawlLog(sessionId, message, level);
         } catch (error) {
             logger.error('Failed to save log to database', error as Error);
         }
@@ -133,48 +144,46 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
     // Discover sitemaps and add URLs to queue
     const sitemapMsg = 'Discovering sitemaps...';
     log.info(sitemapMsg);
-    logAndSave(sitemapMsg);
+    await logAndSave(sitemapMsg);
 
     try {
         const sitemapResult = await SitemapService.discoverSitemaps(startUrl);
-        
+
         // Store sitemap discovery results
         for (const sitemapUrl of sitemapResult.sitemapUrls) {
-            db.insertSitemapDiscovery({
+            await db.insertSitemapDiscovery({
                 sessionId,
                 sitemapUrl,
                 discoveredUrls: 0,
                 lastModified: new Date().toISOString(),
                 success: true,
-                errorMessage: null
+                errorMessage: undefined
             });
         }
 
         // Store discovered URLs from sitemaps
         for (const urlData of sitemapResult.discoveredUrls) {
-            db.insertSitemapUrl({
+            await db.insertSitemapUrl({
                 sessionId,
                 url: urlData.url,
-                lastModified: urlData.lastModified || null,
-                changeFrequency: urlData.changeFrequency || null,
-                priority: urlData.priority || null,
-                discoveredAt: new Date().toISOString(),
-                crawled: false
+                lastModified: urlData.lastModified || undefined,
+                changeFrequency: urlData.changeFrequency || undefined,
+                priority: urlData.priority || undefined,
             });
         }
 
         const discoveryMsg = `Discovered ${sitemapResult.discoveredUrls.length} URLs from ${sitemapResult.sitemapUrls.length} sitemaps`;
         log.info(discoveryMsg);
-        logAndSave(discoveryMsg);
+        await logAndSave(discoveryMsg);
 
         if (sitemapResult.errors.length > 0) {
             const errorMsg = `Sitemap discovery errors: ${sitemapResult.errors.join(', ')}`;
-            logAndSave(errorMsg, 'warning');
+            await logAndSave(errorMsg, 'warning');
         }
     } catch (error) {
         const errorMsg = `Sitemap discovery failed: ${error}`;
         log.error(errorMsg);
-        logAndSave(errorMsg, 'error');
+        await logAndSave(errorMsg, 'error');
     }
 
     // Use a unique queue per session run to avoid reusing handled requests
@@ -182,7 +191,7 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
 
     // Add discovered sitemap URLs to the queue
     try {
-        const sitemapUrls = db.getUncrawledSitemapUrls(sessionId);
+        const sitemapUrls = await db.getUncrawledSitemapUrls(sessionId);
         // Add requests directly to the same RequestQueue Cheerio will use
         await queue.addRequest({ url: start.href });
         for (const u of sitemapUrls) {
@@ -195,8 +204,8 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
             const qmsg = `Queue prepared: pending=${info?.pendingRequestCount ?? 'n/a'}, handled=${info?.handledRequestCount ?? 'n/a'}`;
             log.info(qmsg);
             onLog?.(qmsg);
-        } catch {}
-        
+        } catch { }
+
         if (sitemapUrls.length > 0) {
             const queueMsg = `Added ${sitemapUrls.length} sitemap URLs to crawl queue`;
             log.info(queueMsg);
@@ -229,18 +238,20 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
         ],
         requestHandler: async ({ request, $, enqueueLinks, log: reqLog, response }) => {
             const { url } = request;
-            
+
             if (response?.statusCode && response.statusCode >= 400) {
                 const errorMsg = `Skipping ${url} due to status ${response.statusCode}`;
                 reqLog.debug(errorMsg);
                 onLog?.(errorMsg);
-                
+
                 // Store failed request data
-                db.insertPage({
+                await db.insertPage({
                     sessionId,
                     url,
                     title: 'Request Failed',
+                    titleLength: 0,
                     description: `HTTP ${response.statusCode} Error`,
+                    descriptionLength: 0,
                     contentType: response?.headers?.['content-type'] || response?.responseHeaders?.['content-type'] || 'Unknown',
                     lastModified: response?.headers?.['last-modified'] || response?.responseHeaders?.['last-modified'] || null,
                     statusCode: response.statusCode,
@@ -250,7 +261,7 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
                     success: false,
                     errorMessage: `HTTP ${response.statusCode} Error`
                 });
-                
+
                 onPage?.(url);
                 return;
             }
@@ -272,11 +283,13 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
             const wordCount = textContent ? textContent.split(/\s+/).length : 0;
 
             // Record the page data
-            const pageId = db.insertPage({
+            const pageId = await db.insertPage({
                 sessionId,
                 url,
                 title: $('title').text().trim() || 'No title',
+                titleLength: $('title').text().trim().length,
                 description: $('meta[name="description"]').attr('content') || 'No description',
+                descriptionLength: ($('meta[name="description"]').attr('content') || '').length,
                 contentType: resolvedContentType,
                 lastModified: response?.headers?.['last-modified'] || response?.responseHeaders?.['last-modified'] || null,
                 statusCode: response?.statusCode || 200,
@@ -286,15 +299,15 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
                 success: true,
                 errorMessage: null
             });
-            
+
             // Mark sitemap URL as crawled if it was discovered from sitemap
-            db.markSitemapUrlAsCrawled(sessionId, url);
-            
+            await db.markSitemapUrlAsCrawled(sessionId, url);
+
             onPage?.(url);
-            
+
             // Enqueue for SEO extraction if eligible (non-blocking)
-            try { await maybeEnqueueSeo(url, resolvedContentType, wordCount); } catch {}
-            
+            try { await maybeEnqueueSeo(url, resolvedContentType, wordCount); } catch { }
+
             // Record successful request in metrics
             if (metricsCollector) {
                 metricsCollector.recordRequest({
@@ -305,7 +318,7 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
                     success: true
                 });
             }
-            
+
             logger.debug('Page processed', { url, responseTime });
 
             // Enqueue same-site links discovered on the page
@@ -342,100 +355,96 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
             }
 
             // Collect CSS files (fast: no HEAD requests)
-            $('link[rel="stylesheet"][href]').each((_i, el) => {
-                const href = $(el).attr('href');
-                if (!href) return;
+            const cssLinks = $('link[rel="stylesheet"][href]').map((_i, el) => $(el).attr('href')).get();
+            for (const href of cssLinks) {
+                if (!href) continue;
                 let absolute: string;
-                try { absolute = new URL(href, url).toString(); } catch { return; }
-                if (emittedCss.has(absolute)) return;
-                    emittedCss.add(absolute);
-                db.upsertResource({
+                try { absolute = new URL(href, url).toString(); } catch { continue; }
+                if (emittedCss.has(absolute)) continue;
+                emittedCss.add(absolute);
+                await db.upsertResource({
                     sessionId,
                     pageId: pageId,
-                        url: absolute,
-                        resourceType: 'css',
-                        title: '',
-                        description: 'CSS file',
-                        contentType: 'text/css',
+                    url: absolute,
+                    resourceType: 'css',
+                    title: '',
+                    description: 'CSS file',
+                    contentType: 'text/css',
                     statusCode: null,
                     responseTime: null,
                     timestamp: new Date().toISOString()
                 });
-            });
+            }
 
-            // Collect JS files
             // Collect JS files (fast)
-            $('script[src]').each((_i, el) => {
-                const src = $(el).attr('src');
-                if (!src) return;
+            const jsLinks = $('script[src]').map((_i, el) => $(el).attr('src')).get();
+            for (const src of jsLinks) {
+                if (!src) continue;
                 let absolute: string;
-                try { absolute = new URL(src, url).toString(); } catch { return; }
-                if (emittedJs.has(absolute)) return;
-                    emittedJs.add(absolute);
-                db.upsertResource({
+                try { absolute = new URL(src, url).toString(); } catch { continue; }
+                if (emittedJs.has(absolute)) continue;
+                emittedJs.add(absolute);
+                await db.upsertResource({
                     sessionId,
                     pageId: pageId,
-                        url: absolute,
-                        resourceType: 'js',
-                        title: '',
-                        description: 'JavaScript file',
-                        contentType: 'application/javascript',
+                    url: absolute,
+                    resourceType: 'js',
+                    title: '',
+                    description: 'JavaScript file',
+                    contentType: 'application/javascript',
                     statusCode: null,
                     responseTime: null,
                     timestamp: new Date().toISOString()
                 });
-            });
+            }
 
-            // Collect images
             // Collect images (fast)
-            $('img[src]').each((_i, el) => {
-                const src = $(el).attr('src');
-                if (!src) return;
-                const alt = $(el).attr('alt') || '';
+            const imgElems = $('img[src]').map((_i, el) => ({ src: $(el).attr('src'), alt: $(el).attr('alt') })).get();
+            for (const { src, alt } of imgElems) {
+                if (!src) continue;
                 let absolute: string;
-                try { absolute = new URL(src, url).toString(); } catch { return; }
-                if (emittedImg.has(absolute)) return;
-                    emittedImg.add(absolute);
-                db.upsertResource({
+                try { absolute = new URL(src, url).toString(); } catch { continue; }
+                if (emittedImg.has(absolute)) continue;
+                emittedImg.add(absolute);
+                await db.upsertResource({
                     sessionId,
                     pageId: pageId,
-                        url: absolute,
-                        resourceType: 'image',
-                    title: alt,
-                        description: 'Image',
-                        contentType: 'image/*',
+                    url: absolute,
+                    resourceType: 'image',
+                    title: alt || '',
+                    description: 'Image',
+                    contentType: 'image/*',
                     statusCode: null,
                     responseTime: null,
                     timestamp: new Date().toISOString()
                 });
-            });
+            }
 
-            // Collect external links
             // Collect external links (fast)
-            $('a[href]').each((_i, el) => {
-                const href = $(el).attr('href');
-                if (!href) return;
+            const links = $('a[href]').map((_i, el) => $(el).attr('href')).get();
+            for (const href of links) {
+                if (!href) continue;
                 let absolute: string;
-                try { absolute = new URL(href, url).toString(); } catch { return; }
+                try { absolute = new URL(href, url).toString(); } catch { continue; }
                 // Only track real HTTP/HTTPS links
-                if (!isValidHttpLink(absolute)) return;
+                if (!isValidHttpLink(absolute)) continue;
                 if (!isSameSite(absolute, allowedHost, allowSubdomains)) {
-                    if (emittedExternal.has(absolute)) return;
-                        emittedExternal.add(absolute);
-                    db.upsertResource({
+                    if (emittedExternal.has(absolute)) continue;
+                    emittedExternal.add(absolute);
+                    await db.upsertResource({
                         sessionId,
                         pageId: pageId,
-                            url: absolute,
-                            resourceType: 'external',
-                            title: '',
-                            description: 'External link',
-                            contentType: 'text/html',
+                        url: absolute,
+                        resourceType: 'external',
+                        title: '',
+                        description: 'External link',
+                        contentType: 'text/html',
                         statusCode: null,
                         responseTime: null,
                         timestamp: new Date().toISOString()
                     });
                 }
-            });
+            }
 
             // Link analysis (if enabled)
             if (captureLinkDetails) {
@@ -453,32 +462,32 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
                     rel?: string;
                     nofollow?: boolean;
                 }> = [];
-                
+
                 const processedLinks = new Set<string>(); // For deduplication
-                
+
                 $('a[href]').each((_i, el) => {
                     try {
                         const href = $(el).attr('href');
                         if (!href) return;
-                        
+
                         let absolute: string;
-                        try { 
-                            absolute = new URL(href, url).toString(); 
-                        } catch { 
-                            return; 
+                        try {
+                            absolute = new URL(href, url).toString();
+                        } catch {
+                            return;
                         }
-                        
+
                         // Only process HTTP/HTTPS links
                         if (!isValidHttpLink(absolute)) return;
-                        
+
                         // Deduplicate by target URL and XPath
                         const metadata = extractLinkMetadata(el, url, $);
                         const dedupeKey = `${metadata.targetUrl}|${metadata.xpath}`;
                         if (processedLinks.has(dedupeKey)) return;
                         processedLinks.add(dedupeKey);
-                        
+
                         const isInternal = isSameSite(absolute, allowedHost, allowSubdomains);
-                        
+
                         linksToInsert.push({
                             sessionId,
                             sourcePageId: pageId,
@@ -496,12 +505,12 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
                         reqLog.debug(`Skipping link analysis for ${$(el).attr('href')}: ${(error as Error).message}`);
                     }
                 });
-                
+
                 // Batch insert links
                 if (linksToInsert.length > 0) {
-                    db.insertLinks(linksToInsert);
+                    await db.insertLinks(linksToInsert);
                 }
-                
+
                 // Record metrics
                 const linkAnalysisTime = Date.now() - linkAnalysisStart;
                 if (metricsCollector) {
@@ -511,7 +520,7 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
                         linkAnalysisTime
                     );
                 }
-                
+
                 reqLog.debug(`Link analysis: found ${processedLinks.size} links, inserted ${linksToInsert.length} in ${linkAnalysisTime}ms`);
             }
         },
@@ -519,18 +528,18 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
             const warn = `Request failed ${request.url}: ${(error as Error).message}`;
             log.warning(warn);
             onLog?.(warn);
-            
+
             // Calculate response time for failed request
             const startTime = requestStartTimes.get(request.url) || Date.now();
             const responseTime = Date.now() - startTime;
-            
+
             // Store failed request data
-            db.insertPage({
+            await db.insertPage({
                 sessionId,
                 url: request.url,
                 title: 'Request Failed',
-                description: `Error: ${(error as Error).message}`,
-                contentType: 'Unknown',
+                titleLength: 0,
+                description: `Error: ${(error as Error).message}`, descriptionLength: 0, contentType: 'Unknown',
                 lastModified: null,
                 statusCode: 0,
                 responseTime: responseTime,
@@ -539,7 +548,7 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
                 success: false,
                 errorMessage: (error as Error).message
             });
-            
+
             // Record failed request in metrics
             if (metricsCollector) {
                 metricsCollector.recordRequest({
@@ -559,31 +568,31 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
     await cheerioCrawler.run();
 
     // Update crawl session with final stats
-    const totalPages = db.getPageCount(sessionId);
-    const totalResources = db.getResourceCount(sessionId);
+    const totalPages = await db.getPageCount(sessionId);
+    const totalResources = await db.getResourceCount(sessionId);
     const endTime = Date.now();
-    const sessionInfo = db.getCrawlSession(sessionId) as any;
+    const sessionInfo = await db.getCrawlSession(sessionId) as any;
     const startedAtIso: string | null = sessionInfo?.startedAt ?? sessionInfo?.started_at ?? null;
     const startTime = startedAtIso ? new Date(startedAtIso).getTime() : Date.now();
     const duration = Math.max(0, Math.floor((endTime - startTime) / 1000));
-    
+
     // Set status based on whether audits are still running
     const finalStatus = runAudits ? 'auditing' : 'completed';
-    
-    db.updateCrawlSession(sessionId, {
+
+    await db.updateCrawlSession(sessionId, {
         completedAt: new Date().toISOString(),
         totalPages,
         totalResources,
         duration,
         status: finalStatus
     });
-    
+
     // Send real-time status update via SSE if status is 'auditing'
     if (finalStatus === 'auditing') {
         // Note: We can't send SSE from here since we don't have access to sendEvent
         // The status will be updated when audits complete
     }
-    
+
     const totalItems = totalPages + totalResources;
     const doneMsg = `🎉 Crawl complete! Found ${totalItems} items (${totalPages} pages, ${totalResources} resources)`;
     log.info(doneMsg);
@@ -594,24 +603,24 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
     if (captureLinkDetails) {
         const postProcessStart = Date.now();
         onLog?.('🔗 Resolving link relationships...');
-        
+
         try {
-            const resolvedCount = db.resolveTargetPageIds(sessionId);
+            const resolvedCount = await db.resolveTargetPageIds(sessionId);
             const postProcessTime = Date.now() - postProcessStart;
-            
+
             onLog?.(`✓ Resolved ${resolvedCount} internal link relationships in ${postProcessTime}ms`);
-            
+
             // Get link statistics
-            const linkStats = db.getLinkStats(sessionId);
+            const linkStats = await db.getLinkStats(sessionId);
             onLog?.(`📊 Link Analysis: ${linkStats.totalLinks} total links (${linkStats.internalLinks} internal, ${linkStats.externalLinks} external)`);
-            
-            if (Object.keys(linkStats.linksByPosition).length > 0) {
-                const positionStats = Object.entries(linkStats.linksByPosition)
+
+            if (linkStats.linksByPosition && Object.keys(linkStats.linksByPosition).length > 0) {
+                const positionStats = Object.entries(linkStats.linksByPosition as Record<string, number>)
                     .map(([pos, count]) => `${pos}: ${count}`)
                     .join(', ');
                 onLog?.(`📍 Links by position: ${positionStats}`);
             }
-            
+
         } catch (error) {
             onLog?.(`⚠️ Link post-processing failed: ${(error as Error).message}`);
             logger.error('Link post-processing failed', error as Error);
@@ -632,10 +641,10 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
             const auditIntegration = new CrawlAuditIntegration(sessionId);
 
             // Get crawled URLs for auditing
-            const crawledPages = db.getPages(sessionId);
+            const crawledPages = await db.getPages(sessionId);
             const urlsToAudit = crawledPages
-                .filter(page => page.success)
-                .map(page => page.url);
+                .filter((page: any) => page.success)
+                .map((page: any) => page.url);
 
             const auditMsg = `🔍 Starting performance audits for all ${urlsToAudit.length} crawled URLs (${auditDevice})...`;
             log.info(auditMsg);
@@ -647,29 +656,29 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
                 onLog?.(noAuditMsg);
             } else {
                 onLog?.(`Running audits for ${urlsToAudit.length} URLs...`);
-                
+
                 // Process audits in parallel batches to speed up execution
                 // Dynamic batch size based on total URLs for optimal performance
                 const totalUrls = urlsToAudit.length;
                 let batchSize = 8; // Default for small sites (increased from 3)
-                
+
                 if (totalUrls > 50) {
                     batchSize = 12; // Larger batches for big sites (increased from 5)
                 } else if (totalUrls > 20) {
                     batchSize = 10; // Medium batches for medium sites (increased from 4)
                 }
-                
+
                 const batches = [];
-                
+
                 for (let i = 0; i < urlsToAudit.length; i += batchSize) {
                     const batch = urlsToAudit.slice(i, i + batchSize);
                     batches.push(batch);
                 }
-                
+
                 const setupMsg = `🚀 Processing ${totalUrls} audits in ${batches.length} batches of ${batchSize} (parallel execution)`;
                 log.info(setupMsg);
                 onLog?.(setupMsg);
-                
+
                 const startTime = Date.now();
                 let completedAudits = 0;
 
@@ -681,28 +690,28 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
                         onLog?.(cancelMsg);
                         break;
                     }
-                    
+
                     // Process batch in parallel
-                    const batchPromises = batch.map(async (url) => {
+                    const batchPromises = batch.map(async (url: string) => {
                         try {
                             onAuditStart?.(url);
                             const auditResult = await auditIntegration.runAuditForUrl(url, auditDevice);
-                            
+
                             onAuditComplete?.(
-                                url, 
-                                auditResult.success, 
-                                auditResult.lcp, 
-                                auditResult.tbt, 
+                                url,
+                                auditResult.success,
+                                auditResult.lcp,
+                                auditResult.tbt,
                                 auditResult.cls,
                                 auditResult.performanceScore
                             );
-                            
+
                             if (auditResult.success) {
                                 onLog?.(`✓ Audit completed for ${url} - LCP: ${auditResult.lcp ? Math.round(auditResult.lcp) + 'ms' : 'N/A'}, TBT: ${auditResult.tbt ? Math.round(auditResult.tbt) + 'ms' : 'N/A'}, CLS: ${auditResult.cls ? auditResult.cls.toFixed(3) : 'N/A'}`);
                             } else {
                                 onLog?.(`✗ Audit failed for ${url}: ${auditResult.error}`);
                             }
-                            
+
                             return { url, success: auditResult.success };
                         } catch (error) {
                             onLog?.(`✗ Audit error for ${url}: ${(error as Error).message}`);
@@ -713,7 +722,7 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
 
                     // Wait for batch to complete
                     await Promise.all(batchPromises);
-                    
+
                     // Check for cancellation after batch completion
                     if (auditCancelled) {
                         const cancelMsg = '🛑 Audit process cancelled by user';
@@ -721,7 +730,7 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
                         onLog?.(cancelMsg);
                         break;
                     }
-                    
+
                     // Update progress tracking
                     completedAudits += batch.length;
                     const batchIndex = batches.indexOf(batch);
@@ -729,11 +738,11 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
                     const elapsed = Math.round((Date.now() - startTime) / 1000);
                     const estimatedTotal = Math.round((elapsed / completedAudits) * totalUrls);
                     const remaining = Math.max(0, estimatedTotal - elapsed);
-                    
+
                     const progressMsg = `📊 Progress: ${completedAudits}/${totalUrls} (${progress}%) | Elapsed: ${elapsed}s | ETA: ${remaining}s`;
                     log.info(progressMsg);
                     onLog?.(progressMsg);
-                    
+
                     // Smart delay between batches - shorter delays for better performance
                     if (batchIndex < batches.length - 1) {
                         // Reduce delay based on batch size and progress
@@ -746,20 +755,20 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
                 // Get and report final audit results
                 const totalTime = Math.round((Date.now() - startTime) / 1000);
                 const auditsPerMinute = Math.round((totalUrls / totalTime) * 60);
-                
+
                 const auditStats = auditIntegration.getAuditStats();
                 const auditResultsMsg = `📊 Audit Results: ${auditStats.successful}/${auditStats.total} successful (${auditStats.successRate.toFixed(1)}% success rate)`;
                 log.info(auditResultsMsg);
                 onLog?.(auditResultsMsg);
-                
+
                 // Performance summary
                 const performanceMsg = `⚡ Performance: ${totalTime}s total | ${auditsPerMinute} audits/min | ${batchSize} parallel`;
                 log.info(performanceMsg);
                 onLog?.(performanceMsg);
-                
+
                 // Debug: Log batch completion
                 log.info(`Batch processing completed: ${batches.length} batches processed`);
-                
+
                 if (auditStats.averageLcp > 0) {
                     onLog?.(`📈 Average LCP: ${Math.round(auditStats.averageLcp)}ms`);
                 }
@@ -772,6 +781,9 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
 
                 // Send detailed results to callback
                 onAuditResults?.(auditIntegration.getAllAuditResults());
+
+                // Notify that all audits are complete
+                onAuditsComplete?.();
             }
         } catch (error) {
             const auditErrorMsg = `❌ Audit execution failed: ${(error as Error).message}`;

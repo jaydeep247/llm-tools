@@ -21,13 +21,16 @@ export class AuthService {
     private readonly REFRESH_TOKEN_EXPIRY = '7d'; // 7 days
 
     constructor() {
-        // In production, these should be in environment variables
-        this.JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-        this.JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'your-refresh-secret-key-change-in-production';
-
+        // Validate required environment variables
         if (!process.env.JWT_SECRET || !process.env.JWT_REFRESH_SECRET) {
-            console.warn('⚠️  WARNING: Using default JWT secrets. Set JWT_SECRET and JWT_REFRESH_SECRET in production!');
+            throw new Error(
+                '❌ CRITICAL: JWT_SECRET and JWT_REFRESH_SECRET must be set in environment variables. ' +
+                'Generate secure secrets with: openssl rand -base64 32'
+            );
         }
+
+        this.JWT_SECRET = process.env.JWT_SECRET;
+        this.JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
     }
 
     /**
@@ -130,12 +133,12 @@ export class AuthService {
      */
     extractTokenFromHeader(authHeader: string | undefined): string | null {
         if (!authHeader) return null;
-        
+
         const parts = authHeader.split(' ');
         if (parts.length !== 2 || parts[0] !== 'Bearer') {
             return null;
         }
-        
+
         return parts[1];
     }
 }

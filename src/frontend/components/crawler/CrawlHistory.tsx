@@ -30,52 +30,25 @@ interface CrawlHistoryProps {
 }
 
 export const CrawlHistory: React.FC<CrawlHistoryProps> = ({ onSelectCrawl }) => {
-  const { accessToken } = useAuth();
+  const { accessToken, authFetch } = useAuth();
   const [history, setHistory] = useState<CrawlHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchHistory();
-  }, []);
-
-  // Listen for real-time status updates via SSE
-  useEffect(() => {
-  if (!accessToken) return;
-
-  const eventSource = new EventSource(
-    `/events?token=${accessToken}`
-  );
-
-  eventSource.addEventListener('session-status-update', (e) => {
-    const data = JSON.parse(e.data);
-    if (data.sessionId && data.status) {
-      setHistory(prev => prev.map(item =>
-        item.session.id === data.sessionId
-          ? { ...item, session: { ...item.session, status: data.status } }
-          : item
-      ));
-    }
-  });
-
-  eventSource.onerror = (err) => {
-    console.error('SSE error:', err);
-    eventSource.close();
-  };
-
-  return () => eventSource.close();
-}, [accessToken]);
+    // Refresh history periodically (every 30 seconds)
+    const interval = setInterval(fetchHistory, 30000);
+    return () => clearInterval(interval);
+  }, [accessToken]);
 
 
   const fetchHistory = async () => {
     try {
-      setLoading(true);
-      const response = await fetch('/api/crawl-history', {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        },
-        credentials: 'include'
-      });
+      // Don't set loading to true on background refreshes if we already have data
+      if (history.length === 0) setLoading(true);
+
+      const response = await authFetch('/api/crawl-history');
 
       if (!response.ok) {
         throw new Error('Failed to fetch crawl history');
@@ -168,70 +141,83 @@ export const CrawlHistory: React.FC<CrawlHistoryProps> = ({ onSelectCrawl }) => 
   return (
     <div className="crawl-history-container">
       <h2 className="text-2xl font-bold text-white mb-6">📜 Crawl History</h2>
-      
+
       <div className="history-grid">
-        {history.map((item) => (
-          <div
-            key={item.session.id}
-            className="history-card bg-gray-800 border border-gray-700 rounded-lg p-5 hover:border-purple-500 transition-all cursor-pointer"
-            onClick={() => onSelectCrawl(item.session.startUrl, item.session.id, item.aeoResult)}
-          >
-            <div className="flex justify-between items-start mb-3">
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-white truncate mb-1">
-                  {item.session.startUrl}
-                </h3>
-                <p className="text-sm text-gray-400">
-                  {formatDate(item.session.startedAt)}
-                </p>
-              </div>
-              <div className="flex gap-2 items-start">
-                {getStatusBadge(item.session.status)}
-                {item.isReused && (
-                  <span className="px-2 py-1 text-xs font-semibold rounded-full bg-amber-600 text-white whitespace-nowrap">
-                    ⚡ Reused
-                  </span>
-                )}
-              </div>
-            </div>
+        {history.map((item: any, index) => {
+          // Robustly handle both old (flat) and new (nested) formats
+          const session = item.session || item;
+          const aeoResult = item.aeoResult || (item.aeo_grade ? { overallScore: 0, grade: item.aeo_grade, gradeColor: '#ccc', analysisTimestamp: '' } : null);
+          const isReused = item.isReused || false;
 
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <div className="stat-box bg-gray-900 rounded p-2">
-                <p className="text-xs text-gray-400">Pages Crawled</p>
-                <p className="text-xl font-bold text-white">{item.session.totalPages}</p>
-              </div>
-              <div className="stat-box bg-gray-900 rounded p-2">
-                <p className="text-xs text-gray-400">Duration</p>
-                <p className="text-xl font-bold text-white">{(item.session.duration)+ "s"}</p>
-              </div>
-            </div>
+          // Safety check: if session is still undefined or doesn't have id, skip or show error
+          if (!session || session.id === undefined) {
+            console.warn('Invalid crawl history item at index', index, item);
+            return null;
+          }
 
-            {item.aeoResult && (
-              <div className="aeo-score-box bg-gradient-to-r from-purple-900 to-purple-800 rounded p-3 mt-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-purple-200">AEO Score</p>
-                    <p className="text-2xl font-bold text-white">
-                      {Math.round(item.aeoResult.overallScore)}%
-                    </p>
-                  </div>
-                  {/* <div
-                    className="grade-badge text-3xl font-bold px-4 py-2 rounded"
-                    style={{ backgroundColor: item.aeoResult.gradeColor }}
-                  >
-                    {item.aeoResult.grade}
-                  </div> */}
+          const startUrl = session.startUrl || session.start_url || 'Unknown URL';
+          const startedAt = session.startedAt || session.started_at;
+          const status = session.status || 'unknown';
+          const totalPages = session.totalPages !== undefined ? session.totalPages : (session.total_pages || 0);
+          const duration = session.duration !== undefined ? session.duration : (session.duration_ms ? Math.round(session.duration_ms / 1000) : 0);
+
+          return (
+            <div
+              key={session.id}
+              className="history-card bg-gray-800 border border-gray-700 rounded-lg p-5 hover:border-purple-500 transition-all cursor-pointer"
+              onClick={() => onSelectCrawl(startUrl, session.id, aeoResult)}
+            >
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-white truncate mb-1">
+                    {startUrl}
+                  </h3>
+                  <p className="text-sm text-gray-400">
+                    {startedAt ? formatDate(startedAt) : 'Unknown date'}
+                  </p>
+                </div>
+                <div className="flex gap-2 items-start">
+                  {getStatusBadge(status)}
+                  {isReused && (
+                    <span className="px-2 py-1 text-xs font-semibold rounded-full bg-amber-600 text-white whitespace-nowrap">
+                      ⚡ Reused
+                    </span>
+                  )}
                 </div>
               </div>
-            )}
 
-            {!item.aeoResult && item.session.status === 'completed' && (
-              <div className="mt-3 text-center text-sm text-gray-400">
-                No AEO analysis available
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div className="stat-box bg-gray-900 rounded p-2">
+                  <p className="text-xs text-gray-400">Pages Crawled</p>
+                  <p className="text-xl font-bold text-white">{totalPages}</p>
+                </div>
+                <div className="stat-box bg-gray-900 rounded p-2">
+                  <p className="text-xs text-gray-400">Duration</p>
+                  <p className="text-xl font-bold text-white">{duration + "s"}</p>
+                </div>
               </div>
-            )}
-          </div>
-        ))}
+
+              {aeoResult && (
+                <div className="aeo-score-box bg-gradient-to-r from-purple-900 to-purple-800 rounded p-3 mt-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs text-purple-200">AEO Score</p>
+                      <p className="text-2xl font-bold text-white">
+                        {aeoResult.overallScore !== undefined ? Math.round(aeoResult.overallScore) : 'N/A'}%
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!aeoResult && status === 'completed' && (
+                <div className="mt-3 text-center text-sm text-gray-400">
+                  No AEO analysis available
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

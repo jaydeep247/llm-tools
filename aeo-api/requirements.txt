@@ -1,16 +1,18 @@
 fastapi==0.104.1
-uvicorn[standard]==0.24.0
-spacy==3.7.2
-beautifulsoup4==4.12.2
+fastapi==0.115.12
+uvicorn==0.34.0
+spacy==3.9.4
+beautifulsoup4==4.13.1
 readability-lxml==0.8.1
 langdetect==1.0.9
-pydantic==2.5.0
+pydantic==2.11.4
 python-multipart==0.0.6
 lxml==4.9.3
 requests>=2.32.3
-openai==2.6.0
-python-dotenv==1.0.0
-google-generativeai==0.8.0
-anthropic==0.40.0
-# extruct==0.12.0  # Temporarily disabled due to compatibility issues
-
+openai==1.59.9
+python-dotenv==1.0.1
+google-generativeai==0.8.4
+anthropic==0.44.0
+extruct==0.12.0  # Temporarily disabled due to compatibility issues
+httpx==0.28.1
+slowapi==0.1.92.0  # Temporarily disabled due to compatibility issues

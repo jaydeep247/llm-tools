@@ -18,15 +18,16 @@ export type AuditSummary = {
 
 const BASE_DIR = path.resolve(process.cwd(), 'storage', 'audits');
 
-export function listRecent(device: 'mobile' | 'desktop' | 'all' = 'all', limit = 100): AuditSummary[] {
+export async function listRecent(device: 'mobile' | 'desktop' | 'all' = 'all', limit = 100, sessionId?: number): Promise<AuditSummary[]> {
     const db = getDatabase();
-    
+
     // Query from database
     let results: any[];
-    if (device === 'all') {
-        results = db.getAuditResults(undefined, limit);
+
+    if (sessionId) {
+        results = await db.getAuditResultsBySessionId(sessionId, device, limit);
     } else {
-        results = db.getAuditResults(device, limit);
+        results = await db.getAuditResults(device, limit);
     }
 
     // Convert to AuditSummary format
@@ -45,23 +46,23 @@ export function listRecent(device: 'mobile' | 'desktop' | 'all' = 'all', limit =
     }));
 }
 
-export function getById(id: string): any | null {
+export async function getById(id: string): Promise<any | null> {
     const db = getDatabase();
     const numId = parseInt(id, 10);
-    
+
     if (!isNaN(numId)) {
-        const result = db.getAuditResultById(numId);
+        const result = await db.getAuditResultById(numId);
         if (result) {
             return {
                 url: result.url,
                 device: result.device,
                 runAt: result.run_at,
-                metrics: result.metrics_json ? JSON.parse(result.metrics_json) : {},
-                raw: result.raw_json ? JSON.parse(result.raw_json) : null
+                metrics: result.metrics_json || {},
+                raw: result.raw_json || null
             };
         }
     }
-    
+
     // Fallback: check legacy file storage for old audits
     const full = path.join(BASE_DIR, id);
     if (fs.existsSync(full)) {
@@ -71,7 +72,7 @@ export function getById(id: string): any | null {
             return null;
         }
     }
-    
+
     return null;
 }
 

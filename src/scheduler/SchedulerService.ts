@@ -21,7 +21,7 @@ export class SchedulerService {
     private isRunning: boolean = false;
     private intervalId: NodeJS.Timeout | null = null;
     private activeRuns: Map<number, Promise<void>> = new Map();
-    
+
     constructor(config: SchedulerConfig = {
         checkIntervalMs: 60000, // Check every minute
         maxConcurrentRuns: 3,
@@ -34,7 +34,7 @@ export class SchedulerService {
         this.config = config;
         this.mailer = Mailer.getInstance();
     }
-    
+
     /**
      * Start the scheduler service
      */
@@ -43,37 +43,37 @@ export class SchedulerService {
             this.logger.warn('Scheduler service is already running');
             return;
         }
-        
-        this.isRunning = true;
-		this.logger.info('Starting scheduler service', { config: this.config });
 
-		// Log time context for cron vs stored timestamps
-		try {
-			const localTime = new Date().toString();
-			const utcTime = new Date().toISOString();
-			// Intl timezone may not be available in all environments, so wrap in try
-			let timeZone: string | undefined;
-			try {
-				timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-			} catch {}
-			this.logger.info('Cron uses server local time; stored timestamps are UTC (ISO)', {
-				timeZone: timeZone || 'unknown',
-				serverTimeLocal: localTime,
-				serverTimeUTC: utcTime,
-			});
-		} catch {}
-        
+        this.isRunning = true;
+        this.logger.info('Starting scheduler service', { config: this.config });
+
+        // Log time context for cron vs stored timestamps
+        try {
+            const localTime = new Date().toString();
+            const utcTime = new Date().toISOString();
+            // Intl timezone may not be available in all environments, so wrap in try
+            let timeZone: string | undefined;
+            try {
+                timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            } catch { }
+            this.logger.info('Cron uses server local time; stored timestamps are UTC (ISO)', {
+                timeZone: timeZone || 'unknown',
+                serverTimeLocal: localTime,
+                serverTimeUTC: utcTime,
+            });
+        } catch { }
+
         // Check for schedules immediately
         this.checkSchedules();
-        
+
         // Set up interval to check schedules
         this.intervalId = setInterval(() => {
             this.checkSchedules();
         }, this.config.checkIntervalMs);
-        
+
         this.logger.info('Scheduler service started');
     }
-    
+
     /**
      * Stop the scheduler service
      */
@@ -82,46 +82,46 @@ export class SchedulerService {
             this.logger.warn('Scheduler service is not running');
             return;
         }
-        
+
         this.isRunning = false;
-        
+
         if (this.intervalId) {
             clearInterval(this.intervalId);
             this.intervalId = null;
         }
-        
+
         this.logger.info('Scheduler service stopped');
     }
-    
+
     /**
      * Check for schedules that should run
      */
     private async checkSchedules(): Promise<void> {
         try {
-            const schedulesToRun = this.scheduleManager.getSchedulesToRun();
-            
+            const schedulesToRun = await this.scheduleManager.getSchedulesToRun();
+
             if (schedulesToRun.length === 0) {
                 return;
             }
-            
+
             this.logger.info('Found schedules to run', { count: schedulesToRun.length });
-            
+
             for (const schedule of schedulesToRun) {
                 // Check if we're already running this schedule
                 if (this.activeRuns.has(schedule.id)) {
                     this.logger.debug('Schedule already running', { scheduleId: schedule.id });
                     continue;
                 }
-                
+
                 // Check concurrent run limit
                 if (this.activeRuns.size >= this.config.maxConcurrentRuns) {
-                    this.logger.warn('Max concurrent runs reached, skipping schedule', { 
+                    this.logger.warn('Max concurrent runs reached, skipping schedule', {
                         scheduleId: schedule.id,
                         activeRuns: this.activeRuns.size
                     });
                     continue;
                 }
-                
+
                 // Start the schedule
                 this.runSchedule(schedule);
             }
@@ -129,39 +129,39 @@ export class SchedulerService {
             this.logger.error('Error checking schedules', error as Error);
         }
     }
-    
+
     /**
      * Run a specific schedule
      */
     private async runSchedule(schedule: CrawlSchedule): Promise<void> {
         const runPromise = this.executeSchedule(schedule);
         this.activeRuns.set(schedule.id, runPromise);
-        
+
         try {
             await runPromise;
         } finally {
             this.activeRuns.delete(schedule.id);
         }
     }
-    
+
     /**
      * Execute a schedule
      */
     private async executeSchedule(schedule: CrawlSchedule): Promise<void> {
         const startTime = Date.now();
         let executionId: number | null = null;
-        
+
         try {
-            this.logger.info('Starting scheduled crawl', { 
-                scheduleId: schedule.id, 
+            this.logger.info('Starting scheduled crawl', {
+                scheduleId: schedule.id,
                 name: schedule.name,
-                startUrl: schedule.startUrl 
+                startUrl: schedule.startUrl
             });
 
             // Notify start
             const db = this.scheduleManager.getDatabase();
             // Note: CrawlSchedule doesn't have userId, skipping user notifications for now
-            
+
             // Run the crawl first
             await runCrawl({
                 startUrl: schedule.startUrl,
@@ -182,20 +182,20 @@ export class SchedulerService {
                     this.logger.info(`[Schedule ${schedule.name}] Crawl completed: ${count} pages`);
                 }
             }, this.metricsCollector);
-            
+
             // Record execution after crawl completes
             const duration = Date.now() - startTime;
-            const latestSession = db.getLatestCrawlSession();
+            const latestSession = await db.getLatestCrawlSession();
             const sessionId = latestSession ? latestSession.id : 0;
-            
-            executionId = this.scheduleManager.recordExecution(schedule.id, sessionId);
-            
+
+            executionId = await this.scheduleManager.recordExecution(schedule.id, sessionId);
+
             // Update execution as completed
             if (executionId) {
                 // Compute pages/resources for this session
-                const pagesCrawled = sessionId ? db.getPageCount(sessionId) : 0;
-                const resourcesFound = sessionId ? db.getResourceCount(sessionId) : 0;
-                this.scheduleManager.updateExecution(executionId, {
+                const pagesCrawled = sessionId ? await db.getPageCount(sessionId) : 0;
+                const resourcesFound = sessionId ? await db.getResourceCount(sessionId) : 0;
+                await this.scheduleManager.updateExecution(executionId, {
                     status: 'completed',
                     completedAt: new Date().toISOString(),
                     duration,
@@ -205,25 +205,25 @@ export class SchedulerService {
 
                 // Note: Skipping user notifications as CrawlSchedule doesn't have userId
             }
-            
+
             // Calculate next run time
             const nextRun = CronParser.validateCronExpression(schedule.cronExpression).nextRun;
             const nextRunString = nextRun ? nextRun.toISOString() : null;
-            
+
             // Update schedule statistics
-            this.scheduleManager.updateSchedule(schedule.id, {
+            await this.scheduleManager.updateSchedule(schedule.id, {
                 lastRun: new Date().toISOString(),
                 nextRun: nextRunString ?? undefined,
                 totalRuns: schedule.totalRuns + 1,
                 successfulRuns: schedule.successfulRuns + 1
             });
-            
-            this.logger.info('Scheduled crawl completed successfully', { 
+
+            this.logger.info('Scheduled crawl completed successfully', {
                 scheduleId: schedule.id,
                 duration: duration,
                 executionId
             });
-            
+
         } catch (error) {
             this.logger.error(
                 'Scheduled crawl failed',
@@ -232,20 +232,20 @@ export class SchedulerService {
                     scheduleId: schedule.id
                 }
             );
-            
+
             // Record execution as failed
             const duration = Date.now() - startTime;
             const db = this.scheduleManager.getDatabase();
-            const latestSession = db.getLatestCrawlSession();
+            const latestSession = await db.getLatestCrawlSession();
             const sessionId = latestSession ? latestSession.id : 0;
-            
-            executionId = this.scheduleManager.recordExecution(schedule.id, sessionId);
-            
+
+            executionId = await this.scheduleManager.recordExecution(schedule.id, sessionId);
+
             if (executionId) {
                 // Compute whatever was crawled before failure
-                const pagesCrawled = sessionId ? db.getPageCount(sessionId) : 0;
-                const resourcesFound = sessionId ? db.getResourceCount(sessionId) : 0;
-                this.scheduleManager.updateExecution(executionId, {
+                const pagesCrawled = sessionId ? await db.getPageCount(sessionId) : 0;
+                const resourcesFound = sessionId ? await db.getResourceCount(sessionId) : 0;
+                await this.scheduleManager.updateExecution(executionId, {
                     status: 'failed',
                     completedAt: new Date().toISOString(),
                     errorMessage: (error as Error).message,
@@ -256,26 +256,26 @@ export class SchedulerService {
 
                 // Note: Skipping user notifications as CrawlSchedule doesn't have userId
             }
-            
+
             // Calculate next run time
             const nextRun = CronParser.validateCronExpression(schedule.cronExpression).nextRun;
             const nextRunString = nextRun ? nextRun.toISOString() : null;
-            
+
             // Update schedule statistics
-            this.scheduleManager.updateSchedule(schedule.id, {
+            await this.scheduleManager.updateSchedule(schedule.id, {
                 lastRun: new Date().toISOString(),
                 nextRun: nextRunString ?? undefined,
                 totalRuns: schedule.totalRuns + 1,
                 failedRuns: schedule.failedRuns + 1
             });
-            
+
             // Retry logic if enabled
             if (this.config.retryFailedSchedules) {
-                this.logger.info('Scheduling retry for failed crawl', { 
+                this.logger.info('Scheduling retry for failed crawl', {
                     scheduleId: schedule.id,
                     retryDelay: this.config.retryDelayMs
                 });
-                
+
                 setTimeout(() => {
                     this.logger.info('Retrying failed schedule', { scheduleId: schedule.id });
                     this.runSchedule(schedule);
@@ -283,7 +283,7 @@ export class SchedulerService {
             }
         }
     }
-    
+
     /**
      * Get scheduler status
      */
@@ -300,38 +300,38 @@ export class SchedulerService {
             checkIntervalMs: this.config.checkIntervalMs
         };
     }
-    
+
     /**
      * Get schedule manager instance
      */
     getScheduleManager(): ScheduleManager {
         return this.scheduleManager;
     }
-    
+
     /**
      * Manually trigger a schedule
      */
     async triggerSchedule(scheduleId: number): Promise<void> {
-        const schedule = this.scheduleManager.getSchedule(scheduleId);
+        const schedule = await this.scheduleManager.getSchedule(scheduleId);
         if (!schedule) {
             throw new Error('Schedule not found');
         }
-        
+
         if (!schedule.enabled) {
             throw new Error('Schedule is disabled');
         }
-        
+
         this.logger.info('Manually triggering schedule', { scheduleId, name: schedule.name });
         await this.runSchedule(schedule);
     }
-    
+
     /**
      * Update scheduler configuration
      */
     updateConfig(newConfig: Partial<SchedulerConfig>): void {
         this.config = { ...this.config, ...newConfig };
         this.logger.info('Scheduler configuration updated', { config: this.config });
-        
+
         // Restart scheduler if running
         if (this.isRunning) {
             this.stop();

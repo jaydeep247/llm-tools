@@ -7,15 +7,15 @@ const router = Router();
 router.get('/api/links', async (req, res) => {
     try {
         const { sessionId, pageId, type = 'out', limit = 100 } = req.query;
-        
-        if (!sessionId || !pageId) {
-            return res.status(400).json({ error: 'sessionId and pageId are required' });
+
+        if (!sessionId || !pageId || isNaN(Number(pageId))) {
+            return res.status(400).json({ error: 'sessionId and a valid pageId are required' });
         }
 
         const db = getDatabase();
-        const links = db.getLinksByPage(
-            Number(pageId), 
-            type as 'in' | 'out', 
+        const links = await db.getLinksByPage(
+            Number(pageId),
+            type as 'in' | 'out',
             Number(limit)
         );
 
@@ -37,20 +37,20 @@ router.get('/api/links/stats/:sessionId', async (req, res) => {
     try {
         const { sessionId } = req.params;
         const db = getDatabase();
-        
-        const stats = db.getLinkStats(Number(sessionId));
-        const pageStats = db.getPageLinkStats(Number(sessionId));
-        const relationships = db.getLinkRelationships(Number(sessionId), 50);
+
+        const stats = await db.getLinkStats(Number(sessionId));
+        const pageStats = await db.getPageLinkStats(Number(sessionId));
+        const relationships = await db.getLinkRelationships(Number(sessionId), 50);
 
         // If no data found for this session, try the latest session
         if (stats.totalLinks === 0 && pageStats.length === 0 && relationships.length === 0) {
-            const latestSession = db.getLatestCrawlSession();
+            const latestSession = await db.getLatestCrawlSession();
             if (latestSession && latestSession.id !== Number(sessionId)) {
                 console.log(`No data found for session ${sessionId}, falling back to latest session ${latestSession.id}`);
-                const latestStats = db.getLinkStats(latestSession.id);
-                const latestPageStats = db.getPageLinkStats(latestSession.id);
-                const latestRelationships = db.getLinkRelationships(latestSession.id, 50);
-                
+                const latestStats = await db.getLinkStats(latestSession.id);
+                const latestPageStats = await db.getPageLinkStats(latestSession.id);
+                const latestRelationships = await db.getLinkRelationships(latestSession.id, 50);
+
                 return res.json({
                     sessionId: latestSession.id,
                     stats: latestStats,
@@ -76,15 +76,15 @@ router.get('/api/links/stats/:sessionId', async (req, res) => {
 router.get('/api/links/stats/latest', async (req, res) => {
     try {
         const db = getDatabase();
-        const latestSession = db.getLatestCrawlSession();
-        
+        const latestSession = await db.getLatestCrawlSession();
+
         if (!latestSession) {
             return res.status(404).json({ error: 'No crawl sessions found' });
         }
-        
-        const stats = db.getLinkStats(latestSession.id);
-        const pageStats = db.getPageLinkStats(latestSession.id);
-        const relationships = db.getLinkRelationships(latestSession.id, 50);
+
+        const stats = await db.getLinkStats(latestSession.id);
+        const pageStats = await db.getPageLinkStats(latestSession.id);
+        const relationships = await db.getLinkRelationships(latestSession.id, 50);
 
         res.json({
             sessionId: latestSession.id,
@@ -103,9 +103,9 @@ router.get('/api/pages/:pageId/inlinks', async (req, res) => {
     try {
         const { pageId } = req.params;
         const { limit = 100 } = req.query;
-        
+
         const db = getDatabase();
-        const inlinks = db.getLinksByPage(Number(pageId), 'in', Number(limit));
+        const inlinks = await db.getLinksByPage(Number(pageId), 'in', Number(limit));
 
         res.json({
             inlinks,
@@ -123,9 +123,9 @@ router.get('/api/pages/:pageId/outlinks', async (req, res) => {
     try {
         const { pageId } = req.params;
         const { limit = 100 } = req.query;
-        
+
         const db = getDatabase();
-        const outlinks = db.getLinksByPage(Number(pageId), 'out', Number(limit));
+        const outlinks = await db.getLinksByPage(Number(pageId), 'out', Number(limit));
 
         res.json({
             outlinks,
@@ -142,7 +142,7 @@ router.get('/api/pages/:pageId/outlinks', async (req, res) => {
 router.get('/api/links/export.csv', async (req, res) => {
     try {
         const { sessionId, pageId, type = 'all' } = req.query;
-        
+
         if (!sessionId) {
             return res.status(400).json({ error: 'sessionId is required' });
         }
@@ -152,27 +152,18 @@ router.get('/api/links/export.csv', async (req, res) => {
 
         if (pageId) {
             // Export links for specific page
-            links = db.getLinksByPage(Number(pageId), type as 'in' | 'out', 10000);
+            links = await db.getLinksByPage(Number(pageId), type as 'in' | 'out', 10000);
         } else {
             // Export all links for session
-            const dbInstance = db.getDb();
-            const stmt = dbInstance.prepare(`
-                SELECT l.*, sp.url as source_url, sp.title as source_title, tp.url as target_url, tp.title as target_title
-                FROM links l
-                LEFT JOIN pages sp ON l.source_page_id = sp.id
-                LEFT JOIN pages tp ON l.target_page_id = tp.id
-                WHERE l.session_id = ?
-                ORDER BY l.created_at DESC
-            `);
-            links = stmt.all(Number(sessionId));
+            links = await db.getAllLinksForSession(Number(sessionId));
         }
 
         // Convert to CSV
         const headers = [
-            'ID', 'Source URL', 'Target URL', 'Anchor Text', 'Position', 
+            'ID', 'Source URL', 'Target URL', 'Anchor Text', 'Position',
             'Internal', 'Rel', 'Nofollow', 'XPath', 'Created At'
         ];
-        
+
         const csvRows = [
             headers.join(','),
             ...links.map(link => [
@@ -190,7 +181,7 @@ router.get('/api/links/export.csv', async (req, res) => {
         ];
 
         const csv = csvRows.join('\n');
-        
+
         res.setHeader('Content-Type', 'text/csv');
         res.setHeader('Content-Disposition', `attachment; filename="links-${sessionId}${pageId ? `-page-${pageId}` : ''}.csv"`);
         res.send(csv);
@@ -204,20 +195,20 @@ router.get('/api/links/export.csv', async (req, res) => {
 router.get('/api/links/relationships/export.csv', async (req, res) => {
     try {
         const { sessionId, limit = 1000 } = req.query;
-        
+
         if (!sessionId) {
             return res.status(400).json({ error: 'sessionId is required' });
         }
 
         const db = getDatabase();
-        const relationships = db.getLinkRelationships(Number(sessionId), Number(limit));
+        const relationships = await db.getLinkRelationships(Number(sessionId), Number(limit));
 
         // Convert to CSV
         const headers = [
-            'Source Page ID', 'Source URL', 'Source Title', 'Target Page ID', 
+            'Source Page ID', 'Source URL', 'Source Title', 'Target Page ID',
             'Target URL', 'Target Title', 'Link Count', 'Anchor Texts'
         ];
-        
+
         const csvRows = [
             headers.join(','),
             ...relationships.map(rel => [
@@ -233,7 +224,7 @@ router.get('/api/links/relationships/export.csv', async (req, res) => {
         ];
 
         const csv = csvRows.join('\n');
-        
+
         res.setHeader('Content-Type', 'text/csv');
         res.setHeader('Content-Disposition', `attachment; filename="link-relationships-${sessionId}.csv"`);
         res.send(csv);

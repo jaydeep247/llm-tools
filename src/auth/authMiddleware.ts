@@ -27,23 +27,28 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
     try {
         // Extract token from Authorization header or cookies
         let token: string | null = null;
-        
+
         // Try Authorization header first
         const authHeader = req.headers.authorization;
         if (authHeader) {
             token = authService.extractTokenFromHeader(authHeader);
         }
-        
+
+        // Check query parameter (for EventSource/SSE)
+        if (!token && req.query.token) {
+            token = String(req.query.token);
+        }
+
         // Fallback to cookie
         if (!token && req.cookies?.accessToken) {
             token = req.cookies.accessToken;
         }
-        
+
 
         if (!token) {
-            res.status(401).json({ 
-                error: 'Authentication required', 
-                message: 'No access token provided' 
+            res.status(401).json({
+                error: 'Authentication required',
+                message: 'No access token provided'
             });
             return;
         }
@@ -51,27 +56,27 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
         // Verify token
         const payload = authService.verifyAccessToken(token);
         if (!payload) {
-            res.status(401).json({ 
-                error: 'Invalid token', 
-                message: 'Access token is invalid or expired' 
+            res.status(401).json({
+                error: 'Invalid token',
+                message: 'Access token is invalid or expired'
             });
             return;
         }
 
         // Check if user still exists and is active
-        const user = db.getUserById(payload.userId);
+        const user = await db.getUserById(payload.userId);
         if (!user) {
-            res.status(401).json({ 
-                error: 'User not found', 
-                message: 'The user associated with this token no longer exists' 
+            res.status(401).json({
+                error: 'User not found',
+                message: 'The user associated with this token no longer exists'
             });
             return;
         }
 
         if (!user.isActive) {
-            res.status(403).json({ 
-                error: 'Account disabled', 
-                message: 'Your account has been disabled' 
+            res.status(403).json({
+                error: 'Account disabled',
+                message: 'Your account has been disabled'
             });
             return;
         }
@@ -86,9 +91,9 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
         next();
     } catch (error) {
         logger.error('Authentication middleware error', error as Error);
-        res.status(500).json({ 
-            error: 'Authentication failed', 
-            message: 'An error occurred during authentication' 
+        res.status(500).json({
+            error: 'Authentication failed',
+            message: 'An error occurred during authentication'
         });
     }
 };
@@ -98,17 +103,17 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
  */
 export const requireAdmin = (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) {
-        res.status(401).json({ 
-            error: 'Authentication required', 
-            message: 'You must be logged in to access this resource' 
+        res.status(401).json({
+            error: 'Authentication required',
+            message: 'You must be logged in to access this resource'
         });
         return;
     }
 
     if (req.user.role !== 'admin') {
-        res.status(403).json({ 
-            error: 'Forbidden', 
-            message: 'Admin access required' 
+        res.status(403).json({
+            error: 'Forbidden',
+            message: 'Admin access required'
         });
         return;
     }
@@ -121,17 +126,17 @@ export const requireAdmin = (req: Request, res: Response, next: NextFunction): v
  */
 export const requirePremium = (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) {
-        res.status(401).json({ 
-            error: 'Authentication required', 
-            message: 'You must be logged in to access this resource' 
+        res.status(401).json({
+            error: 'Authentication required',
+            message: 'You must be logged in to access this resource'
         });
         return;
     }
 
     if (req.user.role !== 'premium' && req.user.role !== 'admin') {
-        res.status(403).json({ 
-            error: 'Premium required', 
-            message: 'This feature requires a premium subscription' 
+        res.status(403).json({
+            error: 'Premium required',
+            message: 'This feature requires a premium subscription'
         });
         return;
     }
@@ -146,21 +151,21 @@ export const checkUsageLimit = (actionType: string) => {
     return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
         try {
             if (!req.user) {
-                res.status(401).json({ 
-                    error: 'Authentication required' 
+                res.status(401).json({
+                    error: 'Authentication required'
                 });
                 return;
             }
 
-            const settings = db.getUserSettings(req.user.userId);
+            const settings = await db.getUserSettings(req.user.userId);
             if (!settings) {
                 // Allow if no settings found (shouldn't happen)
                 next();
                 return;
             }
 
-            const todayUsage = db.getTodayUsageCount(req.user.userId, actionType);
-            
+            const todayUsage = await db.getTodayUsageCount(req.user.userId, actionType);
+
             // Admin has unlimited usage
             if (req.user.role === 'admin') {
                 next();
@@ -168,15 +173,15 @@ export const checkUsageLimit = (actionType: string) => {
             }
 
             // Premium users get 5x the limit
-            const limit = req.user.role === 'premium' 
-                ? settings.maxCrawlsPerDay * 5 
+            const limit = req.user.role === 'premium'
+                ? settings.maxCrawlsPerDay * 5
                 : settings.maxCrawlsPerDay;
 
             if (todayUsage >= limit) {
                 // Format action type for display
                 const displayAction = actionType === 'aeo_analysis' ? 'analysis' : actionType;
-                res.status(429).json({ 
-                    error: 'Usage limit exceeded', 
+                res.status(429).json({
+                    error: 'Usage limit exceeded',
                     message: `You have reached your daily limit of ${limit} ${displayAction === 'analysis' ? 'analyses' : displayAction + 's'}. ${req.user.role === 'user' ? 'Please upgrade to Premium for higher limits or ' : ''}Try again tomorrow.`,
                     limit,
                     usage: todayUsage
@@ -198,12 +203,12 @@ export const checkUsageLimit = (actionType: string) => {
 export const optionalAuth = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         let token: string | null = null;
-        
+
         const authHeader = req.headers.authorization;
         if (authHeader) {
             token = authService.extractTokenFromHeader(authHeader);
         }
-        
+
         if (!token && req.cookies?.accessToken) {
             token = req.cookies.accessToken;
         }
@@ -211,7 +216,7 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
         if (token) {
             const payload = authService.verifyAccessToken(token);
             if (payload) {
-                const user = db.getUserById(payload.userId);
+                const user = await db.getUserById(payload.userId);
                 if (user && user.isActive) {
                     req.user = {
                         userId: user.id,
@@ -228,4 +233,3 @@ export const optionalAuth = async (req: Request, res: Response, next: NextFuncti
         next();
     }
 };
-

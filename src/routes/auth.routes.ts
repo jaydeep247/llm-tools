@@ -19,36 +19,36 @@ router.post('/register', async (req: Request, res: Response) => {
 
         // Validate input
         if (!email || !password) {
-            return res.status(400).json({ 
-                error: 'Missing required fields', 
-                message: 'Email and password are required' 
+            return res.status(400).json({
+                error: 'Missing required fields',
+                message: 'Email and password are required'
             });
         }
 
         // Validate email format
         if (!authService.isValidEmail(email)) {
-            return res.status(400).json({ 
-                error: 'Invalid email', 
-                message: 'Please provide a valid email address' 
+            return res.status(400).json({
+                error: 'Invalid email',
+                message: 'Please provide a valid email address'
             });
         }
 
         // Validate password strength
         const passwordValidation = authService.isValidPassword(password);
         if (!passwordValidation.valid) {
-            return res.status(400).json({ 
-                error: 'Weak password', 
+            return res.status(400).json({
+                error: 'Weak password',
                 message: 'Password does not meet requirements',
-                errors: passwordValidation.errors 
+                errors: passwordValidation.errors
             });
         }
 
         // Check if user already exists
-        const existingUser = db.getUserByEmail(email);
+        const existingUser = await db.getUserByEmail(email);
         if (existingUser) {
-            return res.status(409).json({ 
-                error: 'User exists', 
-                message: 'A user with this email already exists' 
+            return res.status(409).json({
+                error: 'User exists',
+                message: 'A user with this email already exists'
             });
         }
 
@@ -56,7 +56,7 @@ router.post('/register', async (req: Request, res: Response) => {
         const passwordHash = await authService.hashPassword(password);
 
         // Create user
-        const userId = db.createUser({
+        const userId = await db.createUser({
             email,
             passwordHash,
             name: name || null,
@@ -78,7 +78,7 @@ router.post('/register', async (req: Request, res: Response) => {
             sameSite: 'strict',
             maxAge: 15 * 60 * 1000 // 15 minutes
         });
-        
+
         res.cookie('refreshToken', tokens.refreshToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -101,9 +101,9 @@ router.post('/register', async (req: Request, res: Response) => {
         });
     } catch (error) {
         logger.error('Registration error', error as Error);
-        res.status(500).json({ 
-            error: 'Registration failed', 
-            message: 'An error occurred during registration' 
+        res.status(500).json({
+            error: 'Registration failed',
+            message: 'An error occurred during registration'
         });
     }
 });
@@ -118,40 +118,40 @@ router.post('/login', async (req: Request, res: Response) => {
 
         // Validate input
         if (!email || !password) {
-            return res.status(400).json({ 
-                error: 'Missing credentials', 
-                message: 'Email and password are required' 
+            return res.status(400).json({
+                error: 'Missing credentials',
+                message: 'Email and password are required'
             });
         }
 
         // Find user
-        const user = db.getUserByEmail(email);
+        const user = await db.getUserByEmail(email);
         if (!user) {
-            return res.status(401).json({ 
-                error: 'Invalid credentials', 
-                message: 'Email or password is incorrect' 
+            return res.status(401).json({
+                error: 'Invalid credentials',
+                message: 'Email or password is incorrect'
             });
         }
 
         // Check if user is active
         if (!user.isActive) {
-            return res.status(403).json({ 
-                error: 'Account disabled', 
-                message: 'Your account has been disabled. Please contact support.' 
+            return res.status(403).json({
+                error: 'Account disabled',
+                message: 'Your account has been disabled. Please contact support.'
             });
         }
 
         // Verify password
         const isPasswordValid = await authService.verifyPassword(password, user.passwordHash);
         if (!isPasswordValid) {
-            return res.status(401).json({ 
-                error: 'Invalid credentials', 
-                message: 'Email or password is incorrect' 
+            return res.status(401).json({
+                error: 'Invalid credentials',
+                message: 'Email or password is incorrect'
             });
         }
 
         // Update last login
-        db.updateUserLastLogin(user.id);
+        await db.updateUserLastLogin(user.id);
 
         // Generate tokens
         const tokens = authService.generateTokens({
@@ -167,7 +167,7 @@ router.post('/login', async (req: Request, res: Response) => {
             sameSite: 'strict',
             maxAge: 15 * 60 * 1000 // 15 minutes
         });
-        
+
         res.cookie('refreshToken', tokens.refreshToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -191,9 +191,9 @@ router.post('/login', async (req: Request, res: Response) => {
         });
     } catch (error) {
         logger.error('Login error', error as Error);
-        res.status(500).json({ 
-            error: 'Login failed', 
-            message: 'An error occurred during login' 
+        res.status(500).json({
+            error: 'Login failed',
+            message: 'An error occurred during login'
         });
     }
 });
@@ -202,7 +202,7 @@ router.post('/login', async (req: Request, res: Response) => {
  * POST /api/auth/logout
  * Logout user by clearing refresh token cookie
  */
-router.post('/logout', authenticateUser, (req: Request, res: Response) => {
+router.post('/logout', authenticateUser, async (req: Request, res: Response) => {
     try {
         // Clear both access token and refresh token cookies
         res.clearCookie('accessToken');
@@ -216,9 +216,9 @@ router.post('/logout', authenticateUser, (req: Request, res: Response) => {
         });
     } catch (error) {
         logger.error('Logout error', error as Error);
-        res.status(500).json({ 
-            error: 'Logout failed', 
-            message: 'An error occurred during logout' 
+        res.status(500).json({
+            error: 'Logout failed',
+            message: 'An error occurred during logout'
         });
     }
 });
@@ -227,14 +227,14 @@ router.post('/logout', authenticateUser, (req: Request, res: Response) => {
  * POST /api/auth/refresh
  * Refresh access token using refresh token
  */
-router.post('/refresh', (req: Request, res: Response) => {
+router.post('/refresh', async (req: Request, res: Response) => {
     try {
         const refreshToken = req.cookies.refreshToken;
 
         if (!refreshToken) {
-            return res.status(401).json({ 
-                error: 'No refresh token', 
-                message: 'Refresh token not found' 
+            return res.status(401).json({
+                error: 'No refresh token',
+                message: 'Refresh token not found'
             });
         }
 
@@ -243,20 +243,20 @@ router.post('/refresh', (req: Request, res: Response) => {
         if (!payload) {
             res.clearCookie('accessToken');
             res.clearCookie('refreshToken');
-            return res.status(401).json({ 
-                error: 'Invalid refresh token', 
-                message: 'Refresh token is invalid or expired' 
+            return res.status(401).json({
+                error: 'Invalid refresh token',
+                message: 'Refresh token is invalid or expired'
             });
         }
 
         // Check if user still exists and is active
-        const user = db.getUserById(payload.userId);
+        const user = await db.getUserById(payload.userId);
         if (!user || !user.isActive) {
             res.clearCookie('accessToken');
             res.clearCookie('refreshToken');
-            return res.status(401).json({ 
-                error: 'User not found', 
-                message: 'User no longer exists or is disabled' 
+            return res.status(401).json({
+                error: 'User not found',
+                message: 'User no longer exists or is disabled'
             });
         }
 
@@ -274,7 +274,7 @@ router.post('/refresh', (req: Request, res: Response) => {
             sameSite: 'strict',
             maxAge: 15 * 60 * 1000 // 15 minutes
         });
-        
+
         res.cookie('refreshToken', tokens.refreshToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -288,9 +288,9 @@ router.post('/refresh', (req: Request, res: Response) => {
         });
     } catch (error) {
         logger.error('Token refresh error', error as Error);
-        res.status(500).json({ 
-            error: 'Token refresh failed', 
-            message: 'An error occurred while refreshing token' 
+        res.status(500).json({
+            error: 'Token refresh failed',
+            message: 'An error occurred while refreshing token'
         });
     }
 });
@@ -299,22 +299,30 @@ router.post('/refresh', (req: Request, res: Response) => {
  * GET /api/auth/me
  * Get current user profile
  */
-router.get('/me', authenticateUser, (req: Request, res: Response) => {
+router.get('/me', authenticateUser, async (req: Request, res: Response) => {
     try {
         if (!req.user) {
             return res.status(401).json({ error: 'Not authenticated' });
         }
 
-        const user = db.getUserById(req.user.userId);
+        const user = await db.getUserById(req.user.userId);
         if (!user) {
-            return res.status(404).json({ 
-                error: 'User not found', 
-                message: 'User profile not found' 
+            return res.status(404).json({
+                error: 'User not found',
+                message: 'User profile not found'
             });
         }
 
-        const settings = db.getUserSettings(user.id);
-        const usageStats = db.getUserUsageStats(user.id);
+        const settings = await db.getUserSettings(user.id);
+        const usageStats = await db.getUserUsageStats(user.id);
+
+        // Transform usage stats array into structured object
+        const usage = {
+            totalCrawls: usageStats.find((s: any) => s.type === 'crawl')?.count || 0,
+            totalAudits: usageStats.find((s: any) => s.type === 'audit')?.count || 0,
+            totalAeoAnalyses: usageStats.find((s: any) => s.type === 'aeo_analysis')?.count || 0,
+            totalCredits: usageStats.reduce((sum: number, s: any) => sum + (s.credits || 0), 0)
+        };
 
         res.json({
             success: true,
@@ -333,13 +341,13 @@ router.get('/me', authenticateUser, (req: Request, res: Response) => {
                 hasOpenaiApiKey: !!settings.openaiApiKey,
                 hasPsiApiKey: !!settings.psiApiKey
             } : null,
-            usage: usageStats
+            usage
         });
     } catch (error) {
         logger.error('Get profile error', error as Error);
-        res.status(500).json({ 
-            error: 'Failed to get profile', 
-            message: 'An error occurred while fetching profile' 
+        res.status(500).json({
+            error: 'Failed to get profile',
+            message: 'An error occurred while fetching profile'
         });
     }
 });
@@ -359,45 +367,45 @@ router.put('/profile', authenticateUser, async (req: Request, res: Response) => 
 
         // Update name if provided
         if (name !== undefined) {
-            db.updateUser(userId, { name });
+            await db.updateUser(userId, { name });
         }
 
         // Update password if provided
         if (newPassword) {
             if (!currentPassword) {
-                return res.status(400).json({ 
-                    error: 'Current password required', 
-                    message: 'Please provide your current password to change it' 
+                return res.status(400).json({
+                    error: 'Current password required',
+                    message: 'Please provide your current password to change it'
                 });
             }
 
             // Verify current password
-            const user = db.getUserById(userId);
+            const user = await db.getUserById(userId);
             if (!user) {
                 return res.status(404).json({ error: 'User not found' });
             }
 
             const isPasswordValid = await authService.verifyPassword(currentPassword, user.passwordHash);
             if (!isPasswordValid) {
-                return res.status(401).json({ 
-                    error: 'Invalid password', 
-                    message: 'Current password is incorrect' 
+                return res.status(401).json({
+                    error: 'Invalid password',
+                    message: 'Current password is incorrect'
                 });
             }
 
             // Validate new password
             const passwordValidation = authService.isValidPassword(newPassword);
             if (!passwordValidation.valid) {
-                return res.status(400).json({ 
-                    error: 'Weak password', 
+                return res.status(400).json({
+                    error: 'Weak password',
                     message: 'New password does not meet requirements',
-                    errors: passwordValidation.errors 
+                    errors: passwordValidation.errors
                 });
             }
 
             // Hash and update password
             const newPasswordHash = await authService.hashPassword(newPassword);
-            db.updateUser(userId, { passwordHash: newPasswordHash });
+            await db.updateUser(userId, { passwordHash: newPasswordHash });
         }
 
         logger.info('User profile updated', { userId });
@@ -408,9 +416,9 @@ router.put('/profile', authenticateUser, async (req: Request, res: Response) => 
         });
     } catch (error) {
         logger.error('Update profile error', error as Error);
-        res.status(500).json({ 
-            error: 'Failed to update profile', 
-            message: 'An error occurred while updating profile' 
+        res.status(500).json({
+            error: 'Failed to update profile',
+            message: 'An error occurred while updating profile'
         });
     }
 });
@@ -419,7 +427,7 @@ router.put('/profile', authenticateUser, async (req: Request, res: Response) => 
  * GET /api/auth/usage
  * Get user usage statistics
  */
-router.get('/usage', authenticateUser, (req: Request, res: Response) => {
+router.get('/usage', authenticateUser, async (req: Request, res: Response) => {
     try {
         if (!req.user) {
             return res.status(401).json({ error: 'Not authenticated' });
@@ -428,12 +436,12 @@ router.get('/usage', authenticateUser, (req: Request, res: Response) => {
         const { since } = req.query;
         const sinceDate = since ? String(since) : undefined;
 
-        const stats = db.getUserUsageStats(req.user.userId, sinceDate);
-        const history = db.getUserUsage(req.user.userId, undefined, 50);
-        const settings = db.getUserSettings(req.user.userId);
+        const stats = await db.getUserUsageStats(req.user.userId, sinceDate);
+        const history = await db.getUserUsage(req.user.userId, undefined, 50);
+        const settings = await db.getUserSettings(req.user.userId);
 
-        const todayCrawls = db.getTodayUsageCount(req.user.userId, 'crawl');
-        const todayAudits = db.getTodayUsageCount(req.user.userId, 'audit');
+        const todayCrawls = await db.getTodayUsageCount(req.user.userId, 'crawl');
+        const todayAudits = await db.getTodayUsageCount(req.user.userId, 'audit');
 
         res.json({
             success: true,
@@ -447,9 +455,9 @@ router.get('/usage', authenticateUser, (req: Request, res: Response) => {
         });
     } catch (error) {
         logger.error('Get usage error', error as Error);
-        res.status(500).json({ 
-            error: 'Failed to get usage', 
-            message: 'An error occurred while fetching usage statistics' 
+        res.status(500).json({
+            error: 'Failed to get usage',
+            message: 'An error occurred while fetching usage statistics'
         });
     }
 });
@@ -458,7 +466,7 @@ router.get('/usage', authenticateUser, (req: Request, res: Response) => {
  * PUT /api/auth/settings
  * Update user settings
  */
-router.put('/settings', authenticateUser, (req: Request, res: Response) => {
+router.put('/settings', authenticateUser, async (req: Request, res: Response) => {
     try {
         if (!req.user) {
             return res.status(401).json({ error: 'Not authenticated' });
@@ -473,7 +481,7 @@ router.put('/settings', authenticateUser, (req: Request, res: Response) => {
         if (maxCrawlsPerDay !== undefined) updates.maxCrawlsPerDay = maxCrawlsPerDay;
         if (emailNotifications !== undefined) updates.emailNotifications = emailNotifications;
 
-        db.updateUserSettings(userId, updates);
+        await db.updateUserSettings(userId, updates);
 
         logger.info('User settings updated', { userId });
 
@@ -483,12 +491,11 @@ router.put('/settings', authenticateUser, (req: Request, res: Response) => {
         });
     } catch (error) {
         logger.error('Update settings error', error as Error);
-        res.status(500).json({ 
-            error: 'Failed to update settings', 
-            message: 'An error occurred while updating settings' 
+        res.status(500).json({
+            error: 'Failed to update settings',
+            message: 'An error occurred while updating settings'
         });
     }
 });
 
 export default router;
-

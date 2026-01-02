@@ -1,4 +1,7 @@
-const API_BASE_URL = '';
+// Use environment variables with fallback to localhost for development
+// In production, set VITE_API_BASE_URL to your production domain
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const AEO_API_BASE_URL = import.meta.env.VITE_AEO_API_BASE_URL;
 
 export interface AnalysisResult {
   success: boolean;
@@ -58,42 +61,91 @@ class ApiService {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
     };
-    
+
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
-    
+
     return headers;
   }
 
   /**
-   * Fetch with timeout support
+   * Refresh the access token using the httpOnly cookie
+   */
+  private async refreshToken(): Promise<string | null> {
+    try {
+      const response = await fetch(`${this.baseURL}/api/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        localStorage.setItem('accessToken', data.accessToken);
+        return data.accessToken;
+      }
+      return null;
+    } catch (error) {
+      console.error('RefreshToken failed:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Fetch with timeout support and auto-retry on 401
    * @param url - URL to fetch
    * @param options - Fetch options
    * @param timeout - Timeout in milliseconds (default: 5 minutes for long-running operations)
    */
   private async fetchWithTimeout(
-    url: string, 
-    options: RequestInit = {}, 
+    url: string,
+    options: RequestInit = {},
     timeout: number = 300000 // 5 minutes default for AEO analysis
   ): Promise<Response> {
-    const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), timeout);
+    const doFetch = async (token?: string) => {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeout);
 
-    try {
-      const response = await fetch(url, {
-        ...options,
-        signal: controller.signal
-      });
-      clearTimeout(id);
-      return response;
-    } catch (error: any) {
-      clearTimeout(id);
-      if (error.name === 'AbortError') {
-        throw new Error('Request timeout - Analysis is taking longer than expected. This may be due to fetching all backlinks data.');
+      const headers = new Headers(options.headers || {});
+      if (token) {
+        headers.set('Authorization', `Bearer ${token}`);
+      } else if (!headers.has('Authorization')) {
+        // Try to get from storage if not provided
+        const stored = localStorage.getItem('accessToken');
+        if (stored) headers.set('Authorization', `Bearer ${stored}`);
       }
-      throw error;
+
+      try {
+        const response = await fetch(url, {
+          ...options,
+          headers,
+          signal: controller.signal
+        });
+        clearTimeout(id);
+        return response;
+      } catch (error: any) {
+        clearTimeout(id);
+        if (error.name === 'AbortError') {
+          throw new Error('Request timeout - Analysis is taking longer than expected.');
+        }
+        throw error;
+      }
+    };
+
+    let response = await doFetch();
+
+    // Handle 401 with Refresh Token
+    if (response.status === 401 && !url.includes('/auth/refresh')) {
+      console.log('Token expired, attempting refresh...');
+      const newToken = await this.refreshToken();
+
+      if (newToken) {
+        console.log('Token refreshed, retrying request...');
+        response = await doFetch(newToken);
+      }
     }
+
+    return response;
   }
 
   async analyzeUrl(url: string, crawlerOptions?: {
@@ -108,11 +160,11 @@ class ApiService {
         // First, start the crawler
         console.log(`Starting crawler for: ${url}`, crawlerOptions);
 
-        const crawlResponse = await this.fetchWithTimeout('/crawl', {
+        const crawlResponse = await this.fetchWithTimeout('/api/crawl', {
           method: 'POST',
           headers: this.getAuthHeaders(),
           credentials: 'include',
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             url: url.trim(),
             allowSubdomains: crawlerOptions.allowSubdomains,
             runAudits: crawlerOptions.runAudits,
@@ -123,25 +175,30 @@ class ApiService {
         }, 300000); // 5 minutes for crawl + analysis
 
         if (!crawlResponse.ok) {
-          const errorData = await crawlResponse.json().catch(() => ({}));
-          
+          let errorData: any = {};
+          try {
+            errorData = await crawlResponse.json();
+          } catch (e) {
+            // If JSON parsing fails, use status-based messages
+          }
+
           // Handle authentication errors
           if (crawlResponse.status === 401) {
             localStorage.removeItem('accessToken');
             window.location.href = '/login';
             throw new Error('Please login to continue');
           }
-          
-          // Handle usage limit errors
+
+          // Handle rate limit errors
           if (crawlResponse.status === 429) {
-            throw new Error(errorData.message || 'Daily usage limit exceeded. Please upgrade or try again tomorrow.');
+            throw new Error(errorData.message || 'Too many requests. Please wait 1 minute and try again.');
           }
-          
+
           throw new Error(errorData.error || errorData.message || 'Crawler failed to start');
         }
 
         const crawlData = await crawlResponse.json();
-        
+
         // Surface reuse info to the caller to decide (show modal)
         if (crawlData.reuseMode && crawlData.sessionId) {
           return {
@@ -156,40 +213,48 @@ class ApiService {
         }
 
         // Then get AEO analysis for the main URL
-        console.log(`Getting AEO analysis for: ${url}`);
-        
+        console.log(`Getting AEO analysis for: ${url} (via proxy)`);
+
         const aeoResponse = await this.fetchWithTimeout(
-          `${this.baseURL}/aeo/analyze`,
+          `/aeo/analyze`,
           {
             method: 'POST',
             headers: this.getAuthHeaders(),
             credentials: 'include',
-            body: JSON.stringify({ url: url.trim() }),
+            body: JSON.stringify({
+              url: url.trim(),
+              sessionId: crawlData.sessionId
+            }),
           },
           300000 // 5 minutes timeout for full backlinks analysis
         );
 
         if (!aeoResponse.ok) {
-          const errorData = await aeoResponse.json().catch(() => ({}));
-          
+          let errorData: any = {};
+          try {
+            errorData = await aeoResponse.json();
+          } catch (e) {
+            // If JSON parsing fails, use status-based messages
+          }
+
           // Handle authentication errors
           if (aeoResponse.status === 401) {
             localStorage.removeItem('accessToken');
             window.location.href = '/login';
             throw new Error('Please login to continue');
           }
-          
-          // Handle usage limit errors
+
+          // Handle rate limit errors
           if (aeoResponse.status === 429) {
-            throw new Error(errorData.message || 'Daily usage limit exceeded');
+            throw new Error(errorData.message || 'Too many requests. Please wait 1 minute and try again.');
           }
-          
+
           throw new Error(errorData.error || errorData.message || 'AEO analysis failed');
         }
 
         const aeoData = await aeoResponse.json();
         console.log('AEO API Response:', aeoData);
-        
+
         // Handle the response structure from AEO API
         if (aeoData.success && aeoData.results) {
           return aeoData.results;
@@ -198,11 +263,11 @@ class ApiService {
         }
       } else {
         // Call the AEO analyzer endpoint for single page analysis
-        console.log(`Making API call to: ${this.baseURL}/aeo/analyze`);
+        console.log(`Making API call via proxy to: /aeo/analyze`);
         console.log(`Analyzing URL: ${url}`);
 
         const response = await this.fetchWithTimeout(
-          `${this.baseURL}/aeo/analyze`,
+          `/aeo/analyze`,
           {
             method: 'POST',
             headers: this.getAuthHeaders(),
@@ -213,26 +278,31 @@ class ApiService {
         );
 
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          
+          let errorData: any = {};
+          try {
+            errorData = await response.json();
+          } catch (e) {
+            // If JSON parsing fails, use status-based messages
+          }
+
           // Handle authentication errors
           if (response.status === 401) {
             localStorage.removeItem('accessToken');
             window.location.href = '/login';
             throw new Error('Please login to continue');
           }
-          
-          // Handle usage limit errors
+
+          // Handle rate limit errors
           if (response.status === 429) {
-            throw new Error(errorData.message || 'Daily usage limit exceeded');
+            throw new Error(errorData.message || 'Too many requests. Please wait 1 minute and try again.');
           }
-          
+
           throw new Error(errorData.error || errorData.message || 'AEO analysis failed');
         }
 
         const data = await response.json();
         console.log('AEO API Response (single page):', data);
-        
+
         // Handle the response structure from AEO API
         if (data.success && data.results) {
           return data.results;
@@ -266,6 +336,7 @@ class ApiService {
     totalPages: number;
     totalResources: number;
     session?: any;
+    statistics?: any;
     logs?: Array<{ id: number; message: string; level: string; timestamp: string }>;
   }> {
     try {

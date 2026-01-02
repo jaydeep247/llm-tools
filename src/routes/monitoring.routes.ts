@@ -14,8 +14,8 @@ const metricsCollector = new MetricsCollector();
 const logger = Logger.getInstance();
 
 // Helper function to verify session ownership
-function verifySessionOwnership(sessionId: number, userId: number, db: any): boolean {
-  const session = db.getCrawlSession(sessionId);
+async function verifySessionOwnership(sessionId: number, userId: number, db: any): Promise<boolean> {
+  const session = await db.getCrawlSession(sessionId);
   if (!session) return false;
   // Admin can access all sessions
   return session.userId === userId || session.userId === undefined || session.userId === null;
@@ -25,13 +25,13 @@ function verifySessionOwnership(sessionId: number, userId: number, db: any): boo
 router.get('/health', (req, res) => {
   try {
     const healthStatus = healthChecker.getHealthStatus();
-    const statusCode = healthStatus.status === 'healthy' ? 200 : 
-                      healthStatus.status === 'degraded' ? 200 : 503;
+    const statusCode = healthStatus.status === 'healthy' ? 200 :
+      healthStatus.status === 'degraded' ? 200 : 503;
     res.status(statusCode).json(healthStatus);
   } catch (error) {
     logger.error('Health check failed', error as Error);
-    res.status(500).json({ 
-      status: 'unhealthy', 
+    res.status(500).json({
+      status: 'unhealthy',
       error: 'Health check failed',
       timestamp: new Date().toISOString()
     });
@@ -127,21 +127,23 @@ router.get('/export', async (req, res) => {
   try {
     const { format = 'json', limit, sessionId } = req.query;
     logger.info('Export request received', { format, limit, sessionId });
-    
+
     const db = getDatabase();
     const limitNum = limit ? parseInt(limit as string) : undefined;
     const sessionIdNum = sessionId ? parseInt(sessionId as string) : undefined;
 
-    const pages = db.getPages(sessionIdNum, limitNum || 10000, 0).map((p: any) => {
+    const pagesResult = await db.getPages(sessionIdNum, limitNum || 10000, 0);
+    const pages = pagesResult.map((p: any) => {
       const { id, sessionId, ...rest } = p;
       return rest;
     });
-    const resources = db.getResources(sessionIdNum, undefined, limitNum || 10000, 0).map((r: any) => {
+    const resourcesResult = await db.getResources(sessionIdNum, undefined, limitNum || 10000, 0);
+    const resources = resourcesResult.map((r: any) => {
       const { id, sessionId, pageId, ...rest } = r;
       return rest;
     });
     const items = [...pages, ...resources];
-    
+
     if (!items || items.length === 0) {
       logger.warn('No crawl data found for export');
       return res.status(404).json({ error: 'No crawl data found', message: 'Please run a crawl first to generate data for export' });
@@ -197,10 +199,10 @@ router.get('/export/metrics', async (req, res) => {
     const metrics = metricsCollector.getMetrics();
     const requestHistory = metricsCollector.getRequestHistory();
     const errorSummary = metricsCollector.getErrorSummary();
-    
+
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const filename = `crawl-metrics-${timestamp}`;
-    
+
     const exportData = {
       exportInfo: { timestamp: new Date().toISOString(), format: format as string },
       metrics,
@@ -218,7 +220,7 @@ router.get('/export/metrics', async (req, res) => {
       res.setHeader('Content-Disposition', `attachment; filename="${filename}.json"`);
       res.json(exportData);
     }
-    
+
     logger.info('Metrics exported', { format });
   } catch (error) {
     logger.error('Failed to export metrics', error as Error);
@@ -232,11 +234,11 @@ function convertToCSV(items: any[]): string {
   const headers = Object.keys(items[0]);
   const csvHeaders = headers.join(',');
   const csvRows = items.map(item => headers.map(header => {
-      const value = item[header];
-      if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
-        return `"${value.replace(/"/g, '""')}"`;
-      }
-      return value;
+    const value = item[header];
+    if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
+      return `"${value.replace(/"/g, '""')}"`;
+    }
+    return value;
   }).join(','));
   return [csvHeaders, ...csvRows].join('\n');
 }
@@ -280,8 +282,8 @@ function convertMetricsToCSV(data: any): string {
 router.get('/data/check', async (req, res) => {
   try {
     const db = getDatabase();
-    const totalPages = db.getPageCount();
-    const totalResources = db.getResourceCount();
+    const totalPages = await db.getPageCount(undefined as any);
+    const totalResources = await db.getResourceCount(undefined as any);
     const totalItems = totalPages + totalResources;
     res.json({
       hasData: totalItems > 0,
@@ -308,44 +310,50 @@ router.get('/data/list', authenticateUser, async (req, res) => {
     const sessionId = req.query.sessionId ? parseInt(req.query.sessionId as string) : undefined;
 
     // Verify session ownership if sessionId is provided
-    if (sessionId && req.user && !verifySessionOwnership(sessionId, req.user.userId, db)) {
+    if (sessionId && req.user && !(await verifySessionOwnership(sessionId, req.user.userId, db))) {
       res.status(403).json({ error: 'Access denied to this session' });
       return;
     }
 
     // Tag pages so the UI can distinguish them from resources
-    const pages = db.getPages(sessionId, limit, offset).map((p: any) => ({ ...p, resourceType: 'page' }));
-    const resources = db.getResources(sessionId, undefined, limit, offset);
-    
+    const pagesResult = await db.getPages(sessionId, limit, offset);
+    const pages = pagesResult.map((p: any) => ({ ...p, resourceType: 'page' }));
+    const resources = await db.getResources(sessionId, undefined, limit, offset);
+
     // Get sitemap data if sessionId is provided
     let sitemapUrls: any[] = [];
     let sitemapDiscoveries: any[] = [];
     if (sessionId) {
-      sitemapUrls = db.getSitemapUrls(sessionId);
-      sitemapDiscoveries = db.getSitemapDiscoveries(sessionId);
+      sitemapUrls = await db.getSitemapUrls(sessionId as number);
+      sitemapDiscoveries = await db.getSitemapDiscoveries(sessionId as number);
     }
-    
+
     const allData = [...pages, ...resources]
       // Do not add schedule/session fields to the payload; keep only core item fields
       .map((item: any) => ({ ...item }))
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-    const totalPages = db.getPageCount(sessionId);
-    const totalResources = db.getResourceCount(sessionId);
+    const totalPages = await db.getPageCount(sessionId as number);
+    const totalResources = await db.getResourceCount(sessionId as number);
     const totalItems = totalPages + totalResources;
-    
+
     // Get session details if sessionId is provided
     let session = null;
     let logs: any[] = [];
     if (sessionId) {
-      session = db.getCrawlSession(sessionId);
-      logs = db.getCrawlLogs(sessionId);
+      session = await db.getCrawlSession(sessionId as number);
+      logs = await db.getCrawlLogs(sessionId as number);
     }
 
     res.json({
       data: allData,
       totalPages,
       totalResources,
+      statistics: {
+        totalPages,
+        totalResources,
+        totalItems
+      },
       session,
       logs,
       paging: {
@@ -391,19 +399,19 @@ router.get('/data/pages', authenticateUser, async (req, res) => {
     const hostFilter = (req.query.host as string | undefined) || undefined; // optional
 
     // Verify session ownership if sessionId is provided
-    if (sessionId && req.user && !verifySessionOwnership(sessionId, req.user.userId, db)) {
+    if (sessionId && req.user && !(await verifySessionOwnership(sessionId, req.user.userId, db))) {
       res.status(403).json({ error: 'Access denied to this session' });
       return;
     }
 
-    let pages = db.getPages(sessionId, limit, offset) as any[];
+    let pages = await db.getPages(sessionId, limit, offset) as any[];
     if (hostFilter) {
       pages = pages.filter((p: any) => {
         try { return new URL(p.url).host === hostFilter || new URL(p.url).hostname.endsWith('.' + hostFilter); } catch { return false; }
       });
     }
 
-    const totalPages = db.getPageCount(sessionId);
+    const totalPages = await db.getPageCount(sessionId);
 
     res.json({
       data: pages.map((p: any) => ({
@@ -429,64 +437,39 @@ router.get('/data/pages', authenticateUser, async (req, res) => {
 });
 
 // List crawl sessions for filtering in UI
-router.get('/data/sessions', authenticateUser, (req, res) => {
+router.get('/data/sessions', authenticateUser, async (req, res) => {
   try {
     const db = getDatabase();
     const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
     const offset = Math.max(parseInt(req.query.offset as string) || 0, 0);
     const scheduleId = req.query.scheduleId ? parseInt(req.query.scheduleId as string) : undefined;
-    const userId = req.user?.userId; // Filter by authenticated user
+    const userId = req.user?.userId;
 
-        // Query for both owned and shared sessions
-        const query = `
-        SELECT DISTINCT cs.id, cs.start_url, cs.allow_subdomains, cs.max_concurrency,
-               cs.mode, cs.schedule_id, cs.user_id, cs.started_at, cs.completed_at, 
-               cs.total_pages, cs.total_resources, cs.duration, cs.status
-        FROM crawl_sessions cs
-        LEFT JOIN session_shares ss ON cs.id = ss.session_id
-        WHERE cs.user_id = ? OR ss.user_id = ?
-        ORDER BY COALESCE(cs.completed_at, cs.started_at) DESC
-        LIMIT ? OFFSET ?
-      `;
-      
-      const stmt = db.getDb().prepare(query);
-      const rows = stmt.all(userId, userId, limit, offset) as any[];
-      
-      const sessions = rows.map(row => ({
-        id: row.id,
-        startUrl: row.start_url,
-        allowSubdomains: Boolean(row.allow_subdomains),
-        maxConcurrency: row.max_concurrency,
-        mode: row.mode,
-        scheduleId: row.schedule_id,
-        userId: row.user_id,
-        startedAt: row.started_at,
-        completedAt: row.completed_at,
-        totalPages: row.total_pages,
-        totalResources: row.total_resources,
-        duration: row.duration,
-        status: row.status
-      }));
-  
-      res.json({ sessions, paging: { limit, offset, count: sessions.length } });
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const sessions = await db.getUserSessionsWithShares(userId, limit, offset);
+
+    res.json({ sessions, paging: { limit, offset, count: sessions.length } });
   } catch (error) {
     logger.error('Failed to list sessions', error as Error);
-    res.status(500).json({ error: 'Failed to list sessions' });
+    res.status(500).json({ error: 'Failed to list sessions', details: (error as Error).message });
   }
 });
 
 // Crawl status for a URL (to inform user about reuse vs recrawl)
 // Protected - users can only see their own crawl status
-router.get('/crawl/status', authenticateUser, (req, res) => {
+router.get('/crawl/status', authenticateUser, async (req, res) => {
   try {
     const url = req.query.url as string;
     if (!url) return res.status(400).json({ error: 'url query param is required' });
 
     const db = getDatabase();
     const userId = req.user?.userId;
-    const running = db.getRunningSessionByUrl(url, userId);
-    const latest = db.getLatestSessionByUrl(url, userId);
-    const avgDuration = db.getAverageDurationForUrl(url, userId);
+    const running = await db.getRunningSessionByUrl(url, userId);
+    const latest = await db.getLatestSessionByUrl(url, userId as number);
+    const avgDuration = await db.getAverageDurationForUrl(url, userId);
 
     res.json({
       url,
@@ -512,20 +495,20 @@ router.get('/crawl/status', authenticateUser, (req, res) => {
 router.delete('/data/clear', async (req, res) => {
   try {
     const db = getDatabase();
-    db.clearAllData();
-    
+    await db.clearAllData();
+
     const requestQueue = await RequestQueue.open();
     const queueInfo = await requestQueue.getInfo();
-    logger.info('Clearing request queue', { 
-      queueName: queueInfo?.name, 
+    logger.info('Clearing request queue', {
+      queueName: queueInfo?.name,
       pendingCount: queueInfo?.pendingRequestCount,
       handledCount: queueInfo?.handledRequestCount,
     });
     await requestQueue.drop();
-    
+
     metricsCollector.reset();
     logger.clearLogs();
-    
+
     // Clear audit files from storage
     try {
       const auditDir = path.resolve(process.cwd(), 'storage', 'audits');
@@ -554,7 +537,7 @@ router.delete('/data/clear', async (req, res) => {
     } catch (error) {
       logger.warn('Failed to clear audit files', error as Error);
     }
-    
+
     res.json({ message: 'All data cleared successfully (database, queue, metrics, logs, and audit files)', timestamp: new Date().toISOString() });
     logger.info('All data cleared by user request');
   } catch (error) {
@@ -583,73 +566,30 @@ router.get('/status', (req, res) => {
 });
 
 // Cron session history endpoints
-router.get('/cron/history', (req, res) => {
+router.get('/cron/history', async (req, res) => {
   try {
     const db = getDatabase();
     const limit = Math.min(parseInt(req.query.limit as string) || 100, 500);
     const offset = Math.max(parseInt(req.query.offset as string) || 0, 0);
-    const scheduleId = req.query.scheduleId ? parseInt(req.query.scheduleId as string) : undefined;
-    const status = req.query.status as string;
-    const startDate = req.query.startDate as string;
-    const endDate = req.query.endDate as string;
 
-    let query = `
-      SELECT se.*, cs.name as schedule_name, cs.start_url, cs.mode, cs.allow_subdomains, cs.max_concurrency
-      FROM schedule_executions se
-      LEFT JOIN crawl_schedules cs ON se.schedule_id = cs.id
-    `;
-    
-    const conditions: string[] = [];
-    const params: any[] = [];
-    
-    if (scheduleId) {
-      conditions.push('se.schedule_id = ?');
-      params.push(scheduleId);
-    }
-    
-    if (status) {
-      conditions.push('se.status = ?');
-      params.push(status);
-    }
-    
-    if (startDate) {
-      conditions.push('se.started_at >= ?');
-      params.push(startDate);
-    }
-    
-    if (endDate) {
-      conditions.push('se.started_at <= ?');
-      params.push(endDate);
-    }
-    
-    if (conditions.length > 0) {
-      query += ' WHERE ' + conditions.join(' AND ');
-    }
-    
-    query += ' ORDER BY se.started_at DESC LIMIT ? OFFSET ?';
-    params.push(limit, offset);
-    
-    const stmt = db.getDb().prepare(query);
-    const executions = stmt.all(...params) as any[];
-    
-    // Get total count for pagination
-    let countQuery = 'SELECT COUNT(*) as total FROM schedule_executions se';
-    if (conditions.length > 0) {
-      countQuery += ' WHERE ' + conditions.join(' AND ');
-    }
-    const countStmt = db.getDb().prepare(countQuery);
-    const countParams = params.slice(0, -2); // Remove limit and offset
-    const totalResult = countStmt.get(...countParams) as { total: number };
-    
+    const filters = {
+      scheduleId: req.query.scheduleId ? parseInt(req.query.scheduleId as string) : undefined,
+      status: req.query.status as string,
+      startDate: req.query.startDate as string,
+      endDate: req.query.endDate as string
+    };
+
+    const { executions, total } = await db.getScheduleExecutionsWithDetails(filters, limit, offset);
+
     res.json({
-      executions: executions.map(exec => ({
+      executions: executions.map((exec: any) => ({
         id: exec.id,
         scheduleId: exec.schedule_id,
         sessionId: exec.session_id,
         scheduleName: exec.schedule_name,
         startUrl: exec.start_url,
         mode: exec.mode,
-        allowSubdomains: exec.allow_subdomains === 1,
+        allowSubdomains: exec.allow_subdomains === 1 || exec.allow_subdomains === true,
         maxConcurrency: exec.max_concurrency,
         startedAt: exec.started_at,
         completedAt: exec.completed_at,
@@ -663,8 +603,8 @@ router.get('/cron/history', (req, res) => {
         limit,
         offset,
         count: executions.length,
-        total: totalResult.total,
-        hasMore: offset + executions.length < totalResult.total
+        total,
+        hasMore: offset + executions.length < total
       }
     });
   } catch (error) {
@@ -674,36 +614,29 @@ router.get('/cron/history', (req, res) => {
 });
 
 // Get detailed execution info with session data
-router.get('/cron/execution/:id', (req, res) => {
+router.get('/cron/execution/:id', async (req, res) => {
   try {
     const db = getDatabase();
     const executionId = parseInt(req.params.id);
-    
+
     // Get execution details
-    const executionStmt = db.getDb().prepare(`
-      SELECT se.*, cs.name as schedule_name, cs.start_url, cs.mode, cs.allow_subdomains, cs.max_concurrency
-      FROM schedule_executions se
-      LEFT JOIN crawl_schedules cs ON se.schedule_id = cs.id
-      WHERE se.id = ?
-    `);
-    const execution = executionStmt.get(executionId) as any;
-    
+    const execution = await db.getExecutionWithSession(executionId);
+
     if (!execution) {
       return res.status(404).json({ error: 'Execution not found' });
     }
-    
+
     // Get session details
-    const sessionStmt = db.getDb().prepare('SELECT * FROM crawl_sessions WHERE id = ?');
-    const session = sessionStmt.get(execution.session_id) as any;
-    
+    const session = await db.getCrawlSession(execution.session_id);
+
     // Get pages and resources for this session
-    const pages = db.getPages(execution.session_id, 1000, 0);
-    const resources = db.getResources(execution.session_id, undefined, 1000, 0);
-    
+    const pages = await db.getPages(execution.session_id, 1000, 0);
+    const resources = await db.getResources(execution.session_id, undefined, 1000, 0);
+
     // Get sitemap data
-    const sitemapUrls = db.getSitemapUrls(execution.session_id);
-    const sitemapDiscoveries = db.getSitemapDiscoveries(execution.session_id);
-    
+    const sitemapUrls = await db.getSitemapUrls(execution.session_id);
+    const sitemapDiscoveries = await db.getSitemapDiscoveries(execution.session_id);
+
     res.json({
       execution: {
         id: execution.id,
@@ -712,7 +645,7 @@ router.get('/cron/execution/:id', (req, res) => {
         scheduleName: execution.schedule_name,
         startUrl: execution.start_url,
         mode: execution.mode,
-        allowSubdomains: execution.allow_subdomains === 1,
+        allowSubdomains: execution.allow_subdomains === 1 || execution.allow_subdomains === true,
         maxConcurrency: execution.max_concurrency,
         startedAt: execution.started_at,
         completedAt: execution.completed_at,
@@ -725,14 +658,14 @@ router.get('/cron/execution/:id', (req, res) => {
       },
       session: session ? {
         id: session.id,
-        startUrl: session.start_url,
-        allowSubdomains: session.allow_subdomains === 1,
-        maxConcurrency: session.max_concurrency,
+        startUrl: session.startUrl ?? (session as any).start_url,
+        allowSubdomains: session.allowSubdomains ?? (session as any).allow_subdomains,
+        maxConcurrency: session.maxConcurrency ?? (session as any).max_concurrency,
         mode: session.mode,
-        startedAt: session.started_at,
-        completedAt: session.completed_at,
-        totalPages: session.total_pages,
-        totalResources: session.total_resources,
+        startedAt: session.startedAt ?? (session as any).started_at,
+        completedAt: session.completedAt ?? (session as any).completed_at,
+        totalPages: session.totalPages ?? (session as any).total_pages,
+        totalResources: session.totalResources ?? (session as any).total_resources,
         duration: session.duration,
         status: session.status
       } : null,
@@ -757,100 +690,45 @@ router.get('/cron/execution/:id', (req, res) => {
 });
 
 // Get cron session statistics
-router.get('/cron/stats', (req, res) => {
+router.get('/cron/stats', async (req, res) => {
   try {
     const db = getDatabase();
     const scheduleId = req.query.scheduleId ? parseInt(req.query.scheduleId as string) : undefined;
-    
+
     // Get overall stats
-    let statsQuery = `
-      SELECT 
-        COUNT(*) as total_executions,
-        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as successful_executions,
-        SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed_executions,
-        SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END) as running_executions,
-        AVG(CASE WHEN status = 'completed' THEN duration ELSE NULL END) as avg_duration,
-        SUM(pages_crawled) as total_pages_crawled,
-        SUM(resources_found) as total_resources_found
-      FROM schedule_executions
-    `;
-    
-    const params: any[] = [];
-    if (scheduleId) {
-      statsQuery += ' WHERE schedule_id = ?';
-      params.push(scheduleId);
-    }
-    
-    const statsStmt = db.getDb().prepare(statsQuery);
-    const stats = statsStmt.get(...params) as any;
-    
+    const stats = await db.getScheduleStats(scheduleId);
+
     // Get recent executions
-    let recentQuery = `
-      SELECT se.*, cs.name as schedule_name
-      FROM schedule_executions se
-      LEFT JOIN crawl_schedules cs ON se.schedule_id = cs.id
-    `;
-    
-    if (scheduleId) {
-      recentQuery += ' WHERE se.schedule_id = ?';
-    }
-    
-    recentQuery += ' ORDER BY se.started_at DESC LIMIT 10';
-    
-    const recentStmt = db.getDb().prepare(recentQuery);
-    const recentExecutions = recentStmt.all(...(scheduleId ? [scheduleId] : [])) as any[];
-    
-    // Get schedule performance
-    const performanceQuery = `
-      SELECT 
-        cs.id,
-        cs.name,
-        cs.start_url,
-        COUNT(se.id) as total_runs,
-        SUM(CASE WHEN se.status = 'completed' THEN 1 ELSE 0 END) as successful_runs,
-        SUM(CASE WHEN se.status = 'failed' THEN 1 ELSE 0 END) as failed_runs,
-        AVG(CASE WHEN se.status = 'completed' THEN se.duration ELSE NULL END) as avg_duration,
-        MAX(se.started_at) as last_run
-      FROM crawl_schedules cs
-      LEFT JOIN schedule_executions se ON cs.id = se.schedule_id
-      GROUP BY cs.id, cs.name, cs.start_url
-      ORDER BY last_run DESC
-    `;
-    
-    const performanceStmt = db.getDb().prepare(performanceQuery);
-    const performance = performanceStmt.all() as any[];
-    
+    const executions = await db.getRecentExecutions(10, scheduleId);
+
     res.json({
-      overall: {
-        totalExecutions: stats.total_executions || 0,
-        successfulExecutions: stats.successful_executions || 0,
-        failedExecutions: stats.failed_executions || 0,
-        runningExecutions: stats.running_executions || 0,
-        successRate: stats.total_executions > 0 ? 
-          Math.round((stats.successful_executions / stats.total_executions) * 100) : 0,
-        averageDuration: Math.round(stats.avg_duration || 0),
-        totalPagesCrawled: stats.total_pages_crawled || 0,
-        totalResourcesFound: stats.total_resources_found || 0
+      stats: {
+        totalExecutions: parseInt(stats.total_executions || 0),
+        successfulExecutions: parseInt(stats.successful_executions || 0),
+        failedExecutions: parseInt(stats.failed_executions || 0),
+        runningExecutions: parseInt(stats.running_executions || 0),
+        avgDuration: parseFloat(stats.avg_duration || 0),
+        totalPagesCrawled: parseInt(stats.total_pages_crawled || 0),
+        totalResourcesFound: parseInt(stats.total_resources_found || 0)
       },
-      recent: recentExecutions.map(exec => ({
+      recentExecutions: executions.map((exec: any) => ({
         id: exec.id,
         scheduleId: exec.schedule_id,
         scheduleName: exec.schedule_name,
         startedAt: exec.started_at,
         completedAt: exec.completed_at,
         status: exec.status,
-        duration: exec.duration,
         pagesCrawled: exec.pages_crawled,
-        resourcesFound: exec.resources_found
+        duration: exec.duration
       })),
-      performance: performance.map(perf => ({
+      performance: (await db.getSchedulePerformance()).map((perf: any) => ({
         scheduleId: perf.id,
         scheduleName: perf.name,
         startUrl: perf.start_url,
         totalRuns: perf.total_runs || 0,
         successfulRuns: perf.successful_runs || 0,
         failedRuns: perf.failed_runs || 0,
-        successRate: perf.total_runs > 0 ? 
+        successRate: perf.total_runs > 0 ?
           Math.round((perf.successful_runs / perf.total_runs) * 100) : 0,
         averageDuration: Math.round(perf.avg_duration || 0),
         lastRun: perf.last_run
@@ -863,47 +741,22 @@ router.get('/cron/stats', (req, res) => {
 });
 
 // Export cron session history
-router.get('/cron/export', (req, res) => {
+router.get('/cron/export', async (req, res) => {
   try {
     const { format = 'json', scheduleId, startDate, endDate } = req.query;
     const db = getDatabase();
-    
-    let query = `
-      SELECT se.*, cs.name as schedule_name, cs.start_url, cs.mode, cs.allow_subdomains, cs.max_concurrency
-      FROM schedule_executions se
-      LEFT JOIN crawl_schedules cs ON se.schedule_id = cs.id
-    `;
-    
-    const conditions: string[] = [];
-    const params: any[] = [];
-    
-    if (scheduleId) {
-      conditions.push('se.schedule_id = ?');
-      params.push(parseInt(scheduleId as string));
-    }
-    
-    if (startDate) {
-      conditions.push('se.started_at >= ?');
-      params.push(startDate);
-    }
-    
-    if (endDate) {
-      conditions.push('se.started_at <= ?');
-      params.push(endDate);
-    }
-    
-    if (conditions.length > 0) {
-      query += ' WHERE ' + conditions.join(' AND ');
-    }
-    
-    query += ' ORDER BY se.started_at DESC';
-    
-    const stmt = db.getDb().prepare(query);
-    const executions = stmt.all(...params) as any[];
-    
+
+    const filters = {
+      scheduleId: scheduleId ? parseInt(scheduleId as string) : undefined,
+      startDate: startDate as string,
+      endDate: endDate as string
+    };
+
+    const executions = await db.exportCronHistory(filters);
+
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const filename = `cron-history-${timestamp}`;
-    
+
     const exportData = {
       exportInfo: {
         timestamp: new Date().toISOString(),
@@ -911,14 +764,14 @@ router.get('/cron/export', (req, res) => {
         totalExecutions: executions.length,
         filters: { scheduleId, startDate, endDate }
       },
-      executions: executions.map(exec => ({
+      executions: executions.map((exec: any) => ({
         id: exec.id,
         scheduleId: exec.schedule_id,
         sessionId: exec.session_id,
         scheduleName: exec.schedule_name,
         startUrl: exec.start_url,
         mode: exec.mode,
-        allowSubdomains: exec.allow_subdomains === 1,
+        allowSubdomains: exec.allow_subdomains === 1 || exec.allow_subdomains === true,
         maxConcurrency: exec.max_concurrency,
         startedAt: exec.started_at,
         completedAt: exec.completed_at,
@@ -929,7 +782,7 @@ router.get('/cron/export', (req, res) => {
         duration: exec.duration
       }))
     };
-    
+
     if (format === 'csv') {
       const csv = convertCronHistoryToCSV(exportData);
       res.setHeader('Content-Type', 'text/csv');
@@ -940,7 +793,7 @@ router.get('/cron/export', (req, res) => {
       res.setHeader('Content-Disposition', `attachment; filename="${filename}.json"`);
       res.json(exportData);
     }
-    
+
     logger.info('Cron history exported', { format, count: executions.length });
   } catch (error) {
     logger.error('Failed to export cron history', error as Error);
@@ -951,15 +804,15 @@ router.get('/cron/export', (req, res) => {
 // Helper function for CSV conversion
 function convertCronHistoryToCSV(data: any): string {
   if (data.executions.length === 0) return '';
-  
+
   const headers = [
     'ID', 'Schedule ID', 'Session ID', 'Schedule Name', 'Start URL', 'Mode',
     'Allow Subdomains', 'Max Concurrency', 'Started At', 'Completed At',
     'Status', 'Error Message', 'Pages Crawled', 'Resources Found', 'Duration (ms)'
   ];
-  
+
   const csvRows = [headers.join(',')];
-  
+
   for (const exec of data.executions) {
     const values = [
       exec.id,
@@ -980,7 +833,7 @@ function convertCronHistoryToCSV(data: any): string {
     ];
     csvRows.push(values.join(','));
   }
-  
+
   return csvRows.join('\n');
 }
 

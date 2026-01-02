@@ -7,18 +7,21 @@ export type StoredAudit = {
     metrics: Record<string, unknown>;
 };
 
-export function saveAudit(url: string, device: 'mobile' | 'desktop', parsed: Record<string, unknown>, raw?: unknown, sessionId?: number): { dbId: number } {
+export async function saveAudit(url: string, device: 'mobile' | 'desktop', parsed: Record<string, unknown>, raw?: unknown, sessionId?: number): Promise<{ dbId: number }> {
     const date = new Date();
-    
+
     // Save to database only
     const db = getDatabase();
-    
+
     // Check if audit already exists for this URL and device
-    const existing = db.getAuditResult(url, device);
-    if (existing) {
-        console.log(`[audit-store] 🔄 Updating existing audit: ${device} ${url}`);
+    const existing = await db.getAuditResult(url, device);
+
+    // Only update if it's the SAME session (retrying/updating a placeholder)
+    // If sessionId is provided and differs from existing, we MUST insert a new record to preserve history
+    if (existing && existing.session_id === sessionId) {
+        console.log(`[audit-store] 🔄 Updating existing audit for session ${sessionId}: ${device} ${url}`);
         // Update existing record with actual metrics
-        db.updateAuditResult(existing.id, {
+        await db.updateAuditResult(existing.id, {
             lcp_ms: (parsed.lab as any)?.LCP_ms,
             tbt_ms: (parsed.lab as any)?.TBT_ms,
             cls: (parsed.lab as any)?.CLS,
@@ -33,8 +36,9 @@ export function saveAudit(url: string, device: 'mobile' | 'desktop', parsed: Rec
         });
         return { dbId: existing.id };
     }
-    
-    const dbId = db.insertAuditResult({
+
+    // Otherwise (new session, or no existing audit), insert fresh
+    const dbId = await db.insertAuditResult({
         url,
         device,
         run_at: date.toISOString(),
@@ -51,7 +55,7 @@ export function saveAudit(url: string, device: 'mobile' | 'desktop', parsed: Rec
         status: 'completed',
         progress: 100
     });
-    
+
     console.log(`[audit-store] ✅ Saved audit: ${device} ${url} (ID: ${dbId})`);
     return { dbId };
 }
