@@ -25,12 +25,32 @@ export function extractStatusData(
     const lastModified = response?.headers?.['last-modified'] || 
                         response?.responseHeaders?.['last-modified'];
     
+    // Calculate size in bytes from response body
+    let sizeBytes: number | undefined;
+    if (response?.body) {
+        // If body is a string, get byte length (UTF-8 encoding)
+        if (typeof response.body === 'string') {
+            sizeBytes = Buffer.byteLength(response.body, 'utf8');
+        } else if (Buffer.isBuffer(response.body)) {
+            sizeBytes = response.body.length;
+        }
+    }
+    // Fallback: try to get from Content-Length header
+    if (!sizeBytes) {
+        const contentLength = response?.headers?.['content-length'] || 
+                             response?.responseHeaders?.['content-length'];
+        if (contentLength) {
+            sizeBytes = parseInt(contentLength, 10);
+        }
+    }
+    
     return {
         statusCode: response?.statusCode || 200,
         finalUrl: url,
         contentType,
         language,
         responseTime,
+        sizeBytes,
         lastModified
     };
 }

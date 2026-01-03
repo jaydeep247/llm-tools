@@ -2,6 +2,27 @@ import type { CheerioAPI } from 'cheerio';
 import type { TitleData } from './types.js';
 
 /**
+ * Calculate approximate pixel width of text
+ * Based on average character widths for common fonts
+ */
+function calculatePixelWidth(text: string): number {
+    if (!text) return 0;
+    
+    let width = 0;
+    for (const char of text) {
+        // Approximate character widths (in pixels)
+        if (char === ' ') width += 3;
+        else if (/[iIl1\.,;:\-']/.test(char)) width += 4;
+        else if (/[fjtJ]/.test(char)) width += 5;
+        else if (/[a-z]/.test(char)) width += 6;
+        else if (/[A-Z]/.test(char)) width += 7;
+        else if (/[wWmM]/.test(char)) width += 9;
+        else width += 6; // default
+    }
+    return Math.round(width);
+}
+
+/**
  * Extract title information from a page
  */
 export function extractTitle($: CheerioAPI): TitleData {
@@ -10,9 +31,8 @@ export function extractTitle($: CheerioAPI): TitleData {
     const titleLength = title.length;
     const hasMissingTitle = titleLength === 0;
     
-    // TODO: Calculate pixel width based on font metrics
-    // This would require font-specific calculations
-    const titlePixelWidth = undefined;
+    // Calculate pixel width
+    const titlePixelWidth = calculatePixelWidth(title);
     
     return {
         title: title || 'No title',

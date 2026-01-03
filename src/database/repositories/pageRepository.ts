@@ -14,14 +14,31 @@ export class PageRepository {
     async insertPage(data: Omit<Page, 'id'>): Promise<number> {
         const res = await this.pool.query(
             `INSERT INTO pages 
-      (session_id, url, title, title_length, description, description_length, content_type, last_modified, status_code, response_time, word_count, timestamp, success, error_message)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      (session_id, url, title, title_length, title_pixel_width, description, description_length, description_pixel_width, content_type, last_modified, status_code, response_time, word_count, size_bytes, timestamp, success, error_message, indexable, indexability_status, meta_keywords, meta_keywords_length, meta_robots, x_robots_tag, meta_refresh, canonical_url, rel_next, rel_prev, http_rel_next, http_rel_prev, heading_tags)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)
       RETURNING id`,
             [
                 this.safeInt(data.sessionId), data.url, data.title, this.safeInt(data.titleLength) || 0,
-                data.description, this.safeInt(data.descriptionLength) || 0, data.contentType,
+                this.safeInt(data.titlePixelWidth),
+                data.description, this.safeInt(data.descriptionLength) || 0,
+                this.safeInt(data.descriptionPixelWidth),
+                data.contentType,
                 data.lastModified, this.safeInt(data.statusCode), this.safeInt(data.responseTime),
-                this.safeInt(data.wordCount) || 0, data.timestamp, data.success, data.errorMessage
+                this.safeInt(data.wordCount) || 0, this.safeInt(data.sizeBytes),
+                data.timestamp, data.success, data.errorMessage,
+                data.indexable !== undefined ? data.indexable : true,
+                data.indexabilityStatus || 'indexable',
+                data.metaKeywords || null,
+                this.safeInt(data.metaKeywordsLength),
+                data.metaRobots || null,
+                data.xRobotsTag || null,
+                data.metaRefresh || null,
+                data.canonicalUrl || null,
+                data.relNext || null,
+                data.relPrev || null,
+                data.httpRelNext || null,
+                data.httpRelPrev || null,
+                data.headingTags || null
             ]
         );
         return res.rows[0].id;
@@ -456,16 +473,32 @@ export class PageRepository {
             url: row.url,
             title: row.title,
             titleLength: row.title_length,
+            titlePixelWidth: row.title_pixel_width,
             description: row.description,
             descriptionLength: row.description_length,
+            descriptionPixelWidth: row.description_pixel_width,
             contentType: row.content_type,
             lastModified: row.last_modified,
             statusCode: row.status_code,
             responseTime: row.response_time,
             wordCount: row.word_count,
+            sizeBytes: row.size_bytes,
             timestamp: row.timestamp,
             success: row.success,
-            errorMessage: row.error_message
+            errorMessage: row.error_message,
+            indexable: row.indexable,
+            indexabilityStatus: row.indexability_status,
+            metaKeywords: row.meta_keywords,
+            metaKeywordsLength: row.meta_keywords_length,
+            metaRobots: row.meta_robots,
+            xRobotsTag: row.x_robots_tag,
+            metaRefresh: row.meta_refresh,
+            canonicalUrl: row.canonical_url,
+            relNext: row.rel_next,
+            relPrev: row.rel_prev,
+            httpRelNext: row.http_rel_next,
+            httpRelPrev: row.http_rel_prev,
+            headingTags: row.heading_tags
         };
     }
 

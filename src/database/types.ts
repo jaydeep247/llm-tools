@@ -20,16 +20,32 @@ export interface Page {
     url: string;
     title: string;
     titleLength: number;
+    titlePixelWidth?: number;
     description: string;
     descriptionLength: number;
+    descriptionPixelWidth?: number;
     contentType: string;
     lastModified: string | null;
     statusCode: number;
     responseTime: number;
     wordCount: number;
+    sizeBytes?: number;
     timestamp: string;
     success: boolean;
     errorMessage: string | null;
+    indexable?: boolean;
+    indexabilityStatus?: string;
+    metaKeywords?: string;
+    metaKeywordsLength?: number;
+    metaRobots?: string;
+    xRobotsTag?: string;
+    metaRefresh?: string;
+    canonicalUrl?: string;
+    relNext?: string;
+    relPrev?: string;
+    httpRelNext?: string;
+    httpRelPrev?: string;
+    headingTags?: string; // JSON string with heading counts
 }
 
 export interface Resource {

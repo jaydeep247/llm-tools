@@ -6,8 +6,10 @@ interface CrawlData {
   url: string;
   title: string;
   titleLength?: number;
+  titlePixelWidth?: number;
   description: string;
   descriptionLength?: number;
+  descriptionPixelWidth?: number;
   contentType: string;
   lastModified: string | null;
   statusCode: number | null;
@@ -19,6 +21,20 @@ interface CrawlData {
   scheduleId?: number;
   scheduleName?: string;
   wordCount?: number;
+  sizeBytes?: number;
+  indexable?: boolean;
+  indexabilityStatus?: string;
+  metaKeywords?: string;
+  metaKeywordsLength?: number;
+  metaRobots?: string;
+  xRobotsTag?: string;
+  metaRefresh?: string;
+  canonicalUrl?: string;
+  relNext?: string;
+  relPrev?: string;
+  httpRelNext?: string;
+  httpRelPrev?: string;
+  headingTags?: string; // JSON string
 }
 
 interface DataViewerProps {
@@ -56,11 +72,6 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
 
   useEffect(() => {
     loadSessions();
-    if (selectedSessionId !== '') {
-      loadData();
-    } else {
-      setLoading(false);
-    }
   }, [accessToken]); // ✅ RELOAD WHEN TOKEN CHANGES
 
   // When initialSessionId changes on open, set the selected session and reload
@@ -68,9 +79,18 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
     if (initialSessionId) {
       setSelectedSessionId(initialSessionId);
       setServerOffset(0);
-      loadData();
     }
-  }, [initialSessionId, accessToken]);
+  }, [initialSessionId]);
+
+  // Load data whenever selectedSessionId changes
+  useEffect(() => {
+    if (selectedSessionId !== '') {
+      loadData();
+    } else {
+      setLoading(false);
+      setData([]); // Clear data when no session is selected
+    }
+  }, [selectedSessionId, accessToken]); // ✅ RELOAD WHEN SESSION OR TOKEN CHANGES
 
   // ✅ IMPROVED: Better error handling and logging
   const loadData = async (opts?: { append?: boolean }) => {
@@ -119,6 +139,7 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
       
       const result = await response.json();
       console.log('[DataViewer] Successfully received data:', result);
+      console.log('[DataViewer] First item indexability:', result.data?.[0]?.indexable, result.data?.[0]?.indexabilityStatus);
       
       setServerTotal(result?.paging?.total ?? result?.pagination?.total ?? result?.data?.length ?? null);
       const items = result.data || [];
@@ -263,6 +284,183 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
     return <span className="status-badge unknown">{statusCode}</span>;
   };
 
+  const getIndexabilityBadge = (indexable?: boolean, status?: string) => {
+    if (indexable === undefined || indexable === null) {
+      return <span className="status-badge unknown" title="Indexability unknown">❓ Unknown</span>;
+    }
+    if (indexable) {
+      return <span className="status-badge success" title={status || 'Indexable'}>✅ Indexable</span>;
+    } else {
+      return <span className="status-badge client-error" title={status || 'Not indexable'}>❌ {status || 'Noindex'}</span>;
+    }
+  };
+
+  const getTitlePixelWidthBadge = (pixelWidth?: number) => {
+    if (pixelWidth === undefined || pixelWidth === null) {
+      return <span className="status-badge unknown" title="Width unknown">—</span>;
+    }
+    
+    // Google typically displays ~600px of title in search results
+    if (pixelWidth < 600) {
+      return <span className="status-badge success" title="Optimal length for search results">{pixelWidth}px</span>;
+    } else if (pixelWidth <= 700) {
+      return <span className="status-badge redirect" title="Acceptable but may be truncated">{pixelWidth}px</span>;
+    } else {
+      return <span className="status-badge client-error" title="Too long, will be truncated">{pixelWidth}px</span>;
+    }
+  };
+
+  const getDescriptionPixelWidthBadge = (pixelWidth?: number) => {
+    if (pixelWidth === undefined || pixelWidth === null) {
+      return <span className="status-badge unknown" title="Width unknown">—</span>;
+    }
+    
+    // Google typically displays ~920px of description in search results (desktop)
+    // Mobile is ~680px
+    if (pixelWidth < 920) {
+      return <span className="status-badge success" title="Optimal length for search results">{pixelWidth}px</span>;
+    } else if (pixelWidth <= 1000) {
+      return <span className="status-badge redirect" title="Acceptable but may be truncated on mobile">{pixelWidth}px</span>;
+    } else {
+      return <span className="status-badge client-error" title="Too long, will be truncated">{pixelWidth}px</span>;
+    }
+  };
+
+  const getMetaKeywordsBadge = (keywords?: string, length?: number) => {
+    if (!keywords || keywords === 'undefined' || keywords === 'null') {
+      return <span className="status-badge unknown" title="No meta keywords">—</span>;
+    }
+    
+    // Meta keywords are generally not used by Google anymore, but we still track them
+    if (length && length > 0) {
+      return <span className="status-badge redirect" title={keywords}>{keywords} ({length})</span>;
+    }
+    return <span className="status-badge unknown" title="Empty keywords">Empty</span>;
+  };
+
+  const getHeadingTagsBadge = (headingTagsJson?: string) => {
+    if (!headingTagsJson || headingTagsJson === 'undefined' || headingTagsJson === 'null') {
+      return <span className="status-badge unknown" title="No heading data">—</span>;
+    }
+    
+    try {
+      const tags = JSON.parse(headingTagsJson);
+      const summary = `H1:${tags.h1 || 0} H2:${tags.h2 || 0} H3:${tags.h3 || 0}`;
+      const fullSummary = `H1:${tags.h1 || 0} H2:${tags.h2 || 0} H3:${tags.h3 || 0} H4:${tags.h4 || 0} H5:${tags.h5 || 0} H6:${tags.h6 || 0}`;
+      
+      // Check for SEO issues
+      if (tags.h1 === 0) {
+        return <span className="status-badge client-error" title={`Missing H1! ${fullSummary}`}>{summary}</span>;
+      } else if (tags.h1 > 1) {
+        return <span className="status-badge redirect" title={`Multiple H1s! ${fullSummary}`}>{summary}</span>;
+      } else {
+        return <span className="status-badge success" title={fullSummary}>{summary}</span>;
+      }
+    } catch {
+      return <span className="status-badge unknown" title="Invalid heading data">Error</span>;
+    }
+  };
+
+  const getMetaRobotsBadge = (metaRobots?: string) => {
+    if (!metaRobots || metaRobots === 'undefined' || metaRobots === 'null') {
+      return <span className="status-badge unknown" title="No meta robots tag">—</span>;
+    }
+    
+    const robotsLower = metaRobots.toLowerCase();
+    
+    // Check for noindex directive (SEO issue)
+    if (robotsLower.includes('noindex')) {
+      return <span className="status-badge client-error" title={metaRobots}>🚫 {metaRobots}</span>;
+    }
+    
+    // Check for nofollow directive (warning)
+    if (robotsLower.includes('nofollow')) {
+      return <span className="status-badge redirect" title={metaRobots}>⚠️ {metaRobots}</span>;
+    }
+    
+    // Default or index,follow (good)
+    return <span className="status-badge success" title={metaRobots}>✓ {metaRobots}</span>;
+  };
+
+  const getXRobotsTagBadge = (xRobotsTag?: string) => {
+    if (!xRobotsTag || xRobotsTag === 'undefined' || xRobotsTag === 'null') {
+      return <span className="status-badge unknown" title="No X-Robots-Tag header">—</span>;
+    }
+    
+    const robotsLower = xRobotsTag.toLowerCase();
+    
+    // Check for noindex directive (SEO issue)
+    if (robotsLower.includes('noindex')) {
+      return <span className="status-badge client-error" title={xRobotsTag}>🚫 {xRobotsTag}</span>;
+    }
+    
+    // Check for nofollow directive (warning)
+    if (robotsLower.includes('nofollow')) {
+      return <span className="status-badge redirect" title={xRobotsTag}>⚠️ {xRobotsTag}</span>;
+    }
+    
+    // Default or index,follow (good)
+    return <span className="status-badge success" title={xRobotsTag}>✓ {xRobotsTag}</span>;
+  };
+
+  const getMetaRefreshBadge = (metaRefresh?: string) => {
+    if (!metaRefresh || metaRefresh === 'undefined' || metaRefresh === 'null') {
+      return <span className="status-badge unknown" title="No meta refresh tag">—</span>;
+    }
+    
+    // Meta refresh is generally discouraged for SEO - always show as warning
+    return <span className="status-badge redirect" title={`Meta Refresh: ${metaRefresh}`}>⚠️ {metaRefresh}</span>;
+  };
+
+  const getSizeBadge = (sizeBytes?: number) => {
+    if (!sizeBytes || sizeBytes === 0) {
+      return <span className="status-badge unknown" title="Size unknown">—</span>;
+    }
+    
+    // Format size in human-readable format
+    let formattedSize: string;
+    let badgeClass = 'status-badge';
+    
+    if (sizeBytes < 1024) {
+      formattedSize = `${sizeBytes} B`;
+      badgeClass += ' success'; // Small size is good
+    } else if (sizeBytes < 1024 * 1024) {
+      const kb = (sizeBytes / 1024).toFixed(2);
+      formattedSize = `${kb} KB`;
+      badgeClass += sizeBytes < 100 * 1024 ? ' success' : ' redirect'; // <100KB good, else warning
+    } else {
+      const mb = (sizeBytes / (1024 * 1024)).toFixed(2);
+      formattedSize = `${mb} MB`;
+      badgeClass += sizeBytes < 2 * 1024 * 1024 ? ' redirect' : ' client-error'; // <2MB warning, else error
+    }
+    
+    return <span className={badgeClass} title={`${sizeBytes.toLocaleString()} bytes`}>{formattedSize}</span>;
+  };
+
+  const getCanonicalBadge = (canonicalUrl?: string, currentUrl?: string) => {
+    if (!canonicalUrl || canonicalUrl === 'undefined' || canonicalUrl === 'null') {
+      return <span className="status-badge unknown" title="No canonical URL set">—</span>;
+    }
+    
+    // Check if canonical URL matches current URL
+    const isSelfReferencing = canonicalUrl === currentUrl;
+    
+    if (isSelfReferencing) {
+      return <span className="status-badge success" title={`Self-referencing: ${canonicalUrl}`}>✓ Self</span>;
+    } else {
+      return <span className="status-badge redirect" title={`Points to: ${canonicalUrl}`}>➡️ {canonicalUrl}</span>;
+    }
+  };
+
+  const getPaginationBadge = (url?: string, type?: 'next' | 'prev') => {
+    if (!url || url === 'undefined' || url === 'null') {
+      return <span className="status-badge unknown" title="No link">—</span>;
+    }
+    
+    const icon = type === 'next' ? '➡️' : '⬅️';
+    return <span className="status-badge redirect" title={`${type === 'next' ? 'Next' : 'Previous'}: ${url}`}>{icon} {url}</span>;
+  };
+
   if (loading) {
     return (
       <div className="data-viewer-overlay">
@@ -339,10 +537,8 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
               onChange={(e) => {
                 const v = e.target.value === '' ? '' : Number(e.target.value);
                 setSelectedSessionId(v);
-                if (v !== '') {
-                  setServerOffset(0);
-                  loadData();
-                }
+                setServerOffset(0);
+                setData([]); // Clear existing data immediately
               }}
               className="search-input"
               title="Filter by session"
@@ -392,34 +588,79 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                 <th onClick={() => handleSort('title')} className="sortable">
                   Title {sortField === 'title' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
-                <th onClick={() => handleSort('titleLength')} className="sortable">
+                <th onClick={() => handleSort('titleLength')} className="sortable center-header">
                   Title Length {sortField === 'titleLength' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
-                <th>
+                <th className="center-header">
+                  Title Width (px)
+                </th>
+                <th className="center-header">
                   Resource Type
                 </th>
                 <th onClick={() => handleSort('description')} className="sortable">
                   Meta Description {sortField === 'description' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
-                <th onClick={() => handleSort('descriptionLength')} className="sortable">
+                <th onClick={() => handleSort('descriptionLength')} className="sortable center-header">
                   Description Length {sortField === 'descriptionLength' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
-                <th onClick={() => handleSort('contentType')} className="sortable">
+                <th className="center-header">
+                  Description Width (px)
+                </th>
+                <th onClick={() => handleSort('metaKeywords')} className="sortable center-header">
+                  Meta Keywords {sortField === 'metaKeywords' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('metaKeywordsLength')} className="sortable center-header">
+                  Keywords Length {sortField === 'metaKeywordsLength' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('metaRobots')} className="sortable center-header">
+                  Meta Robots {sortField === 'metaRobots' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('xRobotsTag')} className="sortable center-header">
+                  X-Robots-Tag {sortField === 'xRobotsTag' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('metaRefresh')} className="sortable center-header">
+                  Meta Refresh {sortField === 'metaRefresh' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('canonicalUrl')} className="sortable">
+                  Canonical URL {sortField === 'canonicalUrl' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('relNext')} className="sortable center-header">
+                  rel="next" {sortField === 'relNext' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('relPrev')} className="sortable center-header">
+                  rel="prev" {sortField === 'relPrev' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('httpRelNext')} className="sortable center-header">
+                  HTTP rel="next" {sortField === 'httpRelNext' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('httpRelPrev')} className="sortable center-header">
+                  HTTP rel="prev" {sortField === 'httpRelPrev' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th className="center-header">
+                  Heading Tags
+                </th>
+                <th onClick={() => handleSort('contentType')} className="sortable center-header">
                   Content Type {sortField === 'contentType' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
-                <th onClick={() => handleSort('lastModified')} className="sortable">
+                <th onClick={() => handleSort('lastModified')} className="sortable center-header">
                   Last Modified {sortField === 'lastModified' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
-                <th onClick={() => handleSort('statusCode')} className="sortable">
+                <th onClick={() => handleSort('statusCode')} className="sortable center-header">
                   Status {sortField === 'statusCode' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
-                <th onClick={() => handleSort('responseTime')} className="sortable">
+                <th onClick={() => handleSort('responseTime')} className="sortable center-header">
                   Response Time {sortField === 'responseTime' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
-                <th onClick={() => handleSort('wordCount' as keyof CrawlData)} className="sortable">
+                <th onClick={() => handleSort('wordCount' as keyof CrawlData)} className="sortable center-header">
                   Word Count {sortField === 'wordCount' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
-                <th onClick={() => handleSort('timestamp')} className="sortable">
+                <th onClick={() => handleSort('sizeBytes' as keyof CrawlData)} className="sortable center-header">
+                  Size (bytes) {sortField === 'sizeBytes' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th className="center-header">
+                  Indexability
+                </th>
+                <th onClick={() => handleSort('timestamp')} className="sortable center-header">
                   Timestamp {sortField === 'timestamp' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
               </tr>
@@ -439,6 +680,9 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                   <td className="title-length-cell">
                     {item.titleLength ?? '—'}
                   </td>
+                  <td className="title-pixel-width-cell">
+                    {getTitlePixelWidthBadge(item.titlePixelWidth)}
+                  </td>
                   <td className="resource-type-cell">
                     {item.resourceType ? item.resourceType.toUpperCase() : 'PAGE'}
                   </td>
@@ -447,6 +691,42 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                   </td>
                   <td className="description-length-cell">
                     {item.descriptionLength ?? '—'}
+                  </td>
+                  <td className="description-pixel-width-cell">
+                    {getDescriptionPixelWidthBadge(item.descriptionPixelWidth)}
+                  </td>
+                  <td className="meta-keywords-cell" title={item.metaKeywords || 'No meta keywords'}>
+                    {getMetaKeywordsBadge(item.metaKeywords, item.metaKeywordsLength)}
+                  </td>
+                  <td className="meta-keywords-length-cell">
+                    {item.metaKeywordsLength ?? '—'}
+                  </td>
+                  <td className="meta-robots-cell">
+                    {getMetaRobotsBadge(item.metaRobots)}
+                  </td>
+                  <td className="x-robots-tag-cell">
+                    {getXRobotsTagBadge(item.xRobotsTag)}
+                  </td>
+                  <td className="meta-refresh-cell">
+                    {getMetaRefreshBadge(item.metaRefresh)}
+                  </td>
+                  <td className="canonical-url-cell">
+                    {getCanonicalBadge(item.canonicalUrl, item.url)}
+                  </td>
+                  <td className="pagination-cell">
+                    {getPaginationBadge(item.relNext, 'next')}
+                  </td>
+                  <td className="pagination-cell">
+                    {getPaginationBadge(item.relPrev, 'prev')}
+                  </td>
+                  <td className="pagination-cell">
+                    {getPaginationBadge(item.httpRelNext, 'next')}
+                  </td>
+                  <td className="pagination-cell">
+                    {getPaginationBadge(item.httpRelPrev, 'prev')}
+                  </td>
+                  <td className="heading-tags-cell">
+                    {getHeadingTagsBadge(item.headingTags)}
                   </td>
                   <td className="content-type-cell" title={item.contentType || 'Unknown'}>
                     {item.contentType || 'Unknown'}
@@ -462,6 +742,12 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                   </td>
                   <td className="word-count-cell">
                     {item.wordCount ?? '—'}
+                  </td>
+                  <td className="size-bytes-cell">
+                    {getSizeBadge(item.sizeBytes)}
+                  </td>
+                  <td className="indexability-cell">
+                    {getIndexabilityBadge(item.indexable, item.indexabilityStatus)}
                   </td>
                   <td className="timestamp-cell">
                     {formatTimestamp(item.timestamp || new Date().toISOString())}

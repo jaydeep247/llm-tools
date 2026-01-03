@@ -24,11 +24,11 @@ export function extractContentMetrics($: CheerioAPI): ContentMetrics {
     // Thin content check
     const isThinContent = checkThinContent(wordCountData.visibleWordCount);
     
-    // Readability (placeholder for now)
-    const cheerio = require('cheerio');
-    const $clone = cheerio.load($.html());
-    $clone('script, style, noscript, meta, link, head').remove();
-    const visibleText = $clone('body').text().trim();
+    // Readability analysis
+    // Clone the body to avoid mutation and extract visible text
+    const $body = $('body').clone();
+    $body.find('script, style, noscript, meta, link, head').remove();
+    const visibleText = $body.text().trim();
     
     const readabilityData = analyzeReadability(
         visibleText,

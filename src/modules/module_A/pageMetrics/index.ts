@@ -4,6 +4,8 @@ import { extractTitle } from './titleExtractor.js';
 import { extractMetaDescription, extractMetaTags } from './metaExtractor.js';
 import { extractHeaders } from './headerExtractor.js';
 import { extractStatusData } from './statusChecker.js';
+import { extractIndexability } from './indexabilityExtractor.js';
+import { extractPagination } from './paginationExtractor.js';
 
 /**
  * Extract all page metrics from a crawled page
@@ -29,7 +31,16 @@ export function extractPageMetrics(
     // Extract status data
     const statusData = extractStatusData(url, response, $, responseTime);
     
+    // Extract indexability
+    const indexabilityData = extractIndexability($, response);
+    
+    // Extract pagination links
+    const paginationData = extractPagination($, response, url);
+    
     return {
+        // URL
+        url,
+        
         // Title
         ...titleData,
         
@@ -43,13 +54,28 @@ export function extractPageMetrics(
         ...headersData,
         
         // Status
-        ...statusData
+        ...statusData,
+        
+        // Indexability
+        indexable: indexabilityData.indexable,
+        indexabilityStatus: indexabilityData.indexabilityStatus,
+        indexabilitySource: indexabilityData.source,
+        indexabilityDirectives: indexabilityData.directives,
+        xRobotsTag: indexabilityData.xRobotsTag,
+        indexabilityDetails: indexabilityData.details,
+        
+        // Pagination
+        ...paginationData
     };
 }
 
-// Re-export all types and functions
+// Re-export all types
 export * from './types.js';
+
+// Import and re-export all extractors
 export * from './titleExtractor.js';
 export * from './metaExtractor.js';
 export * from './headerExtractor.js';
 export * from './statusChecker.js';
+export * from './indexabilityExtractor.js';
+export * from './paginationExtractor.js';

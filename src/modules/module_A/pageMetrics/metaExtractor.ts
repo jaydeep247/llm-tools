@@ -2,6 +2,27 @@ import type { CheerioAPI } from 'cheerio';
 import type { MetaDescriptionData, MetaTagsData, StructuredDataItem } from './types.js';
 
 /**
+ * Calculate approximate pixel width of text
+ * Based on average character widths for common fonts
+ */
+function calculatePixelWidth(text: string): number {
+    if (!text) return 0;
+    
+    let width = 0;
+    for (const char of text) {
+        // Approximate character widths (in pixels)
+        if (char === ' ') width += 3;
+        else if (/[iIl1\.,;:\-']/.test(char)) width += 4;
+        else if (/[fjtJ]/.test(char)) width += 5;
+        else if (/[a-z]/.test(char)) width += 6;
+        else if (/[A-Z]/.test(char)) width += 7;
+        else if (/[wWmM]/.test(char)) width += 9;
+        else width += 6; // default
+    }
+    return Math.round(width);
+}
+
+/**
  * Extract meta description from a page
  */
 export function extractMetaDescription($: CheerioAPI): MetaDescriptionData {
@@ -10,8 +31,8 @@ export function extractMetaDescription($: CheerioAPI): MetaDescriptionData {
     const metaDescriptionLength = metaDescription.length;
     const hasMissingMetaDescription = metaDescriptionLength === 0;
     
-    // TODO: Calculate pixel width based on font metrics
-    const metaDescriptionPixelWidth = undefined;
+    // Calculate pixel width
+    const metaDescriptionPixelWidth = calculatePixelWidth(metaDescription);
     
     return {
         metaDescription: metaDescription || 'No description',
@@ -51,6 +72,10 @@ export function extractMetaTags($: CheerioAPI, baseUrl: string): MetaTagsData {
     const viewportElement = $('meta[name="viewport"]');
     const viewport = viewportElement.attr('content')?.trim();
     
+    // Meta refresh (HTML-based auto refresh or redirect)
+    const metaRefreshElement = $('meta[http-equiv="refresh"]');
+    const metaRefresh = metaRefreshElement.attr('content')?.trim();
+    
     // Structured data
     const structuredData = extractStructuredData($);
     
@@ -58,6 +83,7 @@ export function extractMetaTags($: CheerioAPI, baseUrl: string): MetaTagsData {
         metaKeywords,
         metaKeywordsLength,
         metaRobots,
+        metaRefresh,
         canonicalUrl,
         viewport,
         structuredData
@@ -83,7 +109,8 @@ export function extractStructuredData($: CheerioAPI): StructuredDataItem[] {
                 });
             }
         } catch (error) {
-            // Invalid JSON, skip
+            // Invalid JSON or parsing error, skip silently
+            // This prevents "require is not defined" errors from breaking the crawl
         }
     });
     

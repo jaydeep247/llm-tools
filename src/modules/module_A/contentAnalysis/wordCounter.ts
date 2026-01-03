@@ -6,8 +6,7 @@ import type { WordCountData, TextStructureData } from './types.js';
  */
 export function countWords($: CheerioAPI): WordCountData {
     // Clone the DOM to avoid affecting the original
-    const cheerio = require('cheerio');
-    const $clone = cheerio.load($.html());
+    const $clone = $.load($.html());
     
     // Remove non-content elements
     $clone('script, style, noscript, meta, link, head').remove();
@@ -50,8 +49,7 @@ function calculateUniqueWords(text: string): number {
  */
 export function analyzeTextStructure($: CheerioAPI): TextStructureData {
     // Clone the DOM
-    const cheerio = require('cheerio');
-    const $clone = cheerio.load($.html());
+    const $clone = $.load($.html());
     
     // Remove non-content elements
     $clone('script, style, noscript, meta, link, head').remove();
@@ -84,8 +82,7 @@ export function analyzeTextStructure($: CheerioAPI): TextStructureData {
  */
 export function calculateTextToHtmlRatio($: CheerioAPI): number {
     // Clone the DOM
-    const cheerio = require('cheerio');
-    const $clone = cheerio.load($.html());
+    const $clone = $.load($.html());
     
     // Remove non-content elements
     $clone('script, style, noscript, meta, link, head').remove();

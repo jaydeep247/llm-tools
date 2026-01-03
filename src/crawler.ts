@@ -260,21 +260,51 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
             const wordCount = contentMetrics.visibleWordCount;
 
             // Record the page data using extracted metrics
+            console.log(`[DEBUG] PageMetrics for ${url}:`, {
+                relNext: pageMetrics.relNext,
+                relPrev: pageMetrics.relPrev,
+                httpRelNext: pageMetrics.httpRelNext,
+                httpRelPrev: pageMetrics.httpRelPrev
+            });
+
             const pageId = await db.insertPage({
                 sessionId,
                 url,
                 title: pageMetrics.title,
                 titleLength: pageMetrics.titleLength,
+                titlePixelWidth: pageMetrics.titlePixelWidth,
                 description: pageMetrics.metaDescription,
                 descriptionLength: pageMetrics.metaDescriptionLength,
+                descriptionPixelWidth: pageMetrics.metaDescriptionPixelWidth,
                 contentType: pageMetrics.contentType,
                 lastModified: pageMetrics.lastModified || null,
                 statusCode: pageMetrics.statusCode,
                 responseTime: pageMetrics.responseTime,
                 wordCount,
+                sizeBytes: pageMetrics.sizeBytes,
                 timestamp: new Date().toISOString(),
                 success: true,
-                errorMessage: null
+                errorMessage: null,
+                indexable: pageMetrics.indexable,
+                indexabilityStatus: pageMetrics.indexabilityStatus,
+                metaKeywords: pageMetrics.metaKeywords,
+                metaKeywordsLength: pageMetrics.metaKeywordsLength,
+                metaRobots: pageMetrics.metaRobots,
+                xRobotsTag: pageMetrics.xRobotsTag,
+                metaRefresh: pageMetrics.metaRefresh,
+                canonicalUrl: pageMetrics.canonicalUrl,
+                relNext: pageMetrics.relNext,
+                relPrev: pageMetrics.relPrev,
+                httpRelNext: pageMetrics.httpRelNext,
+                httpRelPrev: pageMetrics.httpRelPrev,
+                headingTags: JSON.stringify({
+                    h1: pageMetrics.h1Tags.length,
+                    h2: pageMetrics.h2Tags.length,
+                    h3: pageMetrics.h3Tags.length,
+                    h4: pageMetrics.h4Tags.length,
+                    h5: pageMetrics.h5Tags.length,
+                    h6: pageMetrics.h6Tags.length
+                })
             });
 
             // Mark sitemap URL as crawled if it was discovered from sitemap
