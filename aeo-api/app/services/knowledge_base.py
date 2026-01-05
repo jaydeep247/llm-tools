@@ -11,10 +11,20 @@ class KnowledgeBaseService:
     """Service for analyzing knowledge base and content quality"""
     
     def __init__(self):
+        # --- UPDATED: Expanded Entity Patterns to catch more brands/products ---
         self.entity_patterns = {
-            'people': r'\b[A-Z][a-z]+ [A-Z][a-z]+\b',  # Simple name pattern
-            'places': r'\b[A-Z][a-z]+(?: [A-Z][a-z]+)*\b',  # Place names
-            'organizations': r'\b[A-Z][a-z]+(?: [A-Z][a-z]+)* (?:Inc|Corp|LLC|Ltd|Company|Organization)\b',
+            # 1. People: Looks for "Name Surname" (e.g., "Saunak Ahir")
+            'people': r'\b[A-Z][a-z]+ [A-Z][a-z]+\b',
+            
+            # 2. Places: Looks for Cities, Countries (e.g., "Surat", "India", "New York")
+            'places': r'\b[A-Z][a-z]+(?: [A-Z][a-z]+)*\b',
+            
+            # 3. Organizations: Now catches "Organics", "Foods", "Store", "Tea", "Brand"
+            'organizations': r'\b[A-Z][a-z]+(?: [A-Z][a-z]+)* (?:Inc|Corp|LLC|Ltd|Pvt|Limited|Company|Organization|Organics|Foods|Tea|Store|Shop|Brand|Solutions|Technologies|Group)\b',
+            
+            # 4. Products (NEW): Catches "Green Tea", "Slimming Tea" (Capitalized words that aren't the others)
+            'products': r'\b[A-Z][a-z]+(?: [A-Z][a-z]+)* (?:Tea|Coffee|Powder|Oil|Masala|Pack|Box|Kit|Software|App|Platform|Tool)\b',
+            
             'dates': r'\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b',
             'years': r'\b(?:19|20)\d{2}\b',
             'percentages': r'\b\d+(?:\.\d+)?%\b',
@@ -30,6 +40,46 @@ class KnowledgeBaseService:
             entities[entity_type] = list(set(matches))  # Remove duplicates
         
         return entities
+    
+    def _count_syllables(self, word: str) -> int:
+        """Count syllables in a word (Simple Heuristic)"""
+        word = word.lower()
+        count = 0
+        vowels = "aeiouy"
+        if len(word) == 0:
+            return 0
+        if word[0] in vowels:
+            count += 1
+        for i in range(1, len(word)):
+            if word[i] in vowels and word[i - 1] not in vowels:
+                count += 1
+        if word.endswith("e"):
+            count -= 1
+        if count == 0:
+            count += 1
+        return count
+
+    def _calculate_flesch_kincaid(self, text: str) -> float:
+        """Calculate Flesch-Kincaid Reading Ease Score"""
+        # Clean and split text
+        words = re.findall(r'\b\w+\b', text)
+        sentences = re.split(r'[.!?]+', text)
+        sentences = [s for s in sentences if len(s.strip()) > 0]
+        
+        total_words = len(words)
+        total_sentences = len(sentences)
+        
+        if total_words == 0 or total_sentences == 0:
+            return 0.0
+            
+        total_syllables = sum(self._count_syllables(w) for w in words)
+        
+        # The Formula: 206.835 - (1.015 x ASL) - (84.6 x ASW)
+        asl = total_words / total_sentences  # Avg Sentence Length
+        asw = total_syllables / total_words  # Avg Syllables per Word
+        
+        score = 206.835 - (1.015 * asl) - (84.6 * asw)
+        return min(100, max(0, score)) # Cap between 0 and 100
     
     def _calculate_fact_density(self, text: str) -> float:
         """Calculate fact density based on numbers, dates, and specific terms"""
@@ -164,7 +214,7 @@ class KnowledgeBaseService:
             from ..utils import calculate_difficulty_score, calculate_complexity_level, calculate_ai_generation_feasibility
             
             # Remove scripts/styles/noscript and comments first
-            cleaned = re.sub(r'<!--.*?-->', ' ', html_content, flags=re.DOTALL)
+            cleaned = re.sub(r'', ' ', html_content, flags=re.DOTALL)
             cleaned = re.sub(r'<script[\s\S]*?</script>', ' ', cleaned, flags=re.IGNORECASE)
             cleaned = re.sub(r'<style[\s\S]*?</style>', ' ', cleaned, flags=re.IGNORECASE)
             cleaned = re.sub(r'<noscript[\s\S]*?</noscript>', ' ', cleaned, flags=re.IGNORECASE)
@@ -227,16 +277,24 @@ class KnowledgeBaseService:
                 faq_score=50,  # Knowledge base doesn't have FAQ score
                 clarity_score=clarity_metrics.get('clarity_score', 50)
             )
+
+            # Calculate Readability Score
+            readability_score = self._calculate_flesch_kincaid(text_content)
             
-            # Calculate overall score
+            # Calculate overall score (Updated Weights for Module C)
             score = 0
-            score += min(25, fact_density * 2)  # Fact density (0-25 points)
-            score += min(25, clarity_metrics['clarity_score'])  # Clarity (0-25 points)
-            score += min(25, linkability_metrics['linkability_score'])  # Linkability (0-25 points)
-            score += min(25, min(100, sum(format_usage.values()) * 2))  # Format usage (0-25 points)
+            score += min(20, fact_density * 2)  # Fact density (20 points)
+            score += min(20, clarity_metrics['clarity_score'])  # Clarity (20 points)
+            score += min(15, linkability_metrics['linkability_score'])  # Linkability (15 points)
+            score += min(15, min(100, sum(format_usage.values()) * 2))  # Format usage (15 points)
+            score += min(30, readability_score * 0.3) # Readability (30 points)
             
             # Generate specific, actionable recommendations
             recommendations = []
+            
+            if readability_score < 60:
+                recommendations.append(f'Improve Readability: Your Flesch-Kincaid score is {int(readability_score)}/100. Shorten sentences and use simpler words to help AI understand.')
+            
             if fact_density < 2:
                 recommendations.append('Add more factual content with specific numbers, dates, and statistics to improve AI understanding and credibility')
             if clarity_metrics['clarity_score'] < 50:
@@ -263,8 +321,10 @@ class KnowledgeBaseService:
                 recommendations.append('Add more structured templates and patterns to improve AI understanding and generation capability')
             
             return {
-                'score': min(100, score),
+                'score': min(100, int(score)),
+                'readability_score': round(readability_score, 1),
                 'entities': entities,
+                'entities_count': sum(len(v) for v in entities.values()), # --- NEW: Ensure count is returned
                 'facts': facts,
                 'fact_density': fact_density,
                 'clarity': clarity_metrics,

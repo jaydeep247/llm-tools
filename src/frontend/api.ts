@@ -10,6 +10,11 @@ export interface AnalysisResult {
   grade: string;
   grade_color: string;
   overall_score: number;
+
+  // --- NEW MODULE C FIELDS ---
+  llm_friendliness_score?: number;
+  // ---------------------------
+
   module_scores?: {
     ai_presence: number;
     competitor_analysis: number;
@@ -26,7 +31,7 @@ export interface AnalysisResult {
   detailed_analysis?: {
     ai_presence: any;
     competitor_analysis: any;
-    knowledge_base: any;
+    knowledge_base: any; // Contains readability_score and fact_density
     answerability: any;
     crawler_accessibility: any;
     structured_data?: any;
@@ -366,6 +371,53 @@ class ApiService {
       throw new Error(error.message || 'Failed to analyze URL');
     }
   }
+
+  // --- NEW: Run Bulk Module C Audit ---
+  /**
+   * Run Bulk Module C Audit
+   * @param sitemapUrl - Optional URL to sitemap.xml
+   * @param urls - Optional array of specific URLs
+   */
+  // --- NEW: Run Bulk Module C Audit ---
+  async analyzeBulk(sitemapUrl?: string, urls?: string[]): Promise<any> {
+    try {
+      console.log('Starting Bulk Analysis...');
+
+      // ✅ FIX 1: Added '/api' prefix to match your FastAPI router
+      const response = await this.fetchWithTimeout(
+        '/api/aeo/analyze-bulk',
+        {
+          method: 'POST',
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify({
+            sitemap: sitemapUrl,
+            urls: urls
+          }),
+        },
+        600000 // 10 minutes timeout
+      );
+
+      if (!response.ok) {
+        // ✅ FIX 2: Better error reporting so you see the REAL reason
+        let errorMsg = 'Bulk analysis failed';
+        try {
+          const errData = await response.json();
+          errorMsg = errData.detail || errData.error || errorMsg;
+        } catch (e) {
+          errorMsg = `Server Error: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorMsg);
+      }
+
+      const data = await response.json();
+      return data.data;
+
+    } catch (error: any) {
+      console.error('Bulk API Error:', error);
+      throw error;
+    }
+  }
+  // ------------------------------------
 
   async healthCheck(): Promise<{ status: string; service: string }> {
     try {

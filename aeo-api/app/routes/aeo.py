@@ -5,6 +5,7 @@ import requests
 import logging
 from ..services.aeo_services_consolidated import AEOServiceOrchestrator
 from ..services.schema_generator import SchemaGenerator
+from app.services.bulk_aeo_service import BulkAEOService
 
 router = APIRouter(prefix="/api/aeo", tags=["AEOCHECKER"])
 
@@ -24,13 +25,16 @@ class StructuredDataRequest(BaseModel):
 class SchemaGenerateRequest(BaseModel):
     url: str
     html_content: Optional[str] = None
-    schema_type: Optional[str] = 'auto'  # auto, Organization, LocalBusiness, Article, etc.
+    schema_type: Optional[str] = 'auto'
 
-# Initialize service orchestrator
+class BulkAnalyzeRequest(BaseModel):
+    sitemap: Optional[str] = None
+    urls: Optional[List[str]] = []
+
 aeo_orchestrator = AEOServiceOrchestrator()
 schema_generator = SchemaGenerator()
+bulk_service = BulkAEOService()
 
-# Suppress InsecureRequestWarning
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -51,17 +55,14 @@ async def analyze_aeo(request: AnalyzeRequest):
         logging.info(f"Competitor URLs: {request.competitor_urls}")
         logging.info("="*50)
         
-        # Add protocol if missing
         url = request.url
         if not url.startswith(('http://', 'https://')):
             url = 'https://' + url
             logging.info(f"Added protocol: {url}")
         
-        # Get HTML content for analysis
         logging.info("Fetching HTML content...")
         fetch_start = time.time()
         try:
-            # Disable SSL verification to allow analyzing sites with self-signed or invalid certs
             html_response = requests.get(url, timeout=10, verify=False)
             html_content = html_response.text
             fetch_duration = time.time() - fetch_start
@@ -85,7 +86,6 @@ async def analyze_aeo(request: AnalyzeRequest):
             logging.error(f"Unexpected error fetching URL: {str(e)}")
             raise HTTPException(status_code=400, detail=f'Failed to fetch URL: {str(e)}')
         
-        # Run complete analysis using orchestrator
         logging.info("Starting complete AEOCHECKER analysis...")
         analysis_start = time.time()
         results = aeo_orchestrator.run_complete_analysis(
@@ -127,12 +127,10 @@ async def analyze_structured_data(request: StructuredDataRequest):
     Analyze structured data (JSON-LD, Microdata, RDFa) for a given URL
     """
     try:
-        # Add protocol if missing
         url = request.url
         if not url.startswith(('http://', 'https://')):
             url = 'https://' + url
         
-        # Run structured data analysis
         logging.info(f"Running structured data analysis for {url}")
         results = aeo_orchestrator.analyze_structured_data(
             url=url,
@@ -159,19 +157,16 @@ async def generate_schema(request: SchemaGenerateRequest):
     Generate Schema.org markup for a given URL using AI
     """
     try:
-        # Add protocol if missing
         url = request.url
         if not url.startswith(('http://', 'https://')):
             url = 'https://' + url
 
         print(f"DEBUG: Received schema generation request for {url} (type: {request.schema_type})")
         
-        # If HTML content is provided, use it
         if request.html_content:
             html_content = request.html_content
             print(f"DEBUG: Using provided HTML content (length: {len(html_content)})")
         else:
-            # Fetch the URL
             print(f"DEBUG: Fetching URL: {url}")
             try:
                 headers = {
@@ -189,7 +184,6 @@ async def generate_schema(request: SchemaGenerateRequest):
                     error=f"Failed to fetch user provided URL: {str(e)}"
                 )
 
-        # Generate schema
         print(f"DEBUG: Calling schema generator...")
         result = schema_generator.generate_schema(
             html=html_content,
@@ -198,7 +192,6 @@ async def generate_schema(request: SchemaGenerateRequest):
         )
         print(f"DEBUG: Schema generator returned: {result.keys() if isinstance(result, dict) else result}")
         
-        # Validate result structure
         if not isinstance(result, dict):
             print(f"ERROR: Invalid result type: {type(result)}")
             return AnalyzeResponse(
@@ -215,8 +208,7 @@ async def generate_schema(request: SchemaGenerateRequest):
         
         import json
         try:
-            # Verify JSON serializability
-            json_str = json.dumps(final_response.model_dump()) # Use model_dump for Pydantic v2
+            json_str = json.dumps(final_response.model_dump()) 
             print(f"DEBUG: Sending response (length: {len(json_str)})")
         except Exception as e:
             print(f"ERROR: Response is not JSON serializable: {e}")

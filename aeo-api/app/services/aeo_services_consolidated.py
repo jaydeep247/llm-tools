@@ -57,7 +57,20 @@ class AEOServiceOrchestrator:
             if not html_content:
                 try:
                     logging.info(f"Fetching HTML for {url}...")
-                    response = requests.get(url, timeout=10)
+                    
+                    # --- UPDATED: Added Headers to prevent bot blocking (Fix for '0 Entities' issue) ---
+                    headers = {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                        'Accept-Language': 'en-US,en;q=0.5',
+                        'Referer': 'https://www.google.com/'
+                    }
+                    response = requests.get(url, headers=headers, timeout=15) 
+                    # -----------------------------------------------------------------------------------
+                    
+                    if response.status_code != 200:
+                         logging.error(f"Failed to fetch content. Status: {response.status_code}")
+                    
                     html_content = response.text
                     logging.info(f"HTML fetched: {len(html_content)} bytes")
                 except Exception as e:
@@ -102,24 +115,40 @@ class AEOServiceOrchestrator:
             
             results['url'] = url
             
-            # Calculate overall score and module scores
-            scores = []
-            module_scores = {}
+            # --- UPDATED: Module C Weighted Scoring Logic ---
+            # Extract scores (default to 0 if missing)
+            s_answerability = results.get('answerability', {}).get('score', 0)
+            s_knowledge = results.get('knowledge_base', {}).get('score', 0)
+            s_structure = results.get('structured_data', {}).get('score', 0)
+            s_presence = results.get('ai_presence', {}).get('score', 0)
             
-            for key, analysis in results.items():
-                if isinstance(analysis, dict) and 'score' in analysis:
-                    scores.append(analysis['score'])
-                    module_scores[key] = analysis['score']
+            # Weighted Formula:
+            # Answerability (35%) + Knowledge (25%) + Structure (25%) + Bot Access (15%)
+            overall_score = (
+                (s_answerability * 0.35) +
+                (s_knowledge * 0.25) +
+                (s_structure * 0.25) +
+                (s_presence * 0.15)
+            )
             
-            if scores:
-                overall_score = sum(scores) / len(scores)
-            else:
-                overall_score = 0
+            # Ensure proper rounding
+            overall_score = round(overall_score, 1)
+            # ------------------------------------------------
+            
+            module_scores = {
+                'ai_presence': s_presence,
+                'knowledge_base': s_knowledge,
+                'structured_data': s_structure,
+                'answerability': s_answerability,
+                'crawler_accessibility': results.get('crawler_accessibility', {}).get('score', 0),
+                'competitor_analysis': results.get('competitor_analysis', {}).get('score', 0)
+            }
             
             # Return in the expected frontend format
             return {
                 'url': url,
                 'overall_score': overall_score,
+                'llm_friendliness_score': overall_score, # --- UPDATED: Added explicit field for Module C tab ---
                 'module_scores': module_scores,
                 'detailed_analysis': {
                     'ai_presence': results.get('ai_presence', {}),
