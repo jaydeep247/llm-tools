@@ -4,6 +4,7 @@ import DataViewer from '../crawler/DataViewer';
 import LinkExplorer from '../crawler/LinkExplorer';
 import WebTree from '../crawler/FixedWebTree';
 import AuditsPage from '../audit/AuditsPage';
+import { apiService } from '../../api';
 
 interface AEOScore {
   overall: number;
@@ -27,7 +28,7 @@ interface AIPlatform {
     bot_accessibility_score?: number;
     understanding_score?: number;
     scoreType?: 'bot_accessibility' | 'ai_understanding' | 'combined';
-    [key: string]: any; // Allow additional properties from backend
+    [key: string]: any;
   };
 }
 
@@ -45,9 +46,8 @@ interface StrategyMetric {
 
 interface AEODashboardProps {
   url?: string;
-  result?: any; // Analysis result from the API
+  result?: any;
   onAnalyze?: (url: string) => void;
-  // Crawler props
   runCrawl?: boolean;
   isCrawling?: boolean;
   crawlStatus?: 'idle' | 'running' | 'auditing' | 'completed';
@@ -73,7 +73,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
   logs = [],
   discoveredPages = []
 }) => {
-  const [activeView, setActiveView] = useState<'crawler' | 'data' | 'links' | 'tree' | 'audits' | 'schema'>(runCrawl ? 'crawler' : 'data');
+  const [activeView, setActiveView] = useState<'crawler' | 'data' | 'links' | 'tree' | 'audits' | 'schema' | 'intelligence'>(runCrawl ? 'crawler' : 'data');
   const [showRecommendations, setShowRecommendations] = useState<string | null>(null);
   const [schemaData, setSchemaData] = useState<any>(null);
   const [schemaLoading, setSchemaLoading] = useState(false);
@@ -82,7 +82,33 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
   const [schemaFormat, setSchemaFormat] = useState<'json-ld' | 'rdfa'>('json-ld');
   const [selectedSchemaType, setSelectedSchemaType] = useState<string>('auto');
 
-  // Generate schema markup
+  const [auditMode, setAuditMode] = useState<'single' | 'bulk'>('single');
+  const [sitemapUrl, setSitemapUrl] = useState<string>('');
+  const [bulkLoading, setBulkLoading] = useState<boolean>(false);
+  const [bulkResults, setBulkResults] = useState<any>(null);
+
+  const handleBulkAnalyze = async () => {
+    if (!sitemapUrl) {
+      alert('Please enter a Sitemap URL');
+      return;
+    }
+
+    setBulkLoading(true);
+    setBulkResults(null);
+
+    try {
+      const data = await apiService.analyzeBulk(sitemapUrl);
+      if (data) {
+        setBulkResults(data);
+      }
+    } catch (error: any) {
+      console.error('Bulk Audit Failed:', error);
+      alert('Bulk Audit Failed: ' + error.message);
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
   const generateSchema = async () => {
     if (!url) return;
 
@@ -115,7 +141,6 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
     }
   };
 
-  // Copy schema to clipboard
   const copySchemaToClipboard = () => {
     const textToCopy = schemaFormat === 'json-ld' ? schemaData?.schema_text : schemaData?.rdfa_markup;
     if (!textToCopy) return;
@@ -126,7 +151,6 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
     });
   };
 
-  // Get recommendations for specific modules
   const getModuleRecommendations = (moduleName: string): string[] => {
     if (!result?.detailed_analysis) return [];
 
@@ -134,11 +158,9 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
     return module?.recommendations || [];
   };
 
-  // Determine priority level for a recommendation
   const getRecommendationPriority = (rec: string): 'high' | 'medium' | 'low' => {
     const recLower = rec.toLowerCase();
 
-    // High priority keywords
     const highPriorityKeywords = [
       'add title tag',
       'add meta description',
@@ -154,7 +176,6 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
       'webpage schema'
     ];
 
-    // Medium priority keywords
     const mediumPriorityKeywords = [
       'improve',
       'enhance',
@@ -179,7 +200,6 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
     return 'low';
   };
 
-  // Use real data from analysis result or fallback to defaults
   const scores: AEOScore = result ? {
     overall: Math.round(result.overall_score || 0),
     ai_presence: Math.round(result.module_scores?.ai_presence || result.detailed_analysis?.ai_presence?.score || 0),
@@ -201,21 +221,18 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
     structured_data: 0
   };
 
-  // Dynamically generate AI platforms from API response
   const getAIPlatforms = (): AIPlatform[] => {
     if (!result || !result.detailed_analysis?.ai_presence) {
-      // If no result available, show 0 scores instead of demo data
       return [
-        { name: 'ChatGPT', icon: 'A', score: 0, status: 'OFFLINE' },
-        { name: 'Gemini', icon: 'G', score: 0, status: 'OFFLINE' },
-        { name: 'Claude', icon: 'C', score: 0, status: 'OFFLINE' }
+        { name: 'ChatGPT', icon: '🤖', score: 0, status: 'OFFLINE' },
+        { name: 'Gemini', icon: '🧠', score: 0, status: 'OFFLINE' },
+        { name: 'Claude', icon: '🎭', score: 0, status: 'OFFLINE' }
       ];
     }
 
     const aiData = result.detailed_analysis.ai_presence;
     const platforms: AIPlatform[] = [];
 
-    // Map common AI platforms to icons
     const platformIcons: { [key: string]: string } = {
       'GPTBot': '🤖',
       'ChatGPT': '🤖',
@@ -229,23 +246,14 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
       'claude': '🎭'
     };
 
-    // Track which platforms we've already added to avoid duplicates
     const addedPlatforms = new Set<string>();
 
-    // Process platforms data from backend
-    // Backend already handles: score calculation, AI understanding merging, bot accessibility
     if (aiData.platforms && typeof aiData.platforms === 'object') {
       Object.entries(aiData.platforms).forEach(([name, data]: [string, any]) => {
-        // Map bot names to AI provider names for display
         const displayName = name === 'GPTBot' ? 'ChatGPT' :
           name === 'Google-Extended' ? 'Gemini' :
             name === 'ClaudeBot' ? 'Claude' : name;
 
-        // Backend already provides the correct score and all details
-        // Score is either:
-        // - AI understanding score (if bot allowed + API key exists)
-        // - Bot accessibility score (if bot allowed but no API key)
-        // - 0 (if bot blocked)
         platforms.push({
           name: displayName,
           icon: platformIcons[name] || platformIcons[displayName] || name.charAt(0).toUpperCase(),
@@ -253,8 +261,6 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
           status: data.status || 'LIVE',
           details: {
             ...data.details,
-            // Backend provides: score_type, ai_understanding_score, bot_accessibility_score,
-            // understanding_level, clarity_score, key_topics, etc.
             scoreType: data.details?.score_type || 'bot_accessibility'
           }
         });
@@ -262,14 +268,9 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
       });
     }
 
-    // Note: AI understanding data is already merged into platforms by backend
-    // We only process ai_understanding here if we need additional comparison data
-    // or if there are platforms with understanding but no bot entry
     if (aiData.ai_understanding && typeof aiData.ai_understanding === 'object') {
       const multiAI = aiData.ai_understanding;
 
-      // Check if there are any providers with understanding data but no platform entry
-      // (This should be rare, as backend handles merging)
       if (multiAI.openai || multiAI.gemini || multiAI.claude) {
         const aiProviders = [
           { name: 'ChatGPT', key: 'openai', icon: '🤖' },
@@ -281,16 +282,12 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
           const data = multiAI[provider.key];
           const platformKey = provider.name.toLowerCase();
 
-          // Only add if this provider isn't already in platforms
-          // (Backend should have already included it, but handle edge cases)
           if (data && !data.error) {
             const existingIndex = platforms.findIndex(p =>
               p.name.toLowerCase() === platformKey
             );
 
             if (existingIndex === -1) {
-              // Edge case: Provider has understanding but no bot/platform entry
-              // This shouldn't happen normally, but handle gracefully
               platforms.push({
                 name: provider.name,
                 icon: provider.icon,
@@ -308,13 +305,11 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                 }
               });
             }
-            // If platform already exists, backend already merged everything correctly
           }
         });
       }
     }
 
-    // If no platforms data found in API, return 0 scores
     if (platforms.length === 0) {
       return [
         { name: 'ChatGPT', icon: '🤖', score: 0, status: 'OFFLINE' },
@@ -326,10 +321,8 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
     return platforms;
   };
 
-  // Dynamically generate competitors from API response (DataForSEO format)
   const getCompetitors = (): Competitor[] => {
     if (!result || !result.detailed_analysis?.competitor_analysis) {
-      // Fallback to demo data
       return [
         { name: 'No Data', count: 0 }
       ];
@@ -337,16 +330,13 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
 
     const compData = result.detailed_analysis.competitor_analysis;
 
-    // Check if there's an error (API not configured)
     if (compData.error) {
       return [
         { name: 'Not Configured', count: 0 }
       ];
     }
 
-    // DataForSEO API returns: top_competitors as array of {domain, referring_domains}
     if (compData.top_competitors && Array.isArray(compData.top_competitors)) {
-      // Map top competitors to display format
       return compData.top_competitors.map((comp: any) => {
         const domain = comp.domain || 'Unknown';
         const count = comp.referring_domains || 0;
@@ -357,7 +347,6 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
       });
     }
 
-    // Fallback - show that competitor analysis exists but no competitors data
     return [
       { name: 'No Competitors Found', count: 0 }
     ];
@@ -366,10 +355,8 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
   const aiPlatforms = getAIPlatforms();
   const competitors = getCompetitors();
 
-  // Dynamically generate strategy metrics from API response
   const getStrategyMetrics = (): StrategyMetric[] => {
     if (!result || !result.module_scores) {
-      // Fallback to demo data if no results
       return [
         { name: 'Answerability', score: 0, status: 'LIVE', color: 'green' },
         { name: 'Knowledge Base', score: 0, status: 'LIVE', color: 'red' },
@@ -386,7 +373,6 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
 
     const metrics: StrategyMetric[] = [];
 
-    // Answerability
     if (result.module_scores.answerability !== undefined) {
       const score = Math.round(result.module_scores.answerability);
       metrics.push({
@@ -397,7 +383,6 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
       });
     }
 
-    // Knowledge Base
     if (result.module_scores.knowledge_base !== undefined) {
       const score = Math.round(result.module_scores.knowledge_base);
       metrics.push({
@@ -408,7 +393,6 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
       });
     }
 
-    // Structured Data
     if (result.module_scores.structured_data !== undefined) {
       const score = Math.round(result.module_scores.structured_data);
       metrics.push({
@@ -419,7 +403,6 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
       });
     }
 
-    // AI Crawler Accessibility
     if (result.module_scores.crawler_accessibility !== undefined) {
       const score = Math.round(result.module_scores.crawler_accessibility);
       metrics.push({
@@ -435,12 +418,11 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
 
   const strategyMetrics = getStrategyMetrics();
 
-
   const getScoreColor = (score: number) => {
-    if (score >= 80) return '#10B981'; // green
-    if (score >= 60) return '#F59E0B'; // orange
-    if (score >= 40) return '#EF4444'; // red
-    return '#6B7280'; // gray
+    if (score >= 80) return '#10B981';
+    if (score >= 60) return '#F59E0B';
+    if (score >= 40) return '#EF4444';
+    return '#6B7280';
   };
 
   const getScoreText = (score: number) => {
@@ -453,7 +435,6 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
   return (
     <div className="aeo-dashboard">
 
-      {/* Overall Score and Report Summary */}
       <div className="overall-section">
         <div className="overall-score">
           <div
@@ -474,9 +455,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
         </div>
       </div>
 
-      {/* Main Dashboard Cards */}
       <div className="dashboard-cards">
-        {/* AI Presence Card */}
         <div className="dashboard-card">
           <div className="card-header">
             <h3>AI Presence</h3>
@@ -523,7 +502,6 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
           </div>
         </div>
 
-        {/* Competitor Landscape Card */}
         <div className="dashboard-card">
           <div className="card-header">
             <h3>Competitor Landscape</h3>
@@ -583,7 +561,6 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
           </div>
         </div>
 
-        {/* Strategy Review Card */}
         <div className="dashboard-card">
           <div className="card-header">
             <h3>Strategy Review</h3>
@@ -647,7 +624,6 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
 
       </div>
 
-      {/* Tab Navigation */}
       <div className="dashboard-tabs">
         <div className="tab-navigation">
           {runCrawl && (
@@ -688,13 +664,17 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
           >
             📝 Schema Generator
           </button>
+          <button
+            onClick={() => setActiveView('intelligence')}
+            className={`tab-button ${activeView === 'intelligence' ? 'active' : ''}`}
+          >
+            🧠 AI Intelligence
+          </button>
         </div>
 
-        {/* Tab Content */}
         <div className="tab-content">
           {activeView === 'crawler' && (
             <div className="crawler-content">
-              {/* Crawling Status */}
               <div className="crawler-status">
                 <div className="status-header">
                   <h3>🕷️ Crawling Status</h3>
@@ -727,9 +707,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                 </div>
               </div>
 
-              {/* Live Logs and Discovered Pages */}
               <div className="crawler-panels">
-                {/* Live Logs */}
                 <div className="crawler-panel">
                   <h4>📝 Live Logs</h4>
                   <div className="logs-container">
@@ -748,7 +726,6 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                   </div>
                 </div>
 
-                {/* Discovered Pages */}
                 <div className="crawler-panel">
                   <h4>📄 Discovered Pages</h4>
                   <div className="pages-container">
@@ -819,7 +796,6 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                 </button>
               </div>
 
-              {/* Schema Type Selector */}
               <div className="schema-type-selector">
                 <label htmlFor="schema-type" className="schema-type-label">
                   Select Schema Type:
@@ -874,7 +850,6 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
 
               {schemaData && !schemaLoading && (
                 <div className="schema-results">
-                  {/* Schema Code */}
                   <div className="schema-code-card">
                     <div className="schema-code-header">
                       <div className="schema-header-left">
@@ -928,10 +903,218 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
               )}
             </div>
           )}
+
+          {activeView === 'intelligence' && (
+            <div className="dashboard-card" style={{ padding: '2rem' }}>
+              <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                <h3>🧠 Module C: AI Intelligence Engine</h3>
+                <div className="mode-toggle" style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '4px', borderRadius: '8px' }}>
+                  <button
+                    onClick={() => setAuditMode('single')}
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: '6px',
+                      border: 'none',
+                      background: auditMode === 'single' ? '#fff' : 'transparent',
+                      boxShadow: auditMode === 'single' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                      fontWeight: auditMode === 'single' ? '600' : '400',
+                      color: auditMode === 'single' ? '#0f172a' : '#64748b',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    Single URL
+                  </button>
+                  <button
+                    onClick={() => setAuditMode('bulk')}
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: '6px',
+                      border: 'none',
+                      background: auditMode === 'bulk' ? '#fff' : 'transparent',
+                      boxShadow: auditMode === 'bulk' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                      fontWeight: auditMode === 'bulk' ? '600' : '400',
+                      color: auditMode === 'bulk' ? '#0f172a' : '#64748b',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    Bulk Audit (Sitemap)
+                  </button>
+                </div>
+              </div>
+
+              {auditMode === 'single' && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginTop: '1rem' }}>
+                  <div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '12px', textAlign: 'center' }}>
+                    <h4 style={{ color: '#64748b', marginBottom: '1rem' }}>LLM-Friendliness Score</h4>
+                    <div className="score-circle" style={{ '--progress': result?.llm_friendliness_score || 0, width: '120px', height: '120px', margin: '0 auto' } as React.CSSProperties}>
+                      <div className="score-value">{result?.llm_friendliness_score || 0}</div>
+                    </div>
+                    <p style={{ marginTop: '1rem', fontSize: '0.9rem', color: '#64748b' }}>
+                      How easily AI models can understand, trust, and use your content.
+                    </p>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1rem', borderRadius: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                        <span style={{ fontWeight: 'bold', color: 'gray' }}>📖 Readability Score</span>
+                        <span style={{ fontWeight: 700, color: '#3b82f6' }}>
+                          {result?.detailed_analysis?.knowledge_base?.readability_score || 0}/100
+                        </span>
+                      </div>
+                      <div className="progress-bar">
+                        <div
+                          className="progress-fill"
+                          style={{
+                            width: `${result?.detailed_analysis?.knowledge_base?.readability_score || 0}%`,
+                            backgroundColor: (result?.detailed_analysis?.knowledge_base?.readability_score || 0) > 60 ? '#10B981' : '#F59E0B'
+                          }}
+                        ></div>
+                      </div>
+                      <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.5rem' }}>
+                        Target: 60+ (Plain English). Higher scores mean easier for AI to process.
+                      </p>
+                    </div>
+
+                    <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1rem', borderRadius: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ fontWeight: 600, color: 'gray' }}>📊 Fact Density</span>
+                        <span style={{ fontWeight: 700, color: '#3b82f6' }}>
+                          {result?.detailed_analysis?.knowledge_base?.fact_density ? result.detailed_analysis.knowledge_base.fact_density.toFixed(1) : 0}%
+                        </span>
+                      </div>
+                      <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.5rem' }}>
+                        Percentage of content containing specific numbers, dates, or data points.
+                      </p>
+                    </div>
+
+                    <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1rem', borderRadius: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ fontWeight: 600, color: 'gray' }}>🏷️ Entities Detected</span>
+                        <span style={{ fontWeight: 700, color: '#3b82f6' }}>
+                          {result?.detailed_analysis?.knowledge_base?.entities_count || 0}
+                        </span>
+                      </div>
+                      <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.5rem' }}>
+                        Unique people, places, and organizations identified.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {auditMode === 'bulk' && (
+                <div className="bulk-audit-container">
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '2rem' }}>
+                    <input
+                      type="text"
+                      placeholder="Enter Sitemap URL (e.g. https://firstbud.in/sitemap.xml)"
+                      value={sitemapUrl}
+                      onChange={(e) => setSitemapUrl(e.target.value)}
+                      style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', color: 'black', fontSize: '1rem' }}
+                    />
+                    <button
+                      onClick={handleBulkAnalyze}
+                      disabled={bulkLoading}
+                      style={{
+                        padding: '12px 24px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: '#7c3aed',
+                        color: 'white',
+                        fontWeight: '600',
+                        cursor: bulkLoading ? 'not-allowed' : 'pointer',
+                        whiteSpace: 'nowrap',
+                        opacity: bulkLoading ? 0.7 : 1
+                      }}
+                    >
+                      {bulkLoading ? 'Scanning Sitemap...' : '🚀 Run Bulk Audit'}
+                    </button>
+                  </div>
+
+                  {bulkLoading && (
+                    <div style={{ textAlign: 'center', padding: '4rem', color: '#64748b', background: '#f8fafc', borderRadius: '12px' }}>
+                      <div className="spinner" style={{ margin: '0 auto 1rem', width: '40px', height: '40px', border: '4px solid #e2e8f0', borderTop: '4px solid #7c3aed', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                      <p>Analyzing URLs from sitemap... This may take a minute.</p>
+                      <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+                    </div>
+                  )}
+
+                  {bulkResults && !bulkLoading && (
+                    <div className="bulk-results">
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+                        <div style={{ background: '#f0f9ff', padding: '1.5rem', borderRadius: '12px', border: '1px solid #bae6fd' }}>
+                          <div style={{ fontSize: '0.9rem', color: '#0369a1', marginBottom: '0.5rem', fontWeight: '600' }}>Avg LLM Score</div>
+                          <div style={{ fontSize: '2rem', fontWeight: '700', color: '#0ea5e9' }}>{bulkResults.summary.average_llm_score}</div>
+                        </div>
+                        <div style={{ background: '#f0fdf4', padding: '1.5rem', borderRadius: '12px', border: '1px solid #bbf7d0' }}>
+                          <div style={{ fontSize: '0.9rem', color: '#15803d', marginBottom: '0.5rem', fontWeight: '600' }}>Avg Readability</div>
+                          <div style={{ fontSize: '2rem', fontWeight: '700', color: '#22c55e' }}>{bulkResults.summary.average_readability}</div>
+                        </div>
+                        <div style={{ background: '#fff7ed', padding: '1.5rem', borderRadius: '12px', border: '1px solid #fed7aa' }}>
+                          <div style={{ fontSize: '0.9rem', color: '#c2410c', marginBottom: '0.5rem', fontWeight: '600' }}>Weak Content %</div>
+                          <div style={{ fontSize: '2rem', fontWeight: '700', color: '#f97316' }}>{bulkResults.summary.weak_content_ratio}%</div>
+                        </div>
+                        <div style={{ background: '#fff1f2', padding: '1.5rem', borderRadius: '12px', border: '1px solid #fecdd3' }}>
+                          <div style={{ fontSize: '0.9rem', color: '#be123c', marginBottom: '0.5rem', fontWeight: '600' }}>No Entities %</div>
+                          <div style={{ fontSize: '2rem', fontWeight: '700', color: '#f43f5e' }}>{bulkResults.summary.missing_entities_ratio}%</div>
+                        </div>
+                      </div>
+
+                      <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                          <thead style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+                            <tr>
+                              <th style={{ padding: '1rem', textAlign: 'left' }}>URL</th>
+                              <th style={{ padding: '1rem', textAlign: 'center' }}>LLM Score</th>
+                              <th style={{ padding: '1rem', textAlign: 'center' }}>Readability</th>
+                              <th style={{ padding: '1rem', textAlign: 'center' }}>Entities</th>
+                              <th style={{ padding: '1rem', textAlign: 'center' }}>Facts</th>
+                              <th style={{ padding: '1rem', textAlign: 'center' }}>Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {bulkResults.details.map((row: any, idx: number) => (
+                              <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                <td style={{ padding: '1rem', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  <a href={row.url} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', textDecoration: 'none' }}>
+                                    {row.url}
+                                  </a>
+                                </td>
+                                <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                  <span style={{
+                                    padding: '4px 8px',
+                                    borderRadius: '12px',
+                                    background: row.llm_score >= 60 ? '#dcfce7' : '#fee2e2',
+                                    color: row.llm_score >= 60 ? '#166534' : '#991b1b',
+                                    fontWeight: '600'
+                                  }}>
+                                    {row.llm_score}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '1rem', textAlign: 'center' }}>{row.readability}</td>
+                                <td style={{ padding: '1rem', textAlign: 'center' }}>{row.entities_count || row.entities}</td>
+                                <td style={{ padding: '1rem', textAlign: 'center' }}>{row.fact_density}%</td>
+                                <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                  {row.status === 'Good' ? '✅' : row.status === 'Error' ? '⚠️' : '🔻'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
       </div>
 
-      {/* Recommendations Modal */}
       {showRecommendations && (
         <div className="recommendations-modal-overlay" onClick={() => setShowRecommendations(null)}>
           <div className="recommendations-modal" onClick={(e) => e.stopPropagation()}>
