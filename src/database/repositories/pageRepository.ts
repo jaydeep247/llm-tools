@@ -14,8 +14,8 @@ export class PageRepository {
     async insertPage(data: Omit<Page, 'id'>): Promise<number> {
         const res = await this.pool.query(
             `INSERT INTO pages 
-      (session_id, url, title, title_length, title_pixel_width, description, description_length, description_pixel_width, content_type, last_modified, status_code, response_time, word_count, size_bytes, timestamp, success, error_message, indexable, indexability_status, meta_keywords, meta_keywords_length, meta_robots, x_robots_tag, meta_refresh, canonical_url, rel_next, rel_prev, http_rel_next, http_rel_prev, heading_tags)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)
+      (session_id, url, title, title_length, title_pixel_width, description, description_length, description_pixel_width, content_type, last_modified, status_code, response_time, word_count, sentence_count, average_words_per_sentence, flesch_reading_ease_score, readability_level, text_to_html_ratio, crawl_depth, folder_depth, size_bytes, timestamp, success, error_message, indexable, indexability_status, meta_keywords, meta_keywords_length, meta_robots, x_robots_tag, meta_refresh, canonical_url, rel_next, rel_prev, http_rel_next, http_rel_prev, amphtml_url, transferred_bytes, total_transferred_bytes, co2_mg, carbon_rating, heading_tags)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42)
       RETURNING id`,
             [
                 this.safeInt(data.sessionId), data.url, data.title, this.safeInt(data.titleLength) || 0,
@@ -24,7 +24,14 @@ export class PageRepository {
                 this.safeInt(data.descriptionPixelWidth),
                 data.contentType,
                 data.lastModified, this.safeInt(data.statusCode), this.safeInt(data.responseTime),
-                this.safeInt(data.wordCount) || 0, this.safeInt(data.sizeBytes),
+                this.safeInt(data.wordCount) || 0, this.safeInt(data.sentenceCount) || 0,
+                data.averageWordsPerSentence !== undefined && data.averageWordsPerSentence !== null ? parseFloat(data.averageWordsPerSentence.toString()) : null,
+                data.fleschReadingEase !== undefined && data.fleschReadingEase !== null ? parseFloat(data.fleschReadingEase.toString()) : null,
+                data.readabilityLevel && data.readabilityLevel.trim().length > 0 ? data.readabilityLevel.trim() : null,
+                data.textToHtmlRatio !== undefined && data.textToHtmlRatio !== null ? parseFloat(data.textToHtmlRatio.toString()) : null,
+                this.safeInt(data.crawlDepth) || 0,
+                this.safeInt(data.folderDepth) || 0,
+                this.safeInt(data.sizeBytes),
                 data.timestamp, data.success, data.errorMessage,
                 data.indexable !== undefined ? data.indexable : true,
                 data.indexabilityStatus || 'indexable',
@@ -38,6 +45,11 @@ export class PageRepository {
                 data.relPrev || null,
                 data.httpRelNext || null,
                 data.httpRelPrev || null,
+                data.amphtmlUrl || null,
+                this.safeInt(data.transferredBytes),
+                this.safeInt(data.totalTransferredBytes),
+                data.co2Mg ? parseFloat(data.co2Mg.toString()) : null,
+                data.carbonRating || null,
                 data.headingTags || null
             ]
         );
@@ -66,6 +78,15 @@ export class PageRepository {
             ]
         );
         return res.rows[0]?.id || 0;
+    }
+
+    async updatePageCarbon(pageId: number, data: { transferredBytes: number, totalTransferredBytes: number, co2Mg: number, carbonRating: string }): Promise<void> {
+        await this.pool.query(
+            `UPDATE pages 
+             SET transferred_bytes = $2, total_transferred_bytes = $3, co2_mg = $4, carbon_rating = $5
+             WHERE id = $1`,
+            [pageId, this.safeInt(data.transferredBytes), this.safeInt(data.totalTransferredBytes), data.co2Mg, data.carbonRating]
+        );
     }
 
     async getPages(sessionId?: number, limit: number = 1000, offset: number = 0): Promise<Page[]> {
@@ -482,6 +503,13 @@ export class PageRepository {
             statusCode: row.status_code,
             responseTime: row.response_time,
             wordCount: row.word_count,
+            sentenceCount: row.sentence_count,
+            averageWordsPerSentence: row.average_words_per_sentence ? parseFloat(row.average_words_per_sentence) : undefined,
+            fleschReadingEase: row.flesch_reading_ease_score ? parseFloat(row.flesch_reading_ease_score) : undefined,
+            readabilityLevel: row.readability_level && row.readability_level.trim().length > 0 ? row.readability_level.trim() : undefined,
+            textToHtmlRatio: row.text_to_html_ratio !== null && row.text_to_html_ratio !== undefined ? parseFloat(row.text_to_html_ratio) : undefined,
+            crawlDepth: row.crawl_depth !== null && row.crawl_depth !== undefined ? parseInt(row.crawl_depth) : undefined,
+            folderDepth: row.folder_depth !== null && row.folder_depth !== undefined ? parseInt(row.folder_depth) : undefined,
             sizeBytes: row.size_bytes,
             timestamp: row.timestamp,
             success: row.success,
@@ -498,6 +526,11 @@ export class PageRepository {
             relPrev: row.rel_prev,
             httpRelNext: row.http_rel_next,
             httpRelPrev: row.http_rel_prev,
+            amphtmlUrl: row.amphtml_url,
+            transferredBytes: row.transferred_bytes ? parseInt(row.transferred_bytes) : undefined,
+            totalTransferredBytes: row.total_transferred_bytes ? parseInt(row.total_transferred_bytes) : undefined,
+            co2Mg: row.co2_mg ? parseFloat(row.co2_mg) : undefined,
+            carbonRating: row.carbon_rating,
             headingTags: row.heading_tags
         };
     }

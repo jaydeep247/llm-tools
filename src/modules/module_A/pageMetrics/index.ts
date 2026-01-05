@@ -6,6 +6,7 @@ import { extractHeaders } from './headerExtractor.js';
 import { extractStatusData } from './statusChecker.js';
 import { extractIndexability } from './indexabilityExtractor.js';
 import { extractPagination } from './paginationExtractor.js';
+import { extractAmpHtml } from './ampExtractor.js';
 
 /**
  * Extract all page metrics from a crawled page
@@ -36,6 +37,9 @@ export function extractPageMetrics(
     
     // Extract pagination links
     const paginationData = extractPagination($, response, url);
+
+    // Extract AMP HTML
+    const amphtmlUrl = extractAmpHtml($);
     
     return {
         // URL
@@ -65,7 +69,10 @@ export function extractPageMetrics(
         indexabilityDetails: indexabilityData.details,
         
         // Pagination
-        ...paginationData
+        ...paginationData,
+        
+        // AMP
+        amphtmlUrl
     };
 }
 
@@ -79,3 +86,5 @@ export * from './headerExtractor.js';
 export * from './statusChecker.js';
 export * from './indexabilityExtractor.js';
 export * from './paginationExtractor.js';
+export * from './ampExtractor.js';
+

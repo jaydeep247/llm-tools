@@ -15,7 +15,8 @@
     "crawl": "tsx src/index.ts",
     "seo:worker": "tsx src/seo/redis-worker.ts",
     "seo:cli": "tsx src/seo/redis-cli.ts",
-    "db:setup": "tsx src/database/scripts/initDb.ts"
+    "db:setup": "tsx src/database/scripts/initDb.ts",
+    "clear:sessions": "tsx scripts/clear-all-sessions.ts"
   },
   "keywords": [
     "contentlytics",

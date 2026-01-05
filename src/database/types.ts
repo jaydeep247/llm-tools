@@ -29,6 +29,13 @@ export interface Page {
     statusCode: number;
     responseTime: number;
     wordCount: number;
+    sentenceCount?: number;
+    averageWordsPerSentence?: number;
+    fleschReadingEase?: number;
+    readabilityLevel?: string;
+    textToHtmlRatio?: number;
+    crawlDepth?: number;
+    folderDepth?: number;
     sizeBytes?: number;
     timestamp: string;
     success: boolean;
@@ -45,6 +52,11 @@ export interface Page {
     relPrev?: string;
     httpRelNext?: string;
     httpRelPrev?: string;
+    amphtmlUrl?: string;
+    transferredBytes?: number;
+    totalTransferredBytes?: number;
+    co2Mg?: number;
+    carbonRating?: string;
     headingTags?: string; // JSON string with heading counts
 }
 

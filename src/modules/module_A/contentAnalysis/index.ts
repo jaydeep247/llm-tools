@@ -25,15 +25,44 @@ export function extractContentMetrics($: CheerioAPI): ContentMetrics {
     const isThinContent = checkThinContent(wordCountData.visibleWordCount);
     
     // Readability analysis
-    // Clone the body to avoid mutation and extract visible text
-    const $body = $('body').clone();
-    $body.find('script, style, noscript, meta, link, head').remove();
-    const visibleText = $body.text().trim();
+    // Use the same text extraction method as analyzeTextStructure for consistency
+    const $clone = $.load($.html());
+    $clone('script, style, noscript, meta, link, head').remove();
+    const visibleText = $clone('body').text().trim();
+    
+    // Ensure we have valid text and counts
+    if (!visibleText || visibleText.length === 0) {
+        // Return empty readability data if no text
+        return {
+            ...wordCountData,
+            ...textStructureData,
+            textToHtmlRatio,
+            isThinContent,
+            fleschReadingEase: undefined,
+            fleschKincaidGrade: undefined,
+            readabilityLevel: undefined
+        };
+    }
+    
+    // Use the sentence count from textStructureData, but ensure it's at least 1 if we have words
+    let actualSentenceCount = textStructureData.sentenceCount;
+    if (actualSentenceCount === 0 && wordCountData.visibleWordCount > 0) {
+        // Recalculate sentences from the same text
+        const sentences = visibleText
+            .split(/[.!?]+/)
+            .map((s: string) => s.trim())
+            .filter((s: string) => s.length > 0);
+        actualSentenceCount = sentences.length > 0 ? sentences.length : 1;
+    }
+    
+    // Ensure we have valid counts
+    const actualWordCount = wordCountData.visibleWordCount > 0 ? wordCountData.visibleWordCount : 1;
+    if (actualSentenceCount === 0) actualSentenceCount = 1;
     
     const readabilityData = analyzeReadability(
         visibleText,
-        textStructureData.sentenceCount,
-        wordCountData.visibleWordCount
+        actualSentenceCount,
+        actualWordCount
     );
     
     return {

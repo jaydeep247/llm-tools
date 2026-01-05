@@ -46,6 +46,7 @@ export interface PageMetrics {
     relPrev?: string;
     httpRelNext?: string;
     httpRelPrev?: string;
+    amphtmlUrl?: string;
     
     // Headers
     h1Tags: string[];

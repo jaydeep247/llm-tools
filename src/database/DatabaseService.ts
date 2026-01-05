@@ -240,6 +240,10 @@ export class DatabaseService {
         return this.pages.resolveTargetPageIds(sessionId);
     }
 
+    async updatePageCarbon(pageId: number, data: { transferredBytes: number, totalTransferredBytes: number, co2Mg: number, carbonRating: string }): Promise<void> {
+        return this.pages.updatePageCarbon(pageId, data);
+    }
+
     // ==================== SEO and Sitemap Methods ====================
     async getSeoData(url: string): Promise<any | null> {
         return this.pages.getSeoData(url);

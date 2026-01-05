@@ -21,6 +21,13 @@ interface CrawlData {
   scheduleId?: number;
   scheduleName?: string;
   wordCount?: number;
+  sentenceCount?: number;
+  averageWordsPerSentence?: number;
+  fleschReadingEase?: number;
+  readabilityLevel?: string;
+  textToHtmlRatio?: number;
+  crawlDepth?: number;
+  folderDepth?: number;
   sizeBytes?: number;
   indexable?: boolean;
   indexabilityStatus?: string;
@@ -34,6 +41,11 @@ interface CrawlData {
   relPrev?: string;
   httpRelNext?: string;
   httpRelPrev?: string;
+  amphtmlUrl?: string;
+  transferredBytes?: number;
+  totalTransferredBytes?: number;
+  co2Mg?: number;
+  carbonRating?: string;
   headingTags?: string; // JSON string
 }
 
@@ -412,6 +424,205 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
     return <span className="status-badge redirect" title={`Meta Refresh: ${metaRefresh}`}>⚠️ {metaRefresh}</span>;
   };
 
+  const getSentenceCountBadge = (sentenceCount?: number) => {
+    if (sentenceCount === undefined || sentenceCount === null) {
+      return <span className="status-badge unknown" title="Sentence count unknown">—</span>;
+    }
+    
+    let badgeClass = 'status-badge';
+    let title = `Sentence Count: ${sentenceCount}`;
+    
+    // Too few sentences → thin content (warning/error)
+    // Too many → long-form content (good)
+    if (sentenceCount < 5) {
+      badgeClass += ' client-error';
+      title += ' - Thin content (too few sentences)';
+    } else if (sentenceCount < 15) {
+      badgeClass += ' redirect';
+      title += ' - Fair content (could use more sentences)';
+    } else {
+      badgeClass += ' success';
+      title += ' - Rich content (good sentence count)';
+    }
+    
+    return <span className={badgeClass} title={title}>{sentenceCount}</span>;
+  };
+
+  const getAverageWordsPerSentenceBadge = (avgWordsPerSentence?: number) => {
+    if (avgWordsPerSentence === undefined || avgWordsPerSentence === null) {
+      return <span className="status-badge unknown" title="Average words per sentence unknown">—</span>;
+    }
+    
+    let badgeClass = 'status-badge';
+    let title = `Average Words Per Sentence: ${avgWordsPerSentence.toFixed(2)}`;
+    
+    // Optimal range: 15-20 words per sentence for readability
+    // Too short (< 10): choppy, may lack detail
+    // Too long (> 25): difficult to read, complex
+    if (avgWordsPerSentence < 10) {
+      badgeClass += ' redirect';
+      title += ' - Short sentences (may lack detail)';
+    } else if (avgWordsPerSentence >= 10 && avgWordsPerSentence <= 25) {
+      badgeClass += ' success';
+      title += ' - Optimal readability';
+    } else {
+      badgeClass += ' redirect';
+      title += ' - Long sentences (may be difficult to read)';
+    }
+    
+    return <span className={badgeClass} title={title}>{avgWordsPerSentence.toFixed(2)}</span>;
+  };
+
+  const getFleschReadingEaseBadge = (fleschScore?: number) => {
+    if (fleschScore === undefined || fleschScore === null) {
+      return <span className="status-badge unknown" title="Flesch Reading Ease score unknown">—</span>;
+    }
+    
+    let badgeClass = 'status-badge';
+    let title = `Flesch Reading Ease: ${fleschScore.toFixed(1)}`;
+    let level = '';
+    
+    // Score interpretation:
+    // 90-100: Very Easy (5th grade) - Green
+    // 80-89: Easy (6th grade) - Green
+    // 70-79: Fairly Easy (7th grade) - Green/Yellow
+    // 60-69: Standard (8th-9th grade) - Yellow
+    // 50-59: Fairly Difficult (10th-12th grade) - Yellow/Red
+    // 30-49: Difficult (College) - Red
+    // 0-29: Very Difficult (College graduate) - Red
+    if (fleschScore >= 90) {
+      badgeClass += ' success';
+      level = 'Very Easy (5th grade)';
+    } else if (fleschScore >= 80) {
+      badgeClass += ' success';
+      level = 'Easy (6th grade)';
+    } else if (fleschScore >= 70) {
+      badgeClass += ' success';
+      level = 'Fairly Easy (7th grade)';
+    } else if (fleschScore >= 60) {
+      badgeClass += ' redirect';
+      level = 'Standard (8th-9th grade)';
+    } else if (fleschScore >= 50) {
+      badgeClass += ' redirect';
+      level = 'Fairly Difficult (10th-12th grade)';
+    } else if (fleschScore >= 30) {
+      badgeClass += ' client-error';
+      level = 'Difficult (College)';
+    } else {
+      badgeClass += ' client-error';
+      level = 'Very Difficult (College graduate)';
+    }
+    
+    title += ` - ${level}`;
+    
+    return <span className={badgeClass} title={title}>{fleschScore.toFixed(1)}</span>;
+  };
+
+  const getReadabilityLevelBadge = (level?: string) => {
+    if (!level) {
+      return <span className="status-badge unknown" title="Readability level unknown">—</span>;
+    }
+
+    const normalized = level.toLowerCase();
+    let badgeClass = 'status-badge';
+    let title = `Readability: ${level}`;
+
+    if (normalized.includes('easy')) {
+      badgeClass += ' success';
+    } else if (normalized.includes('standard') || normalized.includes('fair')) {
+      badgeClass += ' redirect';
+    } else if (normalized.includes('difficult')) {
+      badgeClass += ' client-error';
+    } else {
+      badgeClass += ' redirect';
+    }
+
+    return <span className={badgeClass} title={title}>{level}</span>;
+  };
+
+  const getTextToHtmlRatioBadge = (ratio?: number) => {
+    // Handle undefined, null, or NaN - but 0 is a valid value (no text content)
+    if (ratio === undefined || ratio === null || (ratio !== 0 && isNaN(ratio))) {
+      return <span className="status-badge unknown" title="Text ratio unknown">—</span>;
+    }
+    
+    let badgeClass = 'status-badge';
+    let title = `Text Ratio: ${ratio.toFixed(2)}%`;
+    
+    // Good range: 20%–40%
+    // Low ratio (< 20%) → heavy code / thin content (warning)
+    // Good ratio (20-40%) → meaningful content (success)
+    // High ratio (> 40%) → mostly text, minimal HTML (info)
+    // 0% → no text content (error)
+    if (ratio === 0) {
+      badgeClass += ' client-error';
+      title += ' - No text content';
+    } else if (ratio >= 20 && ratio <= 40) {
+      badgeClass += ' success';
+      title += ' - Healthy ratio (good content)';
+    } else if (ratio < 20) {
+      badgeClass += ' client-error';
+      title += ' - Low ratio (heavy code/thin content)';
+    } else {
+      badgeClass += ' redirect';
+      title += ' - High ratio (mostly text)';
+    }
+    
+    return <span className={badgeClass} title={title}>{ratio.toFixed(2)}%</span>;
+  };
+
+  const getCrawlDepthBadge = (depth?: number) => {
+    if (depth === undefined || depth === null) {
+      return <span className="status-badge unknown" title="Crawl depth unknown">—</span>;
+    }
+    
+    let badgeClass = 'status-badge';
+    let title = `Crawl Depth: ${depth} clicks from homepage`;
+    
+    // SEO rule: Important pages should be within 3 clicks
+    if (depth === 0) {
+      badgeClass += ' success';
+      title += ' - Homepage (optimal)';
+    } else if (depth <= 3) {
+      badgeClass += ' success';
+      title += ' - Good (within SEO recommendation)';
+    } else if (depth <= 5) {
+      badgeClass += ' redirect';
+      title += ' - Acceptable (may need optimization)';
+    } else {
+      badgeClass += ' client-error';
+      title += ' - Too deep (SEO issue - important pages should be within 3 clicks)';
+    }
+    
+    return <span className={badgeClass} title={title}>{depth}</span>;
+  };
+
+  const getFolderDepthBadge = (depth?: number) => {
+    if (depth === undefined || depth === null) {
+      return <span className="status-badge unknown" title="Folder depth unknown">—</span>;
+    }
+    
+    let badgeClass = 'status-badge';
+    let title = `Folder Depth: ${depth} folders in URL path`;
+    
+    // Shallow URLs are preferred
+    if (depth === 0) {
+      badgeClass += ' success';
+      title += ' - Root level (optimal)';
+    } else if (depth <= 2) {
+      badgeClass += ' success';
+      title += ' - Shallow (good for SEO)';
+    } else if (depth <= 4) {
+      badgeClass += ' redirect';
+      title += ' - Moderate (acceptable)';
+    } else {
+      badgeClass += ' client-error';
+      title += ' - Deep (can confuse users & crawlers)';
+    }
+    
+    return <span className={badgeClass} title={title}>{depth}</span>;
+  };
+
   const getSizeBadge = (sizeBytes?: number) => {
     if (!sizeBytes || sizeBytes === 0) {
       return <span className="status-badge unknown" title="Size unknown">—</span>;
@@ -459,6 +670,29 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
     
     const icon = type === 'next' ? '➡️' : '⬅️';
     return <span className="status-badge redirect" title={`${type === 'next' ? 'Next' : 'Previous'}: ${url}`}>{icon} {url}</span>;
+  };
+
+  const getAmpBadge = (url?: string) => {
+    if (!url || url === 'undefined' || url === 'null') {
+      return <span className="status-badge unknown" title="No AMP version">—</span>;
+    }
+    return <span className="status-badge success" title={`AMP URL: ${url}`}>⚡ {url}</span>;
+  };
+
+  const getCarbonRatingBadge = (rating?: string, co2?: number) => {
+    if (!rating) return <span className="status-badge unknown">—</span>;
+    
+    let className = 'status-badge';
+    // A+ to B is good (success/green), C is okay (redirect/yellow), D-F is bad (error/red)
+    if (['A+', 'A', 'B'].includes(rating)) className += ' success';
+    else if (['C'].includes(rating)) className += ' redirect';
+    else className += ' client-error';
+    
+    return (
+      <span className={className} title={`${co2 ? co2 + 'mg CO2' : ''}`}>
+        {rating} {co2 ? `(${co2}mg)` : ''}
+      </span>
+    );
   };
 
   if (loading) {
@@ -624,6 +858,9 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                 <th onClick={() => handleSort('canonicalUrl')} className="sortable">
                   Canonical URL {sortField === 'canonicalUrl' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
+                <th onClick={() => handleSort('amphtmlUrl' as keyof CrawlData)} className="sortable">
+                  AMP {sortField === 'amphtmlUrl' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
                 <th onClick={() => handleSort('relNext')} className="sortable center-header">
                   rel="next" {sortField === 'relNext' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
@@ -654,8 +891,41 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                 <th onClick={() => handleSort('wordCount' as keyof CrawlData)} className="sortable center-header">
                   Word Count {sortField === 'wordCount' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
+                <th onClick={() => handleSort('sentenceCount' as keyof CrawlData)} className="sortable center-header">
+                  Sentence Count {sortField === 'sentenceCount' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('averageWordsPerSentence' as keyof CrawlData)} className="sortable center-header">
+                  Avg Words/Sentence {sortField === 'averageWordsPerSentence' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('fleschReadingEase' as keyof CrawlData)} className="sortable center-header">
+                  Flesch Reading Ease {sortField === 'fleschReadingEase' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('readabilityLevel' as keyof CrawlData)} className="sortable center-header">
+                  Readability {sortField === 'readabilityLevel' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('textToHtmlRatio' as keyof CrawlData)} className="sortable center-header">
+                  Text Ratio {sortField === 'textToHtmlRatio' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('crawlDepth' as keyof CrawlData)} className="sortable center-header">
+                  Crawl Depth {sortField === 'crawlDepth' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('folderDepth' as keyof CrawlData)} className="sortable center-header">
+                  Folder Depth {sortField === 'folderDepth' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
                 <th onClick={() => handleSort('sizeBytes' as keyof CrawlData)} className="sortable center-header">
                   Size (bytes) {sortField === 'sizeBytes' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('transferredBytes')} className="sortable center-header">
+                  Transferred (bytes) {sortField === 'transferredBytes' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('totalTransferredBytes')} className="sortable center-header">
+                  Total Transferred (bytes) {sortField === 'totalTransferredBytes' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('co2Mg')} className="sortable center-header">
+                  CO2 (mg) {sortField === 'co2Mg' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('carbonRating')} className="sortable center-header">
+                  Carbon Rating {sortField === 'carbonRating' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
                 <th className="center-header">
                   Indexability
@@ -713,6 +983,9 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                   <td className="canonical-url-cell">
                     {getCanonicalBadge(item.canonicalUrl, item.url)}
                   </td>
+                  <td className="amp-url-cell">
+                    {getAmpBadge(item.amphtmlUrl)}
+                  </td>
                   <td className="pagination-cell">
                     {getPaginationBadge(item.relNext, 'next')}
                   </td>
@@ -743,8 +1016,41 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                   <td className="word-count-cell">
                     {item.wordCount ?? '—'}
                   </td>
+                  <td className="sentence-count-cell">
+                    {getSentenceCountBadge(item.sentenceCount)}
+                  </td>
+                  <td className="average-words-per-sentence-cell">
+                    {getAverageWordsPerSentenceBadge(item.averageWordsPerSentence)}
+                  </td>
+                  <td className="flesch-reading-ease-cell">
+                    {getFleschReadingEaseBadge(item.fleschReadingEase)}
+                  </td>
+                  <td className="readability-level-cell">
+                    {getReadabilityLevelBadge(item.readabilityLevel)}
+                  </td>
+                  <td className="text-to-html-ratio-cell">
+                    {getTextToHtmlRatioBadge(item.textToHtmlRatio)}
+                  </td>
+                  <td className="crawl-depth-cell">
+                    {getCrawlDepthBadge(item.crawlDepth)}
+                  </td>
+                  <td className="folder-depth-cell">
+                    {getFolderDepthBadge(item.folderDepth)}
+                  </td>
                   <td className="size-bytes-cell">
                     {getSizeBadge(item.sizeBytes)}
+                  </td>
+                  <td className="size-bytes-cell">
+                    {getSizeBadge(item.transferredBytes)}
+                  </td>
+                  <td className="size-bytes-cell">
+                    {getSizeBadge(item.totalTransferredBytes)}
+                  </td>
+                  <td className="co2-cell">
+                    {item.co2Mg ? `${item.co2Mg} mg` : '—'}
+                  </td>
+                  <td className="carbon-rating-cell">
+                    {getCarbonRatingBadge(item.carbonRating, item.co2Mg)}
                   </td>
                   <td className="indexability-cell">
                     {getIndexabilityBadge(item.indexable, item.indexabilityStatus)}

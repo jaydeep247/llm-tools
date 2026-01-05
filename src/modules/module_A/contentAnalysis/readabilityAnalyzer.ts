@@ -18,13 +18,34 @@ export function calculateFleschReadingEase(
     sentenceCount: number,
     wordCount: number
 ): number {
-    if (wordCount === 0 || sentenceCount === 0) return 0;
+    // Handle edge cases
+    if (!text || text.trim().length === 0) return 0;
+    if (wordCount === 0) return 0;
+    
+    // If sentenceCount is 0, try to detect sentences from the text
+    let actualSentenceCount = sentenceCount;
+    if (actualSentenceCount === 0) {
+        // Improved sentence detection: split by sentence-ending punctuation
+        const sentences = text.split(/[.!?]+/).filter((s: string) => s.trim().length > 0);
+        actualSentenceCount = sentences.length;
+        
+        // If still 0, assume at least 1 sentence (treat entire text as one sentence)
+        if (actualSentenceCount === 0) {
+            actualSentenceCount = 1;
+        }
+    }
     
     const syllableCount = countSyllables(text);
     
+    // Prevent division by zero
+    if (actualSentenceCount === 0 || wordCount === 0) return 0;
+    
+    const avgSentenceLength = wordCount / actualSentenceCount;
+    const avgSyllablesPerWord = syllableCount / wordCount;
+    
     const score = 206.835 
-        - 1.015 * (wordCount / sentenceCount)
-        - 84.6 * (syllableCount / wordCount);
+        - 1.015 * avgSentenceLength
+        - 84.6 * avgSyllablesPerWord;
     
     return Math.max(0, Math.min(100, Math.round(score * 10) / 10));
 }
@@ -91,36 +112,45 @@ function countWordSyllables(word: string): number {
 
 /**
  * Get readability level description
+ * Returns human-friendly labels: Easy, Standard, Difficult, Very Difficult
  */
-export function getReadabilityLevel(fleschScore: number): string {
-    if (fleschScore >= 90) return 'Very Easy (5th grade)';
-    if (fleschScore >= 80) return 'Easy (6th grade)';
-    if (fleschScore >= 70) return 'Fairly Easy (7th grade)';
-    if (fleschScore >= 60) return 'Standard (8th-9th grade)';
-    if (fleschScore >= 50) return 'Fairly Difficult (10th-12th grade)';
-    if (fleschScore >= 30) return 'Difficult (College)';
-    return 'Very Difficult (College graduate)';
+export function getReadabilityLevel(fleschScore: number | undefined): string | undefined {
+    // Return undefined only if score is invalid (not if it's 0, as 0 is a valid "Very Difficult" score)
+    if (fleschScore === undefined || fleschScore === null || isNaN(fleschScore)) {
+        return undefined;
+    }
+    
+    // Score ranges based on Flesch Reading Ease scale
+    if (fleschScore >= 90) return 'Very Easy';
+    if (fleschScore >= 80) return 'Easy';
+    if (fleschScore >= 70) return 'Fairly Easy';
+    if (fleschScore >= 60) return 'Standard';
+    if (fleschScore >= 50) return 'Fairly Difficult';
+    if (fleschScore >= 30) return 'Difficult';
+    // 0-29 is Very Difficult
+    return 'Very Difficult';
 }
 
 /**
- * Analyze readability (placeholder - can be enhanced)
+ * Analyze readability
  */
 export function analyzeReadability(
     text: string,
     sentenceCount: number,
     wordCount: number
 ): ReadabilityData {
-    // For now, return undefined - this can be implemented later
-    // when we want to add readability analysis
+    // Calculate readability scores
+    const fleschReadingEase = calculateFleschReadingEase(text, sentenceCount, wordCount);
+    const fleschKincaidGrade = calculateFleschKincaidGrade(text, sentenceCount, wordCount);
     
-    // Uncomment to enable:
-    // const fleschReadingEase = calculateFleschReadingEase(text, sentenceCount, wordCount);
-    // const fleschKincaidGrade = calculateFleschKincaidGrade(text, sentenceCount, wordCount);
-    // const readabilityLevel = getReadabilityLevel(fleschReadingEase);
+    // Calculate readability level - 0 is a valid score (Very Difficult), so only skip if undefined/null/NaN
+    const readabilityLevel = (fleschReadingEase !== undefined && fleschReadingEase !== null && !isNaN(fleschReadingEase)) 
+        ? getReadabilityLevel(fleschReadingEase) 
+        : undefined;
     
     return {
-        fleschReadingEase: undefined,
-        fleschKincaidGrade: undefined,
-        readabilityLevel: undefined
+        fleschReadingEase: (fleschReadingEase !== undefined && fleschReadingEase !== null && !isNaN(fleschReadingEase)) ? fleschReadingEase : undefined,
+        fleschKincaidGrade: (fleschKincaidGrade !== undefined && fleschKincaidGrade !== null && !isNaN(fleschKincaidGrade)) ? fleschKincaidGrade : undefined,
+        readabilityLevel
     };
 }

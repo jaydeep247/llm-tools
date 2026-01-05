@@ -12,6 +12,9 @@ import { extractContentMetrics } from './modules/module_A/contentAnalysis/index.
 import { extractLinksForCrawling, isValidHttpLink } from './modules/module_A/linkExtractor/index.js';
 import { collectPageResources } from './modules/module_A/resourceCollector/index.js';
 import { analyzeLinkDetails } from './modules/module_A/linkAnalysis/index.js';
+import { calculateCarbon } from './modules/module_A/carbon/carbonCalculator.js';
+import { fetchResourceSizes } from './modules/module_A/carbon/resourceSizer.js';
+import { calculateFolderDepth, getCrawlDepthFromRequest } from './modules/module_A/contentAnalysis/urlDepth.js';
 
 Configuration.set('systemInfoV2', true);
 
@@ -172,9 +175,17 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
     try {
         const sitemapUrls = await db.getUncrawledSitemapUrls(sessionId);
         // Add requests directly to the same RequestQueue Cheerio will use
-        await queue.addRequest({ url: start.href });
+        // Set depth=0 for the start URL (homepage)
+        await queue.addRequest({ 
+            url: start.href,
+            userData: { depth: 0 }
+        });
         for (const u of sitemapUrls) {
-            await queue.addRequest({ url: u.url });
+            // Sitemap URLs are discovered URLs, so they're at depth 0 (same as start URL)
+            await queue.addRequest({ 
+                url: u.url,
+                userData: { depth: 0 }
+            });
         }
 
         // Debug: report queue stats
@@ -236,6 +247,13 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
                     statusCode: response.statusCode,
                     responseTime: 0,
                     wordCount: 0,
+                    sentenceCount: 0,
+                    averageWordsPerSentence: 0,
+                    fleschReadingEase: undefined,
+                    readabilityLevel: undefined,
+                    textToHtmlRatio: undefined,
+                    crawlDepth: getCrawlDepthFromRequest(request),
+                    folderDepth: calculateFolderDepth(url),
                     timestamp: new Date().toISOString(),
                     success: false,
                     errorMessage: `HTTP ${response.statusCode} Error`
@@ -255,9 +273,18 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
             // Extract content metrics using module_A
             const contentMetrics = extractContentMetrics($);
             
+            // Calculate depths
+            const crawlDepth = getCrawlDepthFromRequest(request);
+            const folderDepth = calculateFolderDepth(url);
+            
             // Use extracted metrics
             const resolvedContentType = pageMetrics.contentType;
             const wordCount = contentMetrics.visibleWordCount;
+            const sentenceCount = contentMetrics.sentenceCount;
+            const averageWordsPerSentence = contentMetrics.averageSentenceLength;
+            const fleschReadingEase = contentMetrics.fleschReadingEase;
+            const readabilityLevel = contentMetrics.readabilityLevel;
+            const textToHtmlRatio = contentMetrics.textToHtmlRatio;
 
             // Record the page data using extracted metrics
             console.log(`[DEBUG] PageMetrics for ${url}:`, {
@@ -265,6 +292,15 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
                 relPrev: pageMetrics.relPrev,
                 httpRelNext: pageMetrics.httpRelNext,
                 httpRelPrev: pageMetrics.httpRelPrev
+            });
+            
+            // Debug readability metrics
+            console.log(`[DEBUG] Readability for ${url}:`, {
+                fleschReadingEase,
+                readabilityLevel,
+                wordCount,
+                sentenceCount,
+                textToHtmlRatio
             });
 
             const pageId = await db.insertPage({
@@ -281,6 +317,13 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
                 statusCode: pageMetrics.statusCode,
                 responseTime: pageMetrics.responseTime,
                 wordCount,
+                sentenceCount,
+                averageWordsPerSentence,
+                fleschReadingEase,
+                readabilityLevel,
+                textToHtmlRatio,
+                crawlDepth,
+                folderDepth,
                 sizeBytes: pageMetrics.sizeBytes,
                 timestamp: new Date().toISOString(),
                 success: true,
@@ -342,6 +385,11 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
                     transformRequestFunction: (req) => {
                         // Stay within same site only
                         if (!isSameSite(req.url, allowedHost, allowSubdomains)) return null;
+                        
+                        // Track crawl depth: increment depth for each link found on this page
+                        const currentDepth = getCrawlDepthFromRequest(request);
+                        req.userData = { ...req.userData, depth: currentDepth + 1 };
+                        
                         return req;
                     },
                 });
@@ -374,7 +422,6 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
                 await db.upsertResource(resource);
             }
 
-            // Link analysis (if enabled) using module_A
             if (captureLinkDetails) {
                 const linkAnalysisStart = Date.now();
                 
@@ -403,6 +450,44 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
 
                 reqLog.debug(`Link analysis: found ${linksToInsert.length} links, inserted ${linksToInsert.length} in ${linkAnalysisTime}ms`);
             }
+
+            // --- Carbon Footprint Calculation ---
+            try {
+                // 1. Calculate Page Size (Transferred Bytes)
+                // We use sizeBytes from pageMetrics (Content-Length or body size)
+                const transferredBytes = pageMetrics.sizeBytes || 0;
+
+                // 2. Calculate Total Transferred (Page + Resources)
+                // Extract all resource URLs
+                const resourceUrls: string[] = [
+                    ...resources.css.map(r => r.url),
+                    ...resources.js.map(r => r.url),
+                    ...resources.images.map(r => r.url)
+                    // We define "Transferred" as resources loaded to render the page. 
+                    // External links (<a> tags) are NOT loaded, so we exclude them.
+                ];
+
+                // Fetch sizes for resources (HTTP HEAD)
+                const { totalBytes: resourcesSize } = await fetchResourceSizes(resourceUrls);
+                
+                const totalTransferredBytes = transferredBytes + resourcesSize;
+
+                // 3. Calculate CO2 and Rating
+                const carbonResult = calculateCarbon(totalTransferredBytes);
+
+                // 4. Update Page in DB
+                await db.updatePageCarbon(pageId, {
+                    transferredBytes,
+                    totalTransferredBytes,
+                    co2Mg: carbonResult.co2Mg,
+                    carbonRating: carbonResult.rating
+                });
+                
+                logger.debug(`Carbon metrics for ${url}: Rating=${carbonResult.rating}, CO2=${carbonResult.co2Mg}mg, Total=${totalTransferredBytes}b`);
+
+            } catch (error) {
+                logger.error(`Failed to calculate carbon metrics for ${url}`, error as Error);
+            }
         },
         errorHandler: async ({ request, error }) => {
             const warn = `Request failed ${request.url}: ${(error as Error).message}`;
@@ -424,6 +509,13 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
                 statusCode: 0,
                 responseTime: responseTime,
                 wordCount: 0,
+                sentenceCount: 0,
+                averageWordsPerSentence: 0,
+                fleschReadingEase: undefined,
+                readabilityLevel: undefined,
+                textToHtmlRatio: undefined,
+                crawlDepth: getCrawlDepthFromRequest(request),
+                folderDepth: calculateFolderDepth(request.url),
                 timestamp: new Date().toISOString(),
                 success: false,
                 errorMessage: (error as Error).message
