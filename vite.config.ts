@@ -10,25 +10,25 @@ export default defineConfig({
     },
     proxy: {
       '/aeo': {
-        target: 'http://localhost:8001',
+        target: 'http://localhost:3004',
         changeOrigin: true,
         secure: false,
         timeout: 60000,
       },
       '/api': {
-        target: 'http://localhost:8001',
+        target: 'http://localhost:3004',
         changeOrigin: true,
         secure: false,
         timeout: 60000,
       },
       '/crawl': {
-        target: 'http://localhost:8001',
+        target: 'http://localhost:3004',
         changeOrigin: true,
         secure: false,
         timeout: 60000,
       },
       '/events': {
-        target: 'http://localhost:8001',
+        target: 'http://localhost:3004',
         changeOrigin: true,
         secure: false,
         timeout: 0,
@@ -39,7 +39,7 @@ export default defineConfig({
         },
       },
       '/queue': {
-        target: 'http://localhost:8001',
+        target: 'http://localhost:3004',
         changeOrigin: true,
         secure: false,
         timeout: 60000,
@@ -52,7 +52,7 @@ export default defineConfig({
         timeout: 60000,
       },
       '/aeo-health': {
-        target: 'http://localhost:8001',
+        target: 'http://localhost:3004',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/aeo-health/, '/health'),

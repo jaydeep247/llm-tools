@@ -90,19 +90,58 @@ export class PageRepository {
     }
 
     async getPages(sessionId?: number, limit: number = 1000, offset: number = 0): Promise<Page[]> {
-        let sql = 'SELECT * FROM pages';
-        const params: any[] = [];
-
-        if (sessionId) {
-            sql += ' WHERE session_id = $1';
-            params.push(sessionId);
+        if (!sessionId) {
+            // If no sessionId, use simple query
+            const sql = `SELECT * FROM pages ORDER BY timestamp DESC LIMIT $1 OFFSET $2`;
+            const res = await this.pool.query(sql, [limit, offset]);
+            return res.rows.map(row => this.mapPage(row));
         }
 
-        sql += ` ORDER BY timestamp DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
-        params.push(limit, offset);
-
-        const res = await this.pool.query(sql, params);
-        return res.rows.map(row => this.mapPage(row));
+        // With sessionId, include link statistics
+        const sql = `
+            WITH total_unique_inlinks AS (
+                SELECT SUM(unique_count) as total
+                FROM (
+                    SELECT COUNT(DISTINCT source_page_id) as unique_count
+                    FROM links
+                    WHERE session_id = $1
+                    GROUP BY target_page_id
+                ) sub
+            )
+            SELECT 
+                p.*,
+                COALESCE(unique_in_links.count, 0) as "uniqueInlinks",
+                COALESCE(unique_js_in_links.count, 0) as "uniqueJsInlinks",
+                CASE 
+                    WHEN total_unique_inlinks.total > 0 AND unique_in_links.count > 0 
+                    THEN ROUND((unique_in_links.count::numeric / total_unique_inlinks.total::numeric * 100), 2)
+                    ELSE 0 
+                END as "percentOfTotal"
+            FROM pages p
+            CROSS JOIN total_unique_inlinks
+            LEFT JOIN (
+                SELECT target_page_id, COUNT(DISTINCT source_page_id) as count
+                FROM links
+                WHERE session_id = $1
+                GROUP BY target_page_id
+            ) unique_in_links ON p.id = unique_in_links.target_page_id
+            LEFT JOIN (
+                SELECT target_page_id, COUNT(DISTINCT source_page_id) as count
+                FROM links
+                WHERE session_id = $1 AND is_js_rendered = TRUE
+                GROUP BY target_page_id
+            ) unique_js_in_links ON p.id = unique_js_in_links.target_page_id
+            WHERE p.session_id = $1
+            ORDER BY p.timestamp DESC 
+            LIMIT $2 OFFSET $3
+        `;
+        const res = await this.pool.query(sql, [sessionId, limit, offset]);
+        return res.rows.map(row => ({
+            ...this.mapPage(row),
+            uniqueInlinks: parseInt(row.uniqueInlinks) || 0,
+            uniqueJsInlinks: parseInt(row.uniqueJsInlinks) || 0,
+            percentOfTotal: parseFloat(row.percentOfTotal) || 0
+        }));
     }
 
     async getResources(sessionId?: number, resourceType?: string, limit: number = 1000, offset: number = 0): Promise<Resource[]> {
@@ -347,11 +386,54 @@ export class PageRepository {
 
     async getPageLinkStats(sessionId: number): Promise<any[]> {
         const sql = `
+      WITH total_unique_inlinks AS (
+        SELECT SUM(unique_count) as total
+        FROM (
+          SELECT COUNT(DISTINCT source_page_id) as unique_count
+          FROM links
+          WHERE session_id = $1
+          GROUP BY target_page_id
+        ) sub
+      )
       SELECT 
-        p.id as "pageId", p.url, p.title,
-        (SELECT COUNT(*) FROM links l WHERE l.source_page_id = p.id) as "outlinksCount",
-        (SELECT COUNT(*) FROM links l WHERE l.target_page_id = p.id) as "inlinksCount"
+        p.id as "pageId", 
+        p.url, 
+        p.title,
+        COALESCE(out_links.count, 0) as "outlinksCount",
+        COALESCE(in_links.count, 0) as "inlinksCount",
+        COALESCE(unique_in_links.count, 0) as "uniqueInlinksCount",
+        COALESCE(unique_js_in_links.count, 0) as "uniqueJsInlinksCount",
+        CASE 
+          WHEN total_unique_inlinks.total > 0 AND unique_in_links.count > 0 
+          THEN ROUND((unique_in_links.count::numeric / total_unique_inlinks.total::numeric * 100), 2)
+          ELSE 0 
+        END as "percentOfTotal"
       FROM pages p
+      CROSS JOIN total_unique_inlinks
+      LEFT JOIN (
+        SELECT source_page_id, COUNT(*) as count
+        FROM links
+        WHERE session_id = $1
+        GROUP BY source_page_id
+      ) out_links ON p.id = out_links.source_page_id
+      LEFT JOIN (
+        SELECT target_page_id, COUNT(*) as count
+        FROM links
+        WHERE session_id = $1
+        GROUP BY target_page_id
+      ) in_links ON p.id = in_links.target_page_id
+      LEFT JOIN (
+        SELECT target_page_id, COUNT(DISTINCT source_page_id) as count
+        FROM links
+        WHERE session_id = $1
+        GROUP BY target_page_id
+      ) unique_in_links ON p.id = unique_in_links.target_page_id
+      LEFT JOIN (
+        SELECT target_page_id, COUNT(DISTINCT source_page_id) as count
+        FROM links
+        WHERE session_id = $1 AND is_js_rendered = TRUE
+        GROUP BY target_page_id
+      ) unique_js_in_links ON p.id = unique_js_in_links.target_page_id
       WHERE p.session_id = $1
       ORDER BY "inlinksCount" DESC
       LIMIT 100
@@ -359,8 +441,11 @@ export class PageRepository {
         const res = await this.pool.query(sql, [sessionId]);
         return res.rows.map(row => ({
             ...row,
-            outlinksCount: parseInt(row.outlinksCount),
-            inlinksCount: parseInt(row.inlinksCount)
+            outlinksCount: parseInt(row.outlinksCount) || 0,
+            inlinksCount: parseInt(row.inlinksCount) || 0,
+            uniqueInlinksCount: parseInt(row.uniqueInlinksCount) || 0,
+            uniqueJsInlinksCount: parseInt(row.uniqueJsInlinksCount) || 0,
+            percentOfTotal: parseFloat(row.percentOfTotal) || 0
         }));
     }
 
@@ -384,6 +469,44 @@ export class PageRepository {
       LIMIT $2
     `;
         const res = await this.pool.query(sql, [sessionId, limit]);
+        return res.rows;
+    }
+
+    async getUniqueInlinks(pageId: number, limit: number = 100): Promise<any[]> {
+        const sql = `
+            SELECT DISTINCT
+                l.source_page_id as "sourcePageId",
+                p.url as "sourceUrl",
+                p.title as "sourceTitle",
+                COUNT(*) as "linkCount",
+                ARRAY_AGG(DISTINCT l.anchor_text) FILTER (WHERE l.anchor_text IS NOT NULL) as "anchorTexts"
+            FROM links l
+            JOIN pages p ON l.source_page_id = p.id
+            WHERE l.target_page_id = $1
+            GROUP BY l.source_page_id, p.url, p.title
+            ORDER BY "linkCount" DESC
+            LIMIT $2
+        `;
+        const res = await this.pool.query(sql, [pageId, limit]);
+        return res.rows;
+    }
+
+    async getUniqueJsInlinks(pageId: number, limit: number = 100): Promise<any[]> {
+        const sql = `
+            SELECT DISTINCT
+                l.source_page_id as "sourcePageId",
+                p.url as "sourceUrl",
+                p.title as "sourceTitle",
+                COUNT(*) as "linkCount",
+                ARRAY_AGG(DISTINCT l.anchor_text) FILTER (WHERE l.anchor_text IS NOT NULL) as "anchorTexts"
+            FROM links l
+            JOIN pages p ON l.source_page_id = p.id
+            WHERE l.target_page_id = $1 AND l.is_js_rendered = TRUE
+            GROUP BY l.source_page_id, p.url, p.title
+            ORDER BY "linkCount" DESC
+            LIMIT $2
+        `;
+        const res = await this.pool.query(sql, [pageId, limit]);
         return res.rows;
     }
 
@@ -487,6 +610,189 @@ export class PageRepository {
         return res.rowCount || 0;
     }
 
+    async updatePageLinkScore(pageId: number, linkScore: number): Promise<void> {
+        await this.pool.query(
+            `UPDATE pages SET link_score = $2 WHERE id = $1`,
+            [pageId, linkScore]
+        );
+    }
+
+    async updatePageLinkScores(scores: Map<number, number>): Promise<void> {
+        if (scores.size === 0) return;
+
+        const client = await this.pool.connect();
+        try {
+            await client.query('BEGIN');
+            for (const [pageId, score] of scores.entries()) {
+                await client.query(
+                    `UPDATE pages SET link_score = $2 WHERE id = $1`,
+                    [pageId, score]
+                );
+            }
+            await client.query('COMMIT');
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+    }
+
+    async getPageLinkData(sessionId: number): Promise<any[]> {
+        const sql = `
+            SELECT 
+                p.id as "pageId",
+                p.url,
+                p.crawl_depth as "crawlDepth",
+                p.link_score as "currentLinkScore",
+                COALESCE(
+                    json_agg(
+                        json_build_object(
+                            'sourcePageId', l.source_page_id,
+                            'targetPageId', l.target_page_id,
+                            'position', l.position,
+                            'sourcePageScore', sp.link_score,
+                            'sourceCrawlDepth', sp.crawl_depth
+                        )
+                    ) FILTER (WHERE l.id IS NOT NULL),
+                    '[]'
+                ) as "inlinks"
+            FROM pages p
+            LEFT JOIN links l ON l.target_page_id = p.id AND l.session_id = $1 AND l.is_internal = TRUE
+            LEFT JOIN pages sp ON l.source_page_id = sp.id
+            WHERE p.session_id = $1
+            GROUP BY p.id, p.url, p.crawl_depth, p.link_score
+        `;
+        const res = await this.pool.query(sql, [sessionId]);
+        return res.rows.map(row => ({
+            pageId: row.pageId,
+            url: row.url,
+            crawlDepth: row.crawlDepth || 0,
+            currentLinkScore: row.currentLinkScore,
+            inlinks: row.inlinks
+        }));
+    }
+
+    async getLinkScoreStats(sessionId: number): Promise<any> {
+        const sql = `
+            SELECT 
+                COUNT(*) FILTER (WHERE link_score >= 80) as "excellentCount",
+                COUNT(*) FILTER (WHERE link_score >= 60 AND link_score < 80) as "goodCount",
+                COUNT(*) FILTER (WHERE link_score >= 40 AND link_score < 60) as "fairCount",
+                COUNT(*) FILTER (WHERE link_score >= 20 AND link_score < 40) as "weakCount",
+                COUNT(*) FILTER (WHERE link_score < 20 AND link_score IS NOT NULL) as "veryWeakCount",
+                COUNT(*) FILTER (WHERE link_score IS NULL) as "notCalculatedCount",
+                ROUND(AVG(link_score)::numeric, 2) as "averageLinkScore",
+                MAX(link_score) as "maxLinkScore",
+                MIN(link_score) as "minLinkScore"
+            FROM pages
+            WHERE session_id = $1
+        `;
+        const res = await this.pool.query(sql, [sessionId]);
+        return res.rows[0];
+    }
+
+    async getPagesWithLinkScores(sessionId: number, limit: number, offset: number, sortField: string = 'link_score', sortOrder: string = 'DESC'): Promise<any[]> {
+        const validSortFields = ['link_score', 'url', 'title', 'crawl_depth'];
+        const dbSortField = validSortFields.includes(sortField) ? sortField : 'link_score';
+        const order = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
+        const sql = `
+            SELECT 
+                id as "pageId",
+                url,
+                title,
+                crawl_depth as "crawlDepth",
+                link_score as "linkScore",
+                (SELECT COUNT(*) FROM links WHERE target_page_id = pages.id AND is_internal = TRUE) as "inlinkCount"
+            FROM pages
+            WHERE session_id = $1 AND link_score IS NOT NULL
+            ORDER BY ${dbSortField} ${order} NULLS LAST
+            LIMIT $2 OFFSET $3
+        `;
+
+        const res = await this.pool.query(sql, [sessionId, limit, offset]);
+        return res.rows;
+    }
+
+    async countPagesWithLinkScores(sessionId: number): Promise<number> {
+        const sql = `SELECT COUNT(*) FROM pages WHERE session_id = $1 AND link_score IS NOT NULL`;
+        const res = await this.pool.query(sql, [sessionId]);
+        return parseInt(res.rows[0].count);
+    }
+
+    async getLinkScoreDistribution(sessionId: number): Promise<any[]> {
+        const sql = `
+            SELECT 
+                CASE 
+                    WHEN link_score >= 80 THEN 'Excellent (80-100)'
+                    WHEN link_score >= 60 THEN 'Good (60-79)'
+                    WHEN link_score >= 40 THEN 'Fair (40-59)'
+                    WHEN link_score >= 20 THEN 'Weak (20-39)'
+                    ELSE 'Very Weak (0-19)'
+                END as category,
+                COUNT(*) as count
+            FROM pages
+            WHERE session_id = $1 AND link_score IS NOT NULL
+            GROUP BY category
+            ORDER BY MIN(link_score) DESC
+        `;
+        const res = await this.pool.query(sql, [sessionId]);
+        return res.rows;
+    }
+
+    async getPageWithLinkScore(pageId: number): Promise<any | null> {
+        const sql = `
+            SELECT 
+                id as "pageId",
+                session_id as "sessionId",
+                url,
+                title,
+                crawl_depth as "crawlDepth",
+                link_score as "linkScore"
+            FROM pages
+            WHERE id = $1
+        `;
+        const res = await this.pool.query(sql, [pageId]);
+        return res.rows.length > 0 ? res.rows[0] : null;
+    }
+
+    async getTopPagesByLinkScore(sessionId: number, limit: number): Promise<any[]> {
+        const sql = `
+            SELECT 
+                id as "pageId",
+                url,
+                title,
+                crawl_depth as "crawlDepth",
+                link_score as "linkScore",
+                (SELECT COUNT(*) FROM links WHERE target_page_id = pages.id AND is_internal = TRUE) as "inlinkCount"
+            FROM pages
+            WHERE session_id = $1 AND link_score IS NOT NULL
+            ORDER BY link_score DESC
+            LIMIT $2
+        `;
+        const res = await this.pool.query(sql, [sessionId, limit]);
+        return res.rows;
+    }
+
+    async getBottomPagesByLinkScore(sessionId: number, limit: number): Promise<any[]> {
+        const sql = `
+            SELECT 
+                id as "pageId",
+                url,
+                title,
+                crawl_depth as "crawlDepth",
+                link_score as "linkScore",
+                (SELECT COUNT(*) FROM links WHERE target_page_id = pages.id AND is_internal = TRUE) as "inlinkCount"
+            FROM pages
+            WHERE session_id = $1 AND link_score IS NOT NULL
+            ORDER BY link_score ASC
+            LIMIT $2
+        `;
+        const res = await this.pool.query(sql, [sessionId, limit]);
+        return res.rows;
+    }
+
     private mapPage(row: any): Page {
         return {
             id: row.id,
@@ -531,7 +837,8 @@ export class PageRepository {
             totalTransferredBytes: row.total_transferred_bytes ? parseInt(row.total_transferred_bytes) : undefined,
             co2Mg: row.co2_mg ? parseFloat(row.co2_mg) : undefined,
             carbonRating: row.carbon_rating,
-            headingTags: row.heading_tags
+            headingTags: row.heading_tags,
+            linkScore: row.link_score ? parseFloat(row.link_score) : undefined
         };
     }
 

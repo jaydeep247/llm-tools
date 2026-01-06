@@ -15,6 +15,7 @@ import { analyzeLinkDetails } from './modules/module_A/linkAnalysis/index.js';
 import { calculateCarbon } from './modules/module_A/carbon/carbonCalculator.js';
 import { fetchResourceSizes } from './modules/module_A/carbon/resourceSizer.js';
 import { calculateFolderDepth, getCrawlDepthFromRequest } from './modules/module_A/contentAnalysis/urlDepth.js';
+import { linkScoreService } from './services/LinkScoreService.js';
 
 Configuration.set('systemInfoV2', true);
 
@@ -596,6 +597,24 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
         } catch (error) {
             onLog?.(`⚠️ Link post-processing failed: ${(error as Error).message}`);
             logger.error('Link post-processing failed', error as Error);
+        }
+
+        // Calculate Link Scores for all pages
+        try {
+            const linkScoreMsg = '🔗 Calculating Link Scores...';
+            log.info(linkScoreMsg);
+            onLog?.(linkScoreMsg);
+
+            await linkScoreService.calculateSessionLinkScores(sessionId);
+
+            const linkScoreStats = await db.getLinkScoreStats(sessionId);
+            const linkScoreCompleteMsg = `✅ Link Scores calculated - Avg: ${linkScoreStats.averageLinkScore || 0}, Excellent: ${linkScoreStats.excellentCount || 0}, Weak: ${linkScoreStats.weakCount || 0}`;
+            log.info(linkScoreCompleteMsg);
+            onLog?.(linkScoreCompleteMsg);
+        } catch (err) {
+            const linkScoreErrorMsg = `⚠️ Failed to calculate Link Scores: ${(err as Error).message}`;
+            logger.error('[linkScore] Failed to calculate link scores', err as Error);
+            onLog?.(linkScoreErrorMsg);
         }
     }
 

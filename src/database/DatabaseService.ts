@@ -236,12 +236,60 @@ export class DatabaseService {
         return this.pages.getLinkRelationships(sessionId, limit);
     }
 
+    async getUniqueInlinks(pageId: number, limit: number = 100): Promise<any[]> {
+        return this.pages.getUniqueInlinks(pageId, limit);
+    }
+
+    async getUniqueJsInlinks(pageId: number, limit: number = 100): Promise<any[]> {
+        return this.pages.getUniqueJsInlinks(pageId, limit);
+    }
+
     async resolveTargetPageIds(sessionId: number): Promise<number> {
         return this.pages.resolveTargetPageIds(sessionId);
     }
 
     async updatePageCarbon(pageId: number, data: { transferredBytes: number, totalTransferredBytes: number, co2Mg: number, carbonRating: string }): Promise<void> {
         return this.pages.updatePageCarbon(pageId, data);
+    }
+
+    async updatePageLinkScore(pageId: number, linkScore: number): Promise<void> {
+        return this.pages.updatePageLinkScore(pageId, linkScore);
+    }
+
+    async updatePageLinkScores(scores: Map<number, number>): Promise<void> {
+        return this.pages.updatePageLinkScores(scores);
+    }
+
+    async getPageLinkData(sessionId: number): Promise<any[]> {
+        return this.pages.getPageLinkData(sessionId);
+    }
+
+    async getLinkScoreStats(sessionId: number): Promise<any> {
+        return this.pages.getLinkScoreStats(sessionId);
+    }
+
+    async getPagesWithLinkScores(sessionId: number, limit: number, offset: number, sortField?: string, sortOrder?: string): Promise<any[]> {
+        return this.pages.getPagesWithLinkScores(sessionId, limit, offset, sortField, sortOrder);
+    }
+
+    async countPagesWithLinkScores(sessionId: number): Promise<number> {
+        return this.pages.countPagesWithLinkScores(sessionId);
+    }
+
+    async getLinkScoreDistribution(sessionId: number): Promise<any[]> {
+        return this.pages.getLinkScoreDistribution(sessionId);
+    }
+
+    async getPageWithLinkScore(pageId: number): Promise<any | null> {
+        return this.pages.getPageWithLinkScore(pageId);
+    }
+
+    async getTopPagesByLinkScore(sessionId: number, limit: number): Promise<any[]> {
+        return this.pages.getTopPagesByLinkScore(sessionId, limit);
+    }
+
+    async getBottomPagesByLinkScore(sessionId: number, limit: number): Promise<any[]> {
+        return this.pages.getBottomPagesByLinkScore(sessionId, limit);
     }
 
     // ==================== SEO and Sitemap Methods ====================

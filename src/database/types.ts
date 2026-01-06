@@ -58,6 +58,10 @@ export interface Page {
     co2Mg?: number;
     carbonRating?: string;
     headingTags?: string; // JSON string with heading counts
+    linkScore?: number; // SEO Link Score (0-100)
+    uniqueInlinks?: number; // Count of unique pages linking to this page
+    uniqueJsInlinks?: number; // Count of unique pages linking via JS-rendered links
+    percentOfTotal?: number; // Percentage of all internal links pointing to this page
 }
 
 export interface Resource {

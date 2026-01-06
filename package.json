@@ -16,6 +16,7 @@
     "seo:worker": "tsx src/seo/redis-worker.ts",
     "seo:cli": "tsx src/seo/redis-cli.ts",
     "db:setup": "tsx src/database/scripts/initDb.ts",
+    "db:crawlMigrate": "tsx src/database/scripts/crawlerTableMigration.ts",
     "clear:sessions": "tsx scripts/clear-all-sessions.ts"
   },
   "keywords": [

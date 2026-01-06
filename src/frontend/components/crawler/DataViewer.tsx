@@ -47,6 +47,10 @@ interface CrawlData {
   co2Mg?: number;
   carbonRating?: string;
   headingTags?: string; // JSON string
+  linkScore?: number; // SEO Link Score (0-100)
+  uniqueInlinks?: number; // Number of unique pages linking to this page
+  uniqueJsInlinks?: number; // Number of unique pages linking via JS
+  percentOfTotal?: number; // % of all internal links pointing to this page
 }
 
 interface DataViewerProps {
@@ -446,6 +450,50 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
     }
     
     return <span className={badgeClass} title={title}>{sentenceCount}</span>;
+  };
+
+  const getLinkScoreBadge = (linkScore?: number) => {
+    if (linkScore === undefined || linkScore === null) {
+      return <span className="status-badge unknown" title="Link Score not calculated">—</span>;
+    }
+
+    let badgeClass = 'status-badge';
+    let emoji = '';
+    let rating = '';
+    let title = `Link Score: ${linkScore.toFixed(1)}`;
+
+    if (linkScore >= 80) {
+      badgeClass += ' success';
+      emoji = '🌟';
+      rating = 'Excellent';
+      title += ' - Excellent (strong internal linking)';
+    } else if (linkScore >= 60) {
+      badgeClass += ' success';
+      emoji = '✅';
+      rating = 'Good';
+      title += ' - Good (well-linked page)';
+    } else if (linkScore >= 40) {
+      badgeClass += ' redirect';
+      emoji = '⚠️';
+      rating = 'Fair';
+      title += ' - Fair (could use more links)';
+    } else if (linkScore >= 20) {
+      badgeClass += ' redirect';
+      emoji = '⚠️';
+      rating = 'Weak';
+      title += ' - Weak (needs more internal links)';
+    } else {
+      badgeClass += ' client-error';
+      emoji = '❌';
+      rating = 'Very Weak';
+      title += ' - Very Weak (orphan or poorly linked)';
+    }
+
+    return (
+      <span className={badgeClass} title={title}>
+        {emoji} {linkScore.toFixed(1)} <small>({rating})</small>
+      </span>
+    );
   };
 
   const getAverageWordsPerSentenceBadge = (avgWordsPerSentence?: number) => {
@@ -902,7 +950,7 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                 </th>
                 <th onClick={() => handleSort('readabilityLevel' as keyof CrawlData)} className="sortable center-header">
                   Readability {sortField === 'readabilityLevel' && (sortDirection === 'asc' ? '↑' : '↓')}
-                </th>
+~~                </th>
                 <th onClick={() => handleSort('textToHtmlRatio' as keyof CrawlData)} className="sortable center-header">
                   Text Ratio {sortField === 'textToHtmlRatio' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
@@ -911,6 +959,18 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                 </th>
                 <th onClick={() => handleSort('folderDepth' as keyof CrawlData)} className="sortable center-header">
                   Folder Depth {sortField === 'folderDepth' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('linkScore' as keyof CrawlData)} className="sortable center-header">
+                  Link Score {sortField === 'linkScore' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('uniqueInlinks' as keyof CrawlData)} className="sortable center-header">
+                  Unique Inlinks {sortField === 'uniqueInlinks' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('uniqueJsInlinks' as keyof CrawlData)} className="sortable center-header">
+                  Unique JS Inlinks {sortField === 'uniqueJsInlinks' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('percentOfTotal' as keyof CrawlData)} className="sortable center-header">
+                  % of Total {sortField === 'percentOfTotal' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
                 <th onClick={() => handleSort('sizeBytes' as keyof CrawlData)} className="sortable center-header">
                   Size (bytes) {sortField === 'sizeBytes' && (sortDirection === 'asc' ? '↑' : '↓')}
@@ -1036,6 +1096,30 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                   </td>
                   <td className="folder-depth-cell">
                     {getFolderDepthBadge(item.folderDepth)}
+                  </td>
+                  <td className="link-score-cell">
+                    {getLinkScoreBadge(item.linkScore)}
+                  </td>
+                  <td className="unique-inlinks-cell">
+                    {item.uniqueInlinks !== undefined ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                        {item.uniqueInlinks}
+                      </span>
+                    ) : '—'}
+                  </td>
+                  <td className="unique-js-inlinks-cell">
+                    {item.uniqueJsInlinks !== undefined && item.uniqueJsInlinks > 0 ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                        {item.uniqueJsInlinks}
+                      </span>
+                    ) : '—'}
+                  </td>
+                  <td className="percent-of-total-cell">
+                    {item.percentOfTotal !== undefined && item.percentOfTotal > 0 ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        {item.percentOfTotal.toFixed(2)}%
+                      </span>
+                    ) : '—'}
                   </td>
                   <td className="size-bytes-cell">
                     {getSizeBadge(item.sizeBytes)}
