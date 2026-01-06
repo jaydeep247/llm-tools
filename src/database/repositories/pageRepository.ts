@@ -753,7 +753,7 @@ export class PageRepository {
         };
     }
 
-    async saveSeoData(data: { url: string, parentText?: string, keywords: string[], language?: string, expiresAt: string }): Promise<void> {
+    async saveSeoData(data: { url: string, parentText?: string, keywords: any[], language?: string, expiresAt: string }): Promise<void> {
         const sql = `
       INSERT INTO seo_cache (url, parent_text, keywords, language, expires_at, updated_at)
       VALUES ($1, $2, $3, $4, $5, NOW())

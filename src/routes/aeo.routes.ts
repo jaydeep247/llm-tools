@@ -133,11 +133,13 @@ router.post('/analyze',
             res.json(data);
         } catch (error) {
             const totalDuration = Date.now() - startTime;
-            logger.error('=== AEO ANALYZE REQUEST FAILED ===', {
-                error: error instanceof Error ? error.message : String(error),
-                stack: error instanceof Error ? error.stack : undefined,
-                duration: `${totalDuration}ms`
-            });
+            logger.error(
+                '=== AEO ANALYZE REQUEST FAILED ===',
+                error instanceof Error ? error : undefined,
+                {
+                    duration: `${totalDuration}ms`
+                }
+            );
             res.status(500).json({
                 error: 'Internal server error',
                 message: error instanceof Error ? error.message : 'Unknown error'

@@ -58,7 +58,7 @@ app.use(helmet({
 
 
 app.use(cors({
-    origin: process.env.CORS_ORIGIN,
+    origin: process.env.CORS_ORIGIN?.replace(/\/$/, ''), // Remove trailing slash
     credentials: true // Allow cookies to be sent
 }));
 app.use(cookieParser());

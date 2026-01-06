@@ -161,6 +161,8 @@ class KnowledgeBaseService:
     def analyze_knowledge_base(self, url: str, html_content: str) -> Dict:
         """Analyze knowledge base quality and content structure"""
         try:
+            from ..utils import calculate_difficulty_score, calculate_complexity_level, calculate_ai_generation_feasibility
+            
             # Remove scripts/styles/noscript and comments first
             cleaned = re.sub(r'<!--.*?-->', ' ', html_content, flags=re.DOTALL)
             cleaned = re.sub(r'<script[\s\S]*?</script>', ' ', cleaned, flags=re.IGNORECASE)
@@ -179,6 +181,11 @@ class KnowledgeBaseService:
                     'clarity': {},
                     'linkability': {},
                     'format_usage': {},
+                    'metrics': {
+                        'difficulty_score': 0,
+                        'complexity_level': 'Low',
+                        'ai_generation_feasibility': 0
+                    },
                     'recommendations': ['Add more text content']
                 }
             
@@ -199,6 +206,27 @@ class KnowledgeBaseService:
 
             # Extract factual statements
             facts = self._extract_facts(text_content)
+            
+            # Calculate NEW METRICS
+            difficulty_score = calculate_difficulty_score(text_content)
+            
+            # Parse HTML for structural elements
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(html_content, 'html.parser')
+            structural_elements = len(soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'table']))
+            
+            complexity_level = calculate_complexity_level(
+                difficulty_score,
+                len(text_content),
+                structural_elements
+            )
+            
+            ai_generation_feasibility = calculate_ai_generation_feasibility(
+                text_content,
+                structure_score=clarity_metrics.get('clarity_score', 50),
+                faq_score=50,  # Knowledge base doesn't have FAQ score
+                clarity_score=clarity_metrics.get('clarity_score', 50)
+            )
             
             # Calculate overall score
             score = 0
@@ -226,6 +254,14 @@ class KnowledgeBaseService:
                 else:
                     recommendations.append('Use more formatting elements like headings, lists, and emphasis to improve content structure')
             
+            # Add recommendations based on new metrics
+            if difficulty_score > 70:
+                recommendations.append('Simplify knowledge base language for broader accessibility (current difficulty: {:.1f}/100)'.format(difficulty_score))
+            if complexity_level == "High":
+                recommendations.append('Break down complex knowledge into smaller, more focused articles or sections')
+            if ai_generation_feasibility < 40:
+                recommendations.append('Add more structured templates and patterns to improve AI understanding and generation capability')
+            
             return {
                 'score': min(100, score),
                 'entities': entities,
@@ -234,6 +270,11 @@ class KnowledgeBaseService:
                 'clarity': clarity_metrics,
                 'linkability': linkability_metrics,
                 'format_usage': format_usage,
+                'metrics': {
+                    'difficulty_score': difficulty_score,
+                    'complexity_level': complexity_level,
+                    'ai_generation_feasibility': ai_generation_feasibility
+                },
                 'recommendations': recommendations
             }
             
@@ -246,5 +287,10 @@ class KnowledgeBaseService:
                 'clarity': {},
                 'linkability': {},
                 'format_usage': {},
+                'metrics': {
+                    'difficulty_score': 0,
+                    'complexity_level': 'Low',
+                    'ai_generation_feasibility': 0
+                },
                 'recommendations': ['Retry analysis']
             }

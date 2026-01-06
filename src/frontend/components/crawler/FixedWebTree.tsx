@@ -36,16 +36,16 @@ function isLikelyPageUrl(url: string): boolean {
     if (!hasDot) return true;
     const ext = lastSeg.split('.').pop() || '';
     const nonPageExts = new Set([
-      'png','jpg','jpeg','gif','svg','webp','ico','bmp','tif','tiff',
-      'css','js','mjs','cjs','map',
-      'woff','woff2','ttf','otf','eot',
-      'pdf','zip','rar','7z','gz','tar','bz2','xz',
-      'mp3','mp4','webm','ogg','wav','mov','avi','mkv',
-      'json','rss','atom','yaml','yml',
+      'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico', 'bmp', 'tif', 'tiff',
+      'css', 'js', 'mjs', 'cjs', 'map',
+      'woff', 'woff2', 'ttf', 'otf', 'eot',
+      'pdf', 'zip', 'rar', '7z', 'gz', 'tar', 'bz2', 'xz',
+      'mp3', 'mp4', 'webm', 'ogg', 'wav', 'mov', 'avi', 'mkv',
+      'json', 'rss', 'atom', 'yaml', 'yml',
       'xml'
     ]);
     if (nonPageExts.has(ext)) return false;
-    const pageExts = new Set(['html','htm','php','asp','aspx','jsp','cfm','xhtml']);
+    const pageExts = new Set(['html', 'htm', 'php', 'asp', 'aspx', 'jsp', 'cfm', 'xhtml']);
     if (pageExts.has(ext)) return true;
     return true;
   } catch {
@@ -69,7 +69,7 @@ export default function WebTree({ onClose }: WebTreeProps) {
   const [totalUrlsUsed, setTotalUrlsUsed] = useState<number>(0);
   const [breadcrumb, setBreadcrumb] = useState<string[]>([]);
   const [recenterKey, setRecenterKey] = useState<number>(0);
-  
+
   // SEO keywords toggle and data
   const [seoEnabled, setSeoEnabled] = useState<boolean>(true);
   const [seoLoading, setSeoLoading] = useState<boolean>(false);
@@ -82,9 +82,15 @@ export default function WebTree({ onClose }: WebTreeProps) {
     language?: string;
   }>(null);
   // Per-URL SEO summary to attach on tree nodes (database-backed cache)
-  const [seoByUrl, setSeoByUrl] = useState<Map<string, { 
-    parentText?: string; 
-    topKeywords?: string[];
+  const [seoByUrl, setSeoByUrl] = useState<Map<string, {
+    parentText?: string;
+    topKeywords?: Array<{
+      text: string;
+      score: number;
+      prompt_count?: number;
+      relevance_score?: number;
+      diversity_score?: number;
+    }>;
   }>>(new Map());
 
   // Compute full URL from breadcrumb (first element is root URL, subsequent are path segments)
@@ -144,11 +150,11 @@ export default function WebTree({ onClose }: WebTreeProps) {
     const run = async () => {
       if (!seoEnabled || !treeData) return;
       setSeoBatchLoading(true);
-      
+
       const urls = collectAllUrls(treeData);
       // No need to filter - the API handles caching automatically
       const urlsToProcess = urls;
-      
+
       if (urlsToProcess.length === 0) {
         setSeoBatchLoading(false);
         setSeoProgress(null);
@@ -159,7 +165,7 @@ export default function WebTree({ onClose }: WebTreeProps) {
 
       // Use optimized batched individual calls (much better than 50+ individual requests)
       await optimizedBatchedExtraction(urlsToProcess);
-      
+
       setSeoBatchLoading(false);
       setSeoProgress(null);
     };
@@ -170,15 +176,15 @@ export default function WebTree({ onClose }: WebTreeProps) {
       let concurrency = 3; // Default for small datasets
       if (urls.length > 1000) concurrency = 5; // More concurrent for large datasets
       if (urls.length > 5000) concurrency = 8; // Even more for very large datasets
-      
+
       const delayBetweenBatches = 50; // 50ms delay between requests
       let processedCount = 0;
       const startedAt = Date.now();
-      
+
       // Create a semaphore to control concurrency
       const semaphore = new Array(concurrency).fill(null);
       let currentIndex = 0;
-      
+
       const processUrl = async (url: string, index: number): Promise<void> => {
         try {
           const res = await fetch('/api/seo/extract', {
@@ -186,12 +192,12 @@ export default function WebTree({ onClose }: WebTreeProps) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url })
           });
-          
+
           // Skip 404 silently (no cached data available for this URL)
           if (res.status === 404) {
             return;
           }
-          
+
           const data = await res.json().catch(() => ({} as any));
           if (res.ok && data) {
             // Update state immediately for each successful extraction
@@ -199,8 +205,14 @@ export default function WebTree({ onClose }: WebTreeProps) {
               const next = new Map(prev);
               next.set(normalizeUrl(url), {
                 parentText: data.parent?.text,
-                topKeywords: Array.isArray(data.keywords) 
-                  ? data.keywords.slice(0, 10).map((k: any) => k.text) 
+                topKeywords: Array.isArray(data.keywords)
+                  ? data.keywords.slice(0, 10).map((k: any) => ({
+                    text: k.text,
+                    score: k.score,
+                    prompt_count: k.prompt_count,
+                    relevance_score: k.relevance_score,
+                    diversity_score: k.diversity_score
+                  }))
                   : []
               });
               return next;
@@ -209,35 +221,35 @@ export default function WebTree({ onClose }: WebTreeProps) {
         } catch {
           // ignore individual failures
         }
-        
+
         // Update progress with estimated time remaining
         processedCount++;
         const elapsedMs = Date.now() - startedAt;
         const avgPerItemMs = processedCount > 0 ? elapsedMs / processedCount : delayBetweenBatches;
         const remaining = urls.length - processedCount;
         const estimatedTimeRemaining = remaining > 0 ? Math.ceil((remaining * avgPerItemMs) / 1000) : 0;
-        setSeoProgress({ 
-          current: processedCount, 
+        setSeoProgress({
+          current: processedCount,
           total: urls.length,
-          estimatedTimeRemaining 
+          estimatedTimeRemaining
         });
       };
-      
+
       // Process URLs with controlled concurrency
       const workers = semaphore.map(async (_, workerIndex) => {
         while (currentIndex < urls.length) {
           const urlIndex = currentIndex++;
           if (urlIndex >= urls.length) break;
-          
+
           await processUrl(urls[urlIndex], urlIndex);
-          
+
           // Small delay between requests to be server-friendly
           if (currentIndex < urls.length) {
             await new Promise(resolve => setTimeout(resolve, delayBetweenBatches));
           }
         }
       });
-      
+
       // Wait for all workers to complete
       await Promise.all(workers);
     };
@@ -282,7 +294,7 @@ export default function WebTree({ onClose }: WebTreeProps) {
       const urls: string[] = [];
       let offset = 0;
       const limit = 1000;
-      
+
       // Fetch in batches
       for (let i = 0; i < 50; i++) { // hard cap 50k
         const params = new URLSearchParams();
@@ -316,7 +328,7 @@ export default function WebTree({ onClose }: WebTreeProps) {
 
       // Build path-based tree from the start root
       const rootNode: D3TreeNode = { name: normalizedRoot, attributes: { level: 0, full: normalizedRoot }, children: [] };
-      
+
       const ensureChild = (parent: D3TreeNode, name: string, level: number, full: string): D3TreeNode => {
         if (!parent.children) parent.children = [];
         let child = parent.children.find(c => c.name === name);
@@ -352,7 +364,7 @@ export default function WebTree({ onClose }: WebTreeProps) {
       autoAdjustLayout(rootNode);
       setTotalUrlsUsed(usedCount);
       // If SEO is enabled, prime selection to root URL to trigger extraction
-      try { setBreadcrumb([normalizedRoot]); } catch {}
+      try { setBreadcrumb([normalizedRoot]); } catch { }
       setLoading(false);
       return;
     } catch (e) {
@@ -392,7 +404,7 @@ export default function WebTree({ onClose }: WebTreeProps) {
       if (seoEnabled && seo && seo.parentText) {
         // Attach SEO nodes without visual prefixes; mark internal types for keying
         const keywordChildren: TidyTreeNode[] = (seo.topKeywords || []).slice(0, 8).map((kw) => ({
-          text: kw,
+          text: `${kw.text} (🤖${kw.prompt_count ?? 0} 🎯${kw.relevance_score ?? 0.0} 🌈${kw.diversity_score ?? 0.0})`,
           __type: 'kw'
         } as any));
         const mainKwNode = {
@@ -421,7 +433,7 @@ export default function WebTree({ onClose }: WebTreeProps) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={onClose}>
-      <div 
+      <div
         className="bg-gray-800 rounded-lg shadow-xl w-11/12 h-5/6 flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
@@ -442,8 +454,8 @@ export default function WebTree({ onClose }: WebTreeProps) {
           <div className="flex items-center gap-4 flex-wrap">
             <label className="text-white">
               Session:
-              <select 
-                value={selectedSessionId ?? ''} 
+              <select
+                value={selectedSessionId ?? ''}
                 onChange={e => setSelectedSessionId(Number(e.target.value))}
                 className="ml-2 px-3 py-1 bg-gray-700 text-white rounded border border-gray-600"
               >
@@ -454,16 +466,16 @@ export default function WebTree({ onClose }: WebTreeProps) {
                 ))}
               </select>
             </label>
-            
+
             <div className="flex items-center gap-2">
-              <button 
+              <button
                 className="px-3 py-1 bg-gray-700 text-white rounded hover:bg-gray-600"
                 onClick={() => { setSiblingSeparation(0.6); setNonSiblingSeparation(0.8); setLabelMaxChars(30); }}
                 title="Ultra compact - Best for 1000+ nodes"
               >
                 Compact
               </button>
-              <button 
+              <button
                 className="px-3 py-1 bg-gray-700 text-white rounded hover:bg-gray-600"
                 onClick={() => { setSiblingSeparation(1.0); setNonSiblingSeparation(1.3); setLabelMaxChars(50); }}
                 title="Balanced spacing - Good for 100-500 nodes"
@@ -471,7 +483,7 @@ export default function WebTree({ onClose }: WebTreeProps) {
                 Comfortable
               </button>
             </div>
-            
+
             {seoEnabled && (seoLoading || seoBatchLoading) && (
               <span className="px-2 py-1 bg-yellow-900 text-yellow-300 rounded text-sm flex items-center gap-2">
                 <span className="inline-block w-3 h-3 border-2 border-yellow-300 border-t-transparent rounded-full animate-spin"></span>
@@ -486,15 +498,15 @@ export default function WebTree({ onClose }: WebTreeProps) {
               </span>
             )}
             {seoEnabled && seoError && <span className="px-2 py-1 bg-red-900 text-red-300 rounded text-sm">{seoError}</span>}
-            
-            <button 
+
+            <button
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-              onClick={handleBuild} 
+              onClick={handleBuild}
               disabled={!selectedSessionId || loading}
             >
               {loading ? 'Building…' : 'Build Tree'}
             </button>
-            
+
             {error && <span className="text-red-400 text-sm">{error}</span>}
           </div>
         </div>
@@ -508,8 +520,8 @@ export default function WebTree({ onClose }: WebTreeProps) {
         )}
 
         {/* Tree Container */}
-        <div 
-          ref={containerRef} 
+        <div
+          ref={containerRef}
           className="flex-1 bg-gray-900 overflow-hidden relative"
         >
           {(() => {
@@ -526,9 +538,9 @@ export default function WebTree({ onClose }: WebTreeProps) {
               return null;
             }
             return (
-              <D3TidyTree 
-                data={convertToTidy(treeData)!} 
-                height={containerSize.height} 
+              <D3TidyTree
+                data={convertToTidy(treeData)!}
+                height={containerSize.height}
                 orientation={orientation === 'vertical' ? 'vertical' : 'horizontal'}
                 dx={siblingSeparation * 24}
                 dy={nonSiblingSeparation * 160}
