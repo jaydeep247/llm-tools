@@ -16,6 +16,8 @@ import { calculateCarbon } from './modules/module_A/carbon/carbonCalculator.js';
 import { fetchResourceSizes } from './modules/module_A/carbon/resourceSizer.js';
 import { calculateFolderDepth, getCrawlDepthFromRequest } from './modules/module_A/contentAnalysis/urlDepth.js';
 import { linkScoreService } from './services/LinkScoreService.js';
+import { createFingerprint } from './modules/module_A/duplicateDetection/index.js';
+import { analyzeSessionDuplicates } from './modules/module_A/duplicateDetection/sessionAnalyzer.js';
 
 Configuration.set('systemInfoV2', true);
 
@@ -351,6 +353,14 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
                 })
             });
 
+            // --- Content Fingerprinting for Near-Duplicate Detection ---
+            try {
+                const fingerprint = createFingerprint($, pageId, sessionId, url, false);
+                await db.upsertContentFingerprint(fingerprint);
+            } catch (error) {
+                logger.error(`Failed to create content fingerprint for ${url}`, error as Error);
+            }
+
             // Mark sitemap URL as crawled if it was discovered from sitemap
             await db.markSitemapUrlAsCrawled(sessionId, url);
 
@@ -437,6 +447,9 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
                 // Batch insert links
                 if (linksToInsert.length > 0) {
                     await db.insertLinks(linksToInsert);
+                    
+                    // Calculate and update external outlinks counts
+                    await db.updatePageExternalOutlinks(pageId, sessionId);
                 }
 
                 // Record metrics
@@ -616,6 +629,17 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
             logger.error('[linkScore] Failed to calculate link scores', err as Error);
             onLog?.(linkScoreErrorMsg);
         }
+    }
+
+    // Post-processing: Near-duplicate content analysis
+    try {
+        onLog?.('🧠 Calculating near-duplicate content metrics...');
+        await analyzeSessionDuplicates(sessionId);
+        onLog?.('✅ Near-duplicate content metrics calculated');
+    } catch (error) {
+        const dupErrorMsg = `⚠️ Failed to calculate near-duplicate metrics: ${(error as Error).message}`;
+        logger.error('[duplicates] Failed to calculate near-duplicate metrics', error as Error);
+        onLog?.(dupErrorMsg);
     }
 
     // Clean up the request queue after crawl completion

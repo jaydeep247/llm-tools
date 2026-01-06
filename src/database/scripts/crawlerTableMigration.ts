@@ -204,6 +204,107 @@ CREATE INDEX IF NOT EXISTS idx_pages_sentence_count ON pages(sentence_count);
 ALTER TABLE pages ADD COLUMN IF NOT EXISTS size_bytes INTEGER;
 CREATE INDEX IF NOT EXISTS idx_pages_size_bytes ON pages(size_bytes);
 `
+    },
+    {
+        name: '021_add_unique_outlinks',
+        sql: `
+-- Add unique_outlinks column to pages table
+-- Unique Outlinks: Number of distinct destination URLs this page links to
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS unique_outlinks INTEGER DEFAULT 0;
+CREATE INDEX IF NOT EXISTS idx_pages_unique_outlinks ON pages(unique_outlinks);
+`
+    },
+    {
+        name: '022_add_unique_js_outlinks',
+        sql: `
+-- Add unique_js_outlinks column to pages table
+-- Unique JS Outlinks: Number of distinct destination URLs that are JavaScript-rendered only (not in raw HTML)
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS unique_js_outlinks INTEGER DEFAULT 0;
+CREATE INDEX IF NOT EXISTS idx_pages_unique_js_outlinks ON pages(unique_js_outlinks);
+COMMENT ON COLUMN pages.unique_js_outlinks IS 'Number of unique outbound links created using JavaScript, not present in raw HTML';
+`
+    },
+    {
+        name: '023_add_unique_external_outlinks',
+        sql: `
+-- Add unique_external_outlinks column to pages table
+-- Unique External Outlinks: Number of distinct external links (to other domains) on this page
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS unique_external_outlinks INTEGER DEFAULT 0;
+CREATE INDEX IF NOT EXISTS idx_pages_unique_external_outlinks ON pages(unique_external_outlinks);
+COMMENT ON COLUMN pages.unique_external_outlinks IS 'Number of distinct external domain links on this page';
+`
+    },
+    {
+        name: '024_add_unique_external_js_outlinks',
+        sql: `
+-- Add unique_external_js_outlinks column to pages table
+-- Unique External JS Outlinks: Number of unique external links created/revealed via JavaScript
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS unique_external_js_outlinks INTEGER DEFAULT 0;
+CREATE INDEX IF NOT EXISTS idx_pages_unique_external_js_outlinks ON pages(unique_external_js_outlinks);
+COMMENT ON COLUMN pages.unique_external_js_outlinks IS 'Number of unique external links created or revealed using JavaScript, not visible in raw HTML';
+`
+    },
+    {
+        name: '025_create_content_fingerprints_table',
+        sql: `
+-- Create content_fingerprints table for near-duplicate detection
+CREATE TABLE IF NOT EXISTS content_fingerprints (
+    id SERIAL PRIMARY KEY,
+    page_id INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
+    session_id INTEGER NOT NULL REFERENCES crawl_sessions(id) ON DELETE CASCADE,
+    url TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    simhash TEXT NOT NULL,
+    word_count INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(page_id, session_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_content_fingerprints_session ON content_fingerprints(session_id);
+CREATE INDEX IF NOT EXISTS idx_content_fingerprints_page ON content_fingerprints(page_id);
+CREATE INDEX IF NOT EXISTS idx_content_fingerprints_simhash ON content_fingerprints(simhash);
+CREATE INDEX IF NOT EXISTS idx_content_fingerprints_hash ON content_fingerprints(content_hash);
+
+COMMENT ON TABLE content_fingerprints IS 'Stores content fingerprints (SimHash) for near-duplicate detection';
+`
+    },
+    {
+        name: '026_create_similarity_index_table',
+        sql: `
+-- Create similarity_index table for storing page similarity scores
+CREATE TABLE IF NOT EXISTS similarity_index (
+    id SERIAL PRIMARY KEY,
+    source_page_id INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
+    target_page_id INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
+    session_id INTEGER NOT NULL REFERENCES crawl_sessions(id) ON DELETE CASCADE,
+    similarity_score NUMERIC(5,4) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(source_page_id, target_page_id, session_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_similarity_source ON similarity_index(source_page_id, similarity_score DESC);
+CREATE INDEX IF NOT EXISTS idx_similarity_target ON similarity_index(target_page_id);
+CREATE INDEX IF NOT EXISTS idx_similarity_session ON similarity_index(session_id);
+CREATE INDEX IF NOT EXISTS idx_similarity_score ON similarity_index(similarity_score DESC);
+
+COMMENT ON TABLE similarity_index IS 'Stores calculated similarity scores between pages for near-duplicate detection';
+`
+    },
+    {
+        name: '027_add_near_duplicate_columns',
+        sql: `
+-- Add near-duplicate related columns to pages table
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS closest_duplicate_url TEXT;
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS closest_duplicate_similarity NUMERIC(5,4);
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS near_duplicate_count INTEGER DEFAULT 0;
+
+CREATE INDEX IF NOT EXISTS idx_pages_near_duplicate_count ON pages(near_duplicate_count DESC);
+CREATE INDEX IF NOT EXISTS idx_pages_closest_duplicate_similarity ON pages(closest_duplicate_similarity DESC);
+
+COMMENT ON COLUMN pages.closest_duplicate_url IS 'URL of the most similar page (closest near-duplicate match)';
+COMMENT ON COLUMN pages.closest_duplicate_similarity IS 'Similarity score (0.0-1.0) with the closest match';
+COMMENT ON COLUMN pages.near_duplicate_count IS 'Number of pages with similarity >= 0.75 (near-duplicate threshold)';
+`
     }
 ];
 

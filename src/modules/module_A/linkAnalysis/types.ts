@@ -13,6 +13,7 @@ export interface LinkData {
     position?: string;
     rel?: string;
     nofollow?: boolean;
+    isJsRendered?: boolean;
 }
 
 /**

@@ -1,5 +1,6 @@
 import { Pool } from 'pg';
 import { Page, Resource } from '../types.js';
+import type { ContentFingerprint, NearDuplicateMetrics, SimilarityResult } from '../../modules/module_A/duplicateDetection/types.js';
 
 export class PageRepository {
     constructor(private pool: Pool) { }
@@ -54,6 +55,126 @@ export class PageRepository {
             ]
         );
         return res.rows[0].id;
+    }
+
+    /**
+     * Insert or update a content fingerprint for a page.
+     * Uses ON CONFLICT to keep the latest fingerprint per (page_id, session_id).
+     */
+    async upsertContentFingerprint(fingerprint: ContentFingerprint): Promise<number> {
+        const res = await this.pool.query(
+            `INSERT INTO content_fingerprints 
+      (page_id, session_id, url, content_hash, simhash, word_count)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      ON CONFLICT (page_id, session_id) DO UPDATE SET
+        url = EXCLUDED.url,
+        content_hash = EXCLUDED.content_hash,
+        simhash = EXCLUDED.simhash,
+        word_count = EXCLUDED.word_count
+      RETURNING id`,
+            [
+                fingerprint.pageId,
+                fingerprint.sessionId,
+                fingerprint.url,
+                fingerprint.contentHash,
+                fingerprint.simhash,
+                fingerprint.wordCount
+            ]
+        );
+        return res.rows[0].id;
+    }
+
+    /**
+     * Get all content fingerprints for a given session.
+     */
+    async getContentFingerprintsBySession(sessionId: number): Promise<ContentFingerprint[]> {
+        const res = await this.pool.query(
+            `SELECT page_id, session_id, url, content_hash, simhash, word_count
+       FROM content_fingerprints
+       WHERE session_id = $1`,
+            [sessionId]
+        );
+
+        return res.rows.map(row => ({
+            url: row.url,
+            pageId: row.page_id,
+            sessionId: row.session_id,
+            contentHash: row.content_hash,
+            simhash: row.simhash,
+            wordCount: row.word_count
+        }));
+    }
+
+    /**
+     * Clear similarity index entries for a session before recomputing.
+     */
+    async clearSimilarityIndexForSession(sessionId: number): Promise<void> {
+        await this.pool.query(
+            `DELETE FROM similarity_index WHERE session_id = $1`,
+            [sessionId]
+        );
+    }
+
+    /**
+     * Bulk insert similarity index entries for a session.
+     * Uses a transaction and UPSERT semantics.
+     */
+    async insertSimilarityResults(results: SimilarityResult[]): Promise<void> {
+        if (results.length === 0) return;
+
+        const client = await this.pool.connect();
+        try {
+            await client.query('BEGIN');
+            for (const r of results) {
+                await client.query(
+                    `INSERT INTO similarity_index 
+          (source_page_id, target_page_id, session_id, similarity_score)
+          VALUES ($1, $2, $3, $4)
+          ON CONFLICT (source_page_id, target_page_id, session_id) DO UPDATE SET
+            similarity_score = EXCLUDED.similarity_score`,
+                    [r.sourcePageId, r.targetPageId, r.sessionId, r.similarityScore]
+                );
+            }
+            await client.query('COMMIT');
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+    }
+
+    /**
+     * Bulk update pages with near-duplicate metrics.
+     */
+    async updatePagesNearDuplicateMetrics(metrics: Map<number, NearDuplicateMetrics>): Promise<void> {
+        if (metrics.size === 0) return;
+
+        const client = await this.pool.connect();
+        try {
+            await client.query('BEGIN');
+            for (const [pageId, m] of metrics.entries()) {
+                await client.query(
+                    `UPDATE pages
+           SET closest_duplicate_url = $2,
+               closest_duplicate_similarity = $3,
+               near_duplicate_count = $4
+           WHERE id = $1`,
+                    [
+                        pageId,
+                        m.closestMatch?.url || null,
+                        m.closestMatch?.similarity ?? null,
+                        m.nearDuplicateCount ?? 0
+                    ]
+                );
+            }
+            await client.query('COMMIT');
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
     }
 
     async insertResource(data: Omit<Resource, 'id'>): Promise<number> {
@@ -112,6 +233,10 @@ export class PageRepository {
                 p.*,
                 COALESCE(unique_in_links.count, 0) as "uniqueInlinks",
                 COALESCE(unique_js_in_links.count, 0) as "uniqueJsInlinks",
+                COALESCE(unique_out_links.count, 0) as "uniqueOutlinks",
+                COALESCE(unique_js_out_links.count, 0) as "uniqueJsOutlinks",
+                COALESCE(unique_external_out_links.count, 0) as "uniqueExternalOutlinks",
+                COALESCE(unique_external_js_out_links.count, 0) as "uniqueExternalJsOutlinks",
                 CASE 
                     WHEN total_unique_inlinks.total > 0 AND unique_in_links.count > 0 
                     THEN ROUND((unique_in_links.count::numeric / total_unique_inlinks.total::numeric * 100), 2)
@@ -131,6 +256,30 @@ export class PageRepository {
                 WHERE session_id = $1 AND is_js_rendered = TRUE
                 GROUP BY target_page_id
             ) unique_js_in_links ON p.id = unique_js_in_links.target_page_id
+            LEFT JOIN (
+                SELECT source_page_id, COUNT(DISTINCT target_url) as count
+                FROM links
+                WHERE session_id = $1
+                GROUP BY source_page_id
+            ) unique_out_links ON p.id = unique_out_links.source_page_id
+            LEFT JOIN (
+                SELECT source_page_id, COUNT(DISTINCT target_url) as count
+                FROM links
+                WHERE session_id = $1 AND is_js_rendered = TRUE
+                GROUP BY source_page_id
+            ) unique_js_out_links ON p.id = unique_js_out_links.source_page_id
+            LEFT JOIN (
+                SELECT source_page_id, COUNT(DISTINCT target_url) as count
+                FROM links
+                WHERE session_id = $1 AND is_internal = FALSE
+                GROUP BY source_page_id
+            ) unique_external_out_links ON p.id = unique_external_out_links.source_page_id
+            LEFT JOIN (
+                SELECT source_page_id, COUNT(DISTINCT target_url) as count
+                FROM links
+                WHERE session_id = $1 AND is_internal = FALSE AND is_js_rendered = TRUE
+                GROUP BY source_page_id
+            ) unique_external_js_out_links ON p.id = unique_external_js_out_links.source_page_id
             WHERE p.session_id = $1
             ORDER BY p.timestamp DESC 
             LIMIT $2 OFFSET $3
@@ -140,7 +289,11 @@ export class PageRepository {
             ...this.mapPage(row),
             uniqueInlinks: parseInt(row.uniqueInlinks) || 0,
             uniqueJsInlinks: parseInt(row.uniqueJsInlinks) || 0,
-            percentOfTotal: parseFloat(row.percentOfTotal) || 0
+            percentOfTotal: parseFloat(row.percentOfTotal) || 0,
+            uniqueOutlinks: parseInt(row.uniqueOutlinks) || 0,
+            uniqueJsOutlinks: parseInt(row.uniqueJsOutlinks) || 0,
+            uniqueExternalOutlinks: parseInt(row.uniqueExternalOutlinks) || 0,
+            uniqueExternalJsOutlinks: parseInt(row.uniqueExternalJsOutlinks) || 0
         }));
     }
 
@@ -179,13 +332,13 @@ export class PageRepository {
             for (const link of links) {
                 await client.query(
                     `INSERT INTO links 
-          (session_id, source_page_id, source_url, target_url, target_page_id, is_internal, anchor_text, xpath, position, rel, nofollow, created_at)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())`,
+          (session_id, source_page_id, source_url, target_url, target_page_id, is_internal, anchor_text, xpath, position, rel, nofollow, is_js_rendered, created_at)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())`,
                     [
                         link.sessionId, link.sourcePageId, link.sourceUrl, link.targetUrl,
                         link.targetPageId || null, link.isInternal, link.anchorText || null,
                         link.xpath || null, link.position || null, link.rel || null,
-                        link.nofollow || false
+                        link.nofollow || false, link.isJsRendered || false
                     ]
                 );
             }
@@ -196,6 +349,67 @@ export class PageRepository {
         } finally {
             client.release();
         }
+    }
+
+    /**
+     * Calculate and update external outlinks counts for a specific page
+     * This counts unique external domain links (both regular and JS-rendered)
+     */
+    async updatePageExternalOutlinks(pageId: number, sessionId: number): Promise<void> {
+        const sql = `
+            UPDATE pages 
+            SET 
+                unique_external_outlinks = (
+                    SELECT COUNT(DISTINCT target_url)
+                    FROM links
+                    WHERE source_page_id = $1 
+                      AND session_id = $2 
+                      AND is_internal = FALSE
+                      AND (is_js_rendered IS NULL OR is_js_rendered = FALSE)
+                ),
+                unique_external_js_outlinks = (
+                    SELECT COUNT(DISTINCT target_url)
+                    FROM links
+                    WHERE source_page_id = $1 
+                      AND session_id = $2 
+                      AND is_internal = FALSE
+                      AND is_js_rendered = TRUE
+                )
+            WHERE id = $1
+        `;
+        await this.pool.query(sql, [pageId, sessionId]);
+    }
+
+    /**
+     * Batch update external outlinks for all pages in a session
+     * This is useful for recalculating counts after bulk link insertion
+     */
+    async updateAllPagesExternalOutlinks(sessionId: number): Promise<void> {
+        const sql = `
+            UPDATE pages p
+            SET 
+                unique_external_outlinks = COALESCE(external_links.count, 0),
+                unique_external_js_outlinks = COALESCE(external_js_links.count, 0)
+            FROM (
+                SELECT source_page_id, COUNT(DISTINCT target_url) as count
+                FROM links
+                WHERE session_id = $1 
+                  AND is_internal = FALSE
+                  AND (is_js_rendered IS NULL OR is_js_rendered = FALSE)
+                GROUP BY source_page_id
+            ) external_links
+            FULL OUTER JOIN (
+                SELECT source_page_id, COUNT(DISTINCT target_url) as count
+                FROM links
+                WHERE session_id = $1 
+                  AND is_internal = FALSE
+                  AND is_js_rendered = TRUE
+                GROUP BY source_page_id
+            ) external_js_links ON external_links.source_page_id = external_js_links.source_page_id
+            WHERE p.id = COALESCE(external_links.source_page_id, external_js_links.source_page_id)
+              AND p.session_id = $1
+        `;
+        await this.pool.query(sql, [sessionId]);
     }
 
     async getPageCount(sessionId?: number): Promise<number> {
@@ -400,6 +614,7 @@ export class PageRepository {
         p.url, 
         p.title,
         COALESCE(out_links.count, 0) as "outlinksCount",
+        COALESCE(unique_out_links.count, 0) as "uniqueOutlinksCount",
         COALESCE(in_links.count, 0) as "inlinksCount",
         COALESCE(unique_in_links.count, 0) as "uniqueInlinksCount",
         COALESCE(unique_js_in_links.count, 0) as "uniqueJsInlinksCount",
@@ -416,6 +631,12 @@ export class PageRepository {
         WHERE session_id = $1
         GROUP BY source_page_id
       ) out_links ON p.id = out_links.source_page_id
+      LEFT JOIN (
+        SELECT source_page_id, COUNT(DISTINCT target_url) as count
+        FROM links
+        WHERE session_id = $1
+        GROUP BY source_page_id
+      ) unique_out_links ON p.id = unique_out_links.source_page_id
       LEFT JOIN (
         SELECT target_page_id, COUNT(*) as count
         FROM links
@@ -442,6 +663,7 @@ export class PageRepository {
         return res.rows.map(row => ({
             ...row,
             outlinksCount: parseInt(row.outlinksCount) || 0,
+            uniqueOutlinksCount: parseInt(row.uniqueOutlinksCount) || 0,
             inlinksCount: parseInt(row.inlinksCount) || 0,
             uniqueInlinksCount: parseInt(row.uniqueInlinksCount) || 0,
             uniqueJsInlinksCount: parseInt(row.uniqueJsInlinksCount) || 0,
@@ -838,7 +1060,14 @@ export class PageRepository {
             co2Mg: row.co2_mg ? parseFloat(row.co2_mg) : undefined,
             carbonRating: row.carbon_rating,
             headingTags: row.heading_tags,
-            linkScore: row.link_score ? parseFloat(row.link_score) : undefined
+            linkScore: row.link_score ? parseFloat(row.link_score) : undefined,
+            closestDuplicateUrl: row.closest_duplicate_url || undefined,
+            closestDuplicateSimilarity: row.closest_duplicate_similarity !== null && row.closest_duplicate_similarity !== undefined
+                ? parseFloat(row.closest_duplicate_similarity)
+                : undefined,
+            nearDuplicateCount: row.near_duplicate_count !== null && row.near_duplicate_count !== undefined
+                ? parseInt(row.near_duplicate_count)
+                : undefined
         };
     }
 

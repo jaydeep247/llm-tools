@@ -62,6 +62,13 @@ export interface Page {
     uniqueInlinks?: number; // Count of unique pages linking to this page
     uniqueJsInlinks?: number; // Count of unique pages linking via JS-rendered links
     percentOfTotal?: number; // Percentage of all internal links pointing to this page
+    uniqueOutlinks?: number; // Count of unique distinct destination URLs this page links to
+    uniqueJsOutlinks?: number; // Count of unique JS-rendered outbound links (not in raw HTML)
+    uniqueExternalOutlinks?: number; // Count of unique external domain links on this page (from HTML)
+    uniqueExternalJsOutlinks?: number; // Count of unique external links created/revealed via JavaScript
+    closestDuplicateUrl?: string; // URL of the most similar page (closest near-duplicate match)
+    closestDuplicateSimilarity?: number; // Similarity score (0.0-1.0) with the closest match
+    nearDuplicateCount?: number; // Number of pages with similarity >= 0.75
 }
 
 export interface Resource {

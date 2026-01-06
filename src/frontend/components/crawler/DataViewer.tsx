@@ -4,6 +4,9 @@ import './DataViewer.css';
 
 interface CrawlData {
   url: string;
+  closestDuplicateUrl?: string; // URL of the most similar page (closest near-duplicate match)
+  closestDuplicateSimilarity?: number; // Similarity score (0.0-1.0) with the closest match
+  nearDuplicateCount?: number; // Number of pages with similarity >= 0.75
   title: string;
   titleLength?: number;
   titlePixelWidth?: number;
@@ -51,6 +54,10 @@ interface CrawlData {
   uniqueInlinks?: number; // Number of unique pages linking to this page
   uniqueJsInlinks?: number; // Number of unique pages linking via JS
   percentOfTotal?: number; // % of all internal links pointing to this page
+  uniqueOutlinks?: number; // Number of unique distinct destination URLs this page links to
+  uniqueJsOutlinks?: number; // Number of unique JS-rendered outbound links (not in raw HTML)
+  uniqueExternalOutlinks?: number; // Number of unique external domain links on this page (from HTML)
+  uniqueExternalJsOutlinks?: number; // Number of unique external links created/revealed via JavaScript
 }
 
 interface DataViewerProps {
@@ -696,6 +703,33 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
     return <span className={badgeClass} title={`${sizeBytes.toLocaleString()} bytes`}>{formattedSize}</span>;
   };
 
+  const formatSimilarity = (similarity?: number) => {
+    if (similarity === undefined || similarity === null || isNaN(similarity)) return '—';
+    return `${(similarity * 100).toFixed(1)}%`;
+  };
+
+  const getNearDuplicateCountBadge = (count?: number) => {
+    if (count === undefined || count === null) {
+      return <span className="status-badge unknown" title="Near-duplicate count unknown">—</span>;
+    }
+
+    let badgeClass = 'status-badge';
+    let title = `No. Near Duplicates: ${count}`;
+
+    if (count === 0) {
+      badgeClass += ' success';
+      title += ' - Unique content (good)';
+    } else if (count <= 2) {
+      badgeClass += ' redirect';
+      title += ' - Some overlap (watch for cannibalization)';
+    } else {
+      badgeClass += ' client-error';
+      title += ' - High risk of content cannibalization';
+    }
+
+    return <span className={badgeClass} title={title}>{count}</span>;
+  };
+
   const getCanonicalBadge = (canonicalUrl?: string, currentUrl?: string) => {
     if (!canonicalUrl || canonicalUrl === 'undefined' || canonicalUrl === 'null') {
       return <span className="status-badge unknown" title="No canonical URL set">—</span>;
@@ -963,6 +997,12 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                 <th onClick={() => handleSort('linkScore' as keyof CrawlData)} className="sortable center-header">
                   Link Score {sortField === 'linkScore' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
+                <th onClick={() => handleSort('closestDuplicateUrl' as keyof CrawlData)} className="sortable">
+                  Closest Near Duplicate Match {sortField === 'closestDuplicateUrl' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('nearDuplicateCount' as keyof CrawlData)} className="sortable center-header">
+                  No. Near Duplicates {sortField === 'nearDuplicateCount' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
                 <th onClick={() => handleSort('uniqueInlinks' as keyof CrawlData)} className="sortable center-header">
                   Unique Inlinks {sortField === 'uniqueInlinks' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
@@ -971,6 +1011,18 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                 </th>
                 <th onClick={() => handleSort('percentOfTotal' as keyof CrawlData)} className="sortable center-header">
                   % of Total {sortField === 'percentOfTotal' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('uniqueOutlinks' as keyof CrawlData)} className="sortable center-header">
+                  Unique Outlinks {sortField === 'uniqueOutlinks' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('uniqueJsOutlinks' as keyof CrawlData)} className="sortable center-header">
+                  Unique JS Outlinks {sortField === 'uniqueJsOutlinks' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('uniqueExternalOutlinks' as keyof CrawlData)} className="sortable center-header">
+                  Unique External Outlinks {sortField === 'uniqueExternalOutlinks' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('uniqueExternalJsOutlinks' as keyof CrawlData)} className="sortable center-header">
+                  Unique External JS Outlinks {sortField === 'uniqueExternalJsOutlinks' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
                 <th onClick={() => handleSort('sizeBytes' as keyof CrawlData)} className="sortable center-header">
                   Size (bytes) {sortField === 'sizeBytes' && (sortDirection === 'asc' ? '↑' : '↓')}
@@ -1100,6 +1152,23 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                   <td className="link-score-cell">
                     {getLinkScoreBadge(item.linkScore)}
                   </td>
+                  <td className="closest-duplicate-cell">
+                    {item.closestDuplicateUrl ? (
+                      <a
+                        href={item.closestDuplicateUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={`Closest match: ${item.closestDuplicateUrl} (${formatSimilarity(item.closestDuplicateSimilarity)})`}
+                      >
+                        {item.closestDuplicateUrl}
+                      </a>
+                    ) : (
+                      <span className="status-badge unknown" title="No near-duplicate found">—</span>
+                    )}
+                  </td>
+                  <td className="near-duplicate-count-cell">
+                    {getNearDuplicateCountBadge(item.nearDuplicateCount)}
+                  </td>
                   <td className="unique-inlinks-cell">
                     {item.uniqueInlinks !== undefined ? (
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
@@ -1118,6 +1187,34 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                     {item.percentOfTotal !== undefined && item.percentOfTotal > 0 ? (
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                         {item.percentOfTotal.toFixed(2)}%
+                      </span>
+                    ) : '—'}
+                  </td>
+                  <td className="unique-outlinks-cell">
+                    {item.uniqueOutlinks !== undefined ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800" title={`${item.uniqueOutlinks} distinct destination URLs`}>
+                        {item.uniqueOutlinks}
+                      </span>
+                    ) : '—'}
+                  </td>
+                  <td className="unique-js-outlinks-cell">
+                    {item.uniqueJsOutlinks !== undefined && item.uniqueJsOutlinks > 0 ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800" title={`${item.uniqueJsOutlinks} JS-rendered outbound links (not in raw HTML)`}>
+                        {item.uniqueJsOutlinks}
+                      </span>
+                    ) : '—'}
+                  </td>
+                  <td className="unique-external-outlinks-cell">
+                    {item.uniqueExternalOutlinks !== undefined && item.uniqueExternalOutlinks > 0 ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800" title={`${item.uniqueExternalOutlinks} distinct external domain links`}>
+                        {item.uniqueExternalOutlinks}
+                      </span>
+                    ) : '—'}
+                  </td>
+                  <td className="unique-external-js-outlinks-cell">
+                    {item.uniqueExternalJsOutlinks !== undefined && item.uniqueExternalJsOutlinks > 0 ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-pink-100 text-pink-800" title={`${item.uniqueExternalJsOutlinks} external links created/revealed via JavaScript`}>
+                        {item.uniqueExternalJsOutlinks}
                       </span>
                     ) : '—'}
                   </td>

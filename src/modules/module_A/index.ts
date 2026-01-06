@@ -28,3 +28,6 @@ export * from './resourceCollector/index.js';
 
 // Link Analysis - Detailed link metadata
 export * from './linkAnalysis/index.js';
+
+// Duplicate Detection - Content similarity and near-duplicate analysis
+export * from './duplicateDetection/index.js';

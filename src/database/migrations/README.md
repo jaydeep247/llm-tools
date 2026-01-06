@@ -52,6 +52,7 @@ The migration script will add the following columns and indexes to your database
 - `average_words_per_sentence` - Avg words per sentence (NUMERIC)
 - `sentence_count` - Total sentence count (INTEGER)
 - `size_bytes` - Page size in bytes (INTEGER)
+- `unique_outlinks` - Count of unique distinct destination URLs this page links to (INTEGER)
 
 ### Links Table Columns:
 - `is_js_rendered` - Whether link was JavaScript-rendered (BOOLEAN)

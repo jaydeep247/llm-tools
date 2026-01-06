@@ -10,6 +10,7 @@ import type {
     Page, Resource, Link, AuditSchedule, AuditResult, AuditExecution,
     CrawlLog
 } from './types.js';
+import type { ContentFingerprint, NearDuplicateMetrics, SimilarityResult } from '../modules/module_A/duplicateDetection/types.js';
 
 export type {
     User, UserSettings, UserUsage,
@@ -200,6 +201,14 @@ export class DatabaseService {
         return this.pages.insertLinks(links);
     }
 
+    async updatePageExternalOutlinks(pageId: number, sessionId: number): Promise<void> {
+        return this.pages.updatePageExternalOutlinks(pageId, sessionId);
+    }
+
+    async updateAllPagesExternalOutlinks(sessionId: number): Promise<void> {
+        return this.pages.updateAllPagesExternalOutlinks(sessionId);
+    }
+
     async getPageCount(sessionId?: number): Promise<number> {
         return this.pages.getPageCount(sessionId);
     }
@@ -290,6 +299,28 @@ export class DatabaseService {
 
     async getBottomPagesByLinkScore(sessionId: number, limit: number): Promise<any[]> {
         return this.pages.getBottomPagesByLinkScore(sessionId, limit);
+    }
+
+    // ==================== Duplicate Detection Methods ====================
+
+    async upsertContentFingerprint(fingerprint: ContentFingerprint): Promise<number> {
+        return this.pages.upsertContentFingerprint(fingerprint);
+    }
+
+    async getContentFingerprintsBySession(sessionId: number): Promise<ContentFingerprint[]> {
+        return this.pages.getContentFingerprintsBySession(sessionId);
+    }
+
+    async clearSimilarityIndexForSession(sessionId: number): Promise<void> {
+        return this.pages.clearSimilarityIndexForSession(sessionId);
+    }
+
+    async insertSimilarityResults(results: SimilarityResult[]): Promise<void> {
+        return this.pages.insertSimilarityResults(results);
+    }
+
+    async updatePagesNearDuplicateMetrics(metrics: Map<number, NearDuplicateMetrics>): Promise<void> {
+        return this.pages.updatePagesNearDuplicateMetrics(metrics);
     }
 
     // ==================== SEO and Sitemap Methods ====================
