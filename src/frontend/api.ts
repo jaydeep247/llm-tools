@@ -1,7 +1,7 @@
 // Use environment variables with fallback to localhost for development
 // In production, set VITE_API_BASE_URL to your production domain
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-const AEO_API_BASE_URL = import.meta.env.VITE_AEO_API_BASE_URL;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+const AEO_API_BASE_URL = import.meta.env.VITE_AEO_API_BASE_URL || 'http://localhost:8000';
 
 export interface AnalysisResult {
   success: boolean;

@@ -149,6 +149,8 @@ class AnswerabilityService:
     def analyze_answerability(self, url: str, html_content: str) -> Dict:
         """Analyze answerability and Q&A content"""
         try:
+            from ..utils import calculate_difficulty_score, calculate_complexity_level, calculate_ai_generation_feasibility
+            
             # Extract text content
             soup = BeautifulSoup(html_content, 'html.parser')
             text_content = soup.get_text()
@@ -175,6 +177,26 @@ class AnswerabilityService:
                     # Blend traditional and AI scores (70% traditional, 30% AI)
                     score = int(score * 0.7 + ai_score * 0.3)
             
+            # Calculate NEW METRICS
+            difficulty_score = calculate_difficulty_score(text_content)
+            
+            # Count structural elements for complexity calculation
+            structural_elements = len(soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'table']))
+            complexity_level = calculate_complexity_level(
+                difficulty_score, 
+                len(text_content), 
+                structural_elements
+            )
+            
+            # Calculate AI generation feasibility
+            faq_score = (faq_structure.get('qa_pairs', 0) / max(len(questions), 1)) * 100 if questions else 0
+            ai_generation_feasibility = calculate_ai_generation_feasibility(
+                text_content,
+                structure_score=score,
+                faq_score=min(faq_score, 100),
+                clarity_score=ai_answerability.get('ai_answerability_score', 50) if ai_answerability else 50
+            )
+            
             # Generate specific, actionable recommendations
             recommendations = []
             if len(questions) == 0:
@@ -186,6 +208,14 @@ class AnswerabilityService:
             if len(questions) > len(answers):
                 unanswered_count = len(questions) - len(answers)
                 recommendations.append('Ensure all {} questions have corresponding answers to improve content completeness'.format(unanswered_count))
+            
+            # Add recommendations based on new metrics
+            if difficulty_score > 70:
+                recommendations.append('Simplify content language and structure to improve AI comprehension (current difficulty: {:.1f}/100)'.format(difficulty_score))
+            if complexity_level == "High":
+                recommendations.append('Break down complex content into smaller, more digestible sections')
+            if ai_generation_feasibility < 40:
+                recommendations.append('Add more structured formatting (lists, headings, clear patterns) to improve AI generation feasibility')
             
             # Add AI recommendations (filter out generic ones)
             if ai_answerability and 'recommendations' in ai_answerability:
@@ -209,7 +239,11 @@ class AnswerabilityService:
                 'metrics': {
                     'question_count': len(questions),
                     'answer_count': len(answers),
-                    'qa_balance': len(answers) / len(questions) if len(questions) > 0 else 0
+                    'qa_balance': len(answers) / len(questions) if len(questions) > 0 else 0,
+                    # NEW METRICS
+                    'difficulty_score': difficulty_score,
+                    'complexity_level': complexity_level,
+                    'ai_generation_feasibility': ai_generation_feasibility
                 },
                 'recommendations': recommendations,
                 'ai_answerability': ai_answerability,  # NEW: AI analysis results
@@ -223,6 +257,13 @@ class AnswerabilityService:
                 'questions': [],
                 'answers': [],
                 'faq_structure': {'faq_elements_found': 0, 'qa_pairs': 0, 'has_faq_structure': False},
-                'metrics': {'question_count': 0, 'answer_count': 0, 'qa_balance': 0},
+                'metrics': {
+                    'question_count': 0, 
+                    'answer_count': 0, 
+                    'qa_balance': 0,
+                    'difficulty_score': 0,
+                    'complexity_level': 'Low',
+                    'ai_generation_feasibility': 0
+                },
                 'recommendations': ['Retry analysis']
             }

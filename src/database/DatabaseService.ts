@@ -245,11 +245,11 @@ export class DatabaseService {
         return this.pages.getSeoData(url);
     }
 
-    async saveSeoData(data: { url: string, parentText?: string, keywords: string[], language?: string, expiresAt: string }): Promise<void> {
+    async saveSeoData(data: { url: string, parentText?: string, keywords: any[], language?: string, expiresAt: string }): Promise<void> {
         return this.pages.saveSeoData(data);
     }
 
-    async cacheSeoData(url: string, data: { parentText?: string, keywords: string[], language?: string }): Promise<void> {
+    async cacheSeoData(url: string, data: { parentText?: string, keywords: any[], language?: string }): Promise<void> {
         const expiresAt = new Date();
         expiresAt.setMonth(expiresAt.getMonth() + 6); // 6 months default
         return this.saveSeoData({

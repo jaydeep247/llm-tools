@@ -6,12 +6,13 @@ readability-lxml==0.8.1
 langdetect==1.0.9
 pydantic==2.11.4
 python-multipart==0.0.6
-lxml==4.9.3
 requests>=2.32.3
 openai==1.59.9
 python-dotenv==1.0.1
+lxml_html_clean>=0.1.0
 google-generativeai==0.8.4
 anthropic==0.44.0
 extruct==0.12.0
 httpx==0.28.1
 slowapi==0.1.9
+lxml>=4.9
