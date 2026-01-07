@@ -4,16 +4,29 @@ Analyzes content for entities, facts, and clarity
 """
 
 import re
+import json
+import logging
 from typing import Dict, List, Set
 from urllib.parse import urlparse
+
+# --- OUR NEW CODE START: Import OpenAI ---
+try:
+    from .openai_service import OpenAIService
+except ImportError:
+    from openai_service import OpenAIService
+# --- OUR NEW CODE END ---
 
 class KnowledgeBaseService:
     """Service for analyzing knowledge base and content quality"""
     
     def __init__(self):
-        # --- UPDATED: Expanded Entity Patterns to catch more brands/products ---
+        # --- OUR NEW CODE START: Init OpenAI ---
+        self.openai_service = OpenAIService()
+        # --- OUR NEW CODE END ---
+
+        # --- EXISTING CODE START (UNCHANGED) ---
+        # 1. People: Looks for "Name Surname" (e.g., "Saunak Ahir")
         self.entity_patterns = {
-            # 1. People: Looks for "Name Surname" (e.g., "Saunak Ahir")
             'people': r'\b[A-Z][a-z]+ [A-Z][a-z]+\b',
             
             # 2. Places: Looks for Cities, Countries (e.g., "Surat", "India", "New York")
@@ -30,6 +43,7 @@ class KnowledgeBaseService:
             'percentages': r'\b\d+(?:\.\d+)?%\b',
             'numbers': r'\b\d+(?:,\d{3})*(?:\.\d+)?\b'
         }
+        # --- EXISTING CODE END ---
     
     def _extract_entities(self, text: str) -> Dict[str, List[str]]:
         """Extract entities from text using regex patterns"""
@@ -40,7 +54,52 @@ class KnowledgeBaseService:
             entities[entity_type] = list(set(matches))  # Remove duplicates
         
         return entities
+
+    # --- OUR NEW CODE START: Missing Entity Logic ---
+    def _analyze_entity_coverage(self, content: str, url: str) -> Dict:
+        """
+        Use GPT-4o to find MISSING entities (Genuine AI Logic).
+        """
+        if not self.openai_service or not self.openai_service._is_available():
+            return {}
+
+        try:
+            prompt = f"""
+            Analyze the 'Entity Coverage' of this content for AEO.
+            URL: {url}
+            
+            1. Identify the Main Topic.
+            2. List 5-10 entities that MUST be present for this topic.
+            3. Check if they are in the content.
+            4. Return JSON:
+               - "topic": "string"
+               - "coverage_score": 0-100
+               - "found_entities": ["list"]
+               - "missing_entities": ["list"]
+               - "relevance_explanation": "string"
+            
+            Content (First 8000 chars):
+            {content[:8000]}
+            """
+            
+            response = self.openai_service.client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "You are an Entity Analysis AI. Output valid JSON only."},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.3
+            )
+            
+            return json.loads(response.choices[0].message.content)
+            
+        except Exception as e:
+            logging.error(f"Entity coverage analysis failed: {e}")
+            return {}
+    # --- OUR NEW CODE END ---
     
+    # --- EXISTING CODE START (UNCHANGED HELPERS) ---
     def _count_syllables(self, word: str) -> int:
         """Count syllables in a word (Simple Heuristic)"""
         word = word.lower()
@@ -208,6 +267,8 @@ class KnowledgeBaseService:
         
         return formats
     
+    # --- EXISTING CODE END (HELPERS) ---
+
     def analyze_knowledge_base(self, url: str, html_content: str) -> Dict:
         """Analyze knowledge base quality and content structure"""
         try:
@@ -232,38 +293,49 @@ class KnowledgeBaseService:
                     'recommendations': ['Add more text content']
                 }
             
-            # Extract entities
+            # --- EXISTING METRICS ---
             entities = self._extract_entities(text_content)
-            
-            # Calculate fact density
             fact_density = self._calculate_fact_density(text_content)
-            
-            # Assess clarity
             clarity_metrics = self._assess_clarity(text_content)
-            
-            # Assess linkability
             linkability_metrics = self._assess_linkability(text_content)
-            
-            # Analyze format usage
             format_usage = self._analyze_format_usage(text_content)
-
-            # Extract factual statements
             facts = self._extract_facts(text_content)
-
-            # Calculate Readability Score
             readability_score = self._calculate_flesch_kincaid(text_content)
             
-            # Calculate overall score (Updated Weights for Module C)
+            # --- OUR NEW CODE START: Get AI Missing Entities ---
+            # We call our new function here
+            entity_coverage = self._analyze_entity_coverage(text_content, url)
+            # --- OUR NEW CODE END ---
+
+            # Calculate overall score (Updated Weights)
             score = 0
-            score += min(20, fact_density * 2)  # Fact density (20 points)
-            score += min(20, clarity_metrics['clarity_score'])  # Clarity (20 points)
-            score += min(15, linkability_metrics['linkability_score'])  # Linkability (15 points)
-            score += min(15, min(100, sum(format_usage.values()) * 2))  # Format usage (15 points)
-            score += min(30, readability_score * 0.3) # Readability (30 points)
+            
+            # --- UPDATED SCORING LOGIC ---
+            # If we have genuine AI coverage, give it weight
+            if entity_coverage and 'coverage_score' in entity_coverage:
+                 score += entity_coverage['coverage_score'] * 0.4  # 40% Weight for Coverage
+                 score += min(20, fact_density * 4)                # 20% Facts
+                 score += min(20, clarity_metrics['clarity_score']) # 20% Clarity
+                 score += min(20, readability_score * 0.2)         # 20% Readability
+            else:
+                # Fallback to old scoring if AI fails
+                score += min(20, fact_density * 2) 
+                score += min(20, clarity_metrics['clarity_score']) 
+                score += min(15, linkability_metrics['linkability_score']) 
+                score += min(15, min(100, sum(format_usage.values()) * 2)) 
+                score += min(30, readability_score * 0.3) 
             
             # Generate specific, actionable recommendations
             recommendations = []
             
+            # --- OUR NEW CODE START: Add Missing Entity Recs ---
+            if entity_coverage and 'missing_entities' in entity_coverage:
+                missing = entity_coverage['missing_entities']
+                if missing:
+                    rec_text = f"Add missing entities: {', '.join(missing[:5])}"
+                    recommendations.append(rec_text)
+            # --- OUR NEW CODE END ---
+
             if readability_score < 60:
                 recommendations.append(f'Improve Readability: Your Flesch-Kincaid score is {int(readability_score)}/100. Shorten sentences and use simpler words to help AI understand.')
             
@@ -288,12 +360,13 @@ class KnowledgeBaseService:
                 'score': min(100, int(score)),
                 'readability_score': round(readability_score, 1),
                 'entities': entities,
-                'entities_count': sum(len(v) for v in entities.values()), # --- NEW: Ensure count is returned
+                'entities_count': sum(len(v) for v in entities.values()), 
+                'fact_density': round(fact_density, 1),
                 'facts': facts,
-                'fact_density': fact_density,
                 'clarity': clarity_metrics,
                 'linkability': linkability_metrics,
                 'format_usage': format_usage,
+                'entity_coverage': entity_coverage,  # Sending genuine AI data to frontend
                 'recommendations': recommendations
             }
             

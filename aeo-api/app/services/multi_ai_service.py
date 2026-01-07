@@ -89,6 +89,82 @@ class MultiAIService:
         results['overall_score'] = self._calculate_overall_score(results)
         
         return results
+
+    # --- NEW FEATURE: LLM ANSWER SIMULATOR (Module C, Item 7) ---
+    def generate_simulated_answer(self, content: str, query: str) -> Dict:
+        """
+        Simulate how different AIs would answer a specific user query based ONLY on the provided content.
+        """
+        simulation_results = {
+            'openai_answer': None,
+            'gemini_answer': None,
+            'claude_answer': None
+        }
+        
+        # Truncate content for simulation context
+        max_context = 4000
+        context_snippet = content[:max_context] + "..." if len(content) > max_context else content
+        
+        # 1. Simulate OpenAI
+        if self.openai_client:
+            try:
+                prompt = f"""You are an AI Search Engine. A user searched for: "{query}".
+                Based ONLY on the following website content, provide a direct, helpful answer.
+                If the answer is not in the content, state "Information not found in provided content."
+                
+                Website Content:
+                {context_snippet}"""
+                
+                response = self.openai_client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": "system", "content": "You are a helpful search engine assistant."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.5,
+                    max_completion_tokens=300
+                )
+                simulation_results['openai_answer'] = response.choices[0].message.content.strip()
+            except Exception as e:
+                simulation_results['openai_answer'] = f"Simulation failed: {str(e)}"
+
+        # 2. Simulate Gemini
+        if self.gemini_client:
+            try:
+                prompt = f"""You are an AI Search Engine. A user searched for: "{query}".
+                Based ONLY on the following website content, provide a direct, helpful answer.
+                If the answer is not in the content, state "Information not found in provided content."
+                
+                Website Content:
+                {context_snippet}"""
+                
+                response = self.gemini_client.generate_content(prompt)
+                simulation_results['gemini_answer'] = response.text.strip()
+            except Exception as e:
+                simulation_results['gemini_answer'] = f"Simulation failed: {str(e)}"
+
+        # 3. Simulate Claude
+        if self.claude_client:
+            try:
+                prompt = f"""You are an AI Search Engine. A user searched for: "{query}".
+                Based ONLY on the following website content, provide a direct, helpful answer.
+                If the answer is not in the content, state "Information not found in provided content."
+                
+                Website Content:
+                {context_snippet}"""
+                
+                response = self.claude_client.messages.create(
+                    model="claude-sonnet-4-5-20250929", # Keeping original model name
+                    max_tokens=300,
+                    temperature=0.5,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                simulation_results['claude_answer'] = response.content[0].text.strip()
+            except Exception as e:
+                simulation_results['claude_answer'] = f"Simulation failed: {str(e)}"
+        
+        return simulation_results
+    # -----------------------------------------------------------
     
     def _analyze_with_openai(self, content: str, url: str) -> Dict:
         """Analyze content with OpenAI"""

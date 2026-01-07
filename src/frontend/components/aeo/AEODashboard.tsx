@@ -923,7 +923,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                       transition: 'all 0.2s'
                     }}
                   >
-                    Single URL
+                    AEO Checker
                   </button>
                   <button
                     onClick={() => setAuditMode('bulk')}
@@ -939,7 +939,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                       transition: 'all 0.2s'
                     }}
                   >
-                    Bulk Audit (Sitemap)
+                    LLM-Friendliness Bulk Audit
                   </button>
                 </div>
               </div>
@@ -1067,12 +1067,12 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
                           <thead style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
                             <tr>
-                              <th style={{ padding: '1rem', textAlign: 'left' }}>URL</th>
-                              <th style={{ padding: '1rem', textAlign: 'center' }}>LLM Score</th>
-                              <th style={{ padding: '1rem', textAlign: 'center' }}>Readability</th>
-                              <th style={{ padding: '1rem', textAlign: 'center' }}>Entities</th>
-                              <th style={{ padding: '1rem', textAlign: 'center' }}>Facts</th>
-                              <th style={{ padding: '1rem', textAlign: 'center' }}>Status</th>
+                              <th style={{ padding: '1rem', textAlign: 'left', color: 'black' }}>URL</th>
+                              <th style={{ padding: '1rem', textAlign: 'center', color: 'black' }}>LLM Score</th>
+                              <th style={{ padding: '1rem', textAlign: 'center', color: 'black' }}>Readability</th>
+                              <th style={{ padding: '1rem', textAlign: 'center', color: 'black' }}>Entities</th>
+                              <th style={{ padding: '1rem', textAlign: 'center', color: 'black' }}>Facts</th>
+                              <th style={{ padding: '1rem', textAlign: 'center', color: 'black' }}>Status</th>
                             </tr>
                           </thead>
                           <tbody>

@@ -3,12 +3,25 @@ from pydantic import BaseModel
 from typing import List, Optional
 import requests
 import logging
+import urllib3
+import json
+
+# --- IMPORTS ---
 from ..services.aeo_services_consolidated import AEOServiceOrchestrator
 from ..services.schema_generator import SchemaGenerator
 from app.services.bulk_aeo_service import BulkAEOService
 
 router = APIRouter(prefix="/api/aeo", tags=["AEOCHECKER"])
 
+# Initialize service orchestrator
+aeo_orchestrator = AEOServiceOrchestrator()
+schema_generator = SchemaGenerator()
+bulk_service = BulkAEOService()
+
+# Suppress InsecureRequestWarning
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# --- Request Models ---
 class AnalyzeRequest(BaseModel):
     url: str
     competitor_urls: Optional[List[str]] = []
@@ -25,18 +38,12 @@ class StructuredDataRequest(BaseModel):
 class SchemaGenerateRequest(BaseModel):
     url: str
     html_content: Optional[str] = None
-    schema_type: Optional[str] = 'auto'
+    schema_type: Optional[str] = 'auto'  # auto, Organization, LocalBusiness, Article, etc.
 
 class BulkAnalyzeRequest(BaseModel):
     sitemap: Optional[str] = None
     urls: Optional[List[str]] = []
 
-aeo_orchestrator = AEOServiceOrchestrator()
-schema_generator = SchemaGenerator()
-bulk_service = BulkAEOService()
-
-import urllib3
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 @router.post("/analyze", response_model=AnalyzeResponse)
 async def analyze_aeo(request: AnalyzeRequest):
@@ -55,14 +62,17 @@ async def analyze_aeo(request: AnalyzeRequest):
         logging.info(f"Competitor URLs: {request.competitor_urls}")
         logging.info("="*50)
         
+        # Add protocol if missing
         url = request.url
         if not url.startswith(('http://', 'https://')):
             url = 'https://' + url
             logging.info(f"Added protocol: {url}")
         
+        # Get HTML content for analysis
         logging.info("Fetching HTML content...")
         fetch_start = time.time()
         try:
+            # Disable SSL verification to allow analyzing sites with self-signed or invalid certs
             html_response = requests.get(url, timeout=10, verify=False)
             html_content = html_response.text
             fetch_duration = time.time() - fetch_start
@@ -86,6 +96,7 @@ async def analyze_aeo(request: AnalyzeRequest):
             logging.error(f"Unexpected error fetching URL: {str(e)}")
             raise HTTPException(status_code=400, detail=f'Failed to fetch URL: {str(e)}')
         
+        # Run complete analysis using orchestrator
         logging.info("Starting complete AEOCHECKER analysis...")
         analysis_start = time.time()
         results = aeo_orchestrator.run_complete_analysis(
@@ -127,10 +138,12 @@ async def analyze_structured_data(request: StructuredDataRequest):
     Analyze structured data (JSON-LD, Microdata, RDFa) for a given URL
     """
     try:
+        # Add protocol if missing
         url = request.url
         if not url.startswith(('http://', 'https://')):
             url = 'https://' + url
         
+        # Run structured data analysis
         logging.info(f"Running structured data analysis for {url}")
         results = aeo_orchestrator.analyze_structured_data(
             url=url,
@@ -157,16 +170,19 @@ async def generate_schema(request: SchemaGenerateRequest):
     Generate Schema.org markup for a given URL using AI
     """
     try:
+        # Add protocol if missing
         url = request.url
         if not url.startswith(('http://', 'https://')):
             url = 'https://' + url
 
         print(f"DEBUG: Received schema generation request for {url} (type: {request.schema_type})")
         
+        # If HTML content is provided, use it
         if request.html_content:
             html_content = request.html_content
             print(f"DEBUG: Using provided HTML content (length: {len(html_content)})")
         else:
+            # Fetch the URL
             print(f"DEBUG: Fetching URL: {url}")
             try:
                 headers = {
@@ -184,6 +200,7 @@ async def generate_schema(request: SchemaGenerateRequest):
                     error=f"Failed to fetch user provided URL: {str(e)}"
                 )
 
+        # Generate schema
         print(f"DEBUG: Calling schema generator...")
         result = schema_generator.generate_schema(
             html=html_content,
@@ -192,6 +209,7 @@ async def generate_schema(request: SchemaGenerateRequest):
         )
         print(f"DEBUG: Schema generator returned: {result.keys() if isinstance(result, dict) else result}")
         
+        # Validate result structure
         if not isinstance(result, dict):
             print(f"ERROR: Invalid result type: {type(result)}")
             return AnalyzeResponse(
@@ -208,7 +226,8 @@ async def generate_schema(request: SchemaGenerateRequest):
         
         import json
         try:
-            json_str = json.dumps(final_response.model_dump()) 
+            # Verify JSON serializability
+            json_str = json.dumps(final_response.model_dump()) # Use model_dump for Pydantic v2
             print(f"DEBUG: Sending response (length: {len(json_str)})")
         except Exception as e:
             print(f"ERROR: Response is not JSON serializable: {e}")
@@ -244,30 +263,41 @@ async def health_check():
             "Knowledge Base Analysis",
             "Answerability Analysis",
             "Crawler Accessibility Analysis",
-            "Schema.org Markup Generator"
+            "Schema.org Markup Generator",
+            "Bulk URL Analysis"
         ]
     }
 
+# --- NEW: Bulk Analysis Endpoint ---
 @router.post("/analyze-bulk")
 async def analyze_bulk(request: BulkAnalyzeRequest):
+    """
+    New Endpoint for Module C Bulk Audit.
+    Accepts: { "sitemap": "https://...", "urls": ["...", "..."] }
+    """
     try:
         sitemap_url = request.sitemap
         custom_urls = request.urls
         
         target_urls = []
         
+        # Priority 1: Fetch from Sitemap if provided
         if sitemap_url:
-            sitemap_urls = bulk_service.fetch_sitemap_urls(sitemap_url, limit=10)
+            # ✅ FIX: Increased limit from 10 to 20 (Safe limit for browser timeout)
+            sitemap_urls = bulk_service.fetch_sitemap_urls(sitemap_url, limit=20)
             target_urls.extend(sitemap_urls)
         
+        # Priority 2: Add any manual URLs
         if custom_urls:
             target_urls.extend(custom_urls)
             
+        # Remove duplicates
         target_urls = list(set(target_urls))
         
         if not target_urls:
             raise HTTPException(status_code=400, detail='No URLs found to analyze. Please check your Sitemap URL.')
             
+        # Run the Bulk Logic
         results = bulk_service.run_bulk_audit(target_urls)
         
         return {

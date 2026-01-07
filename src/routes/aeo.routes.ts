@@ -133,11 +133,13 @@ router.post('/analyze',
             res.json(data);
         } catch (error) {
             const totalDuration = Date.now() - startTime;
+            // ✅ FIX: Cast object to 'any' to prevent TS error "Property 'error' does not exist on type 'Error'"
             logger.error('=== AEO ANALYZE REQUEST FAILED ===', {
-                error: error instanceof Error ? error.message : String(error),
+                message: error instanceof Error ? error.message : String(error), // Changed 'error' to 'message'
                 stack: error instanceof Error ? error.stack : undefined,
                 duration: `${totalDuration}ms`
-            });
+            } as any);
+
             res.status(500).json({
                 error: 'Internal server error',
                 message: error instanceof Error ? error.message : 'Unknown error'
@@ -268,5 +270,47 @@ router.get('/results/:sessionId',
             });
         }
     });
+
+// --- NEW: Proxy Bulk Analysis Request ---
+router.post('/analyze-bulk',
+    authenticateUser,
+    async (req, res) => {
+        try {
+            const userId = req.user!.userId;
+
+            logger.info('Proxying Bulk AEO request to FastAPI', {
+                userId,
+                targetUrl: `${AEO_API_BASE_URL}/api/aeo/analyze-bulk`
+            });
+
+            // Forward to Python Backend
+            const response = await fetch(`${AEO_API_BASE_URL}/api/aeo/analyze-bulk`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(req.body)
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                logger.error(`FastAPI Bulk AEO failed: ${response.status} - ${errorText}`);
+                return res.status(response.status).json({
+                    error: 'Bulk Analysis Failed',
+                    details: errorText
+                });
+            }
+
+            const data = await response.json();
+            res.json(data);
+
+        } catch (error) {
+            // ✅ FIX: Use 'as Error' for cleaner typing here since we catch unknown
+            logger.error('Bulk AEO proxy error:', error as Error);
+            res.status(500).json({
+                error: 'Bulk AEO service unavailable',
+                details: (error as Error).message
+            });
+        }
+    }
+);
 
 export default router;
