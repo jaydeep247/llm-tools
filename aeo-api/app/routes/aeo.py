@@ -44,6 +44,9 @@ class BulkAnalyzeRequest(BaseModel):
     sitemap: Optional[str] = None
     urls: Optional[List[str]] = []
 
+class SimulateAnswerRequest(BaseModel):
+    url: str
+    query: str
 
 @router.post("/analyze", response_model=AnalyzeResponse)
 async def analyze_aeo(request: AnalyzeRequest):
@@ -308,3 +311,64 @@ async def analyze_bulk(request: BulkAnalyzeRequest):
     except Exception as e:
         logging.error(f"Bulk Analysis Failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# --- NEW: AI Answer Simulation Endpoint ---
+@router.post("/simulate-answer")
+async def simulate_answer(request: SimulateAnswerRequest):
+    """
+    Simulate how AI platforms would answer a query about the given URL.
+    Uses the Real Multi-AI Service via Orchestrator to generate simulated responses.
+    """
+    try:
+        url = request.url
+        if not url.startswith(('http://', 'https://')):
+            url = 'https://' + url
+            
+        logging.info(f"Simulating answer for query: '{request.query}' on {url}")
+        
+        # 1. Fetch Page Content (Keeping original robust fetching logic)
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+        try:
+            response = requests.get(url, headers=headers, timeout=15, verify=False)
+            html_content = response.text
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Failed to fetch URL: {str(e)}")
+        
+        # 2. Clean HTML (Using BeautifulSoup for clean input to AI)
+        try:
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(html_content, 'html.parser')
+            
+            # Remove script and style elements
+            for script in soup(["script", "style"]):
+                script.decompose()
+            
+            # Get text
+            text_content = soup.get_text()
+            
+            # Clean up text
+            lines = (line.strip() for line in text_content.splitlines())
+            chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+            text_content = ' '.join(chunk for chunk in chunks if chunk)
+            
+            # Limit content length to avoid token limits
+            max_chars = 15000 
+            if len(text_content) > max_chars:
+                text_content = text_content[:max_chars] + "..."
+                
+        except Exception as e:
+            logging.warning(f"BeautifulSoup cleaning failed, using raw HTML: {e}")
+            text_content = html_content[:15000]
+
+        # 3. Call Orchestrator -> Multi-AI Service
+        # This calls the REAL MultiAIService we built, which uses actual Gemini/Claude APIs
+        results = aeo_orchestrator.generate_simulated_answer(text_content, request.query)
+        
+        return {
+            'success': True,
+            'results': results # Returns { openai_answer, gemini_answer, claude_answer }
+        }
+
+    except Exception as e:
+        logging.error(f"Simulation Failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Simulation failed: {str(e)}")

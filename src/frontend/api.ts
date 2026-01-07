@@ -366,6 +366,50 @@ class ApiService {
   }
   // ------------------------------------
 
+  /**
+   * Simulate AI answer for a given URL and query
+   * @param url - The URL to analyze
+   * @param query - The user query to simulate
+   */
+  async simulateAnswer(url: string, query: string): Promise<any> {
+    try {
+      console.log('Starting AI Answer Simulation...', { url, query });
+
+      const response = await this.fetchWithTimeout(
+        '/aeo/simulate-answer',
+        {
+          method: 'POST',
+          headers: this.getAuthHeaders(),
+          credentials: 'include',
+          body: JSON.stringify({
+            url: url.trim(),
+            query: query.trim()
+          }),
+        },
+        120000 // 2 minutes timeout for AI simulation
+      );
+
+      if (!response.ok) {
+        let errorMsg = 'AI simulation failed';
+        try {
+          const errData = await response.json();
+          errorMsg = errData.detail || errData.error || errorMsg;
+        } catch (e) {
+          errorMsg = `Server Error: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorMsg);
+      }
+
+      const data = await response.json();
+      return data.results || data;
+
+    } catch (error: any) {
+      console.error('Simulation API Error:', error);
+      throw error;
+    }
+  }
+  // ------------------------------------
+
   async healthCheck(): Promise<{ status: string; service: string }> {
     try {
       console.log(`Making health check to: ${this.baseURL}/health`);
