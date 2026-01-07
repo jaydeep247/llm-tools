@@ -135,9 +135,13 @@ router.post('/analyze',
             res.json(data);
         } catch (error: any) {
             const totalDuration = Date.now() - startTime;
-            logger.error('=== AEO ANALYZE REQUEST FAILED ===', error instanceof Error ? error : new Error(String(error)), {
+            // ✅ FIX: Cast object to 'any' to prevent TS error "Property 'error' does not exist on type 'Error'"
+            logger.error('=== AEO ANALYZE REQUEST FAILED ===', {
+                message: error instanceof Error ? error.message : String(error), // Changed 'error' to 'message'
+                stack: error instanceof Error ? error.stack : undefined,
                 duration: `${totalDuration}ms`
-            });
+            } as any);
+
             res.status(500).json({
                 error: 'Internal server error',
                 message: error instanceof Error ? error.message : 'Unknown error'

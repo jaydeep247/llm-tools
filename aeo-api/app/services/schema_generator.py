@@ -6,6 +6,7 @@ Uses OpenAI GPT to generate appropriate schema markup for web pages
 import os
 import json
 import logging
+import re
 from typing import Dict, Any
 
 try:
@@ -30,7 +31,29 @@ class SchemaGenerator:
             except Exception as e:
                 logging.error(f"Failed to initialize OpenAI client: {e}")
     
-    
+    # --- OUR ADDED CODE START: Helper to save tokens ---
+    def _clean_html(self, html_content: str) -> str:
+        """
+        Helper to clean HTML before sending to AI. 
+        Removes scripts, styles, and extra whitespace to save tokens/cost.
+        """
+        if not html_content:
+            return ""
+            
+        # Remove scripts and styles
+        cleaned = re.sub(r'<script[\s\S]*?</script>', '', html_content, flags=re.IGNORECASE)
+        cleaned = re.sub(r'<style[\s\S]*?</style>', '', cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r'<noscript[\s\S]*?</noscript>', '', cleaned, flags=re.IGNORECASE)
+        
+        # Remove HTML tags (keep just text)
+        cleaned = re.sub(r'<[^>]+>', ' ', cleaned)
+        
+        # Remove extra whitespace
+        cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+        
+        return cleaned
+    # --- OUR ADDED CODE END ---
+
     def generate_schema_with_ai(self, url: str, html: str, schema_type: str = 'auto') -> Dict[str, Any]:
         """Use OpenAI GPT to analyze website HTML and generate schema markup"""
         
@@ -46,13 +69,18 @@ class SchemaGenerator:
             print(f"DEBUG: SchemaGenerator.generate_schema_with_ai called for {url}")
             self.model = "gpt-4o"
             
-            # Truncate HTML to avoid token limits
+            # --- UPDATED: Use our _clean_html function first ---
+            # This saves tokens by removing junk BEFORE we truncate
+            clean_content = self._clean_html(html)
+            
+            # Truncate to avoid token limits (GPT-4o context)
             max_chars = 15000
-            if len(html) > max_chars:
-                print(f"DEBUG: Truncating HTML from {len(html)} to {max_chars} chars")
-                content_sample = html[:max_chars]
+            if len(clean_content) > max_chars:
+                print(f"DEBUG: Truncating content from {len(clean_content)} to {max_chars} chars")
+                content_sample = clean_content[:max_chars]
             else:
-                content_sample = html
+                content_sample = clean_content
+            # ----------------------------------------------------
                 
             prompt = f"""
             Generate Schema.org JSON-LD markup for the following webpage content.
@@ -79,8 +107,7 @@ class SchemaGenerator:
             content = response.choices[0].message.content
             print(f"DEBUG: OpenAI Payload received. Length: {len(content)}")
             
-            # Extract JSON from code block
-            import re
+            # Extract JSON from code block (Other Developer's Regex Logic - PRESERVED)
             json_match = re.search(r'```json\n(.*?)\n```', content, re.DOTALL)
             if json_match:
                 json_str = json_match.group(1)
@@ -90,7 +117,6 @@ class SchemaGenerator:
                 json_str = json_match.group(1) if json_match else content
 
             try:
-                import json
                 data = json.loads(json_str)
                 print("DEBUG: Successfully parsed JSON-LD")
                 return {
@@ -102,7 +128,7 @@ class SchemaGenerator:
                 }
             except json.JSONDecodeError as e:
                 print(f"ERROR: Failed to parse JSON-LD: {e}")
-                print(f"DEBUG: Raw content: {content[:500]}...") # Log start of content
+                print(f"DEBUG: Raw content: {content[:500]}...") 
                 return {
                     'success': False,
                     'error': 'Failed to parse AI response',
