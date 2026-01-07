@@ -270,8 +270,23 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
             const startTime = requestStartTimes.get(url) || Date.now();
             const responseTime = Date.now() - startTime;
 
-            // Extract page metrics using module_A
-            const pageMetrics = extractPageMetrics(url, $, response, responseTime);
+            // Debug: Log URL information for redirect detection
+            console.log('[CRAWLER DEBUG]', {
+                requestUrl: request.url,
+                requestLoadedUrl: request.loadedUrl,
+                urlVariable: url,
+                responseUrl: response?.url,
+                requestId: request.id
+            });
+
+            // Enhance response object with final URL for redirect detection
+            const enhancedResponse = {
+                ...response,
+                url: response?.url || request.loadedUrl || url
+            };
+
+            // Extract page metrics using module_A (now async for Last-Modified)
+            const pageMetrics = await extractPageMetrics(request.url, $, enhancedResponse, responseTime);
             
             // Extract content metrics using module_A
             const contentMetrics = extractContentMetrics($);
@@ -350,7 +365,11 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
                     h4: pageMetrics.h4Tags.length,
                     h5: pageMetrics.h5Tags.length,
                     h6: pageMetrics.h6Tags.length
-                })
+                }),
+                spellingErrors: contentMetrics.spellingErrors || 0,
+                grammarErrors: contentMetrics.grammarErrors || 0,
+                redirectUrl: pageMetrics.redirectUrl,
+                redirectType: pageMetrics.redirectType
             });
 
             // --- Content Fingerprinting for Near-Duplicate Detection ---

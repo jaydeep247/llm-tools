@@ -15,8 +15,8 @@ export class PageRepository {
     async insertPage(data: Omit<Page, 'id'>): Promise<number> {
         const res = await this.pool.query(
             `INSERT INTO pages 
-      (session_id, url, title, title_length, title_pixel_width, description, description_length, description_pixel_width, content_type, last_modified, status_code, response_time, word_count, sentence_count, average_words_per_sentence, flesch_reading_ease_score, readability_level, text_to_html_ratio, crawl_depth, folder_depth, size_bytes, timestamp, success, error_message, indexable, indexability_status, meta_keywords, meta_keywords_length, meta_robots, x_robots_tag, meta_refresh, canonical_url, rel_next, rel_prev, http_rel_next, http_rel_prev, amphtml_url, transferred_bytes, total_transferred_bytes, co2_mg, carbon_rating, heading_tags)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42)
+      (session_id, url, title, title_length, title_pixel_width, description, description_length, description_pixel_width, content_type, last_modified, status_code, response_time, word_count, sentence_count, average_words_per_sentence, flesch_reading_ease_score, readability_level, text_to_html_ratio, crawl_depth, folder_depth, size_bytes, timestamp, success, error_message, indexable, indexability_status, meta_keywords, meta_keywords_length, meta_robots, x_robots_tag, meta_refresh, canonical_url, rel_next, rel_prev, http_rel_next, http_rel_prev, amphtml_url, transferred_bytes, total_transferred_bytes, co2_mg, carbon_rating, heading_tags, spelling_errors, grammar_errors, redirect_url, redirect_type)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46)
       RETURNING id`,
             [
                 this.safeInt(data.sessionId), data.url, data.title, this.safeInt(data.titleLength) || 0,
@@ -51,7 +51,11 @@ export class PageRepository {
                 this.safeInt(data.totalTransferredBytes),
                 data.co2Mg ? parseFloat(data.co2Mg.toString()) : null,
                 data.carbonRating || null,
-                data.headingTags || null
+                data.headingTags || null,
+                this.safeInt(data.spellingErrors) || 0,
+                this.safeInt(data.grammarErrors) || 0,
+                data.redirectUrl || null,
+                data.redirectType || null
             ]
         );
         return res.rows[0].id;
@@ -1067,7 +1071,15 @@ export class PageRepository {
                 : undefined,
             nearDuplicateCount: row.near_duplicate_count !== null && row.near_duplicate_count !== undefined
                 ? parseInt(row.near_duplicate_count)
-                : undefined
+                : undefined,
+            spellingErrors: row.spelling_errors !== null && row.spelling_errors !== undefined
+                ? parseInt(row.spelling_errors)
+                : undefined,
+            grammarErrors: row.grammar_errors !== null && row.grammar_errors !== undefined
+                ? parseInt(row.grammar_errors)
+                : undefined,
+            redirectUrl: row.redirect_url || undefined,
+            redirectType: row.redirect_type || undefined
         };
     }
 

@@ -305,6 +305,34 @@ COMMENT ON COLUMN pages.closest_duplicate_url IS 'URL of the most similar page (
 COMMENT ON COLUMN pages.closest_duplicate_similarity IS 'Similarity score (0.0-1.0) with the closest match';
 COMMENT ON COLUMN pages.near_duplicate_count IS 'Number of pages with similarity >= 0.75 (near-duplicate threshold)';
 `
+    },
+    {
+        name: '028_add_spelling_grammar_errors',
+        sql: `
+-- Add spelling and grammar error tracking columns to pages table
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS spelling_errors INTEGER DEFAULT 0;
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS grammar_errors INTEGER DEFAULT 0;
+
+CREATE INDEX IF NOT EXISTS idx_pages_spelling_errors ON pages(spelling_errors DESC);
+CREATE INDEX IF NOT EXISTS idx_pages_grammar_errors ON pages(grammar_errors DESC);
+
+COMMENT ON COLUMN pages.spelling_errors IS 'Count of spelling mistakes detected in visible text';
+COMMENT ON COLUMN pages.grammar_errors IS 'Count of grammatical mistakes found in page text';
+`
+    },
+    {
+        name: '029_add_redirect_fields',
+        sql: `
+-- Add redirect URL and redirect type columns to pages table
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS redirect_url TEXT;
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS redirect_type VARCHAR(50);
+
+CREATE INDEX IF NOT EXISTS idx_pages_redirect_url ON pages(redirect_url);
+CREATE INDEX IF NOT EXISTS idx_pages_redirect_type ON pages(redirect_type);
+
+COMMENT ON COLUMN pages.redirect_url IS 'The destination URL where a user or search engine is sent when the original URL is requested';
+COMMENT ON COLUMN pages.redirect_type IS 'The method used to perform the redirect (301, 302, 307, meta-refresh, javascript)';
+`
     }
 ];
 

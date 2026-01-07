@@ -62,6 +62,10 @@ export interface PageMetrics {
     finalUrl: string;
     language?: string;
     
+    // Redirect data
+    redirectUrl?: string;
+    redirectType?: string;
+    
     // Structured data
     structuredData: StructuredDataItem[];
 }
@@ -152,4 +156,5 @@ export interface CrawlResponse {
     headers?: IncomingHttpHeaders;
     responseHeaders?: IncomingHttpHeaders;
     body?: unknown; // Changed to unknown to support various response types from crawlee
+    url?: string; // The final URL after following redirects
 }

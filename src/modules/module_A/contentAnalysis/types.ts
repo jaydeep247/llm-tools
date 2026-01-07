@@ -25,6 +25,10 @@ export interface ContentMetrics {
     fleschReadingEase?: number;
     fleschKincaidGrade?: number;
     readabilityLevel?: string;
+    
+    // Spelling and Grammar
+    spellingErrors?: number;
+    grammarErrors?: number;
 }
 
 /**

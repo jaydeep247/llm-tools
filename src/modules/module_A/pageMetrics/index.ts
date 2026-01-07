@@ -7,16 +7,18 @@ import { extractStatusData } from './statusChecker.js';
 import { extractIndexability } from './indexabilityExtractor.js';
 import { extractPagination } from './paginationExtractor.js';
 import { extractAmpHtml } from './ampExtractor.js';
+import { extractRedirectData } from './redirectDetector.js';
 
 /**
  * Extract all page metrics from a crawled page
+ * Now async to support HTTP HEAD request for Last-Modified header
  */
-export function extractPageMetrics(
+export async function extractPageMetrics(
     url: string,
     $: CheerioAPI,
     response: CrawlResponse | undefined,
     responseTime: number
-): PageMetrics {
+): Promise<PageMetrics> {
     // Extract title
     const titleData = extractTitle($);
     
@@ -29,8 +31,8 @@ export function extractPageMetrics(
     // Extract headers
     const headersData = extractHeaders($);
     
-    // Extract status data
-    const statusData = extractStatusData(url, response, $, responseTime);
+    // Extract status data (now async for Last-Modified)
+    const statusData = await extractStatusData(url, response, $, responseTime);
     
     // Extract indexability
     const indexabilityData = extractIndexability($, response);
@@ -40,6 +42,9 @@ export function extractPageMetrics(
 
     // Extract AMP HTML
     const amphtmlUrl = extractAmpHtml($);
+    
+    // Extract redirect data
+    const redirectData = extractRedirectData($, response, url);
     
     return {
         // URL
@@ -72,7 +77,10 @@ export function extractPageMetrics(
         ...paginationData,
         
         // AMP
-        amphtmlUrl
+        amphtmlUrl,
+        
+        // Redirect
+        ...redirectData
     };
 }
 
@@ -87,4 +95,6 @@ export * from './statusChecker.js';
 export * from './indexabilityExtractor.js';
 export * from './paginationExtractor.js';
 export * from './ampExtractor.js';
+export * from './lastModifiedFetcher.js';
+export * from './redirectDetector.js';
 

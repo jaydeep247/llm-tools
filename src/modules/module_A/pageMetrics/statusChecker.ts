@@ -1,15 +1,17 @@
 import type { CheerioAPI } from 'cheerio';
 import type { StatusData, CrawlResponse } from './types.js';
+import { getLastModified } from './lastModifiedFetcher.js';
 
 /**
  * Extract HTTP status and response information
+ * Now async to support HTTP HEAD request for Last-Modified header
  */
-export function extractStatusData(
+export async function extractStatusData(
     url: string,
     response: CrawlResponse | undefined,
     $: CheerioAPI,
     responseTime: number
-): StatusData {
+): Promise<StatusData> {
     // Determine content type with fallbacks
     const headerContentType = response?.headers?.['content-type'] || 
                              response?.responseHeaders?.['content-type'];
@@ -21,9 +23,8 @@ export function extractStatusData(
     const metaLang = $('meta[http-equiv="content-language"]').attr('content');
     const language = htmlLang || metaLang;
     
-    // Last modified
-    const lastModified = response?.headers?.['last-modified'] || 
-                        response?.responseHeaders?.['last-modified'];
+    // Last modified - use improved method with HTTP HEAD request fallback
+    const lastModified = await getLastModified(url, response);
     
     // Calculate size in bytes from response body
     let sizeBytes: number | undefined;

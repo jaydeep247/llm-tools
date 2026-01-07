@@ -69,6 +69,10 @@ export interface Page {
     closestDuplicateUrl?: string; // URL of the most similar page (closest near-duplicate match)
     closestDuplicateSimilarity?: number; // Similarity score (0.0-1.0) with the closest match
     nearDuplicateCount?: number; // Number of pages with similarity >= 0.75
+    spellingErrors?: number; // Count of spelling mistakes detected in visible text
+    grammarErrors?: number; // Count of grammatical mistakes found in page text
+    redirectUrl?: string; // The destination URL where a user or search engine is sent
+    redirectType?: string; // The method used to perform the redirect (301, 302, 307, meta-refresh, javascript)
 }
 
 export interface Resource {

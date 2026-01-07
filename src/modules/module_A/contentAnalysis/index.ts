@@ -7,6 +7,7 @@ import {
     isThinContent as checkThinContent
 } from './wordCounter.js';
 import { analyzeReadability } from './readabilityAnalyzer.js';
+import { analyzeSpellingAndGrammar } from './spellGrammarChecker.js';
 
 /**
  * Extract all content analysis metrics from a page
@@ -40,7 +41,9 @@ export function extractContentMetrics($: CheerioAPI): ContentMetrics {
             isThinContent,
             fleschReadingEase: undefined,
             fleschKincaidGrade: undefined,
-            readabilityLevel: undefined
+            readabilityLevel: undefined,
+            spellingErrors: 0,
+            grammarErrors: 0
         };
     }
     
@@ -65,6 +68,9 @@ export function extractContentMetrics($: CheerioAPI): ContentMetrics {
         actualWordCount
     );
     
+    // Spelling and Grammar check
+    const spellGrammarData = analyzeSpellingAndGrammar(visibleText, false);
+    
     return {
         // Word counts
         ...wordCountData,
@@ -79,7 +85,11 @@ export function extractContentMetrics($: CheerioAPI): ContentMetrics {
         isThinContent,
         
         // Readability
-        ...readabilityData
+        ...readabilityData,
+        
+        // Spelling and Grammar
+        spellingErrors: spellGrammarData.spellingErrors,
+        grammarErrors: spellGrammarData.grammarErrors
     };
 }
 
@@ -87,3 +97,4 @@ export function extractContentMetrics($: CheerioAPI): ContentMetrics {
 export * from './types.js';
 export * from './wordCounter.js';
 export * from './readabilityAnalyzer.js';
+export * from './spellGrammarChecker.js';

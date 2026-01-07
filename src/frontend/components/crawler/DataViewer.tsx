@@ -58,6 +58,10 @@ interface CrawlData {
   uniqueJsOutlinks?: number; // Number of unique JS-rendered outbound links (not in raw HTML)
   uniqueExternalOutlinks?: number; // Number of unique external domain links on this page (from HTML)
   uniqueExternalJsOutlinks?: number; // Number of unique external links created/revealed via JavaScript
+  spellingErrors?: number; // Count of spelling mistakes detected in visible text
+  grammarErrors?: number; // Count of grammatical mistakes found in page text
+  redirectUrl?: string; // The destination URL where a user or search engine is sent
+  redirectType?: string; // The method used to perform the redirect (301, 302, 307, meta-refresh, javascript)
 }
 
 interface DataViewerProps {
@@ -777,6 +781,103 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
     );
   };
 
+  const getSpellingErrorsBadge = (errors?: number) => {
+    if (errors === undefined || errors === null) {
+      return <span className="status-badge unknown" title="Spelling errors not checked">—</span>;
+    }
+    
+    let badgeClass = 'status-badge';
+    let title = `Spelling Errors: ${errors}`;
+    
+    if (errors === 0) {
+      badgeClass += ' success';
+      title += ' - Clean, high-quality content ✓';
+    } else if (errors <= 2) {
+      badgeClass += ' redirect';
+      title += ' - Minor issues (review recommended)';
+    } else {
+      badgeClass += ' client-error';
+      title += ' - Content quality warning! Review and fix spelling errors.';
+    }
+    
+    return <span className={badgeClass} title={title}>{errors}</span>;
+  };
+
+  const getGrammarErrorsBadge = (errors?: number) => {
+    if (errors === undefined || errors === null) {
+      return <span className="status-badge unknown" title="Grammar errors not checked">—</span>;
+    }
+    
+    let badgeClass = 'status-badge';
+    let title = `Grammar Errors: ${errors}`;
+    
+    if (errors === 0) {
+      badgeClass += ' success';
+      title += ' - Clean, high-quality content ✓';
+    } else if (errors <= 2) {
+      badgeClass += ' redirect';
+      title += ' - Minor issues (review recommended)';
+    } else {
+      badgeClass += ' client-error';
+      title += ' - Content quality warning! Review and fix grammar errors.';
+    }
+    
+    return <span className={badgeClass} title={title}>{errors}</span>;
+  };
+
+  const getRedirectTypeBadge = (redirectType?: string) => {
+    if (!redirectType || redirectType === 'undefined' || redirectType === 'null') {
+      return <span className="status-badge unknown" title="No redirect detected">—</span>;
+    }
+    
+    let badgeClass = 'status-badge';
+    let icon = '🔁';
+    let title = `Redirect Type: ${redirectType}`;
+    
+    // 301 - Permanent Redirect (good for SEO)
+    if (redirectType === '301-permanent' || redirectType === '308-permanent') {
+      badgeClass += ' success';
+      icon = '✅';
+      title += ' - Permanent redirect (passes SEO value)';
+    } 
+    // 302, 307 - Temporary Redirect (warning)
+    else if (redirectType === '302-temporary' || redirectType === '307-temporary' || redirectType === '303-see-other') {
+      badgeClass += ' redirect';
+      icon = '⚠️';
+      title += ' - Temporary redirect (SEO value may not fully pass)';
+    }
+    // Meta refresh - Not recommended for SEO
+    else if (redirectType === 'meta-refresh') {
+      badgeClass += ' client-error';
+      icon = '❌';
+      title += ' - HTML-based redirect (not recommended for SEO)';
+    }
+    // JavaScript - Least SEO-friendly
+    else if (redirectType === 'javascript') {
+      badgeClass += ' client-error';
+      icon = '❌';
+      title += ' - JS-based redirect (least SEO-friendly)';
+    }
+    else {
+      badgeClass += ' redirect';
+      icon = '🔁';
+    }
+    
+    return <span className={badgeClass} title={title}>{icon} {redirectType}</span>;
+  };
+
+  const getRedirectUrlBadge = (redirectUrl?: string) => {
+    if (!redirectUrl || redirectUrl === 'undefined' || redirectUrl === 'null') {
+      return <span className="status-badge unknown" title="No redirect URL">—</span>;
+    }
+    
+    return (
+      <span className="status-badge redirect" title={`Redirects to: ${redirectUrl}`}>
+        ➡️ {redirectUrl}
+      </span>
+    );
+  };
+
   if (loading) {
     return (
       <div className="data-viewer-overlay">
@@ -967,6 +1068,12 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                 <th onClick={() => handleSort('statusCode')} className="sortable center-header">
                   Status {sortField === 'statusCode' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
+                <th onClick={() => handleSort('redirectUrl' as keyof CrawlData)} className="sortable">
+                  Redirect URL {sortField === 'redirectUrl' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('redirectType' as keyof CrawlData)} className="sortable center-header">
+                  Redirect Type {sortField === 'redirectType' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
                 <th onClick={() => handleSort('responseTime')} className="sortable center-header">
                   Response Time {sortField === 'responseTime' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
@@ -984,7 +1091,13 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                 </th>
                 <th onClick={() => handleSort('readabilityLevel' as keyof CrawlData)} className="sortable center-header">
                   Readability {sortField === 'readabilityLevel' && (sortDirection === 'asc' ? '↑' : '↓')}
-~~                </th>
+                </th>
+                <th onClick={() => handleSort('spellingErrors' as keyof CrawlData)} className="sortable center-header">
+                  Spelling Errors {sortField === 'spellingErrors' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('grammarErrors' as keyof CrawlData)} className="sortable center-header">
+                  Grammar Errors {sortField === 'grammarErrors' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
                 <th onClick={() => handleSort('textToHtmlRatio' as keyof CrawlData)} className="sortable center-header">
                   Text Ratio {sortField === 'textToHtmlRatio' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
@@ -1122,6 +1235,12 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                   <td className="status-cell">
                     {getStatusBadge(item.statusCode || 0)}
                   </td>
+                  <td className="redirect-url-cell">
+                    {getRedirectUrlBadge(item.redirectUrl)}
+                  </td>
+                  <td className="redirect-type-cell">
+                    {getRedirectTypeBadge(item.redirectType)}
+                  </td>
                   <td className="response-time-cell">
                     {formatResponseTime(item.responseTime || 0)}
                   </td>
@@ -1139,6 +1258,12 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                   </td>
                   <td className="readability-level-cell">
                     {getReadabilityLevelBadge(item.readabilityLevel)}
+                  </td>
+                  <td className="spelling-errors-cell">
+                    {getSpellingErrorsBadge(item.spellingErrors)}
+                  </td>
+                  <td className="grammar-errors-cell">
+                    {getGrammarErrorsBadge(item.grammarErrors)}
                   </td>
                   <td className="text-to-html-ratio-cell">
                     {getTextToHtmlRatioBadge(item.textToHtmlRatio)}
