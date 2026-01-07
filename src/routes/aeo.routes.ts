@@ -558,4 +558,46 @@ router.post('/website-score', async (req, res) => {
     }
 });
 
+// --- NEW: Proxy AI Answer Simulation Request ---
+router.post('/simulate-answer',
+    authenticateUser,
+    async (req, res) => {
+        try {
+            const userId = req.user!.userId;
+
+            logger.info('Proxying AI Simulation request to FastAPI', {
+                userId,
+                url: req.body.url,
+                query: req.body.query
+            });
+
+            // Forward to Python Backend
+            const response = await fetch(`${AEO_API_BASE_URL}/api/aeo/simulate-answer`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(req.body)
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                logger.error(`FastAPI AI Simulation failed: ${response.status} - ${errorText}`);
+                return res.status(response.status).json({
+                    error: 'AI Simulation Failed',
+                    details: errorText
+                });
+            }
+
+            const data = await response.json();
+            res.json(data);
+
+        } catch (error) {
+            logger.error('AI Simulation proxy error:', error as Error);
+            res.status(500).json({
+                error: 'AI Simulation service unavailable',
+                details: (error as Error).message
+            });
+        }
+    }
+);
+
 export default router;

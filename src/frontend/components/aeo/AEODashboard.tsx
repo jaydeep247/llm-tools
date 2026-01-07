@@ -73,7 +73,8 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
   logs = [],
   discoveredPages = []
 }) => {
-  const [activeView, setActiveView] = useState<'crawler' | 'data' | 'links' | 'tree' | 'audits' | 'schema' | 'intelligence'>(runCrawl ? 'crawler' : 'data');
+  // Added 'simulator' to activeView types
+  const [activeView, setActiveView] = useState<'crawler' | 'data' | 'links' | 'tree' | 'audits' | 'schema' | 'intelligence' | 'simulator'>(runCrawl ? 'crawler' : 'data');
   const [showRecommendations, setShowRecommendations] = useState<string | null>(null);
   const [schemaData, setSchemaData] = useState<any>(null);
   const [schemaLoading, setSchemaLoading] = useState(false);
@@ -86,6 +87,12 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
   const [moduleEScores, setModuleEScores] = useState<any>(null);
   const [moduleELoading, setModuleELoading] = useState(false);
   const [moduleEError, setModuleEError] = useState<string | null>(null);
+
+  // --- NEW: Simulator State ---
+  const [simulationQuery, setSimulationQuery] = useState('');
+  const [simulationResults, setSimulationResults] = useState<any>(null);
+  const [simulationLoading, setSimulationLoading] = useState(false);
+  // ---------------------------
 
   const analyzeWebsiteScores = async () => {
     if (!url) return;
@@ -712,6 +719,13 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
           >
             🧠 AI Intelligence
           </button>
+          {/* NEW TAB */}
+          <button
+            onClick={() => setActiveView('simulator')}
+            className={`tab-button ${activeView === 'simulator' ? 'active' : ''}`}
+          >
+            🤖 AI Simulator
+          </button>
         </div>
 
         <div className="tab-content">
@@ -1223,6 +1237,95 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
             </div>
           )}
 
+          {/* NEW: AI SIMULATOR VIEW */}
+          {activeView === 'simulator' && (
+            <div className="dashboard-card" style={{ padding: '2rem' }}>
+              <div className="card-header" style={{ marginBottom: '2rem' }}>
+                <h3>🤖 AI Search Simulator</h3>
+                <p style={{ color: '#64748b' }}>
+                  Simulate how different AI models answer user questions based <strong>only</strong> on your page content.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
+                <input
+                  type="text"
+                  placeholder="Enter a user question (e.g. 'What is the pricing?' or 'Does this have a warranty?')"
+                  value={simulationQuery}
+                  onChange={(e) => setSimulationQuery(e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '1rem',
+                    color: '#0f172a'
+                  }}
+                />
+                <button
+                  onClick={handleSimulation}
+                  disabled={simulationLoading || !simulationQuery}
+                  style={{
+                    padding: '12px 24px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: '#2563eb',
+                    color: 'white',
+                    fontWeight: '600',
+                    cursor: (simulationLoading || !simulationQuery) ? 'not-allowed' : 'pointer',
+                    opacity: (simulationLoading || !simulationQuery) ? 0.7 : 1
+                  }}
+                >
+                  {simulationLoading ? 'Simulating...' : '✨ Simulate Answer'}
+                </button>
+              </div>
+
+              {simulationLoading && (
+                <div style={{ textAlign: 'center', padding: '4rem', color: '#64748b', background: '#f8fafc', borderRadius: '12px' }}>
+                  <div className="spinner" style={{ margin: '0 auto 1rem', width: '40px', height: '40px', border: '4px solid #e2e8f0', borderTop: '4px solid #2563eb', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                  <p>Querying OpenAI, Gemini, and Claude...</p>
+                </div>
+              )}
+
+              {simulationResults && !simulationLoading && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
+                  {/* OpenAI Card */}
+                  <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
+                    <div style={{ background: '#10a37f', color: 'white', padding: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '1.2rem' }}>🤖</span>
+                      <span style={{ fontWeight: '600' }}>ChatGPT (GPT-4o)</span>
+                    </div>
+                    <div style={{ padding: '1.5rem', fontSize: '0.95rem', lineHeight: '1.6', color: '#334155' }}>
+                      {simulationResults.openai_answer || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No answer generated.</span>}
+                    </div>
+                  </div>
+
+                  {/* Gemini Card */}
+                  <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
+                    <div style={{ background: '#4285f4', color: 'white', padding: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '1.2rem' }}>🧠</span>
+                      <span style={{ fontWeight: '600' }}>Google Gemini</span>
+                    </div>
+                    <div style={{ padding: '1.5rem', fontSize: '0.95rem', lineHeight: '1.6', color: '#334155' }}>
+                      {simulationResults.gemini_answer || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No answer generated.</span>}
+                    </div>
+                  </div>
+
+                  {/* Claude Card */}
+                  <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
+                    <div style={{ background: '#d97757', color: 'white', padding: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '1.2rem' }}>🎭</span>
+                      <span style={{ fontWeight: '600' }}>Anthropic Claude</span>
+                    </div>
+                    <div style={{ padding: '1.5rem', fontSize: '0.95rem', lineHeight: '1.6', color: '#334155' }}>
+                      {simulationResults.claude_answer || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No answer generated.</span>}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
       </div>
 
@@ -1281,6 +1384,9 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                                   <span className={`priority-badge priority-${priority}`}>
                                     {priority.toUpperCase()}
                                   </span>
+                                  <span className="recommendation-priority-label">
+                                    {priority === 'high' ? 'Critical' : priority === 'medium' ? 'Important' : 'Minor'}
+                                  </span>
                                 </div>
                                 <div className="recommendation-text">{rec}</div>
                               </div>
@@ -1308,6 +1414,9 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                                 <div className="recommendation-header">
                                   <span className={`priority-badge priority-${priority}`}>
                                     {priority.toUpperCase()}
+                                  </span>
+                                  <span className="recommendation-priority-label">
+                                    {priority === 'high' ? 'Critical' : priority === 'medium' ? 'Important' : 'Minor'}
                                   </span>
                                 </div>
                                 <div className="recommendation-text">{rec}</div>
@@ -1337,6 +1446,9 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                                   <span className={`priority-badge priority-${priority}`}>
                                     {priority.toUpperCase()}
                                   </span>
+                                  <span className="recommendation-priority-label">
+                                    {priority === 'high' ? 'Critical' : priority === 'medium' ? 'Important' : 'Minor'}
+                                  </span>
                                 </div>
                                 <div className="recommendation-text">{rec}</div>
                               </div>
@@ -1364,6 +1476,9 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                                 <div className="recommendation-header">
                                   <span className={`priority-badge priority-${priority}`}>
                                     {priority.toUpperCase()}
+                                  </span>
+                                  <span className="recommendation-priority-label">
+                                    {priority === 'high' ? 'Critical' : priority === 'medium' ? 'Important' : 'Minor'}
                                   </span>
                                 </div>
                                 <div className="recommendation-text">{rec}</div>
@@ -1415,6 +1530,9 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                                   <div className="recommendation-header">
                                     <span className={`priority-badge priority-${priority}`}>
                                       {priority.toUpperCase()}
+                                    </span>
+                                    <span className="recommendation-priority-label">
+                                      {priority === 'high' ? 'Critical' : priority === 'medium' ? 'Important' : 'Minor'}
                                     </span>
                                   </div>
                                   <div className="recommendation-text">{rec}</div>
