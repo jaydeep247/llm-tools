@@ -21,42 +21,6 @@ import { analyzeSessionDuplicates } from './modules/module_A/duplicateDetection/
 
 Configuration.set('systemInfoV2', true);
 
-/**
- * Check if a URL is a valid HTTP/HTTPS link that should be processed
- */
-function isValidHttpLink(href: string): boolean {
-    if (!href) return false;
-
-    // Skip non-HTTP protocols
-    const lowerHref = href.toLowerCase();
-    if (lowerHref.startsWith('javascript:') ||
-        lowerHref.startsWith('mailto:') ||
-        lowerHref.startsWith('tel:') ||
-        lowerHref.startsWith('sms:') ||
-        lowerHref.startsWith('ftp:') ||
-        lowerHref.startsWith('file:') ||
-        lowerHref.startsWith('data:') ||
-        lowerHref.startsWith('blob:') ||
-        lowerHref.startsWith('chrome:') ||
-        lowerHref.startsWith('about:') ||
-        lowerHref.startsWith('#')) {
-        return false;
-    }
-
-    // Must be HTTP or HTTPS
-    if (!lowerHref.startsWith('http://') && !lowerHref.startsWith('https://')) {
-        return false;
-    }
-
-    // Skip common image and media extensions
-    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.ico', '.bmp', '.tiff', '.mp4', '.mp3', '.pdf', '.zip', '.tar', '.gz'];
-    if (imageExtensions.some(ext => lowerHref.endsWith(ext))) {
-        return false;
-    }
-
-    return true;
-}
-
 type CrawlOptions = {
     startUrl: string;
     allowSubdomains: boolean;
