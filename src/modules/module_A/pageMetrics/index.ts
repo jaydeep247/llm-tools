@@ -7,6 +7,7 @@ import { extractStatusData } from './statusChecker.js';
 import { extractIndexability } from './indexabilityExtractor.js';
 import { extractPagination } from './paginationExtractor.js';
 import { extractAmpHtml } from './ampExtractor.js';
+import { extractMobileAlternate } from './mobileAlternateExtractor.js';
 import { extractRedirectData } from './redirectDetector.js';
 
 /**
@@ -42,6 +43,9 @@ export async function extractPageMetrics(
 
     // Extract AMP HTML
     const amphtmlUrl = extractAmpHtml($);
+    
+    // Extract mobile alternate link
+    const mobileAlternateUrl = extractMobileAlternate($);
     
     // Extract redirect data
     const redirectData = extractRedirectData($, response, url);
@@ -79,6 +83,9 @@ export async function extractPageMetrics(
         // AMP
         amphtmlUrl,
         
+        // Mobile Alternate
+        mobileAlternateUrl,
+        
         // Redirect
         ...redirectData
     };
@@ -95,6 +102,7 @@ export * from './statusChecker.js';
 export * from './indexabilityExtractor.js';
 export * from './paginationExtractor.js';
 export * from './ampExtractor.js';
+export * from './mobileAlternateExtractor.js';
 export * from './lastModifiedFetcher.js';
 export * from './redirectDetector.js';
 

@@ -26,6 +26,7 @@ The migration script will add the following columns and indexes to your database
 - `link_score` - SEO link score for pages (NUMERIC)
 - `canonical_url` - Canonical URL for duplicate content prevention (TEXT)
 - `amphtml_url` - AMP HTML version URL (TEXT)
+- `mobile_alternate_url` - Mobile-specific URL for separate mobile sites (TEXT)
 - `indexable` - Whether page is indexable (BOOLEAN)
 - `indexability_status` - Detailed indexability status (VARCHAR)
 - `meta_robots` - Meta robots tag content (TEXT)

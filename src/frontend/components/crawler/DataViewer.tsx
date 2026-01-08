@@ -45,6 +45,7 @@ interface CrawlData {
   httpRelNext?: string;
   httpRelPrev?: string;
   amphtmlUrl?: string;
+  mobileAlternateUrl?: string;
   transferredBytes?: number;
   totalTransferredBytes?: number;
   co2Mg?: number;
@@ -62,6 +63,9 @@ interface CrawlData {
   grammarErrors?: number; // Count of grammatical mistakes found in page text
   redirectUrl?: string; // The destination URL where a user or search engine is sent
   redirectType?: string; // The method used to perform the redirect (301, 302, 307, meta-refresh, javascript)
+  cookies?: string; // JSON string of cookies set by server
+  language?: string; // Page language from headers or HTML
+  httpVersion?: string; // HTTP protocol version (HTTP/1.1, HTTP/2, HTTP/3)
 }
 
 interface DataViewerProps {
@@ -765,6 +769,13 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
     return <span className="status-badge success" title={`AMP URL: ${url}`}>⚡ {url}</span>;
   };
 
+  const getMobileAlternateBadge = (url?: string) => {
+    if (!url || url === 'undefined' || url === 'null') {
+      return <span className="status-badge unknown" title="No mobile alternate URL - Not required for responsive websites">—</span>;
+    }
+    return <span className="status-badge success" title={`Mobile Alternate URL: ${url}\n\nUsed for separate mobile URLs (m.example.com). Helps search engines serve the correct version. Important for legacy mobile setups.`}>📱 {url}</span>;
+  };
+
   const getCarbonRatingBadge = (rating?: string, co2?: number) => {
     if (!rating) return <span className="status-badge unknown">—</span>;
     
@@ -864,6 +875,80 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
     }
     
     return <span className={badgeClass} title={title}>{icon} {redirectType}</span>;
+  };
+
+  const getCookiesBadge = (cookies?: string) => {
+    if (!cookies || cookies === 'undefined' || cookies === 'null') {
+      return <span className="status-badge unknown" title="No cookies set">—</span>;
+    }
+    
+    try {
+      const cookieArray = JSON.parse(cookies);
+      const count = cookieArray.length;
+      
+      let badgeClass = 'status-badge';
+      let title = `${count} cookie(s) set by server\n`;
+      
+      // Display cookie names
+      cookieArray.forEach((cookie: any, idx: number) => {
+        title += `\n${idx + 1}. ${cookie.name}${cookie.flags ? ` (${cookie.flags})` : ''}`;
+      });
+      
+      // Assess cookie count
+      if (count === 0) {
+        badgeClass += ' success';
+        title = 'No cookies - Good for privacy';
+      } else if (count <= 3) {
+        badgeClass += ' success';
+        title = `${count} cookie(s) - Minimal tracking\n${title.split('\n').slice(1).join('\n')}`;
+      } else if (count <= 10) {
+        badgeClass += ' redirect';
+        title = `${count} cookies - Moderate tracking\n${title.split('\n').slice(1).join('\n')}`;
+      } else {
+        badgeClass += ' client-error';
+        title = `${count} cookies - Heavy tracking (may impact privacy/performance)\n${title.split('\n').slice(1).join('\n')}`;
+      }
+      
+      return <span className={badgeClass} title={title}>🍪 {count}</span>;
+    } catch {
+      return <span className="status-badge unknown" title="Invalid cookie data">Error</span>;
+    }
+  };
+
+  const getHttpVersionBadge = (httpVersion?: string) => {
+    if (!httpVersion || httpVersion === 'undefined' || httpVersion === 'null') {
+      return <span className="status-badge unknown" title="HTTP version unknown">—</span>;
+    }
+    
+    let badgeClass = 'status-badge';
+    let displayVersion = httpVersion;
+    let title = `HTTP Version: ${httpVersion}`;
+    
+    // Normalize version for comparison (handle "2.0", "HTTP/2", "h2", etc.)
+    const normalizedVersion = httpVersion.toLowerCase().replace(/[^0-9.]/g, '');
+    
+    // HTTP/2 and HTTP/3 are modern and faster
+    if (httpVersion.includes('3') || httpVersion === 'h3' || normalizedVersion === '3.0' || normalizedVersion === '3') {
+      badgeClass += ' success';
+      displayVersion = httpVersion.includes('HTTP') ? httpVersion : 'HTTP/3';
+      title += ' - Latest protocol (QUIC, best performance)';
+    } else if (httpVersion.includes('2') || httpVersion === 'h2' || normalizedVersion === '2.0' || normalizedVersion === '2') {
+      badgeClass += ' success';
+      displayVersion = httpVersion.includes('HTTP') ? httpVersion : 'HTTP/2';
+      title += ' - Modern protocol (multiplexing, header compression)';
+    } else if (httpVersion.includes('1.1') || normalizedVersion === '1.1') {
+      badgeClass += ' redirect';
+      displayVersion = httpVersion.includes('HTTP') ? httpVersion : 'HTTP/1.1';
+      title += ' - Legacy protocol (consider upgrading to HTTP/2 or HTTP/3)';
+    } else if (httpVersion.includes('1.0') || normalizedVersion === '1.0') {
+      badgeClass += ' client-error';
+      displayVersion = httpVersion.includes('HTTP') ? httpVersion : 'HTTP/1.0';
+      title += ' - Outdated protocol (performance impact)';
+    } else {
+      badgeClass += ' redirect';
+    }
+    
+    return <span className={badgeClass} title={title}>{displayVersion}</span>;
   };
 
   const getRedirectUrlBadge = (redirectUrl?: string) => {
@@ -1044,6 +1129,9 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                 <th onClick={() => handleSort('amphtmlUrl' as keyof CrawlData)} className="sortable">
                   AMP {sortField === 'amphtmlUrl' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
+                <th onClick={() => handleSort('mobileAlternateUrl' as keyof CrawlData)} className="sortable">
+                  Mobile Alternate {sortField === 'mobileAlternateUrl' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
                 <th onClick={() => handleSort('relNext')} className="sortable center-header">
                   rel="next" {sortField === 'relNext' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
@@ -1155,6 +1243,15 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                 <th className="center-header">
                   Indexability
                 </th>
+                <th onClick={() => handleSort('cookies' as keyof CrawlData)} className="sortable center-header">
+                  Cookies {sortField === 'cookies' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('language' as keyof CrawlData)} className="sortable center-header">
+                  Language {sortField === 'language' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('httpVersion' as keyof CrawlData)} className="sortable center-header">
+                  HTTP Version {sortField === 'httpVersion' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
                 <th onClick={() => handleSort('timestamp')} className="sortable center-header">
                   Timestamp {sortField === 'timestamp' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
@@ -1210,6 +1307,9 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                   </td>
                   <td className="amp-url-cell">
                     {getAmpBadge(item.amphtmlUrl)}
+                  </td>
+                  <td className="mobile-alternate-url-cell">
+                    {getMobileAlternateBadge(item.mobileAlternateUrl)}
                   </td>
                   <td className="pagination-cell">
                     {getPaginationBadge(item.relNext, 'next')}
@@ -1360,6 +1460,15 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                   </td>
                   <td className="indexability-cell">
                     {getIndexabilityBadge(item.indexable, item.indexabilityStatus)}
+                  </td>
+                  <td className="cookies-cell">
+                    {getCookiesBadge(item.cookies)}
+                  </td>
+                  <td className="language-cell">
+                    {item.language || '—'}
+                  </td>
+                  <td className="http-version-cell">
+                    {getHttpVersionBadge(item.httpVersion)}
                   </td>
                   <td className="timestamp-cell">
                     {formatTimestamp(item.timestamp || new Date().toISOString())}

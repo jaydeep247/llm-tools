@@ -45,6 +45,47 @@ export async function extractStatusData(
         }
     }
     
+    // Extract cookies from Set-Cookie headers
+    let cookies: string | undefined;
+    const setCookieHeader = response?.headers?.['set-cookie'] || 
+                           response?.responseHeaders?.['set-cookie'];
+    if (setCookieHeader) {
+        try {
+            const cookieArray = Array.isArray(setCookieHeader) ? setCookieHeader : [setCookieHeader];
+            const cookieData = cookieArray.map(cookie => {
+                // Parse cookie string to extract name, flags
+                const parts = cookie.split(';').map(p => p.trim());
+                const [nameValue] = parts;
+                const [name] = nameValue.split('=');
+                const flags = parts.slice(1).filter(p => p && !p.includes('=')).join(', ');
+                return { name, flags: flags || 'none' };
+            });
+            cookies = JSON.stringify(cookieData);
+        } catch (err) {
+            console.error('Error parsing cookies:', err);
+            cookies = undefined;
+        }
+    }
+    
+    // Extract HTTP version from response
+    let httpVersion: string | undefined;
+    // Crawlee typically doesn't expose HTTP version directly, but we can try to infer it
+    // Check if the response object has httpVersion property (some crawlers expose this)
+    if ((response as any)?.httpVersion) {
+        const ver = String((response as any).httpVersion);
+        // Normalize version format: "2.0" -> "HTTP/2", "1.1" -> "HTTP/1.1"
+        if (ver === '2.0' || ver === '2') httpVersion = 'HTTP/2';
+        else if (ver === '1.1') httpVersion = 'HTTP/1.1';
+        else if (ver === '1.0') httpVersion = 'HTTP/1.0';
+        else if (ver === '3.0' || ver === '3') httpVersion = 'HTTP/3';
+        else httpVersion = ver;
+    } else if ((response as any)?.protocol) {
+        httpVersion = (response as any).protocol;
+    } else {
+        // Default to HTTP/1.1 as it's most common
+        httpVersion = 'HTTP/1.1';
+    }
+    
     return {
         statusCode: response?.statusCode || 200,
         finalUrl: url,
@@ -52,7 +93,9 @@ export async function extractStatusData(
         language,
         responseTime,
         sizeBytes,
-        lastModified
+        lastModified,
+        cookies,
+        httpVersion
     };
 }
 

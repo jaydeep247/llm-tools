@@ -333,6 +333,34 @@ CREATE INDEX IF NOT EXISTS idx_pages_redirect_type ON pages(redirect_type);
 COMMENT ON COLUMN pages.redirect_url IS 'The destination URL where a user or search engine is sent when the original URL is requested';
 COMMENT ON COLUMN pages.redirect_type IS 'The method used to perform the redirect (301, 302, 307, meta-refresh, javascript)';
 `
+    },
+    {
+        name: '030_add_cookies_language_httpversion',
+        sql: `
+-- Add cookies, language, and HTTP version columns to pages table
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS cookies TEXT;
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS language VARCHAR(10);
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS http_version VARCHAR(20);
+
+CREATE INDEX IF NOT EXISTS idx_pages_language ON pages(language);
+CREATE INDEX IF NOT EXISTS idx_pages_http_version ON pages(http_version);
+
+COMMENT ON COLUMN pages.cookies IS 'Cookies set by the server (JSON string containing cookie names and flags)';
+COMMENT ON COLUMN pages.language IS 'Language of the page from headers or HTML lang attribute';
+COMMENT ON COLUMN pages.http_version IS 'HTTP protocol version used (HTTP/1.1, HTTP/2, HTTP/3)';
+`
+    },
+    {
+        name: '031_add_mobile_alternate_url',
+        sql: `
+-- Add mobile_alternate_url column to pages table
+-- Mobile alternate links point to mobile-specific versions of the page
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS mobile_alternate_url TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_pages_mobile_alternate_url ON pages(mobile_alternate_url);
+
+COMMENT ON COLUMN pages.mobile_alternate_url IS 'Mobile-specific URL for separate mobile site (e.g., m.example.com). Used for legacy mobile setups, not needed for responsive design.';
+`
     }
 ];
 

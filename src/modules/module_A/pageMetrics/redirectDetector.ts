@@ -22,14 +22,6 @@ export function extractRedirectData(
     response: CrawlResponse | undefined,
     originalUrl: string
 ): RedirectData {
-    // Debug logging
-    console.log('[REDIRECT DEBUG]', {
-        originalUrl,
-        responseUrl: response?.url,
-        statusCode: response?.statusCode,
-        hasResponse: !!response
-    });
-
     // 1. Check if the URL changed (Crawlee follows redirects automatically)
     // Compare the original requested URL with the final URL
     if (response?.url && response.url !== originalUrl) {
@@ -144,18 +136,39 @@ export function extractRedirectData(
         }
     }
     
-    // 4. Check for JavaScript redirects (common patterns)
+    // 4. Check for JavaScript redirects (only immediate, not conditional or event-based)
     const scriptTags = $('script').toArray();
     for (const script of scriptTags) {
         const scriptContent = $(script).html() || '';
         
-        // Check for window.location patterns
+        // Skip if the script contains common indicators of conditional/event-based redirects
+        const conditionalIndicators = [
+            /addEventListener\s*\(/i,
+            /onclick\s*=/i,
+            /function\s+\w+\s*\(/i,
+            /\.click\s*\(/i,
+            /if\s*\(/i,
+            /\belse\b/i,
+            /\bswitch\b/i,
+            /\bcase\b/i,
+            /setTimeout\s*\(/i,
+            /setInterval\s*\(/i,
+        ];
+        
+        const hasConditionalCode = conditionalIndicators.some(pattern => pattern.test(scriptContent));
+        
+        // If script has conditional/event code, skip it (too many false positives)
+        if (hasConditionalCode) {
+            continue;
+        }
+        
+        // Only detect immediate redirects (executed on page load)
         const jsRedirectPatterns = [
-            /window\.location\s*=\s*['"]([^'"]+)['"]/i,
-            /window\.location\.href\s*=\s*['"]([^'"]+)['"]/i,
-            /window\.location\.replace\(['"]([^'"]+)['"]\)/i,
-            /location\.href\s*=\s*['"]([^'"]+)['"]/i,
-            /location\.replace\(['"]([^'"]+)['"]\)/i,
+            /^[\s\n]*window\.location\s*=\s*['"]([^'"]+)['"]/im,
+            /^[\s\n]*window\.location\.href\s*=\s*['"]([^'"]+)['"]/im,
+            /^[\s\n]*window\.location\.replace\(['"]([^'"]+)['"]\)/im,
+            /^[\s\n]*location\.href\s*=\s*['"]([^'"]+)['"]/im,
+            /^[\s\n]*location\.replace\(['"]([^'"]+)['"]\)/im,
         ];
         
         for (const pattern of jsRedirectPatterns) {

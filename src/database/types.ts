@@ -53,6 +53,7 @@ export interface Page {
     httpRelNext?: string;
     httpRelPrev?: string;
     amphtmlUrl?: string;
+    mobileAlternateUrl?: string;
     transferredBytes?: number;
     totalTransferredBytes?: number;
     co2Mg?: number;
@@ -73,6 +74,9 @@ export interface Page {
     grammarErrors?: number; // Count of grammatical mistakes found in page text
     redirectUrl?: string; // The destination URL where a user or search engine is sent
     redirectType?: string; // The method used to perform the redirect (301, 302, 307, meta-refresh, javascript)
+    cookies?: string; // Cookies set by the server (JSON string)
+    language?: string; // Language of the page from headers or HTML
+    httpVersion?: string; // HTTP protocol version (HTTP/1.1, HTTP/2, HTTP/3)
 }
 
 export interface Resource {

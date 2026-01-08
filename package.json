@@ -17,7 +17,8 @@
     "seo:cli": "tsx src/seo/redis-cli.ts",
     "db:setup": "tsx src/database/scripts/initDb.ts",
     "db:crawlMigrate": "tsx src/database/scripts/crawlerTableMigration.ts",
-    "clear:sessions": "tsx scripts/clear-all-sessions.ts"
+    "clear:sessions": "tsx scripts/clear-all-sessions.ts",
+    "test:mobile": "tsx test-mobile-alternate.ts"
   },
   "keywords": [
     "contentlytics",

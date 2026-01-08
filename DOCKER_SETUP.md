@@ -297,9 +297,17 @@ docker-compose up -d --build backend
 
 ### Running Database Migrations
 
+Migrations are run automatically on container startup. To manually run migrations:
+
 ```bash
-docker exec contentlytics-backend npm run migrate
+# Run all migrations (including mobile alternate link feature)
+docker exec contentlytics-backend npm run db:crawlMigrate
+
+# Or run directly
+docker exec contentlytics-backend node dist/database/scripts/crawlerTableMigration.js
 ```
+
+**Note**: The latest migration adds support for Mobile Alternate Link detection, which helps identify separate mobile URLs (e.g., m.example.com) for legacy mobile setups.
 
 ### Accessing Database CLI
 

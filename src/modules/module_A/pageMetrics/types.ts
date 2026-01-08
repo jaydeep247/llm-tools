@@ -47,6 +47,7 @@ export interface PageMetrics {
     httpRelNext?: string;
     httpRelPrev?: string;
     amphtmlUrl?: string;
+    mobileAlternateUrl?: string;
     
     // Headers
     h1Tags: string[];
@@ -61,6 +62,8 @@ export interface PageMetrics {
     // HTTP status (finalUrl is the only unique field here)
     finalUrl: string;
     language?: string;
+    cookies?: string; // JSON string of cookies
+    httpVersion?: string; // HTTP protocol version
     
     // Redirect data
     redirectUrl?: string;
@@ -146,6 +149,8 @@ export interface StatusData {
     responseTime: number;
     sizeBytes?: number;
     lastModified?: string;
+    cookies?: string; // JSON string of cookies
+    httpVersion?: string; // HTTP protocol version
 }
 
 /**
