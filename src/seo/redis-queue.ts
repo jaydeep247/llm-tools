@@ -40,13 +40,17 @@ let maxWordCount = 10000;
 function loadRedisConfig() {
   try {
     const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
+    // Override config with environment variables if present
+    if (process.env.REDIS_HOST) config.host = process.env.REDIS_HOST;
+    if (process.env.REDIS_PORT) config.port = parseInt(process.env.REDIS_PORT, 10);
+    if (process.env.REDIS_PASSWORD) config.password = process.env.REDIS_PASSWORD;
     return config;
   } catch (error) {
-    console.warn('Redis config not found, using defaults');
+    console.warn('Redis config not found, using defaults from environment or hardcoded values');
     return {
-      host: 'localhost',
-      port: 6379,
-      password: null,
+      host: process.env.REDIS_HOST || 'localhost',
+      port: parseInt(process.env.REDIS_PORT || '6379', 10),
+      password: process.env.REDIS_PASSWORD || null,
       db: 0,
       keyPrefix: 'seo:',
       queues: {

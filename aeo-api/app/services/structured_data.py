@@ -4,7 +4,10 @@ Comprehensive structured data analyzer for AI Search Engine Optimization
 """
 
 import requests
-import extruct
+try:
+    import extruct
+except ImportError:
+    extruct = None
 import json
 import re
 from typing import Dict, List, Any, Optional, Tuple

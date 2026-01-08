@@ -478,23 +478,47 @@ def extract_keywords_from_html(html: str, url: str, final_url: str, lang_guess: 
             child_tokens = set(tokenize_phrase(sub_parent.text))
             similarity = jaccard_similarity(parent_tokens, child_tokens)
             
+            # Calculate metrics for child
+            child_intent = infer_intent(sub_parent.text)
+            child_relevance = min(100.0, sub_parent.score * 10.0)
+            child_diversity = min(100.0, 50.0 + (len(sub_parent.text.split()) * 5))
+            
             # Include sub-parents as children of the main parent
             children.append({
                 "text": sub_parent.text,
                 "score": sub_parent.score,
                 "freq": 0,  # Sub-parents don't have frequency
-                "intent": infer_intent(sub_parent.text),
-                "similarity": round(similarity, 3)
+                "intent": child_intent,
+                "similarity": round(similarity, 3),
+                "relevance_score": round(child_relevance, 1),
+                "prompt_count": 0, # Estimated
+                "diversity_score": round(child_diversity, 1)
             })
     
     # Create final keywords list
     keywords = []
     for kw in top_keywords:
+        intent = infer_intent(kw["text"])
+        
+        # Calculate prompt intelligence metrics
+        relevance_score = min(100.0, kw["score"] * 10.0)
+        
+        # Estimate prompt count based on intent and frequency
+        prompt_multiplier = 2 if intent == "informational" else 1
+        prompt_count = max(1, int(kw["freq"] * prompt_multiplier))
+        
+        # Estimate diversity score
+        diversity_base = 60 if intent == "informational" else 40
+        diversity_score = min(100.0, diversity_base + (len(kw["text"].split()) * 5))
+        
         keywords.append({
             "text": kw["text"],
             "score": kw["score"],
             "freq": kw["freq"],
-            "intent": infer_intent(kw["text"])
+            "intent": intent,
+            "relevance_score": round(relevance_score, 1),
+            "prompt_count": prompt_count,
+            "diversity_score": round(diversity_score, 1)
         })
     
     # Add debug information for troubleshooting
@@ -507,15 +531,27 @@ def extract_keywords_from_html(html: str, url: str, final_url: str, lang_guess: 
         "parent_score": parent["score"] if parent else None
     }
     
-    return {
-        "url": final_url or url,
-        "language": language,
-        "parent": {
+    parent_obj = None
+    if parent:
+        p_intent = infer_intent(parent["text"])
+        p_relevance = min(100.0, parent["score"] * 10.0)
+        p_prompt_count = max(1, int(parent["freq"] * 1.5))
+        p_diversity = 80.0
+        
+        parent_obj = {
             "text": parent["text"],
             "score": parent["score"],
             "freq": parent["freq"],
-            "intent": infer_intent(parent["text"])
-        } if parent else None,
+            "intent": p_intent,
+            "relevance_score": round(p_relevance, 1),
+            "prompt_count": p_prompt_count,
+            "diversity_score": p_diversity
+        }
+
+    return {
+        "url": final_url or url,
+        "language": language,
+        "parent": parent_obj,
         "children": children,
         "tree": tree_root.to_dict(),
         "keywords": keywords,

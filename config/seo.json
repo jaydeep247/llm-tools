@@ -1,8 +1,8 @@
 {
-  "concurrency": 6,
+  "concurrency": 2,
   "timeoutMs": 30000,
   "retries": 2,
-  "backoffBaseMs": 1000,
+  "backoffBaseMs": 3000,
   "pythonApiBase": "http://localhost:8000",
   "cacheExpirationHours": 168,
   "urlEligibility": {
