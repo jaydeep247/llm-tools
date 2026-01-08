@@ -1,6 +1,7 @@
 """
 AI Presence Analysis Service
 Analyzes AI bot accessibility and brand recognition
+Updated to respect target_models filter (Cost Saving)
 """
 
 import re
@@ -312,8 +313,11 @@ class AIPresenceService:
         
         return checks
     
-    def analyze_ai_presence(self, url: str) -> Dict:
-        """Run complete AI presence audit"""
+    def analyze_ai_presence(self, url: str, target_models: List[str] = None) -> Dict:
+        """
+        Run complete AI presence audit
+        :param target_models: Optional list of AI models to use (e.g. ['openai']). If None, uses ALL.
+        """
         try:
             # robots.txt
             robots_url = urljoin(url, '/robots.txt')
@@ -369,7 +373,12 @@ class AIPresenceService:
                 
                 # Get multi-AI understanding analysis (for ALL providers with API keys)
                 # This runs regardless of robots.txt status
-                ai_understanding = self.multi_ai_service.analyze_content_understanding(text_content, url)
+                # UPDATED: Pass target_models to filter which AIs run (Cost Saving)
+                ai_understanding = self.multi_ai_service.analyze_content_understanding(
+                    text_content, 
+                    url,
+                    providers=target_models  # <--- PASSING FILTER HERE
+                )
                 
                 # Calculate overall_score only from allowed bots (for point calculation)
                 # This ensures blocked bots don't contribute to the overall AI Presence score

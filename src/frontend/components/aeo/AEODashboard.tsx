@@ -94,6 +94,23 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
   const [simulationLoading, setSimulationLoading] = useState(false);
   // ---------------------------
 
+  const handleBulkAnalyze = async () => {
+    if (!sitemapUrl) {
+      alert('Please enter a Sitemap URL');
+      return;
+    }
+
+    setBulkLoading(true);
+    setBulkResults(null);
+
+    try {
+      const data = await apiService.analyzeBulk(sitemapUrl);
+      if (data) {
+        setBulkResults(data);
+      }
+    } catch (error: any) {
+      console.error('Bulk Audit Failed:', error);
+      alert('Bulk Audit Failed: ' + (error.message || 'Unknown Error'));
   const analyzeWebsiteScores = async () => {
     if (!url) return;
     setModuleELoading(true);
@@ -159,7 +176,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
     setSchemaError(null);
 
     try {
-      const response = await fetch('/aeo/generate-schema', {
+      const response = await fetch('/api/aeo/generate-schema', { // Updated endpoint path if necessary, assuming /api proxy
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -289,8 +306,6 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
       'claude': '🎭'
     };
 
-    const addedPlatforms = new Set<string>();
-
     if (aiData.platforms && typeof aiData.platforms === 'object') {
       Object.entries(aiData.platforms).forEach(([name, data]: [string, any]) => {
         const displayName = name === 'GPTBot' ? 'ChatGPT' :
@@ -307,7 +322,6 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
             scoreType: data.details?.score_type || 'bot_accessibility'
           }
         });
-        addedPlatforms.add(displayName.toLowerCase());
       });
     }
 
@@ -1167,24 +1181,29 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                     </div>
                   )}
 
+                  {/* UPDATE: Conditional check to ensure bulkResults exists before rendering */}
                   {bulkResults && !bulkLoading && (
                     <div className="bulk-results">
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
                         <div style={{ background: '#f0f9ff', padding: '1.5rem', borderRadius: '12px', border: '1px solid #bae6fd' }}>
                           <div style={{ fontSize: '0.9rem', color: '#0369a1', marginBottom: '0.5rem', fontWeight: '600' }}>Avg LLM Score</div>
-                          <div style={{ fontSize: '2rem', fontWeight: '700', color: '#0ea5e9' }}>{bulkResults.summary.average_llm_score}</div>
+                          {/* Use optional chaining and default 0 */}
+                          <div style={{ fontSize: '2rem', fontWeight: '700', color: '#0ea5e9' }}>{bulkResults?.summary?.average_llm_score || 0}</div>
                         </div>
                         <div style={{ background: '#f0fdf4', padding: '1.5rem', borderRadius: '12px', border: '1px solid #bbf7d0' }}>
                           <div style={{ fontSize: '0.9rem', color: '#15803d', marginBottom: '0.5rem', fontWeight: '600' }}>Avg Readability</div>
-                          <div style={{ fontSize: '2rem', fontWeight: '700', color: '#22c55e' }}>{bulkResults.summary.average_readability}</div>
+                          {/* Use optional chaining and default 0 */}
+                          <div style={{ fontSize: '2rem', fontWeight: '700', color: '#22c55e' }}>{bulkResults?.summary?.average_readability || 0}</div>
                         </div>
                         <div style={{ background: '#fff7ed', padding: '1.5rem', borderRadius: '12px', border: '1px solid #fed7aa' }}>
                           <div style={{ fontSize: '0.9rem', color: '#c2410c', marginBottom: '0.5rem', fontWeight: '600' }}>Weak Content %</div>
-                          <div style={{ fontSize: '2rem', fontWeight: '700', color: '#f97316' }}>{bulkResults.summary.weak_content_ratio}%</div>
+                          {/* Use optional chaining and default 0 */}
+                          <div style={{ fontSize: '2rem', fontWeight: '700', color: '#f97316' }}>{bulkResults?.summary?.weak_content_ratio || 0}%</div>
                         </div>
                         <div style={{ background: '#fff1f2', padding: '1.5rem', borderRadius: '12px', border: '1px solid #fecdd3' }}>
                           <div style={{ fontSize: '0.9rem', color: '#be123c', marginBottom: '0.5rem', fontWeight: '600' }}>No Entities %</div>
-                          <div style={{ fontSize: '2rem', fontWeight: '700', color: '#f43f5e' }}>{bulkResults.summary.missing_entities_ratio}%</div>
+                          {/* Use optional chaining and default 0 */}
+                          <div style={{ fontSize: '2rem', fontWeight: '700', color: '#f43f5e' }}>{bulkResults?.summary?.missing_entities_ratio || 0}%</div>
                         </div>
                       </div>
 
@@ -1201,7 +1220,8 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                             </tr>
                           </thead>
                           <tbody>
-                            {bulkResults.details.map((row: any, idx: number) => (
+                            {/* Check if details array exists before mapping */}
+                            {bulkResults?.details && bulkResults.details.map((row: any, idx: number) => (
                               <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
                                 <td style={{ padding: '1rem', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                   <a href={row.url} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', textDecoration: 'none' }}>
@@ -1212,16 +1232,16 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                                   <span style={{
                                     padding: '4px 8px',
                                     borderRadius: '12px',
-                                    background: row.llm_score >= 60 ? '#dcfce7' : '#fee2e2',
-                                    color: row.llm_score >= 60 ? '#166534' : '#991b1b',
+                                    background: (row.llm_score || 0) >= 60 ? '#dcfce7' : '#fee2e2',
+                                    color: (row.llm_score || 0) >= 60 ? '#166534' : '#991b1b',
                                     fontWeight: '600'
                                   }}>
-                                    {row.llm_score}
+                                    {row.llm_score || 0}
                                   </span>
                                 </td>
-                                <td style={{ padding: '1rem', textAlign: 'center' }}>{row.readability}</td>
-                                <td style={{ padding: '1rem', textAlign: 'center' }}>{row.entities_count || row.entities}</td>
-                                <td style={{ padding: '1rem', textAlign: 'center' }}>{row.fact_density}%</td>
+                                <td style={{ padding: '1rem', textAlign: 'center' }}>{row.readability || 0}</td>
+                                <td style={{ padding: '1rem', textAlign: 'center' }}>{row.entities_count || row.entities || 0}</td>
+                                <td style={{ padding: '1rem', textAlign: 'center' }}>{row.fact_density || 0}%</td>
                                 <td style={{ padding: '1rem', textAlign: 'center' }}>
                                   {row.status === 'Good' ? '✅' : row.status === 'Error' ? '⚠️' : '🔻'}
                                 </td>
@@ -1237,7 +1257,6 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
             </div>
           )}
 
-          {/* NEW: AI SIMULATOR VIEW */}
           {activeView === 'simulator' && (
             <div className="dashboard-card" style={{ padding: '2rem' }}>
               <div className="card-header" style={{ marginBottom: '2rem' }}>
@@ -1287,6 +1306,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                 </div>
               )}
 
+              {/* UPDATE: Conditional check to ensure simulationResults exists before rendering */}
               {simulationResults && !simulationLoading && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
                   {/* OpenAI Card */}
@@ -1296,7 +1316,8 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                       <span style={{ fontWeight: '600' }}>ChatGPT (GPT-4o)</span>
                     </div>
                     <div style={{ padding: '1.5rem', fontSize: '0.95rem', lineHeight: '1.6', color: '#334155' }}>
-                      {simulationResults.openai_answer || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No answer generated.</span>}
+                      {/* Check if property exists */}
+                      {simulationResults?.openai_answer || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No answer generated.</span>}
                     </div>
                   </div>
 
@@ -1307,7 +1328,8 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                       <span style={{ fontWeight: '600' }}>Google Gemini</span>
                     </div>
                     <div style={{ padding: '1.5rem', fontSize: '0.95rem', lineHeight: '1.6', color: '#334155' }}>
-                      {simulationResults.gemini_answer || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No answer generated.</span>}
+                      {/* Check if property exists */}
+                      {simulationResults?.gemini_answer || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No answer generated.</span>}
                     </div>
                   </div>
 
@@ -1318,14 +1340,14 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                       <span style={{ fontWeight: '600' }}>Anthropic Claude</span>
                     </div>
                     <div style={{ padding: '1.5rem', fontSize: '0.95rem', lineHeight: '1.6', color: '#334155' }}>
-                      {simulationResults.claude_answer || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No answer generated.</span>}
+                      {/* Check if property exists */}
+                      {simulationResults?.claude_answer || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No answer generated.</span>}
                     </div>
                   </div>
                 </div>
               )}
             </div>
           )}
-
         </div>
       </div>
 
