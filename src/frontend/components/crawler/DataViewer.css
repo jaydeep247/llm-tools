@@ -182,14 +182,24 @@
   background: #e9ecef;
 }
 
+.data-table th.center-header {
+  text-align: center;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
 .data-table td {
   padding: 12px 8px;
   border-bottom: 1px solid #f1f3f4;
-  vertical-align: top;
+  vertical-align: middle;
+}
+
+.data-table tr {
+  transition: background-color 0.2s ease;
 }
 
 .data-table tr:hover {
-  background: #f8f9fa;
+  background: #f0f2f5 !important;
 }
 
 .success-row {
@@ -216,10 +226,9 @@
 }
 
 .title-cell {
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 300px;
+  word-wrap: break-word;
+  white-space: normal;
 }
 
 .status-cell {
@@ -228,12 +237,13 @@
 
 .status-badge {
   display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
+  padding: 5px 10px;
+  border-radius: 5px;
   font-size: 12px;
   font-weight: 600;
   text-align: center;
-  min-width: 40px;
+  min-width: 50px;
+  white-space: nowrap;
 }
 
 .status-badge.success {
@@ -262,7 +272,7 @@
 }
 
 .response-time-cell {
-  text-align: right;
+  text-align: center;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 13px;
 }
@@ -271,7 +281,150 @@
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 13px;
   color: #6c757d;
+  text-align: center;
 }
+
+/* Center alignment for numeric and badge columns */
+.title-length-cell,
+.title-pixel-width-cell,
+.description-length-cell,
+.description-pixel-width-cell,
+.meta-keywords-length-cell,
+.meta-robots-cell,
+.x-robots-tag-cell,
+.meta-refresh-cell,
+.heading-tags-cell,
+.resource-type-cell,
+.word-count-cell,
+.size-bytes-cell,
+.indexability-cell {
+  text-align: center;
+}
+
+/* Meta keywords cell styling */
+.meta-keywords-cell {
+  min-width: 250px;
+  width: 450px;
+  max-width: 450px;
+  word-wrap: break-word;
+  white-space: normal;
+  text-align: center;
+}
+
+/* Allow meta keywords badges to wrap to multiple lines */
+.meta-keywords-cell .status-badge {
+  white-space: normal;
+  word-wrap: break-word;
+  display: inline-block;
+  max-width: 100%;
+}
+
+/* Meta robots cell styling */
+.meta-robots-cell {
+  min-width: 150px;
+  max-width: 250px;
+  word-wrap: break-word;
+  white-space: normal;
+  text-align: center;
+}
+
+/* Allow meta robots badges to wrap to multiple lines */
+.meta-robots-cell .status-badge {
+  white-space: normal;
+  word-wrap: break-word;
+  display: inline-block;
+  max-width: 100%;
+}
+
+/* X-Robots-Tag cell styling */
+.x-robots-tag-cell {
+  min-width: 150px;
+  max-width: 250px;
+  word-wrap: break-word;
+  white-space: normal;
+  text-align: center;
+}
+
+/* Allow X-Robots-Tag badges to wrap to multiple lines */
+.x-robots-tag-cell .status-badge {
+  white-space: normal;
+  word-wrap: break-word;
+  display: inline-block;
+  max-width: 100%;
+}
+
+/* Meta Refresh cell styling */
+.meta-refresh-cell {
+  min-width: 150px;
+  max-width: 250px;
+  word-wrap: break-word;
+  white-space: normal;
+  text-align: center;
+}
+
+/* Allow Meta Refresh badges to wrap to multiple lines */
+.meta-refresh-cell .status-badge {
+  white-space: normal;
+  word-wrap: break-word;
+  display: inline-block;
+  max-width: 100%;
+}
+
+/* Canonical URL cell styling */
+.canonical-url-cell {
+  min-width: 200px;
+  max-width: 400px;
+  word-wrap: break-word;
+  white-space: normal;
+}
+
+/* Allow Canonical URL badges to wrap to multiple lines */
+.canonical-url-cell .status-badge {
+  white-space: normal;
+  word-wrap: break-word;
+  display: inline-block;
+  max-width: 100%;
+}
+
+/* Pagination cell styling */
+.pagination-cell {
+  min-width: 150px;
+  max-width: 300px;
+  word-wrap: break-word;
+  white-space: normal;
+}
+
+/* Allow Pagination badges to wrap */
+.pagination-cell .status-badge {
+  white-space: normal;
+  word-wrap: break-word;
+  display: inline-block;
+  max-width: 100%;
+}
+
+/* Description cell styling */
+.description-cell {
+  max-width: 350px;
+  word-wrap: break-word;
+  white-space: normal;
+}
+
+/* Content type cell styling */
+.content-type-cell {
+  text-align: center;
+  font-weight: 500;
+  word-wrap: break-word;
+  white-space: normal;
+}
+
+/* Last modified cell styling */
+.last-modified-cell {
+  text-align: center;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 13px;
+  color: #6c757d;
+}
+
 
 .actions-cell {
   text-align: center;

@@ -32,6 +32,9 @@ interface PageStats {
   title: string;
   outlinks: number;
   inlinks: number;
+  uniqueInlinks: number;
+  uniqueJsInlinks: number;
+  percentOfTotal: number;
   externalOutlinks: number;
   internalOutlinks: number;
 }
@@ -98,7 +101,20 @@ export default function LinkExplorer({ onClose }: LinkExplorerProps) {
       console.log('Stats data received:', statsData);
 
       setStats(statsData.stats);
-      setPageStats(statsData.pageStats);
+      // Map the API response fields to match our interface
+      const mappedPageStats = statsData.pageStats.map((page: any) => ({
+        pageId: page.pageId,
+        url: page.url,
+        title: page.title,
+        outlinks: page.outlinksCount,
+        inlinks: page.inlinksCount,
+        uniqueInlinks: page.uniqueInlinksCount || 0,
+        uniqueJsInlinks: page.uniqueJsInlinksCount || 0,
+        percentOfTotal: page.percentOfTotal || 0,
+        externalOutlinks: page.externalOutlinks || 0,
+        internalOutlinks: page.internalOutlinks || 0
+      }));
+      setPageStats(mappedPageStats);
 
       // Load links for the first page if available
       if (statsData.pageStats.length > 0) {
@@ -340,6 +356,18 @@ export default function LinkExplorer({ onClose }: LinkExplorerProps) {
                 <div className="stat-value">{stats.externalLinks}</div>
                 <div className="stat-label">External</div>
               </div>
+              <div className="stat-card" title="Number of distinct internal pages that link to each page">
+                <div className="stat-value" style={{ color: '#667eea' }}>
+                  {pageStats.reduce((sum, page) => sum + (page.uniqueInlinks || 0), 0)}
+                </div>
+                <div className="stat-label">Unique Inlinks</div>
+              </div>
+              <div className="stat-card" title="Number of distinct pages that link via JavaScript-rendered links (SPA navigation, React/Vue dynamic links)">
+                <div className="stat-value" style={{ color: '#f59e0b' }}>
+                  {pageStats.reduce((sum, page) => sum + (page.uniqueJsInlinks || 0), 0)}
+                </div>
+                <div className="stat-label">Unique JS Inlinks</div>
+              </div>
               {Object.entries(stats.linksByPosition || {}).map(([position, count]) => (
                 <div key={position} className="stat-card">
                   <div className="stat-value">{count}</div>
@@ -362,7 +390,29 @@ export default function LinkExplorer({ onClose }: LinkExplorerProps) {
                     <div className="page-title">{page.title}</div>
                     <div className="page-url">{page.url}</div>
                     <div className="page-stats">
-                      {page.outlinks} out • {page.inlinks} in
+                      <span title="Total Outlinks">{page.outlinks} out</span>
+                      <span className="stats-separator">•</span>
+                      <span title="Total Inlinks">{page.inlinks} in</span>
+                      <span className="stats-separator">•</span>
+                      <span title="Unique Inlinks - Number of distinct pages linking here" style={{ fontWeight: 600, color: '#667eea' }}>
+                        {page.uniqueInlinks || 0} unique
+                      </span>
+                      {page.uniqueJsInlinks > 0 && (
+                        <>
+                          <span className="stats-separator">•</span>
+                          <span title="Unique JS Inlinks - Links rendered via JavaScript (SPA, React/Vue)" style={{ fontWeight: 600, color: '#f59e0b' }}>
+                            {page.uniqueJsInlinks} JS
+                          </span>
+                        </>
+                      )}
+                      {page.percentOfTotal > 0 && (
+                        <>
+                          <span className="stats-separator">•</span>
+                          <span title="% of Total - Share of all internal links pointing to this page" style={{ fontWeight: 600, color: '#10b981' }}>
+                            {page.percentOfTotal.toFixed(2)}%
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}

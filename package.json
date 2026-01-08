@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "nodemon",
     "dev:frontend": "vite",
-    "dev:aeo": "cd aeo-api && python run.py",
+    "dev:aeo": "cd aeo-api && ./venv/bin/python run.py",
     "dev:full": "start \"Backend\" cmd /k \"npm run dev\" && start \"Frontend\" cmd /k \"npm run dev:frontend\"",
     "dev:all": "start \"Backend\" cmd /k \"npm run dev\" && start \"Frontend\" cmd /k \"npm run dev:frontend\" && start \"AEO API\" cmd /k \"npm run dev:aeo\"",
     "start": "node dist/index.js",
@@ -16,7 +16,9 @@
     "seo:worker": "tsx src/seo/redis-worker.ts",
     "seo:cli": "tsx src/seo/redis-cli.ts",
     "db:setup": "tsx src/database/scripts/initDb.ts",
-    "db:aeo:setup": "tsx src/database/scripts/initAeoDb.ts"
+    "db:crawlMigrate": "tsx src/database/scripts/crawlerTableMigration.ts",
+    "clear:sessions": "tsx scripts/clear-all-sessions.ts",
+    "test:mobile": "tsx test-mobile-alternate.ts"
   },
   "keywords": [
     "contentlytics",

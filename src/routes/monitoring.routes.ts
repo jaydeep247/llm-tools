@@ -497,14 +497,24 @@ router.delete('/data/clear', async (req, res) => {
     const db = getDatabase();
     await db.clearAllData();
 
-    const requestQueue = await RequestQueue.open();
-    const queueInfo = await requestQueue.getInfo();
-    logger.info('Clearing request queue', {
-      queueName: queueInfo?.name,
-      pendingCount: queueInfo?.pendingRequestCount,
-      handledCount: queueInfo?.handledRequestCount,
-    });
-    await requestQueue.drop();
+    // Clear ALL request queues (not just the default one)
+    // Session-specific queues persist in storage/request_queues/ and can cause
+    // URLs to be marked as "already handled" even after database is cleared
+    try {
+      const queueDir = path.resolve(process.cwd(), 'storage', 'request_queues');
+      if (fs.existsSync(queueDir)) {
+        const queueDirs = fs.readdirSync(queueDir);
+        for (const dir of queueDirs) {
+          const dirPath = path.join(queueDir, dir);
+          if (fs.statSync(dirPath).isDirectory()) {
+            fs.rmSync(dirPath, { recursive: true, force: true });
+          }
+        }
+        logger.info(`Cleared ${queueDirs.length} request queue(s) from storage`);
+      }
+    } catch (error) {
+      logger.warn('Failed to clear request queues', error as Error);
+    }
 
     metricsCollector.reset();
     logger.clearLogs();

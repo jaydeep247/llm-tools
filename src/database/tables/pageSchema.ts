@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS pages (
     word_count INTEGER NOT NULL DEFAULT 0,
     timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     success BOOLEAN NOT NULL,
-    error_message TEXT
+    error_message TEXT,
+    link_score NUMERIC(5,2) DEFAULT NULL
 );
 
 -- Resources table (CSS, JS, Images)
@@ -48,6 +49,7 @@ CREATE TABLE IF NOT EXISTS links (
     position TEXT,
     rel TEXT,
     nofollow BOOLEAN DEFAULT FALSE,
+    is_js_rendered BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -91,5 +93,6 @@ CREATE INDEX IF NOT EXISTS idx_pages_session_id ON pages (session_id);
 CREATE INDEX IF NOT EXISTS idx_pages_url ON pages (url);
 CREATE INDEX IF NOT EXISTS idx_resources_session_id ON resources (session_id);
 CREATE INDEX IF NOT EXISTS idx_links_session_id ON links (session_id);
+CREATE INDEX IF NOT EXISTS idx_links_js_rendered ON links (is_js_rendered) WHERE is_js_rendered = TRUE;
 CREATE INDEX IF NOT EXISTS idx_sitemap_urls_session_id ON sitemap_urls (session_id);
 `;

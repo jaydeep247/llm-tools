@@ -234,4 +234,44 @@ router.get('/api/links/relationships/export.csv', async (req, res) => {
     }
 });
 
+// Get unique inlinks for a specific page
+router.get('/api/pages/:pageId/unique-inlinks', async (req, res) => {
+    try {
+        const { pageId } = req.params;
+        const { limit = 100 } = req.query;
+
+        const db = getDatabase();
+        const uniqueInlinks = await db.getUniqueInlinks(Number(pageId), Number(limit));
+
+        res.json({
+            uniqueInlinks,
+            count: uniqueInlinks.length,
+            pageId: Number(pageId)
+        });
+    } catch (error) {
+        console.error('Error fetching unique inlinks:', error);
+        res.status(500).json({ error: 'Failed to fetch unique inlinks' });
+    }
+});
+
+// Get unique JS inlinks for a specific page
+router.get('/api/pages/:pageId/unique-js-inlinks', async (req, res) => {
+    try {
+        const { pageId } = req.params;
+        const { limit = 100 } = req.query;
+
+        const db = getDatabase();
+        const uniqueJsInlinks = await db.getUniqueJsInlinks(Number(pageId), Number(limit));
+
+        res.json({
+            uniqueJsInlinks,
+            count: uniqueJsInlinks.length,
+            pageId: Number(pageId)
+        });
+    } catch (error) {
+        console.error('Error fetching unique JS inlinks:', error);
+        res.status(500).json({ error: 'Failed to fetch unique JS inlinks' });
+    }
+});
+
 export default router;
