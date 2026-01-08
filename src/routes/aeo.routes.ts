@@ -135,9 +135,7 @@ router.post('/analyze',
             res.json(data);
         } catch (error: any) {
             const totalDuration = Date.now() - startTime;
-            logger.error('=== AEO ANALYZE REQUEST FAILED ===', {
-                error: error instanceof Error ? error.message : String(error),
-                stack: error instanceof Error ? error.stack : undefined,
+            logger.error('=== AEO ANALYZE REQUEST FAILED ===', error instanceof Error ? error : new Error(String(error)), {
                 duration: `${totalDuration}ms`
             });
             res.status(500).json({
