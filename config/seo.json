@@ -3,7 +3,7 @@
   "timeoutMs": 30000,
   "retries": 2,
   "backoffBaseMs": 3000,
-  "pythonApiBase": "http://localhost:8000",
+  "pythonApiBase": "http://aeo-api:8000",
   "cacheExpirationHours": 168,
   "urlEligibility": {
     "httpsOnly": true,

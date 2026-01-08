@@ -129,12 +129,15 @@ services:
       - REDIS_PORT=6379
       - JWT_SECRET=${JWT_SECRET:-contentAnalytics}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-contentAnalyticsToken}
+      - PY_API_BASE=http://aeo-api:8000
     command: ["node", "dist/seo/redis-worker.js"]
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      aeo-api:
+        condition: service_started
     networks:
       - contentlytics-network
     restart: unless-stopped

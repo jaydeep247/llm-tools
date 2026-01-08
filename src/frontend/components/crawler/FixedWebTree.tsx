@@ -404,7 +404,7 @@ export default function WebTree({ onClose }: WebTreeProps) {
       if (seoEnabled && seo && seo.parentText) {
         // Attach SEO nodes without visual prefixes; mark internal types for keying
         const keywordChildren: TidyTreeNode[] = (seo.topKeywords || []).slice(0, 8).map((kw) => ({
-          text: `${kw.text} (🤖${kw.prompt_count ?? 0} 🎯${kw.relevance_score ?? 0.0} 🌈${kw.diversity_score ?? 0.0})`,
+          text: `${kw.text} (🤖 Prompts: ${kw.prompt_count ?? 0} | 🎯 Relevance: ${kw.relevance_score ?? 0.0} | 🌈 Diversity: ${kw.diversity_score ?? 0.0})`,
           __type: 'kw'
         } as any));
         const mainKwNode = {
