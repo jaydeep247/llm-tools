@@ -417,9 +417,7 @@ router.post('/website-score', async (req, res) => {
                     const savedId = await db.insertAeoResultsTable(dataToSave);
                     logger.info('✅ MODULE E: Successfully saved to database!', { sessionId, url, savedId });
                 } catch (saveError) {
-                    logger.error('❌ MODULE E: Failed to save to database', {
-                        error: saveError instanceof Error ? saveError.message : String(saveError),
-                        stack: saveError instanceof Error ? saveError.stack : undefined,
+                    logger.error('❌ MODULE E: Failed to save to database', saveError as Error, {
                         sessionId,
                         url
                     });
