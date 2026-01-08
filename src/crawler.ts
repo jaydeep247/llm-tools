@@ -33,7 +33,17 @@ function isValidHttpLink(href: string): boolean {
     }
 
     // Must be HTTP or HTTPS
-    return lowerHref.startsWith('http://') || lowerHref.startsWith('https://');
+    if (!lowerHref.startsWith('http://') && !lowerHref.startsWith('https://')) {
+        return false;
+    }
+
+    // Skip common image and media extensions
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.ico', '.bmp', '.tiff', '.mp4', '.mp3', '.pdf', '.zip', '.tar', '.gz'];
+    if (imageExtensions.some(ext => lowerHref.endsWith(ext))) {
+        return false;
+    }
+
+    return true;
 }
 
 type CrawlOptions = {

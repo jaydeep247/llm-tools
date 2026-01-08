@@ -257,6 +257,54 @@ class ApiService {
 
         // Handle the response structure from AEO API
         if (aeoData.success && aeoData.results) {
+          // Automatically trigger Module E analysis (Content Consistency + Entity Coverage + Brand)
+          console.log(`Automatically triggering Module E analysis for: ${url}`);
+          try {
+            const moduleEResponse = await this.fetchWithTimeout(
+              `/aeo/website-score`,
+              {
+                method: 'POST',
+                headers: this.getAuthHeaders(),
+                credentials: 'include',
+                body: JSON.stringify({
+                  url: url.trim(),
+                  sessionId: crawlData.sessionId
+                }),
+              },
+              300000 // 5 minutes timeout
+            );
+
+            if (moduleEResponse.ok) {
+              const moduleEData = await moduleEResponse.json();
+              console.log('Module E analysis completed automatically:', moduleEData);
+
+              // Merge Module E results into AEO results
+              if (moduleEData.success && moduleEData.scores) {
+                if (!aeoData.results.module_scores) {
+                  aeoData.results.module_scores = {};
+                }
+
+                // Add Module E scores to module_scores
+                aeoData.results.module_scores.consistency = moduleEData.scores.consistency;
+                aeoData.results.module_scores.brand_metrics = moduleEData.scores.brand_metrics;
+
+                // Add entity_coverage to top level
+                aeoData.results.entity_coverage = moduleEData.scores.entity_coverage;
+
+                console.log('Merged Module E data into AEO results:', {
+                  consistency: moduleEData.scores.consistency,
+                  hasBrandMetrics: !!moduleEData.scores.brand_metrics,
+                  hasEntityCoverage: !!moduleEData.scores.entity_coverage
+                });
+              }
+            } else {
+              console.warn('Module E analysis failed, but continuing with AEO results');
+            }
+          } catch (moduleEError) {
+            console.warn('Module E analysis error (non-critical):', moduleEError);
+            // Don't fail the whole analysis if Module E fails
+          }
+
           return aeoData.results;
         } else {
           throw new Error(aeoData.error || 'AEO analysis failed');

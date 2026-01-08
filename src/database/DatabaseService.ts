@@ -420,6 +420,14 @@ export class DatabaseService {
     async getAeoAnalysisResultBySessionId(sessionId: number): Promise<any | null> {
         return this.audits.getAeoAnalysisResultBySessionId(sessionId);
     }
+
+    async getAeoResultsTableBySessionId(sessionId: number): Promise<any | null> {
+        return this.audits.getAeoResultsTableBySessionId(sessionId);
+    }
+
+    async insertAeoResultsTable(data: any): Promise<number> {
+        return this.audits.insertAeoResultsTable(data);
+    }
 }
 
 // Export a getter for the singleton instance

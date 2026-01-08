@@ -2,6 +2,7 @@ import { query, getPool } from '../dbConnection.js';
 import { userSchema } from '../tables/userSchema.js';
 import { crawlSchema } from '../tables/crawlSchema.js';
 import { pageSchema } from '../tables/pageSchema.js';
+import { aeoSchema } from '../tables/aeoSchema.js';
 import { auditSchema } from '../tables/auditSchema.js';
 
 async function initializeDatabase() {
@@ -11,7 +12,8 @@ async function initializeDatabase() {
         { name: 'Users', sql: userSchema },
         { name: 'Crawls', sql: crawlSchema },
         { name: 'Pages', sql: pageSchema },
-        { name: 'Audits', sql: auditSchema }
+        { name: 'Audits', sql: auditSchema },
+        { name: 'AEO', sql: aeoSchema }
     ];
 
     try {

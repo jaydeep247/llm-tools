@@ -575,17 +575,19 @@ const AppWithAuth: React.FC = () => {
               success: true,
               url: crawlUrl,
               grade: r.grade || 'N/A',
-              grade_color: r.gradeColor || '#666666',
-              overall_score: r.overallScore || 0,
-              module_scores: r.moduleScores,
-              module_weights: r.moduleWeights,
-              detailed_analysis: r.detailedAnalysis,
-              structured_data: r.structuredData,
-              all_recommendations: r.recommendations,
+              grade_color: r.gradeColor || r.grade_color || '#666666',
+              overall_score: r.overallScore || r.overall_score || 0,
+              module_scores: r.moduleScores || r.module_scores,
+              module_weights: r.moduleWeights || r.module_weights,
+              detailed_analysis: r.detailedAnalysis || r.detailed_analysis,
+              structured_data: r.structuredData || r.structured_data,
+              all_recommendations: r.recommendations || r.all_recommendations,
               errors: r.errors,
               warnings: r.warnings,
-              analysis_timestamp: r.analysisTimestamp,
-              run_id: r.runId,
+              analysis_timestamp: r.analysisTimestamp || r.analysis_timestamp,
+              run_id: r.runId || r.run_id,
+              // Ensure entity_coverage is passed if it exists at root level
+              entity_coverage: r.entity_coverage
             } as AnalysisResult;
             console.log(`[DEBUG] Successfully fetched full AEO analysis for session ${sessionId}`);
           }

@@ -1,4 +1,6 @@
 import express from 'express';
+import { MultiModelScoringService } from '../modules/module_E/MultiModelScoringService.js';
+import { getPool } from '../database/dbConnection.js';
 import { Logger } from '../logging/Logger.js';
 import { authenticateUser, checkUsageLimit } from '../auth/authMiddleware.js';
 
@@ -131,11 +133,9 @@ router.post('/analyze',
             });
 
             res.json(data);
-        } catch (error) {
+        } catch (error: any) {
             const totalDuration = Date.now() - startTime;
-            logger.error('=== AEO ANALYZE REQUEST FAILED ===', {
-                error: error instanceof Error ? error.message : String(error),
-                stack: error instanceof Error ? error.stack : undefined,
+            logger.error('=== AEO ANALYZE REQUEST FAILED ===', error instanceof Error ? error : new Error(String(error)), {
                 duration: `${totalDuration}ms`
             });
             res.status(500).json({
@@ -247,18 +247,97 @@ router.get('/results/:sessionId',
             const db = await import('../database/DatabaseService.js').then(m => m.getDatabase());
 
             const aeoResult = await db.getAeoAnalysisResultBySessionId(parseInt(sessionId, 10));
+            const multiModelResult = await db.getAeoResultsTableBySessionId(parseInt(sessionId, 10));
 
-            if (!aeoResult) {
+            logger.info('DEBUG: Retrieved results', {
+                hasAeoResult: !!aeoResult,
+                hasMultiModelResult: !!multiModelResult,
+                multiModelResult: multiModelResult
+            });
+
+            if (!aeoResult && !multiModelResult) {
                 return res.status(404).json({
                     error: 'No AEO analysis found for this session',
                     sessionId
                 });
             }
 
-            logger.info('Retrieved AEO analysis results', { sessionId });
+
+            // Merge logic: Ensure brand_metrics from multiModelResult is available in the response
+            // Parse aeoResult if it's a string (stored as JSON in DB)
+            let finalResult = aeoResult || { session_id: parseInt(sessionId, 10), module_scores: {} };
+
+            // If aeoResult is a string, parse it
+            if (typeof finalResult === 'string') {
+                try {
+                    finalResult = JSON.parse(finalResult);
+                } catch (parseError) {
+                    logger.error('Failed to parse aeoResult JSON string:', parseError as Error);
+                    finalResult = { session_id: parseInt(sessionId, 10), module_scores: {} };
+                }
+            }
+
+            // Also parse module_scores if it's a string (nested JSON)
+            if (finalResult.module_scores && typeof finalResult.module_scores === 'string') {
+                try {
+                    finalResult.module_scores = JSON.parse(finalResult.module_scores);
+                } catch (parseError) {
+                    logger.error('Failed to parse module_scores JSON string:', parseError as Error);
+                    finalResult.module_scores = {};
+                }
+            }
+
+            logger.info('DEBUG: Before merge', {
+                finalResultModuleScores: finalResult.module_scores,
+                multiModelBrandMetrics: multiModelResult?.brand_metrics,
+                multiModelConsistency: multiModelResult?.consistency,
+                multiModelEntityCoverage: multiModelResult?.entity_coverage
+            });
+
+            if (multiModelResult) {
+                // Initialize module_scores if missing
+                if (!finalResult.module_scores) {
+                    finalResult.module_scores = {};
+                }
+
+                // Inject Brand Metrics if available and not already present
+                if (multiModelResult.brand_metrics) {
+                    finalResult.module_scores.brand_metrics = multiModelResult.brand_metrics;
+                    logger.info('DEBUG: Injected brand_metrics');
+                }
+
+                // Inject other scores if missing (Consistency, Entity Coverage)
+                if (multiModelResult.consistency && !finalResult.module_scores.consistency) {
+                    finalResult.module_scores.consistency = multiModelResult.consistency;
+                    logger.info('DEBUG: Injected consistency');
+                }
+
+                // Attach entity coverage detailed result if needed by frontend
+                if (multiModelResult.entity_coverage) {
+                    finalResult.entity_coverage = multiModelResult.entity_coverage;
+                    logger.info('DEBUG: Injected entity_coverage');
+                }
+
+                // Sync module_scores to moduleScores for frontend compatibility
+                // This ensures AppWithAuth (which prefers moduleScores) receives the updated data
+                if (finalResult.module_scores) {
+                    finalResult.moduleScores = finalResult.module_scores;
+                }
+            }
+
+
+
+
+            logger.info('Retrieved AEO analysis results', { sessionId, hasBrandMetrics: !!finalResult.module_scores?.brand_metrics });
+
+            // Prevent caching to ensure fresh data
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+
             res.json({
                 success: true,
-                results: aeoResult
+                results: finalResult
             });
         } catch (error) {
             logger.error('Error retrieving AEO analysis results:', error as Error);
@@ -268,5 +347,103 @@ router.get('/results/:sessionId',
             });
         }
     });
+
+// Website Score Endpoint
+router.post('/website-score', async (req, res) => {
+    try {
+        const { url, sessionId } = req.body;
+
+        logger.info('=== MODULE E: /website-score endpoint called ===', {
+            url,
+            sessionId,
+            hasSessionId: !!sessionId,
+            sessionIdType: typeof sessionId
+        });
+
+        if (!url) {
+            return res.status(400).json({ success: false, error: 'URL is required' });
+        }
+
+        // Ideally fetch homepage content dynamically or from DB
+        // For now, we will fetch it live to ensure we have content for the AEO Service
+        // This makes it robust even if the crawl DB is missing the content column
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Failed to fetch ${url}`);
+            const text = await response.text();
+
+            logger.info('MODULE E: Calling generateWebsiteScores', { url, sessionId });
+            const scores = await MultiModelScoringService.generateWebsiteScores(url, [{
+                url: url,
+                content: text,
+                title: 'Homepage',
+                word_count: text.length / 5,
+                status_code: response.status
+            }], sessionId);
+
+            logger.info('MODULE E: Scores generated', {
+                hasScores: !!scores,
+                consistency: scores?.consistency,
+                hasEntityCoverage: !!scores?.entity_coverage,
+                entityCoverageScore: scores?.entity_coverage?.score,
+                hasBrandMetrics: !!scores?.brand_metrics,
+                brandName: scores?.brand_metrics?.brand_name
+            });
+
+            // Save Module E results to database for history view
+            if (sessionId && scores) {
+                logger.info('MODULE E: Attempting to save to database', { sessionId, url });
+                try {
+                    const db = await import('../database/DatabaseService.js').then(m => m.getDatabase());
+
+                    const dataToSave = {
+                        session_id: sessionId,
+                        url: url,
+                        consistency: scores.consistency,
+                        score_entity_coverage: scores.entity_coverage?.score,
+                        entities_expected: scores.entity_coverage?.entities_expected,
+                        entities_observed: scores.entity_coverage?.entities_observed,
+                        entities_missing: scores.entity_coverage?.entities_missing,
+                        brand_metrics: scores.brand_metrics
+                    };
+
+                    logger.info('MODULE E: Data prepared for save', {
+                        session_id: dataToSave.session_id,
+                        consistency: dataToSave.consistency,
+                        score_entity_coverage: dataToSave.score_entity_coverage,
+                        hasBrandMetrics: !!dataToSave.brand_metrics
+                    });
+
+                    const savedId = await db.insertAeoResultsTable(dataToSave);
+                    logger.info('✅ MODULE E: Successfully saved to database!', { sessionId, url, savedId });
+                } catch (saveError) {
+                    logger.error('❌ MODULE E: Failed to save to database', {
+                        error: saveError instanceof Error ? saveError.message : String(saveError),
+                        stack: saveError instanceof Error ? saveError.stack : undefined,
+                        sessionId,
+                        url
+                    });
+                    // Don't fail the request if save fails
+                }
+            } else {
+                logger.warn('MODULE E: Skipping database save', {
+                    hasSessionId: !!sessionId,
+                    hasScores: !!scores,
+                    sessionId,
+                    url
+                });
+            }
+
+            res.json({ success: true, scores });
+        } catch (fetchError) {
+            logger.error('Error fetching URL live for scoring:', fetchError as Error);
+            return res.status(400).json({ success: false, error: 'Could not fetch URL for analysis' });
+        }
+
+    } catch (error) {
+        logger.error('Error in website-score endpoint:', error as Error);
+        res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+});
 
 export default router;

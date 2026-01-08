@@ -212,6 +212,87 @@ class CompetitorAnalysisService:
                 'fetched_count': 0
             }
     
+    def get_content_phrase_trends(
+        self,
+        keyword: str,
+        date_from: str = "2018-01-01",
+        date_group: str = "month",
+        search_mode: str = "as_is",
+        internal_list_limit: int = 1
+    ) -> Dict[str, Any]:
+        """
+        Fetch content phrase trends for Brand Metrics (Mentions, Frequency, Sentiment).
+        
+        Args:
+            keyword: The brand name to analyze (e.g., "Corange Lab")
+            date_from: Start date (YYYY-MM-DD) - Not used for sentiment_analysis
+            date_group: Time bucket - Not used for sentiment_analysis
+            search_mode: search mode
+            internal_list_limit: Limit for inner lists
+            
+        Returns:
+            Dict containing the API response
+        """
+        if not self.api_available:
+            return {'success': False, 'error': 'DataForSEO API not configured'}
+            
+        # Using the sentiment_analysis endpoint as originally requested
+        # Payload only needs keyword and limits for this endpoint
+        
+        payload = {
+            "0": {
+                "keyword": keyword,
+                "date_from": date_from,
+                "date_group": date_group,
+                "search_mode": search_mode,
+                "internal_list_limit": internal_list_limit
+            }
+        }
+        
+        try:
+            # Switch to sentiment_analysis/live
+            print(f"DEBUG: Calling DataForSEO API (content_analysis/phrase_trends/live) for keyword: {keyword}")
+            try:
+                response = self.client.post('/v3/content_analysis/phrase_trends/live', payload)
+                
+                # --- DEBUG: Log the full response ---
+                import json
+                print("\n" + "="*50)
+                print("DATAFORSEO CONTENT PHRASE TRENDS RESPONSE:")
+                try:
+                    print(json.dumps(response, indent=2))
+                except:
+                    print(response)
+                print("="*50 + "\n")
+                # ------------------------------------
+                
+                # Validate response
+                if response.get('status_code') == 20000:
+                    if 'tasks' in response and len(response['tasks']) > 0:
+                        task = response['tasks'][0]
+                        if task.get('status_code') == 20000:
+                            # Return cleaned data list directly to match BrandAnalysisService expectation
+                            print("DEBUG: DataForSEO API returned valid tasks")
+                            return {'success': True, 'data': task.get('result', [])}
+                        else:
+                            print(f"DEBUG: DataForSEO API task error: {task.get('status_message')}")
+                            return {'success': False, 'error': task.get('status_message')}
+                    print("DEBUG: DataForSEO API response has no tasks")
+                    return {'success': False, 'error': 'No tasks in response'}
+                else:
+                    print(f"DEBUG: DataForSEO API status code error: {response.get('status_message')}")
+                    return {'success': False, 'error': response.get('status_message', 'Unknown API Error')}
+
+            except Exception as e:
+                import traceback
+                print(f"ERROR: DataForSEO Client Request Failed: {str(e)}")
+                traceback.print_exc()
+                raise e # Re-raise to be caught by outer try/except
+                
+        except Exception as e:
+            return {'success': False, 'error': f'API Request Failed: {str(e)}'}
+
+
     def calculate_metrics(self, backlinks: List[Dict[str, Any]]) -> Dict[str, float]:
         """
         Calculate all metrics needed for the Competitor Landscape Score

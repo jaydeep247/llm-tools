@@ -302,6 +302,63 @@ export class AuditRepository {
         return res.rows[0].id;
     }
 
+    async getAeoResultsTableBySessionId(sessionId: number): Promise<any | null> {
+        const res = await this.pool.query(
+            'SELECT * FROM aeo_results WHERE session_id = $1 ORDER BY created_at DESC LIMIT 1',
+            [sessionId]
+        );
+        if (res.rows.length === 0) return null;
+
+        const row = res.rows[0];
+        console.log('DEBUG: Raw aeo_results row:', JSON.stringify(row, null, 2));
+
+        // Parse JSON fields
+        return {
+            ...row,
+            openai: row.score_openai,
+            claude: row.score_claude,
+            gemini: row.score_gemini,
+            consistency: row.consistency || row.score_consistency,
+            brand_metrics: row.brand_metrics, // Already JSONB (object)
+            entity_coverage: {
+                score: row.score_entity_coverage,
+                entities_expected: row.entities_expected,
+                entities_observed: row.entities_observed,
+                entities_missing: row.entities_missing
+            }
+        };
+    }
+
+    async insertAeoResultsTable(data: any): Promise<number> {
+        const res = await this.pool.query(
+            `INSERT INTO aeo_results 
+            (session_id, url, consistency, score_entity_coverage, entities_expected, entities_observed, entities_missing, brand_metrics)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            ON CONFLICT (session_id) 
+            DO UPDATE SET 
+                url = EXCLUDED.url,
+                consistency = EXCLUDED.consistency,
+                score_entity_coverage = EXCLUDED.score_entity_coverage,
+                entities_expected = EXCLUDED.entities_expected,
+                entities_observed = EXCLUDED.entities_observed,
+                entities_missing = EXCLUDED.entities_missing,
+                brand_metrics = EXCLUDED.brand_metrics,
+                updated_at = CURRENT_TIMESTAMP
+            RETURNING id`,
+            [
+                data.session_id,
+                data.url,
+                data.consistency,
+                data.score_entity_coverage,
+                JSON.stringify(data.entities_expected),
+                JSON.stringify(data.entities_observed),
+                JSON.stringify(data.entities_missing),
+                JSON.stringify(data.brand_metrics)
+            ]
+        );
+        return res.rows[0].id;
+    }
+
     async saveAeoAnalysisResult(data: any): Promise<number> {
         return this.insertAEOAnalysisResult(data);
     }
