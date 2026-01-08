@@ -1,6 +1,7 @@
 """
 Bulk AEO Audit Service
 Updated for OpenAI Paid Key (Fast Mode) - No Rate Limiting
+Uses ONLY OpenAI for bulk scanning to save cost/quota on other models.
 """
 
 import logging
@@ -23,19 +24,21 @@ class BulkAEOService:
     def fetch_sitemap_urls(self, sitemap_url: str, limit: int = 50) -> list:
         """Extract URLs from a Sitemap or Sitemap Index"""
         try:
-            print(f"DEBUG: Fetching sitemap: {sitemap_url}")
+            logging.info(f"Fetching sitemap: {sitemap_url}")
             if not sitemap_url.startswith(('http://', 'https://')):
                 sitemap_url = 'https://' + sitemap_url
 
             response = requests.get(sitemap_url, headers=self.headers, timeout=15)
             
             if response.status_code != 200:
-                logging.error(f"Sitemap fetch failed: {response.status_code}")
-                return []
+                error_msg = f"Sitemap fetch failed with status code {response.status_code} for URL: {sitemap_url}"
+                logging.error(error_msg)
+                raise Exception(error_msg)
                 
             try:
                 root = ET.fromstring(response.content)
-            except ET.ParseError:
+            except ET.ParseError as e:
+                logging.warning(f"XML parse error, trying text-based fallback: {str(e)}")
                 # Fallback for text-based sitemaps
                 return [line.strip() for line in response.text.split('\n') if line.strip().startswith('http')][:limit]
             
@@ -44,7 +47,7 @@ class BulkAEOService:
 
             # Handle Sitemap Index (Nested Sitemaps)
             if 'sitemapindex' in root.tag:
-                print("DEBUG: Detected Sitemap Index. Fetching sub-sitemaps...")
+                logging.info("Detected Sitemap Index. Fetching sub-sitemaps...")
                 sub_sitemaps = root.findall('ns:sitemap', namespace)
                 if not sub_sitemaps:
                     sub_sitemaps = root.findall('sitemap')
@@ -56,19 +59,28 @@ class BulkAEOService:
                         
                     if loc is not None and loc.text:
                         sub_url = loc.text.strip()
-                        print(f"DEBUG: Fetching sub-sitemap: {sub_url}")
+                        logging.info(f"Fetching sub-sitemap: {sub_url}")
                         sub_urls = self._fetch_single_sitemap_urls(sub_url, limit - len(urls))
                         urls.extend(sub_urls)
             else:
                 urls = self._fetch_single_sitemap_urls(sitemap_url, limit)
             
             unique_urls = list(set(urls))
-            print(f"DEBUG: Found {len(unique_urls)} unique URLs")
+            logging.info(f"Found {len(unique_urls)} unique URLs from sitemap")
             return unique_urls[:limit]
 
+        except requests.exceptions.Timeout:
+            error_msg = f"Timeout while fetching sitemap: {sitemap_url}"
+            logging.error(error_msg)
+            raise Exception(error_msg)
+        except requests.exceptions.ConnectionError:
+            error_msg = f"Connection error while fetching sitemap: {sitemap_url}"
+            logging.error(error_msg)
+            raise Exception(error_msg)
         except Exception as e:
-            logging.error(f"Sitemap parse error: {str(e)}")
-            return []
+            error_msg = f"Sitemap processing error for {sitemap_url}: {str(e)}"
+            logging.error(error_msg)
+            raise Exception(error_msg)
 
     def _fetch_single_sitemap_urls(self, url: str, limit: int) -> list:
         try:
@@ -96,18 +108,31 @@ class BulkAEOService:
             
             return extracted[:limit]
         except Exception as e:
-            print(f"DEBUG: Error fetching sub-sitemap {url}: {e}")
+            logging.warning(f"Error fetching sub-sitemap {url}: {str(e)}")
             return []
 
     def _analyze_fast(self, url: str):
         """
         Run analysis WITHOUT 20s delay (OpenAI Mode).
         Uses ThreadPool to run efficiently.
+        Updated to use only OpenAI to save money.
         """
         try:
-            print(f"DEBUG: Analyzing {url}...")
-            return self.orchestrator.run_complete_analysis(url)
+            logging.info(f"Analyzing URL: {url}")
+            
+            # Fetch HTML content manually here to pass it in
+            response = requests.get(url, headers=self.headers, timeout=15)
+            html_content = response.text
+            
+            # Call Orchestrator with OPENAI ONLY filter
+            return self.orchestrator.run_complete_analysis(
+                url=url, 
+                html_content=html_content,
+                target_models=['openai'] 
+            )
+            
         except Exception as e:
+            logging.error(f"Analysis failed for {url}: {str(e)}")
             return {"error": str(e)}
 
     def run_bulk_audit(self, urls: list) -> dict:
@@ -128,9 +153,9 @@ class BulkAEOService:
         pages_with_zero_entities = 0
         pages_with_weak_content = 0 
         
-        # ✅ UPGRADE: Changed max_workers to 5 for parallel processing
-        # This is safe with Paid OpenAI API
-        with ThreadPoolExecutor(max_workers=5) as executor:
+        # --- CRITICAL CHANGE: Reduced workers to 2 to prevent 429 Errors ---
+        with ThreadPoolExecutor(max_workers=2) as executor: 
+        # -------------------------------------------------------------------
             future_to_url = {
                 executor.submit(self._analyze_fast, url): url 
                 for url in urls
@@ -142,7 +167,7 @@ class BulkAEOService:
                     data = future.result()
                     
                     if 'error' in data:
-                        print(f"DEBUG: Error in result for {url}: {data['error']}")
+                        logging.warning(f"Error in result for {url}: {data['error']}")
                         detailed_results.append({
                             'url': url, 
                             'error': data['error'], 

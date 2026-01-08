@@ -286,31 +286,51 @@ async def analyze_bulk(request: BulkAnalyzeRequest):
         
         # Priority 1: Fetch from Sitemap if provided
         if sitemap_url:
-            # ✅ FIX: Increased limit from 10 to 20 (Safe limit for browser timeout)
-            sitemap_urls = bulk_service.fetch_sitemap_urls(sitemap_url, limit=20)
-            target_urls.extend(sitemap_urls)
+            logging.info(f"Bulk audit: Fetching URLs from sitemap: {sitemap_url}")
+            try:
+                # ✅ FIX: Increased limit from 10 to 20 (Safe limit for browser timeout)
+                sitemap_urls = bulk_service.fetch_sitemap_urls(sitemap_url, limit=20)
+                target_urls.extend(sitemap_urls)
+                logging.info(f"Bulk audit: Retrieved {len(sitemap_urls)} URLs from sitemap")
+            except Exception as e:
+                error_detail = f"Failed to fetch sitemap: {str(e)}"
+                logging.error(f"Bulk audit sitemap error: {error_detail}")
+                raise HTTPException(status_code=400, detail=error_detail)
         
         # Priority 2: Add any manual URLs
         if custom_urls:
             target_urls.extend(custom_urls)
+            logging.info(f"Bulk audit: Added {len(custom_urls)} manual URLs")
             
         # Remove duplicates
         target_urls = list(set(target_urls))
         
         if not target_urls:
-            raise HTTPException(status_code=400, detail='No URLs found to analyze. Please check your Sitemap URL.')
-            
+            error_detail = 'No URLs found to analyze. Please check your Sitemap URL or provide manual URLs.'
+            logging.warning(f"Bulk audit: {error_detail}")
+            raise HTTPException(status_code=400, detail=error_detail)
+        
+        logging.info(f"Bulk audit: Starting analysis of {len(target_urls)} URLs")
+        
         # Run the Bulk Logic
         results = bulk_service.run_bulk_audit(target_urls)
+        
+        logging.info(f"Bulk audit: Completed successfully. Scanned {results['summary']['successful_scans']} pages")
         
         return {
             'success': True,
             'data': results
         }
         
+    except HTTPException as he:
+        # Re-raise HTTP exceptions as-is
+        raise he
     except Exception as e:
-        logging.error(f"Bulk Analysis Failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        error_trace = traceback.format_exc()
+        logging.error(f"Bulk Analysis Failed with unexpected error:\n{error_trace}")
+        raise HTTPException(status_code=500, detail=f"Bulk analysis failed: {str(e)}")
+
 
 # --- NEW: AI Answer Simulation Endpoint ---
 @router.post("/simulate-answer")

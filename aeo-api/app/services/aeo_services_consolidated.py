@@ -36,13 +36,20 @@ class AEOServiceOrchestrator:
         # ----------------------------------------
     
     # --- Wrapper Methods ---
-    def analyze_ai_presence(self, url: str) -> dict:
-        """Analyze basic AI bot accessibility (robots.txt, blocking)"""
-        return self.ai_presence_service.analyze_ai_presence(url)
     
-    def analyze_multi_ai(self, content: str, url: str) -> dict:
-        """Analyze content understanding using Multi-Model AI (OpenAI, Gemini, Claude)"""
-        return self.multi_ai_service.analyze_content_understanding(content, url)
+    # --- UPDATED: Accepts target_models filter ---
+    def analyze_ai_presence(self, url: str, target_models: list = None) -> dict:
+        """Analyze basic AI bot accessibility (robots.txt, blocking)"""
+        # Pass target_models down to the service to prevent unwanted API calls
+        return self.ai_presence_service.analyze_ai_presence(url, target_models=target_models)
+    
+    # --- UPDATED: Accepts target_models filter ---
+    def analyze_multi_ai(self, content: str, url: str, target_models: list = None) -> dict:
+        """
+        Analyze content understanding using Multi-Model AI (OpenAI, Gemini, Claude).
+        :param target_models: Optional list of specific models to use.
+        """
+        return self.multi_ai_service.analyze_content_understanding(content, url, providers=target_models)
 
     # --- NEW: Wrapper for Answer Simulation ---
     def generate_simulated_answer(self, content: str, query: str) -> dict:
@@ -70,8 +77,12 @@ class AEOServiceOrchestrator:
         """Analyze structured data"""
         return self.structured_data_service.analyze_structured_data(url, html_content)
     
-    def run_complete_analysis(self, url: str, html_content: str = None, competitor_urls: list = None) -> dict:
-        """Run complete AEO analysis with Multi-AI Integration"""
+    # --- UPDATED: Accepts target_models filter ---
+    def run_complete_analysis(self, url: str, html_content: str = None, competitor_urls: list = None, target_models: list = None) -> dict:
+        """
+        Run complete AEO analysis with Multi-AI Integration.
+        :param target_models: Optional list of specific AI models to run (e.g. ['openai']).
+        """
         
         try:
             # 1. Fetch HTML (Safe Mode)
@@ -106,7 +117,9 @@ class AEOServiceOrchestrator:
             try:
                 logging.info("Starting Basic AI Presence analysis...")
                 start = time.time()
-                results['ai_presence'] = self.analyze_ai_presence(url)
+                # --- CRITICAL UPDATE: Pass target_models here ---
+                results['ai_presence'] = self.analyze_ai_presence(url, target_models=target_models)
+                # ------------------------------------------------
                 logging.info(f"Basic AI Presence completed in {time.time() - start:.2f}s")
             except Exception as e:
                 logging.error(f"Basic AI Presence Failed: {e}")
@@ -116,8 +129,8 @@ class AEOServiceOrchestrator:
             try:
                 logging.info("Starting Multi-AI Understanding analysis...")
                 start = time.time()
-                # Pass HTML content to the new service
-                results['multi_ai'] = self.analyze_multi_ai(html_content, url)
+                # Pass HTML content AND target_models to the service
+                results['multi_ai'] = self.analyze_multi_ai(html_content, url, target_models=target_models)
                 logging.info(f"Multi-AI Analysis completed in {time.time() - start:.2f}s")
             except Exception as e:
                 logging.error(f"Multi-AI Module Failed: {e}")

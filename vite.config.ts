@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
-    watch:{
+    watch: {
       ignored: ['**/storage/**', '**/dist/**', '**/node_modules/**']
     },
     proxy: {
@@ -13,25 +13,28 @@ export default defineConfig({
         target: 'http://localhost:3004',
         changeOrigin: true,
         secure: false,
-        timeout: 60000,
+        timeout: 600000,       // Increased to 10 minutes
+        proxyTimeout: 600000   // Added proxy specific timeout
       },
       '/api': {
         target: 'http://localhost:3004',
         changeOrigin: true,
         secure: false,
-        timeout: 60000,
+        timeout: 600000,       // Increased to 10 minutes
+        proxyTimeout: 600000   // Added proxy specific timeout
       },
       '/crawl': {
         target: 'http://localhost:3004',
         changeOrigin: true,
         secure: false,
-        timeout: 60000,
+        timeout: 600000,       // Increased to 10 minutes
+        proxyTimeout: 600000   // Added proxy specific timeout
       },
       '/events': {
         target: 'http://localhost:3004',
         changeOrigin: true,
         secure: false,
-        timeout: 0,
+        timeout: 0,            // Keep 0 for SSE (infinite)
         ws: false,
         headers: {
           Connection: 'keep-alive',
@@ -49,7 +52,8 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/aeo-api/, '/api'),
-        timeout: 60000,
+        timeout: 600000,       // Increased to 10 minutes
+        proxyTimeout: 600000   // Added proxy specific timeout
       },
       '/aeo-health': {
         target: 'http://localhost:3004',

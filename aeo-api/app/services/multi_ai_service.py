@@ -1,6 +1,7 @@
 """
 Multi-AI Provider Service
 Analyzes content understanding across OpenAI, Gemini, and Claude
+Updated to support provider filtering for cost management.
 """
 
 import os
@@ -30,7 +31,7 @@ class MultiAIService:
         # Initialize Gemini
         if os.getenv('GEMINI_API_KEY'):
             try:
-                print("Initializing Gemini client")
+                # print("Initializing Gemini client")
                 genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
                 self.gemini_client = genai.GenerativeModel('gemini-2.0-flash-exp')
                 logging.info("Gemini client initialized")
@@ -40,15 +41,18 @@ class MultiAIService:
         # Initialize Claude
         if os.getenv('CLAUDE_API_KEY'):
             try:
-                print("Initializing Claude client")
+                # print("Initializing Claude client")
                 self.claude_client = anthropic.Anthropic(api_key=os.getenv('CLAUDE_API_KEY'))
                 logging.info("Claude client initialized")
             except Exception as e:
                 logging.error(f"Claude initialization failed: {str(e)}")
     
-    def analyze_content_understanding(self, content: str, url: str) -> Dict:
+    # --- UPDATED: Added 'providers' parameter to enable filtering ---
+    def analyze_content_understanding(self, content: str, url: str, providers: List[str] = None) -> Dict:
         """
-        Analyze content understanding across all available AI providers
+        Analyze content understanding across AI providers.
+        :param providers: Optional list of specific providers to use (e.g. ['openai']). 
+                          If None, uses ALL available providers.
         """
         results = {
             'openai': None,
@@ -58,25 +62,29 @@ class MultiAIService:
             'best_provider': None,
             'overall_score': 0
         }
+
+        # If no specific providers requested, use all
+        if providers is None:
+            providers = ['openai', 'gemini', 'claude']
         
-        # Analyze with OpenAI
-        if self.openai_client:
+        # Analyze with OpenAI (Only if requested)
+        if 'openai' in providers and self.openai_client:
             try:
                 results['openai'] = self._analyze_with_openai(content, url)
             except Exception as e:
                 logging.error(f"OpenAI analysis failed: {str(e)}")
                 results['openai'] = {'error': str(e), 'score': 0}
         
-        # Analyze with Gemini
-        if self.gemini_client:
+        # Analyze with Gemini (Only if requested)
+        if 'gemini' in providers and self.gemini_client:
             try:
                 results['gemini'] = self._analyze_with_gemini(content, url)
             except Exception as e:
                 logging.error(f"Gemini analysis failed: {str(e)}")
                 results['gemini'] = {'error': str(e), 'score': 0}
         
-        # Analyze with Claude
-        if self.claude_client:
+        # Analyze with Claude (Only if requested)
+        if 'claude' in providers and self.claude_client:
             try:
                 results['claude'] = self._analyze_with_claude(content, url)
             except Exception as e:
