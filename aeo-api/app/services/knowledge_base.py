@@ -324,7 +324,11 @@ class KnowledgeBaseService:
             if linkability_metrics['linkability_score'] < 30:
                 recommendations.append('Add more linkable content and internal linking opportunities.')
             if sum(format_usage.values()) < 5:
-                recommendations.append('Use more formatting elements like headings, lists, and emphasis.')
+                missing_formats = [fmt for fmt, count in format_usage.items() if count == 0]
+                if missing_formats:
+                    recommendations.append('Use more formatting elements like {} to improve content structure and scannability'.format(', '.join(missing_formats[:3])))
+                else:
+                    recommendations.append('Use more formatting elements like headings, lists, and emphasis to improve content structure')
             
             # Add recommendations based on new metrics
             if difficulty_score > 70:
