@@ -212,6 +212,87 @@ class CompetitorAnalysisService:
                 'fetched_count': 0
             }
     
+    def get_content_phrase_trends(
+        self,
+        keyword: str,
+        date_from: str = "2018-01-01",
+        date_group: str = "month",
+        search_mode: str = "as_is",
+        internal_list_limit: int = 1
+    ) -> Dict[str, Any]:
+        """
+        Fetch content phrase trends for Brand Metrics (Mentions, Frequency, Sentiment).
+        
+        Args:
+            keyword: The brand name to analyze (e.g., "Corange Lab")
+            date_from: Start date (YYYY-MM-DD) - Not used for sentiment_analysis
+            date_group: Time bucket - Not used for sentiment_analysis
+            search_mode: search mode
+            internal_list_limit: Limit for inner lists
+            
+        Returns:
+            Dict containing the API response
+        """
+        if not self.api_available:
+            return {'success': False, 'error': 'DataForSEO API not configured'}
+            
+        # Using the sentiment_analysis endpoint as originally requested
+        # Payload only needs keyword and limits for this endpoint
+        
+        payload = {
+            "0": {
+                "keyword": keyword,
+                "date_from": date_from,
+                "date_group": date_group,
+                "search_mode": search_mode,
+                "internal_list_limit": internal_list_limit
+            }
+        }
+        
+        try:
+            # Switch to sentiment_analysis/live
+            print(f"DEBUG: Calling DataForSEO API (content_analysis/phrase_trends/live) for keyword: {keyword}")
+            try:
+                response = self.client.post('/v3/content_analysis/phrase_trends/live', payload)
+                
+                # --- DEBUG: Log the full response ---
+                import json
+                print("\n" + "="*50)
+                print("DATAFORSEO CONTENT PHRASE TRENDS RESPONSE:")
+                try:
+                    print(json.dumps(response, indent=2))
+                except:
+                    print(response)
+                print("="*50 + "\n")
+                # ------------------------------------
+                
+                # Validate response
+                if response.get('status_code') == 20000:
+                    if 'tasks' in response and len(response['tasks']) > 0:
+                        task = response['tasks'][0]
+                        if task.get('status_code') == 20000:
+                            # Return cleaned data list directly to match BrandAnalysisService expectation
+                            print("DEBUG: DataForSEO API returned valid tasks")
+                            return {'success': True, 'data': task.get('result', [])}
+                        else:
+                            print(f"DEBUG: DataForSEO API task error: {task.get('status_message')}")
+                            return {'success': False, 'error': task.get('status_message')}
+                    print("DEBUG: DataForSEO API response has no tasks")
+                    return {'success': False, 'error': 'No tasks in response'}
+                else:
+                    print(f"DEBUG: DataForSEO API status code error: {response.get('status_message')}")
+                    return {'success': False, 'error': response.get('status_message', 'Unknown API Error')}
+
+            except Exception as e:
+                import traceback
+                print(f"ERROR: DataForSEO Client Request Failed: {str(e)}")
+                traceback.print_exc()
+                raise e # Re-raise to be caught by outer try/except
+                
+        except Exception as e:
+            return {'success': False, 'error': f'API Request Failed: {str(e)}'}
+
+
     def calculate_metrics(self, backlinks: List[Dict[str, Any]]) -> Dict[str, float]:
         """
         Calculate all metrics needed for the Competitor Landscape Score
@@ -513,8 +594,37 @@ class CompetitorAnalysisService:
         # Get top competitors from top_referring_domains
         top_competitors = list(backlinks_metrics['top_referring_domains'].items())[:5]
         
+        # Calculate NEW METRICS
+        # Difficulty score based on competitor strength
+        difficulty_score = self._calculate_competitor_difficulty(
+            metrics['domain_quality'],
+            unique_domains_count,
+            metrics['diversity_score']
+        )
+        
+        # Complexity level based on market saturation
+        complexity_level = self._determine_market_complexity(
+            unique_domains_count,
+            metrics['diversity_score'],
+            metrics['quality_score']
+        )
+        
+        # AI generation feasibility for competitive content
+        ai_generation_feasibility = self._calculate_content_generation_feasibility(
+            metrics['diversity_score'],
+            metrics['quality_score']
+        )
+        
         # Generate recommendations
         recommendations = self._generate_recommendations(score, metrics, top_competitors)
+        
+        # Add new metric-based recommendations
+        if difficulty_score > 70:
+            recommendations.append('High competition detected ({:.1f}/100) - focus on niche keywords and long-tail content strategies'.format(difficulty_score))
+        if complexity_level == "High":
+            recommendations.append('Market complexity is high - consider specialized content and unique value propositions')
+        if ai_generation_feasibility < 40:
+            recommendations.append('Competitive landscape suggests need for unique, differentiated content (AI feasibility: {:.1f}/100)'.format(ai_generation_feasibility))
         
         return {
             'score': score,
@@ -541,7 +651,11 @@ class CompetitorAnalysisService:
                 'platform_count': metrics['platform_count'],
                 'link_types': metrics['link_types'],
                 'top_anchors': metrics['top_anchors'],
-                'top_referring_domains_by_count': metrics['top_referring_domains_by_count']
+                'top_referring_domains_by_count': metrics['top_referring_domains_by_count'],
+                # NEW METRICS
+                'difficulty_score': difficulty_score,
+                'complexity_level': complexity_level,
+                'ai_generation_feasibility': ai_generation_feasibility
             },
             'top_competitors': [
                 {'domain': domain, 'referring_domains': count}
@@ -618,3 +732,109 @@ class CompetitorAnalysisService:
             recommendations.append(f"Analyze backlink strategy of top referring domain: {top_domain}")
         
         return recommendations[:10]  # Limit to top 10 recommendations
+
+    def _calculate_competitor_difficulty(self, domain_quality: float, 
+                                        referring_domains: int, 
+                                        diversity_score: float) -> float:
+        """
+        Calculate difficulty score based on competitor strength (0-100)
+        
+        Higher score = more difficult to compete
+        
+        Args:
+            domain_quality: Average quality of referring domains
+            referring_domains: Total number of referring domains
+            diversity_score: Diversity of backlink profile
+            
+        Returns:
+            Difficulty score from 0 (easy) to 100 (very difficult)
+        """
+        # Domain quality contribution (0-40 points)
+        quality_component = min((domain_quality / 100) * 40, 40)
+        
+        # Volume contribution (0-35 points)
+        # Scale: 0-10 domains = easy, 100+ = difficult
+        volume_component = min((referring_domains / 100) * 35, 35)
+        
+        # Diversity contribution (0-25 points)
+        # Higher diversity = more difficult to compete
+        diversity_component = min((diversity_score / 20) * 25, 25)
+        
+        difficulty = quality_component + volume_component + diversity_component
+        
+        return round(min(max(difficulty, 0), 100), 2)
+    
+    def _determine_market_complexity(self, referring_domains: int, 
+                                     diversity_score: float, 
+                                     quality_score: float) -> str:
+        """
+        Determine market complexity level
+        
+        Args:
+            referring_domains: Number of referring domains
+            diversity_score: Diversity of backlink profile
+            quality_score: Quality score of backlinks
+            
+        Returns:
+            Complexity level: "Low", "Medium", or "High"
+        """
+        complexity_score = 0
+        
+        # Referring domains contribution
+        if referring_domains < 20:
+            complexity_score += 0
+        elif referring_domains < 100:
+            complexity_score += 1
+        else:
+            complexity_score += 2
+        
+        # Diversity contribution
+        if diversity_score < 10:
+            complexity_score += 0
+        elif diversity_score < 15:
+            complexity_score += 1
+        else:
+            complexity_score += 2
+        
+        # Quality contribution
+        if quality_score < 30:
+            complexity_score += 0
+        elif quality_score < 60:
+            complexity_score += 1
+        else:
+            complexity_score += 2
+        
+        # Map to complexity level
+        if complexity_score <= 2:
+            return "Low"
+        elif complexity_score <= 4:
+            return "Medium"
+        else:
+            return "High"
+    
+    def _calculate_content_generation_feasibility(self, diversity_score: float, 
+                                                   quality_score: float) -> float:
+        """
+        Calculate how feasible it is to generate competitive content with AI (0-100)
+        
+        Higher score = easier for AI to generate competitive content
+        
+        Args:
+            diversity_score: Diversity of competitive landscape
+            quality_score: Quality of competitor content
+            
+        Returns:
+            Feasibility score from 0 (difficult) to 100 (easy)
+        """
+        # Lower diversity = easier to replicate patterns
+        diversity_factor = max(0, 100 - (diversity_score * 4))
+        
+        # Mid-range quality is optimal for AI (too low or too high is harder)
+        if quality_score < 50:
+            quality_factor = quality_score * 2  # Low quality = easier
+        else:
+            quality_factor = 100 - ((quality_score - 50) * 1.5)  # High quality = harder
+        
+        feasibility = (diversity_factor * 0.6) + (quality_factor * 0.4)
+        
+        return round(min(max(feasibility, 0), 100), 2)

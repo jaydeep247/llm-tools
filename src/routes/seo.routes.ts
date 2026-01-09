@@ -9,7 +9,7 @@ function getPythonApiBase(): string {
     return base.replace(/\/$/, '');
 }
 
-router.get('/api/seo/health', async (_req, res) => {
+router.get('/seo/health', async (_req, res) => {
     try {
         const base = getPythonApiBase();
         const r = await fetch(`${base}/health`);
@@ -20,10 +20,10 @@ router.get('/api/seo/health', async (_req, res) => {
     }
 });
 
-router.post('/api/seo/extract', authenticateUser, async (req, res) => {
+router.post('/seo/extract', authenticateUser, async (req, res) => {
     try {
         const { url, final_url } = req.body ?? {};
-        
+
         const finalUrl = url || final_url;
         if (!finalUrl) {
             return res.status(400).json({ error: 'URL is required' });
@@ -31,8 +31,14 @@ router.post('/api/seo/extract', authenticateUser, async (req, res) => {
 
         // Only return cached data - no fetching or processing
         const db = getDatabase();
-        const cachedData = await db.getSeoData(finalUrl);
-        
+        let cachedData = await db.getSeoData(finalUrl);
+
+        // If not found, try toggle trailing slash
+        if (!cachedData) {
+            const altUrl = finalUrl.endsWith('/') ? finalUrl.slice(0, -1) : finalUrl + '/';
+            cachedData = await db.getSeoData(altUrl);
+        }
+
         if (cachedData && !cachedData.isExpired) {
             // Return cached data
             return res.json({
@@ -45,7 +51,7 @@ router.post('/api/seo/extract', authenticateUser, async (req, res) => {
         }
 
         // No cached data available
-        return res.status(404).json({ 
+        return res.status(404).json({
             error: 'No cached data available for this URL',
             url: finalUrl,
             hint: 'This endpoint only serves cached data. Process the URL first to generate keywords.'

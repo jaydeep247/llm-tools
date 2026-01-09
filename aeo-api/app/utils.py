@@ -1,4 +1,7 @@
-import spacy
+try:
+    import spacy
+except ImportError:
+    spacy = None
 from typing import List, Set, Dict, Any
 from collections import Counter
 import re
@@ -43,31 +46,32 @@ ENERGY_TOPICAL_TOKENS: Set[str] = {
 
 def init_nlp():
     global nlp
+    if spacy is None:
+        print("⚠️  spaCy not installed. NLP features disabled.")
+        return
     if nlp is None:
         try:
             nlp = spacy.load("en_core_web_sm", disable=["ner"])
         except OSError:
-            print("⚠️  spaCy English model not found. Installing...")
-            import subprocess
-            import sys
+            print("⚠️  spaCy English model not found. Attempting to download...")
             try:
-                # Try direct pip install from GitHub
-                subprocess.run([
-                    sys.executable, "-m", "pip", "install", 
-                    "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl"
-                ], check=True)
+                from spacy.cli import download
+                download("en_core_web_sm")
                 nlp = spacy.load("en_core_web_sm", disable=["ner"])
-                print("✅ spaCy model installed successfully")
+                print("✅  spaCy English model downloaded and loaded.")
             except Exception as e:
-                print(f"❌ Failed to install spaCy model: {e}")
-                print("Please run manually:")
-                print("pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl")
-                raise
+                print(f"⚠️  Failed to download spaCy model: {e}. NLP features disabled.")
 
 def tokenize_phrase(phrase: str) -> List[str]:
     """Extract lemmatized tokens from a phrase"""
+    if spacy is None:
+        # Fallback: simple tokenization without spacy
+        return [t.lower() for t in re.findall(r'\b\w+\b', phrase) if len(t) > 1]
     if nlp is None:
         init_nlp()
+    if nlp is None:
+        # If spacy still isn't loaded, use fallback
+        return [t.lower() for t in re.findall(r'\b\w+\b', phrase) if len(t) > 1]
     doc = nlp(phrase)
     return [t.lemma_.lower() for t in doc if t.is_alpha and not t.is_stop and len(t) > 1]
 
@@ -336,3 +340,182 @@ def build_hierarchy(parent_data: Dict[str, Any], other_keywords: List[Dict[str, 
             root.children.append(node)
     
     return root
+
+# ------------------------
+# New Metrics Calculation Functions
+# ------------------------
+
+def calculate_difficulty_score(text: str, metrics: Dict[str, Any] = None) -> float:
+    """
+    Calculate content difficulty score (0-100)
+    
+    Factors:
+    - Average sentence length (longer = harder)
+    - Word complexity (syllables, uncommon words)
+    - Technical terminology density
+    - Sentence structure complexity
+    
+    Args:
+        text: Content text to analyze
+        metrics: Optional existing metrics dict to incorporate
+    
+    Returns:
+        Difficulty score from 0 (easy) to 100 (very difficult)
+    """
+    if not text or len(text.strip()) == 0:
+        return 0.0
+    
+    # Split into sentences
+    sentences = [s.strip() for s in re.split(r'[.!?]+', text) if s.strip()]
+    if not sentences:
+        return 0.0
+    
+    # Calculate average sentence length (words per sentence)
+    total_words = sum(len(s.split()) for s in sentences)
+    avg_sentence_length = total_words / len(sentences) if sentences else 0
+    
+    # Normalize avg sentence length (10 words = easy, 30+ = hard)
+    sentence_score = min((avg_sentence_length / 30.0) * 100, 100)
+    
+    # Word complexity: count words with 3+ syllables
+    words = re.findall(r'\b\w+\b', text.lower())
+    if not words:
+        return 0.0
+    
+    complex_word_count = sum(1 for w in words if count_syllables(w) >= 3)
+    complex_word_ratio = complex_word_count / len(words)
+    word_complexity_score = min(complex_word_ratio * 200, 100)  # Scale up
+    
+    # Technical terms: uppercase acronyms, specialized terms
+    technical_indicators = len(re.findall(r'\b[A-Z]{2,}\b', text))  # Acronyms
+    technical_score = min((technical_indicators / len(sentences)) * 50, 100) if sentences else 0
+    
+    # Combine scores (weighted average)
+    difficulty = (
+        sentence_score * 0.4 +
+        word_complexity_score * 0.4 +
+        technical_score * 0.2
+    )
+    
+    return round(min(max(difficulty, 0), 100), 2)
+
+def count_syllables(word: str) -> int:
+    """
+    Simple syllable counter
+    """
+    word = word.lower()
+    vowels = "aeiouy"
+    syllable_count = 0
+    previous_was_vowel = False
+    
+    for char in word:
+        is_vowel = char in vowels
+        if is_vowel and not previous_was_vowel:
+            syllable_count += 1
+        previous_was_vowel = is_vowel
+    
+    # Adjust for silent 'e' at the end
+    if word.endswith('e'):
+        syllable_count -= 1
+    
+    # Ensure at least 1 syllable
+    return max(1, syllable_count)
+
+def calculate_complexity_level(difficulty_score: float, content_length: int = 0, 
+                               structural_elements: int = 0) -> str:
+    """
+    Determine complexity level based on difficulty score and other factors
+    
+    Args:
+        difficulty_score: The difficulty score (0-100)
+        content_length: Length of content in characters
+        structural_elements: Number of structural elements (headings, lists, etc.)
+    
+    Returns:
+        Complexity level: "Low", "Medium", or "High"
+    """
+    # Base classification on difficulty score
+    if difficulty_score < 30:
+        base_level = "Low"
+    elif difficulty_score < 60:
+        base_level = "Medium"
+    else:
+        base_level = "High"
+    
+    # Adjust based on content length and structure
+    adjustment = 0
+    
+    # Very long content increases complexity
+    if content_length > 10000:
+        adjustment += 1
+    
+    # Rich structure can make complex content more manageable
+    if structural_elements > 10 and difficulty_score > 50:
+        adjustment -= 1
+    
+    # Apply adjustments
+    levels = ["Low", "Medium", "High"]
+    current_index = levels.index(base_level)
+    new_index = max(0, min(2, current_index + adjustment))
+    
+    return levels[new_index]
+
+def calculate_ai_generation_feasibility(text: str, structure_score: int = 0, 
+                                       faq_score: int = 0, clarity_score: int = 0) -> float:
+    """
+    Calculate how feasible it is for AI to generate similar content (0-100)
+    
+    Higher score = easier for AI to generate
+    
+    Factors:
+    - Content structure and organization
+    - Clear patterns and templates
+    - FAQ/Q&A format presence
+    - Repetitive structures
+    - Logical flow
+    
+    Args:
+        text: Content text to analyze
+        structure_score: Score for structured content (0-100)
+        faq_score: Score for FAQ presence (0-100)
+        clarity_score: Score for content clarity (0-100)
+    
+    Returns:
+        AI generation feasibility score from 0 (hard) to 100 (easy)
+    """
+    if not text or len(text.strip()) == 0:
+        return 0.0
+    
+    # Analyze text patterns
+    sentences = [s.strip() for s in re.split(r'[.!?]+', text) if s.strip()]
+    
+    # 1. Structure indicators (lists, headings, clear sections)
+    list_indicators = len(re.findall(r'^\s*[-•*\d]+\.?\s+', text, re.MULTILINE))
+    heading_indicators = len(re.findall(r'^#{1,6}\s+|\n[A-Z][^.!?]+\n', text))
+    structure_indicator_score = min((list_indicators + heading_indicators) * 5, 100)
+    
+    # 2. Pattern repetition (consistent sentence structures)
+    sentence_starts = [s.split()[0] if s.split() else "" for s in sentences]
+    start_pattern_variety = len(set(sentence_starts)) / len(sentences) if sentences else 1
+    repetition_score = (1 - start_pattern_variety) * 100  # Lower variety = higher score
+    
+    # 3. Question-answer patterns
+    question_count = len(re.findall(r'\?', text))
+    qa_score = min((question_count / len(sentences)) * 200, 100) if sentences else 0
+    
+    # 4. Clear formatting and organization
+    paragraph_count = len([p for p in text.split('\n\n') if p.strip()])
+    organization_score = min(paragraph_count * 10, 100)
+    
+    # Combine all factors
+    feasibility = (
+        structure_indicator_score * 0.25 +
+        repetition_score * 0.15 +
+        qa_score * 0.20 +
+        organization_score * 0.15 +
+        structure_score * 0.10 +
+        faq_score * 0.10 +
+        clarity_score * 0.05
+    )
+    
+    return round(min(max(feasibility, 0), 100), 2)

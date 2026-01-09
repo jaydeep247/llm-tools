@@ -271,6 +271,112 @@ async def health_check():
         ]
     }
 
+# ------------------------------------------------------------------------------
+# Module E: Website Score (Multi-Model)
+# ------------------------------------------------------------------------------
+from ..services.website_score_service import WebsiteScoreService, WebsiteScoreRequest
+
+@router.post("/website-score")
+async def get_website_score(request: WebsiteScoreRequest):
+    """
+    Analyzes aggregated content to get scores from OpenAI, Claude, and Gemini.
+    """
+    try:
+        scores = await WebsiteScoreService.calculate_scores(request.content)
+        return {"success": True, "scores": scores}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+# ... existing imports ...
+from app.services.entity_coverage_service import EntityCoverageService
+from ..services.content_consistency_service import ContentConsistencyService
+
+# ... (inside router)
+
+class ExpectedEntitiesRequest(BaseModel):
+    topic_context: str
+    fallback_context: str = None
+
+class ObservedEntitiesRequest(BaseModel):
+    content_batch: str
+
+class CompareEntitiesRequest(BaseModel):
+    expected_list: List[str]
+    observed_list: List[str]
+
+@router.post("/entity/generate-expected")
+async def generate_expected_entities(request: ExpectedEntitiesRequest):
+    """
+    Step 1: Get the list of entities the site SHOULD have.
+    """
+    entities = await EntityCoverageService.generate_expected_entities(request.topic_context, request.fallback_context)
+    return {"success": True, "entities": entities}
+
+@router.post("/entity/extract-observed")
+async def extract_observed_entities(request: ObservedEntitiesRequest):
+    """
+    Step 2: Extract entities from a batch of pages.
+    """
+    entities = await EntityCoverageService.extract_observed_entities(request.content_batch)
+    return {"success": True, "entities": entities}
+
+@router.post("/entity/compare-coverage")
+async def compare_entity_coverage(request: CompareEntitiesRequest):
+    """
+    Step 3: Calculate the score.
+    """
+    result = EntityCoverageService.compare_entity_coverage(request.expected_list, request.observed_list)
+    return {"success": True, "result": result}
+
+# ------------------------------------------------------------------------------
+# Content Consistency & Brand Analysis
+# ------------------------------------------------------------------------------
+
+class TopicRequest(BaseModel):
+    context: str
+
+class BatchScoreRequest(BaseModel):
+    topic: str
+    audience: str = "General"
+    tone: str = "Neutral"
+    content: str
+
+@router.post("/entity/consistency/generate-topic")
+async def generate_topic(req: TopicRequest):
+    """
+    Generates the Canonical Content Mandate (Topic, Audience, Tone, Brand).
+    """
+    result = await ContentConsistencyService.generate_canonical_topic(req.context)
+    return {"success": True, **result}
+
+@router.post("/entity/consistency/score-batch")
+async def score_consistency_batch(req: BatchScoreRequest):
+    """
+    Scores a content batch against the Mandate (0-100).
+    """
+    score = await ContentConsistencyService.calculate_batch_consistency(
+        req.topic, 
+        req.audience, 
+        req.tone, 
+        req.content
+    )
+    return {"success": True, "score": score}
+
+from ..services.brand_analysis_service import BrandAnalysisService
+
+class BrandAnalysisRequest(BaseModel):
+    brand_name: str
+
+@router.post("/analyze-brand")
+async def analyze_brand(req: BrandAnalysisRequest):
+    """
+    Analyzes Brand Metrics (Mentions, Frequency, Sentiment) using DataForSEO.
+    """
+    result = BrandAnalysisService.analyze_brand(req.brand_name)
+    if "error" in result:
+        return {"success": False, "error": result["error"]}
+    return {"success": True, "data": result}
+
 # --- NEW: Bulk Analysis Endpoint ---
 @router.post("/analyze-bulk")
 async def analyze_bulk(request: BulkAnalyzeRequest):

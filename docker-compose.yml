@@ -1,0 +1,154 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: contentlytics-db
+    environment:
+      POSTGRES_DB: contentanyltics
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-your_password_here}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - contentlytics-network
+
+  # Redis for Queue Management
+  redis:
+    image: redis:7-alpine
+    container_name: contentlytics-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - contentlytics-network
+
+  # Python AEO API
+  aeo-api:
+    build:
+      context: ./aeo-api
+      dockerfile: Dockerfile
+    container_name: contentlytics-aeo-api
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - CLAUDE_API_KEY=${CLAUDE_API_KEY:-${ANTHROPIC_API_KEY}}
+      - DATAFORSEO_USERNAME=${DATAFORSEO_USERNAME}
+      - DATAFORSEO_PASSWORD=${DATAFORSEO_PASSWORD}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./aeo-api/config:/app/config
+    depends_on:
+      - redis
+    networks:
+      - contentlytics-network
+    restart: unless-stopped
+
+  # Node.js Backend Server
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: contentlytics-backend
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=contentanyltics
+      - DB_USER=postgres
+      - DB_PASSWORD=${DB_PASSWORD:-root}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET:-contentAnalytics}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-contentAnalyticsToken}
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - MAIL_FROM=${MAIL_FROM}
+      - MAIL_TO=${MAIL_TO}
+      - PSI_API_KEY=${PSI_API_KEY}
+      - AEO_API_BASE_URL=http://aeo-api:8000
+      - PY_API_BASE=http://aeo-api:8000
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000}
+      - PORT=${PORT:-3004}
+    ports:
+      - "3004:3004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      aeo-api:
+        condition: service_started
+    networks:
+      - contentlytics-network
+    restart: unless-stopped
+
+  # Frontend (Vite)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: contentlytics-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:3004
+    depends_on:
+      - backend
+    networks:
+      - contentlytics-network
+    restart: unless-stopped
+
+  # SEO Worker (Redis-based)
+  seo-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: contentlytics-seo-worker
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=contentanyltics
+      - DB_USER=postgres
+      - DB_PASSWORD=${DB_PASSWORD:-root}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET:-contentAnalytics}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-contentAnalyticsToken}
+      - PY_API_BASE=http://aeo-api:8000
+    command: ["node", "dist/seo/redis-worker.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      aeo-api:
+        condition: service_started
+    networks:
+      - contentlytics-network
+    restart: unless-stopped
+
+networks:
+  contentlytics-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:

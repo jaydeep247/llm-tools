@@ -26,6 +26,8 @@
 - ✅ Image optimization (alt text, sizes)
 - ✅ Internal/external link analysis
 - ✅ Canonical tag verification
+- ✅ Mobile alternate link detection (m.example.com)
+- ✅ AMP HTML version detection
 - ✅ Broken link detection
 - ✅ Duplicate content identification
 - ✅ Structured data (Schema.org) validation

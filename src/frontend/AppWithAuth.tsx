@@ -41,6 +41,7 @@ const AppWithAuth: React.FC = () => {
     duration: number;
     pagesPerSecond: number;
   } | null>(null);
+  const [stopping, setStopping] = useState<boolean>(false);
 
   // Server-Sent Events for live updates (only for authenticated users)
   React.useEffect(() => {
@@ -214,6 +215,43 @@ const AppWithAuth: React.FC = () => {
     message?: string;
   }>(null);
 
+  const handleStop = async () => {
+    try {
+      setStopping(true);
+      setError(null);
+      
+      // Cancel audits
+      const response = await fetch('/api/cancel-audits', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+        },
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        setLoading(false);
+        setIsCrawling(false);
+        setCrawlStatus('idle');
+        setLogs(prev => [...prev, {
+          message: '🛑 Analysis stopped by user',
+          timestamp: new Date().toLocaleTimeString()
+        }]);
+      } else {
+        throw new Error('Failed to stop analysis');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to stop analysis');
+      setLogs(prev => [...prev, {
+        message: `⚠️ Error stopping analysis: ${err.message}`,
+        timestamp: new Date().toLocaleTimeString()
+      }]);
+    } finally {
+      setStopping(false);
+    }
+  };
+
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!url.trim()) return;
@@ -224,6 +262,7 @@ const AppWithAuth: React.FC = () => {
     setLoading(true);
     setResult(null);
     setError(null);
+    setStopping(false);
 
     // Reset crawling state
     if (runCrawl) {
@@ -575,17 +614,19 @@ const AppWithAuth: React.FC = () => {
               success: true,
               url: crawlUrl,
               grade: r.grade || 'N/A',
-              grade_color: r.gradeColor || '#666666',
-              overall_score: r.overallScore || 0,
-              module_scores: r.moduleScores,
-              module_weights: r.moduleWeights,
-              detailed_analysis: r.detailedAnalysis,
-              structured_data: r.structuredData,
-              all_recommendations: r.recommendations,
+              grade_color: r.gradeColor || r.grade_color || '#666666',
+              overall_score: r.overallScore || r.overall_score || 0,
+              module_scores: r.moduleScores || r.module_scores,
+              module_weights: r.moduleWeights || r.module_weights,
+              detailed_analysis: r.detailedAnalysis || r.detailed_analysis,
+              structured_data: r.structuredData || r.structured_data,
+              all_recommendations: r.recommendations || r.all_recommendations,
               errors: r.errors,
               warnings: r.warnings,
-              analysis_timestamp: r.analysisTimestamp,
-              run_id: r.runId,
+              analysis_timestamp: r.analysisTimestamp || r.analysis_timestamp,
+              run_id: r.runId || r.run_id,
+              // Ensure entity_coverage is passed if it exists at root level
+              entity_coverage: r.entity_coverage
             } as AnalysisResult;
             console.log(`[DEBUG] Successfully fetched full AEO analysis for session ${sessionId}`);
           }
@@ -839,6 +880,20 @@ const AppWithAuth: React.FC = () => {
                   <span>🔍</span>
                 )}
                 {loading ? 'Analyzing...' : 'Analyze'}
+              </button>
+              <button
+                type="button"
+                onClick={handleStop}
+                disabled={!loading || stopping}
+                className="px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium shadow-lg transition-all"
+                title="Stop all ongoing operations"
+              >
+                {stopping ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <span>🛑</span>
+                )}
+                {stopping ? 'Stopping...' : 'Stop'}
               </button>
             </div>
 

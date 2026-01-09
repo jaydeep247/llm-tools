@@ -9,13 +9,15 @@ extruct>=0.16.0
 
 pydantic==2.11.4
 python-multipart==0.0.6
-lxml==4.9.3
 requests>=2.32.3
 httpx==0.28.1
 
 openai==1.59.9
+python-dotenv==1.0.1
+lxml_html_clean>=0.1.0
 google-generativeai==0.8.4
 anthropic==0.44.0
 
 slowapi==0.1.9
-python-dotenv==1.0.1
+lxml>=4.9
+python-dateutil==2.8.2

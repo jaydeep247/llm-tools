@@ -257,7 +257,7 @@ export class CrawlRepository {
 
     async shareSessionWithUser(sessionId: number, userId: number): Promise<void> {
         await this.pool.query(
-            'INSERT INTO session_shares (session_id, user_id, shared_at) VALUES ($1, $2, NOW()) ON CONFLICT DO NOTHING',
+            'INSERT INTO session_shares (session_id, user_id, accessed_at) VALUES ($1, $2, NOW()) ON CONFLICT DO NOTHING',
             [sessionId, userId]
         );
     }

@@ -10,6 +10,7 @@ import type {
     Page, Resource, Link, AuditSchedule, AuditResult, AuditExecution,
     CrawlLog
 } from './types.js';
+import type { ContentFingerprint, NearDuplicateMetrics, SimilarityResult } from '../modules/module_A/duplicateDetection/types.js';
 
 export type {
     User, UserSettings, UserUsage,
@@ -200,6 +201,14 @@ export class DatabaseService {
         return this.pages.insertLinks(links);
     }
 
+    async updatePageExternalOutlinks(pageId: number, sessionId: number): Promise<void> {
+        return this.pages.updatePageExternalOutlinks(pageId, sessionId);
+    }
+
+    async updateAllPagesExternalOutlinks(sessionId: number): Promise<void> {
+        return this.pages.updateAllPagesExternalOutlinks(sessionId);
+    }
+
     async getPageCount(sessionId?: number): Promise<number> {
         return this.pages.getPageCount(sessionId);
     }
@@ -236,8 +245,82 @@ export class DatabaseService {
         return this.pages.getLinkRelationships(sessionId, limit);
     }
 
+    async getUniqueInlinks(pageId: number, limit: number = 100): Promise<any[]> {
+        return this.pages.getUniqueInlinks(pageId, limit);
+    }
+
+    async getUniqueJsInlinks(pageId: number, limit: number = 100): Promise<any[]> {
+        return this.pages.getUniqueJsInlinks(pageId, limit);
+    }
+
     async resolveTargetPageIds(sessionId: number): Promise<number> {
         return this.pages.resolveTargetPageIds(sessionId);
+    }
+
+    async updatePageCarbon(pageId: number, data: { transferredBytes: number, totalTransferredBytes: number, co2Mg: number, carbonRating: string }): Promise<void> {
+        return this.pages.updatePageCarbon(pageId, data);
+    }
+
+    async updatePageLinkScore(pageId: number, linkScore: number): Promise<void> {
+        return this.pages.updatePageLinkScore(pageId, linkScore);
+    }
+
+    async updatePageLinkScores(scores: Map<number, number>): Promise<void> {
+        return this.pages.updatePageLinkScores(scores);
+    }
+
+    async getPageLinkData(sessionId: number): Promise<any[]> {
+        return this.pages.getPageLinkData(sessionId);
+    }
+
+    async getLinkScoreStats(sessionId: number): Promise<any> {
+        return this.pages.getLinkScoreStats(sessionId);
+    }
+
+    async getPagesWithLinkScores(sessionId: number, limit: number, offset: number, sortField?: string, sortOrder?: string): Promise<any[]> {
+        return this.pages.getPagesWithLinkScores(sessionId, limit, offset, sortField, sortOrder);
+    }
+
+    async countPagesWithLinkScores(sessionId: number): Promise<number> {
+        return this.pages.countPagesWithLinkScores(sessionId);
+    }
+
+    async getLinkScoreDistribution(sessionId: number): Promise<any[]> {
+        return this.pages.getLinkScoreDistribution(sessionId);
+    }
+
+    async getPageWithLinkScore(pageId: number): Promise<any | null> {
+        return this.pages.getPageWithLinkScore(pageId);
+    }
+
+    async getTopPagesByLinkScore(sessionId: number, limit: number): Promise<any[]> {
+        return this.pages.getTopPagesByLinkScore(sessionId, limit);
+    }
+
+    async getBottomPagesByLinkScore(sessionId: number, limit: number): Promise<any[]> {
+        return this.pages.getBottomPagesByLinkScore(sessionId, limit);
+    }
+
+    // ==================== Duplicate Detection Methods ====================
+
+    async upsertContentFingerprint(fingerprint: ContentFingerprint): Promise<number> {
+        return this.pages.upsertContentFingerprint(fingerprint);
+    }
+
+    async getContentFingerprintsBySession(sessionId: number): Promise<ContentFingerprint[]> {
+        return this.pages.getContentFingerprintsBySession(sessionId);
+    }
+
+    async clearSimilarityIndexForSession(sessionId: number): Promise<void> {
+        return this.pages.clearSimilarityIndexForSession(sessionId);
+    }
+
+    async insertSimilarityResults(results: SimilarityResult[]): Promise<void> {
+        return this.pages.insertSimilarityResults(results);
+    }
+
+    async updatePagesNearDuplicateMetrics(metrics: Map<number, NearDuplicateMetrics>): Promise<void> {
+        return this.pages.updatePagesNearDuplicateMetrics(metrics);
     }
 
     // ==================== SEO and Sitemap Methods ====================
@@ -245,11 +328,11 @@ export class DatabaseService {
         return this.pages.getSeoData(url);
     }
 
-    async saveSeoData(data: { url: string, parentText?: string, keywords: string[], language?: string, expiresAt: string }): Promise<void> {
+    async saveSeoData(data: { url: string, parentText?: string, keywords: any[], language?: string, expiresAt: string }): Promise<void> {
         return this.pages.saveSeoData(data);
     }
 
-    async cacheSeoData(url: string, data: { parentText?: string, keywords: string[], language?: string }): Promise<void> {
+    async cacheSeoData(url: string, data: { parentText?: string, keywords: any[], language?: string }): Promise<void> {
         const expiresAt = new Date();
         expiresAt.setMonth(expiresAt.getMonth() + 6); // 6 months default
         return this.saveSeoData({
@@ -419,6 +502,14 @@ export class DatabaseService {
 
     async getAeoAnalysisResultBySessionId(sessionId: number): Promise<any | null> {
         return this.audits.getAeoAnalysisResultBySessionId(sessionId);
+    }
+
+    async getAeoResultsTableBySessionId(sessionId: number): Promise<any | null> {
+        return this.audits.getAeoResultsTableBySessionId(sessionId);
+    }
+
+    async insertAeoResultsTable(data: any): Promise<number> {
+        return this.audits.insertAeoResultsTable(data);
     }
 }
 

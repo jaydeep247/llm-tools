@@ -1,7 +1,8 @@
-// Use environment variables with fallback to localhost for development
+// Use environment variables with fallback to empty string for development
+// In development, empty string means requests go through Vite proxy (configured in vite.config.ts)
 // In production, set VITE_API_BASE_URL to your production domain
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-const AEO_API_BASE_URL = import.meta.env.VITE_AEO_API_BASE_URL;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3004';
+const AEO_API_BASE_URL = import.meta.env.VITE_AEO_API_BASE_URL || 'http://localhost:8000';
 
 export interface AnalysisResult {
   success: boolean;
@@ -262,6 +263,54 @@ class ApiService {
 
         // Handle the response structure from AEO API
         if (aeoData.success && aeoData.results) {
+          // Automatically trigger Module E analysis (Content Consistency + Entity Coverage + Brand)
+          console.log(`Automatically triggering Module E analysis for: ${url}`);
+          try {
+            const moduleEResponse = await this.fetchWithTimeout(
+              `/aeo/website-score`,
+              {
+                method: 'POST',
+                headers: this.getAuthHeaders(),
+                credentials: 'include',
+                body: JSON.stringify({
+                  url: url.trim(),
+                  sessionId: crawlData.sessionId
+                }),
+              },
+              300000 // 5 minutes timeout
+            );
+
+            if (moduleEResponse.ok) {
+              const moduleEData = await moduleEResponse.json();
+              console.log('Module E analysis completed automatically:', moduleEData);
+
+              // Merge Module E results into AEO results
+              if (moduleEData.success && moduleEData.scores) {
+                if (!aeoData.results.module_scores) {
+                  aeoData.results.module_scores = {};
+                }
+
+                // Add Module E scores to module_scores
+                aeoData.results.module_scores.consistency = moduleEData.scores.consistency;
+                aeoData.results.module_scores.brand_metrics = moduleEData.scores.brand_metrics;
+
+                // Add entity_coverage to top level
+                aeoData.results.entity_coverage = moduleEData.scores.entity_coverage;
+
+                console.log('Merged Module E data into AEO results:', {
+                  consistency: moduleEData.scores.consistency,
+                  hasBrandMetrics: !!moduleEData.scores.brand_metrics,
+                  hasEntityCoverage: !!moduleEData.scores.entity_coverage
+                });
+              }
+            } else {
+              console.warn('Module E analysis failed, but continuing with AEO results');
+            }
+          } catch (moduleEError) {
+            console.warn('Module E analysis error (non-critical):', moduleEError);
+            // Don't fail the whole analysis if Module E fails
+          }
+
           return aeoData.results;
         } else {
           throw new Error(aeoData.error || 'AEO analysis failed');
@@ -434,24 +483,92 @@ class ApiService {
     logs?: Array<{ id: number; message: string; level: string; timestamp: string }>;
   }> {
     try {
-      const response = await fetch(`${this.baseURL}/api/data/list?sessionId=${sessionId}`, {
-        headers: this.getAuthHeaders(),
-        credentials: 'include'
+      const url = `${this.baseURL}/api/data/list?sessionId=${sessionId}`;
+      console.log('[getSessionData] Fetching:', url);
+      
+      const response = await this.fetchWithTimeout(
+        url,
+        {
+          headers: this.getAuthHeaders(),
+          credentials: 'include'
+        },
+        30000 // 30 second timeout
+      );
+
+      console.log('[getSessionData] Response status:', response.status);
+      console.log('[getSessionData] Response headers:', {
+        contentType: response.headers.get('content-type'),
+        contentLength: response.headers.get('content-length')
       });
 
       if (!response.ok) {
+        // Check if response is HTML (error page)
+        const contentType = response.headers.get('content-type');
+        console.log('[getSessionData] Error response content-type:', contentType);
+        
+        if (contentType && contentType.includes('text/html')) {
+          console.error('Received HTML response instead of JSON:', {
+            status: response.status,
+            statusText: response.statusText,
+            url: response.url
+          });
+          
+          if (response.status === 404) {
+            throw new Error(`Session ${sessionId} not found`);
+          } else if (response.status === 500) {
+            throw new Error('Server error while fetching session data');
+          } else {
+            throw new Error(`Failed to fetch session data (HTTP ${response.status})`);
+          }
+        }
+
+        // Handle authentication errors
         if (response.status === 401) {
           localStorage.removeItem('accessToken');
           window.location.href = '/login';
           throw new Error('Please login to continue');
         }
-        throw new Error('Failed to fetch session data');
+
+        // Try to get error message from JSON response
+        let errorMessage = 'Failed to fetch session data';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+        } catch (e) {
+          // If JSON parsing fails, use generic message
+          errorMessage = `Failed to fetch session data (HTTP ${response.status})`;
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      // Check content type before parsing
+      const contentType = response.headers.get('content-type');
+      console.log('[getSessionData] Success response content-type:', contentType);
+      
+      if (!contentType || !contentType.includes('application/json')) {
+        console.error('Expected JSON but received:', contentType);
+        
+        // Try to read the response body for debugging
+        const text = await response.text();
+        console.error('[getSessionData] Response body preview:', text.substring(0, 200));
+        
+        throw new Error('Server returned invalid response format (expected JSON)');
       }
 
       const data = await response.json();
+      console.log('[getSessionData] Success! Data keys:', Object.keys(data));
       return data;
     } catch (error: any) {
       console.error('Get session data error:', error);
+      
+      // Provide more specific error messages
+      if (error.message.includes('timeout')) {
+        throw new Error('Request timeout - please try again');
+      } else if (error.message.includes('Failed to fetch')) {
+        throw new Error('Network error - please check your connection');
+      }
+      
       throw new Error(error.message || 'Failed to fetch session data');
     }
   }

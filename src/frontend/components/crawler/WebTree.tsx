@@ -7,7 +7,7 @@ type D3TreeNode = {
   children?: D3TreeNode[];
 };
 
-  type Session = { id: number; startedAt: string; completedAt?: string; totalPages: number; startUrl?: string };
+type Session = { id: number; startedAt: string; completedAt?: string; totalPages: number; startUrl?: string };
 
 type LinkItem = {
   id: number;
@@ -75,17 +75,17 @@ function isLikelyPageUrl(url: string): boolean {
     if (!hasDot) return true;
     const ext = lastSeg.split('.').pop() || '';
     const nonPageExts = new Set([
-      'png','jpg','jpeg','gif','svg','webp','ico','bmp','tif','tiff',
-      'css','js','mjs','cjs','map',
-      'woff','woff2','ttf','otf','eot',
-      'pdf','zip','rar','7z','gz','tar','bz2','xz',
-      'mp3','mp4','webm','ogg','wav','mov','avi','mkv',
-      'json','rss','atom','yaml','yml',
+      'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'ico', 'bmp', 'tif', 'tiff',
+      'css', 'js', 'mjs', 'cjs', 'map',
+      'woff', 'woff2', 'ttf', 'otf', 'eot',
+      'pdf', 'zip', 'rar', '7z', 'gz', 'tar', 'bz2', 'xz',
+      'mp3', 'mp4', 'webm', 'ogg', 'wav', 'mov', 'avi', 'mkv',
+      'json', 'rss', 'atom', 'yaml', 'yml',
       'xml'
     ]);
     if (nonPageExts.has(ext)) return false;
     // Allow common dynamic/page extensions
-    const pageExts = new Set(['html','htm','php','asp','aspx','jsp','cfm','xhtml']);
+    const pageExts = new Set(['html', 'htm', 'php', 'asp', 'aspx', 'jsp', 'cfm', 'xhtml']);
     if (pageExts.has(ext)) return true;
     // Fallback: unknown extensions considered pages
     return true;
@@ -125,12 +125,35 @@ export default function WebTree({ onClose }: WebTreeProps) {
   const [seoLoading, setSeoLoading] = useState<boolean>(false);
   const [seoError, setSeoError] = useState<string | null>(null);
   const [seoResult, setSeoResult] = useState<null | {
-    parent: { text: string; score: number; intent?: string } | null;
-    keywords: Array<{ text: string; score: number; intent?: string }>;
+    parent: {
+      text: string;
+      score: number;
+      intent?: string;
+      relevance_score?: number;
+      prompt_count?: number;
+      diversity_score?: number;
+    } | null;
+    keywords: Array<{
+      text: string;
+      score: number;
+      intent?: string;
+      relevance_score?: number;
+      prompt_count?: number;
+      diversity_score?: number;
+    }>;
     language?: string;
   }>(null);
   // Per-URL SEO summary to attach on tree nodes
-  const [seoByUrl, setSeoByUrl] = useState<Map<string, { parentText?: string; topKeywords?: string[] }>>(new Map());
+  const [seoByUrl, setSeoByUrl] = useState<Map<string, {
+    parentText?: string;
+    topKeywords?: Array<{
+      text: string;
+      score: number;
+      prompt_count?: number;
+      relevance_score?: number;
+      diversity_score?: number;
+    }>;
+  }>>(new Map());
 
   // Force tree re-render when SEO data changes or when SEO is toggled
   const [seoUpdateKey, setSeoUpdateKey] = useState(0);
@@ -310,7 +333,7 @@ export default function WebTree({ onClose }: WebTreeProps) {
         setLoadedUrls(new Set([normalizedRoot]));
         setTotalUrlsUsed(usedCount);
         // If SEO is enabled, prime selection to root URL to trigger extraction
-        try { setBreadcrumb([normalizedRoot]); } catch {}
+        try { setBreadcrumb([normalizedRoot]); } catch { }
         setLoading(false);
         return;
       }
@@ -366,10 +389,10 @@ export default function WebTree({ onClose }: WebTreeProps) {
       const updated = findAndUpdate(treeData, normalized, (node) => {
         const currentLevel = (node.attributes?.level as number) ?? 0;
         const existing = new Set((node.children || []).map(c => c.name));
-          const newChildren: D3TreeNode[] = [];
+        const newChildren: D3TreeNode[] = [];
         for (const cu of childrenUrls) {
           if (existing.has(cu)) continue;
-            newChildren.push({ name: cu, attributes: { level: currentLevel + 1, full: cu }, children: [] });
+          newChildren.push({ name: cu, attributes: { level: currentLevel + 1, full: cu }, children: [] });
         }
         node.children = [...(node.children || []), ...newChildren];
       });
@@ -395,7 +418,7 @@ export default function WebTree({ onClose }: WebTreeProps) {
       await Promise.all(urls.map(async (u) => {
         try {
           await fetch('/api/seo/extract', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: u }) });
-        } catch {}
+        } catch { }
       }));
     };
     void run();
@@ -441,7 +464,15 @@ export default function WebTree({ onClose }: WebTreeProps) {
                 const next = new Map(prev);
                 next.set(u, {
                   parentText: data.parent?.text,
-                  topKeywords: Array.isArray(data.keywords) ? data.keywords.slice(0, 10).map((k: any) => k.text) : []
+                  topKeywords: Array.isArray(data.keywords)
+                    ? data.keywords.slice(0, 10).map((k: any) => ({
+                      text: k.text,
+                      score: k.score,
+                      prompt_count: k.prompt_count,
+                      relevance_score: k.relevance_score,
+                      diversity_score: k.diversity_score
+                    }))
+                    : []
                 });
                 return next;
               });
@@ -481,7 +512,7 @@ export default function WebTree({ onClose }: WebTreeProps) {
       // Only attach SEO keywords if seoEnabled is true
       if (seoEnabled && seo && seo.parentText) {
         const keywordChildren: TidyTreeNode[] = (seo.topKeywords || []).slice(0, 8).map((kw) => ({
-          text: `• ${kw}`,
+          text: `• ${kw.text} (🤖${kw.prompt_count ?? 0} 🎯${kw.relevance_score ?? 0.0} 🌈${kw.diversity_score ?? 0.0})`,
         }));
         const mainKwNode: TidyTreeNode = {
           text: `${seo.parentText}`,
@@ -558,9 +589,9 @@ export default function WebTree({ onClose }: WebTreeProps) {
         )}
         <div ref={containerRef} className="tree-container" style={{ flex: 1, borderTop: '1px solid #eee', background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)' }}>
           {treeData ? (
-            <D3TidyTree 
-              data={convertToTidy(treeData)!} 
-              height={containerSize.height} 
+            <D3TidyTree
+              data={convertToTidy(treeData)!}
+              height={containerSize.height}
               orientation={orientation === 'vertical' ? 'vertical' : 'horizontal'}
               dx={siblingSeparation * 24}
               dy={nonSiblingSeparation * 160}
@@ -586,11 +617,21 @@ export default function WebTree({ onClose }: WebTreeProps) {
             ) : (
               <div className="chip">No parent keyword</div>
             )}
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {seoResult.keywords.slice(0, 20).map((k, i) => (
-                <span key={i} className="chip">
-                  {k.text} · {k.score}
-                </span>
+            <div className="seo-keywords-list" style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+              {seoResult.keywords.map((k, i) => (
+                <div key={i} className="chip" style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-start', padding: '6px 10px' }}>
+                  <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {k.text}
+                    <span style={{ opacity: 0.6, fontSize: '0.9em' }}>{k.score}</span>
+                  </div>
+                  {k.prompt_count !== undefined && (
+                    <div style={{ fontSize: '0.75em', opacity: 0.8, display: 'flex', gap: 8 }}>
+                      <span title="Prompts Generated">🤖 {k.prompt_count}</span>
+                      <span title="Relevance Score">🎯 {k.relevance_score}</span>
+                      <span title="Diversity Score">🌈 {k.diversity_score}</span>
+                    </div>
+                  )}
+                </div>
               ))}
               {seoResult.keywords.length === 0 && <span className="chip">No keywords found</span>}
             </div>

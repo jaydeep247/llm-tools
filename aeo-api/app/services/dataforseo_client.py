@@ -1,19 +1,30 @@
 """
 DataForSEO REST Client
-Handles API communication with DataForSEO
+Handles API communication with DataForSEO with robust error handling and retry logic
 """
 
-from http.client import HTTPSConnection
+from http.client import HTTPSConnection, HTTPException
 from base64 import b64encode
 from json import loads, dumps
 import os
+import time
+import logging
 from typing import Dict, Any, Optional
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 class DataForSEOClient:
-    """REST client for DataForSEO API"""
+    """REST client for DataForSEO API with retry logic and timeout handling"""
     
     domain = "api.dataforseo.com"
+    
+    # Retry configuration
+    MAX_RETRIES = 3
+    RETRY_DELAY = 2  # seconds
+    BACKOFF_MULTIPLIER = 2
+    REQUEST_TIMEOUT = 30  # seconds
     
     def __init__(self, username: Optional[str] = None, password: Optional[str] = None):
         """
@@ -32,10 +43,12 @@ class DataForSEOClient:
                 "Set DATAFORSEO_USERNAME and DATAFORSEO_PASSWORD environment variables "
                 "or pass them to the constructor."
             )
+        
+        logger.info("DataForSEO client initialized successfully")
     
     def request(self, path: str, method: str, data: Optional[Any] = None) -> Dict[str, Any]:
         """
-        Make a request to the DataForSEO API
+        Make a request to the DataForSEO API with retry logic and timeout handling
         
         Args:
             path: API endpoint path
@@ -44,21 +57,98 @@ class DataForSEOClient:
             
         Returns:
             API response as dictionary
+            
+        Raises:
+            Exception: After all retries are exhausted
         """
-        connection = HTTPSConnection(self.domain)
-        try:
-            base64_bytes = b64encode(
-                f"{self.username}:{self.password}".encode("ascii")
-            ).decode("ascii")
-            headers = {
-                'Authorization': f'Basic {base64_bytes}',
-                'Content-Encoding': 'gzip'
-            }
-            connection.request(method, path, headers=headers, body=data)
-            response = connection.getresponse()
-            return loads(response.read().decode())
-        finally:
-            connection.close()
+        last_exception = None
+        
+        for attempt in range(self.MAX_RETRIES):
+            connection = None
+            try:
+                # Log attempt
+                logger.info(f"DataForSEO API request attempt {attempt + 1}/{self.MAX_RETRIES}: {method} {path}")
+                
+                # Create connection with timeout
+                connection = HTTPSConnection(self.domain, timeout=self.REQUEST_TIMEOUT)
+                
+                # Prepare authentication
+                base64_bytes = b64encode(
+                    f"{self.username}:{self.password}".encode("ascii")
+                ).decode("ascii")
+                
+                headers = {
+                    'Authorization': f'Basic {base64_bytes}',
+                    'Content-Encoding': 'gzip',
+                    'Content-Type': 'application/json'
+                }
+                
+                # Make request
+                connection.request(method, path, headers=headers, body=data)
+                response = connection.getresponse()
+                response_data = response.read().decode()
+                
+                # Parse response
+                result = loads(response_data)
+                
+                # Check HTTP status
+                if response.status == 429:
+                    # Rate limit - retry with exponential backoff
+                    retry_after = int(response.getheader('Retry-After', self.RETRY_DELAY))
+                    logger.warning(f"Rate limited (429). Retrying after {retry_after} seconds...")
+                    time.sleep(retry_after)
+                    continue
+                    
+                elif response.status >= 500:
+                    # Server error - retry
+                    logger.warning(f"Server error ({response.status}). Retrying...")
+                    if attempt < self.MAX_RETRIES - 1:
+                        delay = self.RETRY_DELAY * (self.BACKOFF_MULTIPLIER ** attempt)
+                        logger.info(f"Waiting {delay} seconds before retry...")
+                        time.sleep(delay)
+                        continue
+                    else:
+                        raise Exception(f"Server error after {self.MAX_RETRIES} attempts: {response.status}")
+                
+                elif response.status >= 400:
+                    # Client error - don't retry
+                    logger.error(f"Client error ({response.status}): {response_data}")
+                    raise Exception(f"API error {response.status}: {response_data}")
+                
+                # Success
+                logger.info(f"DataForSEO API request successful: {method} {path}")
+                return result
+                
+            except (HTTPException, ConnectionError, TimeoutError, OSError) as e:
+                # Network/connection errors - retry
+                last_exception = e
+                logger.warning(f"Connection error on attempt {attempt + 1}: {type(e).__name__}: {str(e)}")
+                
+                if attempt < self.MAX_RETRIES - 1:
+                    delay = self.RETRY_DELAY * (self.BACKOFF_MULTIPLIER ** attempt)
+                    logger.info(f"Retrying after {delay} seconds...")
+                    time.sleep(delay)
+                else:
+                    logger.error(f"All {self.MAX_RETRIES} attempts failed")
+                    raise Exception(f"DataForSEO API request failed after {self.MAX_RETRIES} attempts: {str(e)}") from e
+                    
+            except Exception as e:
+                # Unexpected error - log and re-raise
+                logger.error(f"Unexpected error in DataForSEO request: {type(e).__name__}: {str(e)}")
+                raise
+                
+            finally:
+                # Always close connection
+                if connection:
+                    try:
+                        connection.close()
+                    except Exception as e:
+                        logger.warning(f"Error closing connection: {e}")
+        
+        # Should not reach here, but just in case
+        if last_exception:
+            raise Exception(f"Request failed after {self.MAX_RETRIES} retries") from last_exception
+        raise Exception(f"Request failed after {self.MAX_RETRIES} retries")
     
     def get(self, path: str) -> Dict[str, Any]:
         """Make a GET request"""
@@ -100,6 +190,8 @@ class DataForSEOClient:
             Dict containing all backlinks data with aggregated metrics
         """
         
+        logger.info(f"Fetching backlinks for target: {target} (mode: {mode}, max_results: {max_results})")
+        
         all_backlinks = []
         search_after_token = None
         total_count = 0
@@ -120,6 +212,7 @@ class DataForSEOClient:
         try:
             while True:
                 page_count += 1
+                logger.info(f"Fetching page {page_count} of backlinks...")
                 
                 # Create payload for this request
                 payload = [base_payload.copy()]
@@ -131,27 +224,48 @@ class DataForSEOClient:
                 # Make API request
                 response = self.post('/v3/backlinks/backlinks/live', payload)
                 
-                # Check for errors
+                # Check for errors in response
+                if not response:
+                    logger.error("Empty response from DataForSEO API")
+                    return {
+                        'success': False,
+                        'error': 'Empty response from DataForSEO API',
+                        'backlinks': all_backlinks,
+                        'total_count': total_count,
+                        'fetched_count': len(all_backlinks)
+                    }
+                
+                # Check status code
                 if response.get('status_code') != 20000:
                     error_msg = response.get('status_message', 'Unknown error')
+                    logger.error(f"DataForSEO API error: {error_msg} (code: {response.get('status_code')})")
                     return {
                         'success': False,
                         'error': f'DataForSEO API error: {error_msg}',
-                        'backlinks': [],
-                        'total_count': 0
+                        'backlinks': all_backlinks,
+                        'total_count': total_count,
+                        'fetched_count': len(all_backlinks)
                     }
                 
                 # Extract results
                 tasks = response.get('tasks', [])
-                if not tasks or not tasks[0].get('result'):
+                if not tasks:
+                    logger.warning("No tasks in response")
+                    break
+                
+                if not tasks[0].get('result'):
+                    logger.warning("No result in task")
                     break
                 
                 result = tasks[0]['result'][0]
                 items = result.get('items', [])
                 
+                logger.info(f"Retrieved {len(items)} backlinks in page {page_count}")
+                
                 # Store total count from first request
                 if page_count == 1:
                     total_count = result.get('total_count', 0)
+                    logger.info(f"Total available backlinks: {total_count}")
                 
                 # Add backlinks to our list
                 all_backlinks.extend(items)
@@ -159,6 +273,7 @@ class DataForSEOClient:
                 # Check if we should continue
                 if max_results and len(all_backlinks) >= max_results:
                     all_backlinks = all_backlinks[:max_results]
+                    logger.info(f"Reached max_results limit: {max_results}")
                     break
                 
                 # Get token for next request
@@ -166,14 +281,19 @@ class DataForSEOClient:
                 
                 # Break if no more results or no token
                 if not search_after_token or len(items) == 0:
+                    logger.info("No more backlinks to fetch")
                     break
                 
                 # Break if we've fetched all available results
                 if len(all_backlinks) >= total_count:
+                    logger.info(f"Fetched all {total_count} available backlinks")
                     break
             
             # Aggregate metrics
+            logger.info(f"Aggregating metrics for {len(all_backlinks)} backlinks...")
             metrics = self._aggregate_backlink_metrics(all_backlinks)
+            
+            logger.info(f"Successfully fetched {len(all_backlinks)} backlinks across {page_count} pages")
             
             return {
                 'success': True,
@@ -188,6 +308,7 @@ class DataForSEOClient:
             }
             
         except Exception as e:
+            logger.error(f"Failed to fetch backlinks: {type(e).__name__}: {str(e)}")
             return {
                 'success': False,
                 'error': f'Failed to fetch backlinks: {str(e)}',

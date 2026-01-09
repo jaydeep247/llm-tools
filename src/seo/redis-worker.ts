@@ -166,6 +166,9 @@ async function worker(concurrency: number) {
           errors++;
         }
         
+        // Add delay between requests to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
         // Progress reporting
         if ((processed + errors) % 10 === 0) {
           const stats = await getQueueStats();

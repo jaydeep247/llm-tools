@@ -83,57 +83,69 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
   const [schemaFormat, setSchemaFormat] = useState<'json-ld' | 'rdfa'>('json-ld');
   const [selectedSchemaType, setSelectedSchemaType] = useState<string>('auto');
 
-  const [auditMode, setAuditMode] = useState<'single' | 'bulk'>('single');
-  const [sitemapUrl, setSitemapUrl] = useState<string>('');
-  const [bulkLoading, setBulkLoading] = useState<boolean>(false);
-  const [bulkResults, setBulkResults] = useState<any>(null);
+  // Module E State
+  const [moduleEScores, setModuleEScores] = useState<any>(null);
+  const [moduleELoading, setModuleELoading] = useState(false);
+  const [moduleEError, setModuleEError] = useState<string | null>(null);
 
-  // --- NEW: Simulator State ---
-  const [simulationQuery, setSimulationQuery] = useState('');
-  const [simulationResults, setSimulationResults] = useState<any>(null);
-  const [simulationLoading, setSimulationLoading] = useState(false);
-  // ---------------------------
-
-  const handleBulkAnalyze = async () => {
-    if (!sitemapUrl) {
-      alert('Please enter a Sitemap URL');
-      return;
-    }
-
-    setBulkLoading(true);
-    setBulkResults(null);
-
+  const analyzeWebsiteScores = async () => {
+    if (!url) return;
+    setModuleELoading(true);
+    setModuleEError(null);
     try {
-      const data = await apiService.analyzeBulk(sitemapUrl);
-      if (data) {
-        setBulkResults(data);
+      const response = await fetch('/aeo/website-score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, sessionId: result?.session_id })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setModuleEScores(data.scores);
+      } else {
+        setModuleEError(data.error || 'Analysis failed');
       }
-    } catch (error: any) {
-      console.error('Bulk Audit Failed:', error);
-      alert('Bulk Audit Failed: ' + (error.message || 'Unknown Error'));
+    } catch (e: any) {
+      setModuleEError(e.message || 'Analysis failed');
     } finally {
-      setBulkLoading(false);
+      setModuleELoading(false);
     }
   };
 
-  // --- NEW: Simulator Handler ---
-  const handleSimulation = async () => {
-    if (!url || !simulationQuery) return;
+  // Load Module E data from result when available
+  useEffect(() => {
+    console.log('=== AEODashboard: FULL result object ===', JSON.stringify(result, null, 2));
+    console.log('AEODashboard: result.results =', result?.results);
+    console.log('AEODashboard: result.module_scores =', result?.module_scores);
 
-    setSimulationLoading(true);
-    setSimulationResults(null);
+    // Handle both direct result and nested result.results structure
+    const actualResult = result?.results || result;
 
-    try {
-      const results = await apiService.simulateAnswer(url, simulationQuery);
-      setSimulationResults(results);
-    } catch (error: any) {
-      alert('Simulation failed: ' + (error.message || 'Unknown Error'));
-    } finally {
-      setSimulationLoading(false);
+    console.log('=== AEODashboard: FULL actualResult object ===', JSON.stringify(actualResult, null, 2));
+    console.log('AEODashboard: actualResult keys =', Object.keys(actualResult || {}));
+
+    if (actualResult?.module_scores) {
+      console.log('=== AEODashboard: FULL module_scores ===', JSON.stringify(actualResult.module_scores, null, 2));
+      console.log('AEODashboard: module_scores keys =', Object.keys(actualResult.module_scores));
+      console.log('AEODashboard: module_scores.consistency =', actualResult.module_scores.consistency);
+      console.log('AEODashboard: module_scores.brand_metrics =', actualResult.module_scores.brand_metrics);
+      console.log('AEODashboard: actualResult.entity_coverage =', actualResult.entity_coverage);
+
+      // Extract Module E data from result
+      const moduleEData = {
+        consistency: actualResult.module_scores.consistency,
+        entity_coverage: actualResult.entity_coverage,
+        brand_metrics: actualResult.module_scores.brand_metrics,
+        url: actualResult.url
+      };
+      console.log('AEODashboard: Setting moduleEScores to', moduleEData);
+      setModuleEScores(moduleEData);
+    } else {
+      console.log('AEODashboard: No module_scores in result');
     }
-  };
-  // -----------------------------
+  }, [result]);
 
+
+  // Generate schema markup
   const generateSchema = async () => {
     if (!url) return;
 
@@ -699,6 +711,12 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
           >
             🤖 AI Simulator
           </button>
+          <button
+            onClick={() => setActiveView('module_e' as any)}
+            className={`tab-button ${activeView === ('module_e' as any) ? 'active' : ''}`}
+          >
+            📊 Module E
+          </button>
         </div>
 
         <div className="tab-content">
@@ -933,45 +951,114 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
             </div>
           )}
 
-          {activeView === 'intelligence' && (
-            <div className="dashboard-card" style={{ padding: '2rem' }}>
-              <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                <h3>🧠 Module C: AI Intelligence Engine</h3>
-                <div className="mode-toggle" style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '4px', borderRadius: '8px' }}>
-                  <button
-                    onClick={() => setAuditMode('single')}
-                    style={{
-                      padding: '8px 16px',
-                      borderRadius: '6px',
-                      border: 'none',
-                      background: auditMode === 'single' ? '#fff' : 'transparent',
-                      boxShadow: auditMode === 'single' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                      fontWeight: auditMode === 'single' ? '600' : '400',
-                      color: auditMode === 'single' ? '#0f172a' : '#64748b',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    AEO Checker
-                  </button>
-                  <button
-                    onClick={() => setAuditMode('bulk')}
-                    style={{
-                      padding: '8px 16px',
-                      borderRadius: '6px',
-                      border: 'none',
-                      background: auditMode === 'bulk' ? '#fff' : 'transparent',
-                      boxShadow: auditMode === 'bulk' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                      fontWeight: auditMode === 'bulk' ? '600' : '400',
-                      color: auditMode === 'bulk' ? '#0f172a' : '#64748b',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    LLM-Friendliness Bulk Audit
-                  </button>
+          {activeView === ('module_e' as any) && (
+            <div className="p-4" style={{ minHeight: 'auto' }}>
+
+
+
+              {/* New Summary Table (Replaces Multi-Model Cards) */}
+              {moduleEScores && (
+                <div className="mb-8 overflow-hidden rounded-xl border border-gray-800 bg-black shadow-lg">
+                  <div className="border-b border-gray-800 bg-gray-900/50 px-6 py-4 flex items-center gap-2">
+                    <span className="text-xl">📊</span>
+                    <h3 className="text-lg font-semibold text-white">Analysis Summary</h3>
+
+                    {activeView === 'intelligence' && (
+                      <div className="dashboard-card" style={{ padding: '2rem' }}>
+                        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                          <h3>🧠 Module C: AI Intelligence Engine</h3>
+                          <div className="mode-toggle" style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '4px', borderRadius: '8px' }}>
+                            <button
+                              onClick={() => setAuditMode('single')}
+                              style={{
+                                padding: '8px 16px',
+                                borderRadius: '6px',
+                                border: 'none',
+                                background: auditMode === 'single' ? '#fff' : 'transparent',
+                                boxShadow: auditMode === 'single' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                                fontWeight: auditMode === 'single' ? '600' : '400',
+                                color: auditMode === 'single' ? '#0f172a' : '#64748b',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                              }}
+                            >
+                              AEO Checker
+                            </button>
+                            <button
+                              onClick={() => setAuditMode('bulk')}
+                              style={{
+                                padding: '8px 16px',
+                                borderRadius: '6px',
+                                border: 'none',
+                                background: auditMode === 'bulk' ? '#fff' : 'transparent',
+                                boxShadow: auditMode === 'bulk' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                                fontWeight: auditMode === 'bulk' ? '600' : '400',
+                                color: auditMode === 'bulk' ? '#0f172a' : '#64748b',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                              }}
+                            >
+                              LLM-Friendliness Bulk Audit
+                            </button>
+                          </div>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm text-gray-400">
+                              <thead className="bg-gray-900 text-xs uppercase text-gray-400 font-bold tracking-wider">
+                                <tr>
+                                  <th className="px-6 py-4 border-b border-gray-800">Website Name</th>
+                                  <th className="px-6 py-4 border-b border-gray-800">Content Consistency</th>
+                                  <th className="px-6 py-4 border-b border-gray-800">Entity Coverage</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-800">
+                                <tr className="hover:bg-gray-900/30 transition-colors">
+                                  <td className="px-6 py-4 font-medium text-white border-r border-gray-800/50">
+                                    {url || moduleEScores.url || 'Unknown Website'}
+                                  </td>
+                                  <td className="px-6 py-4 border-r border-gray-800/50">
+                                    <span className={`inline-flex items-center rounded px-2.5 py-1 text-xs font-bold ${(moduleEScores.consistency || 0) >= 80 ? 'bg-green-900/40 text-green-400 border border-green-800' :
+                                      (moduleEScores.consistency || 0) >= 50 ? 'bg-yellow-900/40 text-yellow-400 border border-yellow-800' :
+                                        'bg-red-900/40 text-red-400 border border-red-800'
+                                      }`}>
+                                      {moduleEScores.consistency !== undefined ? `${moduleEScores.consistency}%` : 'N/A'}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <span className={`inline-flex items-center rounded px-2.5 py-1 text-xs font-bold ${(moduleEScores.entity_coverage?.score || 0) >= 80 ? 'bg-green-900/40 text-green-400 border border-green-800' :
+                                      (moduleEScores.entity_coverage?.score || 0) >= 50 ? 'bg-yellow-900/40 text-yellow-400 border border-yellow-800' :
+                                        'bg-red-900/40 text-red-400 border border-red-800'
+                                      }`}>
+                                      {moduleEScores.entity_coverage?.score !== undefined ? `${moduleEScores.entity_coverage.score}%` : 'N/A'}
+                                    </span>
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+              )}
+
+                        {moduleELoading && (
+                          <div className="loading-state text-center p-8 bg-gray-800 rounded-lg border border-gray-700">
+                            <div className="spinner mx-auto mb-4 w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                            <p className="text-gray-300">Aggregating content and analyzing...</p>
+                          </div>
+                        )}
+
+                        {moduleEError && (
+                          <div className="error-message p-4 bg-red-900/50 border border-red-500 text-red-200 rounded-lg mt-4">
+                            ❌ Error: {moduleEError}
+                          </div>
+                        )}
+
+
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+
+
+
 
               {auditMode === 'single' && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginTop: '1rem' }}>
@@ -1463,7 +1550,214 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
         </div>
       )}
 
-    </div>
+      {/* Multi-Model Website Scoring - Temporarily Disabled */}
+      {/* 
+      {false && activeView === ('module_e' as any) && (
+        <div className="module-e-content" style={{ padding: '20px' }}>
+          <div className="card-header">
+            <h3 className="text-xl font-bold mb-4">Multi-Model Website Scoring</h3>
+          </div>
+          <p style={{ marginBottom: '20px', color: '#9CA3AF' }}>
+            Analyze a qualified content aggregation of your website using three top-tier models independently.
+          </p>
+
+          {!moduleEScores && !moduleELoading && (
+            <button
+              onClick={analyzeWebsiteScores}
+              className="generate-btn px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold flex items-center gap-2"
+            >
+              <span>🚀</span> Run Multi-Model Analysis
+            </button>
+          )}
+
+          {moduleELoading && (
+            <div className="loading-state text-center p-8 bg-gray-800 rounded-lg border border-gray-700">
+              <div className="spinner mx-auto mb-4 w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-gray-300">Aggregating content and analyzing with OpenAI, Claude, and Gemini...</p>
+            </div>
+          )}
+
+          {moduleEError && (
+            <div className="error-message p-4 bg-red-900/50 border border-red-500 text-red-200 rounded-lg mt-4">
+              ❌ Error: {moduleEError}
+            </div>
+          )}
+
+          {moduleEScores && (
+            <div className="scores-grid grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+              
+              <div className="score-card bg-gray-800 p-6 rounded-xl border border-gray-700 flex flex-col items-center hover:border-green-500 transition-colors">
+                <div className="text-5xl mb-4">🤖</div>
+                <h4 className="text-xl font-bold mb-4 text-gray-200">ChatGPT-4o</h4>
+                <div className="relative w-24 h-24 flex items-center justify-center rounded-full" style={{ background: `conic-gradient(#10B981 ${moduleEScores.openai * 3.6}deg, #374151 0deg)` }}>
+                  <div className="absolute w-20 h-20 bg-gray-800 rounded-full flex items-center justify-center">
+                    <span className="text-2xl font-bold text-white">{moduleEScores.openai}</span>
+                  </div>
+                </div>
+              </div>
+
+              
+              <div className="score-card bg-gray-800 p-6 rounded-xl border border-gray-700 flex flex-col items-center hover:border-amber-500 transition-colors">
+                <div className="text-5xl mb-4">🎭</div>
+                <h4 className="text-xl font-bold mb-4 text-gray-200">Claude 3.5</h4>
+                <div className="relative w-24 h-24 flex items-center justify-center rounded-full" style={{ background: `conic-gradient(#F59E0B ${moduleEScores.claude * 3.6}deg, #374151 0deg)` }}>
+                  <div className="absolute w-20 h-20 bg-gray-800 rounded-full flex items-center justify-center">
+                    <span className="text-2xl font-bold text-white">{moduleEScores.claude}</span>
+                  </div>
+                </div>
+              </div>
+
+              
+              <div className="score-card bg-gray-800 p-6 rounded-xl border border-gray-700 flex flex-col items-center hover:border-blue-500 transition-colors">
+                <div className="text-5xl mb-4">🧠</div>
+                <h4 className="text-xl font-bold mb-4 text-gray-200">Gemini Pro</h4>
+                <div className="relative w-24 h-24 flex items-center justify-center rounded-full" style={{ background: `conic-gradient(#3B82F6 ${moduleEScores.gemini * 3.6}deg, #374151 0deg)` }}>
+                  <div className="absolute w-20 h-20 bg-gray-800 rounded-full flex items-center justify-center">
+                    <span className="text-2xl font-bold text-white">{moduleEScores.gemini}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )} 
+      */}
+
+
+
+      {/* Brand Pulse & Sentiment Section (Outside Main Box) */}
+      {activeView === ('module_e' as any) && moduleEScores && moduleEScores.brand_metrics && (
+        <div className="mt-8 bg-gray-800 p-6 rounded-xl border border-gray-700">
+          <h4 className="text-xl font-bold mb-4 text-gray-200 flex items-center gap-2">
+            <span>📢</span> Brand Pulse & Sentiment
+            <span className="text-sm font-normal text-gray-400 ml-2">({moduleEScores.brand_metrics.brand_name})</span>
+          </h4>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Sentiment & Mentions */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-4 bg-gray-900/50 p-4 rounded-lg">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-white">{moduleEScores.brand_metrics.total_mentions}</div>
+                  <div className="text-xs text-gray-400 uppercase tracking-wider">Total Mentions</div>
+                </div>
+                <div className="h-10 w-px bg-gray-700"></div>
+                <div className="flex-grow">
+                  <div className="text-sm text-gray-300 mb-1">Sentiment: <span className="font-bold text-white">{moduleEScores.brand_metrics.sentiment.label}</span></div>
+                  <div className="flex h-3 rounded-full overflow-hidden bg-gray-700 w-full">
+                    <div style={{ width: `${(moduleEScores.brand_metrics.sentiment.counts.positive / (moduleEScores.brand_metrics.total_mentions || 1)) * 100}%` }} className="bg-green-500 h-full" title="Positive"></div>
+                    <div style={{ width: `${(moduleEScores.brand_metrics.sentiment.counts.neutral / (moduleEScores.brand_metrics.total_mentions || 1)) * 100}%` }} className="bg-gray-400 h-full" title="Neutral"></div>
+                    <div style={{ width: `${(moduleEScores.brand_metrics.sentiment.counts.negative / (moduleEScores.brand_metrics.total_mentions || 1)) * 100}%` }} className="bg-red-500 h-full" title="Negative"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h5 className="text-sm font-bold text-gray-300 uppercase mb-3">Top Mentioning Sites</h5>
+                <div className="space-y-2">
+                  {moduleEScores.brand_metrics.top_sources.slice(0, 5).map((source: any, i: number) => (
+                    <div key={i} className="flex justify-between items-center text-sm p-2 bg-gray-750 rounded hover:bg-gray-700 transition-colors">
+                      <span className="text-blue-400 truncate w-2/3">{source.domain}</span>
+                      {source.count !== undefined && (
+                        <span className="bg-gray-900 text-gray-300 px-2 py-0.5 rounded text-xs">{source.count}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Frequency Chart */}
+            <div className="flex flex-col h-full">
+              <h5 className="text-sm font-bold text-gray-300 uppercase mb-3 text-center">Mention Frequency (Last 12 Months)</h5>
+              <div className="flex-grow relative h-48 bg-gray-900/30 p-2 rounded-lg border border-gray-700/50">
+                {(() => {
+                  const trendData = moduleEScores.brand_metrics!.frequency_trend.slice(-12);
+                  const data = trendData.map((p: any) => ({
+                    date: new Date(p.date),
+                    value: Number(p.count || 0)
+                  }));
+
+                  if (data.length === 0 || data.every((d: any) => d.value === 0)) {
+                    return (
+                      <div className="absolute inset-0 flex items-center justify-center text-gray-500">
+                        <div className="text-center">
+                          <div className="text-3xl mb-2 opacity-50">📉</div>
+                          <div className="text-xs text-gray-400">No activity recorded</div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  const yMax = Math.max(...data.map((d: any) => d.value), 5);
+                  const width = 100;
+                  const height = 100;
+                  const padding = 5;
+                  const getY = (val: number) => height - padding - ((val / yMax) * (height - (padding * 2)));
+                  const getX = (i: number) => (i / (data.length - 1)) * width;
+
+                  let areaPath = `M 0,${height}`;
+                  let linePath = ``;
+
+                  data.forEach((d: any, i: number) => {
+                    const x = getX(i);
+                    const y = getY(d.value);
+                    if (i === 0) {
+                      linePath += `M ${x},${y}`;
+                      areaPath += ` L ${x},${y}`;
+                    } else {
+                      linePath += ` L ${x},${y}`;
+                      areaPath += ` L ${x},${y}`;
+                    }
+                  });
+                  areaPath += ` L ${width},${height} Z`;
+
+                  return (
+                    <div className="w-full h-full relative" style={{ minWidth: 0 }}>
+                      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="w-full h-full overflow-visible">
+                        <defs>
+                          <linearGradient id="freqGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.6} />
+                            <stop offset="90%" stopColor="#3B82F6" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        {[0.25, 0.5, 0.75, 1].map(tick => (
+                          <line key={tick} x1="0" x2={width} y1={getY(yMax * tick)} y2={getY(yMax * tick)} stroke="#374151" strokeDasharray="2,2" strokeWidth="0.5" />
+                        ))}
+                        <path d={areaPath} fill="url(#freqGradient)" />
+                        <path d={linePath} fill="none" stroke="#3B82F6" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
+                        {data.map((d: any, i: number) => (
+                          <circle key={i} cx={getX(i)} cy={getY(d.value)} r={1.5} fill="#fff" stroke="#2563EB" strokeWidth="1" className="hover:r-4 transition-all">
+                            <title>{d.value} mentions in {d.date.toLocaleString('default', { month: 'short' })}</title>
+                          </circle>
+                        ))}
+                      </svg>
+                      <div className="absolute bottom-0 left-0 right-0 flex justify-between px-1 text-[9px] text-gray-500 transform translate-y-full pt-1">
+                        {data.filter((_: any, i: number) => i % 2 === 0).map((d: any, i: number) => (
+                          <span key={i}>{d.date.toLocaleString('default', { month: 'short' }).toUpperCase()}</span>
+                        ))}
+                      </div>
+                      <div className="absolute bottom-0 left-0 right-0 flex justify-between px-1 text-[8px] text-gray-600 transform translate-y-full pt-3">
+                        <span>{data[0].date.getFullYear()}</span>
+                        {data[0].date.getFullYear() !== data[data.length - 1].date.getFullYear() && (
+                          <span>{data[data.length - 1].date.getFullYear()}</span>
+                        )}
+                      </div>
+                      <div className="absolute top-0 left-0 -ml-6 text-[9px] text-gray-500">{yMax}</div>
+                      <div className="absolute bottom-0 left-0 -ml-6 text-[9px] text-gray-500">0</div>
+                    </div>
+                  );
+                })()}
+              </div>
+              <div className="text-center text-xs text-gray-500 mt-6">Monthly Volume Trend</div>
+            </div>
+          </div>
+
+
+        </div >
+      )}
+
+    </div >
   );
 };
 

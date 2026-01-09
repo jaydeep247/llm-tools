@@ -12,6 +12,7 @@ import { monitoringRoutes, healthChecker, metricsCollector } from './routes/moni
 import { auditsRoutes } from './routes/audits.routes.js';
 import seoRoutes from './routes/seo.routes.js';
 import linksRoutes from './routes/links.routes.js';
+import linkScoreRoutes from './routes/linkScore.routes.js';
 import aeoRoutes from './routes/aeo.routes.js';
 import authRoutes from './routes/auth.routes.js';
 import { authenticateUser, checkUsageLimit, optionalAuth } from './auth/authMiddleware.js';
@@ -57,7 +58,7 @@ app.use(helmet({
 
 
 app.use(cors({
-    origin: process.env.CORS_ORIGIN,
+    origin: process.env.CORS_ORIGIN?.replace(/\/$/, ''), // Remove trailing slash
     credentials: true // Allow cookies to be sent
 }));
 app.use(cookieParser());
@@ -87,6 +88,7 @@ app.use('/api', auditsRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api', seoRoutes);
 app.use(linksRoutes);
+app.use(linkScoreRoutes);
 app.use('/aeo', aeoRoutes);
 
 // Cancel audits endpoint

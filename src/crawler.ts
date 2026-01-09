@@ -7,34 +7,19 @@ import { SitemapService } from './sitemap/SitemapService.js';
 import { CrawlAuditIntegration } from './audits/CrawlAuditIntegration.js';
 import { extractLinkMetadata } from './utils/linkAnalyzer.js';
 import { initSeoEnqueue, maybeEnqueueSeo } from './seo/redis-queue.js';
+import { extractPageMetrics } from './modules/module_A/pageMetrics/index.js';
+import { extractContentMetrics } from './modules/module_A/contentAnalysis/index.js';
+import { extractLinksForCrawling, isValidHttpLink } from './modules/module_A/linkExtractor/index.js';
+import { collectPageResources } from './modules/module_A/resourceCollector/index.js';
+import { analyzeLinkDetails } from './modules/module_A/linkAnalysis/index.js';
+import { calculateCarbon } from './modules/module_A/carbon/carbonCalculator.js';
+import { fetchResourceSizes } from './modules/module_A/carbon/resourceSizer.js';
+import { calculateFolderDepth, getCrawlDepthFromRequest } from './modules/module_A/contentAnalysis/urlDepth.js';
+import { linkScoreService } from './services/LinkScoreService.js';
+import { createFingerprint } from './modules/module_A/duplicateDetection/index.js';
+import { analyzeSessionDuplicates } from './modules/module_A/duplicateDetection/sessionAnalyzer.js';
 
 Configuration.set('systemInfoV2', true);
-
-/**
- * Check if a URL is a valid HTTP/HTTPS link that should be processed
- */
-function isValidHttpLink(href: string): boolean {
-    if (!href) return false;
-
-    // Skip non-HTTP protocols
-    const lowerHref = href.toLowerCase();
-    if (lowerHref.startsWith('javascript:') ||
-        lowerHref.startsWith('mailto:') ||
-        lowerHref.startsWith('tel:') ||
-        lowerHref.startsWith('sms:') ||
-        lowerHref.startsWith('ftp:') ||
-        lowerHref.startsWith('file:') ||
-        lowerHref.startsWith('data:') ||
-        lowerHref.startsWith('blob:') ||
-        lowerHref.startsWith('chrome:') ||
-        lowerHref.startsWith('about:') ||
-        lowerHref.startsWith('#')) {
-        return false;
-    }
-
-    // Must be HTTP or HTTPS
-    return lowerHref.startsWith('http://') || lowerHref.startsWith('https://');
-}
 
 type CrawlOptions = {
     startUrl: string;
@@ -193,9 +178,17 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
     try {
         const sitemapUrls = await db.getUncrawledSitemapUrls(sessionId);
         // Add requests directly to the same RequestQueue Cheerio will use
-        await queue.addRequest({ url: start.href });
+        // Set depth=0 for the start URL (homepage)
+        await queue.addRequest({ 
+            url: start.href,
+            userData: { depth: 0 }
+        });
         for (const u of sitemapUrls) {
-            await queue.addRequest({ url: u.url });
+            // Sitemap URLs are discovered URLs, so they're at depth 0 (same as start URL)
+            await queue.addRequest({ 
+                url: u.url,
+                userData: { depth: 0 }
+            });
         }
 
         // Debug: report queue stats
@@ -257,6 +250,13 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
                     statusCode: response.statusCode,
                     responseTime: 0,
                     wordCount: 0,
+                    sentenceCount: 0,
+                    averageWordsPerSentence: 0,
+                    fleschReadingEase: undefined,
+                    readabilityLevel: undefined,
+                    textToHtmlRatio: undefined,
+                    crawlDepth: getCrawlDepthFromRequest(request),
+                    folderDepth: calculateFolderDepth(url),
                     timestamp: new Date().toISOString(),
                     success: false,
                     errorMessage: `HTTP ${response.statusCode} Error`
@@ -270,35 +270,109 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
             const startTime = requestStartTimes.get(url) || Date.now();
             const responseTime = Date.now() - startTime;
 
-            // Determine content type with fallbacks
-            const headerContentType = response?.headers?.['content-type'] || response?.responseHeaders?.['content-type'];
-            const metaContentType = $('meta[http-equiv="Content-Type"]').attr('content');
-            const resolvedContentType = headerContentType || metaContentType || 'text/html';
+            // Enhance response object with final URL for redirect detection
+            const enhancedResponse = {
+                ...response,
+                url: response?.url || request.loadedUrl || url
+            };
 
-            // Compute word count from a cloned DOM to avoid affecting link extraction
-            const cheerio = await import('cheerio');
-            const $clone = cheerio.load($.html());
-            $clone('script, style, noscript, meta, link').remove();
-            const textContent = $clone('body').text().trim();
-            const wordCount = textContent ? textContent.split(/\s+/).length : 0;
+            // Extract page metrics using module_A (now async for Last-Modified)
+            const pageMetrics = await extractPageMetrics(request.url, $, enhancedResponse, responseTime);
+            
+            // Extract content metrics using module_A
+            const contentMetrics = extractContentMetrics($);
+            
+            // Calculate depths
+            const crawlDepth = getCrawlDepthFromRequest(request);
+            const folderDepth = calculateFolderDepth(url);
+            
+            // Use extracted metrics
+            const resolvedContentType = pageMetrics.contentType;
+            const wordCount = contentMetrics.visibleWordCount;
+            const sentenceCount = contentMetrics.sentenceCount;
+            const averageWordsPerSentence = contentMetrics.averageSentenceLength;
+            const fleschReadingEase = contentMetrics.fleschReadingEase;
+            const readabilityLevel = contentMetrics.readabilityLevel;
+            const textToHtmlRatio = contentMetrics.textToHtmlRatio;
 
-            // Record the page data
+            // Record the page data using extracted metrics
+            console.log(`[DEBUG] PageMetrics for ${url}:`, {
+                relNext: pageMetrics.relNext,
+                relPrev: pageMetrics.relPrev,
+                httpRelNext: pageMetrics.httpRelNext,
+                httpRelPrev: pageMetrics.httpRelPrev
+            });
+            
+            // Debug readability metrics
+            console.log(`[DEBUG] Readability for ${url}:`, {
+                fleschReadingEase,
+                readabilityLevel,
+                wordCount,
+                sentenceCount,
+                textToHtmlRatio
+            });
+
             const pageId = await db.insertPage({
                 sessionId,
                 url,
-                title: $('title').text().trim() || 'No title',
-                titleLength: $('title').text().trim().length,
-                description: $('meta[name="description"]').attr('content') || 'No description',
-                descriptionLength: ($('meta[name="description"]').attr('content') || '').length,
-                contentType: resolvedContentType,
-                lastModified: response?.headers?.['last-modified'] || response?.responseHeaders?.['last-modified'] || null,
-                statusCode: response?.statusCode || 200,
-                responseTime: responseTime,
+                title: pageMetrics.title,
+                titleLength: pageMetrics.titleLength,
+                titlePixelWidth: pageMetrics.titlePixelWidth,
+                description: pageMetrics.metaDescription,
+                descriptionLength: pageMetrics.metaDescriptionLength,
+                descriptionPixelWidth: pageMetrics.metaDescriptionPixelWidth,
+                contentType: pageMetrics.contentType,
+                lastModified: pageMetrics.lastModified || null,
+                statusCode: pageMetrics.statusCode,
+                responseTime: pageMetrics.responseTime,
                 wordCount,
+                sentenceCount,
+                averageWordsPerSentence,
+                fleschReadingEase,
+                readabilityLevel,
+                textToHtmlRatio,
+                crawlDepth,
+                folderDepth,
+                sizeBytes: pageMetrics.sizeBytes,
                 timestamp: new Date().toISOString(),
                 success: true,
-                errorMessage: null
+                errorMessage: null,
+                indexable: pageMetrics.indexable,
+                indexabilityStatus: pageMetrics.indexabilityStatus,
+                metaKeywords: pageMetrics.metaKeywords,
+                metaKeywordsLength: pageMetrics.metaKeywordsLength,
+                metaRobots: pageMetrics.metaRobots,
+                xRobotsTag: pageMetrics.xRobotsTag,
+                metaRefresh: pageMetrics.metaRefresh,
+                canonicalUrl: pageMetrics.canonicalUrl,
+                relNext: pageMetrics.relNext,
+                relPrev: pageMetrics.relPrev,
+                httpRelNext: pageMetrics.httpRelNext,
+                httpRelPrev: pageMetrics.httpRelPrev,
+                headingTags: JSON.stringify({
+                    h1: pageMetrics.h1Tags.length,
+                    h2: pageMetrics.h2Tags.length,
+                    h3: pageMetrics.h3Tags.length,
+                    h4: pageMetrics.h4Tags.length,
+                    h5: pageMetrics.h5Tags.length,
+                    h6: pageMetrics.h6Tags.length
+                }),
+                spellingErrors: contentMetrics.spellingErrors || 0,
+                grammarErrors: contentMetrics.grammarErrors || 0,
+                redirectUrl: pageMetrics.redirectUrl,
+                redirectType: pageMetrics.redirectType,
+                cookies: pageMetrics.cookies,
+                language: pageMetrics.language,
+                httpVersion: pageMetrics.httpVersion
             });
+
+            // --- Content Fingerprinting for Near-Duplicate Detection ---
+            try {
+                const fingerprint = createFingerprint($, pageId, sessionId, url, false);
+                await db.upsertContentFingerprint(fingerprint);
+            } catch (error) {
+                logger.error(`Failed to create content fingerprint for ${url}`, error as Error);
+            }
 
             // Mark sitemap URL as crawled if it was discovered from sitemap
             await db.markSitemapUrlAsCrawled(sessionId, url);
@@ -321,27 +395,13 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
 
             logger.debug('Page processed', { url, responseTime });
 
-            // Enqueue same-site links discovered on the page
-            const toEnqueue: string[] = [];
-            $('a[href]')
-                .map((_i, el) => $(el).attr('href'))
-                .get()
-                .forEach((href) => {
-                    if (!href) return;
-                    let absolute: string;
-                    try {
-                        absolute = new URL(href, url).toString();
-                    } catch {
-                        return;
-                    }
-                    if (!isValidHttpLink(absolute)) return;
-                    const canon = canonicalizeUrl(absolute, {
-                        allowedHost,
-                        allowSubdomains,
-                        denyParamPrefixes,
-                    });
-                    if (canon) toEnqueue.push(canon);
-                });
+            // Extract links for crawling using module_A
+            const toEnqueue = extractLinksForCrawling($, {
+                baseUrl: url,
+                allowedHost,
+                allowSubdomains,
+                denyParamPrefixes
+            }, canonicalizeUrl, isSameSite);
 
             if (toEnqueue.length > 0) {
                 await enqueueLinks({
@@ -349,179 +409,111 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
                     transformRequestFunction: (req) => {
                         // Stay within same site only
                         if (!isSameSite(req.url, allowedHost, allowSubdomains)) return null;
+                        
+                        // Track crawl depth: increment depth for each link found on this page
+                        const currentDepth = getCrawlDepthFromRequest(request);
+                        req.userData = { ...req.userData, depth: currentDepth + 1 };
+                        
                         return req;
                     },
                 });
             }
 
-            // Collect CSS files (fast: no HEAD requests)
-            const cssLinks = $('link[rel="stylesheet"][href]').map((_i, el) => $(el).attr('href')).get();
-            for (const href of cssLinks) {
-                if (!href) continue;
-                let absolute: string;
-                try { absolute = new URL(href, url).toString(); } catch { continue; }
-                if (emittedCss.has(absolute)) continue;
-                emittedCss.add(absolute);
-                await db.upsertResource({
-                    sessionId,
-                    pageId: pageId,
-                    url: absolute,
-                    resourceType: 'css',
-                    title: '',
-                    description: 'CSS file',
-                    contentType: 'text/css',
-                    statusCode: null,
-                    responseTime: null,
-                    timestamp: new Date().toISOString()
-                });
+            // Collect all resources using module_A
+            const resources = collectPageResources($, {
+                sessionId,
+                pageId,
+                baseUrl: url,
+                allowedHost,
+                allowSubdomains,
+                emittedCss,
+                emittedJs,
+                emittedImg,
+                emittedExternal
+            }, isValidHttpLink, isSameSite);
+
+            // Insert collected resources into database
+            for (const resource of resources.css) {
+                await db.upsertResource(resource);
+            }
+            for (const resource of resources.js) {
+                await db.upsertResource(resource);
+            }
+            for (const resource of resources.images) {
+                await db.upsertResource(resource);
+            }
+            for (const resource of resources.external) {
+                await db.upsertResource(resource);
             }
 
-            // Collect JS files (fast)
-            const jsLinks = $('script[src]').map((_i, el) => $(el).attr('src')).get();
-            for (const src of jsLinks) {
-                if (!src) continue;
-                let absolute: string;
-                try { absolute = new URL(src, url).toString(); } catch { continue; }
-                if (emittedJs.has(absolute)) continue;
-                emittedJs.add(absolute);
-                await db.upsertResource({
-                    sessionId,
-                    pageId: pageId,
-                    url: absolute,
-                    resourceType: 'js',
-                    title: '',
-                    description: 'JavaScript file',
-                    contentType: 'application/javascript',
-                    statusCode: null,
-                    responseTime: null,
-                    timestamp: new Date().toISOString()
-                });
-            }
-
-            // Collect images (fast)
-            const imgElems = $('img[src]').map((_i, el) => ({ src: $(el).attr('src'), alt: $(el).attr('alt') })).get();
-            for (const { src, alt } of imgElems) {
-                if (!src) continue;
-                let absolute: string;
-                try { absolute = new URL(src, url).toString(); } catch { continue; }
-                if (emittedImg.has(absolute)) continue;
-                emittedImg.add(absolute);
-                await db.upsertResource({
-                    sessionId,
-                    pageId: pageId,
-                    url: absolute,
-                    resourceType: 'image',
-                    title: alt || '',
-                    description: 'Image',
-                    contentType: 'image/*',
-                    statusCode: null,
-                    responseTime: null,
-                    timestamp: new Date().toISOString()
-                });
-            }
-
-            // Collect external links (fast)
-            const links = $('a[href]').map((_i, el) => $(el).attr('href')).get();
-            for (const href of links) {
-                if (!href) continue;
-                let absolute: string;
-                try { absolute = new URL(href, url).toString(); } catch { continue; }
-                // Only track real HTTP/HTTPS links
-                if (!isValidHttpLink(absolute)) continue;
-                if (!isSameSite(absolute, allowedHost, allowSubdomains)) {
-                    if (emittedExternal.has(absolute)) continue;
-                    emittedExternal.add(absolute);
-                    await db.upsertResource({
-                        sessionId,
-                        pageId: pageId,
-                        url: absolute,
-                        resourceType: 'external',
-                        title: '',
-                        description: 'External link',
-                        contentType: 'text/html',
-                        statusCode: null,
-                        responseTime: null,
-                        timestamp: new Date().toISOString()
-                    });
-                }
-            }
-
-            // Link analysis (if enabled)
             if (captureLinkDetails) {
                 const linkAnalysisStart = Date.now();
-                const linksToInsert: Array<{
-                    sessionId: number;
-                    sourcePageId: number;
-                    sourceUrl: string;
-                    targetUrl: string;
-                    targetPageId?: number;
-                    isInternal: boolean;
-                    anchorText?: string;
-                    xpath?: string;
-                    position?: string;
-                    rel?: string;
-                    nofollow?: boolean;
-                }> = [];
-
-                const processedLinks = new Set<string>(); // For deduplication
-
-                $('a[href]').each((_i, el) => {
-                    try {
-                        const href = $(el).attr('href');
-                        if (!href) return;
-
-                        let absolute: string;
-                        try {
-                            absolute = new URL(href, url).toString();
-                        } catch {
-                            return;
-                        }
-
-                        // Only process HTTP/HTTPS links
-                        if (!isValidHttpLink(absolute)) return;
-
-                        // Deduplicate by target URL and XPath
-                        const metadata = extractLinkMetadata(el, url, $);
-                        const dedupeKey = `${metadata.targetUrl}|${metadata.xpath}`;
-                        if (processedLinks.has(dedupeKey)) return;
-                        processedLinks.add(dedupeKey);
-
-                        const isInternal = isSameSite(absolute, allowedHost, allowSubdomains);
-
-                        linksToInsert.push({
-                            sessionId,
-                            sourcePageId: pageId,
-                            sourceUrl: url,
-                            targetUrl: metadata.targetUrl,
-                            isInternal,
-                            anchorText: metadata.anchorText,
-                            xpath: metadata.xpath,
-                            position: metadata.position,
-                            rel: metadata.rel,
-                            nofollow: metadata.nofollow
-                        });
-                    } catch (error) {
-                        // Skip problematic links
-                        reqLog.debug(`Skipping link analysis for ${$(el).attr('href')}: ${(error as Error).message}`);
-                    }
-                });
+                
+                const linksToInsert = analyzeLinkDetails($, {
+                    sessionId,
+                    sourcePageId: pageId,
+                    sourceUrl: url,
+                    allowedHost,
+                    allowSubdomains
+                }, isValidHttpLink, isSameSite, extractLinkMetadata);
 
                 // Batch insert links
                 if (linksToInsert.length > 0) {
                     await db.insertLinks(linksToInsert);
+                    
+                    // Calculate and update external outlinks counts
+                    await db.updatePageExternalOutlinks(pageId, sessionId);
                 }
 
                 // Record metrics
                 const linkAnalysisTime = Date.now() - linkAnalysisStart;
                 if (metricsCollector) {
                     metricsCollector.recordLinkAnalysis(
-                        processedLinks.size,
+                        linksToInsert.length,
                         linksToInsert.length,
                         linkAnalysisTime
                     );
                 }
 
-                reqLog.debug(`Link analysis: found ${processedLinks.size} links, inserted ${linksToInsert.length} in ${linkAnalysisTime}ms`);
+                reqLog.debug(`Link analysis: found ${linksToInsert.length} links, inserted ${linksToInsert.length} in ${linkAnalysisTime}ms`);
+            }
+
+            // --- Carbon Footprint Calculation ---
+            try {
+                // 1. Calculate Page Size (Transferred Bytes)
+                // We use sizeBytes from pageMetrics (Content-Length or body size)
+                const transferredBytes = pageMetrics.sizeBytes || 0;
+
+                // 2. Calculate Total Transferred (Page + Resources)
+                // Extract all resource URLs
+                const resourceUrls: string[] = [
+                    ...resources.css.map(r => r.url),
+                    ...resources.js.map(r => r.url),
+                    ...resources.images.map(r => r.url)
+                    // We define "Transferred" as resources loaded to render the page. 
+                    // External links (<a> tags) are NOT loaded, so we exclude them.
+                ];
+
+                // Fetch sizes for resources (HTTP HEAD)
+                const { totalBytes: resourcesSize } = await fetchResourceSizes(resourceUrls);
+                
+                const totalTransferredBytes = transferredBytes + resourcesSize;
+
+                // 3. Calculate CO2 and Rating
+                const carbonResult = calculateCarbon(totalTransferredBytes);
+
+                // 4. Update Page in DB
+                await db.updatePageCarbon(pageId, {
+                    transferredBytes,
+                    totalTransferredBytes,
+                    co2Mg: carbonResult.co2Mg,
+                    carbonRating: carbonResult.rating
+                });
+                
+                logger.debug(`Carbon metrics for ${url}: Rating=${carbonResult.rating}, CO2=${carbonResult.co2Mg}mg, Total=${totalTransferredBytes}b`);
+
+            } catch (error) {
+                logger.error(`Failed to calculate carbon metrics for ${url}`, error as Error);
             }
         },
         errorHandler: async ({ request, error }) => {
@@ -544,6 +536,13 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
                 statusCode: 0,
                 responseTime: responseTime,
                 wordCount: 0,
+                sentenceCount: 0,
+                averageWordsPerSentence: 0,
+                fleschReadingEase: undefined,
+                readabilityLevel: undefined,
+                textToHtmlRatio: undefined,
+                crawlDepth: getCrawlDepthFromRequest(request),
+                folderDepth: calculateFolderDepth(request.url),
                 timestamp: new Date().toISOString(),
                 success: false,
                 errorMessage: (error as Error).message
@@ -625,6 +624,35 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
             onLog?.(`⚠️ Link post-processing failed: ${(error as Error).message}`);
             logger.error('Link post-processing failed', error as Error);
         }
+
+        // Calculate Link Scores for all pages
+        try {
+            const linkScoreMsg = '🔗 Calculating Link Scores...';
+            log.info(linkScoreMsg);
+            onLog?.(linkScoreMsg);
+
+            await linkScoreService.calculateSessionLinkScores(sessionId);
+
+            const linkScoreStats = await db.getLinkScoreStats(sessionId);
+            const linkScoreCompleteMsg = `✅ Link Scores calculated - Avg: ${linkScoreStats.averageLinkScore || 0}, Excellent: ${linkScoreStats.excellentCount || 0}, Weak: ${linkScoreStats.weakCount || 0}`;
+            log.info(linkScoreCompleteMsg);
+            onLog?.(linkScoreCompleteMsg);
+        } catch (err) {
+            const linkScoreErrorMsg = `⚠️ Failed to calculate Link Scores: ${(err as Error).message}`;
+            logger.error('[linkScore] Failed to calculate link scores', err as Error);
+            onLog?.(linkScoreErrorMsg);
+        }
+    }
+
+    // Post-processing: Near-duplicate content analysis
+    try {
+        onLog?.('🧠 Calculating near-duplicate content metrics...');
+        await analyzeSessionDuplicates(sessionId);
+        onLog?.('✅ Near-duplicate content metrics calculated');
+    } catch (error) {
+        const dupErrorMsg = `⚠️ Failed to calculate near-duplicate metrics: ${(error as Error).message}`;
+        logger.error('[duplicates] Failed to calculate near-duplicate metrics', error as Error);
+        onLog?.(dupErrorMsg);
     }
 
     // Clean up the request queue after crawl completion
