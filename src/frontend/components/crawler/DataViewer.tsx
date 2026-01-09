@@ -91,15 +91,14 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
 
   // ✅ HELPER: Get auth headers
   const getAuthHeaders = (): HeadersInit => {
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
-    if (accessToken) {
-      headers['Authorization'] = `Bearer ${accessToken}`;
-    }
-    console.log(`[DataViewer] Using auth headers:`, { hasToken: !!accessToken });
-    return headers;
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
   };
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`;
+  }
+  return headers;
+ };
 
   useEffect(() => {
     loadSessions();

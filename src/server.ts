@@ -57,9 +57,34 @@ app.use(helmet({
 }));
 
 
+// CORS Configuration - Production Ready
+const corsOrigin = process.env.CORS_ORIGIN?.replace(/\/$/, '') || 'http://localhost:3000';
 app.use(cors({
-    origin: process.env.CORS_ORIGIN?.replace(/\/$/, ''), // Remove trailing slash
-    credentials: true // Allow cookies to be sent
+    origin: (origin, callback) => {
+        // Allow requests with no origin (mobile apps, Postman, etc.)
+        if (!origin) return callback(null, true);
+        
+        // Allow configured origins
+        const allowedOrigins = [
+            corsOrigin,
+            'http://localhost:3000',
+            'http://localhost:3004',
+            'http://134.122.7.161:3000',
+            'http://134.122.7.161:3004'
+        ];
+        
+        if (allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            logger.warn(`CORS blocked origin: ${origin}`);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true, // Allow cookies to be sent
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
+    maxAge: 86400 // 24 hours
 }));
 app.use(cookieParser());
 
