@@ -45,6 +45,9 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - CLAUDE_API_KEY=${CLAUDE_API_KEY:-${ANTHROPIC_API_KEY}}
+      - DATAFORSEO_USERNAME=${DATAFORSEO_USERNAME}
+      - DATAFORSEO_PASSWORD=${DATAFORSEO_PASSWORD}
     ports:
       - "8000:8000"
     volumes:
@@ -79,8 +82,8 @@ services:
       - MAIL_FROM=${MAIL_FROM}
       - MAIL_TO=${MAIL_TO}
       - PSI_API_KEY=${PSI_API_KEY}
-      - AEO_API_URL=http://aeo-api:8000
-      - PY_API_BASE=http://aeo-api:8000/
+      - AEO_API_BASE_URL=http://aeo-api:8000
+      - PY_API_BASE=http://aeo-api:8000
       - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000}
       - PORT=${PORT:-3004}
     ports:

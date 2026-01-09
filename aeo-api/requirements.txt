@@ -16,3 +16,4 @@ extruct==0.12.0
 httpx==0.28.1
 slowapi==0.1.9
 lxml>=4.9
+python-dateutil==2.8.2
