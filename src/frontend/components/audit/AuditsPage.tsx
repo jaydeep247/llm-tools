@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import './AuditsPage.dark.css';
 
 type AuditItem = {
@@ -40,6 +41,7 @@ function statusFromVitals(lcp?: number, tbt?: number, cls?: number): 'Good' | 'N
 }
 
 export default function AuditsPage() {
+  const { authFetch } = useAuth();
   const [device, setDevice] = useState<'all' | 'mobile' | 'desktop'>('all');
   const [items, setItems] = useState<AuditItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -55,8 +57,19 @@ export default function AuditsPage() {
 
   const loadSessions = async () => {
     try {
-      const res = await fetch('/api/data/sessions?limit=200');
-      if (!res.ok) throw new Error('Failed to load sessions');
+      const res = await authFetch('/api/data/sessions?limit=200', {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include'
+      });
+      if (!res.ok) {
+        if (res.status === 401) {
+          console.error('Authentication failed. Please log in again.');
+          return;
+        }
+        throw new Error('Failed to load sessions');
+      }
       const result = await res.json();
       setSessions(result.sessions || []);
     } catch (e) {

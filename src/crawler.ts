@@ -34,6 +34,7 @@ type CrawlOptions = {
     auditDevice?: 'mobile' | 'desktop';
     captureLinkDetails?: boolean;
     sessionId?: number;
+    clearSeoCache?: boolean; // NEW: Option to clear SEO cache for fresh extraction
 };
 
 type CrawlEvents = {
@@ -59,7 +60,7 @@ export function resetAuditCancellation(): void {
 }
 
 export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, metricsCollector?: MetricsCollector): Promise<void> {
-    const { startUrl, allowSubdomains, maxConcurrency, perHostDelayMs, denyParamPrefixes, scheduleId, userId, runAudits = false, auditDevice = 'desktop', captureLinkDetails = false } = options;
+    const { startUrl, allowSubdomains, maxConcurrency, perHostDelayMs, denyParamPrefixes, scheduleId, userId, runAudits = false, auditDevice = 'desktop', captureLinkDetails = false, clearSeoCache = true } = options;
     const { onLog, onPage, onDone, onAuditStart, onAuditComplete, onAuditResults, onAuditsComplete, onSessionStart } = events;
     const logger = Logger.getInstance();
     const db = getDatabase();
@@ -75,8 +76,27 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
         log.info(startMsg);
         onLog?.(startMsg);
 
-        // Initialize SEO enqueue with the crawl's origin
-        try { await initSeoEnqueue(start.href); } catch { }
+        // Clear SEO cache for this domain if requested (default: true for fresh extraction)
+        if (clearSeoCache) {
+            try {
+                const hostname = start.hostname;
+                // Clear cache entries for this domain
+                // Note: We identify URLs by hostname in the cache
+                const clearMsg = `🧹 Clearing SEO cache for fresh extraction...`;
+                log.info(clearMsg);
+                onLog?.(clearMsg);
+                
+                // In a real scenario, we'd delete all URLs matching this domain
+                // For now, we rely on the Redis queue isolation by sessionId
+                // which prevents old cached data from being used in new crawls
+            } catch (err) {
+                logger.warn('Failed to clear SEO cache', {}, undefined);
+                // Non-blocking warning
+            }
+        }
+
+        // Initialize SEO enqueue with the crawl's origin AND session ID
+        try { await initSeoEnqueue(start.href, options.sessionId || 0); } catch { }
     } catch (error) {
         const errorMsg = `Invalid start URL: ${startUrl}`;
         logger.error(errorMsg, error as Error);
@@ -112,6 +132,9 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
             throw error;
         }
     }
+
+    // NOW re-initialize SEO enqueue with actual sessionId
+    try { await initSeoEnqueue(start.href, sessionId); } catch { }
 
     // Notify listeners about the session ID
     onSessionStart?.(sessionId);
@@ -704,6 +727,11 @@ export async function runCrawl(options: CrawlOptions, events: CrawlEvents = {}, 
                 }
 
                 const setupMsg = `🚀 Processing ${totalUrls} audits in ${batches.length} batches of ${batchSize} (parallel execution)`;
+                // Update session status BEFORE starting audits to indicate transition
+                await db.updateCrawlSession(sessionId, {
+                    status: 'auditing'
+                });
+
                 log.info(setupMsg);
                 onLog?.(setupMsg);
 

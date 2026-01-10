@@ -761,7 +761,7 @@ export class PageRepository {
         };
     }
 
-    async saveSeoData(data: { url: string, parentText?: string, keywords: any[], language?: string, expiresAt: string }): Promise<void> {
+    async saveSeoData(data: { url: string, parentText?: string, keywords: any[], language?: string, sessionId?: number, expiresAt: string }): Promise<void> {
         const sql = `
       INSERT INTO seo_cache (url, parent_text, keywords, language, expires_at, updated_at)
       VALUES ($1, $2, $3, $4, $5, NOW())
@@ -779,6 +779,19 @@ export class PageRepository {
             data.language || null,
             data.expiresAt
         ]);
+    }
+
+    // Clear SEO cache for a specific URL to ensure fresh data on next crawl
+    async clearSeoCacheForUrl(url: string): Promise<void> {
+        const sql = 'DELETE FROM seo_cache WHERE url = $1';
+        await this.pool.query(sql, [url]);
+    }
+
+    // Clear SEO cache for all URLs to force fresh extraction
+    async clearAllSeoCache(): Promise<number> {
+        const sql = 'DELETE FROM seo_cache';
+        const result = await this.pool.query(sql);
+        return result.rowCount ?? 0;
     }
 
     // Sitemap methods

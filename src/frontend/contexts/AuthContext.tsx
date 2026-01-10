@@ -42,7 +42,9 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Use relative URLs when in development to avoid CORS issues
-const API_BASE = (import.meta as any).env?.VITE_API_URL || "http://localhost:3004";
+// In development, empty string means requests go through Vite proxy
+// In production, set VITE_API_BASE_URL to your production domain
+const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || '';
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
@@ -95,8 +97,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
 
         try {
-            console.log(`[AuthContext] Fetching user profile from: ${API_BASE}/api/auth/me`);
-            const response = await fetch(`${API_BASE}/api/auth/me`, {
+            // Use relative URL to go through Vite proxy in development, or absolute URL in production
+            const meUrl = API_BASE ? `${API_BASE}/api/auth/me` : '/api/auth/me';
+            console.log(`[AuthContext] Fetching user profile from: ${meUrl}`);
+            const response = await fetch(meUrl, {
                 headers: {
                     'Authorization': `Bearer ${accessToken}`
                 },
@@ -133,7 +137,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const refreshAccessToken = async () => {
         try {
-            const response = await fetch(`${API_BASE}/api/auth/refresh`, {
+            // Use relative URL to go through Vite proxy in development, or absolute URL in production
+            const refreshUrl = API_BASE ? `${API_BASE}/api/auth/refresh` : '/api/auth/refresh';
+            const response = await fetch(refreshUrl, {
                 method: 'POST',
                 credentials: 'include'
             });
@@ -161,7 +167,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const login = async (email: string, password: string) => {
-        const response = await fetch(`${API_BASE}/api/auth/login`, {
+        const loginUrl = API_BASE ? `${API_BASE}/api/auth/login` : '/api/auth/login';
+        const response = await fetch(loginUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password }),
@@ -178,7 +185,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         localStorage.setItem('accessToken', data.accessToken);
 
         // Load full profile with the new token
-        const meResponse = await fetch(`${API_BASE}/api/auth/me`, {
+        const meUrl = API_BASE ? `${API_BASE}/api/auth/me` : '/api/auth/me';
+        const meResponse = await fetch(meUrl, {
             headers: {
                 'Authorization': `Bearer ${data.accessToken}`
             },
@@ -194,7 +202,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const register = async (email: string, password: string, name?: string) => {
-        const response = await fetch(`${API_BASE}/api/auth/register`, {
+        const registerUrl = API_BASE ? `${API_BASE}/api/auth/register` : '/api/auth/register';
+        const response = await fetch(registerUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password, name }),
@@ -211,7 +220,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         localStorage.setItem('accessToken', data.accessToken);
 
         // Load full profile with the new token
-        const meResponse = await fetch(`${API_BASE}/api/auth/me`, {
+        const meUrl = API_BASE ? `${API_BASE}/api/auth/me` : '/api/auth/me';
+        const meResponse = await fetch(meUrl, {
             headers: {
                 'Authorization': `Bearer ${data.accessToken}`
             },
@@ -228,7 +238,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const logout = async () => {
         try {
-            await fetch(`${API_BASE}/api/auth/logout`, {
+            const logoutUrl = API_BASE ? `${API_BASE}/api/auth/logout` : '/api/auth/logout';
+            await fetch(logoutUrl, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${accessToken}`
@@ -253,7 +264,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const updateProfile = async (updates: { name?: string; currentPassword?: string; newPassword?: string }) => {
-        const response = await fetch(`${API_BASE}/api/auth/profile`, {
+        const profileUrl = API_BASE ? `${API_BASE}/api/auth/profile` : '/api/auth/profile';
+        const response = await fetch(profileUrl, {
             method: 'PUT',
             headers: {
                 'Authorization': `Bearer ${accessToken}`,
@@ -272,7 +284,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const updateSettings = async (updates: Partial<Pick<UserSettings, 'maxCrawlsPerDay' | 'emailNotifications'>>) => {
-        const response = await fetch(`${API_BASE}/api/auth/settings`, {
+        const settingsUrl = API_BASE ? `${API_BASE}/api/auth/settings` : '/api/auth/settings';
+        const response = await fetch(settingsUrl, {
             method: 'PUT',
             headers: {
                 'Authorization': `Bearer ${accessToken}`,
@@ -319,11 +332,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                         headers: initHeaders,
                         credentials: 'include' as RequestCredentials
                     };
-                    return fetch(input, newConfig);
+                    response = await fetch(input, newConfig);
+                    // If still 401 after refresh, the refresh token is also invalid
+                    if (response.status === 401) {
+                        // Await logout to ensure state is cleared before returning
+                        await logout();
+                    }
+                    return response;
                 }
             }
-            // If refresh failed or no new token, logout
-            logout();
+            // If refresh failed or no new token, logout (but don't await to avoid blocking)
+            // The response will still be 401, and components should handle it
+            logout().catch(console.error);
         }
 
         return response;
