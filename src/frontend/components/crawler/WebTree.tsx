@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import D3TidyTree, { TreeNode as TidyTreeNode } from './D3TidyTree';
-import { useAuth } from '../../contexts/AuthContext';
 
 type D3TreeNode = {
   name: string;
@@ -100,7 +99,6 @@ interface WebTreeProps {
 }
 
 export default function WebTree({ onClose }: WebTreeProps) {
-  const { authFetch } = useAuth();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
@@ -209,19 +207,8 @@ export default function WebTree({ onClose }: WebTreeProps) {
   useEffect(() => {
     const loadSessions = async () => {
       try {
-        const response = await authFetch('/api/data/sessions?limit=200', {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include'
-        });
-        if (!response.ok) {
-          if (response.status === 401) {
-            setError('Authentication failed. Please log in again.');
-            return;
-          }
-          throw new Error('Failed to load sessions');
-        }
+        const response = await fetch('/api/data/sessions?limit=200');
+        if (!response.ok) throw new Error('Failed to load sessions');
         const result = await response.json();
         const list: Session[] = result.sessions || [];
         setSessions(list);

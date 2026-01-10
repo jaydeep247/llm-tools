@@ -10,28 +10,28 @@ export default defineConfig({
     },
     proxy: {
       '/aeo': {
-        target: `${process.env.PUBLIC_IP}:3004`,
+        target: 'http://localhost:3004',
         changeOrigin: true,
         secure: false,
         timeout: 600000,       // Increased to 10 minutes
         proxyTimeout: 600000   // Added proxy specific timeout
       },
       '/api': {
-        target: `${process.env.PUBLIC_IP}:3004`,
+        target: 'http://localhost:3004',
         changeOrigin: true,
         secure: false,
         timeout: 600000,       // Increased to 10 minutes
         proxyTimeout: 600000   // Added proxy specific timeout
       },
       '/crawl': {
-        target: `${process.env.PUBLIC_IP}:3004`,
+        target: 'http://localhost:3004',
         changeOrigin: true,
         secure: false,
         timeout: 600000,       // Increased to 10 minutes
         proxyTimeout: 600000   // Added proxy specific timeout
       },
       '/events': {
-        target: `${process.env.PUBLIC_IP}:3004`,
+        target: 'http://localhost:3004',
         changeOrigin: true,
         secure: false,
         timeout: 0,            // Keep 0 for SSE (infinite)
@@ -42,13 +42,13 @@ export default defineConfig({
         },
       },
       '/queue': {
-        target: `${process.env.PUBLIC_IP}:3004`,
+        target: 'http://localhost:3004',
         changeOrigin: true,
         secure: false,
         timeout: 60000,
       },
       '/aeo-api': {
-        target: `${process.env.PUBLIC_IP}:8000`,
+        target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/aeo-api/, '/api'),
@@ -56,7 +56,7 @@ export default defineConfig({
         proxyTimeout: 600000   // Added proxy specific timeout
       },
       '/aeo-health': {
-        target: `${process.env.PUBLIC_IP}:3004`,
+        target: 'http://localhost:3004',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/aeo-health/, '/health'),

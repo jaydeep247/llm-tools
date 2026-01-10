@@ -79,16 +79,14 @@ async function saveSeoResult(url: string, result: any, sessionId?: number): Prom
   try {
     const db = getDatabase();
     
-    // Cache the SEO data - only update if this is a fresh extraction
-    // For new crawl sessions, this ensures we're storing current data, not stale cache
+    // Cache the SEO data
     await db.cacheSeoData(url, {
       parentText: result.parent?.text,
       keywords: result.keywords,
-      language: result.language,
-      sessionId: sessionId // Track which session generated this data
+      language: result.language
     });
     
-    console.log(`[redis-worker] ${url} -> cached successfully (session: ${sessionId})`);
+    console.log(`[redis-worker] ${url} -> cached successfully`);
   } catch (error) {
     console.error(`[redis-worker] ${url} -> cache error:`, (error as Error).message);
     throw error;
@@ -155,12 +153,12 @@ async function worker(concurrency: number) {
           await new Promise(resolve => setTimeout(resolve, 1000));
           continue;
         }
-
-        console.log(`[redis-worker] Worker ${workerId + 1} processing: ${job.url} (sessionId: ${job.sessionId})`);
+        
+        console.log(`[redis-worker] Worker ${workerId + 1} processing: ${job.url}`);
         
         const success = await processJob(job, config);
         
-        await markJobComplete(job.url, success, job.sessionId);
+        await markJobComplete(job.url, success);
         
         if (success) {
           processed++;
@@ -173,7 +171,7 @@ async function worker(concurrency: number) {
         
         // Progress reporting
         if ((processed + errors) % 10 === 0) {
-          const stats = await getQueueStats(job.sessionId);
+          const stats = await getQueueStats();
           console.log(`[redis-worker] Progress: ${processed} successful, ${errors} errors, ${stats.totalQueued} queued, ${stats.processing} processing`);
         }
         

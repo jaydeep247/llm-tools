@@ -467,127 +467,17 @@ router.post('/website-score', async (req, res) => {
         // For now, we will fetch it live to ensure we have content for the AEO Service
         // This makes it robust even if the crawl DB is missing the content column
         try {
-            let text = '';
-            let statusCode = 200;
-            let actualWordCount: number | undefined;
-            
-            // Try to fetch live first
-            try {
-                const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 10000);
-                
-                const response = await fetch(url, { signal: controller.signal });
-                clearTimeout(timeout);
-                
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch ${url}: ${response.statusText}`);
-                }
-                text = await response.text();
-                statusCode = response.status;
-                logger.info('MODULE E: Successfully fetched URL live', { url });
-            } catch (fetchError) {
-                logger.warn('MODULE E: Live fetch failed, attempting to fetch from database', {
-                    url,
-                    sessionId,
-                    fetchErrorMessage: (fetchError as Error).message
-                });
-                
-                // Fall back to database if live fetch fails
-                const db = await import('../database/DatabaseService.js').then(m => m.getDatabase());
-                
-                // If sessionId is provided, fetch pages from that session
-                let pages = [];
-                if (sessionId) {
-                    pages = await db.getPages(sessionId);
-                    logger.info('MODULE E: Fetched pages from sessionId', { sessionId, pageCount: pages.length });
-                } else {
-                    // If no sessionId, try to get all pages and find matching ones
-                    pages = await db.getPages(undefined, 10000);
-                    logger.info('MODULE E: Fetched pages without sessionId filter', { pageCount: pages.length });
-                }
-                
-                if (pages && pages.length > 0) {
-                    // Try to find the exact URL first
-                    let matchingPage = pages.find(p => p.url === url);
-                    
-                    // If not found, try homepage (root URL)
-                    if (!matchingPage) {
-                        try {
-                            const urlObj = new URL(url);
-                            const homepage = `${urlObj.protocol}//${urlObj.host}/`;
-                            matchingPage = pages.find(p => p.url === homepage);
-                            logger.info('MODULE E: Searched for homepage', { homepage, found: !!matchingPage });
-                        } catch (e) {
-                            logger.warn('MODULE E: Could not parse URL for homepage search', { url });
-                        }
-                    }
-                    
-                    if (matchingPage) {
-                        // Use wordCount from database as the word count (it's more accurate)
-                        // Content is not stored in DB, so construct from metadata
-                        actualWordCount = matchingPage.wordCount; // Use actual word count from crawl
-                        const parts = [];
-                        if (matchingPage.title) parts.push(`Title: ${matchingPage.title}`);
-                        if (matchingPage.description) parts.push(`Description: ${matchingPage.description}`);
-                        if (matchingPage.wordCount) parts.push(`Content: ${matchingPage.wordCount} words`);
-                        text = parts.join('\n');
-                        logger.info('MODULE E: Retrieved content from database', { 
-                            url, 
-                            contentLength: text.length, 
-                            pageId: matchingPage.id, 
-                            wordCount: matchingPage.wordCount 
-                        });
-                    } else {
-                        // If no exact match, use the first page with content from the crawl
-                        const pageWithContent = pages.find(p => p.wordCount && p.wordCount > 0);
-                        if (pageWithContent) {
-                            actualWordCount = pageWithContent.wordCount; // Use actual word count from crawl
-                            const parts = [];
-                            if (pageWithContent.title) parts.push(`Title: ${pageWithContent.title}`);
-                            if (pageWithContent.description) parts.push(`Description: ${pageWithContent.description}`);
-                            parts.push(`This is content from crawled page: ${pageWithContent.url}`);
-                            text = parts.join('\n');
-                            logger.info('MODULE E: Using first available crawled page', { 
-                                originalUrl: url, 
-                                usedUrl: pageWithContent.url, 
-                                contentLength: text.length,
-                                wordCount: pageWithContent.wordCount
-                            });
-                        }
-                    }
-                }
-                
-                if (!text) {
-                    logger.warn('MODULE E: Could not fetch URL and no cached content found', { url, sessionId, pagesInDatabase: pages?.length || 0 });
-                    return res.status(400).json({ 
-                        success: false, 
-                        error: 'Could not fetch website content. The website may be unreachable or the crawl session may not have captured this URL.',
-                        details: {
-                            url,
-                            reason: 'Live fetch failed and no cached content available',
-                            pagesInDatabase: pages?.length || 0,
-                            sessionId: sessionId || 'not-provided'
-                        }
-                    });
-                }
-            }
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Failed to fetch ${url}`);
+            const text = await response.text();
 
-            if (!text || text.trim().length === 0) {
-                return res.status(400).json({ success: false, error: 'No content available for analysis' });
-            }
-
-            // Calculate appropriate word count
-            // If we have the actual word count from database, use that
-            // Otherwise estimate from text length
-            const wordCount = actualWordCount !== undefined ? actualWordCount : text.length / 5;
-            
-            logger.info('MODULE E: Calling generateWebsiteScores', { url, sessionId, contentLength: text.length, wordCount });
+            logger.info('MODULE E: Calling generateWebsiteScores', { url, sessionId });
             const scores = await MultiModelScoringService.generateWebsiteScores(url, [{
                 url: url,
                 content: text,
                 title: 'Homepage',
-                word_count: wordCount,
-                status_code: statusCode
+                word_count: text.length / 5,
+                status_code: response.status
             }], sessionId);
 
             logger.info('MODULE E: Scores generated', {

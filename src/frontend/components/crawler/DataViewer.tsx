@@ -74,7 +74,7 @@ interface DataViewerProps {
 }
 
 const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) => {
-  const { accessToken, authFetch } = useAuth(); // ✅ GET AUTH TOKEN AND AUTHFETCH FROM CONTEXT
+  const { accessToken } = useAuth(); // ✅ GET AUTH TOKEN FROM CONTEXT
   const [data, setData] = useState<CrawlData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null); // ✅ ADD ERROR STATE
@@ -91,14 +91,15 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
 
   // ✅ HELPER: Get auth headers
   const getAuthHeaders = (): HeadersInit => {
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+    console.log(`[DataViewer] Using auth headers:`, { hasToken: !!accessToken });
+    return headers;
   };
-  if (accessToken) {
-    headers['Authorization'] = `Bearer ${accessToken}`;
-  }
-  return headers;
- };
 
   useEffect(() => {
     loadSessions();
@@ -140,7 +141,7 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
       });
       
       const url = `/api/data/list?${params.toString()}`;
-      const response = await authFetch(url, {
+      const response = await fetch(url, {
         method: 'GET',
         headers: getAuthHeaders(), // ✅ INCLUDE AUTH HEADERS
         credentials: 'include'
@@ -190,24 +191,17 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
     }
   };
 
-  // ✅ IMPROVED: Use authFetch to handle 401 errors and token refresh
+  // ✅ IMPROVED: Add auth headers to sessions endpoint too
   const loadSessions = async () => {
     try {
       console.log('[DataViewer] Loading sessions...');
-      const res = await authFetch('/api/data/sessions?limit=200', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const res = await fetch('/api/data/sessions?limit=200', {
+        headers: getAuthHeaders(), // ✅ INCLUDE AUTH HEADERS
         credentials: 'include'
       });
       
       if (!res.ok) {
         console.warn(`[DataViewer] Sessions endpoint returned ${res.status}`);
-        if (res.status === 401) {
-          // authFetch should have handled refresh, but if still 401, user needs to login
-          setSessions([]);
-          return;
-        }
         setSessions([]);
         return;
       }
