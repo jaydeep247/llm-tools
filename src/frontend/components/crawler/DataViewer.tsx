@@ -74,7 +74,7 @@ interface DataViewerProps {
 }
 
 const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) => {
-  const { accessToken } = useAuth(); // ✅ GET AUTH TOKEN FROM CONTEXT
+  const { accessToken, authFetch } = useAuth(); // ✅ GET AUTH TOKEN AND AUTHFETCH FROM CONTEXT
   const [data, setData] = useState<CrawlData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null); // ✅ ADD ERROR STATE
@@ -140,7 +140,7 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
       });
       
       const url = `/api/data/list?${params.toString()}`;
-      const response = await fetch(url, {
+      const response = await authFetch(url, {
         method: 'GET',
         headers: getAuthHeaders(), // ✅ INCLUDE AUTH HEADERS
         credentials: 'include'
@@ -190,17 +190,24 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
     }
   };
 
-  // ✅ IMPROVED: Add auth headers to sessions endpoint too
+  // ✅ IMPROVED: Use authFetch to handle 401 errors and token refresh
   const loadSessions = async () => {
     try {
       console.log('[DataViewer] Loading sessions...');
-      const res = await fetch('/api/data/sessions?limit=200', {
-        headers: getAuthHeaders(), // ✅ INCLUDE AUTH HEADERS
+      const res = await authFetch('/api/data/sessions?limit=200', {
+        headers: {
+          'Content-Type': 'application/json',
+        },
         credentials: 'include'
       });
       
       if (!res.ok) {
         console.warn(`[DataViewer] Sessions endpoint returned ${res.status}`);
+        if (res.status === 401) {
+          // authFetch should have handled refresh, but if still 401, user needs to login
+          setSessions([]);
+          return;
+        }
         setSessions([]);
         return;
       }

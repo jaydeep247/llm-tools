@@ -1356,7 +1356,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
         <div className="mt-8 bg-gray-800 p-6 rounded-xl border border-gray-700">
           <h4 className="text-xl font-bold mb-4 text-gray-200 flex items-center gap-2">
             <span>📢</span> Brand Pulse & Sentiment
-            <span className="text-sm font-normal text-gray-400 ml-2">({moduleEScores.brand_metrics.brand_name})</span>
+            <span className="text-sm font-normal text-gray-400 ml-2">({moduleEScores.brand_metrics.data?.brand_name})</span>
           </h4>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -1364,31 +1364,39 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
             <div className="space-y-6">
               <div className="flex items-center gap-4 bg-gray-900/50 p-4 rounded-lg">
                 <div className="text-center">
-                  <div className="text-3xl font-bold text-white">{moduleEScores.brand_metrics.total_mentions}</div>
+                  <div className="text-3xl font-bold text-white">{moduleEScores.brand_metrics.data?.total_mentions}</div>
                   <div className="text-xs text-gray-400 uppercase tracking-wider">Total Mentions</div>
                 </div>
                 <div className="h-10 w-px bg-gray-700"></div>
                 <div className="flex-grow">
-                  <div className="text-sm text-gray-300 mb-1">Sentiment: <span className="font-bold text-white">{moduleEScores.brand_metrics.sentiment.label}</span></div>
-                  <div className="flex h-3 rounded-full overflow-hidden bg-gray-700 w-full">
-                    <div style={{ width: `${(moduleEScores.brand_metrics.sentiment.counts.positive / (moduleEScores.brand_metrics.total_mentions || 1)) * 100}%` }} className="bg-green-500 h-full" title="Positive"></div>
-                    <div style={{ width: `${(moduleEScores.brand_metrics.sentiment.counts.neutral / (moduleEScores.brand_metrics.total_mentions || 1)) * 100}%` }} className="bg-gray-400 h-full" title="Neutral"></div>
-                    <div style={{ width: `${(moduleEScores.brand_metrics.sentiment.counts.negative / (moduleEScores.brand_metrics.total_mentions || 1)) * 100}%` }} className="bg-red-500 h-full" title="Negative"></div>
-                  </div>
+                  {moduleEScores.brand_metrics.data?.sentiment ? (
+                    <>
+                      <div className="text-sm text-gray-300 mb-1">Sentiment: <span className="font-bold text-white">{moduleEScores.brand_metrics.data.sentiment.label}</span></div>
+                      <div className="flex h-3 rounded-full overflow-hidden bg-gray-700 w-full">
+                        <div style={{ width: `${(moduleEScores.brand_metrics.data.sentiment.counts.positive / (moduleEScores.brand_metrics.data.total_mentions || 1)) * 100}%` }} className="bg-green-500 h-full" title="Positive"></div>
+                        <div style={{ width: `${(moduleEScores.brand_metrics.data.sentiment.counts.neutral / (moduleEScores.brand_metrics.data.total_mentions || 1)) * 100}%` }} className="bg-gray-400 h-full" title="Neutral"></div>
+                        <div style={{ width: `${(moduleEScores.brand_metrics.data.sentiment.counts.negative / (moduleEScores.brand_metrics.data.total_mentions || 1)) * 100}%` }} className="bg-red-500 h-full" title="Negative"></div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-sm text-gray-400">Sentiment data not available</div>
+                  )}
                 </div>
               </div>
 
               <div>
                 <h5 className="text-sm font-bold text-gray-300 uppercase mb-3">Top Mentioning Sites</h5>
                 <div className="space-y-2">
-                  {moduleEScores.brand_metrics.top_sources.slice(0, 5).map((source: any, i: number) => (
+                  {moduleEScores.brand_metrics.data?.top_sources ? moduleEScores.brand_metrics.data.top_sources.slice(0, 5).map((source: any, i: number) => (
                     <div key={i} className="flex justify-between items-center text-sm p-2 bg-gray-750 rounded hover:bg-gray-700 transition-colors">
                       <span className="text-blue-400 truncate w-2/3">{source.domain}</span>
                       {source.count !== undefined && (
                         <span className="bg-gray-900 text-gray-300 px-2 py-0.5 rounded text-xs">{source.count}</span>
                       )}
                     </div>
-                  ))}
+                  )) : (
+                    <div className="text-sm text-gray-400">No source data available</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1398,7 +1406,10 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
               <h5 className="text-sm font-bold text-gray-300 uppercase mb-3 text-center">Mention Frequency (Last 12 Months)</h5>
               <div className="flex-grow relative h-48 bg-gray-900/30 p-2 rounded-lg border border-gray-700/50">
                 {(() => {
-                  const trendData = moduleEScores.brand_metrics!.frequency_trend.slice(-12);
+                  if (!moduleEScores.brand_metrics?.data?.frequency_trend) {
+                    return <div className="absolute inset-0 flex items-center justify-center text-gray-500">Frequency data not available</div>;
+                  }
+                  const trendData = moduleEScores.brand_metrics.data.frequency_trend.slice(-12);
                   const data = trendData.map((p: any) => ({
                     date: new Date(p.date),
                     value: Number(p.count || 0)

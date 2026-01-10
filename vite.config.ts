@@ -10,25 +10,25 @@ export default defineConfig({
     },
     proxy: {
       '/aeo': {
-        target: 'http://134.122.7.161:3004',
+        target: `${process.env.PUBLIC_IP}:3004`,
         changeOrigin: true,
         secure: false,
         timeout: 60000,
       },
       '/api': {
-        target: 'http://134.122.7.161:3004',
+        target: `${process.env.PUBLIC_IP}:3004`,
         changeOrigin: true,
         secure: false,
         timeout: 60000,
       },
       '/crawl': {
-        target: 'http://134.122.7.161:3004',
+        target: `${process.env.PUBLIC_IP}:3004`,
         changeOrigin: true,
         secure: false,
         timeout: 60000,
       },
       '/events': {
-        target: 'http://134.122.7.161:3004',
+        target: `${process.env.PUBLIC_IP}:3004`,
         changeOrigin: true,
         secure: false,
         timeout: 0,
@@ -39,20 +39,20 @@ export default defineConfig({
         },
       },
       '/queue': {
-        target: 'http://134.122.7.161:3004',
+        target: `${process.env.PUBLIC_IP}:3004`,
         changeOrigin: true,
         secure: false,
         timeout: 60000,
       },
       '/aeo-api': {
-        target: 'http://134.122.7.161:8000',
+        target: `${process.env.PUBLIC_IP}:8000`,
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/aeo-api/, '/api'),
         timeout: 60000,
       },
       '/aeo-health': {
-        target: 'http://134.122.7.161:3004',
+        target: `${process.env.PUBLIC_IP}:3004`,
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/aeo-health/, '/health'),

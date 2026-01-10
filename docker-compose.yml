@@ -82,7 +82,7 @@ services:
       - PSI_API_KEY=${PSI_API_KEY}
       - AEO_API_BASE_URL=http://aeo-api:8000
       - PY_API_BASE=http://aeo-api:8000
-      - CORS_ORIGIN=${CORS_ORIGIN:-http://134.122.7.161:3000}
+      - CORS_ORIGIN=${CORS_ORIGIN:-${PUBLIC_IP}:3000}
       - PORT=${PORT:-3004}
     ports:
       - "3004:3004"
@@ -103,12 +103,11 @@ services:
       context: .
       dockerfile: Dockerfile.frontend
       args:
-        VITE_API_BASE_URL: http://134.122.7.161:3004  # Add this
+        # Empty string means use relative URLs that go through nginx proxy
+        VITE_API_BASE_URL: ""
     container_name: contentlytics-frontend
     ports:
       - "3000:3000"
-    environment:
-      - VITE_API_URL=http://134.122.7.161:3004  # Add this
     depends_on:
       - backend
     networks:

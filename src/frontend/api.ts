@@ -1,7 +1,7 @@
 // Use environment variables with fallback to empty string for development
 // In development, empty string means requests go through Vite proxy (configured in vite.config.ts)
 // In production, set VITE_API_BASE_URL to your production domain
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3004';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 const AEO_API_BASE_URL = import.meta.env.VITE_AEO_API_BASE_URL || 'http://localhost:8000';
 
 export interface AnalysisResult {
@@ -75,7 +75,9 @@ class ApiService {
    */
   private async refreshToken(): Promise<string | null> {
     try {
-      const response = await fetch(`${this.baseURL}/api/auth/refresh`, {
+      // Use relative URL to go through Vite proxy in development, or absolute URL in production
+      const refreshUrl = this.baseURL ? `${this.baseURL}/api/auth/refresh` : '/api/auth/refresh';
+      const response = await fetch(refreshUrl, {
         method: 'POST',
         credentials: 'include'
       });

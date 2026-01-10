@@ -12,7 +12,7 @@ type SeoEligibility = {
 
 type SeoJob = {
   url: string;
-  sessionId?: number;
+  sessionId: number; // REQUIRED - no more optional
   priority?: number;
   contentType?: string;
   wordCount?: number;
@@ -31,6 +31,7 @@ const SEO_CONFIG_PATH = path.resolve(process.cwd(), 'config', 'seo.json');
 
 let redis: Redis | null = null;
 let cachedHost: string | null = null;
+let cachedSessionId: number | null = null;
 let allowlistContentTypes: Set<string> = new Set(['text/html']);
 let httpsOnly = true;
 let sameOriginOnly = true;
@@ -106,21 +107,23 @@ async function getRedis(): Promise<Redis> {
   return redis;
 }
 
-export async function initSeoEnqueue(startUrl: string): Promise<void> {
+// Initialize the queue with startUrl and sessionId for session isolation
+export async function initSeoEnqueue(startUrl: string, sessionId: number): Promise<void> {
   try {
     cachedHost = new URL(startUrl).hostname;
+    cachedSessionId = sessionId;
     loadSeoConfig();
     await getRedis();
-    console.log(`[redis-queue] Initialized for host: ${cachedHost}`);
+    console.log(`[redis-queue] Initialized for host: ${cachedHost}, sessionId: ${sessionId}`);
   } catch (error) {
     console.error('[redis-queue] Initialization failed:', error);
     throw error;
   }
 }
 
-export async function maybeEnqueueSeo(url: string, contentType?: string, wordCount?: number): Promise<boolean> {
-  try {
-    if (!cachedHost) return false; // not initialized
+// Check if URL is eligible for SEO job based on criteria
+export function isUrlEligible(url: string, contentType?: string, wordCount?: number): boolean {
+  if (!cachedHost || !cachedSessionId) return false; // not initialized
     
     const u = new URL(url);
     if (httpsOnly && u.protocol !== 'https:') return false;
@@ -137,18 +140,34 @@ export async function maybeEnqueueSeo(url: string, contentType?: string, wordCou
       if (wordCount < minWordCount || wordCount > maxWordCount) return false;
     }
     
+    return true;
+}
+
+// Enqueue a URL for SEO processing with session isolation
+// IMPORTANT: Each crawl session has its own isolated queue to prevent stale data
+// URLs are always re-extracted fresh for each new crawl session
+export async function maybeEnqueueSeo(url: string, contentType?: string, wordCount?: number): Promise<boolean> {
+  try {
+    if (!isUrlEligible(url, contentType, wordCount)) return false;
+
     const redisClient = await getRedis();
     const config = loadRedisConfig();
     
-    // Check if URL is already queued or processing
-    const isQueued = await redisClient.sismember(`${config.queues.seo}:set`, url);
-    const isProcessing = await redisClient.sismember(`${config.queues['seo-processing']}:set`, url);
+    // Session-specific queue keys to prevent data leakage between concurrent crawls
+    const sessionQueueKey = `${config.queues.seo}:${cachedSessionId}:priority`;
+    const sessionQueueSet = `${config.queues.seo}:${cachedSessionId}:set`;
+    const sessionProcessingSet = `${config.queues['seo-processing']}:${cachedSessionId}:set`;
+    
+    // Check if URL is already queued or processing IN THIS SESSION ONLY
+    const isQueued = await redisClient.sismember(sessionQueueSet, url);
+    const isProcessing = await redisClient.sismember(sessionProcessingSet, url);
     
     if (isQueued || isProcessing) return false;
     
-    // Create job object
+    // Create job object with required sessionId
     const job: SeoJob = {
       url,
+      sessionId: cachedSessionId!,
       contentType,
       wordCount,
       addedAt: new Date().toISOString()
@@ -157,8 +176,8 @@ export async function maybeEnqueueSeo(url: string, contentType?: string, wordCou
     // Add to priority queue (lower number = higher priority)
     const priority = wordCount ? Math.max(1, Math.min(10, Math.floor(wordCount / 1000))) : 5;
     
-    await redisClient.zadd(config.queues['seo-priority'], priority, JSON.stringify(job));
-    await redisClient.sadd(`${config.queues.seo}:set`, url);
+    await redisClient.zadd(sessionQueueKey, priority, JSON.stringify(job));
+    await redisClient.sadd(sessionQueueSet, url);
     
     return true;
   } catch (error) {
@@ -167,26 +186,39 @@ export async function maybeEnqueueSeo(url: string, contentType?: string, wordCou
   }
 }
 
-export async function dequeueSeo(): Promise<SeoJob | null> {
+// Dequeue a job from Redis with optional session filtering
+export async function dequeueSeo(sessionId?: number): Promise<SeoJob | null> {
   try {
     const redisClient = await getRedis();
     const config = loadRedisConfig();
     
+    // If sessionId provided, dequeue from session-specific queue; otherwise use global (for backward compat)
+    const queueKey = sessionId ? `${config.queues.seo}:${sessionId}:priority` : config.queues['seo-priority'];
+    
     // Get highest priority job (lowest score) - compatible with Redis 3.0
-    const result = await redisClient.zrange(config.queues['seo-priority'], 0, 0, 'WITHSCORES');
+    const result = await redisClient.zrange(queueKey, 0, 0, 'WITHSCORES');
     if (!result || result.length === 0) return null;
     
     const job: SeoJob = JSON.parse(result[0]);
     
+    // Validate job has sessionId (required for proper queue management)
+    if (!job.sessionId) {
+      console.warn('[redis-queue] Job missing sessionId, removing stale job:', job.url);
+      // Remove stale job from queue to prevent infinite loop
+      await redisClient.zrem(queueKey, result[0]);
+      // Retry with next job instead of returning null
+      return dequeueSeo(sessionId);
+    }
+    
     // Remove from priority queue
-    await redisClient.zrem(config.queues['seo-priority'], result[0]);
+    await redisClient.zrem(queueKey, result[0]);
     
-    // Move to processing set
-    await redisClient.sadd(`${config.queues['seo-processing']}:set`, job.url);
-    await redisClient.srem(`${config.queues.seo}:set`, job.url);
+    // Move to processing set (session-specific)
+    const sessionProcessingSet = `${config.queues['seo-processing']}:${job.sessionId}:set`;
+    const sessionQueueSet = `${config.queues.seo}:${job.sessionId}:set`;
     
-    // Set processing TTL
-    await redisClient.expire(`${config.queues['seo-processing']}:set`, config.ttl?.processing || 300);
+    await redisClient.sadd(sessionProcessingSet, job.url);
+    await redisClient.srem(sessionQueueSet, job.url);
     
     return job;
   } catch (error) {
@@ -195,44 +227,60 @@ export async function dequeueSeo(): Promise<SeoJob | null> {
   }
 }
 
-export async function markJobComplete(url: string, success: boolean): Promise<void> {
+// Mark job as complete and move from processing queue
+export async function markJobComplete(url: string, success: boolean, sessionId?: number): Promise<void> {
   try {
     const redisClient = await getRedis();
     const config = loadRedisConfig();
     
+    // Use session-specific processing queue if sessionId provided
+    const processingSet = sessionId 
+      ? `${config.queues['seo-processing']}:${sessionId}:set`
+      : `${config.queues['seo-processing']}:set`;
+    
     // Remove from processing
-    await redisClient.srem(`${config.queues['seo-processing']}:set`, url);
+    await redisClient.srem(processingSet, url);
     
     if (!success) {
-      // Move to failed queue
-      await redisClient.sadd(`${config.queues['seo-failed']}:set`, url);
-      await redisClient.expire(`${config.queues['seo-failed']}:set`, config.ttl?.failed || 86400);
+      // Move to failed queue (session-specific)
+      const failedSet = sessionId
+        ? `${config.queues['seo-failed']}:${sessionId}:set`
+        : `${config.queues['seo-failed']}:set`;
+      await redisClient.sadd(failedSet, url);
+      await redisClient.expire(failedSet, config.ttl?.failed || 86400);
     }
   } catch (error) {
     console.error('[redis-queue] Mark complete failed:', error);
   }
 }
 
-export async function getQueueStats(): Promise<QueueStats> {
+// Get current queue statistics with optional session filtering
+export async function getQueueStats(sessionId?: number): Promise<QueueStats> {
   try {
     const redisClient = await getRedis();
     const config = loadRedisConfig();
     
+    // Use session-specific queues if sessionId provided
+    const queueKey = sessionId ? `${config.queues.seo}:${sessionId}:priority` : config.queues['seo-priority'];
+    const processingSet = sessionId ? `${config.queues['seo-processing']}:${sessionId}:set` : `${config.queues['seo-processing']}:set`;
+    const failedSet = sessionId ? `${config.queues['seo-failed']}:${sessionId}:set` : `${config.queues['seo-failed']}:set`;
+    
     const [totalQueued, processing, failed] = await Promise.all([
-      redisClient.zcard(config.queues['seo-priority']),
-      redisClient.scard(`${config.queues['seo-processing']}:set`),
-      redisClient.scard(`${config.queues['seo-failed']}:set`)
+      redisClient.zcard(queueKey),
+      redisClient.scard(processingSet),
+      redisClient.scard(failedSet)
     ]);
     
     // Get sample of queued URLs - compatible with Redis 3.0
-    const queuedJobs = await redisClient.zrange(config.queues['seo-priority'], 0, 9);
-    const queuedUrls = queuedJobs.map(job => {
+    const queuedJobs = await redisClient.zrange(queueKey, 0, 9);
+    const queuedUrls = queuedJobs.map(jobStr => {
       try {
-        return JSON.parse(job).url;
+        const job: SeoJob = JSON.parse(jobStr);
+        return job.url;
       } catch {
-        return job; // fallback if parsing fails
+        return '';
       }
-    });
+    }).filter(url => url !== '');
     
     return {
       totalQueued,
@@ -251,25 +299,38 @@ export async function getQueueStats(): Promise<QueueStats> {
   }
 }
 
-export async function clearQueue(): Promise<void> {
+// Clear queues for a specific session or all global queues
+export async function clearQueue(sessionId?: number): Promise<void> {
   try {
     const redisClient = await getRedis();
     const config = loadRedisConfig();
     
-    await Promise.all([
-      redisClient.del(config.queues['seo-priority']),
-      redisClient.del(`${config.queues.seo}:set`),
-      redisClient.del(`${config.queues['seo-processing']}:set`),
-      redisClient.del(`${config.queues['seo-failed']}:set`)
-    ]);
-    
-    console.log('[redis-queue] Queue cleared successfully');
+    if (sessionId) {
+      // Clear session-specific queues
+      await Promise.all([
+        redisClient.del(`${config.queues.seo}:${sessionId}:priority`),
+        redisClient.del(`${config.queues.seo}:${sessionId}:set`),
+        redisClient.del(`${config.queues['seo-processing']}:${sessionId}:set`),
+        redisClient.del(`${config.queues['seo-failed']}:${sessionId}:set`)
+      ]);
+      console.log(`[redis-queue] Queue cleared successfully for session ${sessionId}`);
+    } else {
+      // Clear global queues (backward compatibility)
+      await Promise.all([
+        redisClient.del(config.queues['seo-priority']),
+        redisClient.del(`${config.queues.seo}:set`),
+        redisClient.del(`${config.queues['seo-processing']}:set`),
+        redisClient.del(`${config.queues['seo-failed']}:set`)
+      ]);
+      console.log('[redis-queue] Global queue cleared successfully');
+    }
   } catch (error) {
     console.error('[redis-queue] Clear queue failed:', error);
     throw error;
   }
 }
 
+// Add URL to queue (legacy function - requires manual sessionId management)
 export async function addUrlToQueue(url: string, priority = 5): Promise<boolean> {
   try {
     const redisClient = await getRedis();
@@ -281,6 +342,7 @@ export async function addUrlToQueue(url: string, priority = 5): Promise<boolean>
     
     const job: SeoJob = {
       url,
+      sessionId: cachedSessionId || 0, // Use cached sessionId or 0 as fallback
       addedAt: new Date().toISOString()
     };
     
@@ -294,34 +356,48 @@ export async function addUrlToQueue(url: string, priority = 5): Promise<boolean>
   }
 }
 
-export async function getFailedJobs(): Promise<string[]> {
+// Get list of failed jobs
+export async function getFailedJobs(sessionId?: number): Promise<string[]> {
   try {
     const redisClient = await getRedis();
     const config = loadRedisConfig();
     
-    return await redisClient.smembers(`${config.queues['seo-failed']}:set`);
+    const failedSet = sessionId
+      ? `${config.queues['seo-failed']}:${sessionId}:set`
+      : `${config.queues['seo-failed']}:set`;
+    
+    return await redisClient.smembers(failedSet);
   } catch (error) {
     console.error('[redis-queue] Get failed jobs failed:', error);
     return [];
   }
 }
 
-export async function retryFailedJob(url: string): Promise<boolean> {
+// Retry a failed job by moving it back to queue
+export async function retryFailedJob(url: string, sessionId?: number): Promise<boolean> {
   try {
     const redisClient = await getRedis();
     const config = loadRedisConfig();
     
+    const failedSet = sessionId
+      ? `${config.queues['seo-failed']}:${sessionId}:set`
+      : `${config.queues['seo-failed']}:set`;
+    
     // Remove from failed
-    await redisClient.srem(`${config.queues['seo-failed']}:set`, url);
+    await redisClient.srem(failedSet, url);
     
     // Add back to queue
     const job: SeoJob = {
       url,
+      sessionId: sessionId || cachedSessionId || 0,
       addedAt: new Date().toISOString()
     };
     
-    await redisClient.zadd(config.queues['seo-priority'], 1, JSON.stringify(job)); // High priority for retry
-    await redisClient.sadd(`${config.queues.seo}:set`, url);
+    const queueKey = sessionId ? `${config.queues.seo}:${sessionId}:priority` : config.queues['seo-priority'];
+    const queueSet = sessionId ? `${config.queues.seo}:${sessionId}:set` : `${config.queues.seo}:set`;
+    
+    await redisClient.zadd(queueKey, 1, JSON.stringify(job)); // High priority for retry
+    await redisClient.sadd(queueSet, url);
     
     return true;
   } catch (error) {
@@ -330,6 +406,7 @@ export async function retryFailedJob(url: string): Promise<boolean> {
   }
 }
 
+// Close Redis connection
 export async function closeRedis(): Promise<void> {
   if (redis) {
     await redis.quit();

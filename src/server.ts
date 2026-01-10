@@ -69,8 +69,8 @@ app.use(cors({
             corsOrigin,
             'http://localhost:3000',
             'http://localhost:3004',
-            'http://134.122.7.161:3000',
-            'http://134.122.7.161:3004'
+            `${process.env.PUBLIC_IP}:3000`,
+            `${process.env.PUBLIC_IP}:3004`
         ];
         
         if (allowedOrigins.indexOf(origin) !== -1) {
