@@ -83,34 +83,22 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
   const [schemaFormat, setSchemaFormat] = useState<'json-ld' | 'rdfa'>('json-ld');
   const [selectedSchemaType, setSelectedSchemaType] = useState<string>('auto');
 
+  // Simulator State
+  const [simulationQuery, setSimulationQuery] = useState('');
+  const [simulationResults, setSimulationResults] = useState<any>(null);
+  const [simulationLoading, setSimulationLoading] = useState(false);
+
   // Module E State
   const [moduleEScores, setModuleEScores] = useState<any>(null);
   const [moduleELoading, setModuleELoading] = useState(false);
   const [moduleEError, setModuleEError] = useState<string | null>(null);
 
-  // --- NEW: Simulator State ---
-  const [simulationQuery, setSimulationQuery] = useState('');
-  const [simulationResults, setSimulationResults] = useState<any>(null);
-  const [simulationLoading, setSimulationLoading] = useState(false);
-  // ---------------------------
+  // Bulk Audit State
+  const [auditMode, setAuditMode] = useState<'single' | 'bulk'>('single');
+  const [sitemapUrl, setSitemapUrl] = useState('');
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkResults, setBulkResults] = useState<any>(null);
 
-  const handleBulkAnalyze = async () => {
-    if (!sitemapUrl) {
-      alert('Please enter a Sitemap URL');
-      return;
-    }
-
-    setBulkLoading(true);
-    setBulkResults(null);
-
-    try {
-      const data = await apiService.analyzeBulk(sitemapUrl);
-      if (data) {
-        setBulkResults(data);
-      }
-    } catch (error: any) {
-      console.error('Bulk Audit Failed:', error);
-      alert('Bulk Audit Failed: ' + (error.message || 'Unknown Error'));
   const analyzeWebsiteScores = async () => {
     if (!url) return;
     setModuleELoading(true);
@@ -137,22 +125,11 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
   // Load Module E data from result when available
   useEffect(() => {
     console.log('=== AEODashboard: FULL result object ===', JSON.stringify(result, null, 2));
-    console.log('AEODashboard: result.results =', result?.results);
-    console.log('AEODashboard: result.module_scores =', result?.module_scores);
 
     // Handle both direct result and nested result.results structure
     const actualResult = result?.results || result;
 
-    console.log('=== AEODashboard: FULL actualResult object ===', JSON.stringify(actualResult, null, 2));
-    console.log('AEODashboard: actualResult keys =', Object.keys(actualResult || {}));
-
     if (actualResult?.module_scores) {
-      console.log('=== AEODashboard: FULL module_scores ===', JSON.stringify(actualResult.module_scores, null, 2));
-      console.log('AEODashboard: module_scores keys =', Object.keys(actualResult.module_scores));
-      console.log('AEODashboard: module_scores.consistency =', actualResult.module_scores.consistency);
-      console.log('AEODashboard: module_scores.brand_metrics =', actualResult.module_scores.brand_metrics);
-      console.log('AEODashboard: actualResult.entity_coverage =', actualResult.entity_coverage);
-
       // Extract Module E data from result
       const moduleEData = {
         consistency: actualResult.module_scores.consistency,
@@ -160,13 +137,44 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
         brand_metrics: actualResult.module_scores.brand_metrics,
         url: actualResult.url
       };
-      console.log('AEODashboard: Setting moduleEScores to', moduleEData);
       setModuleEScores(moduleEData);
-    } else {
-      console.log('AEODashboard: No module_scores in result');
     }
   }, [result]);
 
+  const handleSimulation = async () => {
+    if (!simulationQuery) return;
+    setSimulationLoading(true);
+    try {
+      const response = await apiService.simulateAnswer(url, simulationQuery);
+      setSimulationResults(response.results);
+    } catch (error) {
+      console.error("Simulation failed:", error);
+    } finally {
+      setSimulationLoading(false);
+    }
+  };
+
+  // Find this function in your code and replace it
+  const handleBulkAnalyze = async () => {
+    // 1. Validate Input
+    const cleanedUrl = sitemapUrl.trim();
+    if (!cleanedUrl) {
+      alert("Please enter a valid Sitemap URL");
+      return;
+    }
+
+    setBulkLoading(true);
+    try {
+      const response = await apiService.analyzeBulk(cleanedUrl);
+      // 2. Safe Unwrapping: Handle if backend returns { data: ... } or just the data directly
+      setBulkResults(response.data || response);
+    } catch (error) {
+      console.error("Bulk analysis failed:", error);
+      alert("Bulk analysis failed. Check console for details.");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
 
   // Generate schema markup
   const generateSchema = async () => {
@@ -176,7 +184,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
     setSchemaError(null);
 
     try {
-      const response = await fetch('/api/aeo/generate-schema', { // Updated endpoint path if necessary, assuming /api proxy
+      const response = await fetch('/api/aeo/generate-schema', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -976,9 +984,6 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
 
           {activeView === ('module_e' as any) && (
             <div className="p-4" style={{ minHeight: 'auto' }}>
-
-
-
               {/* New Summary Table (Replaces Multi-Model Cards) */}
               {moduleEScores && (
                 <div className="mb-8 overflow-hidden rounded-xl border border-gray-800 bg-black shadow-lg">
@@ -1074,85 +1079,290 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                 </div>
               )}
 
+              {/* Brand Pulse & Sentiment Section (Outside Main Box) */}
+              {moduleEScores && moduleEScores.brand_metrics && (
+                <div className="mt-8 bg-gray-800 p-6 rounded-xl border border-gray-700">
+                  <h4 className="text-xl font-bold mb-4 text-gray-200 flex items-center gap-2">
+                    <span>📢</span> Brand Pulse & Sentiment
+                    <span className="text-sm font-normal text-gray-400 ml-2">({moduleEScores.brand_metrics.brand_name})</span>
+                  </h4>
 
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* Sentiment & Mentions */}
+                    <div className="space-y-6">
+                      <div className="flex items-center gap-4 bg-gray-900/50 p-4 rounded-lg">
+                        <div className="text-center">
+                          <div className="text-3xl font-bold text-white">{moduleEScores.brand_metrics.total_mentions}</div>
+                          <div className="text-xs text-gray-400 uppercase tracking-wider">Total Mentions</div>
+                        </div>
+                        <div className="h-10 w-px bg-gray-700"></div>
+                        <div className="flex-grow">
+                          <div className="text-sm text-gray-300 mb-1">Sentiment: <span className="font-bold text-white">{moduleEScores.brand_metrics.sentiment.label}</span></div>
+                          <div className="flex h-3 rounded-full overflow-hidden bg-gray-700 w-full">
+                            <div style={{ width: `${(moduleEScores.brand_metrics.sentiment.counts.positive / (moduleEScores.brand_metrics.total_mentions || 1)) * 100}%` }} className="bg-green-500 h-full" title="Positive"></div>
+                            <div style={{ width: `${(moduleEScores.brand_metrics.sentiment.counts.neutral / (moduleEScores.brand_metrics.total_mentions || 1)) * 100}%` }} className="bg-gray-400 h-full" title="Neutral"></div>
+                            <div style={{ width: `${(moduleEScores.brand_metrics.sentiment.counts.negative / (moduleEScores.brand_metrics.total_mentions || 1)) * 100}%` }} className="bg-red-500 h-full" title="Negative"></div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <h5 className="text-sm font-bold text-gray-300 uppercase mb-3">Top Mentioning Sites</h5>
+                        <div className="space-y-2">
+                          {moduleEScores.brand_metrics.top_sources.slice(0, 5).map((source: any, i: number) => (
+                            <div key={i} className="flex justify-between items-center text-sm p-2 bg-gray-750 rounded hover:bg-gray-700 transition-colors">
+                              <span className="text-blue-400 truncate w-2/3">{source.domain}</span>
+                              {source.count !== undefined && (
+                                <span className="bg-gray-900 text-gray-300 px-2 py-0.5 rounded text-xs">{source.count}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Frequency Chart */}
+                    <div className="flex flex-col h-full">
+                      <h5 className="text-sm font-bold text-gray-300 uppercase mb-3 text-center">Mention Frequency (Last 12 Months)</h5>
+                      <div className="flex-grow relative h-48 bg-gray-900/30 p-2 rounded-lg border border-gray-700/50">
+                        {(() => {
+                          const trendData = moduleEScores.brand_metrics!.frequency_trend.slice(-12);
+                          const data = trendData.map((p: any) => ({
+                            date: new Date(p.date),
+                            value: Number(p.count || 0)
+                          }));
+
+                          if (data.length === 0 || data.every((d: any) => d.value === 0)) {
+                            return (
+                              <div className="absolute inset-0 flex items-center justify-center text-gray-500">
+                                <div className="text-center">
+                                  <div className="text-3xl mb-2 opacity-50">📉</div>
+                                  <div className="text-xs text-gray-400">No activity recorded</div>
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          const yMax = Math.max(...data.map((d: any) => d.value), 5);
+                          const width = 100;
+                          const height = 100;
+                          const padding = 5;
+                          const getY = (val: number) => height - padding - ((val / yMax) * (height - (padding * 2)));
+                          const getX = (i: number) => (i / (data.length - 1)) * width;
+
+                          let areaPath = `M 0,${height}`;
+                          let linePath = ``;
+
+                          data.forEach((d: any, i: number) => {
+                            const x = getX(i);
+                            const y = getY(d.value);
+                            if (i === 0) {
+                              linePath += `M ${x},${y}`;
+                              areaPath += ` L ${x},${y}`;
+                            } else {
+                              linePath += ` L ${x},${y}`;
+                              areaPath += ` L ${x},${y}`;
+                            }
+                          });
+                          areaPath += ` L ${width},${height} Z`;
+
+                          return (
+                            <div className="w-full h-full relative" style={{ minWidth: 0 }}>
+                              <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="w-full h-full overflow-visible">
+                                <defs>
+                                  <linearGradient id="freqGradient" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.6} />
+                                    <stop offset="90%" stopColor="#3B82F6" stopOpacity={0} />
+                                  </linearGradient>
+                                </defs>
+                                {[0.25, 0.5, 0.75, 1].map(tick => (
+                                  <line key={tick} x1="0" x2={width} y1={getY(yMax * tick)} y2={getY(yMax * tick)} stroke="#374151" strokeDasharray="2,2" strokeWidth="0.5" />
+                                ))}
+                                <path d={areaPath} fill="url(#freqGradient)" />
+                                <path d={linePath} fill="none" stroke="#3B82F6" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
+                                {data.map((d: any, i: number) => (
+                                  <circle key={i} cx={getX(i)} cy={getY(d.value)} r={1.5} fill="#fff" stroke="#2563EB" strokeWidth="1" className="hover:r-4 transition-all">
+                                    <title>{d.value} mentions in {d.date.toLocaleString('default', { month: 'short' })}</title>
+                                  </circle>
+                                ))}
+                              </svg>
+                              <div className="absolute bottom-0 left-0 right-0 flex justify-between px-1 text-[9px] text-gray-500 transform translate-y-full pt-1">
+                                {data.filter((_: any, i: number) => i % 2 === 0).map((d: any, i: number) => (
+                                  <span key={i}>{d.date.toLocaleString('default', { month: 'short' }).toUpperCase()}</span>
+                                ))}
+                              </div>
+                              <div className="absolute bottom-0 left-0 right-0 flex justify-between px-1 text-[8px] text-gray-600 transform translate-y-full pt-3">
+                                <span>{data[0].date.getFullYear()}</span>
+                                {data[0].date.getFullYear() !== data[data.length - 1].date.getFullYear() && (
+                                  <span>{data[data.length - 1].date.getFullYear()}</span>
+                                )}
+                              </div>
+                              <div className="absolute top-0 left-0 -ml-6 text-[9px] text-gray-500">{yMax}</div>
+                              <div className="absolute bottom-0 left-0 -ml-6 text-[9px] text-gray-500">0</div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                      <div className="text-center text-xs text-gray-500 mt-6">Monthly Volume Trend</div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
-        </div>
-      </div>
 
-
-
+          {activeView === 'intelligence' && (
+            <div className="dashboard-card" style={{ padding: '2rem' }}>
+              <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                <h3>🧠 Module C: AI Intelligence Engine</h3>
+                <div className="mode-toggle" style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '4px', borderRadius: '8px' }}>
+                  <button
+                    onClick={() => setAuditMode('single')}
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: '6px',
+                      border: 'none',
+                      background: auditMode === 'single' ? '#fff' : 'transparent',
+                      boxShadow: auditMode === 'single' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                      fontWeight: auditMode === 'single' ? '600' : '400',
+                      color: auditMode === 'single' ? '#0f172a' : '#64748b',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    AEO Checker
+                  </button>
+                  <button
+                    onClick={() => setAuditMode('bulk')}
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: '6px',
+                      border: 'none',
+                      background: auditMode === 'bulk' ? '#fff' : 'transparent',
+                      boxShadow: auditMode === 'bulk' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                      fontWeight: auditMode === 'bulk' ? '600' : '400',
+                      color: auditMode === 'bulk' ? '#0f172a' : '#64748b',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    LLM-Friendliness Bulk Audit
+                  </button>
+                </div>
+              </div>
 
               {auditMode === 'single' && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginTop: '1rem' }}>
+
+                  {/* 1. Main Score Card (Left) */}
                   <div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '12px', textAlign: 'center' }}>
-                    <h4 style={{ color: '#64748b', marginBottom: '1rem' }}>LLM-Friendliness Score</h4>
-                    <div className="score-circle" style={{ '--progress': result?.llm_friendliness_score || 0, width: '120px', height: '120px', margin: '0 auto' } as React.CSSProperties}>
-                      <div className="score-value">{result?.llm_friendliness_score || 0}</div>
+                    <h4 style={{ color: '#64748b', marginBottom: '1rem', fontWeight: 'bold' }}>LLM-Friendliness Score</h4>
+                    <div className="score-circle" style={{
+                      '--progress': result?.metrics?.llm_friendliness_score || result?.overall_score || 0,
+                      width: '140px',
+                      height: '140px',
+                      margin: '0 auto'
+                    } as React.CSSProperties}>
+                      <div className="score-value" style={{ fontSize: '2.5rem' }}>
+                        {result?.metrics?.llm_friendliness_score || result?.overall_score || 0}
+                      </div>
                     </div>
-                    <p style={{ marginTop: '1rem', fontSize: '0.9rem', color: '#64748b' }}>
-                      How easily AI models can understand, trust, and use your content.
+                    <p style={{ marginTop: '1.5rem', fontSize: '0.9rem', color: '#64748b', lineHeight: '1.5' }}>
+                      <strong>Strict Analysis:</strong> How easily AI models can understand, trust, and use your content.
                     </p>
                   </div>
 
+                  {/* 2. Strict Metrics List (Right) */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1rem', borderRadius: '8px' }}>
+
+                    {/* Metric 1: Entity Presence Ratio */}
+                    <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1.25rem', borderRadius: '8px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                        <span style={{ fontWeight: 'bold', color: 'gray' }}>📖 Readability Score</span>
-                        <span style={{ fontWeight: 700, color: '#3b82f6' }}>
-                          {result?.detailed_analysis?.knowledge_base?.readability_score || 0}/100
+                        <span style={{ fontWeight: 'bold', color: '#475569' }}>🏷️ Entity Presence Ratio</span>
+                        <span style={{ fontWeight: 800, color: '#3b82f6', fontSize: '1.1rem' }}>
+                          {result?.metrics?.entity_presence_ratio || 0}%
                         </span>
                       </div>
-                      <div className="progress-bar">
+                      <div className="progress-bar" style={{ height: '8px', background: '#f1f5f9' }}>
                         <div
                           className="progress-fill"
                           style={{
-                            width: `${result?.detailed_analysis?.knowledge_base?.readability_score || 0}%`,
-                            backgroundColor: (result?.detailed_analysis?.knowledge_base?.readability_score || 0) > 60 ? '#10B981' : '#F59E0B'
+                            width: `${result?.metrics?.entity_presence_ratio || 0}%`,
+                            backgroundColor: (result?.metrics?.entity_presence_ratio || 0) > 70 ? '#10B981' : '#F59E0B'
                           }}
                         ></div>
                       </div>
                       <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.5rem' }}>
-                        Target: 60+ (Plain English). Higher scores mean easier for AI to process.
+                        Measures the ratio of key entities found vs. expected.
                       </p>
                     </div>
 
-                    <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1rem', borderRadius: '8px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ fontWeight: 600, color: 'gray' }}>📊 Fact Density</span>
-                        <span style={{ fontWeight: 700, color: '#3b82f6' }}>
-                          {result?.detailed_analysis?.knowledge_base?.fact_density ? result.detailed_analysis.knowledge_base.fact_density.toFixed(1) : 0}%
+                    {/* Metric 2: Structured Data Completeness */}
+                    <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1.25rem', borderRadius: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                        <span style={{ fontWeight: 'bold', color: '#475569' }}>🔧 Structured Data Completeness</span>
+                        <span style={{ fontWeight: 800, color: '#3b82f6', fontSize: '1.1rem' }}>
+                          {result?.metrics?.structured_data_completeness || 0}%
                         </span>
                       </div>
+                      <div className="progress-bar" style={{ height: '8px', background: '#f1f5f9' }}>
+                        <div
+                          className="progress-fill"
+                          style={{
+                            width: `${result?.metrics?.structured_data_completeness || 0}%`,
+                            backgroundColor: (result?.metrics?.structured_data_completeness || 0) > 80 ? '#10B981' : '#F59E0B'
+                          }}
+                        ></div>
+                      </div>
                       <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.5rem' }}>
-                        Percentage of content containing specific numbers, dates, or data points.
+                        Completeness of Schema.org implementation.
                       </p>
                     </div>
 
-                    <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1rem', borderRadius: '8px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ fontWeight: 600, color: 'gray' }}>🏷️ Entities Detected</span>
-                        <span style={{ fontWeight: 700, color: '#3b82f6' }}>
-                          {result?.detailed_analysis?.knowledge_base?.entities_count || 0}
+                    {/* Metric 3: Readability Score */}
+                    <div style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1.25rem', borderRadius: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                        <span style={{ fontWeight: 'bold', color: '#475569' }}>📖 Readability Score</span>
+                        <span style={{ fontWeight: 800, color: '#3b82f6', fontSize: '1.1rem' }}>
+                          {result?.metrics?.readability_score || 0}
                         </span>
                       </div>
+                      <div className="progress-bar" style={{ height: '8px', background: '#f1f5f9' }}>
+                        <div
+                          className="progress-fill"
+                          style={{
+                            width: `${result?.metrics?.readability_score || 0}%`,
+                            backgroundColor: (result?.metrics?.readability_score || 0) > 60 ? '#10B981' : '#F59E0B'
+                          }}
+                        ></div>
+                      </div>
                       <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.5rem' }}>
-                        Unique people, places, and organizations identified.
+                        Flesch-Kincaid Score (Target: 60+ for clear AI parsing).
                       </p>
                     </div>
+
                   </div>
                 </div>
               )}
 
               {auditMode === 'bulk' && (
-                <div className="bulk-audit-container">
+                <div className="bulk-audit-container" style={{ marginTop: '2rem' }}>
+
+                  {/* Bulk Input Section */}
                   <div style={{ display: 'flex', gap: '10px', marginBottom: '2rem' }}>
                     <input
                       type="text"
                       placeholder="Enter Sitemap URL (e.g. https://firstbud.in/sitemap.xml)"
                       value={sitemapUrl}
                       onChange={(e) => setSitemapUrl(e.target.value)}
-                      style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', color: 'black', fontSize: '1rem' }}
+                      style={{
+                        flex: 1,
+                        padding: '12px',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        color: 'black',
+                        fontSize: '1rem'
+                      }}
                     />
                     <button
                       onClick={handleBulkAnalyze}
@@ -1166,84 +1376,112 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                         fontWeight: '600',
                         cursor: bulkLoading ? 'not-allowed' : 'pointer',
                         whiteSpace: 'nowrap',
-                        opacity: bulkLoading ? 0.7 : 1
+                        opacity: bulkLoading ? 0.7 : 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
                       }}
                     >
-                      {bulkLoading ? 'Scanning Sitemap...' : '🚀 Run Bulk Audit'}
+                      {bulkLoading ? 'Scanning...' : '🚀 Run Bulk Audit'}
                     </button>
                   </div>
 
+                  {/* Loading State */}
                   {bulkLoading && (
                     <div style={{ textAlign: 'center', padding: '4rem', color: '#64748b', background: '#f8fafc', borderRadius: '12px' }}>
                       <div className="spinner" style={{ margin: '0 auto 1rem', width: '40px', height: '40px', border: '4px solid #e2e8f0', borderTop: '4px solid #7c3aed', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-                      <p>Analyzing URLs from sitemap... This may take a minute.</p>
+                      <p>Crawling & Analyzing pages... This may take a while.</p>
                       <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
                     </div>
                   )}
 
-                  {/* UPDATE: Conditional check to ensure bulkResults exists before rendering */}
+                  {/* Bulk Results */}
                   {bulkResults && !bulkLoading && (
                     <div className="bulk-results">
+
+                      {/* 1. Summary Cards */}
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+
                         <div style={{ background: '#f0f9ff', padding: '1.5rem', borderRadius: '12px', border: '1px solid #bae6fd' }}>
                           <div style={{ fontSize: '0.9rem', color: '#0369a1', marginBottom: '0.5rem', fontWeight: '600' }}>Avg LLM Score</div>
-                          {/* Use optional chaining and default 0 */}
-                          <div style={{ fontSize: '2rem', fontWeight: '700', color: '#0ea5e9' }}>{bulkResults?.summary?.average_llm_score || 0}</div>
+                          <div style={{ fontSize: '2rem', fontWeight: '700', color: '#0ea5e9' }}>
+                            {bulkResults?.summary?.average_llm_score || 0}
+                          </div>
                         </div>
+
                         <div style={{ background: '#f0fdf4', padding: '1.5rem', borderRadius: '12px', border: '1px solid #bbf7d0' }}>
                           <div style={{ fontSize: '0.9rem', color: '#15803d', marginBottom: '0.5rem', fontWeight: '600' }}>Avg Readability</div>
-                          {/* Use optional chaining and default 0 */}
-                          <div style={{ fontSize: '2rem', fontWeight: '700', color: '#22c55e' }}>{bulkResults?.summary?.average_readability || 0}</div>
+                          <div style={{ fontSize: '2rem', fontWeight: '700', color: '#22c55e' }}>
+                            {bulkResults?.summary?.average_readability || 0}
+                          </div>
                         </div>
+
                         <div style={{ background: '#fff7ed', padding: '1.5rem', borderRadius: '12px', border: '1px solid #fed7aa' }}>
                           <div style={{ fontSize: '0.9rem', color: '#c2410c', marginBottom: '0.5rem', fontWeight: '600' }}>Weak Content %</div>
-                          {/* Use optional chaining and default 0 */}
-                          <div style={{ fontSize: '2rem', fontWeight: '700', color: '#f97316' }}>{bulkResults?.summary?.weak_content_ratio || 0}%</div>
+                          <div style={{ fontSize: '2rem', fontWeight: '700', color: '#f97316' }}>
+                            {bulkResults?.summary?.weak_content_ratio || 0}%
+                          </div>
                         </div>
+
                         <div style={{ background: '#fff1f2', padding: '1.5rem', borderRadius: '12px', border: '1px solid #fecdd3' }}>
-                          <div style={{ fontSize: '0.9rem', color: '#be123c', marginBottom: '0.5rem', fontWeight: '600' }}>No Entities %</div>
-                          {/* Use optional chaining and default 0 */}
-                          <div style={{ fontSize: '2rem', fontWeight: '700', color: '#f43f5e' }}>{bulkResults?.summary?.missing_entities_ratio || 0}%</div>
+                          <div style={{ fontSize: '0.9rem', color: '#be123c', marginBottom: '0.5rem', fontWeight: '600' }}>Missing Entities %</div>
+                          <div style={{ fontSize: '2rem', fontWeight: '700', color: '#f43f5e' }}>
+                            {bulkResults?.summary?.missing_entities_ratio || 0}%
+                          </div>
                         </div>
                       </div>
 
-                      <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                      {/* 2. Detailed Table (UPDATED COLUMNS) */}
+                      <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem', background: 'white' }}>
                           <thead style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
                             <tr>
-                              <th style={{ padding: '1rem', textAlign: 'left', color: 'black' }}>URL</th>
-                              <th style={{ padding: '1rem', textAlign: 'center', color: 'black' }}>LLM Score</th>
-                              <th style={{ padding: '1rem', textAlign: 'center', color: 'black' }}>Readability</th>
-                              <th style={{ padding: '1rem', textAlign: 'center', color: 'black' }}>Entities</th>
-                              <th style={{ padding: '1rem', textAlign: 'center', color: 'black' }}>Facts</th>
-                              <th style={{ padding: '1rem', textAlign: 'center', color: 'black' }}>Status</th>
+                              <th style={{ padding: '1rem', textAlign: 'left', color: '#475569', fontWeight: '600' }}>Page URL</th>
+                              <th style={{ padding: '1rem', textAlign: 'center', color: '#475569', fontWeight: '600' }}>LLM Score</th>
+                              <th style={{ padding: '1rem', textAlign: 'center', color: '#475569', fontWeight: '600' }}>Readability</th>
+                              {/* FIXED COLUMN: Entity Ratio % */}
+                              <th style={{ padding: '1rem', textAlign: 'center', color: '#475569', fontWeight: '600' }}>Entity Ratio</th>
+                              {/* FIXED COLUMN: Structure % */}
+                              <th style={{ padding: '1rem', textAlign: 'center', color: '#475569', fontWeight: '600' }}>Structure</th>
+                              <th style={{ padding: '1rem', textAlign: 'center', color: '#475569', fontWeight: '600' }}>Status</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {/* Check if details array exists before mapping */}
                             {bulkResults?.details && bulkResults.details.map((row: any, idx: number) => (
                               <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
                                 <td style={{ padding: '1rem', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                  <a href={row.url} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', textDecoration: 'none' }}>
+                                  <a href={row.url} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: '500' }}>
                                     {row.url}
                                   </a>
                                 </td>
                                 <td style={{ padding: '1rem', textAlign: 'center' }}>
                                   <span style={{
-                                    padding: '4px 8px',
+                                    padding: '4px 10px',
                                     borderRadius: '12px',
                                     background: (row.llm_score || 0) >= 60 ? '#dcfce7' : '#fee2e2',
                                     color: (row.llm_score || 0) >= 60 ? '#166534' : '#991b1b',
-                                    fontWeight: '600'
+                                    fontWeight: '700',
+                                    fontSize: '0.85rem'
                                   }}>
                                     {row.llm_score || 0}
                                   </span>
                                 </td>
-                                <td style={{ padding: '1rem', textAlign: 'center' }}>{row.readability || 0}</td>
-                                <td style={{ padding: '1rem', textAlign: 'center' }}>{row.entities_count || row.entities || 0}</td>
-                                <td style={{ padding: '1rem', textAlign: 'center' }}>{row.fact_density || 0}%</td>
+                                <td style={{ padding: '1rem', textAlign: 'center', color: '#334155' }}>
+                                  {row.readability || 0}
+                                </td>
+                                <td style={{ padding: '1rem', textAlign: 'center', color: '#334155' }}>
+                                  {/* UPDATED: Display Percentage */}
+                                  {row.entities_ratio || 0}%
+                                </td>
+                                <td style={{ padding: '1rem', textAlign: 'center', color: '#334155' }}>
+                                  {/* UPDATED: Display Percentage */}
+                                  {row.structure_score || 0}%
+                                </td>
                                 <td style={{ padding: '1rem', textAlign: 'center' }}>
-                                  {row.status === 'Good' ? '✅' : row.status === 'Error' ? '⚠️' : '🔻'}
+                                  {row.status === 'Good'
+                                    ? <span style={{ color: '#10b981' }}>✅ Good</span>
+                                    : <span style={{ color: '#ef4444' }}>⚠️ Weak</span>
+                                  }
                                 </td>
                               </tr>
                             ))}
@@ -1252,98 +1490,6 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                       </div>
                     </div>
                   )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeView === 'simulator' && (
-            <div className="dashboard-card" style={{ padding: '2rem' }}>
-              <div className="card-header" style={{ marginBottom: '2rem' }}>
-                <h3>🤖 AI Search Simulator</h3>
-                <p style={{ color: '#64748b' }}>
-                  Simulate how different AI models answer user questions based <strong>only</strong> on your page content.
-                </p>
-              </div>
-
-              <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
-                <input
-                  type="text"
-                  placeholder="Enter a user question (e.g. 'What is the pricing?' or 'Does this have a warranty?')"
-                  value={simulationQuery}
-                  onChange={(e) => setSimulationQuery(e.target.value)}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '1rem',
-                    color: '#0f172a'
-                  }}
-                />
-                <button
-                  onClick={handleSimulation}
-                  disabled={simulationLoading || !simulationQuery}
-                  style={{
-                    padding: '12px 24px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    background: '#2563eb',
-                    color: 'white',
-                    fontWeight: '600',
-                    cursor: (simulationLoading || !simulationQuery) ? 'not-allowed' : 'pointer',
-                    opacity: (simulationLoading || !simulationQuery) ? 0.7 : 1
-                  }}
-                >
-                  {simulationLoading ? 'Simulating...' : '✨ Simulate Answer'}
-                </button>
-              </div>
-
-              {simulationLoading && (
-                <div style={{ textAlign: 'center', padding: '4rem', color: '#64748b', background: '#f8fafc', borderRadius: '12px' }}>
-                  <div className="spinner" style={{ margin: '0 auto 1rem', width: '40px', height: '40px', border: '4px solid #e2e8f0', borderTop: '4px solid #2563eb', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-                  <p>Querying OpenAI, Gemini, and Claude...</p>
-                </div>
-              )}
-
-              {/* UPDATE: Conditional check to ensure simulationResults exists before rendering */}
-              {simulationResults && !simulationLoading && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1.5rem' }}>
-                  {/* OpenAI Card */}
-                  <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
-                    <div style={{ background: '#10a37f', color: 'white', padding: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '1.2rem' }}>🤖</span>
-                      <span style={{ fontWeight: '600' }}>ChatGPT (GPT-4o)</span>
-                    </div>
-                    <div style={{ padding: '1.5rem', fontSize: '0.95rem', lineHeight: '1.6', color: '#334155' }}>
-                      {/* Check if property exists */}
-                      {simulationResults?.openai_answer || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No answer generated.</span>}
-                    </div>
-                  </div>
-
-                  {/* Gemini Card */}
-                  <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
-                    <div style={{ background: '#4285f4', color: 'white', padding: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '1.2rem' }}>🧠</span>
-                      <span style={{ fontWeight: '600' }}>Google Gemini</span>
-                    </div>
-                    <div style={{ padding: '1.5rem', fontSize: '0.95rem', lineHeight: '1.6', color: '#334155' }}>
-                      {/* Check if property exists */}
-                      {simulationResults?.gemini_answer || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No answer generated.</span>}
-                    </div>
-                  </div>
-
-                  {/* Claude Card */}
-                  <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
-                    <div style={{ background: '#d97757', color: 'white', padding: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '1.2rem' }}>🎭</span>
-                      <span style={{ fontWeight: '600' }}>Anthropic Claude</span>
-                    </div>
-                    <div style={{ padding: '1.5rem', fontSize: '0.95rem', lineHeight: '1.6', color: '#334155' }}>
-                      {/* Check if property exists */}
-                      {simulationResults?.claude_answer || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No answer generated.</span>}
-                    </div>
-                  </div>
                 </div>
               )}
             </div>
