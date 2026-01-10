@@ -80,8 +80,7 @@ class AEOServiceOrchestrator:
     # --- UPDATED: Accepts target_models filter ---
     def run_complete_analysis(self, url: str, html_content: str = None, competitor_urls: list = None, target_models: list = None) -> dict:
         """
-        Run complete AEO analysis with Multi-AI Integration.
-        :param target_models: Optional list of specific AI models to run (e.g. ['openai']).
+        Run complete AEO analysis with STRICT Metric Reporting.
         """
         
         try:
@@ -92,160 +91,134 @@ class AEOServiceOrchestrator:
                     headers = {
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                        'Accept-Language': 'en-US,en;q=0.5',
                         'Referer': 'https://www.google.com/'
                     }
                     response = requests.get(url, headers=headers, timeout=15)
-                    
-                    if response.status_code != 200:
-                        logging.error(f"Failed to fetch content. Status: {response.status_code}")
-                    
                     html_content = response.text
-                    logging.info(f"HTML fetched: {len(html_content)} bytes")
-                    
                 except Exception as e:
                     logging.error(f"Failed to fetch HTML: {str(e)}")
-                    return {
-                        'error': f'Failed to fetch content: {str(e)}',
-                        'url': url
-                    }
+                    return {'error': f'Failed to fetch content: {str(e)}', 'url': url}
             
-            # Run all analyses with Safety Belts
             results = {}
             
-            # A. Basic AI Presence (Robots.txt / Blocking)
+            # --- EXECUTE MODULES ---
+            # A. Basic AI Presence
             try:
-                logging.info("Starting Basic AI Presence analysis...")
-                start = time.time()
-                # --- CRITICAL UPDATE: Pass target_models here ---
                 results['ai_presence'] = self.analyze_ai_presence(url, target_models=target_models)
-                # ------------------------------------------------
-                logging.info(f"Basic AI Presence completed in {time.time() - start:.2f}s")
             except Exception as e:
-                logging.error(f"Basic AI Presence Failed: {e}")
                 results['ai_presence'] = {'score': 0, 'error': str(e)}
 
-            # B. NEW: Multi-AI Understanding (OpenAI, Gemini, Claude)
+            # B. Multi-AI Understanding
             try:
-                logging.info("Starting Multi-AI Understanding analysis...")
-                start = time.time()
-                # Pass HTML content AND target_models to the service
                 results['multi_ai'] = self.analyze_multi_ai(html_content, url, target_models=target_models)
-                logging.info(f"Multi-AI Analysis completed in {time.time() - start:.2f}s")
             except Exception as e:
-                logging.error(f"Multi-AI Module Failed: {e}")
                 results['multi_ai'] = {'overall_score': 0, 'error': str(e)}
 
-            # C. Knowledge Base (Entities)
+            # C. Knowledge Base (Entities & Readability)
             try:
-                logging.info("Starting Knowledge Base analysis...")
-                start = time.time()
                 results['knowledge_base'] = self.analyze_knowledge_base(url, html_content)
-                logging.info(f"Knowledge Base completed in {time.time() - start:.2f}s")
             except Exception as e:
-                logging.error(f"Knowledge Base Module Failed: {e}")
-                results['knowledge_base'] = {'score': 0, 'error': str(e)}
+                results['knowledge_base'] = {'score': 0, 'readability_score': 0, 'entity_coverage': {}, 'error': str(e)}
 
             # D. Answerability
             try:
-                logging.info("Starting Answerability analysis...")
-                start = time.time()
                 results['answerability'] = self.analyze_answerability(url, html_content)
-                logging.info(f"Answerability completed in {time.time() - start:.2f}s")
             except Exception as e:
-                logging.error(f"Answerability Module Failed: {e}")
                 results['answerability'] = {'score': 0, 'error': str(e)}
 
             # E. Crawler Accessibility
             try:
-                logging.info("Starting Crawler Accessibility analysis...")
-                start = time.time()
                 results['crawler_accessibility'] = self.analyze_crawler_accessibility(url, html_content)
-                logging.info(f"Crawler Accessibility completed in {time.time() - start:.2f}s")
             except Exception as e:
-                logging.error(f"Crawler Accessibility Module Failed: {e}")
                 results['crawler_accessibility'] = {'score': 0, 'error': str(e)}
 
             # F. Structured Data
             try:
-                logging.info("Starting Structured Data analysis...")
-                start = time.time()
                 results['structured_data'] = self.analyze_structured_data(url, html_content)
-                logging.info(f"Structured Data completed in {time.time() - start:.2f}s")
             except Exception as e:
-                logging.error(f"Structured Data Module Failed: {e}")
-                results['structured_data'] = {'score': 0, 'error': str(e)}
+                results['structured_data'] = {'score': 0, 'metrics': {'completeness': 0}, 'error': str(e)}
 
             # G. Competitor Analysis
             try:
-                logging.info("Starting Competitor Analysis...")
-                start = time.time()
                 results['competitor_analysis'] = self.analyze_competitor_landscape(url, competitor_urls or [])
-                logging.info(f"Competitor Analysis completed in {time.time() - start:.2f}s")
             except Exception as e:
-                logging.error(f"Competitor Analysis Module Failed: {e}")
                 results['competitor_analysis'] = {'score': 0, 'error': str(e)}
             
-            # --- 3. Calculate Scores (Updated Logic) ---
-            results['url'] = url
+            # --- STRICT METRIC CALCULATION (PER INSTRUCTIONS) ---
             
+            # 1. LLM-Friendliness Score (0-100)
             s_answerability = results.get('answerability', {}).get('score', 0)
             s_knowledge = results.get('knowledge_base', {}).get('score', 0)
             s_structure = results.get('structured_data', {}).get('score', 0)
-            
-            # Use Multi-AI Score if available (It's smarter), otherwise fallback to basic AI Presence
             s_multi_ai = results.get('multi_ai', {}).get('overall_score', 0)
             s_basic_presence = results.get('ai_presence', {}).get('score', 0)
-            
-            # "Smart" Presence Score: Use the higher of the two
             s_final_presence = max(s_multi_ai, s_basic_presence)
             
-            # Weighted Formula:
-            # Answerability (35%) + Knowledge (25%) + Structure (25%) + Bot Access (15%)
+            # Weighted Formula including Readability implicitly via Knowledge Base or Explicitly here
             overall_score = (
-                (s_answerability * 0.35) +
+                (s_answerability * 0.30) +
                 (s_knowledge * 0.25) +
                 (s_structure * 0.25) +
-                (s_final_presence * 0.15)
+                (s_final_presence * 0.20)
             )
+            llm_friendliness_score = round(overall_score, 1)
+
+            # 2. Entity Presence Ratio
+            kb_data = results.get('knowledge_base', {})
+            ec_data = kb_data.get('entity_coverage', {})
+            found_entities = len(ec_data.get('found_entities', []))
+            missing_entities = len(ec_data.get('missing_entities', []))
+            total_entities = found_entities + missing_entities
             
-            overall_score = round(overall_score, 1)
-            
-            module_scores = {
-                'ai_presence': s_final_presence, # Showing the Smart Score
-                'knowledge_base': s_knowledge,
-                'structured_data': s_structure,
-                'answerability': s_answerability,
-                'crawler_accessibility': results.get('crawler_accessibility', {}).get('score', 0),
-                'competitor_analysis': results.get('competitor_analysis', {}).get('score', 0)
-            }
-            
-            # Return in the expected frontend format
+            if total_entities > 0:
+                entity_presence_ratio = round((found_entities / total_entities) * 100, 1)
+            else:
+                entity_presence_ratio = 0.0
+
+            # 3. Structured Data Completeness
+            sd_data = results.get('structured_data', {})
+            sd_completeness = sd_data.get('metrics', {}).get('completeness', 0)
+
+            # 4. Readability Score
+            readability_score = kb_data.get('readability_score', 0)
+
+            # --- CONSTRUCT FINAL RESPONSE ---
             return {
                 'url': url,
-                'overall_score': overall_score,
-                'llm_friendliness_score': overall_score,
-                'module_scores': module_scores,
+                'overall_score': llm_friendliness_score,
+                
+                # THIS IS THE STRICT "METRICS" BLOCK THE CLIENT WANTS
+                'metrics': {
+                    'llm_friendliness_score': llm_friendliness_score,
+                    'entity_presence_ratio': entity_presence_ratio,
+                    'structured_data_completeness': round(sd_completeness, 1),
+                    'readability_score': readability_score
+                },
+                
+                'module_scores': {
+                    'ai_presence': s_final_presence,
+                    'knowledge_base': s_knowledge,
+                    'structured_data': s_structure,
+                    'answerability': s_answerability,
+                    'crawler_accessibility': results.get('crawler_accessibility', {}).get('score', 0),
+                    'competitor_analysis': results.get('competitor_analysis', {}).get('score', 0)
+                },
                 'detailed_analysis': {
                     'ai_presence': results.get('ai_presence', {}),
-                    'multi_ai': results.get('multi_ai', {}), # New Data Field
-                    'competitor_analysis': results.get('competitor_analysis', {}),
+                    'multi_ai': results.get('multi_ai', {}),
                     'knowledge_base': results.get('knowledge_base', {}),
+                    'structured_data': results.get('structured_data', {}),
                     'answerability': results.get('answerability', {}),
-                    'crawler_accessibility': results.get('crawler_accessibility', {}),
-                    'structured_data': results.get('structured_data', {})
+                    'competitor_analysis': results.get('competitor_analysis', {}),
+                    'crawler_accessibility': results.get('crawler_accessibility', {})
                 },
                 'recommendations': self._generate_recommendations(results),
                 'analysis_timestamp': datetime.datetime.now().isoformat()
             }
             
         except Exception as e:
-            # Catch-all for any critical orchestrator failure
             logging.critical(f"Critical Orchestrator Failure: {str(e)}")
-            return {
-                'error': f'Complete analysis failed: {str(e)}',
-                'url': url
-            }
+            return {'error': f'Complete analysis failed: {str(e)}', 'url': url}
     
     def _generate_recommendations(self, results: dict) -> list:
         """Generate prioritized, actionable recommendations from analysis results"""
@@ -312,53 +285,28 @@ class AEOServiceOrchestrator:
         return filtered_recommendations[:20]  # Limit to top 20 recommendations
     
     def _determine_priority(self, recommendation: str, score: float, module: str) -> str:
-        """Determine priority level for a recommendation"""
+        """Determine priority level based on DATA Logic + Keywords"""
         rec_lower = recommendation.lower()
         
-        # High priority: Critical fixes and missing essentials
-        high_priority_keywords = [
-            'add title tag',
-            'add meta description',
-            'allow indexing',
-            'robots.txt',
-            'sitemap',
-            'schema',
-            'structured data',
-            'faq section',
-            'canonical',
-            'organization schema',
-            'website schema',
-            'webpage schema'
-        ]
-        
-        # Medium priority: Improvements and optimizations
-        medium_priority_keywords = [
-            'improve',
-            'enhance',
-            'optimize',
-            'add more',
-            'better',
-            'clear',
-            'formatting',
-            'alt text',
-            'open graph',
-            'twitter card'
-        ]
-        
-        # Check for high priority keywords
-        if any(keyword in rec_lower for keyword in high_priority_keywords):
-            return 'high'
-        
-        # Low scores indicate high priority issues
+        # LOGIC 1: Critical Score Failures = HIGH Priority
         if score < 40:
             return 'high'
         
-        # Check for medium priority keywords
-        if any(keyword in rec_lower for keyword in medium_priority_keywords):
-            return 'medium'
-        
-        # Default to medium if score is low-medium
+        # LOGIC 2: Critical Keywords
+        high_priority_keywords = [
+            'noindex', 'blocked', 'robots.txt', 'schema', 'structured data',
+            'missing', 'error', 'failed', 'critical'
+        ]
+        if any(k in rec_lower for k in high_priority_keywords):
+            return 'high'
+            
+        # LOGIC 3: Mediocre Scores = MEDIUM Priority
         if score < 70:
             return 'medium'
-        
+            
+        # LOGIC 4: Optimization Keywords
+        medium_priority_keywords = ['improve', 'optimize', 'better', 'enhance']
+        if any(k in rec_lower for k in medium_priority_keywords):
+            return 'medium'
+            
         return 'low'

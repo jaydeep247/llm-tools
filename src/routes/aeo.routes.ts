@@ -1,6 +1,7 @@
 import express from 'express';
 import { MultiModelScoringService } from '../modules/module_E/MultiModelScoringService.js';
 import { getPool } from '../database/dbConnection.js';
+import { aeoMetricsRepository } from '../database/repositories/aeoMetricsRepository.js';
 import { Logger } from '../logging/Logger.js';
 import { authenticateUser, checkUsageLimit } from '../auth/authMiddleware.js';
 
@@ -149,6 +150,100 @@ router.post('/analyze',
         }
     }
 );
+
+// Proxy AEO bulk analysis requests to FastAPI
+router.post('/analyze-bulk',
+    authenticateUser,
+    checkUsageLimit('aeo_analysis'),
+    async (req, res) => {
+        const startTime = Date.now();
+        try {
+            const userId = req.user!.userId;
+            const db = await import('../database/DatabaseService.js').then(m => m.getDatabase());
+
+            logger.info('=== AEO BULK ANALYZE REQUEST START ===', {
+                userId,
+                hasSitemap: !!req.body.sitemap,
+                hasUrls: !!req.body.urls,
+                urlCount: req.body.urls?.length || 0,
+                timestamp: new Date().toISOString()
+            });
+
+            logger.info('Proxying AEO bulk analysis request to FastAPI', {
+                userId,
+                targetUrl: `${AEO_API_BASE_URL}/api/aeo/analyze-bulk`,
+                requestBody: req.body
+            });
+
+            const fetchStartTime = Date.now();
+            const response = await fetch(`${AEO_API_BASE_URL}/api/aeo/analyze-bulk`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(req.body),
+            });
+            const fetchDuration = Date.now() - fetchStartTime;
+
+            logger.info('FastAPI bulk analysis response received', {
+                status: response.status,
+                statusText: response.statusText,
+                duration: `${fetchDuration}ms`,
+                contentType: response.headers.get('content-type')
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                logger.error(`FastAPI bulk AEO analysis failed: ${response.status} - ${errorText}`);
+                return res.status(response.status).json({
+                    error: 'Bulk AEO analysis failed',
+                    details: errorText
+                });
+            }
+
+            logger.info('Parsing FastAPI bulk analysis response JSON...');
+            const data = await response.json();
+            logger.info('FastAPI bulk analysis response parsed successfully', {
+                success: data.success,
+                hasData: !!data.data,
+                error: data.error
+            });
+
+            // Track user usage (count each URL analyzed)
+            try {
+                const urlCount = req.body.urls?.length || 0;
+                if (urlCount > 0) {
+                    await db.recordUserUsage(userId, 'aeo_analysis', urlCount);
+                    logger.info('User usage tracked successfully', { urlCount });
+                }
+            } catch (error) {
+                logger.error('Failed to track bulk AEO usage', error as Error);
+            }
+
+            const totalDuration = Date.now() - startTime;
+            logger.info('=== AEO BULK ANALYZE REQUEST COMPLETE ===', {
+                userId,
+                totalDuration: `${totalDuration}ms`,
+                success: data.success
+            });
+
+            res.json(data);
+        } catch (error: any) {
+            const totalDuration = Date.now() - startTime;
+            logger.error('=== AEO BULK ANALYZE REQUEST FAILED ===', {
+                message: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined,
+                duration: `${totalDuration}ms`
+            } as any);
+
+            res.status(500).json({
+                error: 'Internal server error',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    }
+);
+
 
 // Proxy AEO health check requests to FastAPI
 router.get('/health', async (req, res) => {
