@@ -55,10 +55,10 @@ function loadRedisConfig() {
       db: 0,
       keyPrefix: 'seo:',
       queues: {
-        seo: 'seo:queue',
-        'seo-priority': 'seo:priority-queue',
-        'seo-processing': 'seo:processing',
-        'seo-failed': 'seo:failed'
+        seo: 'queue',
+        'seo-priority': 'priority-queue',
+        'seo-processing': 'processing',
+        'seo-failed': 'failed'
       }
     };
   }

@@ -1,5 +1,6 @@
 import { dequeueSeo, markJobComplete, getQueueStats, closeRedis } from './redis-queue.js';
 import { getDatabase } from '../database/DatabaseService.js';
+import { extractSeoKeywords } from './on-demand-extractor.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -26,52 +27,6 @@ function loadConfig() {
       backoffBaseMs: 1000,
       pythonApiBase: 'http://localhost:8000'
     };
-  }
-}
-
-async function extractSeoKeywords(url: string, config: any): Promise<any> {
-  const pythonApiBase = config.pythonApiBase || 'http://localhost:8000';
-  
-  try {
-    // Fetch HTML content
-    const response = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SEO-Extractor/1.0)' },
-      signal: AbortSignal.timeout(config.timeoutMs || 30000)
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    
-    const html = await response.text();
-    if (!html || html.trim().length === 0) {
-      throw new Error('No HTML content retrieved');
-    }
-    
-    // Call Python API for keyword extraction
-    const payload = {
-      url: url,
-      final_url: response.url,
-      status_code: response.status,
-      html: html,
-      fetched_at: new Date().toISOString()
-    };
-    
-    const seoResponse = await fetch(`${pythonApiBase}/extract_html`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(config.timeoutMs || 30000)
-    });
-    
-    if (!seoResponse.ok) {
-      const errorText = await seoResponse.text();
-      throw new Error(`SEO API error: ${seoResponse.status} - ${errorText}`);
-    }
-    
-    return await seoResponse.json();
-  } catch (error) {
-    throw new Error(`SEO extraction failed for ${url}: ${(error as Error).message}`);
   }
 }
 
