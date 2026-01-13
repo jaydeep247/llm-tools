@@ -227,7 +227,7 @@ export default function WebTree({ onClose }: WebTreeProps) {
     const loadStats = async () => {
       if (!selectedSessionId) return;
       try {
-        const res = await authFetch(`/api/links/stats/${selectedSessionId}`);
+        const res = await fetch(`/api/links/stats/${selectedSessionId}`);
         if (!res.ok) throw new Error('Failed to load link stats');
         const data: StatsResponse = await res.json();
         const idx = new Map<string, number>();
@@ -244,11 +244,11 @@ export default function WebTree({ onClose }: WebTreeProps) {
   }, [selectedSessionId]);
 
   const fetchOutlinks = useCallback(async (sessionId: number, pageId: number, limit: number): Promise<LinkItem[]> => {
-    const response = await authFetch(`/api/links?sessionId=${sessionId}&pageId=${pageId}&type=out&limit=${limit}`);
+    const response = await fetch(`/api/links?sessionId=${sessionId}&pageId=${pageId}&type=out&limit=${limit}`);
     if (!response.ok) throw new Error('Failed to load links');
     const data: LinksResponse = await response.json();
     return data.links || [];
-  }, [authFetch]);
+  }, []);
 
   const buildTree = useCallback(async () => {
     if (!selectedSessionId) return;
@@ -268,7 +268,7 @@ export default function WebTree({ onClose }: WebTreeProps) {
           params.set('limit', String(limit));
           params.set('offset', String(offset));
           params.set('sessionId', String(selectedSessionId));
-          const res = await authFetch(`/api/data/pages?${params.toString()}`);
+          const res = await fetch(`/api/data/pages?${params.toString()}`);
           if (!res.ok) throw new Error('Failed to load URL list');
           const result = await res.json();
           const items = (result.data || []) as Array<{ url: string }>;
@@ -345,7 +345,7 @@ export default function WebTree({ onClose }: WebTreeProps) {
     } finally {
       setLoading(false);
     }
-  }, [selectedSessionId, rootUrl, pageIndex, fetchOutlinks, authFetch, sessions, useUrlListMode]);
+  }, [selectedSessionId, rootUrl, pageIndex, fetchOutlinks]);
 
   function cloneNode(node: D3TreeNode): D3TreeNode {
     return {
@@ -417,7 +417,7 @@ export default function WebTree({ onClose }: WebTreeProps) {
       }
       await Promise.all(urls.map(async (u) => {
         try {
-          await authFetch('/api/seo/extract', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: u }) });
+          await fetch('/api/seo/extract', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: u }) });
         } catch { }
       }));
     };
@@ -453,7 +453,7 @@ export default function WebTree({ onClose }: WebTreeProps) {
           // Skip if already attached
           if (seoByUrl.has(u)) continue;
           try {
-            const res = await authFetch('/api/seo/extract', {
+            const res = await fetch('/api/seo/extract', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ url: u })
