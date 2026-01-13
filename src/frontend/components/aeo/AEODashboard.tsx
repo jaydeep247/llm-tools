@@ -990,45 +990,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                   <div className="border-b border-gray-800 bg-gray-900/50 px-6 py-4 flex items-center gap-2">
                     <span className="text-xl">📊</span>
                     <h3 className="text-lg font-semibold text-white">Analysis Summary</h3>
-          
-          {activeView === 'intelligence' && (
-            <div className="dashboard-card" style={{ padding: '2rem' }}>
-              <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                <h3>🧠 Module C: AI Intelligence Engine</h3>
-                <div className="mode-toggle" style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '4px', borderRadius: '8px' }}>
-                  <button
-                    onClick={() => setAuditMode('single')}
-                    style={{
-                      padding: '8px 16px',
-                      borderRadius: '6px',
-                      border: 'none',
-                      background: auditMode === 'single' ? '#fff' : 'transparent',
-                      boxShadow: auditMode === 'single' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                      fontWeight: auditMode === 'single' ? '600' : '400',
-                      color: auditMode === 'single' ? '#0f172a' : '#64748b',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    AEO Checker
-                  </button>
-                  <button
-                    onClick={() => setAuditMode('bulk')}
-                    style={{
-                      padding: '8px 16px',
-                      borderRadius: '6px',
-                      border: 'none',
-                      background: auditMode === 'bulk' ? '#fff' : 'transparent',
-                      boxShadow: auditMode === 'bulk' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                      fontWeight: auditMode === 'bulk' ? '600' : '400',
-                      color: auditMode === 'bulk' ? '#0f172a' : '#64748b',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    LLM-Friendliness Bulk Audit
-                  </button>
-                </div>
+                  </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm text-gray-400">
                       <thead className="bg-gray-900 text-xs uppercase text-gray-400 font-bold tracking-wider">
@@ -1062,7 +1024,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                         </tr>
                       </tbody>
                     </table>
-                          </div>
+                  </div>
                 </div>
               )}
 
@@ -1934,10 +1896,10 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
           </div>
 
 
-        </div >
+        </div>
       )}
 
-    </div >
+    </div>
   );
 };
 
