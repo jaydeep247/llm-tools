@@ -252,9 +252,6 @@ class KnowledgeBaseService:
                         'ai_generation_feasibility': 0
                     },
                     'recommendations': ['Add more text content']
-                    'score': 0, 'error': 'No text content found', 'entities': {},
-                    'fact_density': 0, 'clarity': {}, 'linkability': {},
-                    'format_usage': {}, 'recommendations': ['Add more text content']
                 }
             
             # --- EXISTING METRICS ---
