@@ -72,17 +72,20 @@ router.post('/register', async (req: Request, res: Response) => {
         });
 
         // Set both access token and refresh token as HTTP-only cookies
+        // Use COOKIE_SECURE env var to control secure flag (false for HTTP, true for HTTPS)
+        const cookieSecure = process.env.COOKIE_SECURE === 'true';
+        
         res.cookie('accessToken', tokens.accessToken, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            secure: cookieSecure,
+            sameSite: 'lax', // Changed from 'strict' to 'lax' for better cross-origin compatibility
             maxAge: 15 * 60 * 1000 // 15 minutes
         });
 
         res.cookie('refreshToken', tokens.refreshToken, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            secure: cookieSecure,
+            sameSite: 'lax',
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
 
@@ -161,17 +164,20 @@ router.post('/login', async (req: Request, res: Response) => {
         });
 
         // Set both access token and refresh token as HTTP-only cookies
+        // Use COOKIE_SECURE env var to control secure flag (false for HTTP, true for HTTPS)
+        const cookieSecure = process.env.COOKIE_SECURE === 'true';
+        
         res.cookie('accessToken', tokens.accessToken, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            secure: cookieSecure,
+            sameSite: 'lax', // Changed from 'strict' to 'lax' for better cross-origin compatibility
             maxAge: 15 * 60 * 1000 // 15 minutes
         });
 
         res.cookie('refreshToken', tokens.refreshToken, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            secure: cookieSecure,
+            sameSite: 'lax',
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
 
@@ -268,17 +274,20 @@ router.post('/refresh', async (req: Request, res: Response) => {
         });
 
         // Update both access token and refresh token cookies
+        // Use COOKIE_SECURE env var to control secure flag (false for HTTP, true for HTTPS)
+        const cookieSecure = process.env.COOKIE_SECURE === 'true';
+        
         res.cookie('accessToken', tokens.accessToken, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            secure: cookieSecure,
+            sameSite: 'lax', // Changed from 'strict' to 'lax' for better cross-origin compatibility
             maxAge: 15 * 60 * 1000 // 15 minutes
         });
 
         res.cookie('refreshToken', tokens.refreshToken, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            secure: cookieSecure,
+            sameSite: 'lax',
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
 

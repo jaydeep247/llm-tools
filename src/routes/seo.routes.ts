@@ -29,7 +29,7 @@ router.post('/seo/extract', authenticateUser, async (req, res) => {
             return res.status(400).json({ error: 'URL is required' });
         }
 
-        // Only return cached data - no fetching or processing
+        // First, try to return cached data
         const db = getDatabase();
         let cachedData = await db.getSeoData(finalUrl);
 
@@ -50,14 +50,43 @@ router.post('/seo/extract', authenticateUser, async (req, res) => {
             });
         }
 
-        // No cached data available
-        return res.status(404).json({
-            error: 'No cached data available for this URL',
-            url: finalUrl,
-            hint: 'This endpoint only serves cached data. Process the URL first to generate keywords.'
-        });
+        // No cached data available - perform on-demand extraction
+        console.log(`[seo.routes] Cache miss for ${finalUrl}, performing on-demand extraction`);
+        
+        try {
+            // Import the on-demand extractor
+            const { extractSeoKeywordsWithRetry } = await import('../seo/on-demand-extractor.js');
+            
+            // Extract SEO keywords
+            const result = await extractSeoKeywordsWithRetry(finalUrl);
+            
+            // Cache the result
+            await db.cacheSeoData(finalUrl, {
+                parentText: result.parent?.text,
+                keywords: result.keywords,
+                language: result.language
+            });
+            
+            console.log(`[seo.routes] Successfully extracted and cached SEO data for ${finalUrl}`);
+            
+            // Return the fresh data
+            return res.json({
+                url: finalUrl,
+                language: result.language,
+                parent: result.parent || null,
+                keywords: result.keywords,
+                cached: false
+            });
+        } catch (extractError) {
+            console.error(`[seo.routes] On-demand extraction failed for ${finalUrl}:`, (extractError as Error).message);
+            return res.status(500).json({ 
+                error: 'SEO extraction failed', 
+                details: (extractError as Error).message,
+                url: finalUrl
+            });
+        }
     } catch (err) {
-        return res.status(500).json({ error: 'Cache retrieval error', details: (err as Error).message });
+        return res.status(500).json({ error: 'Server error', details: (err as Error).message });
     }
 });
 
