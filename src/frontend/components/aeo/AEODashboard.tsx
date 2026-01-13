@@ -104,7 +104,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
     setModuleELoading(true);
     setModuleEError(null);
     try {
-      const response = await fetch('/aeo/website-score', {
+      const response = await fetch('/api/aeo/website-score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url, sessionId: result?.session_id })

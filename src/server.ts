@@ -114,7 +114,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api', seoRoutes);
 app.use(linksRoutes);
 app.use(linkScoreRoutes);
-app.use('/aeo', aeoRoutes);
+app.use('/api/aeo', aeoRoutes);
 
 // Cancel audits endpoint
 app.post('/api/cancel-audits', (req, res) => {

@@ -392,7 +392,7 @@ const AppWithAuth: React.FC = () => {
         const token = localStorage.getItem('accessToken');
         const headers: HeadersInit = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
-        const aeoRes = await fetch(`/aeo/results/${reusePrompt.sessionId}`, {
+        const aeoRes = await fetch(`/api/aeo/results/${reusePrompt.sessionId}`, {
           headers,
           credentials: 'include'
         });
@@ -601,7 +601,7 @@ const AppWithAuth: React.FC = () => {
         const headers: HeadersInit = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
 
-        const aeoRes = await fetch(`/aeo/results/${sessionId}`, {
+        const aeoRes = await fetch(`/api/aeo/results/${sessionId}`, {
           headers,
           credentials: 'include'
         });

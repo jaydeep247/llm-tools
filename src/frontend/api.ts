@@ -224,7 +224,7 @@ class ApiService {
         console.log(`Getting AEO analysis for: ${url} (via proxy)`);
 
         const aeoResponse = await this.fetchWithTimeout(
-          `/aeo/analyze`,
+          `/api/aeo/analyze`,
           {
             method: 'POST',
             headers: this.getAuthHeaders(),
@@ -269,7 +269,7 @@ class ApiService {
           console.log(`Automatically triggering Module E analysis for: ${url}`);
           try {
             const moduleEResponse = await this.fetchWithTimeout(
-              `/aeo/website-score`,
+              `/api/aeo/website-score`,
               {
                 method: 'POST',
                 headers: this.getAuthHeaders(),
@@ -319,11 +319,11 @@ class ApiService {
         }
       } else {
         // Call the AEO analyzer endpoint for single page analysis
-        console.log(`Making API call via proxy to: /aeo/analyze`);
+        console.log(`Making API call via proxy to: /api/aeo/analyze`);
         console.log(`Analyzing URL: ${url}`);
 
         const response = await this.fetchWithTimeout(
-          `/aeo/analyze`,
+          `/api/aeo/analyze`,
           {
             method: 'POST',
             headers: this.getAuthHeaders(),
@@ -382,9 +382,9 @@ class ApiService {
     try {
       console.log('Starting Bulk Analysis...');
 
-      // ✅ FIX: Use '/aeo/analyze-bulk' to match the working '/aeo/analyze' endpoint
+      // ✅ FIX: Use '/api/aeo/analyze-bulk' to match the working '/api/aeo/analyze' endpoint
       const response = await this.fetchWithTimeout(
-        '/aeo/analyze-bulk',
+        '/api/aeo/analyze-bulk',
         {
           method: 'POST',
           headers: this.getAuthHeaders(),
@@ -427,7 +427,7 @@ class ApiService {
       console.log('Starting AI Answer Simulation...', { url, query });
 
       const response = await this.fetchWithTimeout(
-        '/aeo/simulate-answer',
+        '/api/aeo/simulate-answer',
         {
           method: 'POST',
           headers: this.getAuthHeaders(),
