@@ -284,7 +284,7 @@ class ApiService {
 
             if (moduleEResponse.ok) {
               const moduleEData = await moduleEResponse.json();
-              console.log('Module E analysis completed automatically:', moduleEData);
+              console.log('✅ Module E analysis completed successfully:', moduleEData);
 
               // Merge Module E results into AEO results
               if (moduleEData.success && moduleEData.scores) {
@@ -306,10 +306,20 @@ class ApiService {
                 });
               }
             } else {
-              console.warn('Module E analysis failed, but continuing with AEO results');
+              // Get detailed error message if available
+              const errorData = await moduleEResponse.json().catch(() => ({ error: 'Unknown error' }));
+              console.warn('⚠️ Module E analysis failed (non-critical):', {
+                status: moduleEResponse.status,
+                error: errorData.error,
+                details: errorData.details,
+                note: 'This usually happens when the crawl is still in progress. The main AEO analysis will continue.'
+              });
             }
           } catch (moduleEError) {
-            console.warn('Module E analysis error (non-critical):', moduleEError);
+            console.warn('⚠️ Module E analysis error (non-critical):', {
+              error: moduleEError,
+              note: 'The crawl may still be in progress. The main AEO analysis will continue without Module E scores.'
+            });
             // Don't fail the whole analysis if Module E fails
           }
 

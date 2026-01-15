@@ -36,7 +36,7 @@ services:
   # Python AEO API
   aeo-api:
     build:
-      context: ./aeo-api
+      context: ./py-backend
       dockerfile: Dockerfile
     container_name: contentlytics-aeo-api
     environment:
@@ -49,7 +49,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./aeo-api/config:/app/config
+      - ./py-backend/config:/app/config
     depends_on:
       - redis
     networks:
@@ -59,7 +59,7 @@ services:
   # Node.js Backend Server
   backend:
     build:
-      context: .
+      context: ./node-backend
       dockerfile: Dockerfile
     container_name: contentlytics-backend
     environment:
@@ -101,8 +101,8 @@ services:
   # Frontend (Vite)
   frontend:
     build:
-      context: .
-      dockerfile: Dockerfile.frontend
+      context: ./frontend
+      dockerfile: Dockerfile
       args:
         # Empty string means use relative URLs that go through nginx proxy
         VITE_API_BASE_URL: ""
@@ -118,7 +118,7 @@ services:
   # SEO Worker (Redis-based)
   seo-worker:
     build:
-      context: .
+      context: ./node-backend
       dockerfile: Dockerfile
     container_name: contentlytics-seo-worker
     environment:

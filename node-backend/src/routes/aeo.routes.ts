@@ -474,7 +474,7 @@ router.post('/website-score', async (req, res) => {
             // Try to fetch live first
             try {
                 const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 10000);
+                const timeout = setTimeout(() => controller.abort(), 30000); // Increased to 30s
                 
                 const response = await fetch(url, { signal: controller.signal });
                 clearTimeout(timeout);
@@ -558,15 +558,21 @@ router.post('/website-score', async (req, res) => {
                 }
                 
                 if (!text) {
-                    logger.warn('MODULE E: Could not fetch URL and no cached content found', { url, sessionId, pagesInDatabase: pages?.length || 0 });
+                    logger.warn('MODULE E: Could not fetch URL and no cached content found', { 
+                        url, 
+                        sessionId, 
+                        pagesInDatabase: pages?.length || 0,
+                        suggestion: 'Wait for crawl to complete or try again later'
+                    });
                     return res.status(400).json({ 
                         success: false, 
-                        error: 'Could not fetch website content. The website may be unreachable or the crawl session may not have captured this URL.',
+                        error: 'Could not fetch website content. The crawl may still be in progress. Please wait for the crawl to complete and try again.',
                         details: {
                             url,
                             reason: 'Live fetch failed and no cached content available',
                             pagesInDatabase: pages?.length || 0,
-                            sessionId: sessionId || 'not-provided'
+                            sessionId: sessionId || 'not-provided',
+                            suggestion: 'This is likely because the crawl is still in progress. Wait a few moments and the analysis will complete automatically.'
                         }
                     });
                 }
@@ -643,8 +649,21 @@ router.post('/website-score', async (req, res) => {
 
             res.json({ success: true, scores });
         } catch (fetchError) {
-            logger.error('Error fetching URL live for scoring:', fetchError as Error);
-            return res.status(400).json({ success: false, error: 'Could not fetch URL for analysis' });
+            logger.error('MODULE E: Error in scoring endpoint', {
+                error: fetchError as Error,
+                url: req.body.url,
+                sessionId: req.body.sessionId,
+                errorMessage: (fetchError as Error).message,
+                errorStack: (fetchError as Error).stack
+            });
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Could not fetch URL for analysis', 
+                details: {
+                    message: (fetchError as Error).message,
+                    suggestion: 'The crawl may still be in progress. Please wait and try again.'
+                }
+            });
         }
 
     } catch (error) {

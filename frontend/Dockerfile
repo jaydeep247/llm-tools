@@ -17,13 +17,13 @@ RUN npm install
 COPY . .
 
 # Build frontend
-RUN npm run build:frontend
+RUN npm run build
 
 # Production stage with nginx
 FROM nginx:alpine
 
 # Copy built frontend from builder
-COPY --from=builder /app/dist-frontend /usr/share/nginx/html
+COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Copy custom nginx config if needed
 COPY nginx.conf /etc/nginx/conf.d/default.conf
