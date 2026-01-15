@@ -1,12 +1,12 @@
 import { CheerioCrawler, log, RequestQueue, Configuration } from 'crawlee';
 import { canonicalizeUrl, isSameSite } from './utils/url.js';
 import { Logger } from './helpers/logging/Logger.js';
-import { MetricsCollector } from './controllers/monitoring/MetricsCollector.js';
+import { MetricsCollector } from './controllers/module_D/monitoring/MetricsCollector.js';
 import { getDatabase, DatabaseService } from './services/DatabaseService.js';
-import { SitemapService } from './helpers/sitemap/SitemapService.js';
-import { CrawlAuditIntegration } from './services/audits/CrawlAuditIntegration.js';
+import { SitemapService } from './helpers/module_D/sitemap/SitemapService.js';
+import { CrawlAuditIntegration } from './services/module_A/audits/CrawlAuditIntegration.js';
 import { extractLinkMetadata } from './utils/linkAnalyzer.js';
-import { initSeoEnqueue, maybeEnqueueSeo } from './services/seo/redis-queue.js';
+import { initSeoEnqueue, maybeEnqueueSeo } from './services/module_B/seo/redis-queue.js';
 import { extractPageMetrics } from './helpers/modules/module_A/pageMetrics/index.js';
 import { extractContentMetrics } from './helpers/modules/module_A/contentAnalysis/index.js';
 import { extractLinksForCrawling, isValidHttpLink } from './helpers/modules/module_A/linkExtractor/index.js';
@@ -15,7 +15,7 @@ import { analyzeLinkDetails } from './helpers/modules/module_A/linkAnalysis/inde
 import { calculateCarbon } from './helpers/modules/module_A/carbon/carbonCalculator.js';
 import { fetchResourceSizes } from './helpers/modules/module_A/carbon/resourceSizer.js';
 import { calculateFolderDepth, getCrawlDepthFromRequest } from './helpers/modules/module_A/contentAnalysis/urlDepth.js';
-import { linkScoreService } from './services/LinkScoreService.js';
+import { linkScoreService } from './services/module_A/LinkScoreService.js';
 import { createFingerprint } from './helpers/modules/module_A/duplicateDetection/index.js';
 import { analyzeSessionDuplicates } from './helpers/modules/module_A/duplicateDetection/sessionAnalyzer.js';
 

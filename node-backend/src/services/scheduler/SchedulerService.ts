@@ -1,7 +1,7 @@
 import { ScheduleManager, CrawlSchedule } from './ScheduleManager.js';
 import { Logger } from '../../helpers/logging/Logger.js';
 import { runCrawl } from '../../crawler.js';
-import { MetricsCollector } from '../../controllers/monitoring/MetricsCollector.js';
+import { MetricsCollector } from '../../controllers/module_D/monitoring/MetricsCollector.js';
 import { CronParser } from './CronParser.js';
 import { Mailer } from '../../utils/Mailer.js';
 

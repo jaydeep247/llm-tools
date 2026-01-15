@@ -13,12 +13,12 @@ from slowapi.errors import RateLimitExceeded
 # Load environment variables from .env file
 load_dotenv()
 
-from .models import ExtractHtmlRequest, ExtractResponse
-from .extract import extract_keywords_from_html
-from .utils import init_nlp
+from .services.module_B.models import ExtractHtmlRequest, ExtractResponse
+from .services.module_B.keyword_extraction import extract_keywords_from_html
+from .services.module_B.nlp_utils import init_nlp
 
 # Import routes after environment is loaded
-from .routes import aeo
+from .routes.module_C import aeo
 
 # Verify OpenAI API key is loaded
 if not os.getenv('OPENAI_API_KEY'):
