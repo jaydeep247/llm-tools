@@ -10,7 +10,7 @@ import type {
     Page, Resource, Link, AuditSchedule, AuditResult, AuditExecution,
     CrawlLog
 } from '../models/types.js';
-import type { ContentFingerprint, NearDuplicateMetrics, SimilarityResult } from '../helpers/modules/module_A/duplicateDetection/types.js';
+import type { ContentFingerprint, NearDuplicateMetrics, SimilarityResult } from '../helpers/module_A/duplicateDetection/types.js';
 
 export type {
     User, UserSettings, UserUsage,

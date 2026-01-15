@@ -1,5 +1,5 @@
 
-import { query } from '../../../config/dbConnection.js';
+import { query } from '../../config/dbConnection.js';
 import * as cheerio from 'cheerio';
 
 interface Page {
@@ -34,7 +34,18 @@ export class MultiModelScoringService {
     private static canonicalTopicCache = new Map<string, { topic: string; brandName: string; audience: string; tone: string }>();
 
     static selectQualifiedPages(pages: Page[]): Page[] {
-        return pages.filter(page => {
+        // Enrich pages with calculated word_count if missing
+        const enrichedPages = pages.map(page => {
+            if ((!page.word_count || page.word_count === 0) && page.content && page.content.trim().length > 0) {
+                // Calculate word count from actual content
+                const wordCount = page.content.trim().split(/\s+/).length;
+                return { ...page, word_count: wordCount };
+            }
+            return page;
+        });
+
+        // First try to find pages with minimum word count
+        let qualified = enrichedPages.filter(page => {
             if (page.status_code !== 200) return false;
             if (page.word_count < this.QUALIFIED_MIN_WORDS) return false;
 
@@ -44,6 +55,23 @@ export class MultiModelScoringService {
 
             return true;
         });
+
+        // If no qualified pages found, accept pages with any content (word_count > 0)
+        if (qualified.length === 0) {
+            qualified = enrichedPages.filter(page => {
+                if (page.status_code !== 200) return false;
+                // Accept pages with at least some calculated content
+                if (!page.content || page.content.trim().length === 0) return false;
+
+                const lowerUrl = page.url.toLowerCase();
+                const excludePatterns = ['login', 'signin', 'register', 'cart', 'checkout', 'account', 'admin'];
+                if (excludePatterns.some(p => lowerUrl.includes(p))) return false;
+
+                return true;
+            });
+        }
+
+        return qualified;
     }
 
     static aggregateContent(pages: Page[]): string {

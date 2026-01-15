@@ -1,5 +1,5 @@
-import { Logger } from '../../../logging/Logger.js';
-import { getDatabase } from '../../../../services/DatabaseService.js';
+import { Logger } from '../../logging/Logger.js';
+import { getDatabase } from '../../../services/DatabaseService.js';
 import { calculateNearDuplicateMetrics } from './index.js';
 import { findSimilarPages } from './similarityCalculator.js';
 import { SIMILARITY_THRESHOLDS, type ContentFingerprint, type NearDuplicateMetrics, type SimilarityResult } from './types.js';

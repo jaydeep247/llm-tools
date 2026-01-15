@@ -1,6 +1,6 @@
 import { Pool } from 'pg';
 import { Page, Resource } from '../types.js';
-import type { ContentFingerprint, NearDuplicateMetrics, SimilarityResult } from '../../helpers/modules/module_A/duplicateDetection/types.js';
+import type { ContentFingerprint, NearDuplicateMetrics, SimilarityResult } from '../../helpers/module_A/duplicateDetection/types.js';
 
 export class PageRepository {
     constructor(private pool: Pool) { }
