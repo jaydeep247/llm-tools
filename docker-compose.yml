@@ -3,10 +3,11 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: contentlytics-db
+    env_file: .env
     environment:
-      POSTGRES_DB: contentanyltics
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-your_password_here}
+      POSTGRES_DB: ${DB_NAME:-contentanyltics}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
@@ -39,13 +40,14 @@ services:
       context: ./py-backend
       dockerfile: Dockerfile
     container_name: contentlytics-aeo-api
+    env_file: .env
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - CLAUDE_API_KEY=${CLAUDE_API_KEY:-${ANTHROPIC_API_KEY}}
-      - DATAFORSEO_USERNAME=${DATAFORSEO_USERNAME}
-      - DATAFORSEO_PASSWORD=${DATAFORSEO_PASSWORD}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      CLAUDE_API_KEY: ${CLAUDE_API_KEY}
+      DATAFORSEO_USERNAME: ${DATAFORSEO_USERNAME}
+      DATAFORSEO_PASSWORD: ${DATAFORSEO_PASSWORD}
     ports:
       - "8000:8000"
     volumes:
@@ -62,29 +64,30 @@ services:
       context: ./node-backend
       dockerfile: Dockerfile
     container_name: contentlytics-backend
+    env_file: .env
     environment:
-      - NODE_ENV=production
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_NAME=contentanyltics
-      - DB_USER=postgres
-      - DB_PASSWORD=${DB_PASSWORD:-root}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - JWT_SECRET=${JWT_SECRET:-contentAnalytics}
-      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-contentAnalyticsToken}
-      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
-      - SMTP_PORT=${SMTP_PORT:-587}
-      - SMTP_USER=${SMTP_USER}
-      - SMTP_PASSWORD=${SMTP_PASSWORD}
-      - MAIL_FROM=${MAIL_FROM}
-      - MAIL_TO=${MAIL_TO}
-      - PSI_API_KEY=${PSI_API_KEY}
-      - AEO_API_BASE_URL=http://aeo-api:8000
-      - PY_API_BASE=http://aeo-api:8000
-      - CORS_ORIGIN=${CORS_ORIGIN:-${PUBLIC_IP}:3000}
-      - PORT=${PORT:-3004}
-      - COOKIE_SECURE=${COOKIE_SECURE:-false}
+      NODE_ENV: ${NODE_ENV}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      MAIL_FROM: ${MAIL_FROM}
+      MAIL_TO: ${MAIL_TO}
+      PSI_API_KEY: ${PSI_API_KEY}
+      AEO_API_BASE_URL: ${AEO_API_BASE_URL}
+      PY_API_BASE: ${PY_API_BASE}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      PORT: ${PORT}
+      COOKIE_SECURE: ${COOKIE_SECURE}
     ports:
       - "3004:3004"
     depends_on:
@@ -104,9 +107,9 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        # Empty string means use relative URLs that go through nginx proxy
         VITE_API_BASE_URL: ""
     container_name: contentlytics-frontend
+    env_file: .env
     ports:
       - "3000:3000"
     depends_on:
@@ -121,18 +124,19 @@ services:
       context: ./node-backend
       dockerfile: Dockerfile
     container_name: contentlytics-seo-worker
+    env_file: .env
     environment:
-      - NODE_ENV=production
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_NAME=contentanyltics
-      - DB_USER=postgres
-      - DB_PASSWORD=${DB_PASSWORD:-root}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - JWT_SECRET=${JWT_SECRET:-contentAnalytics}
-      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-contentAnalyticsToken}
-      - PY_API_BASE=http://aeo-api:8000
+      NODE_ENV: ${NODE_ENV}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      PY_API_BASE: ${PY_API_BASE}
     command: ["node", "dist/seo/redis-worker.js"]
     depends_on:
       postgres:
