@@ -64,7 +64,7 @@ This document describes the architecture of the Contentlytics platform.
 ## 🔧 Component Details
 
 ### 1. Frontend (React)
-- **Location**: `src/frontend/`
+- **Location**: `../frontend/`
 - **Technology**: React, TypeScript, Vite
 - **Styling**: Tailwind CSS
 - **State Management**: React hooks

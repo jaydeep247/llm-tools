@@ -1,6 +1,6 @@
 import express from 'express';
-import { getDatabase } from '../database/DatabaseService.js';
-import { authenticateUser } from '../auth/authMiddleware.js';
+import { getDatabase } from '../services/DatabaseService.js';
+import { authenticateUser } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
@@ -55,7 +55,7 @@ router.post('/seo/extract', authenticateUser, async (req, res) => {
         
         try {
             // Import the on-demand extractor
-            const { extractSeoKeywordsWithRetry } = await import('../seo/on-demand-extractor.js');
+            const { extractSeoKeywordsWithRetry } = await import('../services/seo/on-demand-extractor.js');
             
             // Extract SEO keywords
             const result = await extractSeoKeywordsWithRetry(finalUrl);

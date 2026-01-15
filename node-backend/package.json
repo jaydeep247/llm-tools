@@ -8,11 +8,11 @@
     "start": "node dist/index.js",
     "build": "tsc -p tsconfig.json",
     "crawl": "tsx src/index.ts",
-    "seo:worker": "tsx src/seo/redis-worker.ts",
-    "seo:cli": "tsx src/seo/redis-cli.ts",
-    "db:setup": "tsx src/database/scripts/initDb.ts",
-    "db:crawlMigrate": "tsx src/database/scripts/crawlerTableMigration.ts",
-    "clear:sessions": "tsx scripts/clear-all-sessions.ts"
+    "seo:worker": "tsx src/services/seo/redis-worker.ts",
+    "seo:cli": "tsx src/services/seo/redis-cli.ts",
+    "db:init": "tsx scripts/initDb.ts",
+    "db:migrate": "tsx scripts/crawlerTableMigration.ts",
+    "clear:sessions": "echo 'clear-all-sessions.ts removed - use db:init instead'"
   },
   "keywords": [
     "contentlytics",

@@ -1,7 +1,7 @@
 import express from 'express';
-import { AuditScheduler } from '../audits/AuditScheduler.js';
-import { Logger } from '../logging/Logger.js';
-import { authenticateUser } from '../auth/authMiddleware.js';
+import { AuditScheduler } from '../services/audits/AuditScheduler.js';
+import { Logger } from '../helpers/logging/Logger.js';
+import { authenticateUser } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 const logger = Logger.getInstance();

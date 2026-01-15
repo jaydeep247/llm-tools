@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getDatabase } from '../database/DatabaseService.js';
+import { getDatabase } from '../services/DatabaseService.js';
 import { linkScoreService } from '../services/LinkScoreService.js';
 import { getLinkScoreRating, getLinkScoreInsights } from '../utils/linkScoreCalculator.js';
 

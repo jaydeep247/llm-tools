@@ -15,14 +15,15 @@ import linksRoutes from './routes/links.routes.js';
 import linkScoreRoutes from './routes/linkScore.routes.js';
 import aeoRoutes from './routes/aeo.routes.js';
 import authRoutes from './routes/auth.routes.js';
-import { authenticateUser, checkUsageLimit, optionalAuth } from './auth/authMiddleware.js';
-import { Logger } from './logging/Logger.js';
-import { SchedulerService } from './scheduler/SchedulerService.js';
-import { getDatabase } from './database/DatabaseService.js';
-import { AuditIntegration } from './audits/AuditIntegration.js';
-import { CrawlAuditIntegration } from './audits/CrawlAuditIntegration.js';
+import { authenticateUser, checkUsageLimit, optionalAuth } from './middleware/authMiddleware.js';
+import { Logger } from './helpers/logging/Logger.js';
+import { SchedulerService } from './services/scheduler/SchedulerService.js';
+import { getDatabase } from './services/DatabaseService.js';
+import { AuditIntegration } from './services/audits/AuditIntegration.js';
+import { CrawlAuditIntegration } from './services/audits/CrawlAuditIntegration.js';
 import { Mailer } from './utils/Mailer.js';
 import { validateCrawlRequest, validateSessionId, validatePagination, handleValidationErrors } from './utils/validation.js';
+import { databaseInitializer } from './config/DatabaseInitializer.js';
 
 type Client = {
     id: number;
@@ -1523,6 +1524,15 @@ let isShuttingDown = false;
 const initStartTime = Date.now();
 
 console.log('[INIT DEBUG] Server initialization starting...');
+
+// Initialize database before starting server
+console.log('[INIT DEBUG] Initializing database...');
+await databaseInitializer.initialize().catch((error) => {
+    console.error('[INIT DEBUG] Database initialization failed:', error);
+    logger.error('Failed to initialize database', error as Error);
+    process.exit(1);
+});
+console.log('[INIT DEBUG] Database initialization complete');
 
 const port = Number(process.env.PORT) || 3004;
 const server = app.listen(port, () => {

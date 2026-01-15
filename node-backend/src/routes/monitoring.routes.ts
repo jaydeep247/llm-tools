@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { HealthChecker } from '../monitoring/HealthCheck.js';
-import { MetricsCollector } from '../monitoring/MetricsCollector.js';
-import { Logger } from '../logging/Logger.js';
+import { HealthChecker } from '../controllers/monitoring/HealthCheck.js';
+import { MetricsCollector } from '../controllers/monitoring/MetricsCollector.js';
+import { Logger } from '../helpers/logging/Logger.js';
 import { RequestQueue } from 'crawlee';
-import { getDatabase } from '../database/DatabaseService.js';
-import { authenticateUser, optionalAuth } from '../auth/authMiddleware.js';
+import { getDatabase } from '../services/DatabaseService.js';
+import { authenticateUser, optionalAuth } from '../middleware/authMiddleware.js';
 import fs from 'fs';
 import path from 'path';
 

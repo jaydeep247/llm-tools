@@ -1,5 +1,5 @@
-import { getDatabase } from '../database/DatabaseService.js';
-import { Logger } from '../logging/Logger.js';
+import { getDatabase } from '../services/DatabaseService.js';
+import { Logger } from '../helpers/logging/Logger.js';
 import { calculateLinkScoresForSession, PageLinkInfo } from '../utils/linkScoreCalculator.js';
 
 /**

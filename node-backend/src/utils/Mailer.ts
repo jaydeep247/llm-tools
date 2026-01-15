@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import { Logger } from '../logging/Logger.js';
+import { Logger } from '../helpers/logging/Logger.js';
 
 export class Mailer {
     private static instance: Mailer | null = null;

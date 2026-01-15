@@ -1,9 +1,9 @@
 import express from 'express';
-import { MultiModelScoringService } from '../modules/module_E/MultiModelScoringService.js';
-import { getPool } from '../database/dbConnection.js';
-import { aeoMetricsRepository } from '../database/repositories/aeoMetricsRepository.js';
-import { Logger } from '../logging/Logger.js';
-import { authenticateUser, checkUsageLimit } from '../auth/authMiddleware.js';
+import { MultiModelScoringService } from '../helpers/modules/module_E/MultiModelScoringService.js';
+import { getPool } from '../config/dbConnection.js';
+import { aeoMetricsRepository } from '../models/repositories/aeoMetricsRepository.js';
+import { Logger } from '../helpers/logging/Logger.js';
+import { authenticateUser, checkUsageLimit } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 const logger = Logger.getInstance();
@@ -19,7 +19,7 @@ router.post('/analyze',
         const startTime = Date.now();
         try {
             const userId = req.user!.userId;
-            const db = await import('../database/DatabaseService.js').then(m => m.getDatabase());
+            const db = await import('../services/DatabaseService.js').then(m => m.getDatabase());
 
             logger.info('=== AEO ANALYZE REQUEST START ===', {
                 userId,
@@ -159,7 +159,7 @@ router.post('/analyze-bulk',
         const startTime = Date.now();
         try {
             const userId = req.user!.userId;
-            const db = await import('../database/DatabaseService.js').then(m => m.getDatabase());
+            const db = await import('../services/DatabaseService.js').then(m => m.getDatabase());
 
             logger.info('=== AEO BULK ANALYZE REQUEST START ===', {
                 userId,
@@ -280,7 +280,7 @@ router.post('/generate-schema',
     async (req, res) => {
         try {
             const userId = req.user!.userId;
-            const db = await import('../database/DatabaseService.js').then(m => m.getDatabase());
+            const db = await import('../services/DatabaseService.js').then(m => m.getDatabase());
 
             logger.info('Proxying schema generation request to FastAPI', { userId, url: req.body.url, type: req.body.schema_type });
             console.log(`[Proxy] Sending schema generation request for: ${req.body.url} (${req.body.schema_type})`);
@@ -343,7 +343,7 @@ router.get('/results/:sessionId',
     async (req, res) => {
         try {
             const { sessionId } = req.params;
-            const db = await import('../database/DatabaseService.js').then(m => m.getDatabase());
+            const db = await import('../services/DatabaseService.js').then(m => m.getDatabase());
 
             const aeoResult = await db.getAeoAnalysisResultBySessionId(parseInt(sessionId, 10));
             const multiModelResult = await db.getAeoResultsTableBySessionId(parseInt(sessionId, 10));
@@ -493,7 +493,7 @@ router.post('/website-score', async (req, res) => {
                 });
                 
                 // Fall back to database if live fetch fails
-                const db = await import('../database/DatabaseService.js').then(m => m.getDatabase());
+                const db = await import('../services/DatabaseService.js').then(m => m.getDatabase());
                 
                 // If sessionId is provided, fetch pages from that session
                 let pages = [];
@@ -609,7 +609,7 @@ router.post('/website-score', async (req, res) => {
             if (sessionId && scores) {
                 logger.info('MODULE E: Attempting to save to database', { sessionId, url });
                 try {
-                    const db = await import('../database/DatabaseService.js').then(m => m.getDatabase());
+                    const db = await import('../services/DatabaseService.js').then(m => m.getDatabase());
 
                     const dataToSave = {
                         session_id: sessionId,
@@ -649,12 +649,9 @@ router.post('/website-score', async (req, res) => {
 
             res.json({ success: true, scores });
         } catch (fetchError) {
-            logger.error('MODULE E: Error in scoring endpoint', {
-                error: fetchError as Error,
+            logger.error('MODULE E: Error in scoring endpoint', fetchError as Error, {
                 url: req.body.url,
-                sessionId: req.body.sessionId,
-                errorMessage: (fetchError as Error).message,
-                errorStack: (fetchError as Error).stack
+                sessionId: req.body.sessionId
             });
             return res.status(400).json({ 
                 success: false, 

@@ -1,8 +1,8 @@
 import express, { Request, Response } from 'express';
-import { getAuthService } from '../auth/AuthService.js';
-import { getDatabase } from '../database/DatabaseService.js';
-import { authenticateUser } from '../auth/authMiddleware.js';
-import { Logger } from '../logging/Logger.js';
+import { getAuthService } from '../services/AuthService.js';
+import { getDatabase } from '../services/DatabaseService.js';
+import { authenticateUser } from '../middleware/authMiddleware.js';
+import { Logger } from '../helpers/logging/Logger.js';
 
 const router = express.Router();
 const authService = getAuthService();

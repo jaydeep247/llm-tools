@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { listRecent, getById } from '../audits/reader.js';
+import { listRecent, getById } from '../services/audits/reader.js';
 import auditSchedulerRoutes from './audit.routes.js';
-import { authenticateUser } from '../auth/authMiddleware.js';
+import { authenticateUser } from '../middleware/authMiddleware.js';
 
 export const auditsRoutes = Router();
 
