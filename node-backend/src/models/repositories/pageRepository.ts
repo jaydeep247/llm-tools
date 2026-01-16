@@ -15,8 +15,8 @@ export class PageRepository {
     async insertPage(data: Omit<Page, 'id'>): Promise<number> {
         const res = await this.pool.query(
             `INSERT INTO pages 
-      (session_id, url, title, title_length, title_pixel_width, description, description_length, description_pixel_width, content_type, last_modified, status_code, response_time, word_count, sentence_count, average_words_per_sentence, flesch_reading_ease_score, readability_level, text_to_html_ratio, crawl_depth, folder_depth, size_bytes, timestamp, success, error_message, indexable, indexability_status, meta_keywords, meta_keywords_length, meta_robots, x_robots_tag, meta_refresh, canonical_url, rel_next, rel_prev, http_rel_next, http_rel_prev, amphtml_url, mobile_alternate_url, transferred_bytes, total_transferred_bytes, co2_mg, carbon_rating, heading_tags, spelling_errors, grammar_errors, redirect_url, redirect_type, cookies, language, http_version, closest_semantically_similar_address, semantic_similarity_score, no_semantically_similar, semantic_relevance_score)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53, $54)
+      (session_id, url, title, title_length, title_pixel_width, description, description_length, description_pixel_width, content_type, last_modified, status_code, response_time, word_count, sentence_count, average_words_per_sentence, flesch_reading_ease_score, readability_level, text_to_html_ratio, crawl_depth, folder_depth, size_bytes, timestamp, success, error_message, indexable, indexability_status, meta_keywords, meta_keywords_length, meta_robots, x_robots_tag, meta_refresh, canonical_url, rel_next, rel_prev, http_rel_next, http_rel_prev, amphtml_url, mobile_alternate_url, transferred_bytes, total_transferred_bytes, co2_mg, carbon_rating, heading_tags, spelling_errors, grammar_errors, redirect_url, redirect_type, cookies, language, http_version, closest_semantically_similar_address, semantic_similarity_score, no_semantically_similar, semantic_relevance_score, url_encoded_address)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55)
       RETURNING id`,
             [
                 this.safeInt(data.sessionId), data.url, data.title, this.safeInt(data.titleLength) || 0,
@@ -64,7 +64,9 @@ export class PageRepository {
                 data.closestSemanticallySimilarAddress || null,
                 data.semanticSimilarityScore !== undefined && data.semanticSimilarityScore !== null ? parseFloat(data.semanticSimilarityScore.toString()) : null,
                 this.safeInt(data.noSemanticallySimilar) || 0,
-                data.semanticRelevanceScore !== undefined && data.semanticRelevanceScore !== null ? parseFloat(data.semanticRelevanceScore.toString()) : null
+                data.semanticRelevanceScore !== undefined && data.semanticRelevanceScore !== null ? parseFloat(data.semanticRelevanceScore.toString()) : null,
+                // URL Encoded Address
+                data.urlEncodedAddress || null
             ]
         );
         return res.rows[0].id;
@@ -1156,7 +1158,9 @@ export class PageRepository {
                 : undefined,
             semanticRelevanceScore: row.semantic_relevance_score !== null && row.semantic_relevance_score !== undefined
                 ? parseFloat(row.semantic_relevance_score)
-                : undefined
+                : undefined,
+            // URL Encoded Address
+            urlEncodedAddress: row.url_encoded_address || undefined
         };
     }
 

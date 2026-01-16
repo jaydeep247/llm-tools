@@ -12,6 +12,7 @@ interface CrawlData {
   semanticSimilarityScore?: number; // Similarity score (0.0-1.0) with closest semantically similar page
   noSemanticallySimilar?: number; // Count of pages with similarity >= 0.80
   semanticRelevanceScore?: number; // Relevance score (0.0-1.0) to the page's intended topic
+  urlEncodedAddress?: string; // Percent-encoded (URL-safe) version of the page URL
   title: string;
   titleLength?: number;
   titlePixelWidth?: number;
@@ -907,8 +908,22 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
     return (
       <span className="status-badge redirect" title={`Closest semantic match: ${url}`}>
         <a href={url} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'none' }}>
-          🔗 {url.length > 50 ? url.substring(0, 50) + '...' : url}
+          🔗 {url}
         </a>
+      </span>
+    );
+  };
+
+  const getUrlEncodedAddressBadge = (encoded?: string) => {
+    if (!encoded || encoded === 'undefined' || encoded === 'null') {
+      return <span className="status-badge unknown" title="URL encoding not available">—</span>;
+    }
+
+    return (
+      <span className="status-badge info" title={`Percent-encoded URL: ${encoded}`}>
+        <code style={{ fontSize: '0.85em', padding: '2px 6px', borderRadius: '3px', backgroundColor: 'rgba(100,150,200,0.1)', wordBreak: 'break-all' }}>
+          {encoded}
+        </code>
       </span>
     );
   };
@@ -1340,6 +1355,9 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                 <th onClick={() => handleSort('semanticRelevanceScore' as keyof CrawlData)} className="sortable center-header">
                   Semantic Relevance Score {sortField === 'semanticRelevanceScore' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
+                <th onClick={() => handleSort('urlEncodedAddress' as keyof CrawlData)} className="sortable">
+                  URL Encoded Address {sortField === 'urlEncodedAddress' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
                 <th onClick={() => handleSort('uniqueInlinks' as keyof CrawlData)} className="sortable center-header">
                   Unique Inlinks {sortField === 'uniqueInlinks' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
@@ -1542,6 +1560,9 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                   </td>
                   <td className="semantic-relevance-score-cell">
                     {getSemanticRelevanceScoreBadge(item.semanticRelevanceScore)}
+                  </td>
+                  <td className="url-encoded-address-cell">
+                    {getUrlEncodedAddressBadge(item.urlEncodedAddress)}
                   </td>
                   <td className="unique-inlinks-cell">
                     {item.uniqueInlinks !== undefined ? (

@@ -394,7 +394,7 @@ COMMENT ON COLUMN pages.url_encoded_address IS 'The percent-encoded (URL-safe) v
 `    }
 ];
 
-async function runAllMigrations() {
+export async function runCrawlerTableMigrations() {
     const pool = getPool();
     const results: MigrationResult[] = [];
     
@@ -505,8 +505,8 @@ async function runAllMigrations() {
     }
 }
 
-// Run migrations
-runAllMigrations()
+// Run migrations when called as script
+runCrawlerTableMigrations()
     .then(() => {
         console.log('\n✨ Migration process completed');
         process.exit(0);

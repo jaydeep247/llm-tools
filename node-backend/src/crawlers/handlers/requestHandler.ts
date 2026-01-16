@@ -137,7 +137,9 @@ export function createRequestHandler(context: RequestHandlerContext): CheerioCra
             redirectType: pageMetrics.redirectType,
             cookies: pageMetrics.cookies,
             language: pageMetrics.language,
-            httpVersion: pageMetrics.httpVersion
+            httpVersion: pageMetrics.httpVersion,
+            // URL Encoded Address: percent-encoded version of the URL
+            urlEncodedAddress: encodeURI(url)
         });
 
         // Store page HTML in cache for semantic analysis

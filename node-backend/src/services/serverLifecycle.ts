@@ -7,6 +7,7 @@ import express from 'express';
 import { Server } from 'http';
 import { Logger } from '../helpers/logging/Logger.js';
 import { databaseInitializer } from '../config/DatabaseInitializer.js';
+import { runCrawlerTableMigrations } from '../config/CrawlerTableMigrations.js';
 import { initializeSchedulerService } from './scheduler/index.js';
 import { AuditIntegration } from './module_A/audits/AuditIntegration.js';
 import { closeAllConnections } from './SSEService.js';
@@ -39,6 +40,17 @@ export async function initializeDatabase(): Promise<void> {
         process.exit(1);
     });
     console.log('[INIT DEBUG] Database initialization complete');
+    
+    // Run crawler table migrations to ensure all columns exist
+    console.log('[INIT DEBUG] Running crawler table migrations...');
+    try {
+        await runCrawlerTableMigrations();
+        console.log('[INIT DEBUG] Crawler table migrations complete');
+    } catch (error) {
+        console.error('[INIT DEBUG] Crawler table migrations failed:', error);
+        logger.error('Failed to run crawler table migrations', error as Error);
+        process.exit(1);
+    }
 }
 
 /**
