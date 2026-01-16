@@ -76,6 +76,7 @@ export async function runCrawl(
         const emittedJs = new Set<string>();
         const emittedImg = new Set<string>();
         const emittedExternal = new Set<string>();
+        const crawledPagesWithHtml: Array<{ id: number; url: string; htmlContent: string }> = [];
 
         // Create request handler
         const requestHandler = createRequestHandler({
@@ -90,7 +91,8 @@ export async function runCrawl(
             emittedCss,
             emittedJs,
             emittedImg,
-            emittedExternal
+            emittedExternal,
+            crawledPagesWithHtml
         });
 
         // Create error handler
@@ -115,7 +117,7 @@ export async function runCrawl(
         await crawler.run();
 
         // Post-processing and finalization
-        await executePostProcessing(sessionId, captureLinkDetails, runAudits, auditDevice, events);
+        await executePostProcessing(sessionId, captureLinkDetails, runAudits, auditDevice, events, crawledPagesWithHtml);
         await finalizeSession(sessionId, runAudits, events);
 
         // Cleanup

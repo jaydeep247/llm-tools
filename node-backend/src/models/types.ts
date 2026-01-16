@@ -77,6 +77,11 @@ export interface Page {
     cookies?: string; // Cookies set by the server (JSON string)
     language?: string; // Language of the page from headers or HTML
     httpVersion?: string; // HTTP protocol version (HTTP/1.1, HTTP/2, HTTP/3)
+    // Semantic Analysis Fields (Module A)
+    closestSemanticallySimilarAddress?: string; // URL of the most semantically similar page
+    semanticSimilarityScore?: number; // Similarity score (0.0-1.0) with closest semantically similar page
+    noSemanticallySimilar?: number; // Count of pages with similarity >= 0.80
+    semanticRelevanceScore?: number; // Relevance score (0.0-1.0) to the page's intended topic
 }
 
 export interface Resource {

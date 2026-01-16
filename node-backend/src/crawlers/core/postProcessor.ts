@@ -7,6 +7,7 @@ import { log } from 'crawlee';
 import { Logger } from '../../helpers/logging/Logger.js';
 import { getDatabase } from '../../services/DatabaseService.js';
 import { runLinkAnalysis, calculateLinkScores, calculateDuplicateMetrics, runAuditProcessing } from '../modules/module_A/index.js';
+import { orchestrateSemanticAnalysis } from '../../helpers/module_A/semanticAnalysis/orchestrator.js';
 import type { CrawlEvents } from '../types/index.js';
 
 const logger = Logger.getInstance();
@@ -16,7 +17,8 @@ export async function executePostProcessing(
     captureLinkDetails: boolean,
     runAudits: boolean,
     auditDevice: string | 'desktop' | 'mobile',
-    events: CrawlEvents
+    events: CrawlEvents,
+    crawledPagesWithHtml?: Array<{ id: number; url: string; htmlContent: string }>
 ): Promise<void> {
     const db = getDatabase();
 
@@ -24,6 +26,20 @@ export async function executePostProcessing(
     await runLinkAnalysis(sessionId, captureLinkDetails, events);
     await calculateLinkScores(sessionId, events);
     await calculateDuplicateMetrics(sessionId, events);
+
+    // Run semantic analysis (Module A - Semantic Similarity)
+    try {
+        logger.info(`[SemanticAnalysis] Starting semantic analysis for session ${sessionId}`);
+        events.onLog?.('[🧠 Semantic Analysis] Analyzing page content similarity and relevance...');
+        
+        await orchestrateSemanticAnalysis(db.pages, sessionId, crawledPagesWithHtml);
+        
+        events.onLog?.('[🧠 Semantic Analysis] ✓ Semantic analysis complete');
+    } catch (error) {
+        logger.warn(`[SemanticAnalysis] Semantic analysis failed for session ${sessionId}:`, error as Error);
+        events.onLog?.(`[⚠️ Semantic Analysis] Warning: Semantic analysis could not be completed`);
+        // Don't throw - semantic analysis is optional and shouldn't break the pipeline
+    }
 
     // Run audits if requested
     await runAuditProcessing(sessionId, runAudits, auditDevice as 'desktop' | 'mobile', events);

@@ -39,6 +39,7 @@ interface RequestHandlerContext {
     emittedJs: Set<string>;
     emittedImg: Set<string>;
     emittedExternal: Set<string>;
+    crawledPagesWithHtml?: Array<{ id: number; url: string; htmlContent: string }>;
 }
 
 export function createRequestHandler(context: RequestHandlerContext): CheerioCrawlerOptions['requestHandler'] {
@@ -46,7 +47,7 @@ export function createRequestHandler(context: RequestHandlerContext): CheerioCra
         const { 
             sessionId, allowedHost, allowSubdomains, denyParamPrefixes,
             captureLinkDetails, events, metricsCollector, requestStartTimes,
-            emittedCss, emittedJs, emittedImg, emittedExternal
+            emittedCss, emittedJs, emittedImg, emittedExternal, crawledPagesWithHtml
         } = context;
         const { url } = request;
         const db = getDatabase();
@@ -138,6 +139,15 @@ export function createRequestHandler(context: RequestHandlerContext): CheerioCra
             language: pageMetrics.language,
             httpVersion: pageMetrics.httpVersion
         });
+
+        // Store page HTML in cache for semantic analysis
+        if (crawledPagesWithHtml) {
+            crawledPagesWithHtml.push({
+                id: pageId,
+                url,
+                htmlContent: $.html()
+            });
+        }
 
         // Create fingerprint
         try {

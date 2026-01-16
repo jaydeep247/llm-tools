@@ -361,7 +361,37 @@ CREATE INDEX IF NOT EXISTS idx_pages_mobile_alternate_url ON pages(mobile_altern
 
 COMMENT ON COLUMN pages.mobile_alternate_url IS 'Mobile-specific URL for separate mobile site (e.g., m.example.com). Used for legacy mobile setups, not needed for responsive design.';
 `
-    }
+    },
+    {
+        name: '032_add_semantic_analysis_fields',
+        sql: `
+-- Add semantic analysis fields for Module A semantic similarity analysis
+-- These fields store TF-IDF based semantic similarity metrics
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS closest_semantically_similar_address TEXT;
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS semantic_similarity_score NUMERIC(3,2);
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS no_semantically_similar INTEGER DEFAULT 0;
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS semantic_relevance_score NUMERIC(3,2);
+
+CREATE INDEX IF NOT EXISTS idx_pages_semantic_similarity_score ON pages(semantic_similarity_score DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_pages_semantic_relevance_score ON pages(semantic_relevance_score DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_pages_no_semantically_similar ON pages(no_semantically_similar DESC);
+
+COMMENT ON COLUMN pages.closest_semantically_similar_address IS 'URL of the most semantically similar page based on TF-IDF cosine similarity';
+COMMENT ON COLUMN pages.semantic_similarity_score IS 'Cosine similarity score (0.0-1.0) with the closest semantically similar page';
+COMMENT ON COLUMN pages.no_semantically_similar IS 'Count of pages with semantic similarity >= 0.80 (semantic similarity threshold)';
+COMMENT ON COLUMN pages.semantic_relevance_score IS 'Relevance score (0.0-1.0) of this page to the overall session topic/seed URL';
+`    },
+    {
+        name: '033_add_url_encoded_address',
+        sql: `
+-- Add URL encoded address field to track the percent-encoded version of URLs
+-- This helps identify encoding issues and URL duplicates caused by encoding
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS url_encoded_address TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_pages_url_encoded_address ON pages(url_encoded_address);
+
+COMMENT ON COLUMN pages.url_encoded_address IS 'The percent-encoded (URL-safe) version of the page URL where special characters are converted to %XX format';
+`    }
 ];
 
 async function runAllMigrations() {

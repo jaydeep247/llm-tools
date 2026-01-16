@@ -16,7 +16,12 @@ CREATE TABLE IF NOT EXISTS pages (
     timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     success BOOLEAN NOT NULL,
     error_message TEXT,
-    link_score NUMERIC(5,2) DEFAULT NULL
+    link_score NUMERIC(5,2) DEFAULT NULL,
+    -- Semantic Analysis Fields for Module A
+    closest_semantically_similar_address TEXT,
+    semantic_similarity_score NUMERIC(3,2) DEFAULT NULL,
+    no_semantically_similar INTEGER DEFAULT 0,
+    semantic_relevance_score NUMERIC(3,2) DEFAULT NULL
 );
 
 -- Resources table (CSS, JS, Images)

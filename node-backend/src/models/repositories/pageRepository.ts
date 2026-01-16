@@ -15,8 +15,8 @@ export class PageRepository {
     async insertPage(data: Omit<Page, 'id'>): Promise<number> {
         const res = await this.pool.query(
             `INSERT INTO pages 
-      (session_id, url, title, title_length, title_pixel_width, description, description_length, description_pixel_width, content_type, last_modified, status_code, response_time, word_count, sentence_count, average_words_per_sentence, flesch_reading_ease_score, readability_level, text_to_html_ratio, crawl_depth, folder_depth, size_bytes, timestamp, success, error_message, indexable, indexability_status, meta_keywords, meta_keywords_length, meta_robots, x_robots_tag, meta_refresh, canonical_url, rel_next, rel_prev, http_rel_next, http_rel_prev, amphtml_url, mobile_alternate_url, transferred_bytes, total_transferred_bytes, co2_mg, carbon_rating, heading_tags, spelling_errors, grammar_errors, redirect_url, redirect_type, cookies, language, http_version)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50)
+      (session_id, url, title, title_length, title_pixel_width, description, description_length, description_pixel_width, content_type, last_modified, status_code, response_time, word_count, sentence_count, average_words_per_sentence, flesch_reading_ease_score, readability_level, text_to_html_ratio, crawl_depth, folder_depth, size_bytes, timestamp, success, error_message, indexable, indexability_status, meta_keywords, meta_keywords_length, meta_robots, x_robots_tag, meta_refresh, canonical_url, rel_next, rel_prev, http_rel_next, http_rel_prev, amphtml_url, mobile_alternate_url, transferred_bytes, total_transferred_bytes, co2_mg, carbon_rating, heading_tags, spelling_errors, grammar_errors, redirect_url, redirect_type, cookies, language, http_version, closest_semantically_similar_address, semantic_similarity_score, no_semantically_similar, semantic_relevance_score)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53, $54)
       RETURNING id`,
             [
                 this.safeInt(data.sessionId), data.url, data.title, this.safeInt(data.titleLength) || 0,
@@ -59,7 +59,12 @@ export class PageRepository {
                 data.redirectType || null,
                 data.cookies || null,
                 data.language || null,
-                data.httpVersion || null
+                data.httpVersion || null,
+                // Semantic Analysis Fields
+                data.closestSemanticallySimilarAddress || null,
+                data.semanticSimilarityScore !== undefined && data.semanticSimilarityScore !== null ? parseFloat(data.semanticSimilarityScore.toString()) : null,
+                this.safeInt(data.noSemanticallySimilar) || 0,
+                data.semanticRelevanceScore !== undefined && data.semanticRelevanceScore !== null ? parseFloat(data.semanticRelevanceScore.toString()) : null
             ]
         );
         return res.rows[0].id;
@@ -216,6 +221,46 @@ export class PageRepository {
              WHERE id = $1`,
             [pageId, this.safeInt(data.transferredBytes), this.safeInt(data.totalTransferredBytes), data.co2Mg, data.carbonRating]
         );
+    }
+
+    /**
+     * Bulk update pages with semantic analysis results
+     */
+    async updatePagesSemanticAnalysis(semanticResults: Map<number, {
+        closestSemanticallySimilarAddress: string | null;
+        semanticSimilarityScore: number;
+        noSemanticallySimilar: number;
+        semanticRelevanceScore: number;
+    }>): Promise<void> {
+        if (semanticResults.size === 0) return;
+
+        const client = await this.pool.connect();
+        try {
+            await client.query('BEGIN');
+            for (const [pageId, result] of semanticResults.entries()) {
+                await client.query(
+                    `UPDATE pages
+                     SET closest_semantically_similar_address = $2,
+                         semantic_similarity_score = $3,
+                         no_semantically_similar = $4,
+                         semantic_relevance_score = $5
+                     WHERE id = $1`,
+                    [
+                        pageId,
+                        result.closestSemanticallySimilarAddress || null,
+                        result.semanticSimilarityScore ?? 0,
+                        result.noSemanticallySimilar ?? 0,
+                        result.semanticRelevanceScore ?? 0.5
+                    ]
+                );
+            }
+            await client.query('COMMIT');
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
     }
 
     async getPages(sessionId?: number, limit: number = 1000, offset: number = 0): Promise<Page[]> {
@@ -1100,8 +1145,47 @@ export class PageRepository {
             redirectType: row.redirect_type || undefined,
             cookies: row.cookies || undefined,
             language: row.language || undefined,
-            httpVersion: row.http_version || undefined
+            httpVersion: row.http_version || undefined,
+            // Semantic Analysis Fields
+            closestSemanticallySimilarAddress: row.closest_semantically_similar_address || undefined,
+            semanticSimilarityScore: row.semantic_similarity_score !== null && row.semantic_similarity_score !== undefined
+                ? parseFloat(row.semantic_similarity_score)
+                : undefined,
+            noSemanticallySimilar: row.no_semantically_similar !== null && row.no_semantically_similar !== undefined
+                ? parseInt(row.no_semantically_similar)
+                : undefined,
+            semanticRelevanceScore: row.semantic_relevance_score !== null && row.semantic_relevance_score !== undefined
+                ? parseFloat(row.semantic_relevance_score)
+                : undefined
         };
+    }
+
+    /**
+     * Get pages with HTML content for semantic analysis
+     * Note: Assumes there's a raw_html_content or html_content column
+     * If not available in your schema, you may need to fetch from a separate storage
+     */
+    async getPagesWithContent(sessionId: number): Promise<any[]> {
+        const res = await this.pool.query(
+            `SELECT id, url, title, 
+                    COALESCE(raw_html_content, html_content, '') as html_content
+             FROM pages
+             WHERE session_id = $1 AND success = true
+             ORDER BY timestamp ASC`,
+            [sessionId]
+        );
+        return res.rows;
+    }
+
+    async getAllPagesForSession(sessionId: number): Promise<any[]> {
+        const res = await this.pool.query(
+            `SELECT id, url, title, description, word_count, crawl_depth
+             FROM pages
+             WHERE session_id = $1 AND success = true
+             ORDER BY crawl_depth ASC, timestamp ASC`,
+            [sessionId]
+        );
+        return res.rows;
     }
 
     private mapResource(row: any): Resource {

@@ -7,6 +7,11 @@ interface CrawlData {
   closestDuplicateUrl?: string; // URL of the most similar page (closest near-duplicate match)
   closestDuplicateSimilarity?: number; // Similarity score (0.0-1.0) with the closest match
   nearDuplicateCount?: number; // Number of pages with similarity >= 0.75
+  // Semantic Analysis Fields (Module A)
+  closestSemanticallySimilarAddress?: string; // URL of the most semantically similar page
+  semanticSimilarityScore?: number; // Similarity score (0.0-1.0) with closest semantically similar page
+  noSemanticallySimilar?: number; // Count of pages with similarity >= 0.80
+  semanticRelevanceScore?: number; // Relevance score (0.0-1.0) to the page's intended topic
   title: string;
   titleLength?: number;
   titlePixelWidth?: number;
@@ -798,6 +803,118 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
     );
   };
 
+  // ==================== SEMANTIC ANALYSIS BADGE FUNCTIONS ====================
+
+  const getSemanticSimilarityScoreBadge = (score?: number) => {
+    if (score === undefined || score === null) {
+      return <span className="status-badge unknown" title="Semantic similarity not analyzed">—</span>;
+    }
+
+    let badgeClass = 'status-badge';
+    let emoji = '';
+    let title = `Semantic Similarity Score: ${(score * 100).toFixed(1)}%`;
+
+    // 0.90+ → Almost same intent (error)
+    if (score >= 0.90) {
+      badgeClass += ' client-error';
+      emoji = '❌';
+      title += ' - CRITICAL: Very close semantic meaning (potential canonicalization issue)';
+    }
+    // 0.80-0.89 → Semantically Similar (warning)
+    else if (score >= 0.80) {
+      badgeClass += ' redirect';
+      emoji = '⚠️';
+      title += ' - WARNING: Semantically similar (possible content overlap)';
+    }
+    // 0.65-0.79 → Related (info)
+    else if (score >= 0.65) {
+      badgeClass += ' redirect';
+      emoji = 'ℹ️';
+      title += ' - Related content (review for intent alignment)';
+    }
+    // < 0.65 → Not similar (success)
+    else {
+      badgeClass += ' success';
+      emoji = '✓';
+      title += ' - Unique semantic content';
+    }
+
+    return <span className={badgeClass} title={title}>{emoji} {(score * 100).toFixed(1)}%</span>;
+  };
+
+  const getSemanticRelevanceScoreBadge = (score?: number) => {
+    if (score === undefined || score === null) {
+      return <span className="status-badge unknown" title="Semantic relevance not analyzed">—</span>;
+    }
+
+    let badgeClass = 'status-badge';
+    let emoji = '';
+    let title = `Semantic Relevance Score: ${(score * 100).toFixed(1)}%`;
+
+    // 0.80+ → highly relevant (success)
+    if (score >= 0.80) {
+      badgeClass += ' success';
+      emoji = '✓';
+      title += ' - Highly relevant to topic';
+    }
+    // 0.60-0.79 → partially relevant (warning)
+    else if (score >= 0.60) {
+      badgeClass += ' redirect';
+      emoji = '⚠️';
+      title += ' - Partially relevant (topic alignment could be improved)';
+    }
+    // < 0.60 → off-topic (error)
+    else {
+      badgeClass += ' client-error';
+      emoji = '❌';
+      title += ' - Off-topic (poor relevance to primary keyword)';
+    }
+
+    return <span className={badgeClass} title={title}>{emoji} {(score * 100).toFixed(1)}%</span>;
+  };
+
+  const getNoSemanticallySimilarBadge = (count?: number) => {
+    if (count === undefined || count === null) {
+      return <span className="status-badge unknown" title="Semantic analysis not completed">—</span>;
+    }
+
+    let badgeClass = 'status-badge';
+    let emoji = '';
+    let title = `No. Semantically Similar Pages (≥0.80): ${count}`;
+
+    if (count === 0) {
+      badgeClass += ' success';
+      emoji = '✓';
+      title += ' - No duplicate topics detected ✓';
+    } else if (count <= 2) {
+      badgeClass += ' redirect';
+      emoji = '⚠️';
+      title += ' - Few similar pages (manageable)';
+    } else {
+      badgeClass += ' client-error';
+      emoji = '❌';
+      title += ` - HIGH: ${count} similar pages (risk of cannibalization)`;
+    }
+
+    return <span className={badgeClass} title={title}>{emoji} {count} pages</span>;
+  };
+
+  const getClosestSemanticallySimilarAddressBadge = (url?: string) => {
+    if (!url || url === 'undefined' || url === 'null') {
+      return <span className="status-badge success" title="No semantically similar page found">✓ Unique</span>;
+    }
+
+    return (
+      <span className="status-badge redirect" title={`Closest semantic match: ${url}`}>
+        <a href={url} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'none' }}>
+          🔗 {url.length > 50 ? url.substring(0, 50) + '...' : url}
+        </a>
+      </span>
+    );
+  };
+
+  // ==================== END SEMANTIC ANALYSIS BADGE FUNCTIONS ====================
+
   const getSpellingErrorsBadge = (errors?: number) => {
     if (errors === undefined || errors === null) {
       return <span className="status-badge unknown" title="Spelling errors not checked">—</span>;
@@ -1210,6 +1327,19 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                 <th onClick={() => handleSort('nearDuplicateCount' as keyof CrawlData)} className="sortable center-header">
                   No. Near Duplicates {sortField === 'nearDuplicateCount' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
+                {/* Semantic Analysis Fields (Module A) */}
+                <th onClick={() => handleSort('closestSemanticallySimilarAddress' as keyof CrawlData)} className="sortable">
+                  Closest Semantically Similar Address {sortField === 'closestSemanticallySimilarAddress' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('semanticSimilarityScore' as keyof CrawlData)} className="sortable center-header">
+                  Semantic Similarity Score {sortField === 'semanticSimilarityScore' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('noSemanticallySimilar' as keyof CrawlData)} className="sortable center-header">
+                  No. Semantically Similar {sortField === 'noSemanticallySimilar' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
+                <th onClick={() => handleSort('semanticRelevanceScore' as keyof CrawlData)} className="sortable center-header">
+                  Semantic Relevance Score {sortField === 'semanticRelevanceScore' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
                 <th onClick={() => handleSort('uniqueInlinks' as keyof CrawlData)} className="sortable center-header">
                   Unique Inlinks {sortField === 'uniqueInlinks' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
@@ -1399,6 +1529,19 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                   </td>
                   <td className="near-duplicate-count-cell">
                     {getNearDuplicateCountBadge(item.nearDuplicateCount)}
+                  </td>
+                  {/* Semantic Analysis Cells (Module A) */}
+                  <td className="closest-semantically-similar-cell">
+                    {getClosestSemanticallySimilarAddressBadge(item.closestSemanticallySimilarAddress)}
+                  </td>
+                  <td className="semantic-similarity-score-cell">
+                    {getSemanticSimilarityScoreBadge(item.semanticSimilarityScore)}
+                  </td>
+                  <td className="no-semantically-similar-cell">
+                    {getNoSemanticallySimilarBadge(item.noSemanticallySimilar)}
+                  </td>
+                  <td className="semantic-relevance-score-cell">
+                    {getSemanticRelevanceScoreBadge(item.semanticRelevanceScore)}
                   </td>
                   <td className="unique-inlinks-cell">
                     {item.uniqueInlinks !== undefined ? (
