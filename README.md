@@ -10,6 +10,47 @@
 
 ---
 
+## 📁 Project Structure
+
+```
+llm-tools/
+├── frontend/              # React + Vite frontend application
+│   ├── components/        # React components
+│   ├── contexts/          # React contexts
+│   ├── router/            # React Router configuration
+│   ├── package.json       # Frontend dependencies
+│   ├── vite.config.ts     # Vite configuration
+│   ├── tsconfig.json      # TypeScript configuration
+│   ├── Dockerfile         # Frontend Docker build
+│   └── nginx.conf         # Nginx configuration
+│
+├── node-backend/          # Node.js + TypeScript backend
+│   ├── src/               # Backend source code
+│   ├── config/            # Configuration files
+│   ├── docs/              # Backend documentation
+│   ├── scripts/           # Utility scripts
+│   ├── storage/           # Data storage
+│   ├── package.json       # Backend dependencies
+│   ├── tsconfig.json      # TypeScript configuration
+│   ├── nodemon.json       # Nodemon configuration
+│   ├── vite.config.ts     # Vite configuration
+│   └── Dockerfile         # Backend Docker build
+│
+├── py-backend/            # Python FastAPI backend
+│   ├── app/               # Python application code
+│   ├── config/            # Python configuration
+│   ├── requirements.txt   # Python dependencies
+│   ├── run.py             # Python entry point
+│   └── Dockerfile         # Python Docker build
+│
+├── docker-compose.yml     # Docker orchestration
+├── Dockerfile             # Root Dockerfile (if needed)
+├── package.json           # Monorepo scripts
+└── README.md              # This file
+```
+
+---
+
 ## ✨ Key Features
 
 ### 🕷️ **Powerful Web Crawling**
@@ -73,6 +114,7 @@
 - **Python 3.8+** - [Download](https://www.python.org/)
 - **PostgreSQL 12+** - [Download](https://www.postgresql.org/)
 - **Redis** (optional, for SEO queue) - [Download](https://redis.io/)
+- **Docker** (recommended) - [Download](https://www.docker.com/)
 
 ### API Keys (Optional but Recommended)
 
@@ -84,51 +126,51 @@
 
 ## 📦 Installation
 
-### 1. Clone Repository
+### Option 1: Docker (Recommended)
 
 ```bash
+# 1. Clone the repository
 git clone <your-repo-url>
-cd contentlytics
+cd llm-tools
+
+# 2. Start all services with Docker
+npm run docker:up
+
+# Access the application:
+# Frontend: http://localhost:3000
+# Backend: http://localhost:3004
+# Python API: http://localhost:8000
 ```
 
-### 2. Install Dependencies
+### Option 2: Local Development
 
-#### Node.js Dependencies
 ```bash
-npm install
-```
+# 1. Clone the repository
+git clone <your-repo-url>
+cd llm-tools
 
-#### Python Dependencies (AEO API)
-```bash
-cd aeo-api
-pip install -r requirements.txt
+# 2. Install all dependencies
+npm run install:all
+
+# 3. Set up environment variables
+# Create .env files in each directory (frontend, node-backend, py-backend)
+
+# 4. Start PostgreSQL and Redis
+
+# 5. Initialize database
+cd node-backend
+npm run db:setup
 cd ..
+
+# 6. Run services in separate terminals
+npm run dev:frontend   # Terminal 1 - Frontend on :3000
+npm run dev:backend    # Terminal 2 - Node backend on :3004
+npm run dev:py         # Terminal 3 - Python API on :8000
 ```
 
-### 3. Database Setup
+### 3. Environment Configuration
 
-#### Create PostgreSQL Database
-```bash
-createdb contentlytics
-```
-
-#### Run Migrations
-```bash
-npm run db:init
-```
-
-### 4. Environment Configuration
-
-#### Copy Environment Templates
-```bash
-# Node.js environment
-cp .env.example .env
-
-# Python AEO API environment
-cp aeo-api/.env.example aeo-api/.env
-```
-
-#### Configure `.env` (Node.js)
+#### Node Backend `.env` (node-backend/.env)
 
 ```bash
 # Server
@@ -158,12 +200,12 @@ PSI_API_KEY=your_google_psi_api_key
 PY_API_BASE=http://localhost:8000
 ```
 
-#### Configure `aeo-api/.env` (Python)
+#### Python Backend `.env` (py-backend/.env)
 
 ```bash
 # Server
-HOST=localhost
-PORT=8001
+HOST=0.0.0.0
+PORT=8000
 DEBUG=False
 
 # AI API Keys
@@ -178,34 +220,47 @@ DATAFORSEO_PASSWORD=your_password
 
 ---
 
-## 🎯 Running the Application
+## 🎯 Available Scripts
 
-### Development Mode
+### Root Level Commands
 
-#### Terminal 1: Start Node.js Server
 ```bash
-npm run dev
+npm run dev:frontend      # Start frontend dev server
+npm run dev:backend       # Start node backend dev server
+npm run dev:py            # Start Python API
+npm run docker:up         # Start all services with Docker
+npm run docker:down       # Stop all Docker services
+npm run docker:logs       # View Docker logs
+npm run install:all       # Install all dependencies
+npm run build:frontend    # Build frontend for production
+npm run build:backend     # Build backend for production
 ```
 
-#### Terminal 2: Start Python AEO API
+### Frontend Commands (in frontend/ directory)
+
 ```bash
-cd aeo-api
-uvicorn app.main:app --reload --port 8001
+npm run dev              # Start Vite dev server
+npm run build            # Build for production
+npm run preview          # Preview production build
 ```
 
-#### Terminal 3: Start Frontend (if separate)
+### Backend Commands (in node-backend/ directory)
+
 ```bash
-npm run dev:frontend
+npm run dev              # Start with nodemon
+npm run start            # Start production server
+npm run build            # Compile TypeScript
+npm run crawl            # Run crawler
+npm run seo:worker       # Start SEO worker
+npm run db:setup         # Initialize database
 ```
 
 ### Production Mode
 
-#### Using PM2 (Recommended)
+#### Using Docker (Recommended)
 ```bash
-# Install PM2
-npm install -g pm2
-
-# Start Node.js server
+# Start all services
+npm run docker:up
 pm2 start npm --name "contentlytics" -- start
 
 # Start Python API

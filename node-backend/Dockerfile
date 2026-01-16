@@ -15,9 +15,6 @@ COPY . .
 # Build TypeScript application
 RUN npm run build
 
-# Build frontend
-RUN npm run build:frontend
-
 # Production stage
 FROM node:20-alpine
 
