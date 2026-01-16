@@ -82,6 +82,16 @@ ALTER TABLE pages ADD COLUMN IF NOT EXISTS url_encoded_address TEXT;
 CREATE INDEX IF NOT EXISTS idx_pages_url_encoded_address ON pages(url_encoded_address);
 COMMENT ON COLUMN pages.url_encoded_address IS 'The percent-encoded (URL-safe) version of the page URL where special characters are converted to %XX format';
 `
+    },
+    {
+        name: '034_add_content_hash',
+        sql: `
+-- Migration: Add content hash field for change detection and duplicate identification
+ALTER TABLE pages ADD COLUMN IF NOT EXISTS content_hash VARCHAR(64);
+CREATE INDEX IF NOT EXISTS idx_pages_content_hash ON pages(content_hash);
+CREATE INDEX IF NOT EXISTS idx_pages_session_content_hash ON pages(session_id, content_hash);
+COMMENT ON COLUMN pages.content_hash IS 'SHA-256 hash of normalized page content (visible text). Used for exact change detection and duplicate identification.';
+`
     }
 ];
 

@@ -78,6 +78,7 @@ export interface Page {
     language?: string; // Language of the page from headers or HTML
     httpVersion?: string; // HTTP protocol version (HTTP/1.1, HTTP/2, HTTP/3)
     urlEncodedAddress?: string; // The percent-encoded (URL-safe) version of the URL
+    contentHash?: string; // SHA-256 hash of normalized page content (visible text) for change detection and duplicate identification
     // Semantic Analysis Fields (Module A)
     closestSemanticallySimilarAddress?: string; // URL of the most semantically similar page
     semanticSimilarityScore?: number; // Similarity score (0.0-1.0) with closest semantically similar page

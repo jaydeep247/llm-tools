@@ -13,6 +13,7 @@ interface CrawlData {
   noSemanticallySimilar?: number; // Count of pages with similarity >= 0.80
   semanticRelevanceScore?: number; // Relevance score (0.0-1.0) to the page's intended topic
   urlEncodedAddress?: string; // Percent-encoded (URL-safe) version of the page URL
+  contentHash?: string; // SHA-256 hash of normalized page content for change detection and duplicate identification
   title: string;
   titleLength?: number;
   titlePixelWidth?: number;
@@ -928,6 +929,22 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
     );
   };
 
+  const getContentHashBadge = (hash?: string) => {
+    if (!hash) {
+      return <span className="status-badge unknown" title="Content hash not calculated">—</span>;
+    }
+
+    return (
+      <span 
+        className="status-badge success" 
+        title={`Content Hash (SHA-256)\n\nUsed for:\n• Change detection\n• Exact duplicate identification`}
+        style={{ cursor: 'help', fontFamily: 'monospace', fontSize: '0.85em', wordBreak: 'break-all' }}
+      >
+        {hash}
+      </span>
+    );
+  };
+
   // ==================== END SEMANTIC ANALYSIS BADGE FUNCTIONS ====================
 
   const getSpellingErrorsBadge = (errors?: number) => {
@@ -1358,6 +1375,9 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                 <th onClick={() => handleSort('urlEncodedAddress' as keyof CrawlData)} className="sortable">
                   URL Encoded Address {sortField === 'urlEncodedAddress' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
+                <th onClick={() => handleSort('contentHash' as keyof CrawlData)} className="sortable center-header">
+                  Content Hash {sortField === 'contentHash' && (sortDirection === 'asc' ? '↑' : '↓')}
+                </th>
                 <th onClick={() => handleSort('uniqueInlinks' as keyof CrawlData)} className="sortable center-header">
                   Unique Inlinks {sortField === 'uniqueInlinks' && (sortDirection === 'asc' ? '↑' : '↓')}
                 </th>
@@ -1563,6 +1583,9 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
                   </td>
                   <td className="url-encoded-address-cell">
                     {getUrlEncodedAddressBadge(item.urlEncodedAddress)}
+                  </td>
+                  <td className="content-hash-cell">
+                    {getContentHashBadge(item.contentHash)}
                   </td>
                   <td className="unique-inlinks-cell">
                     {item.uniqueInlinks !== undefined ? (

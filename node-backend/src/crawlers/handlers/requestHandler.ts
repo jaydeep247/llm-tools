@@ -4,7 +4,8 @@
  */
 
 import { Request, CheerioCrawlerOptions } from 'crawlee';
-import { CheerioAPI } from 'cheerio';
+import { CheerioAPI, load } from 'cheerio';
+import { createHash } from 'crypto';
 import { Logger } from '../../helpers/logging/Logger.js';
 import { getDatabase } from '../../services/DatabaseService.js';
 import { MetricsCollector } from '../../controllers/module_D/monitoring/MetricsCollector.js';
@@ -40,6 +41,18 @@ interface RequestHandlerContext {
     emittedImg: Set<string>;
     emittedExternal: Set<string>;
     crawledPagesWithHtml?: Array<{ id: number; url: string; htmlContent: string }>;
+}
+
+/**
+ * Generate SHA-256 hash of normalized page content
+ * Hashes the visible text content for change detection and duplicate identification
+ */
+function generateContentHash(text: string): string {
+    const normalized = text
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .trim();
+    return createHash('sha256').update(normalized).digest('hex');
 }
 
 export function createRequestHandler(context: RequestHandlerContext): CheerioCrawlerOptions['requestHandler'] {
@@ -84,6 +97,12 @@ export function createRequestHandler(context: RequestHandlerContext): CheerioCra
         const enhancedResponse = { ...response, url: response?.url || request.loadedUrl || url };
         const pageMetrics = await extractPageMetrics(request.url, $, enhancedResponse, responseTime);
         const contentMetrics = extractContentMetrics($);
+        
+        // Extract visible text for content hashing
+        const $clone = load($.html());
+        $clone('script, style, noscript, meta, link, head').remove();
+        const visibleText = $clone('body').text().trim();
+        
         const crawlDepth = getCrawlDepthFromRequest(request);
         const folderDepth = calculateFolderDepth(url);
 
@@ -139,7 +158,9 @@ export function createRequestHandler(context: RequestHandlerContext): CheerioCra
             language: pageMetrics.language,
             httpVersion: pageMetrics.httpVersion,
             // URL Encoded Address: percent-encoded version of the URL
-            urlEncodedAddress: encodeURI(url)
+            urlEncodedAddress: encodeURI(url),
+            // Content Hash: SHA-256 hash of normalized page content for change detection and duplicate identification
+            contentHash: generateContentHash(visibleText)
         });
 
         // Store page HTML in cache for semantic analysis
