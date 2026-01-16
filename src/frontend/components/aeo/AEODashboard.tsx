@@ -3,6 +3,7 @@ import './AEODashboard.css';
 import DataViewer from '../crawler/DataViewer';
 import LinkExplorer from '../crawler/LinkExplorer';
 import WebTree from '../crawler/FixedWebTree';
+import MindMapWebTree from '../crawler/MindMapWebTree';
 import AuditsPage from '../audit/AuditsPage';
 import { apiService } from '../../api';
 
@@ -850,7 +851,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
 
           {activeView === 'tree' && (
             <div className="tree-content-embedded">
-              <WebTree
+              <MindMapWebTree
                 onClose={() => { }}
               />
             </div>

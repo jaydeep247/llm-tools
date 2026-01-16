@@ -9,7 +9,20 @@ type D3TreeNode = {
 
 type Session = { id: number; startedAt: string; completedAt?: string; totalPages: number; startUrl?: string };
 
-interface WebTreeProps {
+type KeywordData = {
+  text: string;
+  score: number;
+  prompt_count?: number;
+  relevance_score?: number;
+  diversity_score?: number;
+};
+
+type SEOData = {
+  parentText?: string;
+  topKeywords?: KeywordData[];
+};
+
+interface MindMapWebTreeProps {
   onClose: () => void;
 }
 
@@ -41,8 +54,7 @@ function isLikelyPageUrl(url: string): boolean {
       'woff', 'woff2', 'ttf', 'otf', 'eot',
       'pdf', 'zip', 'rar', '7z', 'gz', 'tar', 'bz2', 'xz',
       'mp3', 'mp4', 'webm', 'ogg', 'wav', 'mov', 'avi', 'mkv',
-      'json', 'rss', 'atom', 'yaml', 'yml',
-      'xml'
+      'json', 'rss', 'atom', 'yaml', 'yml', 'xml'
     ]);
     if (nonPageExts.has(ext)) return false;
     const pageExts = new Set(['html', 'htm', 'php', 'asp', 'aspx', 'jsp', 'cfm', 'xhtml']);
@@ -53,63 +65,31 @@ function isLikelyPageUrl(url: string): boolean {
   }
 }
 
-export default function WebTree({ onClose }: WebTreeProps) {
+export default function MindMapWebTree({ onClose }: MindMapWebTreeProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
   const [rootUrl, setRootUrl] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [treeData, setTreeData] = useState<D3TreeNode | null>(null);
-  const [orientation, setOrientation] = useState<'vertical' | 'horizontal'>('horizontal');
-  const [siblingSeparation, setSiblingSeparation] = useState<number>(0.8);
-  const [nonSiblingSeparation, setNonSiblingSeparation] = useState<number>(1.0);
-  const [labelMaxChars, setLabelMaxChars] = useState<number>(40);
   const [primaryHost, setPrimaryHost] = useState<string | null>(null);
   const [totalUrlsUsed, setTotalUrlsUsed] = useState<number>(0);
-  const [breadcrumb, setBreadcrumb] = useState<string[]>([]);
-  const [recenterKey, setRecenterKey] = useState<number>(0);
-
-  // SEO keywords toggle and data
+  
+  // Selected node for table view
+  const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
+  
+  // SEO data
   const [seoEnabled, setSeoEnabled] = useState<boolean>(true);
-  const [seoLoading, setSeoLoading] = useState<boolean>(false);
   const [seoBatchLoading, setSeoBatchLoading] = useState<boolean>(false);
   const [seoProgress, setSeoProgress] = useState<{ current: number; total: number; estimatedTimeRemaining?: number } | null>(null);
-  const [seoError, setSeoError] = useState<string | null>(null);
-  const [seoResult, setSeoResult] = useState<null | {
-    parent: { text: string; score: number; intent?: string } | null;
-    keywords: Array<{ text: string; score: number; intent?: string }>;
-    language?: string;
-  }>(null);
-  // Per-URL SEO summary to attach on tree nodes (database-backed cache)
-  const [seoByUrl, setSeoByUrl] = useState<Map<string, {
-    parentText?: string;
-    topKeywords?: Array<{
-      text: string;
-      score: number;
-      prompt_count?: number;
-      relevance_score?: number;
-      diversity_score?: number;
-    }>;
-  }>>(new Map());
-
-  // Compute full URL from breadcrumb (first element is root URL, subsequent are path segments)
-  const computeSelectedUrl = useCallback((): string | null => {
-    if (!breadcrumb || breadcrumb.length === 0) return null;
-    const first = breadcrumb[0];
-    if (!first) return null;
-    try {
-      const base = new URL(first);
-      if (breadcrumb.length === 1) return normalizeUrl(base.toString());
-      const suffix = breadcrumb.slice(1).join('/');
-      const joined = suffix ? `${base.origin}${base.pathname.replace(/\/$/, '')}/${suffix}` : base.toString();
-      return normalizeUrl(joined);
-    } catch {
-      return null;
-    }
-  }, [breadcrumb]);
-
-  // Removed: No API calls on node click - SEO keywords are only shown from cache via batch loading
+  const [seoByUrl, setSeoByUrl] = useState<Map<string, SEOData>>(new Map());
+  
+  // View mode: 'split' shows both tree and table, 'tree' shows only tree, 'table' shows only table
+  const [viewMode, setViewMode] = useState<'split' | 'tree' | 'table'>('split');
+  
+  const [recenterKey, setRecenterKey] = useState<number>(0);
 
   // Load sessions on mount
   useEffect(() => {
@@ -144,15 +124,13 @@ export default function WebTree({ onClose }: WebTreeProps) {
     return Array.from(new Set(acc));
   }
 
-
-  // Optimized batch SEO extraction with single API call
+  // Batch SEO extraction
   useEffect(() => {
     const run = async () => {
       if (!seoEnabled || !treeData) return;
       setSeoBatchLoading(true);
 
       const urls = collectAllUrls(treeData);
-      // No need to filter - the API handles caching automatically
       const urlsToProcess = urls;
 
       if (urlsToProcess.length === 0) {
@@ -162,30 +140,24 @@ export default function WebTree({ onClose }: WebTreeProps) {
       }
 
       setSeoProgress({ current: 0, total: urlsToProcess.length });
-
-      // Use optimized batched individual calls (much better than 50+ individual requests)
       await optimizedBatchedExtraction(urlsToProcess);
-
       setSeoBatchLoading(false);
       setSeoProgress(null);
     };
 
-    // Optimized concurrent extraction with controlled concurrency
     const optimizedBatchedExtraction = async (urls: string[]) => {
-      // Adjust concurrency based on number of URLs
-      let concurrency = 3; // Default for small datasets
-      if (urls.length > 1000) concurrency = 5; // More concurrent for large datasets
-      if (urls.length > 5000) concurrency = 8; // Even more for very large datasets
+      let concurrency = 3;
+      if (urls.length > 1000) concurrency = 5;
+      if (urls.length > 5000) concurrency = 8;
 
-      const delayBetweenBatches = 50; // 50ms delay between requests
+      const delayBetweenBatches = 50;
       let processedCount = 0;
       const startedAt = Date.now();
 
-      // Create a semaphore to control concurrency
       const semaphore = new Array(concurrency).fill(null);
       let currentIndex = 0;
 
-      const processUrl = async (url: string, index: number): Promise<void> => {
+      const processUrl = async (url: string): Promise<void> => {
         try {
           const res = await fetch('/api/seo/extract', {
             method: 'POST',
@@ -193,14 +165,10 @@ export default function WebTree({ onClose }: WebTreeProps) {
             body: JSON.stringify({ url })
           });
 
-          // Skip 404 silently (no cached data available for this URL)
-          if (res.status === 404) {
-            return;
-          }
+          if (res.status === 404) return;
 
           const data = await res.json().catch(() => ({} as any));
           if (res.ok && data) {
-            // Update state immediately for each successful extraction
             setSeoByUrl(prev => {
               const next = new Map(prev);
               next.set(normalizeUrl(url), {
@@ -219,10 +187,9 @@ export default function WebTree({ onClose }: WebTreeProps) {
             });
           }
         } catch {
-          // ignore individual failures
+          // ignore
         }
 
-        // Update progress with estimated time remaining
         processedCount++;
         const elapsedMs = Date.now() - startedAt;
         const avgPerItemMs = processedCount > 0 ? elapsedMs / processedCount : delayBetweenBatches;
@@ -235,68 +202,35 @@ export default function WebTree({ onClose }: WebTreeProps) {
         });
       };
 
-      // Process URLs with controlled concurrency
-      const workers = semaphore.map(async (_, workerIndex) => {
+      const workers = semaphore.map(async () => {
         while (currentIndex < urls.length) {
           const urlIndex = currentIndex++;
           if (urlIndex >= urls.length) break;
-
-          await processUrl(urls[urlIndex], urlIndex);
-
-          // Small delay between requests to be server-friendly
+          await processUrl(urls[urlIndex]);
           if (currentIndex < urls.length) {
             await new Promise(resolve => setTimeout(resolve, delayBetweenBatches));
           }
         }
       });
 
-      // Wait for all workers to complete
       await Promise.all(workers);
     };
 
     void run();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seoEnabled, treeData]);
-
-  function computeTreeStats(root: D3TreeNode | null): { maxDepth: number; levelCounts: number[] } {
-    if (!root) return { maxDepth: 0, levelCounts: [] };
-    const levelCounts: number[] = [];
-    const stack: Array<{ node: D3TreeNode; level: number }> = [{ node: root, level: 0 }];
-    let maxDepth = 0;
-    while (stack.length) {
-      const { node, level } = stack.pop()!;
-      maxDepth = Math.max(maxDepth, level);
-      levelCounts[level] = (levelCounts[level] || 0) + 1;
-      if (node.children) for (const c of node.children) stack.push({ node: c, level: level + 1 });
-    }
-    return { maxDepth, levelCounts };
-  }
-
-  function autoAdjustLayout(root: D3TreeNode | null) {
-    const { maxDepth, levelCounts } = computeTreeStats(root);
-    const breadth = Math.max(...(levelCounts.length ? levelCounts : [1]));
-    const sib = Math.min(3, Math.max(0.9, 1 + (breadth / 300)));
-    const nonSib = Math.min(4, Math.max(1.0, 1.2 + (maxDepth / 8)));
-    setSiblingSeparation(Number(sib.toFixed(2)));
-    setNonSiblingSeparation(Number(nonSib.toFixed(2)));
-    const maxChars = breadth > 200 ? 30 : breadth > 100 ? 40 : 60;
-    setLabelMaxChars(maxChars);
-  }
 
   const buildTree = useCallback(async () => {
     if (!selectedSessionId) return;
     setLoading(true);
     setError(null);
     try {
-      // Build directly from all URLs for the session
       let normalizedRoot = '' as string;
       let root: URL | null = null;
       const urls: string[] = [];
       let offset = 0;
       const limit = 1000;
 
-      // Fetch in batches
-      for (let i = 0; i < 50; i++) { // hard cap 50k
+      for (let i = 0; i < 50; i++) {
         const params = new URLSearchParams();
         params.set('limit', String(limit));
         params.set('offset', String(offset));
@@ -309,7 +243,6 @@ export default function WebTree({ onClose }: WebTreeProps) {
         for (const it of items) {
           if (!it.url) continue;
           const nu = normalizeUrl(it.url);
-          // Filter: only likely page URLs
           if (!isLikelyPageUrl(nu)) continue;
           urls.push(nu);
         }
@@ -317,7 +250,6 @@ export default function WebTree({ onClose }: WebTreeProps) {
         if (result?.paging?.total && offset >= result.paging.total) break;
       }
 
-      // Determine start root from the selected session's startUrl
       if (urls.length === 0) throw new Error('No URLs found for this session');
       const sess = sessions.find(s => s.id === selectedSessionId);
       const sessionStart = sess?.startUrl || urls[0];
@@ -326,8 +258,11 @@ export default function WebTree({ onClose }: WebTreeProps) {
       setRootUrl(normalizedRoot);
       setPrimaryHost(root.host);
 
-      // Build path-based tree from the start root
-      const rootNode: D3TreeNode = { name: normalizedRoot, attributes: { level: 0, full: normalizedRoot }, children: [] };
+      const rootNode: D3TreeNode = { 
+        name: normalizedRoot, 
+        attributes: { level: 0, full: normalizedRoot }, 
+        children: [] 
+      };
 
       const ensureChild = (parent: D3TreeNode, name: string, level: number, full: string): D3TreeNode => {
         if (!parent.children) parent.children = [];
@@ -344,7 +279,6 @@ export default function WebTree({ onClose }: WebTreeProps) {
         let parsed: URL;
         try { parsed = new URL(u); } catch { continue; }
         if (!root) continue;
-        // Always include subdomains of the chosen root host
         if (parsed.host !== root.host && !parsed.hostname.endsWith('.' + root.hostname)) continue;
         const segments = parsed.pathname.split('/').filter(Boolean);
         const maxSegments = segments.length;
@@ -358,15 +292,10 @@ export default function WebTree({ onClose }: WebTreeProps) {
         usedCount++;
       }
 
-      // Attach full URL on root for downstream lookups
       rootNode.attributes = { ...(rootNode.attributes || {}), full: normalizedRoot };
       setTreeData(rootNode);
-      autoAdjustLayout(rootNode);
       setTotalUrlsUsed(usedCount);
-      // If SEO is enabled, prime selection to root URL to trigger extraction
-      try { setBreadcrumb([normalizedRoot]); } catch { }
       setLoading(false);
-      return;
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to build tree');
     } finally {
@@ -374,54 +303,35 @@ export default function WebTree({ onClose }: WebTreeProps) {
     }
   }, [selectedSessionId, sessions]);
 
-  const handleBuild = useCallback(() => {
-    buildTree();
-  }, [buildTree]);
+  // Convert tree data to TidyTree format (like FixedWebTree)
+  function convertToTidy(root: D3TreeNode | null): TidyTreeNode | null {
+    if (!root) return null;
+    const mapNode = (n: D3TreeNode): TidyTreeNode => {
+      const full = (n.attributes?.full as string) || n.name;
+      const label = full; // Show full URL
+      const baseChildren: TidyTreeNode[] = n.children && n.children.length ? n.children.map(mapNode) : [];
+
+      // Don't include SEO keywords in tree - they show in table when clicked
+      return {
+        text: label,
+        children: baseChildren.length ? baseChildren : undefined,
+      };
+    };
+    return mapNode(root);
+  }
+
+  // Handle node selection from tree
+  const handleSelectPath = useCallback((path: string[]) => {
+    if (path.length === 0) return;
+    const url = path[path.length - 1]; // Last item in path is the full URL
+    setSelectedUrl(url);
+  }, []);
 
   const containerSize = useMemo(() => {
     const width = containerRef.current?.clientWidth || 1200;
     const height = containerRef.current?.clientHeight || 700;
     return { width, height };
   }, [containerRef.current]);
-
-  // Force tree re-render when SEO data changes or when SEO is toggled
-  const [seoUpdateKey, setSeoUpdateKey] = useState(0);
-  useEffect(() => {
-    setSeoUpdateKey(prev => prev + 1);
-  }, [seoByUrl, seoEnabled]);
-
-  function convertToTidy(root: D3TreeNode | null): TidyTreeNode | null {
-    if (!root) return null;
-    const mapNode = (n: D3TreeNode): TidyTreeNode => {
-      const full = (n.attributes?.full as string) || n.name;
-      const seo = seoByUrl.get(normalizeUrl(full));
-      const label = (n.attributes?.full as string) || n.name; // show full URL when available
-      const baseChildren: TidyTreeNode[] = n.children && n.children.length ? n.children.map(mapNode) : [];
-
-      // Build a separate main keyword node as direct child of the URL node
-      let childrenWithSeo: TidyTreeNode[] = [...baseChildren];
-      // Only attach SEO keywords if seoEnabled is true
-      if (seoEnabled && seo && seo.parentText) {
-        // Attach SEO nodes without visual prefixes; mark internal types for keying
-        const keywordChildren: TidyTreeNode[] = (seo.topKeywords || []).slice(0, 8).map((kw) => ({
-          text: `${kw.text} (🤖 Prompts: ${kw.prompt_count ?? 0} | 🎯 Relevance: ${kw.relevance_score ?? 0.0} | 🌈 Diversity: ${kw.diversity_score ?? 0.0})`,
-          __type: 'kw'
-        } as any));
-        const mainKwNode = {
-          text: seo.parentText,
-          children: keywordChildren.length ? keywordChildren : undefined,
-          __type: 'seo'
-        } as any;
-        childrenWithSeo = [mainKwNode, ...childrenWithSeo];
-      }
-
-      return {
-        text: label,
-        children: childrenWithSeo.length ? childrenWithSeo : undefined,
-      };
-    };
-    return mapNode(root);
-  }
 
   function formatSeconds(totalSeconds?: number): string {
     if (totalSeconds == null || !isFinite(totalSeconds)) return '--:--';
@@ -430,6 +340,8 @@ export default function WebTree({ onClose }: WebTreeProps) {
     const ss = (s % 60).toString().padStart(2, '0');
     return `${mm}:${ss}`;
   }
+
+  const selectedSeoData = selectedUrl ? seoByUrl.get(normalizeUrl(selectedUrl)) : null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={onClose}>
@@ -440,13 +352,24 @@ export default function WebTree({ onClose }: WebTreeProps) {
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-700">
           <div className="flex items-center gap-3">
-            <h3 className="text-xl font-semibold text-white">🌳 Web Tree</h3>
+            <h3 className="text-xl font-semibold text-white">🌳 Mind Map - Web Tree</h3>
             {primaryHost && (
               <span className="px-2 py-1 bg-blue-900 text-blue-300 rounded text-sm">
                 Root: {primaryHost}
               </span>
             )}
+            {totalUrlsUsed > 0 && (
+              <span className="px-2 py-1 bg-purple-900 text-purple-300 rounded text-sm">
+                URLs: {totalUrlsUsed}
+              </span>
+            )}
           </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white text-2xl leading-none"
+          >
+            ×
+          </button>
         </div>
 
         {/* Controls */}
@@ -467,112 +390,172 @@ export default function WebTree({ onClose }: WebTreeProps) {
               </select>
             </label>
 
+            <button
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+              onClick={buildTree}
+              disabled={!selectedSessionId || loading}
+            >
+              {loading ? 'Building…' : '🌳 Build Tree'}
+            </button>
+
             <div className="flex items-center gap-2">
               <button
-                className="px-3 py-1 bg-gray-700 text-white rounded hover:bg-gray-600"
-                onClick={() => { setSiblingSeparation(0.6); setNonSiblingSeparation(0.8); setLabelMaxChars(30); }}
-                title="Ultra compact - Best for 1000+ nodes"
+                className={`px-3 py-1 rounded ${viewMode === 'split' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
+                onClick={() => setViewMode('split')}
               >
-                Compact
+                Split View
               </button>
               <button
-                className="px-3 py-1 bg-gray-700 text-white rounded hover:bg-gray-600"
-                onClick={() => { setSiblingSeparation(1.0); setNonSiblingSeparation(1.3); setLabelMaxChars(50); }}
-                title="Balanced spacing - Good for 100-500 nodes"
+                className={`px-3 py-1 rounded ${viewMode === 'tree' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
+                onClick={() => setViewMode('tree')}
               >
-                Comfortable
+                Tree Only
+              </button>
+              <button
+                className={`px-3 py-1 rounded ${viewMode === 'table' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
+                onClick={() => setViewMode('table')}
+              >
+                Table Only
               </button>
             </div>
 
-            {seoEnabled && (seoLoading || seoBatchLoading) && (
+            <label className="flex items-center gap-2 text-white">
+              <input
+                type="checkbox"
+                checked={seoEnabled}
+                onChange={e => setSeoEnabled(e.target.checked)}
+                className="w-4 h-4"
+              />
+              AI Keywords
+            </label>
+
+            {seoEnabled && seoBatchLoading && (
               <span className="px-2 py-1 bg-yellow-900 text-yellow-300 rounded text-sm flex items-center gap-2">
                 <span className="inline-block w-3 h-3 border-2 border-yellow-300 border-t-transparent rounded-full animate-spin"></span>
-                {seoBatchLoading && seoProgress ? (
+                {seoProgress && (
                   <>
-                    <span>Extracting {seoProgress.current}/{seoProgress.total}</span>
+                    <span>{seoProgress.current}/{seoProgress.total}</span>
                     <span className="opacity-80">ETA {formatSeconds(seoProgress.estimatedTimeRemaining)}</span>
                   </>
-                ) : (
-                  <span>Extracting…</span>
                 )}
               </span>
             )}
-            {seoEnabled && seoError && <span className="px-2 py-1 bg-red-900 text-red-300 rounded text-sm">{seoError}</span>}
-
-            <button
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-              onClick={handleBuild}
-              disabled={!selectedSessionId || loading}
-            >
-              {loading ? 'Building…' : 'Build Tree'}
-            </button>
 
             {error && <span className="text-red-400 text-sm">{error}</span>}
           </div>
         </div>
 
-        {/* Breadcrumb */}
-        {breadcrumb.length > 0 && (
-          <div className="p-3 border-b border-gray-700 text-gray-300">
-            <span className="font-medium">Path: </span>
-            {breadcrumb.join(' › ')}
-          </div>
-        )}
-
-        {/* Tree Container */}
-        <div
-          ref={containerRef}
-          className="flex-1 bg-gray-900 overflow-hidden relative"
-        >
-          {(() => {
-            const isSeoBusy = seoEnabled && (seoLoading || seoBatchLoading);
-            if (!treeData) {
-              return (
+        {/* Main Content Area */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Tree View */}
+          {(viewMode === 'split' || viewMode === 'tree') && (
+            <div 
+              ref={containerRef}
+              className={`bg-gray-900 overflow-hidden relative ${viewMode === 'split' ? 'w-2/3' : 'w-full'}`}
+            >
+              {!treeData ? (
                 <div className="flex items-center justify-center h-full text-gray-400">
-                  {loading ? 'Building tree structure...' : 'Configure options and click "Build Tree".'}
+                  {loading ? 'Building tree structure...' : 'Select a session and click "Build Tree"'}
                 </div>
-              );
-            }
-            if (isSeoBusy) {
-              // Hide SVG entirely during SEO extraction
-              return null;
-            }
-            return (
-              <D3TidyTree
-                data={convertToTidy(treeData)!}
-                height={containerSize.height}
-                orientation={orientation === 'vertical' ? 'vertical' : 'horizontal'}
-                dx={siblingSeparation * 80}
-                dy={nonSiblingSeparation * 320}
-                onSelectPath={setBreadcrumb}
-                recenterKey={recenterKey + seoUpdateKey}
-              />
-            );
-          })()}
-          {!treeData && (
-            <div className="flex items-center justify-center h-full text-gray-400">
-              {loading ? 'Building tree structure...' : 'Configure options and click "Build Tree".'}
+              ) : (
+                <D3TidyTree
+                  data={convertToTidy(treeData)!}
+                  height={containerSize.height}
+                  orientation="horizontal"
+                  dx={80}
+                  dy={320}
+                  onSelectPath={handleSelectPath}
+                  recenterKey={recenterKey}
+                  initialExpandDepth={0}
+                />
+              )}
+
+              {seoBatchLoading && (
+                <div className="absolute inset-0 bg-gray-900/70 backdrop-blur-[1px] flex items-center justify-center z-10">
+                  <div className="flex items-center gap-3 text-yellow-200">
+                    <span className="inline-block w-6 h-6 border-4 border-yellow-300 border-t-transparent rounded-full animate-spin"></span>
+                    {seoProgress && (
+                      <div className="text-sm">
+                        <div className="font-semibold">Extracting AI keywords…</div>
+                        <div className="opacity-90">{seoProgress.current}/{seoProgress.total} • ETA {formatSeconds(seoProgress.estimatedTimeRemaining)}</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {(seoEnabled && (seoLoading || seoBatchLoading)) && (
-            <div className="absolute inset-0 bg-gray-900/70 backdrop-blur-[1px] flex items-center justify-center z-10">
-              <div className="flex items-center gap-3 text-yellow-200">
-                <span className="inline-block w-6 h-6 border-4 border-yellow-300 border-t-transparent rounded-full animate-spin"></span>
-                {seoBatchLoading && seoProgress ? (
-                  <div className="text-sm">
-                    <div className="font-semibold">Extracting keywords…</div>
-                    <div className="opacity-90">{seoProgress.current}/{seoProgress.total} • ETA {formatSeconds(seoProgress.estimatedTimeRemaining)}</div>
+          {/* Table View */}
+          {(viewMode === 'split' || viewMode === 'table') && (
+            <div className={`bg-gray-850 border-l border-gray-700 overflow-auto ${viewMode === 'split' ? 'w-1/3' : 'w-full'}`}>
+              <div className="p-4">
+                <h4 className="text-lg font-semibold text-white mb-3">
+                  🤖 AI Keywords & Scores
+                </h4>
+
+                {!selectedUrl ? (
+                  <div className="text-gray-400 text-center py-8">
+                    Click on a node in the tree to view AI keywords
                   </div>
                 ) : (
-                  <div className="text-sm font-semibold">Extracting keywords…</div>
+                  <div>
+                    {/* Selected URL */}
+                    <div className="mb-4 p-3 bg-gray-900 rounded">
+                      <div className="text-xs text-gray-400 mb-1">Selected URL</div>
+                      <div className="text-sm text-blue-300 break-all">{selectedUrl}</div>
+                    </div>
+
+                    {/* Parent Keyword */}
+                    {selectedSeoData?.parentText && (
+                      <div className="mb-4 p-3 bg-blue-900/30 rounded border border-blue-700">
+                        <div className="text-xs text-blue-300 mb-1">Main Topic</div>
+                        <div className="text-base font-semibold text-white">{selectedSeoData.parentText}</div>
+                      </div>
+                    )}
+
+                    {/* Keywords Table */}
+                    {selectedSeoData?.topKeywords && selectedSeoData.topKeywords.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-gray-900 text-gray-300">
+                              <th className="px-3 py-2 text-left">Keyword</th>
+                              <th className="px-3 py-2 text-center">Score</th>
+                              <th className="px-3 py-2 text-center">🤖 Prompts</th>
+                              <th className="px-3 py-2 text-center">🎯 Relevance</th>
+                              <th className="px-3 py-2 text-center">🌈 Diversity</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedSeoData.topKeywords.map((kw, idx) => (
+                              <tr 
+                                key={idx} 
+                                className="border-t border-gray-700 hover:bg-gray-800 transition-colors"
+                              >
+                                <td className="px-3 py-2 text-gray-200 font-medium">{kw.text}</td>
+                                <td className="px-3 py-2 text-center text-green-400">{kw.score.toFixed(2)}</td>
+                                <td className="px-3 py-2 text-center text-blue-400">{kw.prompt_count ?? 0}</td>
+                                <td className="px-3 py-2 text-center text-purple-400">{(kw.relevance_score ?? 0).toFixed(2)}</td>
+                                <td className="px-3 py-2 text-center text-pink-400">{(kw.diversity_score ?? 0).toFixed(2)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="text-gray-400 text-center py-4">
+                        {seoEnabled ? 'No AI keywords available for this URL' : 'Enable AI Keywords to see data'}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
           )}
         </div>
-
       </div>
     </div>
   );
 }
+
