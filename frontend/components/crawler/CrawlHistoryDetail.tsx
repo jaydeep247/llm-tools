@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { apiService } from '../../api';
+import { apiService } from '../../api-client';
 
 export const CrawlHistoryDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
