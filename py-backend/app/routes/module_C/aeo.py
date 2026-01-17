@@ -10,6 +10,7 @@ import json
 from ...services.module_C.aeo_services_consolidated import AEOServiceOrchestrator
 from ...services.module_B.schema_generator import SchemaGenerator
 from ...services.module_C.bulk_aeo_service import BulkAEOService
+from ...services.module_C.competitor_mentions_service import CompetitorMentionsService
 
 router = APIRouter(prefix="/api/aeo", tags=["AEOCHECKER"])
 
@@ -17,6 +18,7 @@ router = APIRouter(prefix="/api/aeo", tags=["AEOCHECKER"])
 aeo_orchestrator = AEOServiceOrchestrator()
 schema_generator = SchemaGenerator()
 bulk_service = BulkAEOService()
+competitor_mentions_service = CompetitorMentionsService()
 
 # Suppress InsecureRequestWarning
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -274,7 +276,13 @@ async def health_check():
 # ------------------------------------------------------------------------------
 # Module E: Website Score (Multi-Model)
 # ------------------------------------------------------------------------------
-from ...services.module_E.website_score_service import WebsiteScoreService, WebsiteScoreRequest
+from ...services.module_E.website_score_service import WebsiteScoreService
+from pydantic import BaseModel
+
+class WebsiteScoreRequest(BaseModel):
+    url: Optional[str] = None
+    content: Optional[str] = None
+    sessionId: Optional[str] = None
 
 @router.post("/website-score")
 async def get_website_score(request: WebsiteScoreRequest):
@@ -282,7 +290,34 @@ async def get_website_score(request: WebsiteScoreRequest):
     Analyzes aggregated content to get scores from OpenAI, Claude, and Gemini.
     """
     try:
-        scores = await WebsiteScoreService.calculate_scores(request.content)
+        content = request.content
+        
+        # If content missing but URL provided, fetch it
+        if not content and request.url:
+            logging.info(f"Fetching content for website score analysis: {request.url}")
+            try:
+                # Use request.url directly
+                target_url = request.url
+                if not target_url.startswith(('http://', 'https://')):
+                    target_url = 'https://' + target_url
+                    
+                resp = requests.get(target_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=15, verify=False)
+                resp.raise_for_status()
+                
+                # Basic cleaning
+                from bs4 import BeautifulSoup
+                soup = BeautifulSoup(resp.text, 'html.parser')
+                for script in soup(["script", "style", "nav", "footer"]):
+                    script.decompose()
+                content = soup.get_text(separator=' ', strip=True)[:15000]
+                
+            except Exception as e:
+                return {"success": False, "error": f"Failed to fetch URL: {str(e)}"}
+        
+        if not content:
+            return {"success": False, "error": "No content provided and failed to fetch URL"}
+
+        scores = await WebsiteScoreService.calculate_scores(content)
         return {"success": True, "scores": scores}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -376,6 +411,19 @@ async def analyze_brand(req: BrandAnalysisRequest):
     if "error" in result:
         return {"success": False, "error": result["error"]}
     return {"success": True, "data": result}
+
+class AnalyzeCompetitorsMentionsRequest(BaseModel):
+    competitors: List[str]
+
+@router.post("/analyze-competitors-mentions")
+async def analyze_competitors_mentions(req: AnalyzeCompetitorsMentionsRequest):
+    """
+    Analyzes mentions for a batch of competitors.
+    """
+    import logging
+    logging.info(f"Analyzing mentions for {len(req.competitors)} competitors")
+    results = competitor_mentions_service.analyze_mentions_batch(req.competitors)
+    return {"success": True, "data": results}
 
 # --- NEW: Bulk Analysis Endpoint ---
 @router.post("/analyze-bulk")

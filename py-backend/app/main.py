@@ -19,6 +19,7 @@ from .services.module_B.nlp_utils import init_nlp
 
 # Import routes after environment is loaded
 from .routes.module_C import aeo
+from .routes.module_E import sentiment
 
 # Verify OpenAI API key is loaded
 if not os.getenv('OPENAI_API_KEY'):
@@ -62,6 +63,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Include AEOCHECKER routes
 app.include_router(aeo.router)
+app.include_router(sentiment.router)
 
 # Security: Add security headers middleware
 @app.middleware("http")
