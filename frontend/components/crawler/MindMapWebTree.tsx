@@ -303,21 +303,27 @@ export default function MindMapWebTree({ onClose }: MindMapWebTreeProps) {
     }
   }, [selectedSessionId, sessions]);
 
-  // Convert tree data to TidyTree format (like FixedWebTree)
+  // Convert tree data to TidyTree format - Show FULL URLs
   function convertToTidy(root: D3TreeNode | null): TidyTreeNode | null {
     if (!root) return null;
-    const mapNode = (n: D3TreeNode): TidyTreeNode => {
+    const mapNode = (n: D3TreeNode, isRoot: boolean = false): TidyTreeNode => {
       const full = (n.attributes?.full as string) || n.name;
-      const label = full; // Show full URL
-      const baseChildren: TidyTreeNode[] = n.children && n.children.length ? n.children.map(mapNode) : [];
+      
+      // Always show full URL for better clarity
+      let label: string = full;
+      
+      const baseChildren: TidyTreeNode[] = n.children && n.children.length 
+        ? n.children.map(child => mapNode(child, false)) 
+        : [];
 
-      // Don't include SEO keywords in tree - they show in table when clicked
+      // Return node with full URL as text
       return {
         text: label,
         children: baseChildren.length ? baseChildren : undefined,
+        ...(n.attributes && { attributes: n.attributes }) // Preserve attributes
       };
     };
-    return mapNode(root);
+    return mapNode(root, true);
   }
 
   // Handle node selection from tree
@@ -462,11 +468,11 @@ export default function MindMapWebTree({ onClose }: MindMapWebTreeProps) {
                   data={convertToTidy(treeData)!}
                   height={containerSize.height}
                   orientation="horizontal"
-                  dx={80}
-                  dy={320}
+                  dx={120}
+                  dy={400}
                   onSelectPath={handleSelectPath}
                   recenterKey={recenterKey}
-                  initialExpandDepth={0}
+                  initialExpandDepth={1}
                 />
               )}
 
@@ -502,8 +508,28 @@ export default function MindMapWebTree({ onClose }: MindMapWebTreeProps) {
                   <div>
                     {/* Selected URL */}
                     <div className="mb-4 p-3 bg-gray-900 rounded">
-                      <div className="text-xs text-gray-400 mb-1">Selected URL</div>
-                      <div className="text-sm text-blue-300 break-all">{selectedUrl}</div>
+                      <div className="text-xs text-gray-400 mb-2">Selected URL</div>
+                      <div className="flex items-start gap-2">
+                        <a 
+                          href={selectedUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-blue-400 hover:text-blue-300 underline break-all flex-1 transition-colors"
+                          title="Open in new tab"
+                        >
+                          {selectedUrl}
+                        </a>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(selectedUrl);
+                            // Optional: Show a toast notification
+                          }}
+                          className="flex-shrink-0 px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-xs rounded transition-colors"
+                          title="Copy URL"
+                        >
+                          📋
+                        </button>
+                      </div>
                     </div>
 
                     {/* Parent Keyword */}

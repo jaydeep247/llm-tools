@@ -1,7 +1,11 @@
 import React, { useEffect, useRef } from 'react';
 import * as d3 from 'd3';
 
-export type TreeNode = { text: string; children?: TreeNode[] };
+export type TreeNode = { 
+  text: string; 
+  children?: TreeNode[];
+  attributes?: Record<string, any>;
+};
 
 interface D3TidyTreeProps {
   data: TreeNode;
@@ -114,7 +118,29 @@ export default function D3TidyTree({ data, height = 600, orientation = 'horizont
     }
 
     const tree = d3.tree<TreeNode>().nodeSize([activeDx, activeDy]);
-    const diagonal = d3.linkHorizontal<any, any>().x(d => (d as any).y).y(d => (d as any).x);
+    
+    // Custom link generator - start from right edge of parent node (where + icon is)
+    const diagonal = (d: any) => {
+      const source = d.source;
+      const target = d.target;
+      
+      // Calculate parent node width (stored in node data)
+      const parentWidth = (source as any).width || 200; // Default fallback
+      
+      // Start point: right edge of parent node
+      const sourceX = source.y + parentWidth;
+      const sourceY = source.x;
+      
+      // End point: left edge of child node
+      const targetX = target.y;
+      const targetY = target.x;
+      
+      // Create smooth bezier curve from right edge of parent to left edge of child
+      return `M ${sourceX},${sourceY}
+              C ${(sourceX + targetX) / 2},${sourceY}
+                ${(sourceX + targetX) / 2},${targetY}
+                ${targetX},${targetY}`;
+    };
 
     let updateSource: any = root;
     if (lastFocusedNodeKeyRef.current) {
@@ -151,7 +177,7 @@ export default function D3TidyTree({ data, height = 600, orientation = 'horizont
         const shiftX = 80; // Fixed left margin
 
         stableCenterRef.current = { x: shiftX, y: shiftY };
-        g.transition().duration(750).attr('transform', `translate(${shiftX}, ${shiftY})`);
+        g.transition().duration(1000).attr('transform', `translate(${shiftX}, ${shiftY})`);
 
         // Reset scale references for cleanliness
         if (!didCenterRef.current) {
@@ -176,6 +202,7 @@ export default function D3TidyTree({ data, height = 600, orientation = 'horizont
 
           if (isToggleClick && hasChildren) {
             // Toggle Action
+            const wasCollapsed = !d.children;
             if (d.children) {
               d._children = d.children;
               d.children = null;
@@ -187,12 +214,33 @@ export default function D3TidyTree({ data, height = 600, orientation = 'horizont
             }
             lastFocusedNodeKeyRef.current = d.data.__key;
             update(d);
+            
+            // Auto-pan to show expanded children
+            if (wasCollapsed && d.children) {
+              // Wait for animation to complete, then pan to show the expanded node
+              setTimeout(() => {
+                const transform = d3.zoomTransform(svg.node() as Element);
+                const scale = transform.k;
+                
+                // Calculate position to center the expanded node with its children
+                const x = -d.y * scale + width / 3; // Show node on left side
+                const y = -d.x * scale + height / 2; // Center vertically
+                
+                svg.transition().duration(800)
+                  .call(zoomBehavior.transform as any, d3.zoomIdentity.translate(x, y).scale(scale));
+              }, 300);
+            }
           } else {
             // Select Action (Body Click)
             if (onSelectPath) {
               const path: string[] = [];
               let p: any = d;
-              while (p) { path.unshift(p.data?.text ?? ''); p = p.parent; }
+              while (p) { 
+                // Use full URL from attributes if available, otherwise use text
+                const nodeValue = p.data?.attributes?.full ?? p.data?.text ?? '';
+                path.unshift(nodeValue); 
+                p = p.parent; 
+              }
               onSelectPath(path);
             }
             // Optional: visual focus update without layout shift
@@ -265,10 +313,10 @@ export default function D3TidyTree({ data, height = 600, orientation = 'horizont
         .attr('class', 'icon-path');
 
 
-      // --- Update Transitions ---
+      // --- Update Transitions (Smoother with longer duration) ---
       const nodeUpdate = (nodeEnter as any).merge(node as any);
 
-      nodeUpdate.transition().duration(400)
+      nodeUpdate.transition().duration(600)
         .attr('transform', (d: any) => `translate(${d.y},${d.x})`);
 
       // Update appearance based on state
@@ -280,19 +328,19 @@ export default function D3TidyTree({ data, height = 600, orientation = 'horizont
 
         // Stroke Color: Blue if collapsed (highlight action), Gray if expanded
         group.select('rect')
-          .transition().duration(250)
+          .transition().duration(400)
           .attr('stroke', collapsed ? '#60a5fa' : '#374151')
           .attr('fill', collapsed ? '#1f2937' : '#111827'); // Slightly darker when open
 
-        // Toggle Icon Update
+        // Toggle Icon Update (Smoother animation)
         if (hasKids) {
           const w = (d as any).width || 40;
           group.select('.toggle')
-            .transition().duration(400)
+            .transition().duration(500)
             .attr('transform', `translate(${w - 18}, 0)`);
 
           group.select('.icon-path')
-            .transition().duration(250)
+            .transition().duration(400)
             .attr('d', expanded
               ? 'M -4 0 L 4 0' // Minus (Expanded)
               : 'M -4 0 L 4 0 M 0 -4 L 0 4' // Plus (Collapsed)
@@ -300,8 +348,8 @@ export default function D3TidyTree({ data, height = 600, orientation = 'horizont
         }
       });
 
-      // --- Exiting Nodes ---
-      const nodeExit = node.exit().transition().duration(300)
+      // --- Exiting Nodes (Smooth exit animation) ---
+      const nodeExit = node.exit().transition().duration(500)
         .attr('transform', () => `translate(${source.y},${source.x})`)
         .remove();
 
@@ -326,11 +374,11 @@ export default function D3TidyTree({ data, height = 600, orientation = 'horizont
 
       const linkUpdate = (linkEnter as any).merge(linksSel as any);
 
-      linkUpdate.transition().duration(400)
+      linkUpdate.transition().duration(600)
         .attr('d', diagonal)
         .style('opacity', 0.4); // Subtle lines
 
-      linksSel.exit().transition().duration(300)
+      linksSel.exit().transition().duration(500)
         .attr('d', () => {
           const o = { x: source.x, y: source.y };
           return diagonal({ source: o, target: o });
