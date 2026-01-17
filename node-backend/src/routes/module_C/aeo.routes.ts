@@ -15,7 +15,7 @@ const AEO_API_BASE_URL = process.env.AEO_API_BASE_URL || 'http://localhost:8000'
 router.post('/analyze',
     authenticateUser,
     checkUsageLimit('aeo_analysis'),
-    async (req, res) => {
+    async (req: express.Request, res: express.Response) => {
         const startTime = Date.now();
         try {
             const userId = req.user!.userId;
@@ -155,7 +155,7 @@ router.post('/analyze',
 router.post('/analyze-bulk',
     authenticateUser,
     checkUsageLimit('aeo_analysis'),
-    async (req, res) => {
+    async (req: express.Request, res: express.Response) => {
         const startTime = Date.now();
         try {
             const userId = req.user!.userId;
@@ -246,7 +246,7 @@ router.post('/analyze-bulk',
 
 
 // Proxy AEO health check requests to FastAPI
-router.get('/health', async (req, res) => {
+router.get('/health', async (req: express.Request, res: express.Response) => {
     try {
         logger.info('Proxying AEO health check to FastAPI');
 
@@ -277,7 +277,7 @@ router.get('/health', async (req, res) => {
 router.post('/generate-schema',
     authenticateUser,
     checkUsageLimit('schema_generation'),
-    async (req, res) => {
+    async (req: express.Request, res: express.Response) => {
         try {
             const userId = req.user!.userId;
             const db = await import('../../services/DatabaseService.js').then(m => m.getDatabase());
@@ -340,7 +340,7 @@ router.post('/generate-schema',
 // Retrieve stored AEO analysis results by session ID
 router.get('/results/:sessionId',
     authenticateUser,
-    async (req, res) => {
+    async (req: express.Request, res: express.Response) => {
         try {
             const { sessionId } = req.params;
             const db = await import('../../services/DatabaseService.js').then(m => m.getDatabase());
@@ -448,7 +448,7 @@ router.get('/results/:sessionId',
     });
 
 // Website Score Endpoint
-router.post('/website-score', async (req, res) => {
+router.post('/website-score', async (req: express.Request, res: express.Response) => {
     try {
         const { url, sessionId } = req.body;
 
@@ -470,15 +470,15 @@ router.post('/website-score', async (req, res) => {
             let text = '';
             let statusCode = 200;
             let actualWordCount: number | undefined;
-            
+
             // Try to fetch live first
             try {
                 const controller = new AbortController();
                 const timeout = setTimeout(() => controller.abort(), 30000); // Increased to 30s
-                
+
                 const response = await fetch(url, { signal: controller.signal });
                 clearTimeout(timeout);
-                
+
                 if (!response.ok) {
                     throw new Error(`Failed to fetch ${url}: ${response.statusText}`);
                 }
@@ -491,10 +491,10 @@ router.post('/website-score', async (req, res) => {
                     sessionId,
                     fetchErrorMessage: (fetchError as Error).message
                 });
-                
+
                 // Fall back to database if live fetch fails
                 const db = await import('../../services/DatabaseService.js').then(m => m.getDatabase());
-                
+
                 // If sessionId is provided, fetch pages from that session
                 let pages = [];
                 if (sessionId) {
@@ -505,11 +505,11 @@ router.post('/website-score', async (req, res) => {
                     pages = await db.getPages(undefined, 10000);
                     logger.info('MODULE E: Fetched pages without sessionId filter', { pageCount: pages.length });
                 }
-                
+
                 if (pages && pages.length > 0) {
                     // Try to find the exact URL first
                     let matchingPage = pages.find((p: any) => p.url === url);
-                    
+
                     // If not found, try homepage (root URL)
                     if (!matchingPage) {
                         try {
@@ -521,7 +521,7 @@ router.post('/website-score', async (req, res) => {
                             logger.warn('MODULE E: Could not parse URL for homepage search', { url });
                         }
                     }
-                    
+
                     if (matchingPage) {
                         // Use wordCount from database as the word count (it's more accurate)
                         // Content is not stored in DB, so construct from metadata
@@ -531,11 +531,11 @@ router.post('/website-score', async (req, res) => {
                         if (matchingPage.description) parts.push(`Description: ${matchingPage.description}`);
                         if (matchingPage.wordCount) parts.push(`Content: ${matchingPage.wordCount} words`);
                         text = parts.join('\n');
-                        logger.info('MODULE E: Retrieved content from database', { 
-                            url, 
-                            contentLength: text.length, 
-                            pageId: matchingPage.id, 
-                            wordCount: matchingPage.wordCount 
+                        logger.info('MODULE E: Retrieved content from database', {
+                            url,
+                            contentLength: text.length,
+                            pageId: matchingPage.id,
+                            wordCount: matchingPage.wordCount
                         });
                     } else {
                         // If no exact match, use the first page with content from the crawl
@@ -547,25 +547,25 @@ router.post('/website-score', async (req, res) => {
                             if (pageWithContent.description) parts.push(`Description: ${pageWithContent.description}`);
                             parts.push(`This is content from crawled page: ${pageWithContent.url}`);
                             text = parts.join('\n');
-                            logger.info('MODULE E: Using first available crawled page', { 
-                                originalUrl: url, 
-                                usedUrl: pageWithContent.url, 
+                            logger.info('MODULE E: Using first available crawled page', {
+                                originalUrl: url,
+                                usedUrl: pageWithContent.url,
                                 contentLength: text.length,
                                 wordCount: pageWithContent.wordCount
                             });
                         }
                     }
                 }
-                
+
                 if (!text) {
-                    logger.warn('MODULE E: Could not fetch URL and no cached content found', { 
-                        url, 
-                        sessionId, 
+                    logger.warn('MODULE E: Could not fetch URL and no cached content found', {
+                        url,
+                        sessionId,
                         pagesInDatabase: pages?.length || 0,
                         suggestion: 'Wait for crawl to complete or try again later'
                     });
-                    return res.status(400).json({ 
-                        success: false, 
+                    return res.status(400).json({
+                        success: false,
                         error: 'Could not fetch website content. The crawl may still be in progress. Please wait for the crawl to complete and try again.',
                         details: {
                             url,
@@ -586,7 +586,7 @@ router.post('/website-score', async (req, res) => {
             // If we have the actual word count from database, use that
             // Otherwise estimate from text length
             const wordCount = actualWordCount !== undefined ? actualWordCount : text.length / 5;
-            
+
             logger.info('MODULE E: Calling generateWebsiteScores', { url, sessionId, contentLength: text.length, wordCount });
             const scores = await MultiModelScoringService.generateWebsiteScores(url, [{
                 url: url,
@@ -653,9 +653,9 @@ router.post('/website-score', async (req, res) => {
                 url: req.body.url,
                 sessionId: req.body.sessionId
             });
-            return res.status(400).json({ 
-                success: false, 
-                error: 'Could not fetch URL for analysis', 
+            return res.status(400).json({
+                success: false,
+                error: 'Could not fetch URL for analysis',
                 details: {
                     message: (fetchError as Error).message,
                     suggestion: 'The crawl may still be in progress. Please wait and try again.'
@@ -672,7 +672,7 @@ router.post('/website-score', async (req, res) => {
 // --- NEW: Proxy AI Answer Simulation Request ---
 router.post('/simulate-answer',
     authenticateUser,
-    async (req, res) => {
+    async (req: express.Request, res: express.Response) => {
         try {
             const userId = req.user!.userId;
 
@@ -710,5 +710,7 @@ router.post('/simulate-answer',
         }
     }
 );
+
+
 
 export default router;

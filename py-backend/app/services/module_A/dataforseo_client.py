@@ -24,7 +24,7 @@ class DataForSEOClient:
     MAX_RETRIES = 3
     RETRY_DELAY = 2  # seconds
     BACKOFF_MULTIPLIER = 2
-    REQUEST_TIMEOUT = 30  # seconds
+    REQUEST_TIMEOUT = 120  # Increased to 120 seconds to prevent timeouts
     
     def __init__(self, username: Optional[str] = None, password: Optional[str] = None):
         """
@@ -66,6 +66,7 @@ class DataForSEOClient:
         for attempt in range(self.MAX_RETRIES):
             connection = None
             try:
+                start_time = time.time()
                 # Log attempt
                 logger.info(f"DataForSEO API request attempt {attempt + 1}/{self.MAX_RETRIES}: {method} {path}")
                 
@@ -116,13 +117,15 @@ class DataForSEOClient:
                     raise Exception(f"API error {response.status}: {response_data}")
                 
                 # Success
-                logger.info(f"DataForSEO API request successful: {method} {path}")
+                duration = time.time() - start_time
+                logger.info(f"DataForSEO API request successful: {method} {path} (Duration: {duration:.2f}s)")
                 return result
                 
             except (HTTPException, ConnectionError, TimeoutError, OSError) as e:
                 # Network/connection errors - retry
                 last_exception = e
-                logger.warning(f"Connection error on attempt {attempt + 1}: {type(e).__name__}: {str(e)}")
+                duration = time.time() - start_time
+                logger.warning(f"Connection error on attempt {attempt + 1} (Duration: {duration:.2f}s): {type(e).__name__}: {str(e)}")
                 
                 if attempt < self.MAX_RETRIES - 1:
                     delay = self.RETRY_DELAY * (self.BACKOFF_MULTIPLIER ** attempt)
@@ -134,7 +137,8 @@ class DataForSEOClient:
                     
             except Exception as e:
                 # Unexpected error - log and re-raise
-                logger.error(f"Unexpected error in DataForSEO request: {type(e).__name__}: {str(e)}")
+                duration = time.time() - start_time
+                logger.error(f"Unexpected error in DataForSEO request after {duration:.2f}s: {type(e).__name__}: {str(e)}")
                 raise
                 
             finally:

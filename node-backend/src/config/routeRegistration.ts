@@ -8,6 +8,7 @@ import { monitoringRoutes } from '../routes/module_D/index.js';
 import { auditsRoutes, linksRoutes, linkScoreRoutes, auditRoutes, crawlerRoutes, auditActionsRoutes, crawlRoutes } from '../routes/module_A/index.js';
 import { seoRoutes } from '../routes/module_B/index.js';
 import { aeoRoutes } from '../routes/module_C/index.js';
+import { sentimentRoutes } from '../routes/module_E/index.js';
 import { schedulerRoutes } from '../routes/module_D/index.js';
 import sseRoutes from '../routes/sse.routes.js';
 import authRoutes from '../routes/auth.routes.js';
@@ -18,7 +19,7 @@ import authRoutes from '../routes/auth.routes.js';
 export function registerRoutes(app: express.Application): void {
     // Module D: Monitoring & Health
     app.use('/api', monitoringRoutes);
-    
+
     // Module A: Crawling, Link Analysis, Performance Audits
     app.use('/api', auditsRoutes);
     app.use(linksRoutes);
@@ -26,19 +27,22 @@ export function registerRoutes(app: express.Application): void {
     app.use('/api', auditActionsRoutes);
     app.use('/api', crawlerRoutes);
     app.use('/api', crawlRoutes);
-    
+
     // Module B: SEO & Structured Data
     app.use('/api', seoRoutes);
-    
+
     // Module C: AI Intelligence
     app.use('/api/aeo', aeoRoutes);
-    
+
+    // Module E: Sentiment Tracking (New)
+    app.use('/api/aeo', sentimentRoutes);
+
     // Module D: Scheduling
     app.use('/api', schedulerRoutes);
-    
+
     // SSE (Server-Sent Events)
     app.use(sseRoutes);
-    
+
     // Auth routes
     app.use('/api/auth', authRoutes);
 }
