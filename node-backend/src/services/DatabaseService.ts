@@ -328,29 +328,18 @@ export class DatabaseService {
         return this.pages.getSeoData(url);
     }
 
-    async saveSeoData(data: { url: string, parentText?: string, keywords: any[], language?: string, sessionId?: number, expiresAt: string }): Promise<void> {
+    async saveSeoData(data: { url: string, parentText?: string, keywords: any[], language?: string, expiresAt: string }): Promise<void> {
         return this.pages.saveSeoData(data);
     }
 
-    async cacheSeoData(url: string, data: { parentText?: string, keywords: any[], language?: string, sessionId?: number }): Promise<void> {
+    async cacheSeoData(url: string, data: { parentText?: string, keywords: any[], language?: string }): Promise<void> {
         const expiresAt = new Date();
         expiresAt.setMonth(expiresAt.getMonth() + 6); // 6 months default
         return this.saveSeoData({
             url,
-            parentText: data.parentText,
-            keywords: data.keywords,
-            language: data.language,
-            sessionId: data.sessionId,
+            ...data,
             expiresAt: expiresAt.toISOString()
         });
-    }
-
-    async clearSeoCacheForUrl(url: string): Promise<void> {
-        return this.pages.clearSeoCacheForUrl(url);
-    }
-
-    async clearAllSeoCache(): Promise<number> {
-        return this.pages.clearAllSeoCache();
     }
 
     async insertSitemapDiscovery(data: { sessionId: number, sitemapUrl: string, discoveredUrls: number, lastModified: string, success: boolean, errorMessage?: string }): Promise<number> {

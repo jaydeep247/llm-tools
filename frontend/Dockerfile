@@ -1,9 +1,5 @@
 # Frontend Dockerfile
 FROM node:20-alpine AS builder
-# Build argument for API URL
-# Empty string means use relative URLs that go through nginx proxy
-ARG VITE_API_BASE_URL=""
-ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
 WORKDIR /app
 

@@ -3,7 +3,6 @@ import { AgGridReact } from 'ag-grid-react';
 import { ColDef, GridReadyEvent, GridApi, ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
-import { useAuth } from '../../contexts/AuthContext';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 import './LinkExplorer.css';
@@ -45,7 +44,6 @@ interface LinkExplorerProps {
 }
 
 export default function LinkExplorer({ onClose }: LinkExplorerProps) {
-  const { authFetch } = useAuth();
 
   const [sessions, setSessions] = useState<Array<{ id: number; startUrl: string; startedAt: string; completedAt?: string; totalPages: number }>>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
@@ -75,20 +73,9 @@ export default function LinkExplorer({ onClose }: LinkExplorerProps) {
   const loadSessions = async () => {
     try {
       console.log('Loading sessions...');
-      const response = await authFetch('/api/data/sessions?limit=200', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include'
-      });
+      const response = await fetch('/api/data/sessions?limit=200');
       console.log('Sessions response status:', response.status);
-      if (!response.ok) {
-        if (response.status === 401) {
-          setError('Authentication failed. Please log in again.');
-          return;
-        }
-        throw new Error('Failed to load sessions');
-      }
+      if (!response.ok) throw new Error('Failed to load sessions');
       const result = await response.json();
       console.log('Sessions data received:', result);
       setSessions(result.sessions || []);
