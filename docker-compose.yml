@@ -137,7 +137,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       PY_API_BASE: ${PY_API_BASE}
-    command: ["node", "dist/seo/redis-worker.js"]
+    command: ["node", "dist/redis/seo/seo-worker.js"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -169,7 +169,7 @@ services:
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       PSI_API_KEY: ${PSI_API_KEY}
       AUDIT_CONCURRENCY: ${AUDIT_CONCURRENCY:-100}
-    command: ["node", "dist/audit/audit-worker.js"]
+    command: ["node", "dist/redis/audit/audit-worker.js"]
     depends_on:
       postgres:
         condition: service_healthy

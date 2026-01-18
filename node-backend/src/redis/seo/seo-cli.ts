@@ -5,7 +5,7 @@ import {
   getFailedJobs, 
   retryFailedJob,
   closeRedis 
-} from './redis-queue.js';
+} from './seo-queue.js';
 
 async function main() {
   const command = process.argv[2];
@@ -52,13 +52,19 @@ async function main() {
         
       case 'retry':
         const retryUrl = process.argv[3];
+        const retrySessionId = process.argv[4] ? parseInt(process.argv[4]) : undefined;
         if (!retryUrl) {
           console.error('❌ URL is required for retry');
           process.exit(1);
         }
-        const retrySuccess = await retryFailedJob(retryUrl);
+        if (!retrySessionId) {
+          console.error('❌ sessionId is required for retry. Usage: retry <url> <sessionId>');
+          process.exit(1);
+        }
+        
+        const retrySuccess = await retryFailedJob(retryUrl, retrySessionId);
         if (retrySuccess) {
-          console.log(`✅ Job retried: ${retryUrl}`);
+          console.log(`✅ Job retried: ${retryUrl} (session: ${retrySessionId})`);
         } else {
           console.log(`❌ Failed to retry job: ${retryUrl}`);
         }

@@ -3,7 +3,7 @@
  * Runs the Redis-based audit worker for parallel processing
  */
 
-import { main } from '../services/module_A/audits/audit-redis-worker.js';
+import { main } from '../redis/audit/audit-worker.js';
 
 // Run the worker
 main().catch((e) => {

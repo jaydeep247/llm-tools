@@ -4,7 +4,7 @@
 
 import { log } from 'crawlee';
 import type { CrawlEvents } from '../../types/index.js';
-import { initSeoEnqueue, maybeEnqueueSeo } from '../../../services/module_B/seo/redis-queue.js';
+import { initSeoEnqueue, maybeEnqueueSeo } from '../../../redis/seo/seo-queue.js';
 
 export async function initializeSeoQueue(startUrl: string, sessionId: number, events: CrawlEvents): Promise<void> {
     const { onLog } = events;

@@ -1,3 +1,8 @@
+/**
+ * Redis Queue Service for SEO Processing
+ * Provides distributed queue management for SEO keyword extraction
+ */
+
 import Redis from 'ioredis';
 import fs from 'fs';
 import path from 'path';
@@ -12,7 +17,7 @@ type SeoEligibility = {
 
 type SeoJob = {
   url: string;
-  sessionId?: number;
+  sessionId: number; // Required for session tracking
   priority?: number;
   contentType?: string;
   wordCount?: number;
@@ -195,6 +200,15 @@ export async function dequeueSeo(): Promise<SeoJob | null> {
     
     const job: SeoJob = JSON.parse(result[0]);
     
+    // Validate job has sessionId (required for proper queue management)
+    if (!job.sessionId) {
+      console.warn('[redis-queue] Job missing sessionId, removing stale job:', job.url);
+      // Remove stale job from queue to prevent infinite loop
+      await redisClient.zrem(config.queues['seo-priority'], result[0]);
+      // Retry with next job instead of returning null
+      return dequeueSeo();
+    }
+    
     // Remove from priority queue
     await redisClient.zrem(config.queues['seo-priority'], result[0]);
     
@@ -328,7 +342,7 @@ export async function getFailedJobs(): Promise<string[]> {
   }
 }
 
-export async function retryFailedJob(url: string): Promise<boolean> {
+export async function retryFailedJob(url: string, sessionId: number): Promise<boolean> {
   try {
     const redisClient = await getRedis();
     const config = loadRedisConfig();
@@ -336,13 +350,7 @@ export async function retryFailedJob(url: string): Promise<boolean> {
     // Remove from failed
     await redisClient.srem(`${config.queues['seo-failed']}:set`, url);
     
-    // Add back to queue
-    // Note: sessionId is required for proper session isolation
-    if (!sessionId) {
-      console.error('[redis-queue] Retry failed job requires sessionId');
-      return false;
-    }
-    
+    // Add back to queue - sessionId is required
     const job: SeoJob = {
       url,
       sessionId: sessionId,

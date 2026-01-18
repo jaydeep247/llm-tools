@@ -9,10 +9,10 @@ import {
     getAuditQueueStats,
     closeAuditRedis,
     type AuditJob
-} from './audit-redis-queue.js';
-import { CrawlAuditIntegration } from './CrawlAuditIntegration.js';
-import { Logger } from '../../../helpers/logging/Logger.js';
-import { sendEvent } from '../../SSEService.js';
+} from './audit-queue.js';
+import { CrawlAuditIntegration } from '../../services/module_A/audits/CrawlAuditIntegration.js';
+import { Logger } from '../../helpers/logging/Logger.js';
+import { sendEvent } from '../../services/SSEService.js';
 
 const logger = Logger.getInstance();
 
@@ -85,7 +85,7 @@ async function processAuditJob(job: AuditJob, sessionUserId?: number): Promise<b
  */
 async function getUserIdForSession(sessionId: number): Promise<number | undefined> {
     try {
-        const { getDatabase } = await import('../../DatabaseService.js');
+        const { getDatabase } = await import('../../services/DatabaseService.js');
         const db = getDatabase();
         const session = await db.getCrawlSession(sessionId);
         return session?.userId;

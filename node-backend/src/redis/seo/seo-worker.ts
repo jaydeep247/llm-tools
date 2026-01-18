@@ -1,12 +1,12 @@
-import { dequeueSeo, markJobComplete, getQueueStats, closeRedis } from './redis-queue.js';
-import { getDatabase } from '../../DatabaseService.js';
-import { extractSeoKeywords } from './on-demand-extractor.js';
+import { dequeueSeo, markJobComplete, getQueueStats, closeRedis } from './seo-queue.js';
+import { getDatabase } from '../../services/DatabaseService.js';
+import { extractSeoKeywords } from '../../services/module_B/seo/on-demand-extractor.js';
 import fs from 'fs';
 import path from 'path';
 
 type SeoJob = {
   url: string;
-  sessionId?: number;
+  sessionId: number; // Required for session tracking
   priority?: number;
   contentType?: string;
   wordCount?: number;
@@ -39,11 +39,10 @@ async function saveSeoResult(url: string, result: any, sessionId?: number): Prom
     await db.cacheSeoData(url, {
       parentText: result.parent?.text,
       keywords: result.keywords,
-      language: result.language,
-      sessionId: sessionId // Track which session generated this data
+      language: result.language
     });
     
-    console.log(`[redis-worker] ${url} -> cached successfully (session: ${sessionId})`);
+    console.log(`[redis-worker] ${url} -> cached successfully (session: ${sessionId || 'N/A'})`);
   } catch (error) {
     console.error(`[redis-worker] ${url} -> cache error:`, (error as Error).message);
     throw error;
@@ -115,7 +114,7 @@ async function worker(concurrency: number) {
         
         const success = await processJob(job, config);
         
-        await markJobComplete(job.url, success, job.sessionId);
+        await markJobComplete(job.url, success);
         
         if (success) {
           processed++;
@@ -128,7 +127,7 @@ async function worker(concurrency: number) {
         
         // Progress reporting
         if ((processed + errors) % 10 === 0) {
-          const stats = await getQueueStats(job.sessionId);
+          const stats = await getQueueStats();
           console.log(`[redis-worker] Progress: ${processed} successful, ${errors} errors, ${stats.totalQueued} queued, ${stats.processing} processing`);
         }
         

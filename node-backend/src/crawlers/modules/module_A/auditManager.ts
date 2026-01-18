@@ -13,7 +13,7 @@ import {
     getAuditQueueStats,
     areAuditsComplete,
     type AuditJob
-} from '../../../services/module_A/audits/audit-redis-queue.js';
+} from '../../../redis/audit/audit-queue.js';
 import type { CrawlEvents } from '../../types/index.js';
 
 const logger = Logger.getInstance();
