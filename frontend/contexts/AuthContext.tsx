@@ -41,8 +41,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Use relative URLs when in development to avoid CORS issues
-const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:3004";
+// Use relative URLs in production (goes through nginx proxy) or absolute URL if specified
+// Empty string means requests go through the same origin (nginx proxy in production, vite proxy in dev)
+const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || '';
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
