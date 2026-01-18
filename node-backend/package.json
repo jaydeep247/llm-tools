@@ -10,6 +10,7 @@
     "crawl": "tsx src/crawler-cli.ts",
     "seo:worker": "tsx src/services/seo/redis-worker.ts",
     "seo:cli": "tsx src/services/seo/redis-cli.ts",
+    "audit:worker": "tsx src/audit/audit-worker.ts",
     "db:init": "tsx scripts/initDb.ts",
     "db:migrate": "tsx scripts/crawlerTableMigration.ts",
     "clear:sessions": "echo 'clear-all-sessions.ts removed - use db:init instead'"

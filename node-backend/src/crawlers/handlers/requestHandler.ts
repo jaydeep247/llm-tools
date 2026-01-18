@@ -183,7 +183,7 @@ export function createRequestHandler(context: RequestHandlerContext): CheerioCra
         // Mark sitemap and enqueue SEO
         await markSitemapUrlAsCrawled(sessionId, url);
         events.onPage?.(url);
-        await enqueueSeoIfEligible(url, pageMetrics.contentType, contentMetrics.visibleWordCount);
+        await enqueueSeoIfEligible(url, sessionId, allowedHost, pageMetrics.contentType, contentMetrics.visibleWordCount);
 
         // Record metrics
         if (metricsCollector) {

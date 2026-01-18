@@ -11,6 +11,7 @@ import { checkUsageLimit } from '../../middleware/authMiddleware.js';
 import { Logger } from '../../helpers/logging/Logger.js';
 import { sendEvent } from '../../services/SSEService.js';
 import { runAuditsOnExistingSession } from '../../services/module_A/AuditHelper.js';
+import { processExistingSessionData } from '../../crawlers/core/postProcessor.js';
 import { Mailer } from '../../utils/Mailer.js';
 import { healthChecker, metricsCollector } from '../module_D/index.js';
 
@@ -49,7 +50,7 @@ router.post('/crawl',
         const userId = req.user!.userId; // Get authenticated user ID
 
         // Check if a completed session already exists for this URL (unless forceRecrawl)
-        let existingSession = null;
+        let existingSession: any = null;
         try {
             const db = getDatabase();
             if (!forceRecrawl) {
@@ -316,13 +317,34 @@ router.post('/crawl',
                     hasAudits: runAudits ? true : undefined
                 });
 
+                // Process existing session data in background (SEO extraction, semantic analysis, link analysis, etc.)
+                void processExistingSessionData(
+                    existingSession.id,
+                    safeUrl,
+                    Boolean(captureLinkDetails),
+                    Boolean(runAudits),
+                    (auditDevice === 'mobile' ? 'mobile' : 'desktop') as 'desktop' | 'mobile',
+                    {
+                        onLog: (msg) => {
+                            logger.info(`[Reuse Processing] ${msg}`);
+                            sendEvent({ type: 'log', message: msg }, 'log', userId);
+                        },
+                        onPage: (url) => {
+                            // Not needed for reuse, but keeping for compatibility
+                        },
+                        onDone: () => {
+                            logger.info(`[Reuse Processing] Completed processing for session ${existingSession.id}`);
+                        }
+                    }
+                );
+
                 return res.status(200).json({
                     ok: true,
                     reuseMode: true,
                     sessionId: existingSession.id,
                     url: safeUrl,
                     hasAudits: runAudits ? true : undefined,
-                    message: `Reusing crawl data from ${existingSession.completedAt ? new Date(existingSession.completedAt).toLocaleString() : 'earlier'}`
+                    message: `Reusing crawl data from ${existingSession.completedAt ? new Date(existingSession.completedAt).toLocaleString() : 'earlier'}. Processing existing data...`
                 });
             }
         } catch (e) {
@@ -457,11 +479,22 @@ router.post('/crawl',
                         const durationSeconds = Math.max(1, Math.floor(duration / 1000));
                         const pagesPerSecond = parseFloat((count / (duration / 1000)).toFixed(2));
 
+                        // Get the actual status from the database (finalizeSession sets it correctly based on whether audits will actually run)
+                        let nextStatus: 'auditing' | 'completed' = 'completed';
+                        if (finalSessionId) {
+                            const session = await db.getCrawlSession(finalSessionId);
+                            nextStatus = (session?.status === 'auditing') ? 'auditing' : 'completed';
+                        } else {
+                            // Fallback: if no session ID yet, check if audits are enabled
+                            nextStatus = runAudits ? 'auditing' : 'completed';
+                        }
+
                         const eventData = {
                             type: 'done',
                             count: count,
                             duration: durationSeconds,
-                            pagesPerSecond: pagesPerSecond
+                            pagesPerSecond: pagesPerSecond,
+                            status: nextStatus // Include status in done event
                         };
 
                         console.log('Sending done event:', eventData);
@@ -472,7 +505,8 @@ router.post('/crawl',
                             userId,
                             totalPages: count,
                             duration: `${duration}ms`,
-                            pagesPerSecond: pagesPerSecond
+                            pagesPerSecond: pagesPerSecond,
+                            nextStatus
                         }, requestId);
 
                         if (finalSessionId) {
@@ -508,12 +542,18 @@ router.post('/crawl',
                         // Update health checker
                         healthChecker.setActiveCrawls(0);
 
-                        // Send real-time status update if audits are running
-                        if (runAudits && finalSessionId) {
+                        // Send real-time status update - use the actual status from database
+                        if (finalSessionId) {
+                            const session = await db.getCrawlSession(finalSessionId);
+                            const actualStatus = session?.status || 'completed';
+                            
                             sendEvent({
                                 type: 'session-status-update',
                                 sessionId: finalSessionId,
-                                status: 'auditing'
+                                status: actualStatus,
+                                message: actualStatus === 'auditing' 
+                                    ? 'Crawl completed. Starting performance audits...'
+                                    : 'Crawl completed.'
                             }, 'session-status-update', userId);
                         }
                     },

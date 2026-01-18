@@ -26,11 +26,13 @@ export async function initializeSeoQueue(startUrl: string, sessionId: number, ev
 
 export async function enqueueSeoIfEligible(
     url: string,
+    sessionId: number,
+    host: string,
     contentType: string,
     wordCount: number
 ): Promise<void> {
     try {
-        await maybeEnqueueSeo(url, contentType, wordCount);
+        await maybeEnqueueSeo(url, sessionId, host, contentType, wordCount);
     } catch {
         // Non-blocking, continue crawl even if SEO enqueue fails
     }

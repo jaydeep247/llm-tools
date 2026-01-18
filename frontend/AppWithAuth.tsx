@@ -83,10 +83,18 @@ const AppWithAuth: React.FC = () => {
         duration: data.duration || 0,
         pagesPerSecond: data.pagesPerSecond || 0
       });
-      setIsCrawling(false);
-      setCrawlStatus('completed');
+      
+      // Use status from event data if provided, otherwise default to 'completed'
+      const nextStatus = data.status || 'completed';
+      
+      // If status is 'auditing', keep isCrawling true; otherwise set to false
+      setIsCrawling(nextStatus === 'auditing');
+      setCrawlStatus(nextStatus);
+      
       setLogs(prev => [...prev, {
-        message: `✅ Crawl completed! Total URLs: ${data.count}`,
+        message: nextStatus === 'auditing' 
+          ? `✅ Crawl completed! Starting audits... Total URLs: ${data.count}`
+          : `✅ Crawl completed! Total URLs: ${data.count}`,
         timestamp: new Date().toLocaleTimeString()
       }]);
     });
@@ -125,6 +133,9 @@ const AppWithAuth: React.FC = () => {
         let message = '';
         if (data?.type === 'audit-start') {
           message = `🔍 Audit started: ${data.url}`;
+          // Update status to 'auditing' when first audit starts
+          setIsCrawling(true);
+          setCrawlStatus('auditing');
         } else if (data?.type === 'audit-complete') {
           if (data.success) {
             const parts: string[] = [];

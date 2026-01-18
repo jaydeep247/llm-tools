@@ -35,7 +35,7 @@ class RateLimiter {
     private requestsPerSecond: number;
     private lastRequestTime = 0;
 
-    constructor(maxConcurrent = 30, requestsPerSecond = 100) {
+    constructor(maxConcurrent = 100, requestsPerSecond = 50) {
         this.maxConcurrent = maxConcurrent;
         this.requestsPerSecond = requestsPerSecond;
     }
@@ -84,7 +84,10 @@ class RateLimiter {
     }
 }
 
-const globalRateLimiter = new RateLimiter(30, 100);
+// High concurrency rate limiter for fast parallel processing
+// maxConcurrent: 100 allows many parallel PSI requests while respecting API limits
+// requestsPerSecond: 50 keeps within PSI API rate limits to avoid 500 errors
+const globalRateLimiter = new RateLimiter(100, 50);
 
 function sleep(ms: number) {
     return new Promise((r) => setTimeout(r, ms));

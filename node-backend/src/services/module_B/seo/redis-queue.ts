@@ -30,8 +30,6 @@ const CONFIG_PATH = path.resolve(process.cwd(), 'config', 'redis.json');
 const SEO_CONFIG_PATH = path.resolve(process.cwd(), 'config', 'seo.json');
 
 let redis: Redis | null = null;
-let cachedHost: string | null = null;
-let cachedSessionId: number | null = null;
 let allowlistContentTypes: Set<string> = new Set(['text/html']);
 let httpsOnly = true;
 let sameOriginOnly = true;
@@ -108,13 +106,13 @@ async function getRedis(): Promise<Redis> {
 }
 
 // Initialize the queue with startUrl and sessionId for session isolation
+// Note: This function is kept for backward compatibility but no longer caches sessionId globally
+// All functions now require explicit sessionId parameter for proper session isolation
 export async function initSeoEnqueue(startUrl: string, sessionId: number): Promise<void> {
   try {
-    cachedHost = new URL(startUrl).hostname;
-    cachedSessionId = sessionId;
     loadSeoConfig();
     await getRedis();
-    console.log(`[redis-queue] Initialized for host: ${cachedHost}, sessionId: ${sessionId}`);
+    console.log(`[redis-queue] Initialized for sessionId: ${sessionId}`);
   } catch (error) {
     console.error('[redis-queue] Initialization failed:', error);
     throw error;
@@ -122,41 +120,41 @@ export async function initSeoEnqueue(startUrl: string, sessionId: number): Promi
 }
 
 // Check if URL is eligible for SEO job based on criteria
-export function isUrlEligible(url: string, contentType?: string, wordCount?: number): boolean {
-  if (!cachedHost || !cachedSessionId) return false; // not initialized
-    
-    const u = new URL(url);
-    if (httpsOnly && u.protocol !== 'https:') return false;
-    if (sameOriginOnly && u.hostname !== cachedHost) return false;
-    
-    const ct = (contentType || '').toLowerCase();
-    if (ct) {
-      const base = ct.split(';')[0].trim();
-      if (!allowlistContentTypes.has(base)) return false;
-    }
-    
-    // Check word count eligibility
-    if (wordCount !== undefined) {
-      if (wordCount < minWordCount || wordCount > maxWordCount) return false;
-    }
-    
-    return true;
+// Now requires explicit host and sessionId for proper session isolation
+export function isUrlEligible(url: string, host: string, contentType?: string, wordCount?: number): boolean {
+  const u = new URL(url);
+  if (httpsOnly && u.protocol !== 'https:') return false;
+  if (sameOriginOnly && u.hostname !== host) return false;
+  
+  const ct = (contentType || '').toLowerCase();
+  if (ct) {
+    const base = ct.split(';')[0].trim();
+    if (!allowlistContentTypes.has(base)) return false;
+  }
+  
+  // Check word count eligibility
+  if (wordCount !== undefined) {
+    if (wordCount < minWordCount || wordCount > maxWordCount) return false;
+  }
+  
+  return true;
 }
 
 // Enqueue a URL for SEO processing with session isolation
 // IMPORTANT: Each crawl session has its own isolated queue to prevent stale data
 // URLs are always re-extracted fresh for each new crawl session
-export async function maybeEnqueueSeo(url: string, contentType?: string, wordCount?: number): Promise<boolean> {
+// REQUIRES: sessionId and host for proper session isolation (no global state)
+export async function maybeEnqueueSeo(url: string, sessionId: number, host: string, contentType?: string, wordCount?: number): Promise<boolean> {
   try {
-    if (!isUrlEligible(url, contentType, wordCount)) return false;
+    if (!isUrlEligible(url, host, contentType, wordCount)) return false;
 
     const redisClient = await getRedis();
     const config = loadRedisConfig();
     
     // Session-specific queue keys to prevent data leakage between concurrent crawls
-    const sessionQueueKey = `${config.queues.seo}:${cachedSessionId}:priority`;
-    const sessionQueueSet = `${config.queues.seo}:${cachedSessionId}:set`;
-    const sessionProcessingSet = `${config.queues['seo-processing']}:${cachedSessionId}:set`;
+    const sessionQueueKey = `${config.queues.seo}:${sessionId}:priority`;
+    const sessionQueueSet = `${config.queues.seo}:${sessionId}:set`;
+    const sessionProcessingSet = `${config.queues['seo-processing']}:${sessionId}:set`;
     
     // Check if URL is already queued or processing IN THIS SESSION ONLY
     const isQueued = await redisClient.sismember(sessionQueueSet, url);
@@ -167,7 +165,7 @@ export async function maybeEnqueueSeo(url: string, contentType?: string, wordCou
     // Create job object with required sessionId
     const job: SeoJob = {
       url,
-      sessionId: cachedSessionId!,
+      sessionId: sessionId,
       contentType,
       wordCount,
       addedAt: new Date().toISOString()
@@ -330,24 +328,27 @@ export async function clearQueue(sessionId?: number): Promise<void> {
   }
 }
 
-// Add URL to queue (legacy function - requires manual sessionId management)
-export async function addUrlToQueue(url: string, priority = 5): Promise<boolean> {
+// Add URL to queue (legacy function - now requires explicit sessionId for proper isolation)
+export async function addUrlToQueue(url: string, sessionId: number, priority = 5): Promise<boolean> {
   try {
     const redisClient = await getRedis();
     const config = loadRedisConfig();
     
+    const queueKey = `${config.queues.seo}:${sessionId}:priority`;
+    const queueSet = `${config.queues.seo}:${sessionId}:set`;
+    
     // Check if already queued
-    const isQueued = await redisClient.sismember(`${config.queues.seo}:set`, url);
+    const isQueued = await redisClient.sismember(queueSet, url);
     if (isQueued) return false;
     
     const job: SeoJob = {
       url,
-      sessionId: cachedSessionId || 0, // Use cached sessionId or 0 as fallback
+      sessionId: sessionId,
       addedAt: new Date().toISOString()
     };
     
-    await redisClient.zadd(config.queues['seo-priority'], priority, JSON.stringify(job));
-    await redisClient.sadd(`${config.queues.seo}:set`, url);
+    await redisClient.zadd(queueKey, priority, JSON.stringify(job));
+    await redisClient.sadd(queueSet, url);
     
     return true;
   } catch (error) {
@@ -387,9 +388,15 @@ export async function retryFailedJob(url: string, sessionId?: number): Promise<b
     await redisClient.srem(failedSet, url);
     
     // Add back to queue
+    // Note: sessionId is required for proper session isolation
+    if (!sessionId) {
+      console.error('[redis-queue] Retry failed job requires sessionId');
+      return false;
+    }
+    
     const job: SeoJob = {
       url,
-      sessionId: sessionId || cachedSessionId || 0,
+      sessionId: sessionId,
       addedAt: new Date().toISOString()
     };
     

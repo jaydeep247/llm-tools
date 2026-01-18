@@ -28,12 +28,13 @@ async function main() {
         
       case 'add':
         const url = process.argv[3];
-        const priority = parseInt(process.argv[4]) || 5;
-        if (!url) {
-          console.error('❌ URL is required');
+        const sessionId = parseInt(process.argv[4]);
+        const priority = parseInt(process.argv[5]) || 5;
+        if (!url || !sessionId) {
+          console.error('❌ URL and sessionId are required');
           process.exit(1);
         }
-        const success = await addUrlToQueue(url, priority);
+        const success = await addUrlToQueue(url, sessionId, priority);
         if (success) {
           console.log(`✅ URL added to queue: ${url}`);
         } else {
@@ -86,14 +87,14 @@ async function main() {
         console.log('Commands:');
         console.log('  stats                    Show queue statistics');
         console.log('  clear                    Clear the entire queue');
-        console.log('  add <url> [priority]      Add URL to queue (priority 1-10)');
+        console.log('  add <url> <sessionId> [priority]      Add URL to queue (priority 1-10)');
         console.log('  failed                   List failed jobs');
         console.log('  retry <url>              Retry a failed job');
         console.log('  monitor                  Monitor queue in real-time');
         console.log('');
         console.log('Examples:');
         console.log('  npm run seo:redis-cli stats');
-        console.log('  npm run seo:redis-cli add https://example.com 1');
+        console.log('  npm run seo:redis-cli add https://example.com 123 1');
         console.log('  npm run seo:redis-cli retry https://example.com');
         break;
     }

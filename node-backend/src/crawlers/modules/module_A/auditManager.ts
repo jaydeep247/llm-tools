@@ -1,12 +1,19 @@
 /**
  * Module A - Audit Management
- * Handles audit control, execution, and reporting
+ * Handles audit control, execution, and reporting using Redis queue for parallel processing
  */
 
 import { log } from 'crawlee';
 import { Logger } from '../../../helpers/logging/Logger.js';
 import { getDatabase } from '../../../services/DatabaseService.js';
 import { CrawlAuditIntegration } from '../../../services/module_A/audits/CrawlAuditIntegration.js';
+import {
+    initAuditQueue,
+    enqueueAudits,
+    getAuditQueueStats,
+    areAuditsComplete,
+    type AuditJob
+} from '../../../services/module_A/audits/audit-redis-queue.js';
 import type { CrawlEvents } from '../../types/index.js';
 
 const logger = Logger.getInstance();
@@ -34,7 +41,8 @@ export async function runAuditProcessing(
     }
 
     try {
-        const auditIntegration = new CrawlAuditIntegration(sessionId);
+        // Initialize Redis queue for this session
+        await initAuditQueue(sessionId);
 
         // Get crawled URLs for auditing
         const crawledPages = await db.getPages(sessionId);
@@ -50,128 +58,96 @@ export async function runAuditProcessing(
             const noAuditMsg = 'No valid URLs found for auditing';
             log.info(noAuditMsg);
             onLog?.(noAuditMsg);
+            
+            // Update status back to completed since no audits will run
+            await db.updateCrawlSession(sessionId, { status: 'completed' });
+            
+            // Call onAuditsComplete to signal that audit processing is done (even though no audits ran)
+            onAuditsComplete?.();
+            
             return;
         }
 
-        onLog?.(`Running audits for ${urlsToAudit.length} URLs...`);
+        onLog?.(`Running audits for ${urlsToAudit.length} URLs using Redis queue for parallel processing...`);
 
-        // Dynamic batch size based on total URLs
-        const totalUrls = urlsToAudit.length;
-        let batchSize = 8;
+        // Create audit jobs
+        const auditJobs: AuditJob[] = urlsToAudit.map(url => ({
+            url,
+            sessionId,
+            device: auditDevice,
+            addedAt: new Date().toISOString()
+        }));
 
-        if (totalUrls > 50) {
-            batchSize = 12;
-        } else if (totalUrls > 20) {
-            batchSize = 10;
-        }
+        // Enqueue all jobs to Redis
+        const enqueued = await enqueueAudits(auditJobs);
 
-        const batches = [];
-        for (let i = 0; i < urlsToAudit.length; i += batchSize) {
-            const batch = urlsToAudit.slice(i, i + batchSize);
-            batches.push(batch);
-        }
-
-        const setupMsg = `🚀 Processing ${totalUrls} audits in ${batches.length} batches of ${batchSize} (parallel execution)`;
+        const setupMsg = `🚀 Queued ${enqueued}/${urlsToAudit.length} audits to Redis queue (parallel workers will process them)`;
         await db.updateCrawlSession(sessionId, { status: 'auditing' });
 
         log.info(setupMsg);
         onLog?.(setupMsg);
 
+        // Poll for completion (audit workers are processing in background)
         const startTime = Date.now();
-        let completedAudits = 0;
+        let lastStats = { totalQueued: enqueued, processing: 0, completed: 0, failed: 0 };
+        let lastProgressLog = Date.now();
 
-        for (const batch of batches) {
-            // Check if audits have been cancelled
-            if (auditCancelled) {
-                const cancelMsg = '🛑 Audit process cancelled by user';
-                log.info(cancelMsg);
-                onLog?.(cancelMsg);
-                break;
+        // Monitor queue progress until complete
+        while (!auditCancelled) {
+            const stats = await getAuditQueueStats(sessionId);
+
+            // Log progress periodically (every 5 seconds)
+            if (Date.now() - lastProgressLog > 5000) {
+                const progress = stats.totalQueued === 0 ? 100 : Math.round((stats.completed / (stats.totalQueued + stats.completed + stats.failed)) * 100);
+                const elapsed = Math.round((Date.now() - startTime) / 1000);
+                
+                const progressMsg = `📊 Queue Progress: ${stats.completed} completed, ${stats.processing} processing, ${stats.totalQueued} queued (${progress}%) | Elapsed: ${elapsed}s`;
+                log.info(progressMsg);
+                onLog?.(progressMsg);
+                lastProgressLog = Date.now();
             }
 
-            // Process batch in parallel
-            const batchPromises = batch.map(async (url: string) => {
-                try {
-                    onAuditStart?.(url);
-                    const auditResult = await auditIntegration.runAuditForUrl(url, auditDevice);
+            // Check if all audits are complete
+            if (await areAuditsComplete(sessionId)) {
+                const totalTime = Math.round((Date.now() - startTime) / 1000);
+                const auditsPerMinute = stats.completed > 0 ? Math.round((stats.completed / totalTime) * 60) : 0;
 
-                    onAuditComplete?.(
-                        url,
-                        auditResult.success,
-                        auditResult.lcp,
-                        auditResult.tbt,
-                        auditResult.cls,
-                        auditResult.performanceScore
-                    );
+                const auditIntegration = new CrawlAuditIntegration(sessionId);
+                const auditStats = auditIntegration.getAuditStats();
+                const successRate = stats.completed > 0 ? ((stats.completed / (stats.completed + stats.failed)) * 100).toFixed(1) : '0.0';
 
-                    if (auditResult.success) {
-                        onLog?.(`✓ Audit completed for ${url} - LCP: ${auditResult.lcp ? Math.round(auditResult.lcp) + 'ms' : 'N/A'}, TBT: ${auditResult.tbt ? Math.round(auditResult.tbt) + 'ms' : 'N/A'}, CLS: ${auditResult.cls ? auditResult.cls.toFixed(3) : 'N/A'}`);
-                    } else {
-                        onLog?.(`✗ Audit failed for ${url}: ${auditResult.error}`);
-                    }
+                const auditResultsMsg = `📊 Audit Results: ${stats.completed}/${stats.completed + stats.failed} successful (${successRate}% success rate)`;
+                log.info(auditResultsMsg);
+                onLog?.(auditResultsMsg);
 
-                    return { url, success: auditResult.success };
-                } catch (error) {
-                    onLog?.(`✗ Audit error for ${url}: ${(error as Error).message}`);
-                    onAuditComplete?.(url, false);
-                    return { url, success: false };
+                const performanceMsg = `⚡ Performance: ${totalTime}s total | ${auditsPerMinute} audits/min | Redis queue parallel processing`;
+                log.info(performanceMsg);
+                onLog?.(performanceMsg);
+
+                if (auditStats.averageLcp > 0) {
+                    onLog?.(`📈 Average LCP: ${Math.round(auditStats.averageLcp)}ms`);
                 }
-            });
+                if (auditStats.averageTbt > 0) {
+                    onLog?.(`📈 Average TBT: ${Math.round(auditStats.averageTbt)}ms`);
+                }
+                if (auditStats.averageCls > 0) {
+                    onLog?.(`📈 Average CLS: ${auditStats.averageCls.toFixed(3)}`);
+                }
 
-            await Promise.all(batchPromises);
-
-            if (auditCancelled) {
-                const cancelMsg = '🛑 Audit process cancelled by user';
-                log.info(cancelMsg);
-                onLog?.(cancelMsg);
+                onAuditResults?.(auditIntegration.getAllAuditResults());
+                onAuditsComplete?.();
                 break;
             }
 
-            // Update progress tracking
-            completedAudits += batch.length;
-            const batchIndex = batches.indexOf(batch);
-            const progress = Math.round((completedAudits / totalUrls) * 100);
-            const elapsed = Math.round((Date.now() - startTime) / 1000);
-            const estimatedTotal = Math.round((elapsed / completedAudits) * totalUrls);
-            const remaining = Math.max(0, estimatedTotal - elapsed);
-
-            const progressMsg = `📊 Progress: ${completedAudits}/${totalUrls} (${progress}%) | Elapsed: ${elapsed}s | ETA: ${remaining}s`;
-            log.info(progressMsg);
-            onLog?.(progressMsg);
-
-            // Minimal delay between batches
-            if (batchIndex < batches.length - 1) {
-                const baseDelay = batchSize > 10 ? 100 : 200;
-                const progressDelay = Math.max(50, baseDelay - (batchIndex * 10));
-                await new Promise(resolve => setTimeout(resolve, progressDelay));
-            }
+            // Wait before next check
+            await new Promise(resolve => setTimeout(resolve, 2000));
         }
 
-        // Report final results
-        const totalTime = Math.round((Date.now() - startTime) / 1000);
-        const auditsPerMinute = Math.round((totalUrls / totalTime) * 60);
-
-        const auditStats = auditIntegration.getAuditStats();
-        const auditResultsMsg = `📊 Audit Results: ${auditStats.successful}/${auditStats.total} successful (${auditStats.successRate.toFixed(1)}% success rate)`;
-        log.info(auditResultsMsg);
-        onLog?.(auditResultsMsg);
-
-        const performanceMsg = `⚡ Performance: ${totalTime}s total | ${auditsPerMinute} audits/min | ${batchSize} parallel`;
-        log.info(performanceMsg);
-        onLog?.(performanceMsg);
-
-        if (auditStats.averageLcp > 0) {
-            onLog?.(`📈 Average LCP: ${Math.round(auditStats.averageLcp)}ms`);
+        if (auditCancelled) {
+            const cancelMsg = '🛑 Audit process cancelled by user';
+            log.info(cancelMsg);
+            onLog?.(cancelMsg);
         }
-        if (auditStats.averageTbt > 0) {
-            onLog?.(`📈 Average TBT: ${Math.round(auditStats.averageTbt)}ms`);
-        }
-        if (auditStats.averageCls > 0) {
-            onLog?.(`📈 Average CLS: ${auditStats.averageCls.toFixed(3)}`);
-        }
-
-        onAuditResults?.(auditIntegration.getAllAuditResults());
-        onAuditsComplete?.();
     } catch (error) {
         const auditErrorMsg = `❌ Audit execution failed: ${(error as Error).message}`;
         log.error(auditErrorMsg);

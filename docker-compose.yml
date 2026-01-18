@@ -149,6 +149,36 @@ services:
       - contentlytics-network
     restart: unless-stopped
 
+  # Audit Worker (Redis-based)
+  audit-worker:
+    build:
+      context: ./node-backend
+      dockerfile: Dockerfile
+    container_name: contentlytics-audit-worker
+    env_file: .env
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      PSI_API_KEY: ${PSI_API_KEY}
+      AUDIT_CONCURRENCY: ${AUDIT_CONCURRENCY:-100}
+    command: ["node", "dist/audit/audit-worker.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - contentlytics-network
+    restart: unless-stopped
+
 networks:
   contentlytics-network:
     driver: bridge

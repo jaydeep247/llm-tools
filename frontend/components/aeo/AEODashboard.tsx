@@ -759,11 +759,12 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                 <div className="status-header">
                   <h3>🕷️ Crawling Status</h3>
                   <div className="status-indicator">
-                    <div className={`status-dot ${isCrawling ? 'active' : ''}`}></div>
+                    <div className={`status-dot ${(isCrawling || crawlStatus === 'running' || crawlStatus === 'auditing') ? 'active' : ''}`}></div>
                     <span>
                       {crawlStatus === 'running' ? 'Crawling...' :
                         crawlStatus === 'auditing' ? 'Auditing...' :
-                          'Completed'}
+                        crawlStatus === 'completed' ? 'Completed' :
+                          'Idle'}
                     </span>
                   </div>
                 </div>

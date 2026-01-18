@@ -11,7 +11,12 @@
     "seo": "queue",
     "seo-priority": "priority-queue",
     "seo-processing": "processing",
-    "seo-failed": "failed"
+    "seo-failed": "failed",
+    "audit": "audit-queue",
+    "audit-priority": "audit-priority-queue",
+    "audit-processing": "audit-processing",
+    "audit-completed": "audit-completed",
+    "audit-failed": "audit-failed"
   },
   "ttl": {
     "job": 3600,
