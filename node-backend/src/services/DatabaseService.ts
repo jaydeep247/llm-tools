@@ -83,12 +83,20 @@ export class DatabaseService {
         return this.crawls.getLatestSessionByUrl(url, userId);
     }
 
+    async deleteCrawlSession(id: number): Promise<void> {
+        return this.crawls.deleteCrawlSession(id);
+    }
+
     async getSessionByUrl(url: string, userId: number): Promise<CrawlSession | null> {
         return this.getLatestSessionByUrl(url, userId);
     }
 
     async getRunningSessionByUrl(url: string, userId?: number): Promise<CrawlSession | null> {
         return this.crawls.getRunningSessionByUrl(url, userId);
+    }
+
+    async getAnyRunningSessionByUserId(userId: number): Promise<CrawlSession | null> {
+        return this.crawls.getAnyRunningSessionByUserId(userId);
     }
 
     async getUserSessionsWithShares(userId: number, limit: number = 100, offset: number = 0): Promise<any[]> {

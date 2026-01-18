@@ -169,7 +169,7 @@ services:
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       PSI_API_KEY: ${PSI_API_KEY}
       AUDIT_CONCURRENCY: ${AUDIT_CONCURRENCY:-100}
-    command: ["node", "dist/redis/audit/audit-worker.js"]
+    command: ["node", "dist/audit/audit-worker.js"]
     depends_on:
       postgres:
         condition: service_healthy

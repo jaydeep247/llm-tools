@@ -102,6 +102,80 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkResults, setBulkResults] = useState<any>(null);
 
+  // Live timer state
+  const [crawlStartTime, setCrawlStartTime] = useState<number | null>(null);
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  // Track crawl start time when crawling begins
+  useEffect(() => {
+    const isActive = isCrawling || crawlStatus === 'running' || crawlStatus === 'auditing';
+    
+    if (isActive && !crawlStartTime) {
+      // Crawl just started - record start time
+      setCrawlStartTime(Date.now());
+    } else if (!isActive && crawlStartTime) {
+      // Crawl stopped - clear start time
+      setCrawlStartTime(null);
+    }
+  }, [isCrawling, crawlStatus, crawlStartTime]);
+
+  // Update current time every 100ms when crawling for smooth millisecond display
+  useEffect(() => {
+    const isActive = isCrawling || crawlStatus === 'running' || crawlStatus === 'auditing';
+    
+    if (isActive) {
+      const timer = setInterval(() => {
+        setCurrentTime(Date.now());
+      }, 100); // Update every 100ms for tenths of seconds
+      return () => clearInterval(timer);
+    }
+  }, [isCrawling, crawlStatus]);
+
+  // Helper function to format duration as watch time (HH:MM:SS or MM:SS) with optional milliseconds
+  const formatDurationWithHours = (seconds: number, milliseconds: number = 0, isRunning: boolean = false): string => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    // Format as watch time: HH:MM:SS or MM:SS
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    
+    // For running sessions, show milliseconds (tenths of a second)
+    if (isRunning && milliseconds > 0) {
+      if (hours > 0) {
+        return `${hours}:${pad(minutes)}:${pad(secs)}.${milliseconds}`;
+      }
+      return `${minutes}:${pad(secs)}.${milliseconds}`;
+    }
+    
+    // For completed sessions, standard format
+    if (hours > 0) {
+      return `${hours}:${pad(minutes)}:${pad(secs)}`;
+    }
+    return `${minutes}:${pad(secs)}`;
+  };
+
+  // Calculate elapsed time for live timer with milliseconds
+  const calculateElapsedTime = (): { seconds: number; milliseconds: number } => {
+    const isActive = isCrawling || crawlStatus === 'running' || crawlStatus === 'auditing';
+    
+    if (isActive && crawlStartTime) {
+      // Calculate live elapsed time with milliseconds
+      const elapsedMs = currentTime - crawlStartTime;
+      return {
+        seconds: Math.floor(elapsedMs / 1000),
+        milliseconds: Math.floor((elapsedMs % 1000) / 100) // Get tenths of a second
+      };
+    }
+    
+    // For completed sessions, use stored duration from crawlStats
+    if (crawlStats?.duration) {
+      return { seconds: Math.floor(crawlStats.duration), milliseconds: 0 };
+    }
+    
+    return { seconds: 0, milliseconds: 0 };
+  };
+
   const analyzeWebsiteScores = async () => {
     if (!url) return;
     setModuleELoading(true);
@@ -774,16 +848,31 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
                     <div className="stat-value">{pageCount}</div>
                     <div className="stat-label">Pages Discovered</div>
                   </div>
-                  {crawlStats && (
+                  {(crawlStats || isCrawling || crawlStatus === 'running' || crawlStatus === 'auditing') && (
                     <>
                       <div className="stat-box">
-                        <div className="stat-value">{crawlStats.duration.toFixed(1)}s</div>
-                        <div className="stat-label">Duration</div>
+                        <div className="stat-value" style={{ 
+                          color: (isCrawling || crawlStatus === 'running' || crawlStatus === 'auditing') ? '#a78bfa' : undefined 
+                        }}>
+                          {(() => {
+                            const elapsedTime = calculateElapsedTime();
+                            const isActive = isCrawling || crawlStatus === 'running' || crawlStatus === 'auditing';
+                            return formatDurationWithHours(elapsedTime.seconds, elapsedTime.milliseconds, isActive);
+                          })()}
+                          {(isCrawling || crawlStatus === 'running' || crawlStatus === 'auditing') && (
+                            <span style={{ marginLeft: '4px', display: 'inline-block', width: '8px', height: '8px', backgroundColor: '#a78bfa', borderRadius: '50%', animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' }}></span>
+                          )}
+                        </div>
+                        <div className="stat-label">
+                          {(isCrawling || crawlStatus === 'running' || crawlStatus === 'auditing') ? '🕷️ Elapsed Time' : 'Duration'}
+                        </div>
                       </div>
-                      <div className="stat-box">
-                        <div className="stat-value">{crawlStats.pagesPerSecond.toFixed(1)}</div>
-                        <div className="stat-label">Items/Sec</div>
-                      </div>
+                      {crawlStats && (
+                        <div className="stat-box">
+                          <div className="stat-value">{crawlStats.pagesPerSecond.toFixed(1)}</div>
+                          <div className="stat-label">Items/Sec</div>
+                        </div>
+                      )}
                     </>
                   )}
                 </div>

@@ -49,6 +49,29 @@ router.post('/crawl',
 
         const userId = req.user!.userId; // Get authenticated user ID
 
+        // Check if user already has ANY running crawl (regardless of URL)
+        // This prevents multiple concurrent crawls for the same user
+        try {
+            const db = getDatabase();
+            const anyRunningSession = await db.getAnyRunningSessionByUserId(userId);
+            if (anyRunningSession) {
+                const statusText = anyRunningSession.status === 'auditing' ? 'auditing' : 'crawling';
+                return res.status(409).json({
+                    error: `A crawl is already in progress`,
+                    message: `You already have a crawl session in progress (${statusText}). Please wait for it to complete before starting a new one.`,
+                    runningSession: {
+                        id: anyRunningSession.id,
+                        url: anyRunningSession.startUrl,
+                        status: anyRunningSession.status,
+                        startedAt: anyRunningSession.startedAt
+                    }
+                });
+            }
+        } catch (e) {
+            logger.warn('Failed to check for any running session', e as Error);
+            // Continue execution - don't block if check fails
+        }
+
         // Check if a completed session already exists for this URL (unless forceRecrawl)
         let existingSession: any = null;
         try {

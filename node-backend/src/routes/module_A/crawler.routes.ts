@@ -3,6 +3,7 @@ import { getDatabase } from '../../services/DatabaseService.js';
 import { authenticateUser } from '../../middleware/authMiddleware.js';
 import { validatePagination, handleValidationErrors } from '../../utils/validation.js';
 import { Logger } from '../../helpers/logging/Logger.js';
+import { cleanupSessionFromRedis } from '../../redis/session-cleanup.js';
 
 const router = express.Router();
 const logger = Logger.getInstance();
@@ -173,6 +174,59 @@ router.get('/data/list', authenticateUser, validatePagination, handleValidationE
         logger.error('Failed to get session data', error as Error);
         res.status(500).json({
             error: 'Failed to fetch session data',
+            details: (error as Error).message
+        });
+    }
+});
+
+// Delete session endpoint - removes session from database and Redis
+router.delete('/sessions/:sessionId', authenticateUser, async (req: express.Request, res: express.Response) => {
+    try {
+        const userId = req.user!.userId;
+        const sessionId = parseInt(req.params.sessionId);
+
+        if (isNaN(sessionId)) {
+            return res.status(400).json({ error: 'Invalid session ID' });
+        }
+
+        const db = getDatabase();
+        
+        // Verify session exists and user has permission
+        const session = await db.getCrawlSession(sessionId);
+        
+        if (!session) {
+            return res.status(404).json({ error: 'Session not found' });
+        }
+
+        // Check ownership or admin role
+        if (session.userId && session.userId !== userId && req.user!.role !== 'admin') {
+            logger.warn('Unauthorized attempt to delete session', { sessionId, userId, sessionOwner: session.userId });
+            return res.status(403).json({ error: 'Access denied. You can only delete your own sessions.' });
+        }
+
+        // Clean up Redis data first (audit queues, SEO queues, etc.)
+        try {
+            await cleanupSessionFromRedis(sessionId);
+            logger.info(`Cleaned up Redis data for session ${sessionId}`, { userId });
+        } catch (error) {
+            logger.warn(`Failed to cleanup Redis for session ${sessionId}`, error as Error);
+            // Continue with database deletion even if Redis cleanup fails
+        }
+
+        // Delete from database (CASCADE will handle related tables)
+        await db.deleteCrawlSession(sessionId);
+        
+        logger.info('Session deleted successfully', { sessionId, userId });
+        
+        res.json({
+            success: true,
+            message: 'Session deleted successfully',
+            sessionId
+        });
+    } catch (error) {
+        logger.error('Failed to delete session', error as Error);
+        res.status(500).json({
+            error: 'Failed to delete session',
             details: (error as Error).message
         });
     }

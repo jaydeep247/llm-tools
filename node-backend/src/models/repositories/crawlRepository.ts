@@ -148,6 +148,11 @@ export class CrawlRepository {
         await this.pool.query('DELETE FROM crawl_schedules WHERE id = $1', [id]);
     }
 
+    async deleteCrawlSession(id: number): Promise<void> {
+        // Delete session - CASCADE will handle related tables (crawl_logs, session_shares, schedule_executions, pages, resources, links, etc.)
+        await this.pool.query('DELETE FROM crawl_sessions WHERE id = $1', [id]);
+    }
+
     async getCrawlSchedule(id: number): Promise<CrawlSchedule | null> {
         const res = await this.pool.query('SELECT * FROM crawl_schedules WHERE id = $1', [id]);
         if (res.rows.length === 0) return null;
@@ -287,6 +292,14 @@ export class CrawlRepository {
             params.push(userId);
         }
         const res = await this.pool.query(sql, params);
+        return res.rows.length > 0 ? this.mapSession(res.rows[0]) : null;
+    }
+
+    async getAnyRunningSessionByUserId(userId: number): Promise<CrawlSession | null> {
+        // Check for any running or auditing session for this user
+        // 'running' = crawling in progress, 'auditing' = audit processing in progress
+        const sql = "SELECT * FROM crawl_sessions WHERE user_id = $1 AND status IN ('running', 'auditing') ORDER BY started_at DESC LIMIT 1";
+        const res = await this.pool.query(sql, [userId]);
         return res.rows.length > 0 ? this.mapSession(res.rows[0]) : null;
     }
 
