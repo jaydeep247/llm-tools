@@ -185,7 +185,8 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
       const response = await fetch('/api/aeo/website-score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, sessionId: result?.session_id })
+        body: JSON.stringify({ url, sessionId: result?.session_id }),
+        credentials: 'include'
       });
       const data = await response.json();
       if (data.success) {
@@ -271,6 +272,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
           url,
           schema_type: selectedSchemaType
         }),
+        credentials: 'include'
       });
 
       const data = await response.json();

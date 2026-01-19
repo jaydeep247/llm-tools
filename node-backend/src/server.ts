@@ -50,23 +50,44 @@ app.use(cors({
         // Allow requests with no origin (mobile apps, Postman, etc.)
         if (!origin) return callback(null, true);
         
+        // Normalize origins for comparison (remove trailing slashes)
+        const normalizeOrigin = (orig: string) => orig.replace(/\/$/, '');
+        const normalizedOrigin = normalizeOrigin(origin);
+        
+        // Extract IP address from CORS_ORIGIN if it's an IP
+        const ipFromOrigin = corsOrigin?.match(/^https?:\/\/(\d+\.\d+\.\d+\.\d+)(:\d+)?/);
+        const ipAddress = ipFromOrigin ? ipFromOrigin[1] : null;
+        
         // Allow configured origins
-        const allowedOrigins = [
+        const allowedOriginsRaw = [
             corsOrigin,
             'http://localhost:3000',
             'http://localhost:3004',
-            `${process.env.PUBLIC_IP}:3000`,
-            `${process.env.PUBLIC_IP}:3004`
+            'https://localhost:3000',
+            'https://localhost:3004',
+            process.env.PUBLIC_IP ? `http://${process.env.PUBLIC_IP}:3000` : null,
+            process.env.PUBLIC_IP ? `http://${process.env.PUBLIC_IP}:3004` : null,
+            // Also allow IP address directly if CORS_ORIGIN contains IP
+            ipAddress ? `http://${ipAddress}:3000` : null,
+            ipAddress ? `http://${ipAddress}:3004` : null,
         ];
+        const allowedOrigins = allowedOriginsRaw
+            .filter((orig): orig is string => orig !== null)
+            .map(normalizeOrigin);
         
-        if (allowedOrigins.indexOf(origin) !== -1) {
+        // Check if origin matches any allowed origin
+        const originMatches = allowedOrigins.some(allowed => 
+            normalizeOrigin(allowed) === normalizedOrigin
+        );
+        
+        if (originMatches) {
             callback(null, true);
         } else {
-            logger.warn(`CORS blocked origin: ${origin}`);
+            logger.warn(`CORS blocked origin: ${origin} (allowed: ${allowedOrigins.join(', ')})`);
             callback(new Error('Not allowed by CORS'));
         }
     },
-    credentials: true, // Allow cookies to be sent
+    credentials: true, // Allow cookies to be sent - CRITICAL for cookie-based auth
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     exposedHeaders: ['Content-Range', 'X-Content-Range'],

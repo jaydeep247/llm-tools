@@ -11,33 +11,64 @@ const logger = Logger.getInstance();
 
 /**
  * Get cookie options for setting cookies
- * In production with HTTPS, use 'none' for sameSite to allow cross-origin cookies
- * In development, use 'lax' for better security
+ * - For HTTPS: use 'none' for sameSite (allows cross-origin)
+ * - For HTTP: use 'lax' for sameSite (same-origin only, but works with IP addresses)
  */
 const getCookieOptions = () => {
-    const isProduction = process.env.NODE_ENV === 'production';
-    return {
+    // Check if we should use secure cookies (HTTPS only)
+    // COOKIE_SECURE=true explicitly enables secure cookies (requires HTTPS)
+    const useSecure = process.env.COOKIE_SECURE === 'true';
+    
+    // sameSite: 'none' REQUIRES secure: true (HTTPS only)
+    // For HTTP (like IP addresses), we must use 'lax' or 'strict'
+    // 'lax' allows cookies to be sent on same-site requests and top-level navigations
+    const sameSiteValue = useSecure ? ('none' as const) : ('lax' as const);
+    
+    const options: any = {
         httpOnly: true,
-        secure: isProduction, // Only send over HTTPS in production
-        sameSite: isProduction ? ('none' as const) : ('lax' as const), // 'none' for cross-origin in production, 'lax' for same-site in dev
+        secure: useSecure, // false for HTTP, true for HTTPS
+        sameSite: sameSiteValue,
         maxAge: undefined as number | undefined, // Will be set per cookie
         path: '/', // Ensure cookies are available for all paths
-        ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {}) // Optional domain for subdomain sharing
     };
+    
+    // Only set domain if explicitly configured AND not using IP address
+    // IP addresses cannot use domain cookies
+    if (process.env.COOKIE_DOMAIN && !process.env.CORS_ORIGIN?.match(/^\d+\.\d+\.\d+\.\d+/)) {
+        options.domain = process.env.COOKIE_DOMAIN;
+    }
+    
+    logger.info('Cookie options configured', { 
+        useSecure, 
+        sameSite: sameSiteValue, 
+        hasDomain: !!options.domain,
+        corsOrigin: process.env.CORS_ORIGIN 
+    });
+    
+    return options;
 };
 
 /**
  * Get cookie options for clearing cookies (must match setting options)
  */
 const getClearCookieOptions = () => {
-    const isProduction = process.env.NODE_ENV === 'production';
-    return {
+    // Match the same logic as getCookieOptions
+    const useSecure = process.env.COOKIE_SECURE === 'true';
+    const sameSiteValue = useSecure ? ('none' as const) : ('lax' as const);
+    
+    const options: any = {
         httpOnly: true,
-        secure: isProduction,
-        sameSite: isProduction ? ('none' as const) : ('lax' as const),
+        secure: useSecure,
+        sameSite: sameSiteValue,
         path: '/',
-        ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {})
     };
+    
+    // Only set domain if explicitly configured AND not using IP address
+    if (process.env.COOKIE_DOMAIN && !process.env.CORS_ORIGIN?.match(/^\d+\.\d+\.\d+\.\d+/)) {
+        options.domain = process.env.COOKIE_DOMAIN;
+    }
+    
+    return options;
 };
 
 /**
