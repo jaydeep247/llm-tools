@@ -10,6 +10,37 @@ const db = getDatabase();
 const logger = Logger.getInstance();
 
 /**
+ * Get cookie options for setting cookies
+ * In production with HTTPS, use 'none' for sameSite to allow cross-origin cookies
+ * In development, use 'lax' for better security
+ */
+const getCookieOptions = () => {
+    const isProduction = process.env.NODE_ENV === 'production';
+    return {
+        httpOnly: true,
+        secure: isProduction, // Only send over HTTPS in production
+        sameSite: isProduction ? ('none' as const) : ('lax' as const), // 'none' for cross-origin in production, 'lax' for same-site in dev
+        maxAge: undefined as number | undefined, // Will be set per cookie
+        path: '/', // Ensure cookies are available for all paths
+        ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {}) // Optional domain for subdomain sharing
+    };
+};
+
+/**
+ * Get cookie options for clearing cookies (must match setting options)
+ */
+const getClearCookieOptions = () => {
+    const isProduction = process.env.NODE_ENV === 'production';
+    return {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: isProduction ? ('none' as const) : ('lax' as const),
+        path: '/',
+        ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {})
+    };
+};
+
+/**
  * POST /api/auth/register
  * Register a new user
  */
@@ -72,17 +103,14 @@ router.post('/register', async (req: Request, res: Response) => {
         });
 
         // Set both access token and refresh token as HTTP-only cookies
+        const cookieOptions = getCookieOptions();
         res.cookie('accessToken', tokens.accessToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            ...cookieOptions,
             maxAge: 15 * 60 * 1000 // 15 minutes
         });
 
         res.cookie('refreshToken', tokens.refreshToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            ...cookieOptions,
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
 
@@ -161,17 +189,14 @@ router.post('/login', async (req: Request, res: Response) => {
         });
 
         // Set both access token and refresh token as HTTP-only cookies
+        const cookieOptions = getCookieOptions();
         res.cookie('accessToken', tokens.accessToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            ...cookieOptions,
             maxAge: 15 * 60 * 1000 // 15 minutes
         });
 
         res.cookie('refreshToken', tokens.refreshToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            ...cookieOptions,
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
 
@@ -204,9 +229,10 @@ router.post('/login', async (req: Request, res: Response) => {
  */
 router.post('/logout', authenticateUser, async (req: Request, res: Response) => {
     try {
-        // Clear both access token and refresh token cookies
-        res.clearCookie('accessToken');
-        res.clearCookie('refreshToken');
+        // Clear both access token and refresh token cookies (must use same options as setting)
+        const clearOptions = getClearCookieOptions();
+        res.clearCookie('accessToken', clearOptions);
+        res.clearCookie('refreshToken', clearOptions);
 
         logger.info('User logged out', { userId: req.user?.userId });
 
@@ -240,9 +266,10 @@ router.post('/refresh', async (req: Request, res: Response) => {
 
         // Verify refresh token
         const payload = authService.verifyRefreshToken(refreshToken);
+        const clearOptions = getClearCookieOptions();
         if (!payload) {
-            res.clearCookie('accessToken');
-            res.clearCookie('refreshToken');
+            res.clearCookie('accessToken', clearOptions);
+            res.clearCookie('refreshToken', clearOptions);
             return res.status(401).json({
                 error: 'Invalid refresh token',
                 message: 'Refresh token is invalid or expired'
@@ -252,8 +279,8 @@ router.post('/refresh', async (req: Request, res: Response) => {
         // Check if user still exists and is active
         const user = await db.getUserById(payload.userId);
         if (!user || !user.isActive) {
-            res.clearCookie('accessToken');
-            res.clearCookie('refreshToken');
+            res.clearCookie('accessToken', clearOptions);
+            res.clearCookie('refreshToken', clearOptions);
             return res.status(401).json({
                 error: 'User not found',
                 message: 'User no longer exists or is disabled'
@@ -268,17 +295,14 @@ router.post('/refresh', async (req: Request, res: Response) => {
         });
 
         // Update both access token and refresh token cookies
+        const cookieOptions = getCookieOptions();
         res.cookie('accessToken', tokens.accessToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            ...cookieOptions,
             maxAge: 15 * 60 * 1000 // 15 minutes
         });
 
         res.cookie('refreshToken', tokens.refreshToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            ...cookieOptions,
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
 
