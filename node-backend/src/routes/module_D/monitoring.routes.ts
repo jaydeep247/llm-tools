@@ -414,13 +414,32 @@ router.get('/data/pages', authenticateUser, async (req, res) => {
     const totalPages = await db.getPageCount(sessionId);
 
     res.json({
-      data: pages.map((p: any) => ({
+      pages: pages.map((p: any) => ({
         id: p.id,
         sessionId: p.sessionId ?? p.session_id ?? sessionId,
         url: p.url,
         title: p.title ?? null,
+        titleLength: p.titleLength ?? p.title_length,
+        titlePixelWidth: p.titlePixelWidth ?? p.title_pixel_width,
+        titleStatus: p.titleStatus ?? p.title_status,
+        duplicateTitleCount: p.duplicateTitleCount ?? p.duplicate_title_count,
+        duplicateWith: p.duplicateWith ?? (p.duplicate_with ? (typeof p.duplicate_with === 'string' ? JSON.parse(p.duplicate_with) : p.duplicate_with) : null),
+        description: p.description ?? p.meta_description,
+        descriptionLength: p.descriptionLength ?? p.description_length,
+        descriptionPixelWidth: p.descriptionPixelWidth ?? p.description_pixel_width,
+        metaDescriptionStatus: p.metaDescriptionStatus ?? p.meta_description_status,
+        duplicateMetaDescriptionCount: p.duplicateMetaDescriptionCount ?? p.duplicate_meta_description_count,
+        duplicateMetaDescriptionWith: p.duplicateMetaDescriptionWith ?? (p.duplicate_meta_description_with ? (typeof p.duplicate_meta_description_with === 'string' ? JSON.parse(p.duplicate_meta_description_with) : p.duplicate_meta_description_with) : null),
+        canonicalUrl: p.canonicalUrl ?? p.canonical_url,
+        canonicalValidationStatus: p.canonicalValidationStatus ?? p.canonical_validation_status,
+        canonicalValidationMessage: p.canonicalValidationMessage ?? p.canonical_validation_message,
+        metaKeywords: p.metaKeywords ?? p.meta_keywords,
+        metaKeywordsLength: p.metaKeywordsLength ?? p.meta_keywords_length,
+        contentType: p.contentType ?? p.content_type,
+        lastModified: p.lastModified ?? p.last_modified,
         timestamp: p.timestamp ?? p.created_at ?? null,
         statusCode: p.statusCode ?? p.status_code ?? null,
+        success: p.success !== false,
       })),
       paging: {
         limit,

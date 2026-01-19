@@ -5,6 +5,7 @@ import LinkExplorer from '../crawler/LinkExplorer';
 import WebTree from '../crawler/FixedWebTree';
 import MindMapWebTree from '../crawler/MindMapWebTree';
 import AuditsPage from '../audit/AuditsPage';
+import PageMetrics from './PageMetrics';
 import { apiService } from "../../api";
 import CompetitorMentionsList from './CompetitorMentionsList';
 import { SentimentTracking } from './SentimentTracking';
@@ -76,8 +77,8 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
   logs = [],
   discoveredPages = []
 }) => {
-  // Added 'simulator' to activeView types
-  const [activeView, setActiveView] = useState<'crawler' | 'data' | 'links' | 'tree' | 'audits' | 'schema' | 'intelligence' | 'simulator'>(runCrawl ? 'crawler' : 'data');
+  // Added 'simulator' and 'page_metrics' to activeView types
+  const [activeView, setActiveView] = useState<'crawler' | 'data' | 'links' | 'tree' | 'audits' | 'schema' | 'intelligence' | 'simulator' | 'page_metrics'>(runCrawl ? 'crawler' : 'data');
   const [showRecommendations, setShowRecommendations] = useState<string | null>(null);
   const [schemaData, setSchemaData] = useState<any>(null);
   const [schemaLoading, setSchemaLoading] = useState(false);
@@ -783,6 +784,12 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
             📋 Crawled Data
           </button>
           <button
+            onClick={() => setActiveView('page_metrics')}
+            className={`tab-button ${activeView === 'page_metrics' ? 'active' : ''}`}
+          >
+            📊 Page Metrics
+          </button>
+          <button
             onClick={() => setActiveView('links')}
             className={`tab-button ${activeView === 'links' ? 'active' : ''}`}
           >
@@ -928,6 +935,14 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
             <div className="data-content-embedded">
               <DataViewer
                 onClose={() => { }}
+                initialSessionId={result?.session_id || null}
+              />
+            </div>
+          )}
+
+          {activeView === 'page_metrics' && (
+            <div className="page-metrics-content-embedded">
+              <PageMetrics
                 initialSessionId={result?.session_id || null}
               />
             </div>
