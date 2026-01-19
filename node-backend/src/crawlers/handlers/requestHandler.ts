@@ -172,6 +172,35 @@ export function createRequestHandler(context: RequestHandlerContext): CheerioCra
             });
         }
 
+        // Update title and meta description detection (missing and duplicate detection)
+        // Note: Duplicate detection will be more accurate after all pages are crawled,
+        // but we update incrementally for immediate feedback
+        try {
+            await db.pages.updateTitleDetection(pageId, sessionId, pageMetrics.title);
+            await db.pages.updateMetaDescriptionDetection(pageId, sessionId, pageMetrics.metaDescription);
+        } catch (error) {
+            // Log but don't fail the crawl if detection fails
+            logger.warn(`Failed to update title/meta description detection for page ${pageId}: ${error}`);
+        }
+
+        // Extract and validate canonical URL
+        // This is done asynchronously to avoid blocking the crawl
+        try {
+            const { extractAndValidateCanonical } = await import('../../helpers/module_A/canonicalValidation/canonicalValidationService.js');
+            const canonicalResult = await extractAndValidateCanonical($, url);
+            
+            await db.pages.updateCanonicalValidation(
+                pageId,
+                sessionId,
+                canonicalResult.canonicalUrl,
+                canonicalResult.validationStatus,
+                canonicalResult.validationMessage
+            );
+        } catch (error) {
+            // Log but don't fail the crawl if canonical validation fails
+            logger.warn(`Failed to validate canonical for page ${pageId}: ${error}`);
+        }
+
         // Create fingerprint
         try {
             const fingerprint = createFingerprint($, pageId, sessionId, url, false);

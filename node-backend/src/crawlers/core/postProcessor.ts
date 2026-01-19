@@ -27,6 +27,22 @@ export async function executePostProcessing(
     await calculateLinkScores(sessionId, events);
     await calculateDuplicateMetrics(sessionId, events);
 
+    // Batch update title and meta description detection for all pages in the session
+    // This ensures accurate duplicate detection after all pages are crawled
+    try {
+        logger.info(`[Detection] Starting batch title and meta description detection for session ${sessionId}`);
+        events.onLog?.('[📝 Detection] Analyzing page titles and meta descriptions for missing and duplicates...');
+        
+        // Use the combined batch update method for efficiency
+        await db.pages.batchUpdateAllDetections(sessionId);
+        
+        events.onLog?.('[📝 Detection] ✓ Title and meta description detection complete');
+    } catch (error) {
+        logger.warn(`[Detection] Title and meta description detection failed for session ${sessionId}:`, error as Error);
+        events.onLog?.('[⚠️ Detection] Warning: Detection could not be completed');
+        // Don't throw - detection is optional and shouldn't break the pipeline
+    }
+
     // Run semantic analysis (Module A - Semantic Similarity)
     try {
         logger.info(`[SemanticAnalysis] Starting semantic analysis for session ${sessionId}`);

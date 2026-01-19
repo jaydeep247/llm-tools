@@ -84,6 +84,18 @@ export interface Page {
     semanticSimilarityScore?: number; // Similarity score (0.0-1.0) with closest semantically similar page
     noSemanticallySimilar?: number; // Count of pages with similarity >= 0.80
     semanticRelevanceScore?: number; // Relevance score (0.0-1.0) to the page's intended topic
+    // Title Detection Fields (from page_metrics table)
+    titleStatus?: 'OK' | 'Missing' | 'Duplicate'; // Status of the page title
+    duplicateTitleCount?: number; // Number of pages with the same title
+    duplicateWith?: string[]; // Array of URLs with duplicate titles
+    // Meta Description Detection Fields (from page_metrics table)
+    metaDescriptionStatus?: 'OK' | 'Missing' | 'Duplicate'; // Status of the meta description
+    duplicateMetaDescriptionCount?: number; // Number of pages with the same meta description
+    duplicateMetaDescriptionWith?: string[]; // Array of URLs with duplicate meta descriptions
+    // Canonical Validation Fields (from page_metrics table)
+    // Note: canonicalUrl already exists above in the Page interface, so we only add validation fields here
+    canonicalValidationStatus?: 'Valid' | 'Invalid' | 'Missing' | 'Redirect' | 'Error' | 'Not Found' | 'Blocked'; // Validation status
+    canonicalValidationMessage?: string; // Detailed validation message
 }
 
 export interface Resource {

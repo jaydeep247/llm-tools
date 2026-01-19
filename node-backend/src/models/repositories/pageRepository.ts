@@ -267,15 +267,362 @@ export class PageRepository {
         }
     }
 
+    /**
+     * Update canonical validation for a page in page_metrics table
+     * This extracts and validates the canonical URL
+     */
+    async updateCanonicalValidation(
+        pageId: number, 
+        sessionId: number, 
+        canonicalUrl: string | null,
+        validationStatus: string | null,
+        validationMessage: string | null
+    ): Promise<void> {
+        // Insert or update in page_metrics table
+        await this.pool.query(
+            `INSERT INTO page_metrics (page_id, session_id, canonical_url, canonical_validation_status, canonical_validation_message, updated_at)
+             VALUES ($1, $2, $3, $4, $5, NOW())
+             ON CONFLICT (page_id, session_id) DO UPDATE SET
+                 canonical_url = EXCLUDED.canonical_url,
+                 canonical_validation_status = EXCLUDED.canonical_validation_status,
+                 canonical_validation_message = EXCLUDED.canonical_validation_message,
+                 updated_at = NOW()`,
+            [
+                pageId,
+                sessionId,
+                canonicalUrl,
+                validationStatus,
+                validationMessage
+            ]
+        );
+    }
+
+    /**
+     * Update meta description detection fields for a page in page_metrics table
+     * This calculates missing/duplicate meta description status by checking against other pages in the session
+     */
+    async updateMetaDescriptionDetection(pageId: number, sessionId: number, metaDescription: string | null): Promise<void> {
+        // Import here to avoid circular dependencies
+        const { detectMissingMetaDescription, detectDuplicateMetaDescription, buildMetaDescriptionIndex } = await import('../../helpers/module_A/metaDescriptionDetection/metaDescriptionDetectionService.js');
+        
+        // Get all pages in the session for duplicate detection
+        const allPages = await this.pool.query(
+            `SELECT url, description FROM pages WHERE session_id = $1`,
+            [sessionId]
+        );
+        
+        // Get current page URL
+        const currentPage = await this.pool.query(
+            `SELECT url FROM pages WHERE id = $1`,
+            [pageId]
+        );
+        
+        if (currentPage.rows.length === 0) return;
+        
+        const currentUrl = currentPage.rows[0].url;
+        
+        // Build meta description index for duplicate detection
+        const descriptionIndex = buildMetaDescriptionIndex(
+            allPages.rows.map(row => ({ url: row.url, metaDescription: row.description }))
+        );
+        
+        // Detect meta description status
+        const missingStatus = detectMissingMetaDescription(metaDescription);
+        const duplicateResult = detectDuplicateMetaDescription(currentUrl, metaDescription, descriptionIndex);
+        
+        // Determine final status (Missing takes precedence)
+        const finalStatus = missingStatus === 'Missing' ? 'Missing' : duplicateResult.metaDescriptionStatus;
+        
+        // Insert or update in page_metrics table
+        await this.pool.query(
+            `INSERT INTO page_metrics (page_id, session_id, meta_description_status, duplicate_meta_description_count, duplicate_meta_description_with, updated_at)
+             VALUES ($1, $2, $3, $4, $5, NOW())
+             ON CONFLICT (page_id, session_id) DO UPDATE SET
+                 meta_description_status = EXCLUDED.meta_description_status,
+                 duplicate_meta_description_count = EXCLUDED.duplicate_meta_description_count,
+                 duplicate_meta_description_with = EXCLUDED.duplicate_meta_description_with,
+                 updated_at = NOW()`,
+            [
+                pageId,
+                sessionId,
+                finalStatus,
+                duplicateResult.duplicateMetaDescriptionCount || null,
+                duplicateResult.duplicateWith && duplicateResult.duplicateWith.length > 0 
+                    ? JSON.stringify(duplicateResult.duplicateWith) 
+                    : null
+            ]
+        );
+    }
+
+    /**
+     * Batch update meta description detection for all pages in a session
+     * This is more efficient than updating one by one
+     */
+    async batchUpdateMetaDescriptionDetection(sessionId: number): Promise<void> {
+        // Import here to avoid circular dependencies
+        const { batchDetectMetaDescriptionIssues } = await import('../../helpers/module_A/metaDescriptionDetection/metaDescriptionDetectionService.js');
+        
+        // Get all pages in the session
+        const allPages = await this.pool.query(
+            `SELECT id, url, description FROM pages WHERE session_id = $1`,
+            [sessionId]
+        );
+        
+        if (allPages.rows.length === 0) return;
+        
+        // Batch detect meta description issues
+        const pages = allPages.rows.map(row => ({ url: row.url, metaDescription: row.description }));
+        const results = batchDetectMetaDescriptionIssues(pages);
+        
+        // Update all pages in page_metrics table in a transaction
+        const client = await this.pool.connect();
+        try {
+            await client.query('BEGIN');
+            
+            for (const row of allPages.rows) {
+                const result = results.get(row.url);
+                if (result) {
+                    await client.query(
+                        `INSERT INTO page_metrics (page_id, session_id, meta_description_status, duplicate_meta_description_count, duplicate_meta_description_with, updated_at)
+                         VALUES ($1, $2, $3, $4, $5, NOW())
+                         ON CONFLICT (page_id, session_id) DO UPDATE SET
+                             meta_description_status = EXCLUDED.meta_description_status,
+                             duplicate_meta_description_count = EXCLUDED.duplicate_meta_description_count,
+                             duplicate_meta_description_with = EXCLUDED.duplicate_meta_description_with,
+                             updated_at = NOW()`,
+                        [
+                            row.id,
+                            sessionId,
+                            result.metaDescriptionStatus,
+                            result.duplicateMetaDescriptionCount || null,
+                            result.duplicateWith && result.duplicateWith.length > 0 
+                                ? JSON.stringify(result.duplicateWith) 
+                                : null
+                        ]
+                    );
+                }
+            }
+            
+            await client.query('COMMIT');
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+    }
+
+    /**
+     * Update title detection fields for a page in page_metrics table
+     * This calculates missing/duplicate title status by checking against other pages in the session
+     */
+    async updateTitleDetection(pageId: number, sessionId: number, title: string | null): Promise<void> {
+        // Import here to avoid circular dependencies
+        const { detectMissingTitle, detectDuplicateTitle, buildTitleIndex } = await import('../../helpers/module_A/titleDetection/titleDetectionService.js');
+        
+        // Get all pages in the session for duplicate detection
+        const allPages = await this.pool.query(
+            `SELECT url, title FROM pages WHERE session_id = $1`,
+            [sessionId]
+        );
+        
+        // Get current page URL
+        const currentPage = await this.pool.query(
+            `SELECT url FROM pages WHERE id = $1`,
+            [pageId]
+        );
+        
+        if (currentPage.rows.length === 0) return;
+        
+        const currentUrl = currentPage.rows[0].url;
+        
+        // Build title index for duplicate detection
+        const titleIndex = buildTitleIndex(
+            allPages.rows.map(row => ({ url: row.url, title: row.title }))
+        );
+        
+        // Detect title status
+        const missingStatus = detectMissingTitle(title);
+        const duplicateResult = detectDuplicateTitle(currentUrl, title, titleIndex);
+        
+        // Determine final status (Missing takes precedence)
+        const finalStatus = missingStatus === 'Missing' ? 'Missing' : duplicateResult.titleStatus;
+        
+        // Insert or update in page_metrics table
+        await this.pool.query(
+            `INSERT INTO page_metrics (page_id, session_id, title_status, duplicate_title_count, duplicate_with, updated_at)
+             VALUES ($1, $2, $3, $4, $5, NOW())
+             ON CONFLICT (page_id, session_id) DO UPDATE SET
+                 title_status = EXCLUDED.title_status,
+                 duplicate_title_count = EXCLUDED.duplicate_title_count,
+                 duplicate_with = EXCLUDED.duplicate_with,
+                 updated_at = NOW()`,
+            [
+                pageId,
+                sessionId,
+                finalStatus,
+                duplicateResult.duplicateTitleCount || null,
+                duplicateResult.duplicateWith && duplicateResult.duplicateWith.length > 0 
+                    ? JSON.stringify(duplicateResult.duplicateWith) 
+                    : null
+            ]
+        );
+    }
+
+    /**
+     * Batch update title detection for all pages in a session
+     * This is more efficient than updating one by one
+     */
+    async batchUpdateTitleDetection(sessionId: number): Promise<void> {
+        // Import here to avoid circular dependencies
+        const { batchDetectTitleIssues } = await import('../../helpers/module_A/titleDetection/titleDetectionService.js');
+        
+        // Get all pages in the session
+        const allPages = await this.pool.query(
+            `SELECT id, url, title FROM pages WHERE session_id = $1`,
+            [sessionId]
+        );
+        
+        if (allPages.rows.length === 0) return;
+        
+        // Batch detect title issues
+        const pages = allPages.rows.map(row => ({ url: row.url, title: row.title }));
+        const results = batchDetectTitleIssues(pages);
+        
+        // Update all pages in page_metrics table in a transaction
+        const client = await this.pool.connect();
+        try {
+            await client.query('BEGIN');
+            
+            for (const row of allPages.rows) {
+                const result = results.get(row.url);
+                if (result) {
+                    await client.query(
+                        `INSERT INTO page_metrics (page_id, session_id, title_status, duplicate_title_count, duplicate_with, updated_at)
+                         VALUES ($1, $2, $3, $4, $5, NOW())
+                         ON CONFLICT (page_id, session_id) DO UPDATE SET
+                             title_status = EXCLUDED.title_status,
+                             duplicate_title_count = EXCLUDED.duplicate_title_count,
+                             duplicate_with = EXCLUDED.duplicate_with,
+                             updated_at = NOW()`,
+                        [
+                            row.id,
+                            sessionId,
+                            result.titleStatus,
+                            result.duplicateTitleCount || null,
+                            result.duplicateWith && result.duplicateWith.length > 0 
+                                ? JSON.stringify(result.duplicateWith) 
+                                : null
+                        ]
+                    );
+                }
+            }
+            
+            await client.query('COMMIT');
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+    }
+
+    /**
+     * Batch update both title and meta description detection for all pages in a session
+     * This is the most efficient way to update all metrics at once
+     */
+    async batchUpdateAllDetections(sessionId: number): Promise<void> {
+        // Import here to avoid circular dependencies
+        const { batchDetectTitleIssues } = await import('../../helpers/module_A/titleDetection/titleDetectionService.js');
+        const { batchDetectMetaDescriptionIssues } = await import('../../helpers/module_A/metaDescriptionDetection/metaDescriptionDetectionService.js');
+        
+        // Get all pages in the session
+        const allPages = await this.pool.query(
+            `SELECT id, url, title, description FROM pages WHERE session_id = $1`,
+            [sessionId]
+        );
+        
+        if (allPages.rows.length === 0) return;
+        
+        // Batch detect title issues
+        const titlePages = allPages.rows.map(row => ({ url: row.url, title: row.title }));
+        const titleResults = batchDetectTitleIssues(titlePages);
+        
+        // Batch detect meta description issues
+        const descPages = allPages.rows.map(row => ({ url: row.url, metaDescription: row.description }));
+        const descResults = batchDetectMetaDescriptionIssues(descPages);
+        
+        // Update all pages in page_metrics table in a transaction
+        const client = await this.pool.connect();
+        try {
+            await client.query('BEGIN');
+            
+            for (const row of allPages.rows) {
+                const titleResult = titleResults.get(row.url);
+                const descResult = descResults.get(row.url);
+                
+                if (titleResult || descResult) {
+                    await client.query(
+                        `INSERT INTO page_metrics (
+                            page_id, session_id, 
+                            title_status, duplicate_title_count, duplicate_with,
+                            meta_description_status, duplicate_meta_description_count, duplicate_meta_description_with,
+                            updated_at
+                        )
+                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+                         ON CONFLICT (page_id, session_id) DO UPDATE SET
+                             title_status = EXCLUDED.title_status,
+                             duplicate_title_count = EXCLUDED.duplicate_title_count,
+                             duplicate_with = EXCLUDED.duplicate_with,
+                             meta_description_status = EXCLUDED.meta_description_status,
+                             duplicate_meta_description_count = EXCLUDED.duplicate_meta_description_count,
+                             duplicate_meta_description_with = EXCLUDED.duplicate_meta_description_with,
+                             updated_at = NOW()`,
+                        [
+                            row.id,
+                            sessionId,
+                            titleResult?.titleStatus || null,
+                            titleResult?.duplicateTitleCount || null,
+                            titleResult?.duplicateWith && titleResult.duplicateWith.length > 0 
+                                ? JSON.stringify(titleResult.duplicateWith) 
+                                : null,
+                            descResult?.metaDescriptionStatus || null,
+                            descResult?.duplicateMetaDescriptionCount || null,
+                            descResult?.duplicateWith && descResult.duplicateWith.length > 0 
+                                ? JSON.stringify(descResult.duplicateWith) 
+                                : null
+                        ]
+                    );
+                }
+            }
+            
+            await client.query('COMMIT');
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+    }
+
     async getPages(sessionId?: number, limit: number = 1000, offset: number = 0): Promise<Page[]> {
         if (!sessionId) {
-            // If no sessionId, use simple query
-            const sql = `SELECT * FROM pages ORDER BY timestamp DESC LIMIT $1 OFFSET $2`;
+            // If no sessionId, use simple query with page_metrics join
+            const sql = `
+                SELECT p.*, 
+                    pm.title_status, pm.duplicate_title_count, pm.duplicate_with,
+                    pm.meta_description_status, pm.duplicate_meta_description_count, pm.duplicate_meta_description_with,
+                    pm.canonical_validation_status, pm.canonical_validation_message
+                FROM pages p
+                LEFT JOIN page_metrics pm ON p.id = pm.page_id AND p.session_id = pm.session_id
+                ORDER BY p.timestamp DESC 
+                LIMIT $1 OFFSET $2
+            `;
             const res = await this.pool.query(sql, [limit, offset]);
             return res.rows.map(row => this.mapPage(row));
         }
 
-        // With sessionId, include link statistics
+        // With sessionId, include link statistics and page metrics
         const sql = `
             WITH total_unique_inlinks AS (
                 SELECT SUM(unique_count) as total
@@ -298,9 +645,18 @@ export class PageRepository {
                     WHEN total_unique_inlinks.total > 0 AND unique_in_links.count > 0 
                     THEN ROUND((unique_in_links.count::numeric / total_unique_inlinks.total::numeric * 100), 2)
                     ELSE 0 
-                END as "percentOfTotal"
+                END as "percentOfTotal",
+                pm.title_status,
+                pm.duplicate_title_count,
+                pm.duplicate_with,
+                pm.meta_description_status,
+                pm.duplicate_meta_description_count,
+                pm.duplicate_meta_description_with,
+                pm.canonical_validation_status,
+                pm.canonical_validation_message
             FROM pages p
             CROSS JOIN total_unique_inlinks
+            LEFT JOIN page_metrics pm ON p.id = pm.page_id AND p.session_id = pm.session_id
             LEFT JOIN (
                 SELECT target_page_id, COUNT(DISTINCT source_page_id) as count
                 FROM links
@@ -1151,7 +1507,24 @@ export class PageRepository {
             // URL Encoded Address
             urlEncodedAddress: row.url_encoded_address || undefined,
             // Content Hash
-            contentHash: row.content_hash || undefined
+            contentHash: row.content_hash || undefined,
+            // Title Detection Fields (from page_metrics table)
+            titleStatus: row.title_status || undefined,
+            duplicateTitleCount: row.duplicate_title_count !== null && row.duplicate_title_count !== undefined
+                ? parseInt(row.duplicate_title_count)
+                : undefined,
+            duplicateWith: row.duplicate_with ? (typeof row.duplicate_with === 'string' ? JSON.parse(row.duplicate_with) : row.duplicate_with) : undefined,
+            // Meta Description Detection Fields (from page_metrics table)
+            metaDescriptionStatus: row.meta_description_status || undefined,
+            duplicateMetaDescriptionCount: row.duplicate_meta_description_count !== null && row.duplicate_meta_description_count !== undefined
+                ? parseInt(row.duplicate_meta_description_count)
+                : undefined,
+            duplicateMetaDescriptionWith: row.duplicate_meta_description_with ? (typeof row.duplicate_meta_description_with === 'string' ? JSON.parse(row.duplicate_meta_description_with) : row.duplicate_meta_description_with) : undefined,
+            // Canonical Validation Fields (from page_metrics table)
+            // Note: canonicalUrl already exists from pages table, so we use that
+            // The canonical_validation_status and canonical_validation_message are from page_metrics
+            canonicalValidationStatus: row.canonical_validation_status || undefined,
+            canonicalValidationMessage: row.canonical_validation_message || undefined
         };
     }
 
