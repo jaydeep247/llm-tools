@@ -304,7 +304,7 @@ export default function WebTree({ onClose }: WebTreeProps) {
         const res = await fetch(`/api/data/pages?${params.toString()}`);
         if (!res.ok) throw new Error('Failed to load URL list');
         const result = await res.json();
-        const items = (result.data || []) as Array<{ url: string }>;
+        const items = (result.pages || []) as Array<{ url: string }>;
         if (items.length === 0) break;
         for (const it of items) {
           if (!it.url) continue;
