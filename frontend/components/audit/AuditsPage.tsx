@@ -55,7 +55,9 @@ export default function AuditsPage() {
 
   const loadSessions = async () => {
     try {
-      const res = await fetch('/api/data/sessions?limit=200');
+      const res = await fetch('/api/data/sessions?limit=200', {
+        credentials: 'include'
+      });
       if (!res.ok) throw new Error('Failed to load sessions');
       const result = await res.json();
       setSessions(result.sessions || []);
@@ -76,7 +78,9 @@ export default function AuditsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(endpoint);
+      const res = await fetch(endpoint, {
+        credentials: 'include'
+      });
       if (!res.ok) throw new Error(`Failed ${res.status}`);
       const json = await res.json();
       setItems(json.items || []);

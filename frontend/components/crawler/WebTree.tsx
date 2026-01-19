@@ -207,7 +207,9 @@ export default function WebTree({ onClose }: WebTreeProps) {
   useEffect(() => {
     const loadSessions = async () => {
       try {
-        const response = await fetch('/api/data/sessions?limit=200');
+        const response = await fetch('/api/data/sessions?limit=200', {
+          credentials: 'include'
+        });
         if (!response.ok) throw new Error('Failed to load sessions');
         const result = await response.json();
         const list: Session[] = result.sessions || [];
@@ -227,7 +229,9 @@ export default function WebTree({ onClose }: WebTreeProps) {
     const loadStats = async () => {
       if (!selectedSessionId) return;
       try {
-        const res = await fetch(`/api/links/stats/${selectedSessionId}`);
+        const res = await fetch(`/api/links/stats/${selectedSessionId}`, {
+          credentials: 'include'
+        });
         if (!res.ok) throw new Error('Failed to load link stats');
         const data: StatsResponse = await res.json();
         const idx = new Map<string, number>();
@@ -244,7 +248,9 @@ export default function WebTree({ onClose }: WebTreeProps) {
   }, [selectedSessionId]);
 
   const fetchOutlinks = useCallback(async (sessionId: number, pageId: number, limit: number): Promise<LinkItem[]> => {
-    const response = await fetch(`/api/links?sessionId=${sessionId}&pageId=${pageId}&type=out&limit=${limit}`);
+    const response = await fetch(`/api/links?sessionId=${sessionId}&pageId=${pageId}&type=out&limit=${limit}`, {
+      credentials: 'include'
+    });
     if (!response.ok) throw new Error('Failed to load links');
     const data: LinksResponse = await response.json();
     return data.links || [];
@@ -268,7 +274,9 @@ export default function WebTree({ onClose }: WebTreeProps) {
           params.set('limit', String(limit));
           params.set('offset', String(offset));
           params.set('sessionId', String(selectedSessionId));
-          const res = await fetch(`/api/data/pages?${params.toString()}`);
+          const res = await fetch(`/api/data/pages?${params.toString()}`, {
+            credentials: 'include'
+          });
           if (!res.ok) throw new Error('Failed to load URL list');
           const result = await res.json();
           const items = (result.pages || []) as Array<{ url: string }>;
@@ -417,7 +425,7 @@ export default function WebTree({ onClose }: WebTreeProps) {
       }
       await Promise.all(urls.map(async (u) => {
         try {
-          await fetch('/api/seo/extract', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: u }) });
+          await fetch('/api/seo/extract', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: u }), credentials: 'include' });
         } catch { }
       }));
     };
@@ -456,6 +464,7 @@ export default function WebTree({ onClose }: WebTreeProps) {
             const res = await fetch('/api/seo/extract', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
               body: JSON.stringify({ url: u })
             });
             const data = await res.json().catch(() => ({} as any));

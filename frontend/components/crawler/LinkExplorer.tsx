@@ -73,7 +73,9 @@ export default function LinkExplorer({ onClose }: LinkExplorerProps) {
   const loadSessions = async () => {
     try {
       console.log('Loading sessions...');
-      const response = await fetch('/api/data/sessions?limit=200');
+      const response = await fetch('/api/data/sessions?limit=200', {
+        credentials: 'include'
+      });
       console.log('Sessions response status:', response.status);
       if (!response.ok) throw new Error('Failed to load sessions');
       const result = await response.json();
@@ -94,7 +96,9 @@ export default function LinkExplorer({ onClose }: LinkExplorerProps) {
       console.log('Loading data for session:', selectedSessionId);
 
       // Load link statistics
-      const statsResponse = await fetch(`/api/links/stats/${selectedSessionId}`);
+      const statsResponse = await fetch(`/api/links/stats/${selectedSessionId}`, {
+        credentials: 'include'
+      });
       console.log('Stats response status:', statsResponse.status);
       if (!statsResponse.ok) throw new Error('Failed to load link statistics');
       const statsData = await statsResponse.json();
@@ -138,7 +142,9 @@ export default function LinkExplorer({ onClose }: LinkExplorerProps) {
 
     try {
       setLoadingLinks(true);
-      const response = await fetch(`/api/links?sessionId=${selectedSessionId}&pageId=${pageId}&type=${linkTypeToUse}&limit=100`);
+      const response = await fetch(`/api/links?sessionId=${selectedSessionId}&pageId=${pageId}&type=${linkTypeToUse}&limit=100`, {
+        credentials: 'include'
+      });
       if (!response.ok) throw new Error('Failed to load links');
       const data = await response.json();
       console.log('Links loaded:', data.links.length, 'links');

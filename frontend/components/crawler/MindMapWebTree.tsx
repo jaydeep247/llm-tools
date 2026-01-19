@@ -189,7 +189,9 @@ export default function MindMapWebTree({ onClose }: MindMapWebTreeProps) {
   useEffect(() => {
     const loadSessions = async () => {
       try {
-        const response = await fetch('/api/data/sessions?limit=200');
+        const response = await fetch('/api/data/sessions?limit=200', {
+          credentials: 'include'
+        });
         if (!response.ok) throw new Error('Failed to load sessions');
         const result = await response.json();
         const list: Session[] = result.sessions || [];
@@ -256,7 +258,8 @@ export default function MindMapWebTree({ onClose }: MindMapWebTreeProps) {
           const res = await fetch('/api/seo/extract', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url })
+            body: JSON.stringify({ url }),
+            credentials: 'include'
           });
 
           if (res.status === 404) return;
@@ -347,7 +350,9 @@ export default function MindMapWebTree({ onClose }: MindMapWebTreeProps) {
         params.set('limit', String(limit));
         params.set('offset', String(offset));
         params.set('sessionId', String(selectedSessionId));
-        const res = await fetch(`/api/data/pages?${params.toString()}`);
+        const res = await fetch(`/api/data/pages?${params.toString()}`, {
+          credentials: 'include'
+        });
         if (!res.ok) throw new Error('Failed to load URL list');
         const result = await res.json();
         const items = (result.pages || []) as Array<{ url: string }>;
