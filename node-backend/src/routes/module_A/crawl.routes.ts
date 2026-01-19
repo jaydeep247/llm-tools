@@ -31,6 +31,11 @@ router.post('/crawl',
         const { url, allowSubdomains, maxConcurrency, mode, runAudits, auditDevice, captureLinkDetails, forceRecrawl } = req.body ?? {};
         if (!url) return res.status(400).json({ error: 'url is required' });
 
+        // When forceRecrawl is true, log it to help debug any issues
+        if (forceRecrawl) {
+            logger.info('Force recrawl requested - will create completely new session and ignore all previous sessions', { url, userId: req.user?.userId });
+        }
+
         // Normalize and validate URL input
         const normalizeUrlInput = (input: string): string => {
             const trimmed = String(input).trim();
@@ -49,43 +54,113 @@ router.post('/crawl',
 
         const userId = req.user!.userId; // Get authenticated user ID
 
+        // When forceRecrawl is true, mark any previous running or auditing session for the same URL as completed
+        // This prevents the previous session from going into auditing or continuing to audit, avoiding conflicts with the new crawl
+        if (forceRecrawl) {
+            try {
+                const db = getDatabase();
+                // Check for running session
+                const previousRunningSession = await db.getRunningSessionByUrl(safeUrl, userId);
+                if (previousRunningSession) {
+                    logger.info('Force recrawl: Marking previous running session as completed to prevent conflicts', {
+                        previousSessionId: previousRunningSession.id,
+                        url: safeUrl,
+                        userId
+                    });
+                    // Mark the previous session as completed (without audits) to prevent it from going into auditing
+                    await db.updateCrawlSession(previousRunningSession.id, {
+                        status: 'completed',
+                        completedAt: new Date().toISOString()
+                    });
+                }
+                
+                // Also check for any session in auditing status for the same URL
+                // This handles the case where a previous session is already auditing
+                const latestSession = await db.getLatestSessionByUrl(safeUrl, userId);
+                if (latestSession && latestSession.status === 'auditing') {
+                    logger.info('Force recrawl: Marking previous auditing session as completed to prevent conflicts', {
+                        previousSessionId: latestSession.id,
+                        url: safeUrl,
+                        userId
+                    });
+                    // Mark the auditing session as completed to stop it from continuing
+                    await db.updateCrawlSession(latestSession.id, {
+                        status: 'completed',
+                        completedAt: new Date().toISOString()
+                    });
+                }
+            } catch (e) {
+                logger.warn('Failed to mark previous session as completed during force recrawl', e as Error);
+                // Continue execution - don't block if this fails
+            }
+        }
+
         // Check if user already has ANY running crawl (regardless of URL)
         // This prevents multiple concurrent crawls for the same user
-        try {
-            const db = getDatabase();
-            const anyRunningSession = await db.getAnyRunningSessionByUserId(userId);
-            if (anyRunningSession) {
-                const statusText = anyRunningSession.status === 'auditing' ? 'auditing' : 'crawling';
-                return res.status(409).json({
-                    error: `A crawl is already in progress`,
-                    message: `You already have a crawl session in progress (${statusText}). Please wait for it to complete before starting a new one.`,
-                    runningSession: {
-                        id: anyRunningSession.id,
-                        url: anyRunningSession.startUrl,
-                        status: anyRunningSession.status,
-                        startedAt: anyRunningSession.startedAt
-                    }
-                });
+        // Skip this check when forceRecrawl is true to allow new crawl sessions
+        if (!forceRecrawl) {
+            try {
+                const db = getDatabase();
+                const anyRunningSession = await db.getAnyRunningSessionByUserId(userId);
+                if (anyRunningSession) {
+                    const statusText = anyRunningSession.status === 'auditing' ? 'auditing' : 'crawling';
+                    return res.status(409).json({
+                        error: `A crawl is already in progress`,
+                        message: `You already have a crawl session in progress (${statusText}). Please wait for it to complete before starting a new one.`,
+                        runningSession: {
+                            id: anyRunningSession.id,
+                            url: anyRunningSession.startUrl,
+                            status: anyRunningSession.status,
+                            startedAt: anyRunningSession.startedAt
+                        }
+                    });
+                }
+            } catch (e) {
+                logger.warn('Failed to check for any running session', e as Error);
+                // Continue execution - don't block if check fails
             }
-        } catch (e) {
-            logger.warn('Failed to check for any running session', e as Error);
-            // Continue execution - don't block if check fails
         }
 
         // Check if a completed session already exists for this URL (unless forceRecrawl)
+        // When forceRecrawl is true, completely skip this check to ensure previous sessions are never touched
+        // IMPORTANT: When forceRecrawl is true, we must NEVER query for existing sessions to prevent
+        // any possibility of finding and updating the previous session
         let existingSession: any = null;
-        try {
-            const db = getDatabase();
-            if (!forceRecrawl) {
+        if (!forceRecrawl) {
+            try {
+                const db = getDatabase();
                 existingSession = await db.getSessionByUrl(safeUrl, userId);
+            } catch (e) {
+                logger.warn('Failed to check for existing session', e as Error);
             }
+        } else {
+            // When forceRecrawl is true, explicitly ensure existingSession is null
+            // This prevents any code path from accidentally using a previous session
+            existingSession = null;
+            logger.info('Force recrawl: explicitly setting existingSession to null to prevent any session reuse', { url: safeUrl, userId });
+        }
 
-            if (existingSession) {
-                // Don't share session yet - only share when user clicks "View previous results"
-                // This prevents adding sessions to history if user cancels the modal
+        if (existingSession) {
+            // Double-check: if forceRecrawl is true, we should never have an existingSession
+            // This is a safety check to prevent any code path from accidentally using a previous session
+            if (forceRecrawl) {
+                const error = new Error('CRITICAL: existingSession found when forceRecrawl is true - this should never happen!');
+                logger.error(error.message, error, { 
+                    existingSessionId: existingSession.id, 
+                    url: safeUrl, 
+                    userId 
+                });
+                existingSession = null; // Force it to null to prevent any session reuse
+            }
+        }
 
-                // Check if audits are requested
-                if (runAudits) {
+        if (existingSession) {
+            const db = getDatabase();
+            // Don't share session yet - only share when user clicks "View previous results"
+            // This prevents adding sessions to history if user cancels the modal
+
+            // Check if audits are requested
+            if (runAudits) {
                     // Check if session has audits for the requested device
                     const requestedDevice = auditDevice === 'mobile' ? 'mobile' : 'desktop';
                     const hasAudits = await db.hasAuditsForSession(existingSession.id); // Note: hasAuditsForSession currently doesn't take device in my repository, I should probably check that
@@ -332,83 +407,88 @@ router.post('/crawl',
                     }
                 }
 
-                // Normal reuse (no audits requested OR audits already exist)
-                logger.info('Session reused', {
-                    sessionId: existingSession.id,
-                    userId,
-                    url: safeUrl,
-                    hasAudits: runAudits ? true : undefined
-                });
+            // Normal reuse (no audits requested OR audits already exist)
+            logger.info('Session reused', {
+                sessionId: existingSession.id,
+                userId,
+                url: safeUrl,
+                hasAudits: runAudits ? true : undefined
+            });
 
-                // Process existing session data in background (SEO extraction, semantic analysis, link analysis, etc.)
-                void processExistingSessionData(
-                    existingSession.id,
-                    safeUrl,
-                    Boolean(captureLinkDetails),
-                    Boolean(runAudits),
-                    (auditDevice === 'mobile' ? 'mobile' : 'desktop') as 'desktop' | 'mobile',
-                    {
-                        onLog: (msg) => {
-                            logger.info(`[Reuse Processing] ${msg}`);
-                            sendEvent({ type: 'log', message: msg }, 'log', userId);
-                        },
-                        onPage: (url) => {
-                            // Not needed for reuse, but keeping for compatibility
-                        },
-                        onDone: () => {
-                            logger.info(`[Reuse Processing] Completed processing for session ${existingSession.id}`);
-                        }
+            // Process existing session data in background (SEO extraction, semantic analysis, link analysis, etc.)
+            void processExistingSessionData(
+                existingSession.id,
+                safeUrl,
+                Boolean(captureLinkDetails),
+                Boolean(runAudits),
+                (auditDevice === 'mobile' ? 'mobile' : 'desktop') as 'desktop' | 'mobile',
+                {
+                    onLog: (msg) => {
+                        logger.info(`[Reuse Processing] ${msg}`);
+                        sendEvent({ type: 'log', message: msg }, 'log', userId);
+                    },
+                    onPage: (url) => {
+                        // Not needed for reuse, but keeping for compatibility
+                    },
+                    onDone: () => {
+                        logger.info(`[Reuse Processing] Completed processing for session ${existingSession.id}`);
                     }
-                );
+                }
+            );
 
-                return res.status(200).json({
-                    ok: true,
-                    reuseMode: true,
-                    sessionId: existingSession.id,
-                    url: safeUrl,
-                    hasAudits: runAudits ? true : undefined,
-                    message: `Reusing crawl data from ${existingSession.completedAt ? new Date(existingSession.completedAt).toLocaleString() : 'earlier'}. Processing existing data...`
-                });
-            }
-        } catch (e) {
-            logger.warn('Failed to check for existing session', e as Error);
+            return res.status(200).json({
+                ok: true,
+                reuseMode: true,
+                sessionId: existingSession.id,
+                url: safeUrl,
+                hasAudits: runAudits ? true : undefined,
+                message: `Reusing crawl data from ${existingSession.completedAt ? new Date(existingSession.completedAt).toLocaleString() : 'earlier'}. Processing existing data...`
+            });
         }
 
         // Block manual crawl if the same URL is already running FOR THIS USER
-        try {
-            const db = getDatabase();
-            // Check if THIS USER already has a running crawl for this URL
-            const running = await db.getRunningSessionByUrl(safeUrl, userId);
-            if (running) {
-                return res.status(409).json({
-                    error: 'You already have a crawl running for this URL',
-                    message: 'Please wait for your current crawl to complete before starting a new one',
-                    runningSession: { id: running.id, startedAt: running.startedAt },
-                });
+        // Skip this check when forceRecrawl is true to allow new crawl sessions
+        if (!forceRecrawl) {
+            try {
+                const db = getDatabase();
+                // Check if THIS USER already has a running crawl for this URL
+                const running = await db.getRunningSessionByUrl(safeUrl, userId);
+                if (running) {
+                    return res.status(409).json({
+                        error: 'You already have a crawl running for this URL',
+                        message: 'Please wait for your current crawl to complete before starting a new one',
+                        runningSession: { id: running.id, startedAt: running.startedAt },
+                    });
+                }
+            } catch (e) {
+                logger.warn('Failed to check running session before manual crawl', e as Error);
             }
-        } catch (e) {
-            logger.warn('Failed to check running session before manual crawl', e as Error);
         }
 
         // Create session ID immediately for better synchronization
+        // When forceRecrawl is true, skip early session creation to ensure a completely fresh session
         let sessionId: number | null = null;
-        try {
-            const db = getDatabase();
-            sessionId = await db.createCrawlSession({
-                startUrl: safeUrl,
-                allowSubdomains: Boolean(allowSubdomains),
-                maxConcurrency: 150, // Default for background crawl
-                mode: 'html',
-                userId: userId,
-                startedAt: new Date().toISOString(),
-                totalPages: 0,
-                totalResources: 0,
-                duration: 0,
-                status: 'running'
-            });
-            logger.info(`Session created early for manual crawl: ${sessionId}`, { userId, url: safeUrl });
-        } catch (e) {
-            logger.warn('Failed to create session early', e as Error);
+        if (!forceRecrawl) {
+            try {
+                const db = getDatabase();
+                sessionId = await db.createCrawlSession({
+                    startUrl: safeUrl,
+                    allowSubdomains: Boolean(allowSubdomains),
+                    maxConcurrency: 150, // Default for background crawl
+                    mode: 'html',
+                    userId: userId,
+                    startedAt: new Date().toISOString(),
+                    totalPages: 0,
+                    totalResources: 0,
+                    duration: 0,
+                    status: 'running'
+                });
+                logger.info(`Session created early for manual crawl: ${sessionId}`, { userId, url: safeUrl });
+            } catch (e) {
+                logger.warn('Failed to create session early', e as Error);
+            }
+        } else {
+            logger.info('Skipping early session creation for forceRecrawl - will create fresh session in runCrawl', { userId, url: safeUrl });
         }
 
         const requestId = `crawl_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -465,7 +545,9 @@ router.post('/crawl',
                     runAudits: Boolean(runAudits),
                     auditDevice: auditDevice === 'mobile' ? 'mobile' : 'desktop',
                     captureLinkDetails: Boolean(captureLinkDetails),
-                    sessionId: finalSessionId || undefined,
+                    // When forceRecrawl is true, don't pass sessionId to ensure a completely new session is created
+                    // Otherwise, use the sessionId created early for better synchronization
+                    sessionId: forceRecrawl ? undefined : (finalSessionId || undefined),
                 }, {
                     onSessionStart: (id) => {
                         finalSessionId = id;
