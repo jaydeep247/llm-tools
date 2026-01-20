@@ -28,8 +28,8 @@ COPY . .
 # Build frontend
 RUN npm run build
 
-# Production stage with nginx
-FROM nginx:alpine
+# Production stage with nginx (use specific version, not latest)
+FROM nginx:1.27-alpine
 
 # Copy built frontend from builder
 COPY --from=builder /app/dist /usr/share/nginx/html
@@ -37,6 +37,22 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 # Copy custom nginx config if needed
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
+# Configure nginx to run as non-root (fixes CIS-DI-0001)
+# nginx:alpine already has nginx user, but we need to ensure proper permissions
+RUN chown -R nginx:nginx /usr/share/nginx/html && \
+    chown -R nginx:nginx /var/cache/nginx && \
+    chown -R nginx:nginx /var/log/nginx && \
+    chown -R nginx:nginx /etc/nginx/conf.d && \
+    touch /var/run/nginx.pid && \
+    chown -R nginx:nginx /var/run/nginx.pid
+
+# Switch to non-root user (nginx user already exists in nginx:alpine)
+USER nginx
+
 EXPOSE 3000
+
+# Add healthcheck (fixes CIS-DI-0006)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
 CMD ["nginx", "-g", "daemon off;"]

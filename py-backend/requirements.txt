@@ -1,4 +1,5 @@
-fastapi==0.115.12
+fastapi>=0.120.0
+starlette>=0.49.1
 uvicorn==0.34.0
 spacy==3.8.11
 beautifulsoup4==4.13.1
@@ -6,7 +7,7 @@ readability-lxml==0.8.1
 langdetect==1.0.9
 extruct>=0.16.0
 pydantic==2.11.4
-python-multipart==0.0.6
+python-multipart>=0.0.18
 requests>=2.32.3
 httpx==0.28.1
 openai==1.59.9

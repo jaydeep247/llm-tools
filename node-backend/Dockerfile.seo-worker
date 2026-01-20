@@ -3,6 +3,9 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Update Alpine packages to fix security vulnerabilities (CVE-2025-60876)
+RUN apk update && apk upgrade --no-cache
+
 # Copy package files
 COPY package*.json ./
 
@@ -19,6 +22,9 @@ RUN npm run build
 FROM node:20-alpine
 
 WORKDIR /app
+
+# Update Alpine packages to fix security vulnerabilities (CVE-2025-60876)
+RUN apk update && apk upgrade --no-cache
 
 # Copy only package files for production dependencies
 COPY package*.json ./
@@ -38,6 +44,11 @@ RUN chown -R nodejs:nodejs /app
 
 # Switch to non-root user
 USER nodejs
+
+# Add healthcheck (fixes CIS-DI-0006)
+# Note: Worker processes may not have HTTP endpoints, so we check if process is running
+HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
+    CMD ps aux | grep -q "[s]eo-worker.js" || exit 1
 
 # Command to run the SEO worker
 CMD ["node", "dist/redis/seo/seo-worker.js"]
