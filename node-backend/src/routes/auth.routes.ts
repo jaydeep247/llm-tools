@@ -10,6 +10,68 @@ const db = getDatabase();
 const logger = Logger.getInstance();
 
 /**
+ * Get cookie options for setting cookies
+ * - For HTTPS: use 'none' for sameSite (allows cross-origin)
+ * - For HTTP: use 'lax' for sameSite (same-origin only, but works with IP addresses)
+ */
+const getCookieOptions = () => {
+    // Check if we should use secure cookies (HTTPS only)
+    // COOKIE_SECURE=true explicitly enables secure cookies (requires HTTPS)
+    const useSecure = process.env.COOKIE_SECURE === 'true';
+    
+    // sameSite: 'none' REQUIRES secure: true (HTTPS only)
+    // For HTTP (like IP addresses), we must use 'lax' or 'strict'
+    // 'lax' allows cookies to be sent on same-site requests and top-level navigations
+    const sameSiteValue = useSecure ? ('none' as const) : ('lax' as const);
+    
+    const options: any = {
+        httpOnly: true,
+        secure: useSecure, // false for HTTP, true for HTTPS
+        sameSite: sameSiteValue,
+        maxAge: undefined as number | undefined, // Will be set per cookie
+        path: '/', // Ensure cookies are available for all paths
+    };
+    
+    // Only set domain if explicitly configured AND not using IP address
+    // IP addresses cannot use domain cookies
+    if (process.env.COOKIE_DOMAIN && !process.env.CORS_ORIGIN?.match(/^\d+\.\d+\.\d+\.\d+/)) {
+        options.domain = process.env.COOKIE_DOMAIN;
+    }
+    
+    logger.info('Cookie options configured', { 
+        useSecure, 
+        sameSite: sameSiteValue, 
+        hasDomain: !!options.domain,
+        corsOrigin: process.env.CORS_ORIGIN 
+    });
+    
+    return options;
+};
+
+/**
+ * Get cookie options for clearing cookies (must match setting options)
+ */
+const getClearCookieOptions = () => {
+    // Match the same logic as getCookieOptions
+    const useSecure = process.env.COOKIE_SECURE === 'true';
+    const sameSiteValue = useSecure ? ('none' as const) : ('lax' as const);
+    
+    const options: any = {
+        httpOnly: true,
+        secure: useSecure,
+        sameSite: sameSiteValue,
+        path: '/',
+    };
+    
+    // Only set domain if explicitly configured AND not using IP address
+    if (process.env.COOKIE_DOMAIN && !process.env.CORS_ORIGIN?.match(/^\d+\.\d+\.\d+\.\d+/)) {
+        options.domain = process.env.COOKIE_DOMAIN;
+    }
+    
+    return options;
+};
+
+/**
  * POST /api/auth/register
  * Register a new user
  */
@@ -72,17 +134,14 @@ router.post('/register', async (req: Request, res: Response) => {
         });
 
         // Set both access token and refresh token as HTTP-only cookies
+        const cookieOptions = getCookieOptions();
         res.cookie('accessToken', tokens.accessToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            ...cookieOptions,
             maxAge: 15 * 60 * 1000 // 15 minutes
         });
 
         res.cookie('refreshToken', tokens.refreshToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            ...cookieOptions,
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
 
@@ -161,17 +220,14 @@ router.post('/login', async (req: Request, res: Response) => {
         });
 
         // Set both access token and refresh token as HTTP-only cookies
+        const cookieOptions = getCookieOptions();
         res.cookie('accessToken', tokens.accessToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            ...cookieOptions,
             maxAge: 15 * 60 * 1000 // 15 minutes
         });
 
         res.cookie('refreshToken', tokens.refreshToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            ...cookieOptions,
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
 
@@ -204,9 +260,10 @@ router.post('/login', async (req: Request, res: Response) => {
  */
 router.post('/logout', authenticateUser, async (req: Request, res: Response) => {
     try {
-        // Clear both access token and refresh token cookies
-        res.clearCookie('accessToken');
-        res.clearCookie('refreshToken');
+        // Clear both access token and refresh token cookies (must use same options as setting)
+        const clearOptions = getClearCookieOptions();
+        res.clearCookie('accessToken', clearOptions);
+        res.clearCookie('refreshToken', clearOptions);
 
         logger.info('User logged out', { userId: req.user?.userId });
 
@@ -240,9 +297,10 @@ router.post('/refresh', async (req: Request, res: Response) => {
 
         // Verify refresh token
         const payload = authService.verifyRefreshToken(refreshToken);
+        const clearOptions = getClearCookieOptions();
         if (!payload) {
-            res.clearCookie('accessToken');
-            res.clearCookie('refreshToken');
+            res.clearCookie('accessToken', clearOptions);
+            res.clearCookie('refreshToken', clearOptions);
             return res.status(401).json({
                 error: 'Invalid refresh token',
                 message: 'Refresh token is invalid or expired'
@@ -252,8 +310,8 @@ router.post('/refresh', async (req: Request, res: Response) => {
         // Check if user still exists and is active
         const user = await db.getUserById(payload.userId);
         if (!user || !user.isActive) {
-            res.clearCookie('accessToken');
-            res.clearCookie('refreshToken');
+            res.clearCookie('accessToken', clearOptions);
+            res.clearCookie('refreshToken', clearOptions);
             return res.status(401).json({
                 error: 'User not found',
                 message: 'User no longer exists or is disabled'
@@ -268,17 +326,14 @@ router.post('/refresh', async (req: Request, res: Response) => {
         });
 
         // Update both access token and refresh token cookies
+        const cookieOptions = getCookieOptions();
         res.cookie('accessToken', tokens.accessToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            ...cookieOptions,
             maxAge: 15 * 60 * 1000 // 15 minutes
         });
 
         res.cookie('refreshToken', tokens.refreshToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            ...cookieOptions,
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
 

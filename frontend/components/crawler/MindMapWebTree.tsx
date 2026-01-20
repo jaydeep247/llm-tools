@@ -15,6 +15,10 @@ type KeywordData = {
   prompt_count?: number;
   relevance_score?: number;
   diversity_score?: number;
+  // New metrics
+  difficulty_score?: number; // 0-100
+  complexity_level?: 'Low' | 'Medium' | 'High';
+  ai_generation_feasibility?: number; // 0-100
 };
 
 type SEOData = {
@@ -65,6 +69,96 @@ function isLikelyPageUrl(url: string): boolean {
   }
 }
 
+/**
+ * Calculate content metrics from keyword data
+ * Note: Backend scores format:
+ *   - score: 0-10 scale
+ *   - relevance_score: 0-100 scale
+ *   - diversity_score: 0-100 scale
+ */
+function calculateContentMetrics(keyword: KeywordData): {
+  difficulty_score: number;
+  complexity_level: 'Low' | 'Medium' | 'High';
+  ai_generation_feasibility: number;
+} {
+  // Normalize scores to 0-1 range for calculations
+  const score = Math.min(1, Math.max(0, (keyword.score || 0) / 10));  // 0-10 scale -> 0-1
+  const relevance = Math.min(1, Math.max(0, (keyword.relevance_score || 0) / 100));  // 0-100 -> 0-1
+  const diversity = Math.min(1, Math.max(0, (keyword.diversity_score || 0) / 100));  // 0-100 -> 0-1
+  const promptCount = keyword.prompt_count || 0;
+
+  // Word count for complexity analysis
+  const wordCount = keyword.text.split(/\s+/).length;
+
+  // Difficulty Score (0-100): Higher difficulty means harder to rank
+  // Factors: low score + high relevance + high diversity + competition
+  let difficultyScore = 0;
+  
+  // Factor 1: Lower score = higher difficulty (40 points max)
+  difficultyScore += (1 - score) * 40;
+  
+  // Factor 2: Higher relevance = more important/competitive (25 points max)
+  difficultyScore += relevance * 25;
+  
+  // Factor 3: Higher diversity = more complex topic (20 points max)
+  difficultyScore += diversity * 20;
+  
+  // Factor 4: More AI prompts = more competition (10 points max)
+  difficultyScore += Math.min(promptCount / 20, 1) * 10;
+  
+  // Factor 5: Single words are often more competitive (5 points)
+  if (wordCount === 1 && score < 0.5) {
+    difficultyScore += 5;
+  }
+
+  difficultyScore = Math.min(100, Math.max(0, difficultyScore));
+
+  // Complexity Level: Based on word count and diversity
+  let complexityLevel: 'Low' | 'Medium' | 'High' = 'Low';
+  
+  if (wordCount === 1) {
+    complexityLevel = 'Low';
+  } else if (wordCount === 2) {
+    complexityLevel = diversity > 0.5 ? 'Medium' : 'Low';
+  } else if (wordCount === 3) {
+    complexityLevel = diversity > 0.6 ? 'High' : 'Medium';
+  } else {
+    // 4+ words - always at least Medium, High if diverse
+    complexityLevel = diversity > 0.5 ? 'High' : 'Medium';
+  }
+
+  // AI Generation Feasibility (0-100): Higher means easier to generate content
+  // Factors: good existing score + clear topic (relevance) + lower complexity
+  let aiFeasibility = 0;
+  
+  // Factor 1: Higher existing score = easier to improve (35 points max)
+  aiFeasibility += score * 35;
+  
+  // Factor 2: Higher relevance = clearer topic for AI (30 points max)
+  aiFeasibility += relevance * 30;
+  
+  // Factor 3: Lower diversity = less complex topic (20 points max)
+  aiFeasibility += (1 - diversity) * 20;
+  
+  // Factor 4: Some AI usage = proven feasibility (10 points max)
+  if (promptCount > 0) {
+    aiFeasibility += Math.min(promptCount / 10, 1) * 10;
+  }
+  
+  // Factor 5: Shorter content is easier to generate (5 points)
+  if (wordCount <= 3) {
+    aiFeasibility += 5;
+  }
+
+  aiFeasibility = Math.min(100, Math.max(0, aiFeasibility));
+
+  return {
+    difficulty_score: Math.round(difficultyScore),
+    complexity_level: complexityLevel,
+    ai_generation_feasibility: Math.round(aiFeasibility)
+  };
+}
+
 export default function MindMapWebTree({ onClose }: MindMapWebTreeProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   
@@ -95,7 +189,9 @@ export default function MindMapWebTree({ onClose }: MindMapWebTreeProps) {
   useEffect(() => {
     const loadSessions = async () => {
       try {
-        const response = await fetch('/api/data/sessions?limit=200');
+        const response = await fetch('/api/data/sessions?limit=200', {
+          credentials: 'include'
+        });
         if (!response.ok) throw new Error('Failed to load sessions');
         const result = await response.json();
         const list: Session[] = result.sessions || [];
@@ -162,7 +258,8 @@ export default function MindMapWebTree({ onClose }: MindMapWebTreeProps) {
           const res = await fetch('/api/seo/extract', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url })
+            body: JSON.stringify({ url }),
+            credentials: 'include'
           });
 
           if (res.status === 404) return;
@@ -174,13 +271,31 @@ export default function MindMapWebTree({ onClose }: MindMapWebTreeProps) {
               next.set(normalizeUrl(url), {
                 parentText: data.parent?.text,
                 topKeywords: Array.isArray(data.keywords)
-                  ? data.keywords.slice(0, 10).map((k: any) => ({
-                    text: k.text,
-                    score: k.score,
-                    prompt_count: k.prompt_count,
-                    relevance_score: k.relevance_score,
-                    diversity_score: k.diversity_score
-                  }))
+                  ? data.keywords.slice(0, 10).map((k: any) => {
+                      const baseKeyword: KeywordData = {
+                        text: k.text,
+                        score: k.score,
+                        prompt_count: k.prompt_count,
+                        relevance_score: k.relevance_score,
+                        diversity_score: k.diversity_score
+                      };
+                      // Calculate content metrics
+                      const metrics = calculateContentMetrics(baseKeyword);
+                      
+                      // Debug logging for first keyword
+                      if (Math.random() < 0.05) { // Log ~5% of keywords to avoid spam
+                        console.log('[SEO Metrics Debug]', {
+                          keyword: baseKeyword.text,
+                          rawScores: { score: k.score, relevance: k.relevance_score, diversity: k.diversity_score },
+                          calculated: metrics
+                        });
+                      }
+                      
+                      return {
+                        ...baseKeyword,
+                        ...metrics
+                      };
+                    })
                   : []
               });
               return next;
@@ -235,7 +350,9 @@ export default function MindMapWebTree({ onClose }: MindMapWebTreeProps) {
         params.set('limit', String(limit));
         params.set('offset', String(offset));
         params.set('sessionId', String(selectedSessionId));
-        const res = await fetch(`/api/data/pages?${params.toString()}`);
+        const res = await fetch(`/api/data/pages?${params.toString()}`, {
+          credentials: 'include'
+        });
         if (!res.ok) throw new Error('Failed to load URL list');
         const result = await res.json();
         const items = (result.pages || []) as Array<{ url: string }>;
@@ -540,6 +657,41 @@ export default function MindMapWebTree({ onClose }: MindMapWebTreeProps) {
                       </div>
                     )}
 
+                    {/* Content Metrics Summary */}
+                    {selectedSeoData?.topKeywords && selectedSeoData.topKeywords.length > 0 && (() => {
+                      const keywords = selectedSeoData.topKeywords;
+                      const avgDifficulty = keywords.reduce((sum, k) => sum + (k.difficulty_score ?? 0), 0) / keywords.length;
+                      const avgFeasibility = keywords.reduce((sum, k) => sum + (k.ai_generation_feasibility ?? 0), 0) / keywords.length;
+                      const complexityBreakdown = keywords.reduce((acc, k) => {
+                        acc[k.complexity_level ?? 'Low']++;
+                        return acc;
+                      }, { Low: 0, Medium: 0, High: 0 });
+
+                      return (
+                        <div className="mb-4 grid grid-cols-3 gap-2">
+                          <div className="p-3 bg-gradient-to-br from-red-900/30 to-red-800/20 rounded border border-red-700/50">
+                            <div className="text-xs text-red-300 mb-1">Avg Difficulty</div>
+                            <div className="text-2xl font-bold text-white">{avgDifficulty.toFixed(0)}</div>
+                            <div className="text-xs text-red-200 mt-1">out of 100</div>
+                          </div>
+                          <div className="p-3 bg-gradient-to-br from-yellow-900/30 to-yellow-800/20 rounded border border-yellow-700/50">
+                            <div className="text-xs text-yellow-300 mb-1">Complexity</div>
+                            <div className="text-lg font-bold text-white">
+                              {complexityBreakdown.High > 0 ? 'High' : complexityBreakdown.Medium > 0 ? 'Medium' : 'Low'}
+                            </div>
+                            <div className="text-xs text-yellow-200 mt-1">
+                              L:{complexityBreakdown.Low} M:{complexityBreakdown.Medium} H:{complexityBreakdown.High}
+                            </div>
+                          </div>
+                          <div className="p-3 bg-gradient-to-br from-green-900/30 to-green-800/20 rounded border border-green-700/50">
+                            <div className="text-xs text-green-300 mb-1">AI Feasibility</div>
+                            <div className="text-2xl font-bold text-white">{avgFeasibility.toFixed(0)}%</div>
+                            <div className="text-xs text-green-200 mt-1">generation score</div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     {/* Keywords Table */}
                     {selectedSeoData?.topKeywords && selectedSeoData.topKeywords.length > 0 ? (
                       <div className="overflow-x-auto">
@@ -551,21 +703,52 @@ export default function MindMapWebTree({ onClose }: MindMapWebTreeProps) {
                               <th className="px-3 py-2 text-center">🤖 Prompts</th>
                               <th className="px-3 py-2 text-center">🎯 Relevance</th>
                               <th className="px-3 py-2 text-center">🌈 Diversity</th>
+                              <th className="px-3 py-2 text-center">💪 Difficulty</th>
+                              <th className="px-3 py-2 text-center">🎚️ Complexity</th>
+                              <th className="px-3 py-2 text-center">🤖 AI Feasibility</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {selectedSeoData.topKeywords.map((kw, idx) => (
-                              <tr 
-                                key={idx} 
-                                className="border-t border-gray-700 hover:bg-gray-800 transition-colors"
-                              >
-                                <td className="px-3 py-2 text-gray-200 font-medium">{kw.text}</td>
-                                <td className="px-3 py-2 text-center text-green-400">{kw.score.toFixed(2)}</td>
-                                <td className="px-3 py-2 text-center text-blue-400">{kw.prompt_count ?? 0}</td>
-                                <td className="px-3 py-2 text-center text-purple-400">{(kw.relevance_score ?? 0).toFixed(2)}</td>
-                                <td className="px-3 py-2 text-center text-pink-400">{(kw.diversity_score ?? 0).toFixed(2)}</td>
-                              </tr>
-                            ))}
+                            {selectedSeoData.topKeywords.map((kw, idx) => {
+                              // Helper functions for styling
+                              const getDifficultyColor = (score: number) => {
+                                if (score >= 70) return 'text-red-400';
+                                if (score >= 40) return 'text-yellow-400';
+                                return 'text-green-400';
+                              };
+                              const getComplexityColor = (level: string) => {
+                                if (level === 'High') return 'text-red-400';
+                                if (level === 'Medium') return 'text-yellow-400';
+                                return 'text-green-400';
+                              };
+                              const getFeasibilityColor = (score: number) => {
+                                if (score >= 70) return 'text-green-400';
+                                if (score >= 40) return 'text-yellow-400';
+                                return 'text-red-400';
+                              };
+
+                              return (
+                                <tr 
+                                  key={idx} 
+                                  className="border-t border-gray-700 hover:bg-gray-800 transition-colors"
+                                >
+                                  <td className="px-3 py-2 text-gray-200 font-medium">{kw.text}</td>
+                                  <td className="px-3 py-2 text-center text-green-400">{kw.score.toFixed(2)}</td>
+                                  <td className="px-3 py-2 text-center text-blue-400">{kw.prompt_count ?? 0}</td>
+                                  <td className="px-3 py-2 text-center text-purple-400">{(kw.relevance_score ?? 0).toFixed(2)}</td>
+                                  <td className="px-3 py-2 text-center text-pink-400">{(kw.diversity_score ?? 0).toFixed(2)}</td>
+                                  <td className={`px-3 py-2 text-center font-semibold ${getDifficultyColor(kw.difficulty_score ?? 0)}`}>
+                                    {kw.difficulty_score ?? 0}
+                                  </td>
+                                  <td className={`px-3 py-2 text-center font-medium ${getComplexityColor(kw.complexity_level ?? 'Low')}`}>
+                                    {kw.complexity_level ?? 'Low'}
+                                  </td>
+                                  <td className={`px-3 py-2 text-center font-semibold ${getFeasibilityColor(kw.ai_generation_feasibility ?? 0)}`}>
+                                    {kw.ai_generation_feasibility ?? 0}%
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>
