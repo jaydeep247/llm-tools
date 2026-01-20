@@ -1,4 +1,4 @@
-import { performance } from 'perf_hooks';
+import * as os from 'os';
 
 export interface HealthStatus {
   status: 'healthy' | 'unhealthy' | 'degraded';
@@ -27,9 +27,17 @@ export class HealthChecker {
   private activeCrawls: number = 0;
   private queueSize: number = 0;
   private lastCrawlTime: string | null = null;
+  private readonly maxMemoryMB: number;
 
   constructor() {
     this.startTime = Date.now();
+    // Get max memory from environment or use default (1GB for containers)
+    // If NODE_OPTIONS has --max-old-space-size, use that, otherwise default to 1GB
+    const nodeOptions = process.env.NODE_OPTIONS || '';
+    const maxOldSpaceMatch = nodeOptions.match(/--max-old-space-size=(\d+)/);
+    this.maxMemoryMB = maxOldSpaceMatch 
+      ? parseInt(maxOldSpaceMatch[1], 10) 
+      : parseInt(process.env.MAX_MEMORY_MB || '1024', 10);
   }
 
   recordError(error: string): void {
@@ -52,16 +60,26 @@ export class HealthChecker {
 
   getHealthStatus(): HealthStatus {
     const memoryUsage = process.memoryUsage();
-    const totalMemory = memoryUsage.heapTotal + memoryUsage.external;
-    const usedMemory = memoryUsage.heapUsed + memoryUsage.external;
-    const memoryPercentage = (usedMemory / totalMemory) * 100;
+    // Use RSS (Resident Set Size) - actual memory used by the process
+    const usedMemory = memoryUsage.rss;
+    // For container environments, use configured max memory or default
+    // In Docker, os.totalmem() might return host memory, so we use configured limit
+    const systemTotalMemory = os.totalmem();
+    const configuredMaxMemory = this.maxMemoryMB * 1024 * 1024;
+    // Use the smaller of system memory or configured max, but prefer configured if reasonable
+    // If system memory is very large (>4GB), likely we're in a container without limits, use configured
+    const maxMemoryBytes = systemTotalMemory > 4 * 1024 * 1024 * 1024 
+      ? configuredMaxMemory 
+      : Math.min(systemTotalMemory, configuredMaxMemory);
+    const memoryPercentage = (usedMemory / maxMemoryBytes) * 100;
 
     let status: 'healthy' | 'unhealthy' | 'degraded' = 'healthy';
     
     // Determine health status based on various factors
-    if (this.errorCount > 10 || memoryPercentage > 90) {
+    // Use more reasonable thresholds: 95% for unhealthy, 85% for degraded
+    if (this.errorCount > 10 || memoryPercentage > 95) {
       status = 'unhealthy';
-    } else if (this.errorCount > 5 || memoryPercentage > 75 || this.queueSize > 1000) {
+    } else if (this.errorCount > 5 || memoryPercentage > 85 || this.queueSize > 1000) {
       status = 'degraded';
     }
 
@@ -71,7 +89,7 @@ export class HealthChecker {
       uptime: Date.now() - this.startTime,
       memory: {
         used: usedMemory,
-        total: totalMemory,
+        total: maxMemoryBytes,
         percentage: Math.round(memoryPercentage * 100) / 100
       },
       activeCrawls: this.activeCrawls,
