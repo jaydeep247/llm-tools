@@ -17,7 +17,10 @@ function loadRedisConfig() {
         const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
         if (process.env.REDIS_HOST) config.host = process.env.REDIS_HOST;
         if (process.env.REDIS_PORT) config.port = parseInt(process.env.REDIS_PORT, 10);
-        if (process.env.REDIS_PASSWORD) config.password = process.env.REDIS_PASSWORD;
+        // Always use environment variable if set (even if empty string, though that's unlikely)
+        if (process.env.REDIS_PASSWORD !== undefined) {
+            config.password = process.env.REDIS_PASSWORD || null;
+        }
         return config;
     } catch (error) {
         return {
@@ -43,10 +46,11 @@ function loadRedisConfig() {
 async function getRedis(): Promise<Redis> {
     if (!redis) {
         const config = loadRedisConfig();
+        console.log(`[session-cleanup] Connecting to Redis at ${config.host}:${config.port} (password: ${config.password ? '***' : 'none'})`);
         redis = new Redis({
             host: config.host,
             port: config.port,
-            password: config.password,
+            password: config.password || undefined, // Use undefined instead of null for ioredis
             db: config.db,
             maxRetriesPerRequest: config.maxRetriesPerRequest || 3,
             lazyConnect: config.lazyConnect !== false,
@@ -54,7 +58,11 @@ async function getRedis(): Promise<Redis> {
         });
 
         redis.on('error', (err) => {
-            console.error('[session-cleanup] Redis connection error:', err);
+            console.error('[session-cleanup] Redis connection error:', (err as Error).message);
+        });
+
+        redis.on('connect', () => {
+            console.log('[session-cleanup] Redis connected successfully');
         });
     }
     return redis;

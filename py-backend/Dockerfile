@@ -21,6 +21,15 @@ RUN python -m spacy download en_core_web_sm
 # Copy application code
 COPY . .
 
+# Create non-root user
+RUN groupadd -r pythonuser && useradd -r -g pythonuser pythonuser
+
+# Change ownership of app directory
+RUN chown -R pythonuser:pythonuser /app
+
+# Switch to non-root user
+USER pythonuser
+
 # Expose port
 EXPOSE 8000
 

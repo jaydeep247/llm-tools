@@ -30,7 +30,10 @@ function loadRedisConfig() {
         const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
         if (process.env.REDIS_HOST) config.host = process.env.REDIS_HOST;
         if (process.env.REDIS_PORT) config.port = parseInt(process.env.REDIS_PORT, 10);
-        if (process.env.REDIS_PASSWORD) config.password = process.env.REDIS_PASSWORD;
+        // Always use environment variable if set (even if empty string, though that's unlikely)
+        if (process.env.REDIS_PASSWORD !== undefined) {
+            config.password = process.env.REDIS_PASSWORD || null;
+        }
         return config;
     } catch (error) {
         console.warn('[audit-redis-queue] Redis config not found, using defaults');
@@ -54,23 +57,41 @@ function loadRedisConfig() {
 async function getRedis(): Promise<Redis> {
     if (!redis) {
         const config = loadRedisConfig();
+        console.log(`[audit-redis-queue] Connecting to Redis at ${config.host}:${config.port} (password: ${config.password ? '***' : 'none'})`);
         redis = new Redis({
             host: config.host,
             port: config.port,
-            password: config.password,
+            password: config.password || undefined, // Use undefined instead of null for ioredis
             db: config.db,
             maxRetriesPerRequest: config.maxRetriesPerRequest || 3,
             lazyConnect: config.lazyConnect !== false,
-            keyPrefix: config.keyPrefix || 'audit:'
+            keyPrefix: config.keyPrefix || 'audit:',
+            retryStrategy: (times) => {
+                const delay = Math.min(times * 50, 2000);
+                console.log(`[audit-redis-queue] Retrying Redis connection (attempt ${times}) in ${delay}ms...`);
+                return delay;
+            }
         });
 
         redis.on('error', (err) => {
-            console.error('[audit-redis-queue] Redis connection error:', err);
+            console.error('[audit-redis-queue] Redis connection error:', err.message);
         });
 
         redis.on('connect', () => {
             console.log('[audit-redis-queue] Redis connected successfully');
         });
+
+        redis.on('ready', () => {
+            console.log('[audit-redis-queue] Redis is ready to accept commands');
+        });
+
+        // Test connection immediately
+        try {
+            await redis.ping();
+            console.log('[audit-redis-queue] Redis ping successful');
+        } catch (err) {
+            console.error('[audit-redis-queue] Redis ping failed:', (err as Error).message);
+        }
     }
     return redis;
 }

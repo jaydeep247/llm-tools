@@ -1,4 +1,4 @@
-# Multi-stage build for Node.js/TypeScript application
+# SEO Worker Dockerfile - Lightweight production image
 FROM node:20-alpine AS builder
 
 WORKDIR /app
@@ -6,7 +6,7 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
+# Install all dependencies (needed for build)
 RUN npm ci
 
 # Copy source code
@@ -20,13 +20,14 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install production dependencies only
+# Copy only package files for production dependencies
 COPY package*.json ./
+
+# Install production dependencies only
 RUN npm ci --only=production
 
-# Copy built application from builder
+# Copy the built backend dist files (including SEO worker)
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/config ./config
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
@@ -38,8 +39,7 @@ RUN chown -R nodejs:nodejs /app
 # Switch to non-root user
 USER nodejs
 
-# Expose ports
-EXPOSE 3004
+# Command to run the SEO worker
+CMD ["node", "dist/redis/seo/seo-worker.js"]
 
-# Start the server
-CMD ["node", "dist/server.js"]
+# No port exposure - internal service only

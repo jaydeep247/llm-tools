@@ -1,13 +1,18 @@
 # Frontend Dockerfile
 FROM node:20-alpine AS builder
 
+# Build argument for API URL
+# Empty string means use relative URLs that go through nginx proxy
+ARG VITE_API_BASE_URL=""
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# Install dependencies (using npm ci for reproducible builds)
+RUN npm ci
 
 # Copy source and config files needed for frontend build
 COPY . .
