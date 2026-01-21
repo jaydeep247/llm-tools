@@ -286,9 +286,17 @@ router.post('/logout', authenticateUser, async (req: Request, res: Response) => 
  */
 router.post('/refresh', async (req: Request, res: Response) => {
     try {
+        logger.info('Refresh token request received', {
+            hasCookies: !!req.cookies,
+            cookieNames: req.cookies ? Object.keys(req.cookies) : [],
+            origin: req.headers.origin,
+            referer: req.headers.referer
+        });
+
         const refreshToken = req.cookies.refreshToken;
 
         if (!refreshToken) {
+            logger.warn('Refresh token not found in cookies');
             return res.status(401).json({
                 error: 'No refresh token',
                 message: 'Refresh token not found'
@@ -296,9 +304,11 @@ router.post('/refresh', async (req: Request, res: Response) => {
         }
 
         // Verify refresh token
+        logger.info('Verifying refresh token');
         const payload = authService.verifyRefreshToken(refreshToken);
         const clearOptions = getClearCookieOptions();
         if (!payload) {
+            logger.warn('Invalid or expired refresh token');
             res.clearCookie('accessToken', clearOptions);
             res.clearCookie('refreshToken', clearOptions);
             return res.status(401).json({
@@ -307,9 +317,13 @@ router.post('/refresh', async (req: Request, res: Response) => {
             });
         }
 
+        logger.info('Refresh token verified', { userId: payload.userId });
+
         // Check if user still exists and is active
+        logger.info('Fetching user from database', { userId: payload.userId });
         const user = await db.getUserById(payload.userId);
         if (!user || !user.isActive) {
+            logger.warn('User not found or inactive', { userId: payload.userId, userExists: !!user, isActive: user?.isActive });
             res.clearCookie('accessToken', clearOptions);
             res.clearCookie('refreshToken', clearOptions);
             return res.status(401).json({
@@ -318,7 +332,10 @@ router.post('/refresh', async (req: Request, res: Response) => {
             });
         }
 
+        logger.info('User found and active', { userId: user.id, email: user.email });
+
         // Generate new tokens
+        logger.info('Generating new tokens');
         const tokens = authService.generateTokens({
             id: user.id,
             email: user.email,
@@ -337,15 +354,22 @@ router.post('/refresh', async (req: Request, res: Response) => {
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
 
+        logger.info('Tokens refreshed successfully', { userId: user.id });
         res.json({
             success: true,
             accessToken: tokens.accessToken
         });
     } catch (error) {
         logger.error('Token refresh error', error as Error);
+        logger.error('Token refresh error details', {
+            message: (error as Error).message,
+            stack: (error as Error).stack,
+            name: (error as Error).name
+        });
         res.status(500).json({
             error: 'Token refresh failed',
-            message: 'An error occurred while refreshing token'
+            message: 'An error occurred while refreshing token',
+            details: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined
         });
     }
 });

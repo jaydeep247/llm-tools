@@ -44,7 +44,7 @@ app.use(helmet({
 }));
 
 // CORS Configuration - Production Ready
-const corsOrigin = process.env.CORS_ORIGIN?.replace(/\/$/, '') || 'http://localhost:3000';
+const corsOrigin = process.env.CORS_ORIGIN?.replace(/\/$/, '') || 'http://localhost:80';
 app.use(cors({
     origin: (origin, callback) => {
         // Allow requests with no origin (mobile apps, Postman, etc.)
@@ -61,13 +61,21 @@ app.use(cors({
         // Allow configured origins
         const allowedOriginsRaw = [
             corsOrigin,
+            'http://localhost',
+            'http://localhost:80',
             'http://localhost:3000',
             'http://localhost:3004',
+            'https://localhost',
+            'https://localhost:80',
             'https://localhost:3000',
             'https://localhost:3004',
+            process.env.PUBLIC_IP ? `http://${process.env.PUBLIC_IP}` : null,
+            process.env.PUBLIC_IP ? `http://${process.env.PUBLIC_IP}:80` : null,
             process.env.PUBLIC_IP ? `http://${process.env.PUBLIC_IP}:3000` : null,
             process.env.PUBLIC_IP ? `http://${process.env.PUBLIC_IP}:3004` : null,
             // Also allow IP address directly if CORS_ORIGIN contains IP
+            ipAddress ? `http://${ipAddress}` : null,
+            ipAddress ? `http://${ipAddress}:80` : null,
             ipAddress ? `http://${ipAddress}:3000` : null,
             ipAddress ? `http://${ipAddress}:3004` : null,
         ];

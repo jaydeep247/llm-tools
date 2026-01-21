@@ -137,7 +137,7 @@ cd llm-tools
 npm run docker:up
 
 # Access the application:
-# Frontend: http://localhost:3000
+# Frontend: http://localhost:80 (or http://localhost)
 # Backend: http://localhost:3004
 # Python API: http://localhost:8000
 ```
@@ -163,7 +163,7 @@ npm run db:setup
 cd ..
 
 # 6. Run services in separate terminals
-npm run dev:frontend   # Terminal 1 - Frontend on :3000
+npm run dev:frontend   # Terminal 1 - Frontend on :3000 (dev server)
 npm run dev:backend    # Terminal 2 - Node backend on :3004
 npm run dev:py         # Terminal 3 - Python API on :8000
 ```
@@ -175,7 +175,7 @@ npm run dev:py         # Terminal 3 - Python API on :8000
 ```bash
 # Server
 PORT=3004
-CORS_ORIGIN=http://localhost:3000
+CORS_ORIGIN=http://localhost:80
 
 # Database
 DB_HOST=localhost
