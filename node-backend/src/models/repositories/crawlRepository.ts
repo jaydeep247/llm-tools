@@ -277,8 +277,8 @@ export class CrawlRepository {
 
     async getLatestSessionByUrl(url: string, userId: number): Promise<CrawlSession | null> {
         const res = await this.pool.query(
-            'SELECT * FROM crawl_sessions WHERE start_url = $1 AND user_id = $2 ORDER BY started_at DESC LIMIT 1',
-            [url, userId]
+            'SELECT * FROM crawl_sessions WHERE start_url = $1 AND user_id = $2 AND status != $3 ORDER BY started_at DESC LIMIT 1',
+            [url, userId, 'cancelled']
         );
         if (res.rows.length === 0) return null;
         return this.mapSession(res.rows[0]);

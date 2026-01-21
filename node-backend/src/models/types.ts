@@ -11,7 +11,7 @@ export interface CrawlSession {
     totalPages: number;
     totalResources: number;
     duration: number;
-    status: 'running' | 'completed' | 'failed' | 'auditing';
+    status: 'running' | 'completed' | 'failed' | 'auditing' | 'cancelled';
 }
 
 export interface Page {
@@ -157,7 +157,7 @@ export interface ScheduleExecution {
     sessionId: number;
     startedAt: string;
     completedAt?: string;
-    status: 'running' | 'completed' | 'failed' | 'auditing';
+    status: 'running' | 'completed' | 'failed' | 'auditing' | 'cancelled';
     errorMessage?: string;
     pagesCrawled: number;
     resourcesFound: number;
@@ -186,7 +186,7 @@ export interface AuditExecution {
     scheduleId: number;
     startedAt: string;
     completedAt?: string;
-    status: 'running' | 'completed' | 'failed' | 'auditing';
+    status: 'running' | 'completed' | 'failed' | 'auditing' | 'cancelled';
     errorMessage?: string;
     urlsProcessed: number;
     urlsSuccessful: number;
@@ -220,7 +220,7 @@ export interface AEOExecution {
     scheduleId: number;
     startedAt: string;
     completedAt?: string;
-    status: 'running' | 'completed' | 'failed' | 'auditing';
+    status: 'running' | 'completed' | 'failed' | 'auditing' | 'cancelled';
     pagesAnalyzed: number;
     averageAeoScore?: number;
     duration?: number;

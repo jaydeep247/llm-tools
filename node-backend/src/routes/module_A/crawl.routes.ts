@@ -152,6 +152,16 @@ router.post('/crawl',
                 });
                 existingSession = null; // Force it to null to prevent any session reuse
             }
+            
+            // Never reuse cancelled sessions - they should always remain cancelled
+            if (existingSession.status === 'cancelled') {
+                logger.info('Skipping cancelled session - will create new session instead', {
+                    cancelledSessionId: existingSession.id,
+                    url: safeUrl,
+                    userId
+                });
+                existingSession = null; // Force it to null to create a new session
+            }
         }
 
         if (existingSession) {
@@ -562,6 +572,14 @@ router.post('/crawl',
                                 }
                                 logBuffer.length = 0;
                             }
+
+                            // Send session status update with sessionId for frontend tracking
+                            sendEvent({
+                                type: 'session-status-update',
+                                sessionId: finalSessionId,
+                                status: 'running',
+                                message: `Crawl started for session ${finalSessionId}`
+                            }, 'session-status-update', userId);
                         }
                     },
                     onLog: async (msg) => {

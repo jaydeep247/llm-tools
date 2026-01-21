@@ -13,6 +13,7 @@ import {
 import { CrawlAuditIntegration } from '../../services/module_A/audits/CrawlAuditIntegration.js';
 import { Logger } from '../../helpers/logging/Logger.js';
 import { sendEvent } from '../../services/SSEService.js';
+import { getCancellationManager } from '../../services/crawlCancellationManager.js';
 
 const logger = Logger.getInstance();
 
@@ -32,7 +33,10 @@ async function processAuditJob(job: AuditJob, sessionUserId?: number): Promise<b
     const startTime = Date.now();
 
     try {
-        logger.info(`[audit-worker] Processing ${job.url} (${job.device}) for session ${job.sessionId}`);
+        // Minimal logging for speed - only log retries and errors
+        if (job.retryCount && job.retryCount > 0) {
+            logger.info(`[audit-worker] Retry ${job.retryCount} for ${job.url}`);
+        }
 
         // Notify audit start via SSE if userId provided
         if (sessionUserId) {
@@ -54,10 +58,8 @@ async function processAuditJob(job: AuditJob, sessionUserId?: number): Promise<b
             }, 'audit', sessionUserId);
         }
 
-        const duration = Date.now() - startTime;
-        if (result.success) {
-            logger.info(`[audit-worker] ✓ ${job.url} completed in ${duration}ms`);
-        } else {
+        // Only log failures for debugging
+        if (!result.success) {
             logger.warn(`[audit-worker] ✗ ${job.url} failed: ${result.error}`);
         }
 
@@ -80,15 +82,34 @@ async function processAuditJob(job: AuditJob, sessionUserId?: number): Promise<b
     }
 }
 
+
+// Cache userId lookups to avoid repeated database queries
+const userIdCache = new Map<number, number>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 /**
- * Get userId for a session (for SSE notifications)
+ * Get userId for a session (for SSE notifications) with caching
  */
-async function getUserIdForSession(sessionId: number): Promise<number | undefined> {
+async function getUserIdForSessionCached(sessionId: number): Promise<number | undefined> {
+    // Check cache first
+    const cached = userIdCache.get(sessionId);
+    if (cached !== undefined) {
+        return cached;
+    }
+
     try {
         const { getDatabase } = await import('../../services/DatabaseService.js');
         const db = getDatabase();
         const session = await db.getCrawlSession(sessionId);
-        return session?.userId;
+        const userId = session?.userId;
+        
+        if (userId) {
+            userIdCache.set(sessionId, userId);
+            // Clear cache after TTL
+            setTimeout(() => userIdCache.delete(sessionId), CACHE_TTL);
+        }
+        
+        return userId;
     } catch (error) {
         logger.warn(`[audit-worker] Failed to get userId for session ${sessionId}:`, error as Error);
         return undefined;
@@ -97,13 +118,14 @@ async function getUserIdForSession(sessionId: number): Promise<number | undefine
 
 /**
  * Main worker function with configurable concurrency
+ * Highly optimized for maximum speed
  */
-export async function worker(concurrency: number = 50) {
+export async function worker(concurrency: number = 25) {
     let processed = 0;
     let errors = 0;
     let running = true;
 
-    logger.info(`[audit-worker] Starting with concurrency=${concurrency}`);
+    logger.info(`[audit-worker] Starting with concurrency=${concurrency} (maximum speed mode)`);
 
     // Graceful shutdown handling
     process.on('SIGINT', () => {
@@ -118,39 +140,74 @@ export async function worker(concurrency: number = 50) {
 
     const workers = Array.from({ length: concurrency }, async (_, workerId) => {
         logger.info(`[audit-worker] Worker ${workerId + 1} started`);
+        const cancellationManager = getCancellationManager();
 
         while (running && !workerCancelled) {
             try {
                 const job = await dequeueAudit();
 
                 if (!job) {
-                    // No jobs available, short poll to reduce latency
-                    await new Promise(resolve => setTimeout(resolve, 100));
+                    // No jobs available, minimal poll interval for instant job pickup
+                    await new Promise(resolve => setTimeout(resolve, 50));
                     continue;
                 }
 
-                // Get userId for SSE notifications
-                const userId = await getUserIdForSession(job.sessionId);
+                // Check if this session is cancelled before processing
+                if (cancellationManager.isCancelled(job.sessionId)) {
+                    logger.info(`[audit-worker] Skipping job for cancelled session ${job.sessionId}`);
+                    // Mark as failed since it was cancelled
+                    await markAuditComplete(job.url, false, job.sessionId, job, 0);
+                    continue;
+                }
+
+                // Get userId for SSE notifications (cached)
+                const userId = await getUserIdForSessionCached(job.sessionId);
+
+                // Retry logging handled in processAuditJob
+
+                // Check cancellation again before processing (in case it was cancelled while we were waiting)
+                if (cancellationManager.isCancelled(job.sessionId)) {
+                    logger.info(`[audit-worker] Job cancelled for session ${job.sessionId} before processing`);
+                    await markAuditComplete(job.url, false, job.sessionId, job, 0);
+                    continue;
+                }
 
                 const success = await processAuditJob(job, userId);
 
-                await markAuditComplete(job.url, success, job.sessionId);
+                // Check if cancelled during processing
+                if (cancellationManager.isCancelled(job.sessionId)) {
+                    logger.info(`[audit-worker] Job cancelled for session ${job.sessionId} during processing`);
+                    await markAuditComplete(job.url, false, job.sessionId, job, 0);
+                    continue;
+                }
+
+                // Pass job object for retry logic
+                await markAuditComplete(job.url, success, job.sessionId, job, 3);
 
                 if (success) {
                     processed++;
                 } else {
-                    errors++;
+                    // Only count as error if max retries exceeded
+                    if ((job.retryCount || 0) >= 3) {
+                        errors++;
+                    }
                 }
 
-                // Progress reporting every 10 jobs
-                if ((processed + errors) % 10 === 0) {
+                // Minimal delay - rate limiting is fully handled by psiClient
+                // No artificial delay needed, process immediately for maximum speed
+                // Only tiny delay to prevent tight loop if queue is empty
+                await new Promise(resolve => setTimeout(resolve, 10));
+
+                // Progress reporting every 25 jobs (less frequent for speed)
+                if ((processed + errors) % 25 === 0) {
                     const stats = await getAuditQueueStats(job.sessionId);
-                    logger.info(`[audit-worker] Progress: ${processed} successful, ${errors} errors | Session ${job.sessionId}: ${stats.totalQueued} queued, ${stats.processing} processing`);
+                    logger.info(`[audit-worker] Progress: ${processed} successful, ${errors} failed | Session ${job.sessionId}: ${stats.totalQueued} queued, ${stats.processing} processing, ${stats.completed} completed`);
                 }
 
             } catch (error) {
                 logger.error(`[audit-worker] Worker ${workerId + 1} error:`, error as Error);
-                await new Promise(resolve => setTimeout(resolve, 5000));
+                // Minimal delay on errors to recover quickly
+                await new Promise(resolve => setTimeout(resolve, 1000));
             }
         }
 
@@ -160,18 +217,21 @@ export async function worker(concurrency: number = 50) {
     // Wait for all workers to complete
     await Promise.all(workers);
 
-    logger.info(`[audit-worker] Final stats: ${processed} successful, ${errors} errors`);
+    logger.info(`[audit-worker] Final stats: ${processed} successful, ${errors} failed`);
 }
 
 /**
  * Main entry point for audit worker
+ * Maximum speed configuration
  */
 export async function main() {
-    // Get concurrency from environment or use default
-    // High default concurrency for fast parallel processing
-    const concurrency: number = Number(process.env.AUDIT_CONCURRENCY) || 50;
+    // High concurrency for maximum parallel processing
+    // 25 workers process jobs in parallel, rate limiter controls API calls
+    // Rate limiting in psiClient ensures we don't exceed API limits
+    const concurrency: number = Number(process.env.AUDIT_CONCURRENCY) || 25;
 
     logger.info(`[audit-worker] Starting Redis-based audit worker with concurrency=${concurrency}`);
+    logger.info(`[audit-worker] Maximum speed mode - minimal delays, rate limiting handled by psiClient`);
 
     try {
         resetAuditWorkerCancellation();

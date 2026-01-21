@@ -14,7 +14,7 @@ interface CrawlHistoryItem {
     totalPages: number;
     totalResources: number;
     duration: number;
-    status: 'running' | 'completed' | 'failed' | 'auditing';
+    status: 'running' | 'completed' | 'failed' | 'auditing' | 'cancelled';
   };
   aeoResult: {
     grade: string;
@@ -142,7 +142,8 @@ export const CrawlHistory: React.FC<CrawlHistoryProps> = ({ onSelectCrawl }) => 
       running: 'bg-blue-500',
       completed: 'bg-green-500',
       failed: 'bg-red-500',
-      auditing: 'bg-yellow-500'
+      auditing: 'bg-yellow-500',
+      cancelled: 'bg-orange-500'
     };
     return (
       <span className={`px-2 py-1 text-xs font-semibold rounded-full ${colors[status as keyof typeof colors] || 'bg-gray-500'} text-white`}>
@@ -252,11 +253,20 @@ export const CrawlHistory: React.FC<CrawlHistoryProps> = ({ onSelectCrawl }) => 
           const elapsedTime = calculateElapsedTime(startedAt, status, storedDuration);
           const isRunning = status === 'running' || status === 'auditing';
 
+          // Don't allow clicking on cancelled sessions
+          const isCancelled = status === 'cancelled';
+          
           return (
             <div
               key={session.id}
-              className="history-card bg-gray-800 border border-gray-700 rounded-lg p-5 hover:border-purple-500 transition-all cursor-pointer"
-              onClick={() => onSelectCrawl(startUrl, session.id, aeoResult)}
+              className={`history-card bg-gray-800 border border-gray-700 rounded-lg p-5 transition-all ${
+                isCancelled ? 'opacity-60 cursor-not-allowed' : 'hover:border-purple-500 cursor-pointer'
+              }`}
+              onClick={() => {
+                if (!isCancelled) {
+                  onSelectCrawl(startUrl, session.id, aeoResult);
+                }
+              }}
             >
               <div className="flex justify-between items-start mb-3">
                 <div className="flex-1">
@@ -324,6 +334,12 @@ export const CrawlHistory: React.FC<CrawlHistoryProps> = ({ onSelectCrawl }) => 
               {!aeoResult && status === 'completed' && (
                 <div className="mt-3 text-center text-sm text-gray-400">
                   No AEO analysis available
+                </div>
+              )}
+
+              {isCancelled && (
+                <div className="mt-3 text-center text-sm text-orange-400 font-medium">
+                  🛑 Session was cancelled
                 </div>
               )}
             </div>

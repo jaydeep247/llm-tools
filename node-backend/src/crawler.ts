@@ -1,6 +1,7 @@
 import { CheerioCrawler, log, Configuration } from 'crawlee';
 import { Logger } from './helpers/logging/Logger.js';
 import { MetricsCollector } from './controllers/module_D/monitoring/MetricsCollector.js';
+import { getCancellationManager } from './services/crawlCancellationManager.js';
 
 // Import core functions
 import { 
@@ -31,7 +32,7 @@ const logger = Logger.getInstance();
 let auditCancelled = false;
 
 /**
- * Cancel active audits
+ * Cancel active audits (legacy function for backward compatibility)
  */
 export function cancelAudits(): void {
     auditCancelled = true;
@@ -114,11 +115,36 @@ export async function runCrawl(
             errorHandler
         });
 
-        await crawler.run();
+        // Register crawler with cancellation manager
+        const cancellationManager = getCancellationManager();
+        const userId = options.userId;
+        if (userId) {
+            cancellationManager.registerCrawl(sessionId, userId, crawler);
+        }
 
-        // Post-processing and finalization
-        await executePostProcessing(sessionId, captureLinkDetails, runAudits, auditDevice, events, crawledPagesWithHtml);
-        await finalizeSession(sessionId, runAudits, events);
+        try {
+            // Check for cancellation before starting
+            if (cancellationManager.isCancelled(sessionId)) {
+                events.onLog?.('🛑 Crawl cancelled before starting');
+                return;
+            }
+
+            // Run crawler - cancellation is checked in the request handler
+            await crawler.run();
+
+            // Check if cancelled after crawl completes
+            if (cancellationManager.isCancelled(sessionId)) {
+                events.onLog?.('🛑 Crawl was cancelled, skipping post-processing');
+                return;
+            }
+
+            // Post-processing and finalization
+            await executePostProcessing(sessionId, captureLinkDetails, runAudits, auditDevice, events, crawledPagesWithHtml);
+            await finalizeSession(sessionId, runAudits, events);
+        } finally {
+            // Always unregister the crawler
+            cancellationManager.unregisterCrawl(sessionId);
+        }
 
         // Cleanup
         await cleanupQueue(queue);

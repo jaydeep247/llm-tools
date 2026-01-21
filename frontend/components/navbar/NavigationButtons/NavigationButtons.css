@@ -1,0 +1,41 @@
+/* Navigation Buttons Styles */
+.nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(31, 41, 55, 1);
+  border: 1px solid rgba(55, 65, 81, 1);
+  border-radius: 0.5rem;
+  color: rgba(209, 213, 219, 1);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.nav-btn:hover {
+  background: rgba(55, 65, 81, 1);
+  color: #ffffff;
+}
+
+.nav-btn-active {
+  background: rgba(139, 92, 246, 0.2);
+  border-color: rgba(139, 92, 246, 0.5);
+  color: rgba(196, 181, 253, 1);
+}
+
+.nav-btn-danger {
+  background: rgba(127, 29, 29, 0.2);
+  border-color: rgba(185, 28, 28, 0.5);
+  color: rgba(248, 113, 113, 1);
+}
+
+.nav-btn-danger:hover {
+  background: rgba(185, 28, 28, 0.3);
+  border-color: rgba(220, 38, 38, 0.7);
+  color: #ffffff;
+}
+
+.btn-icon {
+  font-size: 1rem;
+}

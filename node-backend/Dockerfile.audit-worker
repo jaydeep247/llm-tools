@@ -34,6 +34,8 @@ RUN npm ci --only=production
 
 # Copy the built backend dist files (including audit worker)
 COPY --from=builder /app/dist ./dist
+# Copy config directory (needed for Redis configuration)
+COPY --from=builder /app/config ./config
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \

@@ -10,8 +10,11 @@ import path from 'path';
 export type AuditJob = {
     url: string;
     sessionId: number;
+    userId: number; // User ID for user-wise isolation
     device: 'mobile' | 'desktop';
     addedAt: string;
+    retryCount?: number; // Number of retry attempts (0 = first attempt)
+    nextRetryAt?: number; // Timestamp when job should be retried (for exponential backoff)
 };
 
 type QueueStats = {
@@ -97,12 +100,31 @@ async function getRedis(): Promise<Redis> {
 }
 
 /**
+ * Get userId for a session (helper function)
+ */
+async function getUserIdForSession(sessionId: number): Promise<number | null> {
+    try {
+        const { getDatabase } = await import('../../services/DatabaseService.js');
+        const db = getDatabase();
+        const session = await db.getCrawlSession(sessionId);
+        return session?.userId || null;
+    } catch (error) {
+        console.error(`[audit-redis-queue] Failed to get userId for session ${sessionId}:`, error);
+        return null;
+    }
+}
+
+/**
  * Initialize audit queue for a session
  */
 export async function initAuditQueue(sessionId: number): Promise<void> {
     try {
         await getRedis();
-        console.log(`[audit-redis-queue] Initialized for sessionId: ${sessionId}`);
+        const userId = await getUserIdForSession(sessionId);
+        if (!userId) {
+            throw new Error(`Cannot initialize queue: userId not found for session ${sessionId}`);
+        }
+        console.log(`[audit-redis-queue] Initialized for userId: ${userId}, sessionId: ${sessionId}`);
     } catch (error) {
         console.error('[audit-redis-queue] Initialization failed:', error);
         throw error;
@@ -110,28 +132,51 @@ export async function initAuditQueue(sessionId: number): Promise<void> {
 }
 
 /**
+ * Generate queue keys with user and session isolation
+ */
+function getQueueKeys(config: any, userId: number, sessionId: number) {
+    const baseKey = `${config.queues?.audit || 'queue'}:${userId}:${sessionId}`;
+    return {
+        priority: `${baseKey}:priority`,
+        set: `${baseKey}:set`,
+        processing: `${config.queues?.['audit-processing'] || 'processing'}:${userId}:${sessionId}:set`,
+        completed: `${config.queues?.['audit-completed'] || 'completed'}:${userId}:${sessionId}:set`,
+        failed: `${config.queues?.['audit-failed'] || 'failed'}:${userId}:${sessionId}:set`
+    };
+}
+
+/**
  * Enqueue a URL for audit processing
+ * Requires userId in job for user-wise isolation
  */
 export async function enqueueAudit(job: AuditJob): Promise<boolean> {
     try {
+        // Validate userId is present
+        if (!job.userId) {
+            // Try to get userId from session if not provided
+            const userId = await getUserIdForSession(job.sessionId);
+            if (!userId) {
+                console.error('[audit-redis-queue] Cannot enqueue: userId not found for session', job.sessionId);
+                return false;
+            }
+            job.userId = userId;
+        }
+
         const redisClient = await getRedis();
         const config = loadRedisConfig();
-
-        const sessionQueueKey = `${config.queues?.audit || 'queue'}:${job.sessionId}:priority`;
-        const sessionQueueSet = `${config.queues?.audit || 'queue'}:${job.sessionId}:set`;
-        const sessionProcessingSet = `${config.queues?.['audit-processing'] || 'processing'}:${job.sessionId}:set`;
+        const keys = getQueueKeys(config, job.userId, job.sessionId);
 
         // Check if URL is already queued or processing
-        const isQueued = await redisClient.sismember(sessionQueueSet, job.url);
-        const isProcessing = await redisClient.sismember(sessionProcessingSet, job.url);
+        const isQueued = await redisClient.sismember(keys.set, job.url);
+        const isProcessing = await redisClient.sismember(keys.processing, job.url);
 
         if (isQueued || isProcessing) {
             return false;
         }
 
         // Add to priority queue (priority 1 = highest)
-        await redisClient.zadd(sessionQueueKey, 1, JSON.stringify(job));
-        await redisClient.sadd(sessionQueueSet, job.url);
+        await redisClient.zadd(keys.priority, 1, JSON.stringify(job));
+        await redisClient.sadd(keys.set, job.url);
 
         return true;
     } catch (error) {
@@ -141,104 +186,134 @@ export async function enqueueAudit(job: AuditJob): Promise<boolean> {
 }
 
 /**
- * Enqueue multiple URLs for audit processing
+ * Enqueue multiple URLs for audit processing (optimized with batch operations)
  */
 export async function enqueueAudits(jobs: AuditJob[]): Promise<number> {
-    let enqueued = 0;
-    for (const job of jobs) {
-        if (await enqueueAudit(job)) {
-            enqueued++;
+    if (jobs.length === 0) return 0;
+
+    try {
+        const redisClient = await getRedis();
+        const config = loadRedisConfig();
+        
+        // Group jobs by userId:sessionId for batch operations
+        const jobGroups = new Map<string, AuditJob[]>();
+        
+        for (const job of jobs) {
+            // Ensure userId is set
+            if (!job.userId) {
+                const userId = await getUserIdForSession(job.sessionId);
+                if (!userId) {
+                    console.warn(`[audit-redis-queue] Skipping job: userId not found for session ${job.sessionId}`);
+                    continue;
+                }
+                job.userId = userId;
+            }
+            
+            const key = `${job.userId}:${job.sessionId}`;
+            if (!jobGroups.has(key)) {
+                jobGroups.set(key, []);
+            }
+            jobGroups.get(key)!.push(job);
         }
+
+        let enqueued = 0;
+        
+        // Process each group in batch
+        for (const [key, groupJobs] of jobGroups) {
+            const [userId, sessionId] = key.split(':').map(Number);
+            const keys = getQueueKeys(config, userId, sessionId);
+            
+            // Batch check for duplicates
+            const urlsToCheck = groupJobs.map(j => j.url);
+            const [queuedUrls, processingUrls] = await Promise.all([
+                redisClient.smembers(keys.set),
+                redisClient.smembers(keys.processing)
+            ]);
+            
+            const existingUrls = new Set([...queuedUrls, ...processingUrls]);
+            
+            // Batch add new jobs
+            const multi = redisClient.multi();
+            let batchCount = 0;
+            
+            for (const job of groupJobs) {
+                if (!existingUrls.has(job.url)) {
+                    multi.zadd(keys.priority, 1, JSON.stringify(job));
+                    multi.sadd(keys.set, job.url);
+                    batchCount++;
+                }
+            }
+            
+            if (batchCount > 0) {
+                await multi.exec();
+                enqueued += batchCount;
+            }
+        }
+        
+        return enqueued;
+    } catch (error) {
+        console.error('[audit-redis-queue] Batch enqueue failed, falling back to individual:', error);
+        // Fallback to individual enqueueing
+        let enqueued = 0;
+        for (const job of jobs) {
+            if (await enqueueAudit(job)) {
+                enqueued++;
+            }
+        }
+        return enqueued;
     }
-    return enqueued;
 }
 
 /**
- * Dequeue a job from Redis queue
+ * Dequeue a job from Redis queue using atomic operations to prevent race conditions
  */
 export async function dequeueAudit(sessionId?: number): Promise<AuditJob | null> {
     try {
         const redisClient = await getRedis();
         const config = loadRedisConfig();
 
-        // If sessionId provided, dequeue from session-specific queue
+        // If sessionId provided, get userId and dequeue from user:session-specific queue
         if (sessionId) {
-            const queueKey = `${config.queues?.audit || 'queue'}:${sessionId}:priority`;
-
-            // Get highest priority job (lowest score) - compatible with Redis 3.0
-            const result = await redisClient.zrange(queueKey, 0, 0, 'WITHSCORES');
-            if (!result || result.length === 0) {
+            const userId = await getUserIdForSession(sessionId);
+            if (!userId) {
+                console.warn(`[audit-redis-queue] Cannot dequeue: userId not found for session ${sessionId}`);
                 return null;
             }
-
-            const job: AuditJob = JSON.parse(result[0]);
-
-            // Validate job has sessionId
-            if (!job.sessionId) {
-                console.warn('[audit-redis-queue] Job missing sessionId, removing stale job:', job.url);
-                await redisClient.zrem(queueKey, result[0]);
-                return dequeueAudit(sessionId);
-            }
-
-            // Remove from priority queue
-            await redisClient.zrem(queueKey, result[0]);
-
-            // Move to processing set (session-specific)
-            const sessionProcessingSet = `${config.queues?.['audit-processing'] || 'processing'}:${job.sessionId}:set`;
-            const sessionQueueSet = `${config.queues?.audit || 'queue'}:${job.sessionId}:set`;
-
-            await redisClient.sadd(sessionProcessingSet, job.url);
-            await redisClient.srem(sessionQueueSet, job.url);
-
-            return job;
+            return await dequeueFromSession(redisClient, config, userId, sessionId);
         }
 
-        // No sessionId provided - scan all session-specific queues to find a job
-        // Note: keys() with keyPrefix doesn't auto-prefix the pattern, so we need to include prefix manually
-        // Keys are stored as 'seo:audit-queue:11:priority' (ioredis auto-prefixes when storing)
-        // So pattern should be 'seo:audit-queue:*:priority' (with prefix included)
+        // No sessionId provided - scan all user:session-specific queues to find a job
         const queuePrefix = config.keyPrefix || 'audit:';
-        const queueBaseName = config.queues?.audit || 'audit-queue';
-        const pattern = `${queuePrefix}${queueBaseName}:*:priority`;
+        const queueBaseName = config.queues?.audit || 'queue';
+        // Pattern: queue:userId:sessionId:priority
+        const pattern = `${queuePrefix}${queueBaseName}:*:*:priority`;
 
-        // Use call('KEYS', ...) to bypass ioredis keyPrefix handling for pattern matching
-        // Returns keys with full prefix (e.g., 'seo:audit-queue:11:priority')
-        const queueKeysWithPrefix = await redisClient.call('KEYS', pattern) as string[];
-
-        // Strip the prefix from keys since ioredis operations auto-add the prefix
-        // If keyPrefix is 'seo:' and key is 'seo:audit-queue:11:priority', strip to 'audit-queue:11:priority'
-        const prefixLength = queuePrefix.length;
-        const queueKeys = queueKeysWithPrefix.map(key => key.startsWith(queuePrefix) ? key.substring(prefixLength) : key);
+        // Try SCAN first (non-blocking), fallback to KEYS if SCAN not available
+        // Increased COUNT for faster scanning
+        let queueKeys: string[] = [];
+        try {
+            let cursor = '0';
+            do {
+                const [nextCursor, keys] = await redisClient.scan(cursor, 'MATCH', pattern, 'COUNT', 500);
+                cursor = nextCursor;
+                // Strip prefix from keys
+                const prefixLength = queuePrefix.length;
+                queueKeys.push(...keys.map(key => key.startsWith(queuePrefix) ? key.substring(prefixLength) : key));
+            } while (cursor !== '0');
+        } catch (scanError) {
+            // Fallback to KEYS if SCAN not supported (Redis < 2.8)
+            console.warn('[audit-redis-queue] SCAN not available, using KEYS (may block Redis):', scanError);
+            const queueKeysWithPrefix = await redisClient.call('KEYS', pattern) as string[];
+            const prefixLength = queuePrefix.length;
+            queueKeys = queueKeysWithPrefix.map(key => key.startsWith(queuePrefix) ? key.substring(prefixLength) : key);
+        }
 
         // Try each queue until we find a job
         for (const queueKey of queueKeys) {
-            // Get highest priority job (lowest score) - compatible with Redis 3.0
-            // queueKey now has prefix stripped, so ioredis will auto-add it back
-            const result = await redisClient.zrange(queueKey, 0, 0, 'WITHSCORES');
-            if (!result || result.length === 0) {
-                continue; // This queue is empty, try next
+            const job = await dequeueFromSession(redisClient, config, undefined, undefined, queueKey);
+            if (job) {
+                return job;
             }
-
-            const job: AuditJob = JSON.parse(result[0]);
-
-            // Validate job has sessionId
-            if (!job.sessionId) {
-                console.warn('[audit-redis-queue] Job missing sessionId, removing stale job:', job.url);
-                await redisClient.zrem(queueKey, result[0]);
-                continue; // Try next queue or retry this one
-            }
-
-            // Remove from priority queue
-            await redisClient.zrem(queueKey, result[0]);
-
-            // Move to processing set (session-specific)
-            const sessionProcessingSet = `${config.queues?.['audit-processing'] || 'processing'}:${job.sessionId}:set`;
-            const sessionQueueSet = `${config.queues?.audit || 'queue'}:${job.sessionId}:set`;
-
-            await redisClient.sadd(sessionProcessingSet, job.url);
-            await redisClient.srem(sessionQueueSet, job.url);
-
-            return job;
         }
 
         // No jobs found in any queue
@@ -250,28 +325,171 @@ export async function dequeueAudit(sessionId?: number): Promise<AuditJob | null>
 }
 
 /**
- * Mark job as complete and move from processing queue
+ * Dequeue from a specific user:session queue using atomic operations
  */
-export async function markAuditComplete(url: string, success: boolean, sessionId: number): Promise<void> {
+async function dequeueFromSession(
+    redisClient: Redis,
+    config: any,
+    userId?: number,
+    sessionId?: number,
+    queueKeyOverride?: string
+): Promise<AuditJob | null> {
+    let queueKey: string;
+    let keys: ReturnType<typeof getQueueKeys> | null = null;
+
+    if (queueKeyOverride) {
+        // Extract userId and sessionId from queue key pattern: queue:userId:sessionId:priority
+        const parts = queueKeyOverride.split(':');
+        if (parts.length >= 3) {
+            const extractedUserId = parseInt(parts[1], 10);
+            const extractedSessionId = parseInt(parts[2], 10);
+            if (!isNaN(extractedUserId) && !isNaN(extractedSessionId)) {
+                keys = getQueueKeys(config, extractedUserId, extractedSessionId);
+                queueKey = keys.priority;
+            } else {
+                queueKey = queueKeyOverride;
+            }
+        } else {
+            queueKey = queueKeyOverride;
+        }
+    } else if (userId && sessionId) {
+        keys = getQueueKeys(config, userId, sessionId);
+        queueKey = keys.priority;
+    } else {
+        return null;
+    }
+
+    const now = Date.now();
+
+    // Use atomic transaction to get and remove job (prevents race conditions)
+    const multi = redisClient.multi();
+    
+    // Get more jobs at once for faster processing (check up to 20 jobs for ready ones)
+    multi.zrange(queueKey, 0, 20, 'WITHSCORES');
+    
+    const results = await multi.exec();
+    if (!results || results.length === 0) {
+        return null;
+    }
+
+    const jobsWithScores = results[0][1] as (string | number)[];
+    if (!jobsWithScores || jobsWithScores.length === 0) {
+        return null;
+    }
+
+    // Find first job that's ready to process (nextRetryAt <= now or not set)
+    let selectedJob: AuditJob | null = null;
+    let selectedJobStr: string | null = null;
+
+    for (let i = 0; i < jobsWithScores.length; i += 2) {
+        const jobStr = String(jobsWithScores[i]);
+        const score = Number(jobsWithScores[i + 1]);
+
+        try {
+            const job: AuditJob = JSON.parse(jobStr);
+            
+            // Validate job has required fields
+            if (!job.sessionId || !job.userId) {
+                console.warn('[audit-redis-queue] Job missing sessionId or userId, will remove:', job.url);
+                await redisClient.zrem(queueKey, jobStr);
+                continue;
+            }
+
+            // Check if job is ready (no nextRetryAt or it's time to retry)
+            if (!job.nextRetryAt || job.nextRetryAt <= now) {
+                selectedJob = job;
+                selectedJobStr = jobStr;
+                break;
+            }
+        } catch (parseError) {
+            console.warn('[audit-redis-queue] Failed to parse job, removing:', parseError);
+            await redisClient.zrem(queueKey, jobStr);
+            continue;
+        }
+    }
+
+    if (!selectedJob || !selectedJobStr) {
+        return null; // No ready jobs found
+    }
+
+    // Atomically remove the job and move to processing
+    const multi2 = redisClient.multi();
+    multi2.zrem(queueKey, selectedJobStr);
+    const execResults = await multi2.exec();
+
+    if (!execResults || execResults[0][1] !== 1) {
+        // Job was already taken by another worker
+        return null;
+    }
+
+    // Get keys if not already determined
+    if (!keys) {
+        keys = getQueueKeys(config, selectedJob.userId, selectedJob.sessionId);
+    }
+
+    // Move to processing set (user:session-specific)
+    await redisClient.sadd(keys.processing, selectedJob.url);
+    await redisClient.srem(keys.set, selectedJob.url);
+
+    return selectedJob;
+}
+
+/**
+ * Mark job as complete and move from processing queue
+ * If failed and retries available, re-queue with exponential backoff
+ */
+export async function markAuditComplete(
+    url: string,
+    success: boolean,
+    sessionId: number,
+    job?: AuditJob,
+    maxRetries: number = 3
+): Promise<void> {
     try {
+        if (!job || !job.userId) {
+            console.error('[audit-redis-queue] Cannot mark complete: job missing userId');
+            return;
+        }
+
         const redisClient = await getRedis();
         const config = loadRedisConfig();
-
-        const processingSet = `${config.queues?.['audit-processing'] || 'processing'}:${sessionId}:set`;
+        const keys = getQueueKeys(config, job.userId, sessionId);
 
         // Remove from processing
-        await redisClient.srem(processingSet, url);
+        await redisClient.srem(keys.processing, url);
 
         if (success) {
             // Move to completed set
-            const completedSet = `${config.queues?.['audit-completed'] || 'completed'}:${sessionId}:set`;
-            await redisClient.sadd(completedSet, url);
-            await redisClient.expire(completedSet, config.ttl?.job || 3600);
+            await redisClient.sadd(keys.completed, url);
+            await redisClient.expire(keys.completed, config.ttl?.job || 3600);
         } else {
-            // Move to failed set
-            const failedSet = `${config.queues?.['audit-failed'] || 'failed'}:${sessionId}:set`;
-            await redisClient.sadd(failedSet, url);
-            await redisClient.expire(failedSet, config.ttl?.failed || 86400);
+            // Check if we should retry
+            const retryCount = (job.retryCount || 0) + 1;
+            
+            if (retryCount <= maxRetries) {
+                // Faster retry backoff: reduced delays for quicker retries (min 2s, max 30s)
+                const backoffSeconds = Math.min(Math.max(2, Math.pow(1.5, retryCount)), 30);
+                const nextRetryAt = Date.now() + (backoffSeconds * 1000);
+
+                // Re-queue with retry info
+                const retryJob: AuditJob = {
+                    ...job,
+                    retryCount,
+                    nextRetryAt
+                };
+
+                // Use lower priority for retries (higher score = lower priority)
+                // Priority = 1 + retryCount (so first retry = 2, second = 3, etc.)
+                const priority = 1 + retryCount;
+                await redisClient.zadd(keys.priority, priority, JSON.stringify(retryJob));
+                
+                console.log(`[audit-redis-queue] Re-queued ${url} for retry ${retryCount}/${maxRetries} (retry in ${backoffSeconds}s) - userId: ${job.userId}, sessionId: ${sessionId}`);
+            } else {
+                // Max retries exceeded, move to failed set
+                await redisClient.sadd(keys.failed, url);
+                await redisClient.expire(keys.failed, config.ttl?.failed || 86400);
+                console.log(`[audit-redis-queue] Max retries exceeded for ${url}, marked as failed - userId: ${job.userId}, sessionId: ${sessionId}`);
+            }
         }
     } catch (error) {
         console.error('[audit-redis-queue] Mark complete failed:', error);
@@ -279,23 +497,30 @@ export async function markAuditComplete(url: string, success: boolean, sessionId
 }
 
 /**
- * Get queue statistics for a session
+ * Get queue statistics for a session (user:session-specific)
  */
 export async function getAuditQueueStats(sessionId: number): Promise<QueueStats> {
     try {
+        const userId = await getUserIdForSession(sessionId);
+        if (!userId) {
+            console.warn(`[audit-redis-queue] Cannot get stats: userId not found for session ${sessionId}`);
+            return {
+                totalQueued: 0,
+                processing: 0,
+                completed: 0,
+                failed: 0
+            };
+        }
+
         const redisClient = await getRedis();
         const config = loadRedisConfig();
-
-        const queueKey = `${config.queues?.audit || 'queue'}:${sessionId}:priority`;
-        const processingSet = `${config.queues?.['audit-processing'] || 'processing'}:${sessionId}:set`;
-        const completedSet = `${config.queues?.['audit-completed'] || 'completed'}:${sessionId}:set`;
-        const failedSet = `${config.queues?.['audit-failed'] || 'failed'}:${sessionId}:set`;
+        const keys = getQueueKeys(config, userId, sessionId);
 
         const [totalQueued, processing, completed, failed] = await Promise.all([
-            redisClient.zcard(queueKey),
-            redisClient.scard(processingSet),
-            redisClient.scard(completedSet),
-            redisClient.scard(failedSet)
+            redisClient.zcard(keys.priority),
+            redisClient.scard(keys.processing),
+            redisClient.scard(keys.completed),
+            redisClient.scard(keys.failed)
         ]);
 
         return {
@@ -321,13 +546,18 @@ export async function getAuditQueueStats(sessionId: number): Promise<QueueStats>
  */
 export async function cleanupStuckJobs(sessionId: number, timeoutMs: number = 5 * 60 * 1000): Promise<number> {
     try {
+        const userId = await getUserIdForSession(sessionId);
+        if (!userId) {
+            console.warn(`[audit-redis-queue] Cannot cleanup: userId not found for session ${sessionId}`);
+            return 0;
+        }
+
         const redisClient = await getRedis();
         const config = loadRedisConfig();
-        const processingSet = `${config.queues?.['audit-processing'] || 'processing'}:${sessionId}:set`;
-        const failedSet = `${config.queues?.['audit-failed'] || 'failed'}:${sessionId}:set`;
+        const keys = getQueueKeys(config, userId, sessionId);
 
         // Get all URLs in processing
-        const processingUrls = await redisClient.smembers(processingSet);
+        const processingUrls = await redisClient.smembers(keys.processing);
         let cleanedCount = 0;
 
         // Note: Redis sets don't store timestamps, so we use a heuristic:
@@ -336,8 +566,8 @@ export async function cleanupStuckJobs(sessionId: number, timeoutMs: number = 5 
         if (processingUrls.length > 0) {
             // Move all stuck URLs to failed set
             for (const url of processingUrls) {
-                await redisClient.srem(processingSet, url);
-                await redisClient.sadd(failedSet, url);
+                await redisClient.srem(keys.processing, url);
+                await redisClient.sadd(keys.failed, url);
                 cleanedCount++;
             }
         }
@@ -379,22 +609,29 @@ export async function areAuditsComplete(sessionId: number): Promise<boolean> {
 }
 
 /**
- * Clear audit queues for a session
+ * Clear audit queues for a session (user:session-specific)
  */
 export async function clearAuditQueue(sessionId: number): Promise<void> {
     try {
+        const userId = await getUserIdForSession(sessionId);
+        if (!userId) {
+            console.warn(`[audit-redis-queue] Cannot clear: userId not found for session ${sessionId}`);
+            return;
+        }
+
         const redisClient = await getRedis();
         const config = loadRedisConfig();
+        const keys = getQueueKeys(config, userId, sessionId);
 
         await Promise.all([
-            redisClient.del(`${config.queues?.audit || 'queue'}:${sessionId}:priority`),
-            redisClient.del(`${config.queues?.audit || 'queue'}:${sessionId}:set`),
-            redisClient.del(`${config.queues?.['audit-processing'] || 'processing'}:${sessionId}:set`),
-            redisClient.del(`${config.queues?.['audit-completed'] || 'completed'}:${sessionId}:set`),
-            redisClient.del(`${config.queues?.['audit-failed'] || 'failed'}:${sessionId}:set`)
+            redisClient.del(keys.priority),
+            redisClient.del(keys.set),
+            redisClient.del(keys.processing),
+            redisClient.del(keys.completed),
+            redisClient.del(keys.failed)
         ]);
 
-        console.log(`[audit-redis-queue] Queue cleared successfully for session ${sessionId}`);
+        console.log(`[audit-redis-queue] Queue cleared successfully for userId: ${userId}, sessionId: ${sessionId}`);
     } catch (error) {
         console.error('[audit-redis-queue] Clear queue failed:', error);
         throw error;

@@ -81,6 +81,14 @@ export async function finalizeSession(
     // If audits ran, it set status to 'auditing' if URLs exist, or 'completed' if no URLs
     // If audits didn't run, status is still 'running'
     const currentSession = await db.getCrawlSession(sessionId) as any;
+    
+    // Never change cancelled status - cancelled sessions should always remain cancelled
+    if (currentSession?.status === 'cancelled') {
+        log.info(`[finalizeSession] Session ${sessionId} is cancelled - preserving cancelled status`);
+        events.onLog?.('🛑 Session was cancelled - status preserved');
+        return; // Don't update status or other fields for cancelled sessions
+    }
+    
     let finalStatus: 'auditing' | 'completed' = 'completed';
     
     if (runAudits) {

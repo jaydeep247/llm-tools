@@ -12,12 +12,15 @@ import {
     enqueueAudits,
     getAuditQueueStats,
     areAuditsComplete,
+    clearAuditQueue,
     type AuditJob
 } from '../../../redis/audit/audit-queue.js';
+import { getCancellationManager } from '../../../services/crawlCancellationManager.js';
 import type { CrawlEvents } from '../../types/index.js';
 
 const logger = Logger.getInstance();
 let auditCancelled = false;
+const cancelledSessions = new Set<number>();
 
 export function cancelAudits(): void {
     auditCancelled = true;
@@ -25,6 +28,23 @@ export function cancelAudits(): void {
 
 export function resetAuditCancellation(): void {
     auditCancelled = false;
+    cancelledSessions.clear();
+}
+
+/**
+ * Cancel audits for a specific session
+ */
+export async function cancelAuditsForSession(sessionId: number): Promise<void> {
+    cancelledSessions.add(sessionId);
+    auditCancelled = true;
+    
+    try {
+        // Clear the audit queue for this session
+        await clearAuditQueue(sessionId);
+        logger.info(`[auditManager] Cancelled audits and cleared queue for session ${sessionId}`);
+    } catch (error) {
+        logger.error(`[auditManager] Failed to clear audit queue for session ${sessionId}`, error as Error);
+    }
 }
 
 export async function runAuditProcessing(
@@ -70,10 +90,23 @@ export async function runAuditProcessing(
 
         onLog?.(`Running audits for ${urlsToAudit.length} URLs using Redis queue for parallel processing...`);
 
-        // Create audit jobs
+        // Get userId from session for user-wise isolation
+        const session = await db.getCrawlSession(sessionId);
+        if (!session || typeof session.userId !== 'number') {
+            const errorMsg = `Cannot start audits: userId not found for session ${sessionId}`;
+            log.error(errorMsg);
+            onLog?.(errorMsg);
+            return;
+        }
+
+        // Extract userId - TypeScript now knows it's a number after the type guard
+        const userId: number = session.userId;
+
+        // Create audit jobs with userId for user:session isolation
         const auditJobs: AuditJob[] = urlsToAudit.map(url => ({
             url,
             sessionId,
+            userId,
             device: auditDevice,
             addedAt: new Date().toISOString()
         }));
@@ -92,8 +125,9 @@ export async function runAuditProcessing(
         let lastStats = { totalQueued: enqueued, processing: 0, completed: 0, failed: 0 };
         let lastProgressLog = Date.now();
 
-        // Monitor queue progress until complete
-        while (!auditCancelled) {
+        // Monitor queue progress until complete or cancelled
+        const cancellationManager = getCancellationManager();
+        while (!auditCancelled && !cancelledSessions.has(sessionId) && !cancellationManager.isCancelled(sessionId)) {
             const stats = await getAuditQueueStats(sessionId);
 
             // Log progress periodically (every 5 seconds)
@@ -143,10 +177,17 @@ export async function runAuditProcessing(
             await new Promise(resolve => setTimeout(resolve, 2000));
         }
 
-        if (auditCancelled) {
+        if (auditCancelled || cancelledSessions.has(sessionId) || cancellationManager.isCancelled(sessionId)) {
             const cancelMsg = '🛑 Audit process cancelled by user';
             log.info(cancelMsg);
             onLog?.(cancelMsg);
+            
+            // Update session status to cancelled
+            try {
+                await db.updateCrawlSession(sessionId, { status: 'cancelled' });
+            } catch (error) {
+                logger.warn(`[auditManager] Failed to update session status after cancellation`, error as Error);
+            }
         }
     } catch (error) {
         const auditErrorMsg = `❌ Audit execution failed: ${(error as Error).message}`;

@@ -65,6 +65,14 @@ export function createRequestHandler(context: RequestHandlerContext): CheerioCra
         const { url } = request;
         const db = getDatabase();
 
+        // Check for cancellation at the start of each request
+        const { getCancellationManager } = await import('../../services/crawlCancellationManager.js');
+        const cancellationManager = getCancellationManager();
+        if (cancellationManager.isCancelled(sessionId)) {
+            reqLog.info(`[requestHandler] Request ${url} skipped - session ${sessionId} cancelled`);
+            return; // Skip processing this request
+        }
+
         // Handle HTTP errors
         if (response?.statusCode && response.statusCode >= 400) {
             const errorMsg = `Skipping ${url} due to status ${response.statusCode}`;
@@ -236,6 +244,12 @@ export function createRequestHandler(context: RequestHandlerContext): CheerioCra
         }, canonicalizeUrl, isSameSite);
 
         if (toEnqueue.length > 0) {
+            // Check for cancellation before enqueueing new links
+            if (cancellationManager.isCancelled(sessionId)) {
+                reqLog.info(`[requestHandler] Skipping link enqueueing - session ${sessionId} cancelled`);
+                return;
+            }
+
             await enqueueLinks({
                 urls: toEnqueue,
                 transformRequestFunction: (req) => {

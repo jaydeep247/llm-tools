@@ -11,6 +11,9 @@ import { UserSettings } from './components/user/UserSettings';
 import AEODashboard from './components/aeo/AEODashboard';
 import { CrawlHistory } from './components/crawler/CrawlHistory';
 import { apiService, AnalysisResult } from './api';
+import { URLInputForm } from './components/app/URLInputForm/URLInputForm';
+import { ErrorDisplay } from './components/app/ErrorDisplay/ErrorDisplay';
+import { ReuseModal } from './components/app/ReuseModal/ReuseModal';
 
 type View = 'home' | 'login' | 'register' | 'profile' | 'settings' | 'history';
 
@@ -32,7 +35,7 @@ const AppWithAuth: React.FC = () => {
 
   // Live crawling state
   const [isCrawling, setIsCrawling] = useState<boolean>(false);
-  const [crawlStatus, setCrawlStatus] = useState<'idle' | 'running' | 'auditing' | 'completed'>('idle');
+  const [crawlStatus, setCrawlStatus] = useState<'idle' | 'running' | 'auditing' | 'completed' | 'cancelled'>('idle');
   const [pageCount, setPageCount] = useState<number>(0);
   const [logs, setLogs] = useState<{ message: string; timestamp: string }[]>([]);
   const [pages, setPages] = useState<string[]>([]);
@@ -42,6 +45,7 @@ const AppWithAuth: React.FC = () => {
     pagesPerSecond: number;
   } | null>(null);
   const [stopping, setStopping] = useState<boolean>(false);
+  const [currentSessionId, setCurrentSessionId] = useState<number | null>(null);
 
   // Server-Sent Events for live updates (only for authenticated users)
   React.useEffect(() => {
@@ -103,6 +107,10 @@ const AppWithAuth: React.FC = () => {
     eventSource.addEventListener('session-status-update', (e) => {
       try {
         const data = JSON.parse(e.data);
+        // Track sessionId from status updates
+        if (data?.sessionId) {
+          setCurrentSessionId(data.sessionId);
+        }
         const message = data?.message || `Session ${data?.status || ''}`.trim();
         if (message) {
           setLogs(prev => [...prev.slice(-99), {
@@ -115,9 +123,13 @@ const AppWithAuth: React.FC = () => {
           if (data.status === 'running' || data.status === 'auditing') {
             setIsCrawling(true);
             setCrawlStatus(data.status);
-          } else if (data.status === 'completed' || data.status === 'failed') {
+          } else if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled') {
             setIsCrawling(false);
-            setCrawlStatus('completed');
+            setCrawlStatus(data.status);
+            // Clear sessionId when completed or cancelled
+            if (data.status === 'completed' || data.status === 'cancelled') {
+              setCurrentSessionId(null);
+            }
           }
         }
       } catch { }
@@ -193,6 +205,7 @@ const AppWithAuth: React.FC = () => {
       setLogs([]);
       setPages([]);
       setCrawlStats(null);
+      setCurrentSessionId(null);
       setCurrentView('home');
     }
   }, [isAuthenticated]);
@@ -231,26 +244,32 @@ const AppWithAuth: React.FC = () => {
       setStopping(true);
       setError(null);
       
-      // Cancel audits
+      // Cancel all crawling and audit processes
       const response = await fetch('/api/cancel-audits', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
         },
+        body: JSON.stringify({
+          ...(currentSessionId ? { sessionId: currentSessionId } : {})
+        }),
         credentials: 'include'
       });
 
       if (response.ok) {
+        const result = await response.json();
         setLoading(false);
         setIsCrawling(false);
         setCrawlStatus('idle');
+        setCurrentSessionId(null);
         setLogs(prev => [...prev, {
-          message: '🛑 Analysis stopped by user',
+          message: result.message || '🛑 All processes stopped by user',
           timestamp: new Date().toLocaleTimeString()
         }]);
       } else {
-        throw new Error('Failed to stop analysis');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to stop analysis');
       }
     } catch (err: any) {
       setError(err.message || 'Failed to stop analysis');
@@ -283,6 +302,7 @@ const AppWithAuth: React.FC = () => {
       setLogs([]);
       setPages([]);
       setCrawlStats(null);
+      setCurrentSessionId(null); // Reset sessionId for new crawl
     }
 
     try {
@@ -297,13 +317,15 @@ const AppWithAuth: React.FC = () => {
 
       // Show reuse modal if server indicates reuse
       if ((analysisResult as any)?.reuseMode && (analysisResult as any)?.sessionId) {
+        const sessionId = (analysisResult as any).sessionId;
+        setCurrentSessionId(sessionId);
         // Only set isCrawling to false if no audits are running
         const auditsRunning = (analysisResult as any).auditsTriggered || (analysisResult as any).auditsInProgress;
         setIsCrawling(auditsRunning);
         setCrawlStatus(auditsRunning ? 'auditing' : 'completed');
         setLoading(false);
         setReusePrompt({
-          sessionId: (analysisResult as any).sessionId,
+          sessionId: sessionId,
           url: (analysisResult as any).url || normalizedUrl,
           hasAudits: (analysisResult as any).hasAudits,
           auditsTriggered: (analysisResult as any).auditsTriggered,
@@ -311,6 +333,17 @@ const AppWithAuth: React.FC = () => {
           message: (analysisResult as any).message,
         });
         return;
+      }
+
+      // Track sessionId if provided in response (from crawl API response)
+      // The crawl API returns { ok: true, sessionId, url, requestId }
+      // We need to check if the result has sessionId or if we need to extract it from the data
+      if ((analysisResult as any)?.sessionId) {
+        setCurrentSessionId((analysisResult as any).sessionId);
+      } else if ((analysisResult as any)?.data?.session?.id) {
+        setCurrentSessionId((analysisResult as any).data.session.id);
+      } else if ((analysisResult as any)?.session?.id) {
+        setCurrentSessionId((analysisResult as any).session.id);
       }
 
       setResult(analysisResult);
@@ -547,6 +580,24 @@ const AppWithAuth: React.FC = () => {
       // Fetch session data (pages, stats, etc.)
       const sessionData = await apiService.getSessionData(sessionId);
 
+      // Check if session is cancelled - if so, just show cancellation message
+      const sessionStatus = sessionData.session?.status || sessionData.statistics?.status || 'unknown';
+      if (sessionStatus === 'cancelled') {
+        setLoading(false);
+        setIsCrawling(false);
+        setCrawlStatus('cancelled');
+        setPageCount(0);
+        setPages([]);
+        setCrawlStats(null);
+        setResult(null);
+        setRunCrawl(false); // Don't show crawler tabs or options
+        setLogs([{
+          message: '🛑 Session was cancelled',
+          timestamp: new Date().toLocaleTimeString()
+        }]);
+        return; // Don't load any data or show options for cancelled sessions
+      }
+
       // Extract pages from session data
       const pagesArray = sessionData.data || [];
       const sessionPages = pagesArray
@@ -591,7 +642,7 @@ const AppWithAuth: React.FC = () => {
         // Set isCrawling based on session status
         const sessionStatus = sessionData.session?.status || 'completed';
         setIsCrawling(sessionStatus === 'running' || sessionStatus === 'auditing');
-        setCrawlStatus(sessionStatus as 'running' | 'auditing' | 'completed');
+        setCrawlStatus(sessionStatus as 'running' | 'auditing' | 'completed' | 'cancelled');
       } else {
         setCrawlStats({
           count: totalPages,
@@ -868,122 +919,33 @@ const AppWithAuth: React.FC = () => {
         </div>
 
         {/* Input Form */}
-        <form onSubmit={handleSubmit} className="max-w-4xl mx-auto mb-8">
-          <div className="bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-700">
-            <div className="flex gap-4 mb-4">
-              <input
-                type="text"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="Enter website URL (e.g., example.com or https://example.com)"
-                className="flex-1 px-4 py-3 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
-                disabled={loading}
-                required
-              />
-              <button
-                type="submit"
-                disabled={loading || !url.trim()}
-                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg hover:from-purple-700 hover:to-purple-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium shadow-lg transition-all"
-              >
-                {loading ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  <span>🔍</span>
-                )}
-                {loading ? 'Analyzing...' : 'Analyze'}
-              </button>
-              <button
-                type="button"
-                onClick={handleStop}
-                disabled={!loading || stopping}
-                className="px-6 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium shadow-lg transition-all"
-                title="Stop all ongoing operations"
-              >
-                {stopping ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  <span>🛑</span>
-                )}
-                {stopping ? 'Stopping...' : 'Stop'}
-              </button>
-            </div>
-
-            {/* Progress Bar */}
-            {loading && (
-              <div className="mb-4">
-                <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-purple-500 via-purple-600 to-purple-500 animate-progress"></div>
-                </div>
-                <p className="text-xs text-gray-400 mt-2 flex items-center gap-2">
-                  <svg className="w-4 h-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Fetching backlinks data. Please wait...
-                </p>
-              </div>
-            )}
-
-            {/* Crawl Checkbox */}
-            <div className="flex items-center gap-3 mb-4">
-              <input
-                type="checkbox"
-                id="runCrawl"
-                checked={runCrawl}
-                onChange={(e) => setRunCrawl(e.target.checked)}
-                className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500"
-                disabled={loading}
-              />
-              <label htmlFor="runCrawl" className="text-sm font-medium text-gray-300">
-                🕷️ Run Crawl (Analyze multiple pages)
-              </label>
-            </div>
-
-            {/* Advanced Options */}
-            {runCrawl && (
-              <div className="border-t border-gray-700 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowAdvanced(!showAdvanced)}
-                  className="text-sm text-purple-400 hover:text-purple-300 font-medium mb-4 transition-colors"
-                >
-                  {showAdvanced ? 'Hide' : 'Show'} Advanced Options
-                </button>
-
-                {showAdvanced && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={runAudits}
-                        onChange={(e) => setRunAudits(e.target.checked)}
-                        className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500"
-                        disabled={loading}
-                      />
-                      <span className="text-sm text-gray-300">🔍 Run Performance Audits</span>
-                    </label>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </form>
+        <div className="max-w-4xl mx-auto mb-8">
+            <URLInputForm
+              url={url}
+              setUrl={setUrl}
+              loading={loading}
+              stopping={stopping}
+              isCrawling={isCrawling}
+              crawlStatus={crawlStatus}
+              runCrawl={runCrawl}
+              setRunCrawl={setRunCrawl}
+              showAdvanced={showAdvanced}
+              setShowAdvanced={setShowAdvanced}
+              runAudits={runAudits}
+              setRunAudits={setRunAudits}
+              auditDevice={auditDevice}
+              setAuditDevice={setAuditDevice}
+              allowSubdomains={allowSubdomains}
+              setAllowSubdomains={setAllowSubdomains}
+              captureLinkDetails={captureLinkDetails}
+              setCaptureLinkDetails={setCaptureLinkDetails}
+              onSubmit={handleSubmit}
+              onStop={handleStop}
+            />
+        </div>
 
         {/* Error Display */}
-        {error && (
-          <div className="max-w-4xl mx-auto mb-8">
-            <div className="bg-red-900 border border-red-700 rounded-lg p-4 flex items-center gap-3">
-              <div className="w-6 h-6 text-red-600 flex-shrink-0">⚠️</div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-red-200 mb-1">
-                  {error.toLowerCase().includes('limit') || error.toLowerCase().includes('exceeded')
-                    ? '🚫 Daily Limit Reached'
-                    : 'Analysis Failed'}
-                </h3>
-                <p className="text-red-300 text-sm">{error}</p>
-              </div>
-            </div>
-          </div>
-        )}
+        <ErrorDisplay error={error} />
 
         {/* Results */}
         {result && (
@@ -1002,71 +964,12 @@ const AppWithAuth: React.FC = () => {
           </div>
         )}
         {/* Reuse Modal */}
-        {reusePrompt && (
-          <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center"
-            onClick={() => setReusePrompt(null)}
-          >
-            <div className="absolute inset-0 bg-gray-900/70 backdrop-blur-sm" />
-            <div
-              className="relative w-[560px] max-w-[92vw] rounded-2xl border border-gray-700/70 bg-gray-900 shadow-xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Close (X) button, matching existing close style */}
-              <button
-                aria-label="Close modal"
-                onClick={() => setReusePrompt(null)}
-                className="close-button absolute top-3 right-3"
-              >
-                <svg viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </button>
-              <div className="px-6 pt-6 pb-4 border-b border-gray-800">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-600/10 text-purple-300 ring-1 ring-purple-600/25">🔁</div>
-                  <div>
-                    <h3 className="m-0 text-lg font-semibold text-gray-100">Previous crawl found</h3>
-                    <p className="m-0 mt-1 text-sm text-gray-400">
-                      {reusePrompt.message || 'We found a recent crawl for this URL. What would you like to do?'}
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-4 rounded-lg bg-gray-800 p-3 text-sm text-gray-300 ring-1 ring-gray-700">
-                  <span className="text-gray-400">URL:</span> <span className="break-all text-gray-200">{reusePrompt.url}</span>
-                </div>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  {reusePrompt.hasAudits && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300 ring-1 ring-emerald-500/25">Audits available</span>
-                  )}
-                  {reusePrompt.auditsInProgress && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-300 ring-1 ring-amber-500/25">Audits in progress</span>
-                  )}
-                  {reusePrompt.auditsTriggered && !reusePrompt.auditsInProgress && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-3 py-1 text-xs font-medium text-blue-300 ring-1 ring-blue-500/25">Audits will start</span>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 border-t border-gray-800 px-6 py-4">
-                <button
-                  className="inline-flex items-center gap-2 rounded-lg border border-purple-500/40 bg-gradient-to-r from-purple-600 to-fuchsia-600 px-4 py-2 text-sm font-semibold text-white shadow hover:from-purple-500 hover:to-fuchsia-500 focus:outline-none focus:ring-2 focus:ring-purple-500/40 transition"
-                  onClick={handleViewPrevious}
-                >
-                  <span>👁️</span>
-                  <span>View previous</span>
-                </button>
-                <button
-                  className="inline-flex items-center gap-2 rounded-lg border border-indigo-500/40 bg-gradient-to-r from-indigo-600 to-sky-600 px-4 py-2 text-sm font-semibold text-white shadow hover:from-indigo-500 hover:to-sky-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition"
-                  onClick={handleRecrawl}
-                >
-                  <span>🔄</span>
-                  <span>Re-crawl now</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <ReuseModal
+          reusePrompt={reusePrompt}
+          onClose={() => setReusePrompt(null)}
+          onViewPrevious={handleViewPrevious}
+          onRecrawl={handleRecrawl}
+        />
       </div>
     </div>
   );

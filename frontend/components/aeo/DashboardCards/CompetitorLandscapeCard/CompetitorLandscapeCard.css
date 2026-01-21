@@ -1,0 +1,167 @@
+/* Competitor Landscape Card Styles */
+.dashboard-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 1.5rem;
+  backdrop-filter: blur(10px);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.card-header h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0;
+  color: #ffffff;
+}
+
+.info-button {
+  position: relative;
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #a78bfa;
+  padding: 0;
+}
+
+.info-button:hover {
+  background: rgba(139, 92, 246, 0.25);
+  border-color: rgba(139, 92, 246, 0.5);
+  color: #c4b5fd;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+}
+
+.info-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #ffffff;
+  font-size: 0.625rem;
+  font-weight: 700;
+  padding: 0.125rem 0.375rem;
+  border-radius: 10px;
+  min-width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(17, 24, 39, 0.9);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  line-height: 1;
+}
+
+.card-score {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.score-circle-metric {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from -90deg,
+    var(--color, #8b5cf6) 0deg,
+    var(--color, #8b5cf6) calc(var(--progress, 0) * 3.6deg),
+    #2a2a3e calc(var(--progress, 0) * 3.6deg),
+    #2a2a3e 360deg
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.score-circle-metric::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  z-index: 1;
+}
+
+.score-value-metric {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #ffffff;
+  z-index: 2;
+  position: relative;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.competitor-description {
+  color: #9ca3af;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+  line-height: 1.4;
+}
+
+.competitors-list {
+  margin-top: 1rem;
+}
+
+.competitors-label {
+  color: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.competitors-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.competitor-tag {
+  background: #374151;
+  color: #d1d5db;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.competitor-count {
+  background: #1f2937;
+  color: #ffffff;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.competitor-tag-empty {
+  background: rgba(239, 68, 68, 0.1);
+  color: #fca5a5;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-align: center;
+  display: block;
+}

@@ -55,39 +55,45 @@ class RateLimiter {
     }
 
     private async processQueue() {
-        if (this.activeRequests >= this.maxConcurrent || this.queue.length === 0) {
-            return;
-        }
-
-        this.activeRequests++;
-        const task = this.queue.shift();
-        
-        if (task) {
-            // Rate limiting: ensure minimum gap between requests
-            const now = Date.now();
-            const minGap = 1000 / this.requestsPerSecond;
-            const timeSinceLastRequest = now - this.lastRequestTime;
+        // Process multiple tasks in parallel up to maxConcurrent
+        while (this.activeRequests < this.maxConcurrent && this.queue.length > 0) {
+            this.activeRequests++;
+            const task = this.queue.shift();
             
-            if (timeSinceLastRequest < minGap) {
-                await new Promise(resolve => setTimeout(resolve, minGap - timeSinceLastRequest));
-            }
-
-            this.lastRequestTime = Date.now();
-            
-            try {
-                await task();
-            } finally {
+            if (task) {
+                // Rate limiting: ensure minimum gap between requests
+                const now = Date.now();
+                const minGap = 1000 / this.requestsPerSecond;
+                const timeSinceLastRequest = now - this.lastRequestTime;
+                
+                // Start task immediately without blocking queue processing
+                (async () => {
+                    if (timeSinceLastRequest < minGap) {
+                        await new Promise(resolve => setTimeout(resolve, minGap - timeSinceLastRequest));
+                    }
+                    this.lastRequestTime = Date.now();
+                    
+                    try {
+                        await task();
+                    } catch (err) {
+                        // Error already handled by promise rejection
+                    } finally {
+                        this.activeRequests--;
+                        this.processQueue(); // Continue processing queue
+                    }
+                })();
+            } else {
                 this.activeRequests--;
-                this.processQueue();
             }
         }
     }
 }
 
-// High concurrency rate limiter for fast parallel processing
-// maxConcurrent: 100 allows many parallel PSI requests while respecting API limits
-// requestsPerSecond: 50 keeps within PSI API rate limits to avoid 500 errors
-const globalRateLimiter = new RateLimiter(100, 50);
+// Maximum speed rate limiter - aggressive settings for fastest processing
+// maxConcurrent: 30 allows high parallel requests for maximum throughput
+// requestsPerSecond: 10 increases throughput significantly
+// Rate limiter ensures we don't exceed API limits while maximizing speed
+const globalRateLimiter = new RateLimiter(30, 10);
 
 function sleep(ms: number) {
     return new Promise((r) => setTimeout(r, ms));
@@ -142,11 +148,13 @@ export async function fetchPsi(
                         console.log(`[psi] attempt=${attempt + 1} status=${res.status} ms=${ms} device=${device} url=${url}`);
                     }
                     
-                    // Handle rate limiting (429) and server errors (5xx) with retry
+                    // Handle rate limiting (429) and server errors (5xx) with exponential backoff
                     if (res.status === 429) {
                         // Extract retry-after header if available
                         const retryAfter = res.headers.get('retry-after');
-                        const waitMs = retryAfter ? parseInt(retryAfter) * 1000 : backoffBaseMs * Math.pow(2, attempt);
+                        // Use retry-after if provided, otherwise exponential backoff (min 5s, max 60s)
+                        const baseWaitMs = retryAfter ? parseInt(retryAfter) * 1000 : Math.max(5000, backoffBaseMs * Math.pow(2, attempt));
+                        const waitMs = Math.min(baseWaitMs, 60000); // Cap at 60 seconds
                         
                         if (attempt >= retries) {
                             throw new Error(`PSI rate limited (429) after ${attempt + 1} attempts`);
@@ -162,7 +170,8 @@ export async function fetchPsi(
                         if (attempt >= retries) {
                             throw new Error(`PSI server error ${res.status}`);
                         }
-                        const waitMs = backoffBaseMs * Math.pow(2, attempt);
+                        // Exponential backoff for server errors (min 5s, max 60s)
+                        const waitMs = Math.min(Math.max(5000, backoffBaseMs * Math.pow(2, attempt)), 60000);
                         if (debug) console.log(`[psi] server error ${res.status}, waiting ${waitMs}ms`);
                         await sleep(waitMs);
                         attempt++;
