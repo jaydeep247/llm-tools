@@ -1,0 +1,280 @@
+import React from 'react';
+import DataViewer from '../../pages/DataViewer';
+import LinkExplorer from '../../pages/LinkExplorer';
+import { MindMapWebTree } from '../module_A/crawler';
+import AuditsPage from '../../pages/AuditsPage';
+import PageMetrics from '../module_C/aeo/PageMetrics';
+import CrawlerContent from './CrawlerContent';
+import SchemaGenerator from './SchemaGenerator';
+import IntelligenceModule from './IntelligenceModule';
+import ModuleE from './ModuleE';
+import AISimulator from './AISimulator';
+
+interface Competitor {
+  name: string;
+  count: number;
+}
+
+interface DashboardTabsProps {
+  activeView: string;
+  setActiveView: (view: string) => void;
+  runCrawl: boolean;
+  isCrawling: boolean;
+  crawlStatus: 'idle' | 'running' | 'auditing' | 'completed' | 'cancelled';
+  pageCount: number;
+  crawlStats: { count: number; duration: number; pagesPerSecond: number; } | null;
+  logs: { message: string; timestamp: string }[];
+  discoveredPages: any[];
+  crawlStartTime: number | null;
+  currentTime: number;
+  result?: any;
+  url: string;
+  
+  // Schema Generator props
+  schemaData: any;
+  schemaLoading: boolean;
+  schemaError: string | null;
+  copiedSchema: boolean;
+  schemaFormat: 'json-ld' | 'rdfa';
+  selectedSchemaType: string;
+  setSchemaFormat: (format: 'json-ld' | 'rdfa') => void;
+  setSelectedSchemaType: (type: string) => void;
+  generateSchema: () => void;
+  copySchemaToClipboard: () => void;
+  
+  // Intelligence Module props
+  auditMode: 'single' | 'bulk';
+  setAuditMode: (mode: 'single' | 'bulk') => void;
+  sitemapUrl: string;
+  setSitemapUrl: (url: string) => void;
+  bulkLoading: boolean;
+  bulkResults: any;
+  handleBulkAnalyze: () => void;
+  
+  // Module E props
+  moduleEScores: any;
+  moduleELoading: boolean;
+  moduleEError: string | null;
+  competitors: Competitor[];
+  
+  // AI Simulator props
+  simulationQuery: string;
+  setSimulationQuery: (query: string) => void;
+  simulationResults: any;
+  simulationLoading: boolean;
+  handleSimulation: () => void;
+}
+
+const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
+  const {
+    activeView,
+    setActiveView,
+    runCrawl,
+    isCrawling,
+    crawlStatus,
+    pageCount,
+    crawlStats,
+    logs,
+    discoveredPages,
+    crawlStartTime,
+    currentTime,
+    result,
+    url,
+    schemaData,
+    schemaLoading,
+    schemaError,
+    copiedSchema,
+    schemaFormat,
+    selectedSchemaType,
+    setSchemaFormat,
+    setSelectedSchemaType,
+    generateSchema,
+    copySchemaToClipboard,
+    auditMode,
+    setAuditMode,
+    sitemapUrl,
+    setSitemapUrl,
+    bulkLoading,
+    bulkResults,
+    handleBulkAnalyze,
+    moduleEScores,
+    moduleELoading,
+    moduleEError,
+    competitors,
+    simulationQuery,
+    setSimulationQuery,
+    simulationResults,
+    simulationLoading,
+    handleSimulation
+  } = props;
+
+  return (
+    <div className="dashboard-tabs">
+      <div className="tab-navigation">
+        {runCrawl && (
+          <button
+            onClick={() => setActiveView('crawler')}
+            className={`tab-button ${activeView === 'crawler' ? 'active' : ''}`}
+          >
+            🕷️ Crawler {isCrawling && <span className="ml-1 inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>}
+          </button>
+        )}
+        <button
+          onClick={() => setActiveView('data')}
+          className={`tab-button ${activeView === 'data' ? 'active' : ''}`}
+        >
+          📋 Crawled Data
+        </button>
+        <button
+          onClick={() => setActiveView('page_metrics')}
+          className={`tab-button ${activeView === 'page_metrics' ? 'active' : ''}`}
+        >
+          📊 Page Metrics
+        </button>
+        <button
+          onClick={() => setActiveView('links')}
+          className={`tab-button ${activeView === 'links' ? 'active' : ''}`}
+        >
+          🔗 Link Analysis
+        </button>
+        <button
+          onClick={() => setActiveView('tree')}
+          className={`tab-button ${activeView === 'tree' ? 'active' : ''}`}
+        >
+          🌳 Site Structure
+        </button>
+        <button
+          onClick={() => setActiveView('audits')}
+          className={`tab-button ${activeView === 'audits' ? 'active' : ''}`}
+        >
+          🔍 Performance Audits
+        </button>
+        <button
+          onClick={() => setActiveView('schema')}
+          className={`tab-button ${activeView === 'schema' ? 'active' : ''}`}
+        >
+          📝 Schema Generator
+        </button>
+        <button
+          onClick={() => setActiveView('module_e' as any)}
+          className={`tab-button ${activeView === ('module_e' as any) ? 'active' : ''}`}
+        >
+          📊 Module E
+        </button>
+        <button
+          onClick={() => setActiveView('intelligence')}
+          className={`tab-button ${activeView === 'intelligence' ? 'active' : ''}`}
+        >
+          🧠 AI Intelligence
+        </button>
+        <button
+          onClick={() => setActiveView('simulator')}
+          className={`tab-button ${activeView === 'simulator' ? 'active' : ''}`}
+        >
+          🤖 AI Simulator
+        </button>
+      </div>
+
+      <div className="tab-content">
+        {activeView === 'crawler' && (
+          <CrawlerContent
+            isCrawling={isCrawling}
+            crawlStatus={crawlStatus}
+            pageCount={pageCount}
+            crawlStats={crawlStats}
+            logs={logs}
+            discoveredPages={discoveredPages}
+            crawlStartTime={crawlStartTime}
+            currentTime={currentTime}
+          />
+        )}
+
+        {activeView === 'data' && (
+          <div className="data-content-embedded">
+            <DataViewer
+              onClose={() => { }}
+              initialSessionId={result?.session_id || null}
+            />
+          </div>
+        )}
+
+        {activeView === 'page_metrics' && (
+          <div className="page-metrics-content-embedded">
+            <PageMetrics
+              initialSessionId={result?.session_id || null}
+            />
+          </div>
+        )}
+
+        {activeView === 'links' && (
+          <div className="links-content-embedded">
+            <LinkExplorer
+              onClose={() => { }}
+            />
+          </div>
+        )}
+
+        {activeView === 'tree' && (
+          <div className="tree-content-embedded">
+            <MindMapWebTree
+              onClose={() => { }}
+            />
+          </div>
+        )}
+
+        {activeView === 'audits' && <AuditsPage />}
+
+        {activeView === 'schema' && (
+          <SchemaGenerator
+            url={url}
+            schemaData={schemaData}
+            schemaLoading={schemaLoading}
+            schemaError={schemaError}
+            copiedSchema={copiedSchema}
+            schemaFormat={schemaFormat}
+            selectedSchemaType={selectedSchemaType}
+            setSchemaFormat={setSchemaFormat}
+            setSelectedSchemaType={setSelectedSchemaType}
+            generateSchema={generateSchema}
+            copySchemaToClipboard={copySchemaToClipboard}
+          />
+        )}
+
+        {activeView === ('module_e' as any) && (
+          <ModuleE
+            url={url}
+            moduleEScores={moduleEScores}
+            moduleELoading={moduleELoading}
+            moduleEError={moduleEError}
+            competitors={competitors}
+          />
+        )}
+
+        {activeView === 'intelligence' && (
+          <IntelligenceModule
+            auditMode={auditMode}
+            setAuditMode={setAuditMode}
+            sitemapUrl={sitemapUrl}
+            setSitemapUrl={setSitemapUrl}
+            bulkLoading={bulkLoading}
+            bulkResults={bulkResults}
+            result={result}
+            handleBulkAnalyze={handleBulkAnalyze}
+          />
+        )}
+
+        {activeView === 'simulator' && (
+          <AISimulator
+            simulationQuery={simulationQuery}
+            setSimulationQuery={setSimulationQuery}
+            simulationResults={simulationResults}
+            simulationLoading={simulationLoading}
+            handleSimulation={handleSimulation}
+          />
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default DashboardTabs;
