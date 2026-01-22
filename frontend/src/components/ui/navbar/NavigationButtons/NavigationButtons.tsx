@@ -3,7 +3,7 @@ import './NavigationButtons.css';
 
 interface NavigationButtonsProps {
   currentView?: string;
-  onNavigate: (view: 'home' | 'profile' | 'settings' | 'history' | 'login' | 'register') => void;
+  onNavigate: (view: string) => void;
   onLogout: () => void;
 }
 
@@ -12,12 +12,25 @@ export const NavigationButtons: React.FC<NavigationButtonsProps> = ({
   onNavigate,
   onLogout
 }) => {
+  const isActive = (path: string) => {
+    return currentView === path || currentView === `/${path}` || currentView?.includes(path);
+  };
+
   return (
     <>
       <button
         type="button"
+        onClick={() => onNavigate('dashboard')}
+        className={`nav-btn ${isActive('dashboard') ? 'nav-btn-active' : ''}`}
+      >
+        <span className="btn-icon">📊</span>
+        <span>Dashboard</span>
+      </button>
+
+      <button
+        type="button"
         onClick={() => onNavigate('history')}
-        className={`nav-btn ${currentView === 'history' ? 'nav-btn-active' : ''}`}
+        className={`nav-btn ${isActive('history') ? 'nav-btn-active' : ''}`}
       >
         <span className="btn-icon">📜</span>
         <span>History</span>
@@ -26,7 +39,7 @@ export const NavigationButtons: React.FC<NavigationButtonsProps> = ({
       <button
         type="button"
         onClick={() => onNavigate('profile')}
-        className={`nav-btn ${currentView === 'profile' ? 'nav-btn-active' : ''}`}
+        className={`nav-btn ${isActive('profile') ? 'nav-btn-active' : ''}`}
       >
         <span className="btn-icon">👤</span>
         <span>Profile</span>
@@ -35,7 +48,7 @@ export const NavigationButtons: React.FC<NavigationButtonsProps> = ({
       <button
         type="button"
         onClick={() => onNavigate('settings')}
-        className={`nav-btn ${currentView === 'settings' ? 'nav-btn-active' : ''}`}
+        className={`nav-btn ${isActive('settings') ? 'nav-btn-active' : ''}`}
       >
         <span className="btn-icon">⚙️</span>
         <span>Settings</span>

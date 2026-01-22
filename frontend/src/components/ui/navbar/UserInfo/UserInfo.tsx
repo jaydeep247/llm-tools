@@ -1,13 +1,16 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User } from '../../../../contexts/AuthContext';
 import './UserInfo.css';
 
 interface UserInfoProps {
   user: User;
-  onNavigate: (view: 'home' | 'profile' | 'settings' | 'history' | 'login' | 'register') => void;
+  onNavigate: (view: string) => void;
 }
 
 export const UserInfo: React.FC<UserInfoProps> = ({ user, onNavigate }) => {
+  const navigate = useNavigate();
+
   const getRoleBadge = (role: string) => {
     switch (role) {
       case 'admin': return { icon: '👑', class: 'role-admin', text: 'Admin' };
@@ -18,10 +21,15 @@ export const UserInfo: React.FC<UserInfoProps> = ({ user, onNavigate }) => {
 
   const roleBadge = getRoleBadge(user.role);
 
+  const handleClick = () => {
+    navigate('/dashboard');
+    onNavigate('dashboard');
+  };
+
   return (
     <button
       type="button"
-      onClick={() => onNavigate('home')}
+      onClick={handleClick}
       className="user-info"
     >
       <span className="user-role-badge">

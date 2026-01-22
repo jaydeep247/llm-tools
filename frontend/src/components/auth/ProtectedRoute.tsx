@@ -1,5 +1,6 @@
 import React from 'react';
-import { useAuth } from '../../../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface ProtectedRouteProps {
     children: React.ReactNode;
@@ -13,6 +14,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     requireRole 
 }) => {
     const { isAuthenticated, isLoading, user } = useAuth();
+    const navigate = useNavigate();
 
     if (isLoading) {
         return (
@@ -39,7 +41,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
                             You need to be logged in to access this feature.
                         </p>
                         <button
-                            onClick={() => window.location.href = '/login'}
+                            onClick={() => navigate('/login')}
                             className="px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg hover:from-purple-700 hover:to-purple-800 font-medium shadow-lg transition-all"
                         >
                             Go to Login
@@ -72,7 +74,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
                                 Current role: <span className="text-purple-400 font-semibold">{user.role}</span>
                             </p>
                             <button
-                                onClick={() => window.location.href = '/settings'}
+                                onClick={() => navigate('/settings')}
                                 className="px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg hover:from-purple-700 hover:to-purple-800 font-medium shadow-lg transition-all"
                             >
                                 Upgrade Account

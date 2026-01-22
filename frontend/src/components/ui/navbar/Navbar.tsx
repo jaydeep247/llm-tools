@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { User } from '../../../contexts/AuthContext';
 import './Navbar.css';
 import { Logo } from './Logo/Logo';
@@ -8,7 +9,7 @@ import { NavigationButtons } from './NavigationButtons/NavigationButtons';
 interface NavbarProps {
     user: User | null;
     isAuthenticated: boolean;
-    onNavigate: (view: 'home' | 'profile' | 'settings' | 'history' | 'login' | 'register') => void;
+    onNavigate: (view: string) => void;
     onLogout: () => void;
     currentView?: string;
 }
@@ -20,31 +21,40 @@ export const Navbar: React.FC<NavbarProps> = ({
     onLogout,
     currentView
 }) => {
+    const navigate = useNavigate();
+    const location = useLocation();
+    const activeView = currentView || location.pathname;
+
+    const handleNavigate = (view: string) => {
+        navigate(`/${view}`);
+        onNavigate(view);
+    };
+
     return (
         <nav className="navbar">
             <div className="navbar-container">
-                <Logo onNavigate={onNavigate} />
+                <Logo onNavigate={handleNavigate} />
 
                 <div className="navbar-actions">
                     {isAuthenticated && user ? (
                         <>
-                            <UserInfo user={user} onNavigate={onNavigate} />
+                            <UserInfo user={user} onNavigate={handleNavigate} />
                             <NavigationButtons
-                                currentView={currentView}
-                                onNavigate={onNavigate}
+                                currentView={activeView}
+                                onNavigate={handleNavigate}
                                 onLogout={onLogout}
                             />
                         </>
                     ) : (
                         <>
                             <button type="button"
-                                onClick={() => onNavigate('login')}
+                                onClick={() => handleNavigate('login')}
                                 className="nav-btn nav-btn-secondary"
                             >
                                 Sign In
                             </button>
                             <button type="button"
-                                onClick={() => onNavigate('register')}
+                                onClick={() => handleNavigate('register')}
                                 className="nav-btn nav-btn-primary"
                             >
                                 Get Started
