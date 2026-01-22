@@ -65,9 +65,11 @@ export async function runAuditProcessing(
         await initAuditQueue(sessionId);
 
         // Get crawled URLs for auditing
+        // Filter by statusCode === 200 to match audit progress calculation logic
+        // This ensures all pages with HTTP 200 status are audited, regardless of the success flag
         const crawledPages = await db.getPages(sessionId);
         const urlsToAudit = crawledPages
-            .filter((page: any) => page.success)
+            .filter((page: any) => page.statusCode === 200)
             .map((page: any) => page.url);
 
         const auditMsg = `🔍 Starting performance audits for all ${urlsToAudit.length} crawled URLs (${auditDevice})...`;

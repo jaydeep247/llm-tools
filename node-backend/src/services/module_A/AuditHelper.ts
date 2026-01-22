@@ -32,13 +32,18 @@ export async function runAuditsOnExistingSession(
             message: 'Running performance audits...'
         }, 'session-status-update', userId);
 
-        // Get crawled URLs for auditing (all pages, not just successful ones)
+        // Get crawled URLs for auditing
+        // Filter by statusCode === 200 to match audit progress calculation logic
         // Use a high limit to get all pages from the session
         const crawledPages = await db.getPages(sessionId, 100000, 0);
         const urlsToAudit = crawledPages
-            // Filter to only HTML pages (not resources like CSS, JS, images)
+            // Filter to only HTML pages with status 200 (not resources like CSS, JS, images)
             // Note: getPages() already returns only pages (not resources), but we filter by contentType as extra safety
             .filter(page => {
+                // Only audit pages with HTTP 200 status
+                if (page.statusCode !== 200) {
+                    return false;
+                }
                 const contentType = (page.contentType || '').toLowerCase();
                 // Include HTML pages (text/html, application/xhtml+xml, etc.)
                 return contentType.includes('text/html') ||

@@ -39,9 +39,10 @@ export class AuditIntegration {
     } = {}): Promise<number[]> {
         try {
             // Get URLs from the crawl session
+            // Filter by statusCode === 200 to match audit progress calculation logic
             const pages = await this.db.getPages(sessionId);
             const urls = pages
-                .filter((page: any) => page.success && page.statusCode === 200)
+                .filter((page: any) => page.statusCode === 200)
                 .map((page: any) => page.url)
                 .slice(0, options.maxUrls || 50); // Limit to prevent too many audits
 
