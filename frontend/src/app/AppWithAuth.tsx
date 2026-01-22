@@ -1,0 +1,979 @@
+import React, { useState } from 'react';
+import '../index.css';
+import '../App.css';
+import { useAuth } from '../contexts/AuthContext';
+import { Navbar } from '../components/ui/navbar/Navbar';
+import { Login } from '../components/auth/auth/Login';
+import { Register } from '../components/auth/auth/Register';
+import { HomePage } from './home/HomePage';
+import { UserProfile } from '../components/ui/user/UserProfile';
+import { UserSettings } from '../components/ui/user/UserSettings';
+import AEODashboard from '../pages/AEODashboard';
+import { CrawlHistory } from '../pages/CrawlHistory';
+import { apiService, AnalysisResult } from '../services/api/api';
+import { URLInputForm } from '../components/ui/app/URLInputForm/URLInputForm';
+import { ErrorDisplay } from '../components/ui/app/ErrorDisplay/ErrorDisplay';
+import { ReuseModal } from '../components/ui/app/ReuseModal/ReuseModal';
+
+type View = 'home' | 'login' | 'register' | 'profile' | 'settings' | 'history';
+
+const AppWithAuth: React.FC = () => {
+  const { user, isAuthenticated, logout, refreshUser, accessToken } = useAuth();
+  const [currentView, setCurrentView] = useState<View>('home');
+  const [url, setUrl] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
+  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [runCrawl, setRunCrawl] = useState<boolean>(false);
+  const [showAdvanced, setShowAdvanced] = useState<boolean>(false);
+
+  // Crawler settings
+  const [allowSubdomains, setAllowSubdomains] = useState<boolean>(true);
+  const [runAudits, setRunAudits] = useState<boolean>(false);
+  const [auditDevice, setAuditDevice] = useState<'mobile' | 'desktop'>('desktop');
+  const [captureLinkDetails, setCaptureLinkDetails] = useState<boolean>(true);
+
+  // Live crawling state
+  const [isCrawling, setIsCrawling] = useState<boolean>(false);
+  const [crawlStatus, setCrawlStatus] = useState<'idle' | 'running' | 'auditing' | 'completed' | 'cancelled'>('idle');
+  const [pageCount, setPageCount] = useState<number>(0);
+  const [logs, setLogs] = useState<{ message: string; timestamp: string }[]>([]);
+  const [pages, setPages] = useState<string[]>([]);
+  const [crawlStats, setCrawlStats] = useState<{
+    count: number;
+    duration: number;
+    pagesPerSecond: number;
+  } | null>(null);
+  const [stopping, setStopping] = useState<boolean>(false);
+  const [currentSessionId, setCurrentSessionId] = useState<number | null>(null);
+
+  // Server-Sent Events for live updates (only for authenticated users)
+  React.useEffect(() => {
+    // Only connect SSE if user is authenticated
+    if (!isAuthenticated || !accessToken) {
+      console.log('[AppWithAuth] SSE: User not authenticated, skipping connection');
+      return;
+    }
+
+    console.log('[AppWithAuth] SSE: Connecting for authenticated user...');
+
+    // Connect to /events with token in query param
+    const eventSource = new EventSource(`/events?token=${accessToken}`);
+
+
+    eventSource.addEventListener('connected', (e) => {
+      const data = JSON.parse(e.data);
+      console.log('SSE connected:', data);
+    });
+
+    eventSource.addEventListener('log', (e) => {
+      const data = JSON.parse(e.data);
+      setLogs(prev => [...prev.slice(-99), {
+        message: data.message,
+        timestamp: new Date().toLocaleTimeString()
+      }]);
+    });
+
+    eventSource.addEventListener('page', (e) => {
+      const data = JSON.parse(e.data);
+      setPages(prev => [...prev.slice(-199), data.url]);
+      setPageCount(prev => prev + 1);
+    });
+
+    eventSource.addEventListener('done', (e) => {
+      const data = JSON.parse(e.data);
+      setCrawlStats({
+        count: data.count,
+        duration: data.duration || 0,
+        pagesPerSecond: data.pagesPerSecond || 0
+      });
+      
+      // Use status from event data if provided, otherwise default to 'completed'
+      const nextStatus = data.status || 'completed';
+      
+      // If status is 'auditing', keep isCrawling true; otherwise set to false
+      setIsCrawling(nextStatus === 'auditing');
+      setCrawlStatus(nextStatus);
+      
+      setLogs(prev => [...prev, {
+        message: nextStatus === 'auditing' 
+          ? `✅ Crawl completed! Starting audits... Total URLs: ${data.count}`
+          : `✅ Crawl completed! Total URLs: ${data.count}`,
+        timestamp: new Date().toLocaleTimeString()
+      }]);
+    });
+
+    // Session status updates (e.g., auditing started/completed)
+    eventSource.addEventListener('session-status-update', (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        // Track sessionId from status updates
+        if (data?.sessionId) {
+          setCurrentSessionId(data.sessionId);
+        }
+        const message = data?.message || `Session ${data?.status || ''}`.trim();
+        if (message) {
+          setLogs(prev => [...prev.slice(-99), {
+            message,
+            timestamp: new Date().toLocaleTimeString()
+          }]);
+        }
+        // Update crawlStatus if provided
+        if (data?.status) {
+          if (data.status === 'running' || data.status === 'auditing') {
+            setIsCrawling(true);
+            setCrawlStatus(data.status);
+          } else if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled') {
+            setIsCrawling(false);
+            setCrawlStatus(data.status);
+            // Clear sessionId when completed or cancelled
+            if (data.status === 'completed' || data.status === 'cancelled') {
+              setCurrentSessionId(null);
+            }
+          }
+        }
+      } catch { }
+    });
+
+    // Audit events stream (audit-start, audit-complete, audit-progress)
+    eventSource.addEventListener('audit', (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        const formatNum = (v: unknown) => (typeof v === 'number' && isFinite(v))
+          ? v.toLocaleString(undefined, { maximumFractionDigits: 2 })
+          : undefined;
+        let message = '';
+        if (data?.type === 'audit-start') {
+          message = `🔍 Audit started: ${data.url}`;
+          // Update status to 'auditing' when first audit starts
+          setIsCrawling(true);
+          setCrawlStatus('auditing');
+        } else if (data?.type === 'audit-complete') {
+          if (data.success) {
+            const parts: string[] = [];
+            const score = formatNum(data.performanceScore);
+            const lcp = formatNum(data.lcp);
+            const tbt = formatNum(data.tbt);
+            const cls = formatNum(data.cls);
+            if (score !== undefined) parts.push(`Score ${score}`);
+            if (lcp !== undefined) parts.push(`LCP ${lcp}ms`);
+            if (tbt !== undefined) parts.push(`TBT ${tbt}ms`);
+            if (cls !== undefined) parts.push(`CLS ${cls}`);
+            message = `✅ Audit: ${data.url} ${parts.length ? `(${parts.join(', ')})` : ''}`.trim();
+          } else {
+            message = `❌ Audit failed: ${data.url}${data.error ? ` - ${data.error}` : ''}`;
+          }
+        } else if (data?.type === 'audit-progress') {
+          const progress = (typeof data.progress === 'number' && isFinite(data.progress))
+            ? Number(data.progress).toLocaleString(undefined, { maximumFractionDigits: 2 })
+            : undefined;
+          const pct = progress ? `${progress}%` : '';
+          message = `⏳ Audits progress: ${data.completed}/${data.total} ${pct}`.trim();
+        }
+        if (message) {
+          setLogs(prev => [...prev.slice(-99), {
+            message,
+            timestamp: new Date().toLocaleTimeString()
+          }]);
+        }
+      } catch { }
+    });
+
+    eventSource.onerror = (error) => {
+      console.error('SSE connection error:', error);
+      // EventSource will automatically reconnect
+    };
+
+    // Cleanup: close connection when component unmounts or user logs out
+    return () => {
+      console.log('SSE: Closing connection');
+      eventSource.close();
+    };
+  }, [isAuthenticated]); // Re-run when authentication status changes
+
+  // Clear all crawl/history data when user logs out
+  React.useEffect(() => {
+    if (!isAuthenticated) {
+      setUrl('');
+      setLoading(false);
+      setResult(null);
+      setError(null);
+      setRunCrawl(false);
+      setIsCrawling(false);
+      setCrawlStatus('idle');
+      setPageCount(0);
+      setLogs([]);
+      setPages([]);
+      setCrawlStats(null);
+      setCurrentSessionId(null);
+      setCurrentView('home');
+    }
+  }, [isAuthenticated]);
+
+  // Normalize URL - add https:// if no protocol is provided, upgrade http:// to https://
+  const normalizeUrl = (url: string): string => {
+    const trimmed = url.trim();
+    if (!trimmed) return trimmed;
+
+    // Check if URL already has https://
+    if (/^https:\/\//i.test(trimmed)) {
+      return trimmed;
+    }
+
+    // Upgrade http:// to https://
+    if (/^http:\/\//i.test(trimmed)) {
+      return trimmed.replace(/^http:\/\//i, 'https://');
+    }
+
+    // Add https:// if no protocol
+    return `https://${trimmed}`;
+  };
+
+  // Reuse prompt state
+  const [reusePrompt, setReusePrompt] = React.useState<null | {
+    sessionId: number;
+    url: string;
+    hasAudits?: boolean;
+    auditsTriggered?: boolean;
+    auditsInProgress?: boolean;
+    message?: string;
+  }>(null);
+
+  const handleStop = async () => {
+    try {
+      setStopping(true);
+      setError(null);
+      
+      // Cancel all crawling and audit processes
+      const response = await fetch('/api/cancel-audits', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
+        },
+        body: JSON.stringify({
+          ...(currentSessionId ? { sessionId: currentSessionId } : {})
+        }),
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setLoading(false);
+        setIsCrawling(false);
+        setCrawlStatus('idle');
+        setCurrentSessionId(null);
+        setLogs(prev => [...prev, {
+          message: result.message || '🛑 All processes stopped by user',
+          timestamp: new Date().toLocaleTimeString()
+        }]);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to stop analysis');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to stop analysis');
+      setLogs(prev => [...prev, {
+        message: `⚠️ Error stopping analysis: ${err.message}`,
+        timestamp: new Date().toLocaleTimeString()
+      }]);
+    } finally {
+      setStopping(false);
+    }
+  };
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!url.trim()) return;
+
+    // Normalize URL before submitting
+    const normalizedUrl = normalizeUrl(url.trim());
+
+    setLoading(true);
+    setResult(null);
+    setError(null);
+    setStopping(false);
+
+    // Reset crawling state
+    if (runCrawl) {
+      setIsCrawling(true);
+      setCrawlStatus('running');
+      setPageCount(0);
+      setLogs([]);
+      setPages([]);
+      setCrawlStats(null);
+      setCurrentSessionId(null); // Reset sessionId for new crawl
+    }
+
+    try {
+      const analysisResult = runCrawl
+        ? await apiService.analyzeUrl(normalizedUrl, {
+          allowSubdomains,
+          runAudits,
+          auditDevice,
+          captureLinkDetails
+        })
+        : await apiService.analyzeUrl(normalizedUrl);
+
+      // Show reuse modal if server indicates reuse
+      if ((analysisResult as any)?.reuseMode && (analysisResult as any)?.sessionId) {
+        const sessionId = (analysisResult as any).sessionId;
+        setCurrentSessionId(sessionId);
+        // Only set isCrawling to false if no audits are running
+        const auditsRunning = (analysisResult as any).auditsTriggered || (analysisResult as any).auditsInProgress;
+        setIsCrawling(auditsRunning);
+        setCrawlStatus(auditsRunning ? 'auditing' : 'completed');
+        setLoading(false);
+        setReusePrompt({
+          sessionId: sessionId,
+          url: (analysisResult as any).url || normalizedUrl,
+          hasAudits: (analysisResult as any).hasAudits,
+          auditsTriggered: (analysisResult as any).auditsTriggered,
+          auditsInProgress: (analysisResult as any).auditsInProgress,
+          message: (analysisResult as any).message,
+        });
+        return;
+      }
+
+      // Track sessionId if provided in response (from crawl API response)
+      // The crawl API returns { ok: true, sessionId, url, requestId }
+      // We need to check if the result has sessionId or if we need to extract it from the data
+      if ((analysisResult as any)?.sessionId) {
+        setCurrentSessionId((analysisResult as any).sessionId);
+      } else if ((analysisResult as any)?.data?.session?.id) {
+        setCurrentSessionId((analysisResult as any).data.session.id);
+      } else if ((analysisResult as any)?.session?.id) {
+        setCurrentSessionId((analysisResult as any).session.id);
+      }
+
+      setResult(analysisResult);
+
+      // If this was a reused session, extract and populate the session data
+      if (runCrawl && (analysisResult as any).data) {
+        const data = (analysisResult as any).data;
+
+        // Set logs from reused session
+        if ((analysisResult as any).logs && Array.isArray((analysisResult as any).logs)) {
+          setLogs((analysisResult as any).logs.map((log: any) => ({
+            message: log.message || log,
+            timestamp: log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString()
+          })));
+        }
+
+        // Handle both array and object responses
+        if (Array.isArray(data)) {
+          // data is array - use it directly and extract totalPages/session from analysisResult
+          const sessionPages = data
+            .filter((item: any) => item.resourceType === 'page')
+            .map((page: any) => page.url);
+
+          setPages(sessionPages);
+          setPageCount((analysisResult as any).totalPages || sessionPages.length);
+
+          // Set crawl stats from analysisResult
+          if ((analysisResult as any).session?.duration) {
+            const totalItems = ((analysisResult as any).totalPages || 0) + ((analysisResult as any).totalResources || 0);
+            setCrawlStats({
+              count: totalItems,
+              duration: (analysisResult as any).session.duration || 0,
+              pagesPerSecond: totalItems && (analysisResult as any).session.duration
+                ? parseFloat((totalItems / (analysisResult as any).session.duration).toFixed(2))
+                : 0
+            });
+          }
+        } else if (data.data && Array.isArray(data.data)) {
+          // data is object with data property
+          const sessionPages = data.data
+            .filter((item: any) => item.resourceType === 'page')
+            .map((page: any) => page.url);
+
+          setPages(sessionPages);
+          setPageCount(data.totalPages || sessionPages.length);
+
+          if (data.session?.duration) {
+            const totalItems = (data.totalPages || 0) + (data.totalResources || 0);
+            setCrawlStats({
+              count: totalItems,
+              duration: data.session.duration || 0,
+              pagesPerSecond: totalItems && data.session.duration
+                ? parseFloat((totalItems / data.session.duration).toFixed(2))
+                : 0
+            });
+          }
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to analyze URL');
+      setIsCrawling(false); // Only set to false on error
+      setCrawlStatus('idle');
+    } finally {
+      setLoading(false);
+      // Don't set isCrawling to false here - let SSE events handle the state
+    }
+  };
+
+  // Handle reuse modal actions
+  const handleViewPrevious = async () => {
+    if (!reusePrompt) return;
+    try {
+      setLoading(true);
+      // Share session with user when they click "View previous results"
+      // This ensures it appears in their history
+      try {
+        const token = localStorage.getItem('accessToken');
+        const headers: HeadersInit = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        await fetch(`/api/sessions/${reusePrompt.sessionId}/share`, {
+          method: 'POST',
+          headers,
+          credentials: 'include'
+        });
+      } catch { }
+      const sessionData = await apiService.getSessionData(reusePrompt.sessionId);
+      // Fetch AEO results for this session to populate the dashboard metrics
+      let aeoResult: any = null;
+      try {
+        const token = localStorage.getItem('accessToken');
+        const headers: HeadersInit = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const aeoRes = await fetch(`/api/aeo/results/${reusePrompt.sessionId}`, {
+          headers,
+          credentials: 'include'
+        });
+        if (aeoRes.ok) {
+          aeoResult = await aeoRes.json();
+        }
+      } catch { }
+      const sessionPages = (sessionData.data || [])
+        .filter((item: any) => item.resourceType === 'page')
+        .map((page: any) => page.url);
+      setPages(sessionPages);
+      setPageCount(sessionData.totalPages || sessionPages.length);
+      if (sessionData.logs && Array.isArray(sessionData.logs)) {
+        setLogs(sessionData.logs.map((l: any) => ({
+          message: l.message,
+          timestamp: l.timestamp ? new Date(l.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString()
+        })));
+      }
+      if (sessionData.session) {
+        const totalItems = (sessionData.totalPages || 0) + (sessionData.totalResources || 0);
+        setCrawlStats({
+          count: totalItems,
+          duration: sessionData.session.duration || 0,
+          pagesPerSecond: totalItems && sessionData.session.duration
+            ? parseFloat((totalItems / sessionData.session.duration).toFixed(2))
+            : 0
+        });
+
+        // Set isCrawling based on session status
+        const sessionStatus = sessionData.session.status;
+        setIsCrawling(sessionStatus === 'running' || sessionStatus === 'auditing');
+        setCrawlStatus(sessionStatus as 'running' | 'auditing' | 'completed');
+      } else {
+        setIsCrawling(false);
+        setCrawlStatus('completed');
+      }
+      // Build and set AnalysisResult for dashboard metrics
+      if (aeoResult && aeoResult.results) {
+        const r = aeoResult.results;
+        setResult({
+          success: true,
+          url: reusePrompt.url,
+          grade: r.grade || 'N/A',
+          grade_color: r.gradeColor || '#666666',
+          overall_score: r.overallScore || 0,
+          module_scores: r.moduleScores,
+          module_weights: r.moduleWeights,
+          detailed_analysis: r.detailedAnalysis,
+          structured_data: r.structuredData,
+          all_recommendations: r.recommendations,
+          errors: r.errors,
+          warnings: r.warnings,
+          analysis_timestamp: r.analysisTimestamp,
+          run_id: r.runId,
+        } as AnalysisResult);
+      } else {
+        // Minimal placeholder to render dashboard if no AEO exists
+        setResult({
+          success: true,
+          url: reusePrompt.url,
+          grade: 'N/A',
+          grade_color: '#666666',
+          overall_score: 0,
+          module_scores: {
+            ai_presence: 0,
+            competitor_analysis: 0,
+            knowledge_base: 0,
+            answerability: 0,
+            crawler_accessibility: 0,
+          },
+          module_weights: {
+            ai_presence: 0,
+            competitor: 0,
+            strategy_review: 0,
+          },
+          detailed_analysis: {
+            ai_presence: {},
+            competitor_analysis: {},
+            knowledge_base: {},
+            answerability: {},
+            crawler_accessibility: {},
+          },
+          structured_data: {
+            total_schemas: 0,
+            valid_schemas: 0,
+            invalid_schemas: 0,
+            schema_types: [],
+            coverage_score: 0,
+            quality_score: 0,
+            completeness_score: 0,
+            seo_relevance_score: 0,
+            details: {},
+          },
+          all_recommendations: [],
+          errors: [],
+          warnings: [],
+        } as AnalysisResult);
+      }
+      setRunCrawl(true);
+      setReusePrompt(null);
+    } catch (e: any) {
+      setError(e.message || 'Failed to load previous results');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRecrawl = async () => {
+    if (!reusePrompt) return;
+    try {
+      setReusePrompt(null);
+      setLoading(true);
+      setIsCrawling(true);
+      setCrawlStatus('running');
+      setLogs([]);
+      setPages([]);
+      setCrawlStats(null);
+      const analysisResult = await apiService.analyzeUrl(reusePrompt.url, {
+        allowSubdomains,
+        runAudits,
+        auditDevice,
+        captureLinkDetails,
+        forceRecrawl: true,
+      });
+      setResult(analysisResult);
+    } catch (e: any) {
+      setError(e.message || 'Failed to start re-crawl');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle selecting a crawl from history
+  const handleSelectCrawl = async (crawlUrl: string, sessionId: number, aeoResult: any) => {
+    setUrl(crawlUrl);
+    setCurrentView('home');
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Fetch session data (pages, stats, etc.)
+      const sessionData = await apiService.getSessionData(sessionId);
+
+      // Check if session is cancelled - if so, just show cancellation message
+      const sessionStatus = sessionData.session?.status || sessionData.statistics?.status || 'unknown';
+      if (sessionStatus === 'cancelled') {
+        setLoading(false);
+        setIsCrawling(false);
+        setCrawlStatus('cancelled');
+        setPageCount(0);
+        setPages([]);
+        setCrawlStats(null);
+        setResult(null);
+        setRunCrawl(false); // Don't show crawler tabs or options
+        setLogs([{
+          message: '🛑 Session was cancelled',
+          timestamp: new Date().toLocaleTimeString()
+        }]);
+        return; // Don't load any data or show options for cancelled sessions
+      }
+
+      // Extract pages from session data
+      const pagesArray = sessionData.data || [];
+      const sessionPages = pagesArray
+        .filter((item: any) => item.resourceType === 'page')
+        .map((page: any) => page.url);
+
+      // Restore pages and stats
+      setPages(sessionPages);
+
+      // Correct mapping for page count from either session or statistics
+      const totalPages = sessionData.statistics?.totalPages ?? sessionData.session?.totalPages ?? sessionData.totalPages ?? sessionPages.length;
+      setPageCount(totalPages);
+
+      // Restore logs
+      if (sessionData.logs && sessionData.logs.length > 0) {
+        const logMessages = sessionData.logs.map((log: any) => ({
+          message: log.message,
+          timestamp: log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString()
+        }));
+        setLogs(logMessages);
+      } else {
+        const now = new Date().toLocaleTimeString();
+        setLogs([
+          { message: `📜 Crawl completed for ${crawlUrl}`, timestamp: now },
+          { message: `Total pages: ${totalPages}`, timestamp: now }
+        ]);
+      }
+
+      // Set crawl stats if session data available
+      const statsObj = sessionData.statistics || sessionData.session;
+      if (statsObj) {
+        const totalItems = (statsObj.totalPages || 0) + (statsObj.totalResources || 0);
+        const duration = sessionData.session?.duration || 0;
+        setCrawlStats({
+          count: totalItems,
+          duration: duration,
+          pagesPerSecond: duration
+            ? parseFloat((totalItems / duration).toFixed(2))
+            : 0
+        });
+
+        // Set isCrawling based on session status
+        const sessionStatus = sessionData.session?.status || 'completed';
+        setIsCrawling(sessionStatus === 'running' || sessionStatus === 'auditing');
+        setCrawlStatus(sessionStatus as 'running' | 'auditing' | 'completed' | 'cancelled');
+      } else {
+        setCrawlStats({
+          count: totalPages,
+          duration: 0,
+          pagesPerSecond: 0
+        });
+        setIsCrawling(false);
+        setCrawlStatus('completed');
+      }
+
+      // Restore AEO result
+      // We always try to fetch the full result from the API even if a basic result was passed
+      // because the history list only provides summary stats (grade, score).
+      let restoredResult: AnalysisResult | null = null;
+
+      try {
+        const token = localStorage.getItem('accessToken');
+        const headers: HeadersInit = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const aeoRes = await fetch(`/api/aeo/results/${sessionId}`, {
+          headers,
+          credentials: 'include'
+        });
+
+        if (aeoRes.ok) {
+          const fetchedAeo = await aeoRes.json();
+          if (fetchedAeo && fetchedAeo.results) {
+            const r = fetchedAeo.results;
+            restoredResult = {
+              success: true,
+              url: crawlUrl,
+              grade: r.grade || 'N/A',
+              grade_color: r.gradeColor || r.grade_color || '#666666',
+              overall_score: r.overallScore || r.overall_score || 0,
+              module_scores: r.moduleScores || r.module_scores,
+              module_weights: r.moduleWeights || r.module_weights,
+              detailed_analysis: r.detailedAnalysis || r.detailed_analysis,
+              structured_data: r.structuredData || r.structured_data,
+              all_recommendations: r.recommendations || r.all_recommendations,
+              errors: r.errors,
+              warnings: r.warnings,
+              analysis_timestamp: r.analysisTimestamp || r.analysis_timestamp,
+              run_id: r.runId || r.run_id,
+              // Ensure entity_coverage is passed if it exists at root level
+              entity_coverage: r.entity_coverage
+            } as AnalysisResult;
+            console.log(`[DEBUG] Successfully fetched full AEO analysis for session ${sessionId}`);
+          }
+        } else {
+          console.warn(`[DEBUG] AEO result fetch failed with status ${aeoRes.status}`);
+        }
+      } catch (aeoError) {
+        console.error('[DEBUG] Error while fetching full AEO result:', aeoError);
+      }
+
+      // Fallback to the partial aeoResult passed from history if fetch failed
+      if (!restoredResult && aeoResult) {
+        console.log('[DEBUG] Using partial AEO result from history as fallback');
+        restoredResult = {
+          success: true,
+          url: crawlUrl,
+          grade: aeoResult.grade,
+          grade_color: aeoResult.gradeColor,
+          overall_score: aeoResult.overallScore,
+          module_scores: aeoResult.moduleScores,
+          module_weights: aeoResult.moduleWeights,
+          detailed_analysis: aeoResult.detailedAnalysis,
+          structured_data: aeoResult.structuredData,
+          all_recommendations: aeoResult.recommendations,
+          errors: aeoResult.errors,
+          warnings: aeoResult.warnings,
+          analysis_timestamp: aeoResult.analysisTimestamp,
+          run_id: aeoResult.runId
+        } as AnalysisResult;
+      }
+
+      // Final fallback to placeholder if we still have nothing
+      if (!restoredResult) {
+        console.log('[DEBUG] No AEO result found, using placeholder');
+        restoredResult = {
+          success: true,
+          url: crawlUrl,
+          grade: 'N/A',
+          grade_color: '#666666',
+          overall_score: 0,
+          module_scores: { ai_presence: 0, competitor_analysis: 0, knowledge_base: 0, answerability: 0, crawler_accessibility: 0 },
+          module_weights: { ai_presence: 0, competitor: 0, strategy_review: 0 },
+          detailed_analysis: { ai_presence: {}, competitor_analysis: {}, knowledge_base: {}, answerability: {}, crawler_accessibility: {} },
+          structured_data: { total_schemas: 0, valid_schemas: 0, invalid_schemas: 0, schema_types: [], coverage_score: 0, quality_score: 0, completeness_score: 0, seo_relevance_score: 0, details: {} },
+          all_recommendations: [],
+          errors: [],
+          warnings: [],
+        } as AnalysisResult;
+      }
+
+      console.log('[DEBUG] Setting final analysis result');
+      setResult(restoredResult);
+      setRunCrawl(true); // Show crawl results including crawler tab
+      console.log('[DEBUG] handleSelectCrawl completed successfully');
+
+    } catch (error: any) {
+      console.error('[DEBUG] Failed to restore session data:', error);
+      setError(`Failed to restore crawl data: ${error.message}`);
+
+      // Still restore a placeholder AEO result even if session data fails to show something
+      if (aeoResult || true) {
+        const placeholder: AnalysisResult = aeoResult ? {
+          success: true,
+          url: crawlUrl,
+          grade: aeoResult.grade,
+          grade_color: aeoResult.gradeColor,
+          overall_score: aeoResult.overallScore,
+          module_scores: aeoResult.moduleScores,
+          module_weights: aeoResult.moduleWeights,
+          detailed_analysis: aeoResult.detailedAnalysis,
+          structured_data: aeoResult.structuredData,
+          all_recommendations: aeoResult.recommendations,
+          errors: aeoResult.errors,
+          warnings: aeoResult.warnings,
+          analysis_timestamp: aeoResult.analysisTimestamp,
+          run_id: aeoResult.runId
+        } : {
+          success: true,
+          url: crawlUrl,
+          grade: 'N/A',
+          grade_color: '#666666',
+          overall_score: 0,
+          module_scores: { ai_presence: 0, competitor_analysis: 0, knowledge_base: 0, answerability: 0, crawler_accessibility: 0 },
+          module_weights: { ai_presence: 0, competitor: 0, strategy_review: 0 },
+          detailed_analysis: { ai_presence: {}, competitor_analysis: {}, knowledge_base: {}, answerability: {}, crawler_accessibility: {} },
+          structured_data: { total_schemas: 0, valid_schemas: 0, invalid_schemas: 0, schema_types: [], coverage_score: 0, quality_score: 0, completeness_score: 0, seo_relevance_score: 0, details: {} },
+          all_recommendations: [],
+          errors: [],
+          warnings: [],
+        } as AnalysisResult;
+
+        setResult(placeholder);
+        setRunCrawl(true);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Render different views
+  if (currentView === 'login') {
+    return (
+      <div className="min-h-screen bg-black">
+        <Navbar
+          user={null}
+          isAuthenticated={false}
+          onNavigate={setCurrentView}
+          onLogout={logout}
+          currentView={currentView}
+        />
+        <Login
+          onSwitchToRegister={() => setCurrentView('register')}
+          onSuccess={() => setCurrentView('home')}
+        />
+      </div>
+    );
+  }
+
+  if (currentView === 'register') {
+    return (
+      <div className="min-h-screen bg-black">
+        <Navbar
+          user={null}
+          isAuthenticated={false}
+          onNavigate={setCurrentView}
+          onLogout={logout}
+          currentView={currentView}
+        />
+        <Register
+          onSwitchToLogin={() => setCurrentView('login')}
+          onSuccess={() => setCurrentView('home')}
+        />
+      </div>
+    );
+  }
+
+  if (currentView === 'profile') {
+    return (
+      <div className="min-h-screen bg-black">
+        <Navbar
+          user={user}
+          isAuthenticated={isAuthenticated}
+          onNavigate={setCurrentView}
+          onLogout={logout}
+          currentView={currentView}
+        />
+        <UserProfile />
+      </div>
+    );
+  }
+
+  if (currentView === 'settings') {
+    return (
+      <div className="min-h-screen bg-black">
+        <Navbar
+          user={user}
+          isAuthenticated={isAuthenticated}
+          onNavigate={setCurrentView}
+          onLogout={logout}
+          currentView={currentView}
+        />
+        <UserSettings />
+      </div>
+    );
+  }
+
+  if (currentView === 'history') {
+    return (
+      <div className="min-h-screen bg-black" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.1) 1px, transparent 0)', backgroundSize: '20px 20px' }}>
+        <Navbar
+          user={user}
+          isAuthenticated={isAuthenticated}
+          onNavigate={setCurrentView}
+          onLogout={logout}
+          currentView={currentView}
+        />
+        <div className="container mx-auto px-4 py-8">
+          <CrawlHistory onSelectCrawl={handleSelectCrawl} />
+        </div>
+      </div>
+    );
+  }
+
+  // Main Home View - Show landing page if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-black">
+        <Navbar
+          user={null}
+          isAuthenticated={false}
+          onNavigate={setCurrentView}
+          onLogout={logout}
+        />
+        <HomePage
+          onLogin={() => setCurrentView('login')}
+          onRegister={() => setCurrentView('register')}
+        />
+      </div>
+    );
+  }
+
+  // Authenticated User - Main Dashboard
+  return (
+    <div className="min-h-screen bg-black aeo-dark" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.1) 1px, transparent 0)', backgroundSize: '20px 20px' }}>
+      <Navbar
+        user={user}
+        isAuthenticated={isAuthenticated}
+        onNavigate={async (v) => {
+          if (v === 'profile') {
+            try { await refreshUser(); } catch { }
+          }
+          setCurrentView(v);
+        }}
+        onLogout={logout}
+        currentView={currentView}
+      />
+
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-bold text-white mb-4">
+            Content Analytics & AEO Intelligence
+          </h2>
+          <p className="text-lg text-gray-300 max-w-2xl mx-auto">
+            Analyze your website's structured data and get actionable insights to improve
+            your search engine visibility and Answer Engine Optimization (AEO).
+          </p>
+        </div>
+
+        {/* Input Form */}
+        <div className="max-w-4xl mx-auto mb-8">
+            <URLInputForm
+              url={url}
+              setUrl={setUrl}
+              loading={loading}
+              stopping={stopping}
+              isCrawling={isCrawling}
+              crawlStatus={crawlStatus}
+              runCrawl={runCrawl}
+              setRunCrawl={setRunCrawl}
+              showAdvanced={showAdvanced}
+              setShowAdvanced={setShowAdvanced}
+              runAudits={runAudits}
+              setRunAudits={setRunAudits}
+              auditDevice={auditDevice}
+              setAuditDevice={setAuditDevice}
+              allowSubdomains={allowSubdomains}
+              setAllowSubdomains={setAllowSubdomains}
+              captureLinkDetails={captureLinkDetails}
+              setCaptureLinkDetails={setCaptureLinkDetails}
+              onSubmit={handleSubmit}
+              onStop={handleStop}
+            />
+        </div>
+
+        {/* Error Display */}
+        <ErrorDisplay error={error} />
+
+        {/* Results */}
+        {result && (
+          <div className="max-w-7xl mx-auto mb-8">
+            <AEODashboard
+              url={url}
+              result={result}
+              runCrawl={runCrawl}
+              isCrawling={isCrawling}
+              crawlStatus={crawlStatus}
+              pageCount={pageCount}
+              crawlStats={crawlStats}
+              logs={logs}
+              discoveredPages={pages}
+            />
+          </div>
+        )}
+        {/* Reuse Modal */}
+        <ReuseModal
+          reusePrompt={reusePrompt}
+          onClose={() => setReusePrompt(null)}
+          onViewPrevious={handleViewPrevious}
+          onRecrawl={handleRecrawl}
+        />
+      </div>
+    </div>
+  );
+};
+
+export default AppWithAuth;
+
