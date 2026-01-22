@@ -128,9 +128,6 @@ services:
     networks:
       - contentlytics-network
     restart: unless-stopped
-    # Add capability to allow nginx to bind to port 80 as non-root user
-    cap_add:
-      - NET_BIND_SERVICE
 
   # SEO Worker (Redis-based)
   seo-worker:
