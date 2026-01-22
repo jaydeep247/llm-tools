@@ -24,7 +24,8 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
   pageCount = 0,
   crawlStats = null,
   logs = [],
-  discoveredPages = []
+  discoveredPages = [],
+  sessionId
 }) => {
   const [activeView, setActiveView] = useState<ActiveView>(runCrawl ? 'crawler' : 'data');
   const [showRecommendations, setShowRecommendations] = useState<string | null>(null);
@@ -288,6 +289,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
         currentTime={currentTime}
         result={result}
         url={url}
+        sessionId={sessionId}
         schemaData={schemaData}
         schemaLoading={schemaLoading}
         schemaError={schemaError}

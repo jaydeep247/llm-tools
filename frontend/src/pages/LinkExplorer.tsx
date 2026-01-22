@@ -41,12 +41,10 @@ interface PageStats {
 
 interface LinkExplorerProps {
   onClose: () => void;
+  sessionId?: number | null;
 }
 
-export default function LinkExplorer({ onClose }: LinkExplorerProps) {
-
-  const [sessions, setSessions] = useState<Array<{ id: number; startUrl: string; startedAt: string; completedAt?: string; totalPages: number }>>([]);
-  const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
+export default function LinkExplorer({ onClose, sessionId = null }: LinkExplorerProps) {
   const [links, setLinks] = useState<LinkData[]>([]);
   const [stats, setStats] = useState<LinkStats | null>(null);
   const [pageStats, setPageStats] = useState<PageStats[]>([]);
@@ -61,42 +59,27 @@ export default function LinkExplorer({ onClose }: LinkExplorerProps) {
   const [loadingLinks, setLoadingLinks] = useState<boolean>(false);
 
   useEffect(() => {
-    loadSessions();
-  }, []);
-
-  useEffect(() => {
-    if (selectedSessionId) {
+    if (sessionId) {
       loadData();
+    } else {
+      setLoading(false);
+      setError(null);
+      setStats(null);
+      setPageStats([]);
+      setLinks([]);
     }
-  }, [selectedSessionId]);
-
-  const loadSessions = async () => {
-    try {
-      console.log('Loading sessions...');
-      const response = await fetch('/api/data/sessions?limit=200', {
-        credentials: 'include'
-      });
-      console.log('Sessions response status:', response.status);
-      if (!response.ok) throw new Error('Failed to load sessions');
-      const result = await response.json();
-      console.log('Sessions data received:', result);
-      setSessions(result.sessions || []);
-    } catch (err) {
-      console.error('Error loading sessions:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load sessions');
-    }
-  };
+  }, [sessionId]);
 
   const loadData = async () => {
-    if (!selectedSessionId) return;
+    if (!sessionId) return;
 
     try {
       setLoading(true);
       setError(null);
-      console.log('Loading data for session:', selectedSessionId);
+      console.log('Loading data for session:', sessionId);
 
       // Load link statistics
-      const statsResponse = await fetch(`/api/links/stats/${selectedSessionId}`, {
+      const statsResponse = await fetch(`/api/links/stats/${sessionId}`, {
         credentials: 'include'
       });
       console.log('Stats response status:', statsResponse.status);
@@ -135,14 +118,14 @@ export default function LinkExplorer({ onClose }: LinkExplorerProps) {
   };
 
   const loadLinksForPage = async (pageId: number, type?: 'out' | 'in') => {
-    if (!selectedSessionId) return;
+    if (!sessionId) return;
 
     const linkTypeToUse = type || linkType;
     console.log('Loading links for page:', pageId, 'with type:', linkTypeToUse);
 
     try {
       setLoadingLinks(true);
-      const response = await fetch(`/api/links?sessionId=${selectedSessionId}&pageId=${pageId}&type=${linkTypeToUse}&limit=100`, {
+      const response = await fetch(`/api/links?sessionId=${sessionId}&pageId=${pageId}&type=${linkTypeToUse}&limit=100`, {
         credentials: 'include'
       });
       if (!response.ok) throw new Error('Failed to load links');
@@ -267,12 +250,12 @@ export default function LinkExplorer({ onClose }: LinkExplorerProps) {
   }, [links, positionFilter, internalFilter, searchTerm]);
 
   const exportLinks = async () => {
-    if (!selectedSessionId) return;
+    if (!sessionId) return;
 
     try {
       const url = selectedPageId
-        ? `/api/links/export.csv?sessionId=${selectedSessionId}&pageId=${selectedPageId}&type=${linkType}`
-        : `/api/links/export.csv?sessionId=${selectedSessionId}`;
+        ? `/api/links/export.csv?sessionId=${sessionId}&pageId=${selectedPageId}&type=${linkType}`
+        : `/api/links/export.csv?sessionId=${sessionId}`;
 
       const response = await fetch(url);
       if (!response.ok) throw new Error('Export failed');
@@ -281,7 +264,7 @@ export default function LinkExplorer({ onClose }: LinkExplorerProps) {
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = downloadUrl;
-      link.download = `links-${selectedSessionId}${selectedPageId ? `-page-${selectedPageId}` : ''}.csv`;
+      link.download = `links-${sessionId}${selectedPageId ? `-page-${selectedPageId}` : ''}.csv`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -322,31 +305,13 @@ export default function LinkExplorer({ onClose }: LinkExplorerProps) {
         <button onClick={onClose} className="close-btn" title="Close Link Explorer">×</button>
       </div>
 
-      {/* Session Selection */}
-      <div className="session-selection">
-        <label htmlFor="session-select">Select Crawl Session:</label>
-        <select
-          id="session-select"
-          value={selectedSessionId || ''}
-          onChange={(e) => setSelectedSessionId(Number(e.target.value) || null)}
-          className="session-select"
-        >
-          <option value="">Choose a session...</option>
-          {sessions.map(session => (
-            <option key={session.id} value={session.id}>
-              {session.startUrl} - {new Date(session.startedAt).toLocaleString()} ({session.totalPages} pages)
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {!selectedSessionId && (
+      {!sessionId && (
         <div className="no-session">
-          <p>Please select a crawl session to view link data.</p>
+          <p>No session selected. Link data will be shown when a session is available.</p>
         </div>
       )}
 
-      {selectedSessionId && (
+      {sessionId && (
         <>
           {stats && (
             <div className="link-stats">

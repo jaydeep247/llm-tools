@@ -30,7 +30,7 @@ interface PageMetric {
 }
 
 interface PageMetricsProps {
-  initialSessionId?: number | null;
+  initialSessionId: number | null;
 }
 
 const PageMetrics: React.FC<PageMetricsProps> = ({ initialSessionId }) => {
@@ -43,52 +43,25 @@ const PageMetrics: React.FC<PageMetricsProps> = ({ initialSessionId }) => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(50);
-  const [sessions, setSessions] = useState<Array<{ id: number; startedAt: string; completedAt?: string; totalPages: number }>>([]);
-  const [selectedSessionId, setSelectedSessionId] = useState<number | ''>(initialSessionId ?? '');
-
-  useEffect(() => {
-    loadSessions();
-  }, [accessToken]);
 
   useEffect(() => {
     if (initialSessionId) {
-      setSelectedSessionId(initialSessionId);
-    }
-  }, [initialSessionId]);
-
-  useEffect(() => {
-    if (selectedSessionId !== '') {
       loadData();
     } else {
       setLoading(false);
       setData([]);
     }
-  }, [selectedSessionId, accessToken]);
-
-  const loadSessions = async () => {
-    try {
-      const res = await authFetch('/api/data/sessions?limit=200');
-      if (!res.ok) {
-        setSessions([]);
-        return;
-      }
-      const result = await res.json();
-      setSessions(result.sessions || []);
-    } catch (e) {
-      console.error('Failed to load sessions', e);
-      setSessions([]);
-    }
-  };
+  }, [initialSessionId, accessToken]);
 
   const loadData = async () => {
-    if (!selectedSessionId) return;
+    if (!initialSessionId) return;
     
     setLoading(true);
     setError(null);
     
     try {
       const params = new URLSearchParams();
-      params.set('sessionId', String(selectedSessionId));
+      params.set('sessionId', String(initialSessionId));
       params.set('limit', '1000');
       
       const response = await authFetch(`/api/data/pages?${params.toString()}`);
@@ -184,8 +157,8 @@ const PageMetrics: React.FC<PageMetricsProps> = ({ initialSessionId }) => {
     try {
       const params = new URLSearchParams();
       params.set('format', format);
-      if (selectedSessionId !== '') {
-        params.set('sessionId', String(selectedSessionId));
+      if (initialSessionId) {
+        params.set('sessionId', String(initialSessionId));
       }
       
       const response = await authFetch(`/api/export?${params.toString()}`);
@@ -195,7 +168,7 @@ const PageMetrics: React.FC<PageMetricsProps> = ({ initialSessionId }) => {
       const downloadUrl = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = downloadUrl;
-      a.download = `page-metrics${selectedSessionId !== '' ? `-session-${selectedSessionId}` : ''}-${new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')}.${format}`;
+      a.download = `page-metrics${initialSessionId ? `-session-${initialSessionId}` : ''}-${new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')}.${format}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -407,26 +380,6 @@ const PageMetrics: React.FC<PageMetricsProps> = ({ initialSessionId }) => {
           />
         </div>
         
-        <select
-          value={selectedSessionId}
-          onChange={(e) => setSelectedSessionId(e.target.value === '' ? '' : Number(e.target.value))}
-          style={{
-            padding: '10px 15px',
-            borderRadius: '8px',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-            background: 'rgba(0, 0, 0, 0.6)',
-            color: '#fff',
-            fontSize: '14px',
-            cursor: 'pointer'
-          }}
-        >
-          <option value="">Select a session</option>
-          {sessions.map(s => (
-            <option key={s.id} value={s.id}>
-              Session #{s.id} {s.startedAt ? `(${new Date(s.startedAt).toLocaleString()})` : ''}
-            </option>
-          ))}
-        </select>
         
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <button onClick={() => exportData('json')} className="export-btn">
@@ -484,7 +437,7 @@ const PageMetrics: React.FC<PageMetricsProps> = ({ initialSessionId }) => {
             {currentData.length === 0 ? (
               <tr>
                 <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
-                  {selectedSessionId === '' ? 'Please select a session' : 'No data available'}
+                  {!initialSessionId ? 'No session selected' : 'No data available'}
                 </td>
               </tr>
             ) : (

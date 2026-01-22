@@ -14,6 +14,7 @@ import LinkExplorer from '../pages/LinkExplorer';
 import DataViewer from '../pages/DataViewer';
 import AuditsPage from '../pages/AuditsPage';
 import DashboardPage from '../pages/DashboardPage';
+import HistoryDetailPage from '../pages/HistoryDetailPage';
 import { Navbar } from '../components/ui/navbar/Navbar';
 
 // Wrapper components for pages that need navigation props
@@ -66,7 +67,7 @@ const CrawlHistoryWrapper: React.FC = () => {
   const navigate = useNavigate();
   
   const handleSelectCrawl = (url: string, sessionId: number, aeoResult: any) => {
-    navigate(`/dashboard?url=${encodeURIComponent(url)}&sessionId=${sessionId}`);
+    navigate(`/history/${sessionId}`);
   };
 
   return <CrawlHistory onSelectCrawl={handleSelectCrawl} />;
@@ -121,6 +122,14 @@ export const AppRoutes: React.FC = () => {
         element={
           <ProtectedRoute>
             <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/history/:id"
+        element={
+          <ProtectedRoute>
+            <HistoryDetailPage />
           </ProtectedRoute>
         }
       />

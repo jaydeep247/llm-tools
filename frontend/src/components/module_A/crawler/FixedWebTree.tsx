@@ -11,6 +11,7 @@ type Session = { id: number; startedAt: string; completedAt?: string; totalPages
 
 interface WebTreeProps {
   onClose: () => void;
+  sessionId?: number | null;
 }
 
 function normalizeUrl(url: string): string {
@@ -53,10 +54,8 @@ function isLikelyPageUrl(url: string): boolean {
   }
 }
 
-export default function WebTree({ onClose }: WebTreeProps) {
+export default function WebTree({ onClose, sessionId = null }: WebTreeProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
   const [rootUrl, setRootUrl] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -112,25 +111,22 @@ export default function WebTree({ onClose }: WebTreeProps) {
   // Removed: No API calls on node click - SEO keywords are only shown from cache via batch loading
 
   // Load sessions on mount
+  // Load session info when sessionId changes
   useEffect(() => {
-    const loadSessions = async () => {
-      try {
-        const response = await fetch('/api/data/sessions?limit=200', {
-          credentials: 'include'
-        });
-        if (!response.ok) throw new Error('Failed to load sessions');
-        const result = await response.json();
-        const list: Session[] = result.sessions || [];
-        setSessions(list);
-        if (list.length > 0 && !selectedSessionId) {
-          setSelectedSessionId(list[0].id);
-        }
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to load sessions');
-      }
-    };
-    loadSessions();
-  }, []);
+    if (sessionId) {
+      fetch(`/api/data/sessions?limit=1&sessionId=${sessionId}`, {
+        credentials: 'include'
+      })
+        .then(res => res.json())
+        .then(result => {
+          const sess = result.sessions?.[0];
+          if (sess?.startUrl) {
+            setRootUrl(sess.startUrl);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [sessionId]);
 
   // Collect all URLs in the current tree
   function collectAllUrls(node: D3TreeNode | null): string[] {
@@ -287,7 +283,7 @@ export default function WebTree({ onClose }: WebTreeProps) {
   }
 
   const buildTree = useCallback(async () => {
-    if (!selectedSessionId) return;
+    if (!sessionId) return;
     setLoading(true);
     setError(null);
     try {
@@ -303,7 +299,7 @@ export default function WebTree({ onClose }: WebTreeProps) {
         const params = new URLSearchParams();
         params.set('limit', String(limit));
         params.set('offset', String(offset));
-        params.set('sessionId', String(selectedSessionId));
+        params.set('sessionId', String(sessionId));
         const res = await fetch(`/api/data/pages?${params.toString()}`, {
           credentials: 'include'
         });
@@ -322,10 +318,9 @@ export default function WebTree({ onClose }: WebTreeProps) {
         if (result?.paging?.total && offset >= result.paging.total) break;
       }
 
-      // Determine start root from the selected session's startUrl
       if (urls.length === 0) throw new Error('No URLs found for this session');
-      const sess = sessions.find(s => s.id === selectedSessionId);
-      const sessionStart = sess?.startUrl || urls[0];
+      // Use rootUrl or first URL from list
+      const sessionStart = rootUrl || urls[0];
       normalizedRoot = normalizeUrl(sessionStart);
       root = new URL(normalizedRoot);
       setRootUrl(normalizedRoot);
@@ -377,7 +372,7 @@ export default function WebTree({ onClose }: WebTreeProps) {
     } finally {
       setLoading(false);
     }
-  }, [selectedSessionId, sessions]);
+  }, [sessionId]);
 
   const handleBuild = useCallback(() => {
     buildTree();
@@ -457,20 +452,11 @@ export default function WebTree({ onClose }: WebTreeProps) {
         {/* Controls */}
         <div className="p-4 border-b border-gray-700">
           <div className="flex items-center gap-4 flex-wrap">
-            <label className="text-white">
-              Session:
-              <select
-                value={selectedSessionId ?? ''}
-                onChange={e => setSelectedSessionId(Number(e.target.value))}
-                className="ml-2 px-3 py-1 bg-gray-700 text-white rounded border border-gray-600"
-              >
-                {sessions.map(s => (
-                  <option key={s.id} value={s.id}>
-                    #{s.id} · {s.startUrl || 'Unknown URL'} · {new Date(s.startedAt).toLocaleString()}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {!sessionId && (
+              <div className="text-yellow-400">
+                No session selected. Tree will be available when a session is active.
+              </div>
+            )}
 
             <div className="flex items-center gap-2">
               <button
@@ -507,7 +493,7 @@ export default function WebTree({ onClose }: WebTreeProps) {
             <button
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
               onClick={handleBuild}
-              disabled={!selectedSessionId || loading}
+              disabled={!sessionId || loading}
             >
               {loading ? 'Building…' : 'Build Tree'}
             </button>

@@ -28,6 +28,7 @@ type SEOData = {
 
 interface MindMapWebTreeProps {
   onClose: () => void;
+  sessionId?: number | null;
 }
 
 function normalizeUrl(url: string): string {
@@ -159,11 +160,9 @@ function calculateContentMetrics(keyword: KeywordData): {
   };
 }
 
-export default function MindMapWebTree({ onClose }: MindMapWebTreeProps) {
+export default function MindMapWebTree({ onClose, sessionId = null }: MindMapWebTreeProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
   const [rootUrl, setRootUrl] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -185,26 +184,23 @@ export default function MindMapWebTree({ onClose }: MindMapWebTreeProps) {
   
   const [recenterKey, setRecenterKey] = useState<number>(0);
 
-  // Load sessions on mount
+  // Load session info when sessionId changes
   useEffect(() => {
-    const loadSessions = async () => {
-      try {
-        const response = await fetch('/api/data/sessions?limit=200', {
-          credentials: 'include'
-        });
-        if (!response.ok) throw new Error('Failed to load sessions');
-        const result = await response.json();
-        const list: Session[] = result.sessions || [];
-        setSessions(list);
-        if (list.length > 0 && !selectedSessionId) {
-          setSelectedSessionId(list[0].id);
-        }
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to load sessions');
-      }
-    };
-    loadSessions();
-  }, []);
+    if (sessionId) {
+      // Fetch session info to get startUrl
+      fetch(`/api/data/sessions?limit=1&sessionId=${sessionId}`, {
+        credentials: 'include'
+      })
+        .then(res => res.json())
+        .then(result => {
+          const sess = result.sessions?.[0];
+          if (sess?.startUrl) {
+            setRootUrl(sess.startUrl);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [sessionId]);
 
   // Collect all URLs in the current tree
   function collectAllUrls(node: D3TreeNode | null): string[] {
@@ -335,7 +331,7 @@ export default function MindMapWebTree({ onClose }: MindMapWebTreeProps) {
   }, [seoEnabled, treeData]);
 
   const buildTree = useCallback(async () => {
-    if (!selectedSessionId) return;
+    if (!sessionId) return;
     setLoading(true);
     setError(null);
     try {
@@ -349,7 +345,7 @@ export default function MindMapWebTree({ onClose }: MindMapWebTreeProps) {
         const params = new URLSearchParams();
         params.set('limit', String(limit));
         params.set('offset', String(offset));
-        params.set('sessionId', String(selectedSessionId));
+        params.set('sessionId', String(sessionId));
         const res = await fetch(`/api/data/pages?${params.toString()}`, {
           credentials: 'include'
         });
@@ -368,11 +364,14 @@ export default function MindMapWebTree({ onClose }: MindMapWebTreeProps) {
       }
 
       if (urls.length === 0) throw new Error('No URLs found for this session');
-      const sess = sessions.find(s => s.id === selectedSessionId);
-      const sessionStart = sess?.startUrl || urls[0];
-      normalizedRoot = normalizeUrl(sessionStart);
+      // Use rootUrl if set, otherwise use first URL
+      if (rootUrl) {
+        normalizedRoot = normalizeUrl(rootUrl);
+      } else {
+        normalizedRoot = normalizeUrl(urls[0]);
+        setRootUrl(normalizedRoot);
+      }
       root = new URL(normalizedRoot);
-      setRootUrl(normalizedRoot);
       setPrimaryHost(root.host);
 
       const rootNode: D3TreeNode = { 
@@ -418,7 +417,7 @@ export default function MindMapWebTree({ onClose }: MindMapWebTreeProps) {
     } finally {
       setLoading(false);
     }
-  }, [selectedSessionId, sessions]);
+  }, [sessionId, rootUrl]);
 
   // Convert tree data to TidyTree format - Show FULL URLs
   function convertToTidy(root: D3TreeNode | null): TidyTreeNode | null {
@@ -498,25 +497,16 @@ export default function MindMapWebTree({ onClose }: MindMapWebTreeProps) {
         {/* Controls */}
         <div className="p-4 border-b border-gray-700">
           <div className="flex items-center gap-4 flex-wrap">
-            <label className="text-white">
-              Session:
-              <select
-                value={selectedSessionId ?? ''}
-                onChange={e => setSelectedSessionId(Number(e.target.value))}
-                className="ml-2 px-3 py-1 bg-gray-700 text-white rounded border border-gray-600"
-              >
-                {sessions.map(s => (
-                  <option key={s.id} value={s.id}>
-                    #{s.id} · {s.startUrl || 'Unknown URL'} · {new Date(s.startedAt).toLocaleString()}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {!sessionId && (
+              <div className="text-yellow-400">
+                No session selected. Tree will be available when a session is active.
+              </div>
+            )}
 
             <button
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
               onClick={buildTree}
-              disabled={!selectedSessionId || loading}
+              disabled={!sessionId || loading}
             >
               {loading ? 'Building…' : '🌳 Build Tree'}
             </button>
@@ -578,7 +568,7 @@ export default function MindMapWebTree({ onClose }: MindMapWebTreeProps) {
             >
               {!treeData ? (
                 <div className="flex items-center justify-center h-full text-gray-400">
-                  {loading ? 'Building tree structure...' : 'Select a session and click "Build Tree"'}
+                  {loading ? 'Building tree structure...' : 'Click "Build Tree" to generate'}
                 </div>
               ) : (
                 <D3TidyTree

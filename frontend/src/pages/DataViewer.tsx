@@ -77,7 +77,7 @@ interface CrawlData {
 
 interface DataViewerProps {
   onClose: () => void;
-  initialSessionId?: number | null;
+  initialSessionId: number | null;
 }
 
 const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) => {
@@ -93,8 +93,6 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
   const [serverTotal, setServerTotal] = useState<number | null>(null);
   const [serverOffset, setServerOffset] = useState(0);
   const [serverLimit] = useState(1000);
-  const [sessions, setSessions] = useState<Array<{ id: number; startedAt: string; completedAt?: string; scheduleId?: number }>>([]);
-  const [selectedSessionId, setSelectedSessionId] = useState<number | ''>(initialSessionId ?? '');
 
   // ✅ HELPER: Get auth headers
   const getAuthHeaders = (): HeadersInit => {
@@ -108,27 +106,16 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
     return headers;
   };
 
-  useEffect(() => {
-    loadSessions();
-  }, [accessToken]); // ✅ RELOAD WHEN TOKEN CHANGES
-
-  // When initialSessionId changes on open, set the selected session and reload
+  // Load data whenever initialSessionId changes
   useEffect(() => {
     if (initialSessionId) {
-      setSelectedSessionId(initialSessionId);
       setServerOffset(0);
-    }
-  }, [initialSessionId]);
-
-  // Load data whenever selectedSessionId changes
-  useEffect(() => {
-    if (selectedSessionId !== '') {
       loadData();
     } else {
       setLoading(false);
       setData([]); // Clear data when no session is selected
     }
-  }, [selectedSessionId, accessToken]); // ✅ RELOAD WHEN SESSION OR TOKEN CHANGES
+  }, [initialSessionId, accessToken]); // ✅ RELOAD WHEN SESSION OR TOKEN CHANGES
 
   // ✅ IMPROVED: Better error handling and logging
   const loadData = async (opts?: { append?: boolean }) => {
@@ -139,10 +126,10 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
       const params = new URLSearchParams();
       params.set('limit', String(serverLimit));
       params.set('offset', String(opts?.append ? serverOffset : 0));
-      if (selectedSessionId !== '') params.set('sessionId', String(selectedSessionId));
+      if (initialSessionId) params.set('sessionId', String(initialSessionId));
       
       console.log(`[DataViewer] Loading data with params:`, {
-        sessionId: selectedSessionId,
+        sessionId: initialSessionId,
         limit: serverLimit,
         offset: opts?.append ? serverOffset : 0
       });
@@ -198,29 +185,6 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
     }
   };
 
-  // ✅ IMPROVED: Add auth headers to sessions endpoint too
-  const loadSessions = async () => {
-    try {
-      console.log('[DataViewer] Loading sessions...');
-      const res = await fetch('/api/data/sessions?limit=200', {
-        headers: getAuthHeaders(), // ✅ INCLUDE AUTH HEADERS
-        credentials: 'include'
-      });
-      
-      if (!res.ok) {
-        console.warn(`[DataViewer] Sessions endpoint returned ${res.status}`);
-        setSessions([]);
-        return;
-      }
-      
-      const result = await res.json();
-      setSessions(result.sessions || []);
-    } catch (e) {
-      console.error('[DataViewer] Failed to load sessions', e);
-      setSessions([]);
-    }
-  };
-
   const handleSort = (field: keyof CrawlData) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -264,8 +228,8 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
     try {
       const params = new URLSearchParams();
       params.set('format', format);
-      if (selectedSessionId !== '') {
-        params.set('sessionId', String(selectedSessionId));
+      if (initialSessionId) {
+        params.set('sessionId', String(initialSessionId));
       }
       const response = await fetch(`/api/export?${params.toString()}`, {
         headers: getAuthHeaders(), // ✅ INCLUDE AUTH HEADERS
@@ -277,7 +241,7 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
       const downloadUrl = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = downloadUrl;
-      a.download = `crawl-data${selectedSessionId !== '' ? `-session-${selectedSessionId}` : ''}-${new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')}.${format}`;
+      a.download = `crawl-data${initialSessionId ? `-session-${initialSessionId}` : ''}-${new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')}.${format}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -1181,26 +1145,6 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
               onChange={(e) => setSearchTerm(e.target.value)}
               className="search-input"
             />
-          </div>
-          <div className="session-filter">
-            <select
-              value={selectedSessionId}
-              onChange={(e) => {
-                const v = e.target.value === '' ? '' : Number(e.target.value);
-                setSelectedSessionId(v);
-                setServerOffset(0);
-                setData([]); // Clear existing data immediately
-              }}
-              className="search-input"
-              title="Filter by session"
-            >
-              <option value="" disabled>Select a session</option>
-              {sessions.map(s => (
-                <option key={s.id} value={s.id}>
-                  Session #{s.id} {s.startedAt ? `(${new Date(s.startedAt).toLocaleString()})` : ''}
-                </option>
-              ))}
-            </select>
           </div>
           
           <div className="export-controls">

@@ -37,6 +37,7 @@ export interface StrategyMetric {
 }
 
 export interface AEODashboardProps {
+  sessionId?: number | null;
   url?: string;
   result?: any;
   onAnalyze?: (url: string) => void;

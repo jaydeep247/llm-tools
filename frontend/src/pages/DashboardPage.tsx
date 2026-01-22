@@ -809,6 +809,7 @@ const DashboardPage: React.FC = () => {
               crawlStats={crawlStats}
               logs={logs}
               discoveredPages={pages}
+              sessionId={currentSessionId}
             />
           </div>
         )}

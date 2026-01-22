@@ -29,6 +29,7 @@ interface DashboardTabsProps {
   currentTime: number;
   result?: any;
   url: string;
+  sessionId?: number | null;
   
   // Schema Generator props
   schemaData: any;
@@ -80,6 +81,7 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
     currentTime,
     result,
     url,
+    sessionId,
     schemaData,
     schemaLoading,
     schemaError,
@@ -193,7 +195,7 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
           <div className="data-content-embedded">
             <DataViewer
               onClose={() => { }}
-              initialSessionId={result?.session_id || null}
+              initialSessionId={sessionId ?? result?.session_id ?? null}
             />
           </div>
         )}
@@ -201,7 +203,7 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
         {activeView === 'page_metrics' && (
           <div className="page-metrics-content-embedded">
             <PageMetrics
-              initialSessionId={result?.session_id || null}
+              initialSessionId={sessionId ?? result?.session_id ?? null}
             />
           </div>
         )}
@@ -210,6 +212,7 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
           <div className="links-content-embedded">
             <LinkExplorer
               onClose={() => { }}
+              sessionId={sessionId ?? result?.session_id ?? null}
             />
           </div>
         )}
@@ -218,11 +221,12 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
           <div className="tree-content-embedded">
             <MindMapWebTree
               onClose={() => { }}
+              sessionId={sessionId ?? result?.session_id ?? null}
             />
           </div>
         )}
 
-        {activeView === 'audits' && <AuditsPage />}
+        {activeView === 'audits' && <AuditsPage sessionId={sessionId ?? result?.session_id ?? null} />}
 
         {activeView === 'schema' && (
           <SchemaGenerator
