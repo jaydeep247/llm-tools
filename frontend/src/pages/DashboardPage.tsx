@@ -391,6 +391,7 @@ const DashboardPage: React.FC = () => {
     if (!reusePrompt) return;
     try {
       setLoading(true);
+      setCurrentSessionId(reusePrompt.sessionId); // Set the session ID so components can access it
       try {
         const token = localStorage.getItem('accessToken');
         const headers: HeadersInit = { 'Content-Type': 'application/json' };
@@ -542,6 +543,7 @@ const DashboardPage: React.FC = () => {
     setUrl(crawlUrl);
     setLoading(true);
     setError(null);
+    setCurrentSessionId(sessionId); // Set the session ID so components can access it
 
     try {
       const sessionData = await apiService.getSessionData(sessionId);
@@ -689,6 +691,7 @@ const DashboardPage: React.FC = () => {
 
       setResult(restoredResult);
       setRunCrawl(true);
+      setCurrentSessionId(sessionId); // Ensure sessionId is set even if there was an error
 
     } catch (error: any) {
       console.error('[DEBUG] Failed to restore session data:', error);
@@ -727,6 +730,7 @@ const DashboardPage: React.FC = () => {
 
         setResult(placeholder);
         setRunCrawl(true);
+        setCurrentSessionId(sessionId); // Ensure sessionId is set even in error case
       }
     } finally {
       setLoading(false);

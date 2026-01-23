@@ -471,6 +471,31 @@ export class DatabaseInitializer {
                         CREATE INDEX IF NOT EXISTS idx_page_metrics_session_canonical_status ON page_metrics (session_id, canonical_validation_status);
                     END IF;
                 END $$;`
+            },
+            {
+                name: '042_add_page_size_measurement_fields_to_page_metrics',
+                sql: `
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'page_metrics' AND column_name = 'page_size_bytes'
+                    ) THEN
+                        ALTER TABLE page_metrics 
+                        ADD COLUMN page_size_bytes INTEGER DEFAULT NULL,
+                        ADD COLUMN page_size_status VARCHAR(20) DEFAULT NULL,
+                        ADD COLUMN html_size_bytes INTEGER DEFAULT NULL,
+                        ADD COLUMN html_size_status VARCHAR(20) DEFAULT NULL,
+                        ADD COLUMN total_resource_size_bytes INTEGER DEFAULT NULL,
+                        ADD COLUMN resource_size_breakdown TEXT DEFAULT NULL;
+                        
+                        CREATE INDEX IF NOT EXISTS idx_page_metrics_page_size_status ON page_metrics (page_size_status);
+                        CREATE INDEX IF NOT EXISTS idx_page_metrics_html_size_status ON page_metrics (html_size_status);
+                        CREATE INDEX IF NOT EXISTS idx_page_metrics_page_size_bytes ON page_metrics (page_size_bytes DESC NULLS LAST);
+                        CREATE INDEX IF NOT EXISTS idx_page_metrics_html_size_bytes ON page_metrics (html_size_bytes DESC NULLS LAST);
+                        CREATE INDEX IF NOT EXISTS idx_page_metrics_total_resource_size_bytes ON page_metrics (total_resource_size_bytes DESC NULLS LAST);
+                    END IF;
+                END $$;`
             }
         ];
 

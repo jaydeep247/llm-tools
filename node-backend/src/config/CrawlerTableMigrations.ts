@@ -164,6 +164,166 @@ BEGIN
     END IF;
 END $$;
 `
+    },
+    {
+        name: '038_add_table_extraction_fields_to_page_metrics',
+        sql: `
+-- Migration: Add table extraction fields to existing page_metrics table
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'page_metrics' AND column_name = 'table_count'
+    ) THEN
+        ALTER TABLE page_metrics 
+        ADD COLUMN table_count INTEGER DEFAULT NULL,
+        ADD COLUMN table_data TEXT DEFAULT NULL,
+        ADD COLUMN has_tables BOOLEAN DEFAULT NULL;
+        
+        CREATE INDEX IF NOT EXISTS idx_page_metrics_has_tables ON page_metrics (has_tables);
+        CREATE INDEX IF NOT EXISTS idx_page_metrics_session_has_tables ON page_metrics (session_id, has_tables);
+        
+        COMMENT ON COLUMN page_metrics.table_count IS 'Number of HTML tables found on the page';
+        COMMENT ON COLUMN page_metrics.table_data IS 'JSON string containing extracted table data (headers, rows, structure)';
+        COMMENT ON COLUMN page_metrics.has_tables IS 'Whether the page contains any HTML tables';
+    END IF;
+END $$;
+`
+    },
+    {
+        name: '039_add_faq_extraction_fields_to_page_metrics',
+        sql: `
+-- Migration: Add FAQ extraction fields to existing page_metrics table
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'page_metrics' AND column_name = 'faq_count'
+    ) THEN
+        ALTER TABLE page_metrics 
+        ADD COLUMN faq_count INTEGER DEFAULT NULL,
+        ADD COLUMN faq_data TEXT DEFAULT NULL,
+        ADD COLUMN has_faqs BOOLEAN DEFAULT NULL,
+        ADD COLUMN faq_score INTEGER DEFAULT NULL,
+        ADD COLUMN faq_detection_method VARCHAR(50) DEFAULT NULL,
+        ADD COLUMN faq_schema_present BOOLEAN DEFAULT NULL;
+        
+        CREATE INDEX IF NOT EXISTS idx_page_metrics_has_faqs ON page_metrics (has_faqs);
+        CREATE INDEX IF NOT EXISTS idx_page_metrics_session_has_faqs ON page_metrics (session_id, has_faqs);
+        
+        COMMENT ON COLUMN page_metrics.faq_count IS 'Number of FAQs found on the page';
+        COMMENT ON COLUMN page_metrics.faq_data IS 'JSON string containing extracted FAQ data (questions, answers, detection method)';
+        COMMENT ON COLUMN page_metrics.has_faqs IS 'Whether the page contains any FAQs';
+        COMMENT ON COLUMN page_metrics.faq_score IS 'FAQ detection confidence score (0-10) based on multiple signals';
+        COMMENT ON COLUMN page_metrics.faq_detection_method IS 'Detection method used: schema, html, heuristic, accordion, or combinations';
+        COMMENT ON COLUMN page_metrics.faq_schema_present IS 'Whether FAQ schema markup (JSON-LD) is present on the page';
+    END IF;
+END $$;
+`
+    },
+    {
+        name: '040_add_mixed_content_fields_to_page_metrics',
+        sql: `
+-- Migration: Add mixed content detection fields to existing page_metrics table
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'page_metrics' AND column_name = 'has_mixed_content'
+    ) THEN
+        ALTER TABLE page_metrics 
+        ADD COLUMN has_mixed_content BOOLEAN DEFAULT NULL,
+        ADD COLUMN mixed_content_severity VARCHAR(20) DEFAULT NULL,
+        ADD COLUMN mixed_content_data TEXT DEFAULT NULL,
+        ADD COLUMN active_mixed_content_count INTEGER DEFAULT NULL,
+        ADD COLUMN passive_mixed_content_count INTEGER DEFAULT NULL,
+        ADD COLUMN total_insecure_resources INTEGER DEFAULT NULL;
+        
+        CREATE INDEX IF NOT EXISTS idx_page_metrics_has_mixed_content ON page_metrics (has_mixed_content);
+        CREATE INDEX IF NOT EXISTS idx_page_metrics_mixed_content_severity ON page_metrics (mixed_content_severity);
+        CREATE INDEX IF NOT EXISTS idx_page_metrics_session_mixed_content ON page_metrics (session_id, has_mixed_content);
+        
+        COMMENT ON COLUMN page_metrics.has_mixed_content IS 'Whether the page has mixed content (HTTP resources loaded on HTTPS page)';
+        COMMENT ON COLUMN page_metrics.mixed_content_severity IS 'Severity level: none, warning (passive), or critical (active)';
+        COMMENT ON COLUMN page_metrics.mixed_content_data IS 'JSON string containing list of insecure resources with details';
+        COMMENT ON COLUMN page_metrics.active_mixed_content_count IS 'Count of critical mixed content (script, CSS, iframe, object)';
+        COMMENT ON COLUMN page_metrics.passive_mixed_content_count IS 'Count of warning mixed content (images, video, audio)';
+        COMMENT ON COLUMN page_metrics.total_insecure_resources IS 'Total count of HTTP resources found on HTTPS page';
+    END IF;
+END $$;
+`
+    },
+    {
+        name: '041_add_header_viewport_structured_data_fields_to_page_metrics',
+        sql: `
+-- Migration: Add header structure, viewport, and structured data fields to existing page_metrics table
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'page_metrics' AND column_name = 'header_structure_data'
+    ) THEN
+        ALTER TABLE page_metrics 
+        ADD COLUMN header_structure_data TEXT DEFAULT NULL,
+        ADD COLUMN header_structure_issues TEXT DEFAULT NULL,
+        ADD COLUMN viewport_present BOOLEAN DEFAULT NULL,
+        ADD COLUMN viewport_content TEXT DEFAULT NULL,
+        ADD COLUMN viewport_status VARCHAR(20) DEFAULT NULL,
+        ADD COLUMN structured_data_present BOOLEAN DEFAULT NULL,
+        ADD COLUMN structured_data_format VARCHAR(50) DEFAULT NULL,
+        ADD COLUMN structured_data_types TEXT DEFAULT NULL,
+        ADD COLUMN structured_data_priority_type VARCHAR(100) DEFAULT NULL;
+        
+        CREATE INDEX IF NOT EXISTS idx_page_metrics_viewport_present ON page_metrics (viewport_present);
+        CREATE INDEX IF NOT EXISTS idx_page_metrics_viewport_status ON page_metrics (viewport_status);
+        CREATE INDEX IF NOT EXISTS idx_page_metrics_structured_data_present ON page_metrics (structured_data_present);
+        
+        COMMENT ON COLUMN page_metrics.header_structure_data IS 'JSON string containing header structure mapping with hierarchy tree';
+        COMMENT ON COLUMN page_metrics.header_structure_issues IS 'JSON string containing detected header structure issues';
+        COMMENT ON COLUMN page_metrics.viewport_present IS 'Whether viewport meta tag is present on the page';
+        COMMENT ON COLUMN page_metrics.viewport_content IS 'Content value of viewport meta tag';
+        COMMENT ON COLUMN page_metrics.viewport_status IS 'Viewport validation status: ok, warning, error, or missing';
+        COMMENT ON COLUMN page_metrics.structured_data_present IS 'Whether structured data (JSON-LD or Microdata) is present';
+        COMMENT ON COLUMN page_metrics.structured_data_format IS 'Format of structured data: json-ld, microdata, or combinations';
+        COMMENT ON COLUMN page_metrics.structured_data_types IS 'JSON array of schema types found on the page';
+        COMMENT ON COLUMN page_metrics.structured_data_priority_type IS 'Primary/priority schema type (e.g., FAQPage, Article, Product)';
+    END IF;
+END $$;
+`
+    },
+    {
+        name: '042_add_page_size_measurement_fields_to_page_metrics',
+        sql: `
+-- Migration: Add page size measurement fields to existing page_metrics table
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'page_metrics' AND column_name = 'page_size_bytes'
+    ) THEN
+        ALTER TABLE page_metrics 
+        ADD COLUMN page_size_bytes INTEGER DEFAULT NULL,
+        ADD COLUMN page_size_status VARCHAR(20) DEFAULT NULL,
+        ADD COLUMN html_size_bytes INTEGER DEFAULT NULL,
+        ADD COLUMN html_size_status VARCHAR(20) DEFAULT NULL,
+        ADD COLUMN total_resource_size_bytes INTEGER DEFAULT NULL,
+        ADD COLUMN resource_size_breakdown TEXT DEFAULT NULL;
+        
+        CREATE INDEX IF NOT EXISTS idx_page_metrics_page_size_status ON page_metrics (page_size_status);
+        CREATE INDEX IF NOT EXISTS idx_page_metrics_html_size_status ON page_metrics (html_size_status);
+        CREATE INDEX IF NOT EXISTS idx_page_metrics_page_size_bytes ON page_metrics (page_size_bytes DESC NULLS LAST);
+        CREATE INDEX IF NOT EXISTS idx_page_metrics_html_size_bytes ON page_metrics (html_size_bytes DESC NULLS LAST);
+        CREATE INDEX IF NOT EXISTS idx_page_metrics_total_resource_size_bytes ON page_metrics (total_resource_size_bytes DESC NULLS LAST);
+        
+        COMMENT ON COLUMN page_metrics.page_size_bytes IS 'Total page size including HTML and all external resources in bytes';
+        COMMENT ON COLUMN page_metrics.page_size_status IS 'Page size classification: Small (<1MB), Medium (1-3MB), Large (>3MB)';
+        COMMENT ON COLUMN page_metrics.html_size_bytes IS 'HTML document size only (excluding external resources) in bytes';
+        COMMENT ON COLUMN page_metrics.html_size_status IS 'HTML size classification: Good (<100KB), Warning (100-300KB), Large (>300KB)';
+        COMMENT ON COLUMN page_metrics.total_resource_size_bytes IS 'Combined size of all external assets (CSS, JS, images, fonts, etc.) in bytes';
+        COMMENT ON COLUMN page_metrics.resource_size_breakdown IS 'JSON breakdown of resource sizes by type: {css, js, images, fonts, media, other}';
+    END IF;
+END $$;
+`
     }
 ];
 

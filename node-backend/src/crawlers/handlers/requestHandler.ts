@@ -209,6 +209,108 @@ export function createRequestHandler(context: RequestHandlerContext): CheerioCra
             logger.warn(`Failed to validate canonical for page ${pageId}: ${error}`);
         }
 
+        // Save table extraction data
+        try {
+            const tableData = pageMetrics.tables;
+            if (tableData) {
+                await db.pages.updateTableExtraction(
+                    pageId,
+                    sessionId,
+                    tableData.tableCount,
+                    JSON.stringify(tableData),
+                    tableData.hasTables
+                );
+            }
+        } catch (error) {
+            // Log but don't fail the crawl if table extraction save fails
+            logger.warn(`Failed to save table extraction data for page ${pageId}: ${error}`);
+        }
+
+        // Save FAQ extraction data
+        try {
+            const faqData = pageMetrics.faqs;
+            if (faqData) {
+                await db.pages.updateFaqExtraction(
+                    pageId,
+                    sessionId,
+                    faqData.faqCount,
+                    JSON.stringify(faqData),
+                    faqData.hasFaqs,
+                    faqData.faqScore,
+                    faqData.detectionMethod || null,
+                    faqData.faqSchemaPresent
+                );
+            }
+        } catch (error) {
+            // Log but don't fail the crawl if FAQ extraction save fails
+            logger.warn(`Failed to save FAQ extraction data for page ${pageId}: ${error}`);
+        }
+
+        // Save mixed content detection data
+        try {
+            const mixedContentData = pageMetrics.mixedContent;
+            if (mixedContentData) {
+                await db.pages.updateMixedContentDetection(
+                    pageId,
+                    sessionId,
+                    mixedContentData.hasMixedContent,
+                    mixedContentData.severity || null,
+                    JSON.stringify(mixedContentData),
+                    mixedContentData.activeMixedContentCount,
+                    mixedContentData.passiveMixedContentCount,
+                    mixedContentData.totalInsecureResources
+                );
+            }
+        } catch (error) {
+            // Log but don't fail the crawl if mixed content detection save fails
+            logger.warn(`Failed to save mixed content detection data for page ${pageId}: ${error}`);
+        }
+
+        // Save header structure, viewport, and structured data
+        try {
+            const headerStructure = pageMetrics.headerStructureMapping;
+            const viewportMeta = pageMetrics.viewportMeta;
+            const structuredDataDetection = pageMetrics.structuredDataDetection;
+            const structuredDataTypeId = pageMetrics.structuredDataTypeIdentification;
+
+            await db.pages.updateSeoStructureData(
+                pageId,
+                sessionId,
+                headerStructure ? JSON.stringify(headerStructure) : null,
+                headerStructure && headerStructure.issues.length > 0 ? JSON.stringify(headerStructure.issues) : null,
+                viewportMeta ? viewportMeta.present : null,
+                viewportMeta ? viewportMeta.content : null,
+                viewportMeta ? viewportMeta.status : null,
+                structuredDataDetection ? structuredDataDetection.present : null,
+                structuredDataDetection ? structuredDataDetection.format : null,
+                structuredDataTypeId && structuredDataTypeId.types.length > 0 ? JSON.stringify(structuredDataTypeId.types) : null,
+                structuredDataTypeId ? structuredDataTypeId.priorityType : null
+            );
+        } catch (error) {
+            // Log but don't fail the crawl if SEO structure data save fails
+            logger.warn(`Failed to save SEO structure data for page ${pageId}: ${error}`);
+        }
+
+        // Save page size measurements
+        try {
+            const pageSizeMeasurement = pageMetrics.pageSizeMeasurement;
+            if (pageSizeMeasurement) {
+                await db.pages.updatePageSizeMeasurements(
+                    pageId,
+                    sessionId,
+                    pageSizeMeasurement.pageSizeBytes,
+                    pageSizeMeasurement.pageSizeStatus,
+                    pageSizeMeasurement.htmlSizeBytes,
+                    pageSizeMeasurement.htmlSizeStatus,
+                    pageSizeMeasurement.totalResourceSizeBytes,
+                    pageSizeMeasurement.resourceSizeBreakdown ? JSON.stringify(pageSizeMeasurement.resourceSizeBreakdown) : null
+                );
+            }
+        } catch (error) {
+            // Log but don't fail the crawl if page size measurement save fails
+            logger.warn(`Failed to save page size measurements for page ${pageId}: ${error}`);
+        }
+
         // Create fingerprint
         try {
             const fingerprint = createFingerprint($, pageId, sessionId, url, false);

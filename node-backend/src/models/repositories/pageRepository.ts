@@ -298,6 +298,200 @@ export class PageRepository {
     }
 
     /**
+     * Update table extraction data for a page in page_metrics table
+     * This stores the extracted table information from the page
+     */
+    async updateTableExtraction(
+        pageId: number,
+        sessionId: number,
+        tableCount: number,
+        tableData: string | null,
+        hasTables: boolean
+    ): Promise<void> {
+        // Insert or update in page_metrics table
+        await this.pool.query(
+            `INSERT INTO page_metrics (page_id, session_id, table_count, table_data, has_tables, updated_at)
+             VALUES ($1, $2, $3, $4, $5, NOW())
+             ON CONFLICT (page_id, session_id) DO UPDATE SET
+                 table_count = EXCLUDED.table_count,
+                 table_data = EXCLUDED.table_data,
+                 has_tables = EXCLUDED.has_tables,
+                 updated_at = NOW()`,
+            [
+                pageId,
+                sessionId,
+                tableCount,
+                tableData,
+                hasTables
+            ]
+        );
+    }
+
+    /**
+     * Update FAQ extraction data for a page in page_metrics table
+     * This stores the extracted FAQ information from the page
+     */
+    async updateFaqExtraction(
+        pageId: number,
+        sessionId: number,
+        faqCount: number,
+        faqData: string | null,
+        hasFaqs: boolean,
+        faqScore: number,
+        faqDetectionMethod: string | null,
+        faqSchemaPresent: boolean
+    ): Promise<void> {
+        // Insert or update in page_metrics table
+        await this.pool.query(
+            `INSERT INTO page_metrics (page_id, session_id, faq_count, faq_data, has_faqs, faq_score, faq_detection_method, faq_schema_present, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+             ON CONFLICT (page_id, session_id) DO UPDATE SET
+                 faq_count = EXCLUDED.faq_count,
+                 faq_data = EXCLUDED.faq_data,
+                 has_faqs = EXCLUDED.has_faqs,
+                 faq_score = EXCLUDED.faq_score,
+                 faq_detection_method = EXCLUDED.faq_detection_method,
+                 faq_schema_present = EXCLUDED.faq_schema_present,
+                 updated_at = NOW()`,
+            [
+                pageId,
+                sessionId,
+                faqCount,
+                faqData,
+                hasFaqs,
+                faqScore,
+                faqDetectionMethod,
+                faqSchemaPresent
+            ]
+        );
+    }
+
+    /**
+     * Update mixed content detection data for a page in page_metrics table
+     * This stores the detected mixed content information from the page
+     */
+    async updateMixedContentDetection(
+        pageId: number,
+        sessionId: number,
+        hasMixedContent: boolean,
+        severity: string | null,
+        mixedContentData: string | null,
+        activeCount: number,
+        passiveCount: number,
+        totalCount: number
+    ): Promise<void> {
+        // Insert or update in page_metrics table
+        await this.pool.query(
+            `INSERT INTO page_metrics (page_id, session_id, has_mixed_content, mixed_content_severity, mixed_content_data, active_mixed_content_count, passive_mixed_content_count, total_insecure_resources, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+             ON CONFLICT (page_id, session_id) DO UPDATE SET
+                 has_mixed_content = EXCLUDED.has_mixed_content,
+                 mixed_content_severity = EXCLUDED.mixed_content_severity,
+                 mixed_content_data = EXCLUDED.mixed_content_data,
+                 active_mixed_content_count = EXCLUDED.active_mixed_content_count,
+                 passive_mixed_content_count = EXCLUDED.passive_mixed_content_count,
+                 total_insecure_resources = EXCLUDED.total_insecure_resources,
+                 updated_at = NOW()`,
+            [
+                pageId,
+                sessionId,
+                hasMixedContent,
+                severity,
+                mixedContentData,
+                activeCount,
+                passiveCount,
+                totalCount
+            ]
+        );
+    }
+
+    /**
+     * Update header structure, viewport, and structured data information for a page in page_metrics table
+     */
+    async updateSeoStructureData(
+        pageId: number,
+        sessionId: number,
+        headerStructureData: string | null,
+        headerStructureIssues: string | null,
+        viewportPresent: boolean | null,
+        viewportContent: string | null,
+        viewportStatus: string | null,
+        structuredDataPresent: boolean | null,
+        structuredDataFormat: string | null,
+        structuredDataTypes: string | null,
+        structuredDataPriorityType: string | null
+    ): Promise<void> {
+        // Insert or update in page_metrics table
+        await this.pool.query(
+            `INSERT INTO page_metrics (page_id, session_id, header_structure_data, header_structure_issues, viewport_present, viewport_content, viewport_status, structured_data_present, structured_data_format, structured_data_types, structured_data_priority_type, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+             ON CONFLICT (page_id, session_id) DO UPDATE SET
+                 header_structure_data = EXCLUDED.header_structure_data,
+                 header_structure_issues = EXCLUDED.header_structure_issues,
+                 viewport_present = EXCLUDED.viewport_present,
+                 viewport_content = EXCLUDED.viewport_content,
+                 viewport_status = EXCLUDED.viewport_status,
+                 structured_data_present = EXCLUDED.structured_data_present,
+                 structured_data_format = EXCLUDED.structured_data_format,
+                 structured_data_types = EXCLUDED.structured_data_types,
+                 structured_data_priority_type = EXCLUDED.structured_data_priority_type,
+                 updated_at = NOW()`,
+            [
+                pageId,
+                sessionId,
+                headerStructureData,
+                headerStructureIssues,
+                viewportPresent,
+                viewportContent,
+                viewportStatus,
+                structuredDataPresent,
+                structuredDataFormat,
+                structuredDataTypes,
+                structuredDataPriorityType
+            ]
+        );
+    }
+
+    /**
+     * Update page size measurement fields for a page in page_metrics table
+     * This stores the page size, HTML size, and resource size measurements
+     */
+    async updatePageSizeMeasurements(
+        pageId: number,
+        sessionId: number,
+        pageSizeBytes: number,
+        pageSizeStatus: string,
+        htmlSizeBytes: number,
+        htmlSizeStatus: string,
+        totalResourceSizeBytes: number,
+        resourceSizeBreakdown: string | null
+    ): Promise<void> {
+        // Insert or update in page_metrics table
+        await this.pool.query(
+            `INSERT INTO page_metrics (page_id, session_id, page_size_bytes, page_size_status, html_size_bytes, html_size_status, total_resource_size_bytes, resource_size_breakdown, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+             ON CONFLICT (page_id, session_id) DO UPDATE SET
+                 page_size_bytes = EXCLUDED.page_size_bytes,
+                 page_size_status = EXCLUDED.page_size_status,
+                 html_size_bytes = EXCLUDED.html_size_bytes,
+                 html_size_status = EXCLUDED.html_size_status,
+                 total_resource_size_bytes = EXCLUDED.total_resource_size_bytes,
+                 resource_size_breakdown = EXCLUDED.resource_size_breakdown,
+                 updated_at = NOW()`,
+            [
+                pageId,
+                sessionId,
+                pageSizeBytes,
+                pageSizeStatus,
+                htmlSizeBytes,
+                htmlSizeStatus,
+                totalResourceSizeBytes,
+                resourceSizeBreakdown
+            ]
+        );
+    }
+
+    /**
      * Update meta description detection fields for a page in page_metrics table
      * This calculates missing/duplicate meta description status by checking against other pages in the session
      */
@@ -612,7 +806,16 @@ export class PageRepository {
                 SELECT p.*, 
                     pm.title_status, pm.duplicate_title_count, pm.duplicate_with,
                     pm.meta_description_status, pm.duplicate_meta_description_count, pm.duplicate_meta_description_with,
-                    pm.canonical_validation_status, pm.canonical_validation_message
+                    pm.canonical_validation_status, pm.canonical_validation_message,
+                    pm.table_count, pm.table_data, pm.has_tables,
+                    pm.faq_count, pm.faq_data, pm.has_faqs, pm.faq_score, pm.faq_detection_method, pm.faq_schema_present,
+                    pm.has_mixed_content, pm.mixed_content_severity, pm.mixed_content_data,
+                    pm.active_mixed_content_count, pm.passive_mixed_content_count, pm.total_insecure_resources,
+                    pm.header_structure_data, pm.header_structure_issues,
+                    pm.viewport_present, pm.viewport_content, pm.viewport_status,
+                    pm.structured_data_present, pm.structured_data_format, pm.structured_data_types, pm.structured_data_priority_type,
+                    pm.page_size_bytes, pm.page_size_status, pm.html_size_bytes, pm.html_size_status, 
+                    pm.total_resource_size_bytes, pm.resource_size_breakdown
                 FROM pages p
                 LEFT JOIN page_metrics pm ON p.id = pm.page_id AND p.session_id = pm.session_id
                 ORDER BY p.timestamp DESC 
@@ -653,7 +856,37 @@ export class PageRepository {
                 pm.duplicate_meta_description_count,
                 pm.duplicate_meta_description_with,
                 pm.canonical_validation_status,
-                pm.canonical_validation_message
+                pm.canonical_validation_message,
+                pm.table_count,
+                pm.table_data,
+                pm.has_tables,
+                pm.faq_count,
+                pm.faq_data,
+                pm.has_faqs,
+                pm.faq_score,
+                pm.faq_detection_method,
+                pm.faq_schema_present,
+                pm.has_mixed_content,
+                pm.mixed_content_severity,
+                pm.mixed_content_data,
+                pm.active_mixed_content_count,
+                pm.passive_mixed_content_count,
+                pm.total_insecure_resources,
+                pm.header_structure_data,
+                pm.header_structure_issues,
+                pm.viewport_present,
+                pm.viewport_content,
+                pm.viewport_status,
+                pm.structured_data_present,
+                pm.structured_data_format,
+                pm.structured_data_types,
+                pm.structured_data_priority_type,
+                pm.page_size_bytes,
+                pm.page_size_status,
+                pm.html_size_bytes,
+                pm.html_size_status,
+                pm.total_resource_size_bytes,
+                pm.resource_size_breakdown
             FROM pages p
             CROSS JOIN total_unique_inlinks
             LEFT JOIN page_metrics pm ON p.id = pm.page_id AND p.session_id = pm.session_id
@@ -1524,7 +1757,74 @@ export class PageRepository {
             // Note: canonicalUrl already exists from pages table, so we use that
             // The canonical_validation_status and canonical_validation_message are from page_metrics
             canonicalValidationStatus: row.canonical_validation_status || undefined,
-            canonicalValidationMessage: row.canonical_validation_message || undefined
+            canonicalValidationMessage: row.canonical_validation_message || undefined,
+            // Table extraction fields (from page_metrics table)
+            tableCount: row.table_count !== null && row.table_count !== undefined
+                ? parseInt(row.table_count)
+                : undefined,
+            tableData: row.table_data || undefined,
+            hasTables: row.has_tables !== null && row.has_tables !== undefined
+                ? Boolean(row.has_tables)
+                : undefined,
+            // FAQ extraction fields (from page_metrics table)
+            faqCount: row.faq_count !== null && row.faq_count !== undefined
+                ? parseInt(row.faq_count)
+                : undefined,
+            faqData: row.faq_data || undefined,
+            hasFaqs: row.has_faqs !== null && row.has_faqs !== undefined
+                ? Boolean(row.has_faqs)
+                : undefined,
+            faqScore: row.faq_score !== null && row.faq_score !== undefined
+                ? parseInt(row.faq_score)
+                : undefined,
+            faqDetectionMethod: row.faq_detection_method || undefined,
+            faqSchemaPresent: row.faq_schema_present !== null && row.faq_schema_present !== undefined
+                ? Boolean(row.faq_schema_present)
+                : undefined,
+            // Mixed Content detection fields (from page_metrics table)
+            hasMixedContent: row.has_mixed_content !== null && row.has_mixed_content !== undefined
+                ? Boolean(row.has_mixed_content)
+                : undefined,
+            mixedContentSeverity: row.mixed_content_severity || undefined,
+            mixedContentData: row.mixed_content_data || undefined,
+            activeMixedContentCount: row.active_mixed_content_count !== null && row.active_mixed_content_count !== undefined
+                ? parseInt(row.active_mixed_content_count)
+                : undefined,
+            passiveMixedContentCount: row.passive_mixed_content_count !== null && row.passive_mixed_content_count !== undefined
+                ? parseInt(row.passive_mixed_content_count)
+                : undefined,
+            totalInsecureResources: row.total_insecure_resources !== null && row.total_insecure_resources !== undefined
+                ? parseInt(row.total_insecure_resources)
+                : undefined,
+            // Header Structure Mapping fields (from page_metrics table)
+            headerStructureData: row.header_structure_data || undefined,
+            headerStructureIssues: row.header_structure_issues || undefined,
+            // Viewport Meta fields (from page_metrics table)
+            viewportPresent: row.viewport_present !== null && row.viewport_present !== undefined
+                ? Boolean(row.viewport_present)
+                : undefined,
+            viewportContent: row.viewport_content || undefined,
+            viewportStatus: row.viewport_status || undefined,
+            // Structured Data fields (from page_metrics table)
+            structuredDataPresent: row.structured_data_present !== null && row.structured_data_present !== undefined
+                ? Boolean(row.structured_data_present)
+                : undefined,
+            structuredDataFormat: row.structured_data_format || undefined,
+            structuredDataTypes: row.structured_data_types || undefined,
+            structuredDataPriorityType: row.structured_data_priority_type || undefined,
+            // Page Size Measurement fields (from page_metrics table)
+            pageSizeBytes: row.page_size_bytes !== null && row.page_size_bytes !== undefined
+                ? parseInt(row.page_size_bytes)
+                : undefined,
+            pageSizeStatus: row.page_size_status || undefined,
+            htmlSizeBytes: row.html_size_bytes !== null && row.html_size_bytes !== undefined
+                ? parseInt(row.html_size_bytes)
+                : undefined,
+            htmlSizeStatus: row.html_size_status || undefined,
+            totalResourceSizeBytes: row.total_resource_size_bytes !== null && row.total_resource_size_bytes !== undefined
+                ? parseInt(row.total_resource_size_bytes)
+                : undefined,
+            resourceSizeBreakdown: row.resource_size_breakdown || undefined
         };
     }
 

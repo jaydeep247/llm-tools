@@ -9,6 +9,14 @@ import { extractPagination } from './paginationExtractor.js';
 import { extractAmpHtml } from './ampExtractor.js';
 import { extractMobileAlternate } from './mobileAlternateExtractor.js';
 import { extractRedirectData } from './redirectDetector.js';
+import { extractTables } from './tableExtractor.js';
+import { extractFaqs } from './faqExtractor.js';
+import { extractMixedContent } from './mixedContentExtractor.js';
+import { mapHeaderStructure } from './headerStructureMapper.js';
+import { extractViewport } from './viewportExtractor.js';
+import { extractPageSizeMeasurement } from './pageSizeExtractor.js';
+import { detectStructuredData } from './structuredDataDetector.js';
+import { identifyStructuredDataTypes } from './structuredDataTypeIdentifier.js';
 
 /**
  * Extract all page metrics from a crawled page
@@ -50,6 +58,30 @@ export async function extractPageMetrics(
     // Extract redirect data
     const redirectData = extractRedirectData($, response, url);
     
+    // Extract tables
+    const tablesData = extractTables($);
+    
+    // Extract FAQs
+    const faqsData = extractFaqs($);
+    
+    // Extract Mixed Content (needs finalUrl for HTTPS check)
+    const mixedContentData = extractMixedContent($, statusData.finalUrl);
+    
+    // Extract Header Structure Mapping
+    const headerStructureMapping = mapHeaderStructure($);
+    
+    // Extract Viewport Meta
+    const viewportData = extractViewport($);
+    
+    // Detect Structured Data (JSON-LD + Microdata)
+    const structuredDataDetection = detectStructuredData($);
+    
+    // Identify Structured Data Types
+    const structuredDataTypeIdentification = identifyStructuredDataTypes(structuredDataDetection);
+    
+    // Extract Page Size Measurements
+    const pageSizeMeasurement = await extractPageSizeMeasurement(url, $, response);
+    
     return {
         // URL
         url,
@@ -87,7 +119,31 @@ export async function extractPageMetrics(
         mobileAlternateUrl,
         
         // Redirect
-        ...redirectData
+        ...redirectData,
+        
+        // Tables
+        tables: tablesData,
+        
+        // FAQs
+        faqs: faqsData,
+        
+        // Mixed Content
+        mixedContent: mixedContentData,
+        
+        // Header Structure Mapping
+        headerStructureMapping,
+        
+        // Viewport Meta (enhanced)
+        viewportMeta: viewportData,
+        
+        // Structured Data Detection (enhanced)
+        structuredDataDetection,
+        
+        // Structured Data Type Identification
+        structuredDataTypeIdentification,
+        
+        // Page Size Measurements
+        pageSizeMeasurement
     };
 }
 
@@ -105,4 +161,12 @@ export * from './ampExtractor.js';
 export * from './mobileAlternateExtractor.js';
 export * from './lastModifiedFetcher.js';
 export * from './redirectDetector.js';
+export * from './tableExtractor.js';
+export * from './faqExtractor.js';
+export * from './mixedContentExtractor.js';
+export * from './headerStructureMapper.js';
+export * from './viewportExtractor.js';
+export * from './structuredDataDetector.js';
+export * from './structuredDataTypeIdentifier.js';
+export * from './pageSizeExtractor.js';
 

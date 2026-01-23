@@ -96,6 +96,43 @@ export interface Page {
     // Note: canonicalUrl already exists above in the Page interface, so we only add validation fields here
     canonicalValidationStatus?: 'Valid' | 'Invalid' | 'Missing' | 'Redirect' | 'Error' | 'Not Found' | 'Blocked'; // Validation status
     canonicalValidationMessage?: string; // Detailed validation message
+    // Table Extraction Fields (from page_metrics table)
+    tableCount?: number; // Number of HTML tables found on the page
+    tableData?: string; // JSON string containing extracted table data
+    hasTables?: boolean; // Whether the page contains any HTML tables
+    // FAQ Extraction Fields (from page_metrics table)
+    faqCount?: number; // Number of FAQs found on the page
+    faqData?: string; // JSON string containing extracted FAQ data
+    hasFaqs?: boolean; // Whether the page contains any FAQs
+    faqScore?: number; // FAQ detection confidence score (0-10)
+    faqDetectionMethod?: string; // Detection method used (schema, html, heuristic, accordion)
+    faqSchemaPresent?: boolean; // Whether FAQ schema markup is present
+    // Mixed Content Detection Fields (from page_metrics table)
+    hasMixedContent?: boolean; // Whether the page has mixed content (HTTP resources on HTTPS page)
+    mixedContentSeverity?: 'none' | 'warning' | 'critical'; // Severity level
+    mixedContentData?: string; // JSON string containing mixed content resources
+    activeMixedContentCount?: number; // Count of critical mixed content (script, CSS, iframe)
+    passiveMixedContentCount?: number; // Count of warning mixed content (images, video, audio)
+    totalInsecureResources?: number; // Total count of HTTP resources
+    // Header Structure Mapping Fields (from page_metrics table)
+    headerStructureData?: string; // JSON string containing header structure mapping
+    headerStructureIssues?: string; // JSON string containing header structure issues
+    // Viewport Meta Fields (from page_metrics table)
+    viewportPresent?: boolean; // Whether viewport meta tag is present
+    viewportContent?: string; // Viewport meta tag content
+    viewportStatus?: 'ok' | 'warning' | 'error' | 'missing'; // Viewport validation status
+    // Structured Data Fields (from page_metrics table)
+    structuredDataPresent?: boolean; // Whether structured data is present
+    structuredDataFormat?: string; // Format: json-ld, microdata, or combinations
+    structuredDataTypes?: string; // JSON array of schema types
+    structuredDataPriorityType?: string; // Primary/priority schema type
+    // Page Size Measurement Fields (from page_metrics table)
+    pageSizeBytes?: number; // Total page size in bytes (HTML + resources)
+    pageSizeStatus?: 'Small' | 'Medium' | 'Large'; // Size status classification
+    htmlSizeBytes?: number; // HTML document size in bytes only
+    htmlSizeStatus?: 'Good' | 'Warning' | 'Large'; // HTML size status classification
+    totalResourceSizeBytes?: number; // Total size of external resources in bytes
+    resourceSizeBreakdown?: string; // JSON string containing individual resource sizes
 }
 
 export interface Resource {
