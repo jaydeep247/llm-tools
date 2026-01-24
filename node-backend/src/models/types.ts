@@ -29,11 +29,9 @@ export interface Page {
     statusCode: number;
     responseTime: number;
     wordCount: number;
-    sentenceCount?: number;
     averageWordsPerSentence?: number;
     fleschReadingEase?: number;
     readabilityLevel?: string;
-    textToHtmlRatio?: number;
     crawlDepth?: number;
     folderDepth?: number;
     sizeBytes?: number;
@@ -133,6 +131,24 @@ export interface Page {
     htmlSizeStatus?: 'Good' | 'Warning' | 'Large'; // HTML size status classification
     totalResourceSizeBytes?: number; // Total size of external resources in bytes
     resourceSizeBreakdown?: string; // JSON string containing individual resource sizes
+    // Word Count Analysis Fields (from wordcount_analysis table)
+    totalWordCount?: number; // Total number of words in the page HTML text (excluding script, style, noscript tags)
+    visibleWordCount?: number; // Number of words actually visible to users (main content)
+    uniqueWordCount?: number; // Number of distinct words used in visible content
+    textToHtmlRatio?: number; // Percentage of text content compared to total HTML size
+    sentenceCount?: number; // Number of sentences in visible text
+    paragraphCount?: number; // Number of paragraph-level text blocks
+    averageSentenceLength?: number; // Average number of words per sentence
+    averageParagraphLength?: number; // Average number of words per paragraph
+    keywordDensity?: number; // Keyword density percentage (optional, for target keyword)
+    // Advanced Word Count Analysis fields (from wordcount_analysis table)
+    thinContent?: boolean; // Whether page has thin content (low word count or low uniqueness)
+    thinContentReason?: string | null; // Reason for thin content: 'Low word count' or 'Low uniqueness'
+    duplicateContent?: boolean; // Whether page content is duplicate of another page
+    duplicateWithUrls?: string[]; // Array of URLs that have duplicate content
+    sectionWordCountMapping?: Record<string, number>; // Mapping of section headings to word counts
+    sectionWordCountBreakdown?: Record<string, number>; // Percentage distribution of words across sections
+    headingWordCountMapping?: Record<string, number>; // Mapping of headings (H1-H6) to word counts under each heading
 }
 
 export interface Resource {

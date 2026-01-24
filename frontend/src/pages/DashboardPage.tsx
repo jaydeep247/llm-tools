@@ -107,6 +107,11 @@ const DashboardPage: React.FC = () => {
       setIsCrawling(nextStatus === 'auditing');
       setCrawlStatus(nextStatus);
       
+      // Preserve sessionId if provided in done event
+      if (data?.sessionId) {
+        setCurrentSessionId(data.sessionId);
+      }
+      
       setLogs(prev => [...prev, {
         message: nextStatus === 'auditing' 
           ? `✅ Crawl completed! Starting audits... Total URLs: ${data.count}`
@@ -135,7 +140,9 @@ const DashboardPage: React.FC = () => {
           } else if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled') {
             setIsCrawling(false);
             setCrawlStatus(data.status);
-            if (data.status === 'completed' || data.status === 'cancelled') {
+            // Don't clear sessionId when completed - we need it to display the data
+            // Only clear on cancelled if explicitly needed
+            if (data.status === 'cancelled' && data.clearSessionId) {
               setCurrentSessionId(null);
             }
           }
@@ -800,23 +807,66 @@ const DashboardPage: React.FC = () => {
         {/* Error Display */}
         <ErrorDisplay error={error} />
 
-        {/* Results */}
-        {result && (
-          <div className="max-w-7xl mx-auto mb-8">
-            <AEODashboard
-              url={url}
-              result={result}
-              runCrawl={runCrawl}
-              isCrawling={isCrawling}
-              crawlStatus={crawlStatus}
-              pageCount={pageCount}
-              crawlStats={crawlStats}
-              logs={logs}
-              discoveredPages={pages}
-              sessionId={currentSessionId}
-            />
-          </div>
-        )}
+        {/* Helper function and rendering logic */}
+        {(() => {
+          // Helper function to check if result has AEO analysis data from backend
+          const hasAEOAnalysisData = (res: AnalysisResult | null): boolean => {
+            if (!res) return false;
+            
+            // Check for AEO-specific fields that indicate the analysis is complete
+            return !!(
+              res.overall_score !== undefined ||
+              res.grade !== undefined ||
+              res.module_scores !== undefined ||
+              res.detailed_analysis !== undefined ||
+              (res as any)?.results?.overall_score !== undefined ||
+              (res as any)?.results?.grade !== undefined ||
+              (res as any)?.results?.module_scores !== undefined
+            );
+          };
+
+          const hasAEOData = hasAEOAnalysisData(result);
+
+          return (
+            <>
+              {/* Loading state - show while waiting for backend response */}
+              {(loading || (result && !hasAEOData)) && (
+                <div className="max-w-7xl mx-auto mb-8 text-center py-12">
+                  <div className="text-lg text-gray-400">
+                    {loading 
+                      ? "Analyzing website and waiting for response..." 
+                      : "Waiting for AEO analysis to complete..."}
+                  </div>
+                  {runCrawl && (isCrawling || crawlStatus === 'running' || crawlStatus === 'auditing') && (
+                    <div className="text-sm text-gray-500 mt-2">
+                      {crawlStatus === 'auditing' 
+                        ? "Audits in progress... AEO analysis will begin after audits complete."
+                        : "Crawling in progress... AEO analysis will begin after crawl completes."}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Results - Only show after backend AEO analysis response is complete */}
+              {hasAEOData && (
+                <div className="max-w-7xl mx-auto mb-8">
+                  <AEODashboard
+                    url={url}
+                    result={result}
+                    runCrawl={runCrawl}
+                    isCrawling={isCrawling}
+                    crawlStatus={crawlStatus}
+                    pageCount={pageCount}
+                    crawlStats={crawlStats}
+                    logs={logs}
+                    discoveredPages={pages}
+                    sessionId={currentSessionId}
+                  />
+                </div>
+              )}
+            </>
+          );
+        })()}
         
         {/* Reuse Modal */}
         <ReuseModal

@@ -406,6 +406,136 @@ export class PageRepository {
     }
 
     /**
+     * Update word count analysis data for a page in wordcount_analysis table
+     */
+    async updateWordCountAnalysis(
+        pageId: number,
+        sessionId: number,
+        wordCountData: {
+            totalWordCount: number;
+            visibleWordCount: number;
+            uniqueWordCount: number;
+            textToHtmlRatio: number;
+            sentenceCount: number;
+            paragraphCount: number;
+            averageSentenceLength: number;
+            averageParagraphLength: number;
+            keywordDensity: number | null;
+            thinContent: boolean;
+            thinContentReason: string | null;
+            duplicateContent: boolean;
+            duplicateWithUrls: string[];
+            sectionWordCountMapping: Record<string, number>;
+            sectionWordCountBreakdown: Record<string, number>;
+            headingWordCountMapping: Record<string, number>;
+        }
+    ): Promise<void> {
+        // Insert or update in wordcount_analysis table
+        await this.pool.query(
+            `INSERT INTO wordcount_analysis (
+                page_id, session_id, 
+                total_word_count, visible_word_count, unique_word_count, text_to_html_ratio,
+                sentence_count, paragraph_count,
+                average_sentence_length, average_paragraph_length, keyword_density,
+                thin_content, thin_content_reason,
+                duplicate_content, duplicate_with_urls,
+                section_word_count_mapping, section_word_count_breakdown, heading_word_count_mapping,
+                updated_at
+            )
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW())
+             ON CONFLICT (page_id, session_id) DO UPDATE SET
+                 total_word_count = EXCLUDED.total_word_count,
+                 visible_word_count = EXCLUDED.visible_word_count,
+                 unique_word_count = EXCLUDED.unique_word_count,
+                 text_to_html_ratio = EXCLUDED.text_to_html_ratio,
+                 sentence_count = EXCLUDED.sentence_count,
+                 paragraph_count = EXCLUDED.paragraph_count,
+                 average_sentence_length = EXCLUDED.average_sentence_length,
+                 average_paragraph_length = EXCLUDED.average_paragraph_length,
+                 keyword_density = EXCLUDED.keyword_density,
+                 thin_content = EXCLUDED.thin_content,
+                 thin_content_reason = EXCLUDED.thin_content_reason,
+                 duplicate_content = EXCLUDED.duplicate_content,
+                 duplicate_with_urls = EXCLUDED.duplicate_with_urls,
+                 section_word_count_mapping = EXCLUDED.section_word_count_mapping,
+                 section_word_count_breakdown = EXCLUDED.section_word_count_breakdown,
+                 heading_word_count_mapping = EXCLUDED.heading_word_count_mapping,
+                 updated_at = NOW()`,
+            [
+                pageId,
+                sessionId,
+                wordCountData.totalWordCount,
+                wordCountData.visibleWordCount,
+                wordCountData.uniqueWordCount,
+                wordCountData.textToHtmlRatio,
+                wordCountData.sentenceCount,
+                wordCountData.paragraphCount,
+                wordCountData.averageSentenceLength,
+                wordCountData.averageParagraphLength,
+                wordCountData.keywordDensity,
+                wordCountData.thinContent,
+                wordCountData.thinContentReason,
+                wordCountData.duplicateContent,
+                wordCountData.duplicateWithUrls.length > 0 ? JSON.stringify(wordCountData.duplicateWithUrls) : null,
+                Object.keys(wordCountData.sectionWordCountMapping).length > 0 ? JSON.stringify(wordCountData.sectionWordCountMapping) : null,
+                Object.keys(wordCountData.sectionWordCountBreakdown).length > 0 ? JSON.stringify(wordCountData.sectionWordCountBreakdown) : null,
+                Object.keys(wordCountData.headingWordCountMapping).length > 0 ? JSON.stringify(wordCountData.headingWordCountMapping) : null
+            ]
+        );
+    }
+
+    /**
+     * Get a page by ID
+     */
+    async getPageById(pageId: number): Promise<{ id: number; url: string; contentHash: string | null; sessionId: number } | null> {
+        const result = await this.pool.query(
+            `SELECT id, url, content_hash, session_id 
+             FROM pages 
+             WHERE id = $1`,
+            [pageId]
+        );
+        
+        if (result.rows.length === 0) {
+            return null;
+        }
+        
+        const row = result.rows[0];
+        return {
+            id: row.id,
+            url: row.url,
+            contentHash: row.content_hash || null,
+            sessionId: row.session_id
+        };
+    }
+
+    /**
+     * Get pages with the same content hash in a session (excluding a specific page)
+     */
+    async getPagesByContentHash(
+        contentHash: string,
+        sessionId: number,
+        excludePageId?: number
+    ): Promise<{ id: number; url: string }[]> {
+        let query = `
+            SELECT id, url 
+            FROM pages 
+            WHERE content_hash = $1 AND session_id = $2
+        `;
+        const params: any[] = [contentHash, sessionId];
+        
+        if (excludePageId) {
+            query += ` AND id != $3`;
+            params.push(excludePageId);
+        }
+        
+        const result = await this.pool.query(query, params);
+        return result.rows.map(row => ({
+            id: row.id,
+            url: row.url
+        }));
+    }
+
+    /**
      * Update header structure, viewport, and structured data information for a page in page_metrics table
      */
     async updateSeoStructureData(
@@ -815,9 +945,16 @@ export class PageRepository {
                     pm.viewport_present, pm.viewport_content, pm.viewport_status,
                     pm.structured_data_present, pm.structured_data_format, pm.structured_data_types, pm.structured_data_priority_type,
                     pm.page_size_bytes, pm.page_size_status, pm.html_size_bytes, pm.html_size_status, 
-                    pm.total_resource_size_bytes, pm.resource_size_breakdown
+                    pm.total_resource_size_bytes, pm.resource_size_breakdown,
+                    wc.total_word_count, wc.visible_word_count, wc.unique_word_count, wc.text_to_html_ratio,
+                    wc.sentence_count, wc.paragraph_count,
+                    wc.average_sentence_length, wc.average_paragraph_length, wc.keyword_density,
+                    wc.thin_content, wc.thin_content_reason,
+                    wc.duplicate_content, wc.duplicate_with_urls,
+                    wc.section_word_count_mapping, wc.section_word_count_breakdown, wc.heading_word_count_mapping
                 FROM pages p
                 LEFT JOIN page_metrics pm ON p.id = pm.page_id AND p.session_id = pm.session_id
+                LEFT JOIN wordcount_analysis wc ON p.id = wc.page_id AND p.session_id = wc.session_id
                 ORDER BY p.timestamp DESC 
                 LIMIT $1 OFFSET $2
             `;
@@ -886,10 +1023,17 @@ export class PageRepository {
                 pm.html_size_bytes,
                 pm.html_size_status,
                 pm.total_resource_size_bytes,
-                pm.resource_size_breakdown
+                pm.resource_size_breakdown,
+                wc.total_word_count, wc.visible_word_count, wc.unique_word_count, wc.text_to_html_ratio,
+                wc.sentence_count, wc.paragraph_count,
+                wc.average_sentence_length, wc.average_paragraph_length, wc.keyword_density,
+                wc.thin_content, wc.thin_content_reason,
+                wc.duplicate_content, wc.duplicate_with_urls,
+                wc.section_word_count_mapping, wc.section_word_count_breakdown, wc.heading_word_count_mapping
             FROM pages p
             CROSS JOIN total_unique_inlinks
             LEFT JOIN page_metrics pm ON p.id = pm.page_id AND p.session_id = pm.session_id
+            LEFT JOIN wordcount_analysis wc ON p.id = wc.page_id AND p.session_id = wc.session_id
             LEFT JOIN (
                 SELECT target_page_id, COUNT(DISTINCT source_page_id) as count
                 FROM links
@@ -1677,11 +1821,9 @@ export class PageRepository {
             statusCode: row.status_code,
             responseTime: row.response_time,
             wordCount: row.word_count,
-            sentenceCount: row.sentence_count,
             averageWordsPerSentence: row.average_words_per_sentence ? parseFloat(row.average_words_per_sentence) : undefined,
             fleschReadingEase: row.flesch_reading_ease_score ? parseFloat(row.flesch_reading_ease_score) : undefined,
             readabilityLevel: row.readability_level && row.readability_level.trim().length > 0 ? row.readability_level.trim() : undefined,
-            textToHtmlRatio: row.text_to_html_ratio !== null && row.text_to_html_ratio !== undefined ? parseFloat(row.text_to_html_ratio) : undefined,
             crawlDepth: row.crawl_depth !== null && row.crawl_depth !== undefined ? parseInt(row.crawl_depth) : undefined,
             folderDepth: row.folder_depth !== null && row.folder_depth !== undefined ? parseInt(row.folder_depth) : undefined,
             sizeBytes: row.size_bytes,
@@ -1817,6 +1959,24 @@ export class PageRepository {
                 ? parseInt(row.page_size_bytes)
                 : undefined,
             pageSizeStatus: row.page_size_status || undefined,
+            // Word Count Analysis fields (from wordcount_analysis table)
+            totalWordCount: row.total_word_count !== null && row.total_word_count !== undefined ? parseInt(row.total_word_count) : undefined,
+            visibleWordCount: row.visible_word_count !== null && row.visible_word_count !== undefined ? parseInt(row.visible_word_count) : undefined,
+            uniqueWordCount: row.unique_word_count !== null && row.unique_word_count !== undefined ? parseInt(row.unique_word_count) : undefined,
+            textToHtmlRatio: row.text_to_html_ratio !== null && row.text_to_html_ratio !== undefined ? parseFloat(row.text_to_html_ratio) : undefined,
+            sentenceCount: row.sentence_count !== null && row.sentence_count !== undefined ? parseInt(row.sentence_count) : undefined,
+            paragraphCount: row.paragraph_count !== null && row.paragraph_count !== undefined ? parseInt(row.paragraph_count) : undefined,
+            averageSentenceLength: row.average_sentence_length !== null && row.average_sentence_length !== undefined ? parseFloat(row.average_sentence_length) : undefined,
+            averageParagraphLength: row.average_paragraph_length !== null && row.average_paragraph_length !== undefined ? parseFloat(row.average_paragraph_length) : undefined,
+            keywordDensity: row.keyword_density !== null && row.keyword_density !== undefined ? parseFloat(row.keyword_density) : undefined,
+            // Advanced Word Count Analysis fields
+            thinContent: row.thin_content !== null && row.thin_content !== undefined ? Boolean(row.thin_content) : undefined,
+            thinContentReason: row.thin_content_reason || undefined,
+            duplicateContent: row.duplicate_content !== null && row.duplicate_content !== undefined ? Boolean(row.duplicate_content) : undefined,
+            duplicateWithUrls: row.duplicate_with_urls ? (typeof row.duplicate_with_urls === 'string' ? JSON.parse(row.duplicate_with_urls) : row.duplicate_with_urls) : undefined,
+            sectionWordCountMapping: row.section_word_count_mapping ? (typeof row.section_word_count_mapping === 'string' ? JSON.parse(row.section_word_count_mapping) : row.section_word_count_mapping) : undefined,
+            sectionWordCountBreakdown: row.section_word_count_breakdown ? (typeof row.section_word_count_breakdown === 'string' ? JSON.parse(row.section_word_count_breakdown) : row.section_word_count_breakdown) : undefined,
+            headingWordCountMapping: row.heading_word_count_mapping ? (typeof row.heading_word_count_mapping === 'string' ? JSON.parse(row.heading_word_count_mapping) : row.heading_word_count_mapping) : undefined,
             htmlSizeBytes: row.html_size_bytes !== null && row.html_size_bytes !== undefined
                 ? parseInt(row.html_size_bytes)
                 : undefined,

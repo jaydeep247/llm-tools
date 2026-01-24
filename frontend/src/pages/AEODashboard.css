@@ -1384,7 +1384,8 @@
 .data-content-embedded,
 .links-content-embedded,
 .tree-content-embedded,
-.page-metrics-content-embedded {
+.page-metrics-content-embedded,
+.wordcount-analysis-content-embedded {
   margin: -2rem; /* Negative margin to counteract tab-content padding */
   padding: 0;
   background: transparent;
@@ -1393,7 +1394,8 @@
 }
 
 .data-content-embedded,
-.page-metrics-content-embedded {
+.page-metrics-content-embedded,
+.wordcount-analysis-content-embedded {
   min-height: 900px !important;
 }
 
@@ -1757,16 +1759,19 @@
 .data-content-embedded .close-btn,
 .links-content-embedded .close-btn,
 .tree-content-embedded .close-btn,
-.page-metrics-content-embedded .close-btn {
+.page-metrics-content-embedded .close-btn,
+.wordcount-analysis-content-embedded .close-btn {
   display: none !important;
 }
 
 /* ===== PAGE METRICS - DARK THEME ===== */
-.page-metrics-content-embedded {
+.page-metrics-content-embedded,
+.wordcount-analysis-content-embedded {
   background: transparent !important;
 }
 
-.page-metrics-content-embedded > div {
+.page-metrics-content-embedded > div,
+.wordcount-analysis-content-embedded > div {
   background: rgba(0, 0, 0, 0.4) !important;
   border: 1px solid rgba(255, 255, 255, 0.15) !important;
   border-radius: 12px !important;
@@ -1774,50 +1779,59 @@
   min-height: 800px !important;
 }
 
-.page-metrics-content-embedded .data-table th.sortable:hover {
+.page-metrics-content-embedded .data-table th.sortable:hover,
+.wordcount-analysis-content-embedded .data-table th.sortable:hover {
   background: rgba(139, 92, 246, 0.2) !important;
   cursor: pointer !important;
 }
 
-.page-metrics-content-embedded .data-table tbody tr:hover {
+.page-metrics-content-embedded .data-table tbody tr:hover,
+.wordcount-analysis-content-embedded .data-table tbody tr:hover {
   background: rgba(139, 92, 246, 0.1) !important;
 }
 
 /* Horizontal scrolling for Page Metrics table */
-.page-metrics-content-embedded .table-container {
+.page-metrics-content-embedded .table-container,
+.wordcount-analysis-content-embedded .table-container {
   overflow-x: auto !important;
   overflow-y: auto !important;
   flex: 1 !important;
 }
 
 /* Styled scrollbars for Page Metrics table container */
-.page-metrics-content-embedded .table-container::-webkit-scrollbar {
+.page-metrics-content-embedded .table-container::-webkit-scrollbar,
+.wordcount-analysis-content-embedded .table-container::-webkit-scrollbar {
   width: 12px !important;
   height: 12px !important;
 }
 
-.page-metrics-content-embedded .table-container::-webkit-scrollbar-track {
+.page-metrics-content-embedded .table-container::-webkit-scrollbar-track,
+.wordcount-analysis-content-embedded .table-container::-webkit-scrollbar-track {
   background: rgba(0, 0, 0, 0.4) !important;
   border-radius: 6px !important;
 }
 
-.page-metrics-content-embedded .table-container::-webkit-scrollbar-thumb {
+.page-metrics-content-embedded .table-container::-webkit-scrollbar-thumb,
+.wordcount-analysis-content-embedded .table-container::-webkit-scrollbar-thumb {
   background: linear-gradient(135deg, #8b5cf6, #a78bfa) !important;
   border-radius: 6px !important;
   border: 2px solid rgba(0, 0, 0, 0.4) !important;
   transition: background 0.3s ease !important;
 }
 
-.page-metrics-content-embedded .table-container::-webkit-scrollbar-thumb:hover {
+.page-metrics-content-embedded .table-container::-webkit-scrollbar-thumb:hover,
+.wordcount-analysis-content-embedded .table-container::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(135deg, #a78bfa, #c4b5fd) !important;
   box-shadow: 0 0 8px rgba(139, 92, 246, 0.6) !important;
 }
 
-.page-metrics-content-embedded .table-container::-webkit-scrollbar-corner {
+.page-metrics-content-embedded .table-container::-webkit-scrollbar-corner,
+.wordcount-analysis-content-embedded .table-container::-webkit-scrollbar-corner {
   background: rgba(0, 0, 0, 0.4) !important;
 }
 
-.page-metrics-content-embedded .data-table {
+.page-metrics-content-embedded .data-table,
+.wordcount-analysis-content-embedded .data-table {
   min-width: 1400px !important;
   width: 100% !important;
 }

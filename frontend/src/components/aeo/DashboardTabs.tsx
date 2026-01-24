@@ -4,6 +4,7 @@ import LinkExplorer from '../../pages/LinkExplorer';
 import { MindMapWebTree } from '../module_A/crawler';
 import AuditsPage from '../../pages/AuditsPage';
 import PageMetrics from '../module_C/aeo/PageMetrics';
+import { WordcountAnalysis, BrokenLinkChecker } from '../module_A';
 import CrawlerContent from './CrawlerContent';
 import SchemaGenerator from './SchemaGenerator';
 import IntelligenceModule from './IntelligenceModule';
@@ -110,6 +111,36 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
     handleSimulation
   } = props;
 
+  // Helper function to extract session ID (prioritizing prop sessionId, then result object)
+  // This ensures that when a new crawl completes, it automatically uses the generated session ID
+  const getEffectiveSessionId = (): number | null => {
+    // First, prioritize the sessionId prop (from currentSessionId state in DashboardPage)
+    // This is the most reliable source as it's set when the crawl starts
+    if (sessionId) {
+      console.log('[DashboardTabs] Using sessionId from prop:', sessionId);
+      return sessionId;
+    }
+    
+    // Fall back to result object if prop is not available
+    if (result) {
+      // Check multiple possible locations in result object
+      const resultSessionId = (result as any)?.sessionId 
+        || (result as any)?.session?.id 
+        || (result as any)?.data?.session?.id 
+        || (result as any)?.session_id;
+      
+      if (resultSessionId) {
+        console.log('[DashboardTabs] Using sessionId from result:', resultSessionId);
+        return resultSessionId;
+      }
+    }
+    
+    console.warn('[DashboardTabs] No sessionId found. sessionId prop:', sessionId, 'result:', result);
+    return null;
+  };
+
+  const effectiveSessionId = getEffectiveSessionId();
+
   return (
     <div className="dashboard-tabs">
       <div className="tab-navigation">
@@ -132,6 +163,18 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
           className={`tab-button ${activeView === 'page_metrics' ? 'active' : ''}`}
         >
           📊 Page Metrics
+        </button>
+        <button
+          onClick={() => setActiveView('wordcount_analysis')}
+          className={`tab-button ${activeView === 'wordcount_analysis' ? 'active' : ''}`}
+        >
+          📝 Wordcount Analysis
+        </button>
+        <button
+          onClick={() => setActiveView('broken_links')}
+          className={`tab-button ${activeView === 'broken_links' ? 'active' : ''}`}
+        >
+          🔗 Broken Link Checker
         </button>
         <button
           onClick={() => setActiveView('links')}
@@ -195,7 +238,7 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
           <div className="data-content-embedded">
             <DataViewer
               onClose={() => { }}
-              initialSessionId={sessionId ?? result?.session_id ?? null}
+              initialSessionId={effectiveSessionId}
             />
           </div>
         )}
@@ -203,7 +246,23 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
         {activeView === 'page_metrics' && (
           <div className="page-metrics-content-embedded">
             <PageMetrics
-              initialSessionId={sessionId ?? result?.session_id ?? null}
+              initialSessionId={effectiveSessionId}
+            />
+          </div>
+        )}
+
+        {activeView === 'wordcount_analysis' && (
+          <div className="wordcount-analysis-content-embedded">
+            <WordcountAnalysis
+              initialSessionId={effectiveSessionId}
+            />
+          </div>
+        )}
+
+        {activeView === 'broken_links' && (
+          <div className="broken-links-content-embedded">
+            <BrokenLinkChecker
+              initialSessionId={effectiveSessionId}
             />
           </div>
         )}
@@ -212,7 +271,7 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
           <div className="links-content-embedded">
             <LinkExplorer
               onClose={() => { }}
-              sessionId={sessionId ?? result?.session_id ?? null}
+              sessionId={effectiveSessionId}
             />
           </div>
         )}
@@ -221,12 +280,12 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
           <div className="tree-content-embedded">
             <MindMapWebTree
               onClose={() => { }}
-              sessionId={sessionId ?? result?.session_id ?? null}
+              sessionId={effectiveSessionId}
             />
           </div>
         )}
 
-        {activeView === 'audits' && <AuditsPage sessionId={sessionId ?? result?.session_id ?? null} />}
+        {activeView === 'audits' && <AuditsPage sessionId={effectiveSessionId} />}
 
         {activeView === 'schema' && (
           <SchemaGenerator

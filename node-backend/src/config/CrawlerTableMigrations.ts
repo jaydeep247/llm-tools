@@ -324,6 +324,220 @@ BEGIN
     END IF;
 END $$;
 `
+    },
+    {
+        name: '042_create_wordcount_analysis_table',
+        sql: `
+-- Migration: Create wordcount_analysis table
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_name = 'wordcount_analysis'
+    ) THEN
+        CREATE TABLE wordcount_analysis (
+            id SERIAL PRIMARY KEY,
+            page_id INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
+            session_id INTEGER NOT NULL REFERENCES crawl_sessions(id) ON DELETE CASCADE,
+            total_word_count INTEGER DEFAULT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE(page_id, session_id)
+        );
+        
+        CREATE INDEX IF NOT EXISTS idx_wordcount_analysis_page_id ON wordcount_analysis (page_id);
+        CREATE INDEX IF NOT EXISTS idx_wordcount_analysis_session_id ON wordcount_analysis (session_id);
+        CREATE INDEX IF NOT EXISTS idx_wordcount_analysis_total_word_count ON wordcount_analysis (total_word_count DESC NULLS LAST);
+        CREATE INDEX IF NOT EXISTS idx_wordcount_analysis_session_word_count ON wordcount_analysis (session_id, total_word_count DESC NULLS LAST);
+        
+        COMMENT ON TABLE wordcount_analysis IS 'Stores word count analysis results for crawled pages';
+        COMMENT ON COLUMN wordcount_analysis.total_word_count IS 'Total number of words in the page HTML text (excluding script, style, noscript tags)';
+        
+        RAISE NOTICE 'Created wordcount_analysis table';
+    END IF;
+END $$;
+`
+    },
+    {
+        name: '043_update_wordcount_analysis_table',
+        sql: `
+-- Migration: Update wordcount_analysis table with new fields
+DO $$ 
+BEGIN
+    -- Add total_word_count if it doesn't exist (keep it, don't rename)
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'wordcount_analysis' AND column_name = 'total_word_count'
+    ) THEN
+        ALTER TABLE wordcount_analysis ADD COLUMN total_word_count INTEGER DEFAULT NULL;
+        RAISE NOTICE 'Added total_word_count column';
+    END IF;
+    
+    -- Add visible_word_count if it doesn't exist
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'wordcount_analysis' AND column_name = 'visible_word_count'
+    ) THEN
+        ALTER TABLE wordcount_analysis ADD COLUMN visible_word_count INTEGER DEFAULT NULL;
+        RAISE NOTICE 'Added visible_word_count column';
+    END IF;
+    
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'wordcount_analysis' AND column_name = 'unique_word_count'
+    ) THEN
+        ALTER TABLE wordcount_analysis ADD COLUMN unique_word_count INTEGER DEFAULT NULL;
+        RAISE NOTICE 'Added unique_word_count column';
+    END IF;
+    
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'wordcount_analysis' AND column_name = 'text_to_html_ratio'
+    ) THEN
+        ALTER TABLE wordcount_analysis ADD COLUMN text_to_html_ratio NUMERIC(5, 2) DEFAULT NULL;
+        RAISE NOTICE 'Added text_to_html_ratio column';
+    END IF;
+    
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'wordcount_analysis' AND column_name = 'sentence_count'
+    ) THEN
+        ALTER TABLE wordcount_analysis ADD COLUMN sentence_count INTEGER DEFAULT NULL;
+        RAISE NOTICE 'Added sentence_count column';
+    END IF;
+    
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'wordcount_analysis' AND column_name = 'paragraph_count'
+    ) THEN
+        ALTER TABLE wordcount_analysis ADD COLUMN paragraph_count INTEGER DEFAULT NULL;
+        RAISE NOTICE 'Added paragraph_count column';
+    END IF;
+    
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'wordcount_analysis' AND column_name = 'average_sentence_length'
+    ) THEN
+        ALTER TABLE wordcount_analysis ADD COLUMN average_sentence_length NUMERIC(5, 2) DEFAULT NULL;
+        RAISE NOTICE 'Added average_sentence_length column';
+    END IF;
+    
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'wordcount_analysis' AND column_name = 'average_paragraph_length'
+    ) THEN
+        ALTER TABLE wordcount_analysis ADD COLUMN average_paragraph_length NUMERIC(5, 2) DEFAULT NULL;
+        RAISE NOTICE 'Added average_paragraph_length column';
+    END IF;
+    
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'wordcount_analysis' AND column_name = 'keyword_density'
+    ) THEN
+        ALTER TABLE wordcount_analysis ADD COLUMN keyword_density NUMERIC(5, 2) DEFAULT NULL;
+        RAISE NOTICE 'Added keyword_density column';
+    END IF;
+    
+    -- Update indexes
+    DROP INDEX IF EXISTS idx_wordcount_analysis_total_word_count;
+    CREATE INDEX IF NOT EXISTS idx_wordcount_analysis_visible_word_count ON wordcount_analysis (visible_word_count DESC NULLS LAST);
+    CREATE INDEX IF NOT EXISTS idx_wordcount_analysis_session_word_count ON wordcount_analysis (session_id, visible_word_count DESC NULLS LAST);
+    
+    -- Update comments
+    COMMENT ON COLUMN wordcount_analysis.visible_word_count IS 'Number of words actually visible to users (main content)';
+    COMMENT ON COLUMN wordcount_analysis.unique_word_count IS 'Number of distinct words used in visible content';
+    COMMENT ON COLUMN wordcount_analysis.text_to_html_ratio IS 'Percentage of text content compared to total HTML size';
+    COMMENT ON COLUMN wordcount_analysis.sentence_count IS 'Number of sentences in visible text';
+    COMMENT ON COLUMN wordcount_analysis.paragraph_count IS 'Number of paragraph-level text blocks';
+    COMMENT ON COLUMN wordcount_analysis.average_sentence_length IS 'Average number of words per sentence';
+    COMMENT ON COLUMN wordcount_analysis.average_paragraph_length IS 'Average number of words per paragraph';
+    COMMENT ON COLUMN wordcount_analysis.keyword_density IS 'Keyword density percentage (optional, for target keyword)';
+END $$;
+`
+    },
+    {
+        name: '044_add_wordcount_analysis_advanced_fields',
+        sql: `
+-- Migration: Add advanced wordcount analysis fields
+DO $$ 
+BEGIN
+    -- Add thin_content field
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'wordcount_analysis' AND column_name = 'thin_content'
+    ) THEN
+        ALTER TABLE wordcount_analysis ADD COLUMN thin_content BOOLEAN DEFAULT NULL;
+        RAISE NOTICE 'Added thin_content column';
+    END IF;
+    
+    -- Add thin_content_reason field
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'wordcount_analysis' AND column_name = 'thin_content_reason'
+    ) THEN
+        ALTER TABLE wordcount_analysis ADD COLUMN thin_content_reason TEXT DEFAULT NULL;
+        RAISE NOTICE 'Added thin_content_reason column';
+    END IF;
+    
+    -- Add duplicate_content field
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'wordcount_analysis' AND column_name = 'duplicate_content'
+    ) THEN
+        ALTER TABLE wordcount_analysis ADD COLUMN duplicate_content BOOLEAN DEFAULT NULL;
+        RAISE NOTICE 'Added duplicate_content column';
+    END IF;
+    
+    -- Add duplicate_with_urls field
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'wordcount_analysis' AND column_name = 'duplicate_with_urls'
+    ) THEN
+        ALTER TABLE wordcount_analysis ADD COLUMN duplicate_with_urls JSONB DEFAULT NULL;
+        RAISE NOTICE 'Added duplicate_with_urls column';
+    END IF;
+    
+    -- Add section_word_count_mapping field
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'wordcount_analysis' AND column_name = 'section_word_count_mapping'
+    ) THEN
+        ALTER TABLE wordcount_analysis ADD COLUMN section_word_count_mapping JSONB DEFAULT NULL;
+        RAISE NOTICE 'Added section_word_count_mapping column';
+    END IF;
+    
+    -- Add section_word_count_breakdown field
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'wordcount_analysis' AND column_name = 'section_word_count_breakdown'
+    ) THEN
+        ALTER TABLE wordcount_analysis ADD COLUMN section_word_count_breakdown JSONB DEFAULT NULL;
+        RAISE NOTICE 'Added section_word_count_breakdown column';
+    END IF;
+    
+    -- Add heading_word_count_mapping field
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'wordcount_analysis' AND column_name = 'heading_word_count_mapping'
+    ) THEN
+        ALTER TABLE wordcount_analysis ADD COLUMN heading_word_count_mapping JSONB DEFAULT NULL;
+        RAISE NOTICE 'Added heading_word_count_mapping column';
+    END IF;
+    
+    -- Create indexes for new fields
+    CREATE INDEX IF NOT EXISTS idx_wordcount_analysis_thin_content ON wordcount_analysis (thin_content) WHERE thin_content = true;
+    CREATE INDEX IF NOT EXISTS idx_wordcount_analysis_duplicate_content ON wordcount_analysis (duplicate_content) WHERE duplicate_content = true;
+    
+    -- Add comments
+    COMMENT ON COLUMN wordcount_analysis.thin_content IS 'Whether page has thin content (low word count or low uniqueness)';
+    COMMENT ON COLUMN wordcount_analysis.thin_content_reason IS 'Reason for thin content: Low word count or Low uniqueness';
+    COMMENT ON COLUMN wordcount_analysis.duplicate_content IS 'Whether page content is duplicate of another page';
+    COMMENT ON COLUMN wordcount_analysis.duplicate_with_urls IS 'Array of URLs that have duplicate content';
+    COMMENT ON COLUMN wordcount_analysis.section_word_count_mapping IS 'Mapping of section headings to word counts';
+    COMMENT ON COLUMN wordcount_analysis.section_word_count_breakdown IS 'Percentage distribution of words across sections';
+    COMMENT ON COLUMN wordcount_analysis.heading_word_count_mapping IS 'Mapping of headings (H1-H6) to word counts under each heading';
+END $$;
+`
     }
 ];
 

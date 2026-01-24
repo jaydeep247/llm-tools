@@ -4,6 +4,7 @@ import { userSchema } from '../models/tables/userSchema.js';
 import { crawlSchema } from '../models/tables/crawlSchema.js';
 import { pageSchema } from '../models/tables/pageSchema.js';
 import { pageMetricsSchema } from '../models/tables/pageMetricsSchema.js';
+import { wordcountAnalysisSchema } from '../models/tables/wordcountAnalysisSchema.js';
 import { aeoSchema } from '../models/tables/aeoSchema.js';
 import { auditSchema } from '../models/tables/auditSchema.js';
 import { aeoMetricsSchema } from '../models/tables/aeoMetricsSchema.js';
@@ -92,6 +93,7 @@ export class DatabaseInitializer {
             { name: 'Crawls', sql: crawlSchema },
             { name: 'Pages', sql: pageSchema },
             { name: 'Page Metrics', sql: pageMetricsSchema },
+            { name: 'Wordcount Analysis', sql: wordcountAnalysisSchema },
             { name: 'Audits', sql: auditSchema },
             { name: 'AEO Results', sql: aeoSchema },
             { name: 'AEO Metrics', sql: aeoMetricsSchema }

@@ -17,6 +17,7 @@ import { extractViewport } from './viewportExtractor.js';
 import { extractPageSizeMeasurement } from './pageSizeExtractor.js';
 import { detectStructuredData } from './structuredDataDetector.js';
 import { identifyStructuredDataTypes } from './structuredDataTypeIdentifier.js';
+import { extractWordCount } from './wordCountExtractor.js';
 
 /**
  * Extract all page metrics from a crawled page
@@ -82,6 +83,20 @@ export async function extractPageMetrics(
     // Extract Page Size Measurements
     const pageSizeMeasurement = await extractPageSizeMeasurement(url, $, response);
     
+    // Determine target keyword for keyword density calculation
+    // Priority: H1 tag > Page title > null
+    let targetKeyword: string | undefined = undefined;
+    if (headersData.h1Tags && headersData.h1Tags.length > 0) {
+        // Use first H1 tag as target keyword
+        targetKeyword = headersData.h1Tags[0].trim();
+    } else if (titleData.title && titleData.title !== 'No title') {
+        // Fallback to page title
+        targetKeyword = titleData.title.trim();
+    }
+    
+    // Extract Word Count (with keyword density calculation if target keyword available)
+    const wordCount = extractWordCount($, targetKeyword);
+    
     return {
         // URL
         url,
@@ -143,7 +158,10 @@ export async function extractPageMetrics(
         structuredDataTypeIdentification,
         
         // Page Size Measurements
-        pageSizeMeasurement
+        pageSizeMeasurement,
+        
+        // Word Count Analysis
+        wordCount
     };
 }
 
@@ -169,4 +187,6 @@ export * from './viewportExtractor.js';
 export * from './structuredDataDetector.js';
 export * from './structuredDataTypeIdentifier.js';
 export * from './pageSizeExtractor.js';
+// Re-export wordCountExtractor but exclude generateContentHash to avoid conflict with duplicateDetection
+export { extractWordCount, type PageWordCountData } from './wordCountExtractor.js';
 

@@ -291,6 +291,68 @@ export function createRequestHandler(context: RequestHandlerContext): CheerioCra
             logger.warn(`Failed to save SEO structure data for page ${pageId}: ${error}`);
         }
 
+        // Save word count analysis
+        try {
+            const wordCount = pageMetrics.wordCount;
+            if (wordCount) {
+                // Check for duplicate content by comparing content hash with other pages in session
+                // Use proper content normalization from wordCountExtractor
+                let duplicateContent = false;
+                let duplicateWithUrls: string[] = [];
+                
+                try {
+                    // Check for duplicate content by comparing content hash
+                    // Use the content hash that was stored in the pages table for consistency
+                    const pageResult = await db.pages.getPageById(pageId);
+                    if (pageResult?.contentHash) {
+                        // Find other pages in the same session with the same content hash
+                        // The content_hash in pages table is generated using visible text extraction
+                        // (removing script, style, noscript, meta, link, head, then getting body text)
+                        // and then normalized (lowercase, whitespace normalization) before hashing
+                        const duplicatePages = await db.pages.getPagesByContentHash(
+                            pageResult.contentHash,
+                            sessionId,
+                            pageId // Exclude current page
+                        );
+                        
+                        if (duplicatePages.length > 0) {
+                            duplicateContent = true;
+                            duplicateWithUrls = duplicatePages.map(p => p.url);
+                        }
+                    }
+                } catch (dupError) {
+                    // Log but don't fail - duplicate detection is optional
+                    logger.debug(`Could not check for duplicate content for page ${pageId}: ${dupError}`);
+                }
+                
+                await db.pages.updateWordCountAnalysis(
+                    pageId,
+                    sessionId,
+                    {
+                        totalWordCount: wordCount.totalWordCount,
+                        visibleWordCount: wordCount.visibleWordCount,
+                        uniqueWordCount: wordCount.uniqueWordCount,
+                        textToHtmlRatio: wordCount.textToHtmlRatio,
+                        sentenceCount: wordCount.sentenceCount,
+                        paragraphCount: wordCount.paragraphCount,
+                        averageSentenceLength: wordCount.averageSentenceLength,
+                        averageParagraphLength: wordCount.averageParagraphLength,
+                        keywordDensity: wordCount.keywordDensity,
+                        thinContent: wordCount.thinContent,
+                        thinContentReason: wordCount.thinContentReason,
+                        duplicateContent: duplicateContent,
+                        duplicateWithUrls: duplicateWithUrls,
+                        sectionWordCountMapping: wordCount.sectionWordCountMapping,
+                        sectionWordCountBreakdown: wordCount.sectionWordCountBreakdown,
+                        headingWordCountMapping: wordCount.headingWordCountMapping
+                    }
+                );
+            }
+        } catch (error) {
+            // Log but don't fail the crawl if word count save fails
+            logger.warn(`Failed to save word count analysis for page ${pageId}: ${error}`);
+        }
+
         // Save page size measurements
         try {
             const pageSizeMeasurement = pageMetrics.pageSizeMeasurement;

@@ -95,6 +95,9 @@ export interface PageMetrics {
     
     // Page Size Measurements
     pageSizeMeasurement: PageSizeMeasurement;
+    
+    // Word Count Analysis
+    wordCount: import('./wordCountExtractor.js').PageWordCountData;
 }
 
 /**

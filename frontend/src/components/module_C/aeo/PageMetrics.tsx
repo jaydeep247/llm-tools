@@ -58,6 +58,7 @@ interface PageMetric {
   htmlSizeStatus?: 'Good' | 'Warning' | 'Large' | null;
   totalResourceSizeBytes?: number | null;
   resourceSizeBreakdown?: string | null; // JSON string
+  totalWordCount?: number | null; // Total word count from wordcount_analysis table
 }
 
 interface PageMetricsProps {
@@ -193,6 +194,7 @@ const PageMetrics: React.FC<PageMetricsProps> = ({ initialSessionId }) => {
         htmlSizeStatus: page.htmlSizeStatus,
         totalResourceSizeBytes: page.totalResourceSizeBytes,
         resourceSizeBreakdown: page.resourceSizeBreakdown,
+        totalWordCount: page.totalWordCount,
       }));
       
       setData(transformedData);
@@ -257,7 +259,8 @@ const PageMetrics: React.FC<PageMetricsProps> = ({ initialSessionId }) => {
       (item.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (item.contentType || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (item.titleStatus || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.metaDescriptionStatus || '').toLowerCase().includes(searchTerm.toLowerCase())
+      (item.metaDescriptionStatus || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item.totalWordCount !== null && item.totalWordCount !== undefined ? String(item.totalWordCount) : '').includes(searchTerm)
     )
     .sort((a, b) => {
       const aVal = a[sortField];
@@ -612,6 +615,7 @@ const PageMetrics: React.FC<PageMetricsProps> = ({ initialSessionId }) => {
             <col style={{ width: '120px' }} />
             <col style={{ width: '120px' }} />
             <col style={{ width: '120px' }} />
+            <col style={{ width: '120px' }} />
           </colgroup>
           <thead>
             <tr>
@@ -660,12 +664,15 @@ const PageMetrics: React.FC<PageMetricsProps> = ({ initialSessionId }) => {
               <th onClick={() => handleSort('totalResourceSizeBytes')} className="sortable" style={{ padding: '12px 8px', textAlign: 'center', background: 'rgba(0, 0, 0, 0.5)', borderBottom: '2px solid rgba(255, 255, 255, 0.1)', cursor: 'pointer', fontSize: '12px', fontWeight: '600', whiteSpace: 'nowrap' }}>
                 🗂️ RESOURCES {sortField === 'totalResourceSizeBytes' && (sortDirection === 'asc' ? '↑' : '↓')}
               </th>
+              <th onClick={() => handleSort('totalWordCount')} className="sortable" style={{ padding: '12px 8px', textAlign: 'center', background: 'rgba(0, 0, 0, 0.5)', borderBottom: '2px solid rgba(255, 255, 255, 0.1)', cursor: 'pointer', fontSize: '12px', fontWeight: '600', whiteSpace: 'nowrap' }}>
+                📝 WORD COUNT {sortField === 'totalWordCount' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </th>
             </tr>
           </thead>
           <tbody>
             {currentData.length === 0 ? (
               <tr>
-                <td colSpan={15} style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
+                <td colSpan={16} style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
                   {!initialSessionId ? 'No session selected' : 'No data available'}
                 </td>
               </tr>
@@ -821,6 +828,15 @@ const PageMetrics: React.FC<PageMetricsProps> = ({ initialSessionId }) => {
                         </span>
                         <ViewDataButton onClick={() => openDetailsModal(item, 'resourceSizeBreakdown')} />
                       </div>
+                    ) : (
+                      <span style={{ color: '#999' }}>—</span>
+                    )}
+                  </td>
+                  <td style={{ padding: '12px 8px', textAlign: 'center', verticalAlign: 'middle' }}>
+                    {item.totalWordCount !== null && item.totalWordCount !== undefined ? (
+                      <span style={{ color: '#fff', fontSize: '13px', fontWeight: '500' }}>
+                        {item.totalWordCount.toLocaleString()}
+                      </span>
                     ) : (
                       <span style={{ color: '#999' }}>—</span>
                     )}

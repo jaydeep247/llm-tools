@@ -54,4 +54,4 @@ export interface AEODashboardProps {
   discoveredPages?: any[];
 }
 
-export type ActiveView = 'crawler' | 'data' | 'links' | 'tree' | 'audits' | 'schema' | 'intelligence' | 'simulator' | 'page_metrics' | 'module_e';
+export type ActiveView = 'crawler' | 'data' | 'links' | 'tree' | 'audits' | 'schema' | 'intelligence' | 'simulator' | 'page_metrics' | 'wordcount_analysis' | 'broken_links' | 'module_e';
