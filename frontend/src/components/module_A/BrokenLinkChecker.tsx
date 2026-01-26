@@ -533,7 +533,7 @@ const BrokenLinkChecker: React.FC<BrokenLinkCheckerProps> = ({ initialSessionId 
                                             Type: {(link as any).missingType === '404' ? 'Not Found (404)' : 'Gone (410 - Permanently Removed)'}
                                           </div>
                                         )}
-                                        {link.error && (
+                                        {'error' in link && link.error && (
                                           <div style={{ fontSize: '11px', color: '#fca5a5', marginTop: '6px', fontWeight: '500' }}>
                                             Error: {link.error}
                                           </div>
@@ -550,7 +550,7 @@ const BrokenLinkChecker: React.FC<BrokenLinkCheckerProps> = ({ initialSessionId 
                                         height: 'fit-content',
                                         border: `1px solid ${color}40`
                                       }}>
-                                        {link.statusCode || link.errorType || 'Error'}
+                                        {link.statusCode || ('errorType' in link && link.errorType) || 'Error'}
                                       </span>
                                     </div>
                                   </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ProtectedRoute } from '../components/auth/ProtectedRoute';
 
@@ -59,8 +59,13 @@ const LinkExplorerWrapper: React.FC = () => {
 
 const DataViewerWrapper: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const sessionId = searchParams.get('sessionId');
   
-  return <DataViewer onClose={() => navigate('/dashboard')} />;
+  return <DataViewer 
+    onClose={() => navigate('/dashboard')} 
+    initialSessionId={sessionId ? parseInt(sessionId, 10) : null}
+  />;
 };
 
 const CrawlHistoryWrapper: React.FC = () => {

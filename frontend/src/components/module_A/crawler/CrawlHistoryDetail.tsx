@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { apiService } from '../../../services/api/api';
+import { useLazyGetDataListQuery } from '../../../store/api/module_A/dataApi';
 
 export const CrawlHistoryDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -9,6 +9,7 @@ export const CrawlHistoryDetail: React.FC = () => {
     const [sessionData, setSessionData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [getDataList] = useLazyGetDataListQuery();
 
     useEffect(() => {
         const fetchSessionData = async () => {
@@ -20,17 +21,19 @@ export const CrawlHistoryDetail: React.FC = () => {
 
             try {
                 setLoading(true);
-                const data = await apiService.getSessionData(parseInt(id));
+                const data = await getDataList({
+                    sessionId: parseInt(id),
+                }).unwrap();
                 setSessionData(data);
             } catch (err: any) {
-                setError(err.message || 'Failed to load session data');
+                setError(err?.data?.error || err?.message || 'Failed to load session data');
             } finally {
                 setLoading(false);
             }
         };
 
         fetchSessionData();
-    }, [id]);
+    }, [id, getDataList]);
 
     if (loading) {
         return (

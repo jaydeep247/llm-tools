@@ -3,13 +3,16 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Navbar } from '../components/ui/navbar/Navbar';
 import AEODashboard from './AEODashboard';
-import { apiService, AnalysisResult } from '../services/api/api';
+import { AnalysisResult } from '../services/api/api';
+import { useLazyGetDataListQuery, useLazyGetAeoResultsQuery } from '../store/api';
 import { ErrorDisplay } from '../components/ui/app/ErrorDisplay/ErrorDisplay';
 
 const HistoryDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, isAuthenticated, logout, refreshUser, accessToken } = useAuth();
+  const [getDataList] = useLazyGetDataListQuery();
+  const [getAeoResults] = useLazyGetAeoResultsQuery();
   
   const [url, setUrl] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -53,7 +56,9 @@ const HistoryDetailPage: React.FC = () => {
       setError(null);
 
       // Fetch session data
-      const sessionData = await apiService.getSessionData(sessionId);
+      const sessionData = await getDataList({
+        sessionId,
+      }).unwrap();
 
       // Check if session is cancelled
       const sessionStatus = sessionData.session?.status || sessionData.statistics?.status || 'unknown';
@@ -143,17 +148,8 @@ const HistoryDetailPage: React.FC = () => {
       let restoredResult: AnalysisResult | null = null;
 
       try {
-        const token = localStorage.getItem('accessToken');
-        const headers: HeadersInit = { 'Content-Type': 'application/json' };
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-
-        const aeoRes = await fetch(`/api/aeo/results/${sessionId}`, {
-          headers,
-          credentials: 'include'
-        });
-
-        if (aeoRes.ok) {
-          const fetchedAeo = await aeoRes.json();
+        const fetchedAeo = await getAeoResults(sessionId).unwrap();
+        if (fetchedAeo) {
           if (fetchedAeo && fetchedAeo.results) {
             const r = fetchedAeo.results;
             // Use URL from AEO result if available, otherwise use crawlUrl

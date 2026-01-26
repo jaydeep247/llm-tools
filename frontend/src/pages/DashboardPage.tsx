@@ -2,16 +2,27 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Navbar } from '../components/ui/navbar/Navbar';
 import AEODashboard from './AEODashboard';
-import { apiService, AnalysisResult } from '../services/api/api';
+import { AnalysisResult } from '../services/api/api';
 import { URLInputForm } from '../components/ui/app/URLInputForm/URLInputForm';
 import { ErrorDisplay } from '../components/ui/app/ErrorDisplay/ErrorDisplay';
 import { ReuseModal } from '../components/ui/app/ReuseModal/ReuseModal';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useStartCrawlMutation, useCancelAuditsMutation, useShareSessionMutation } from '../store/api/module_A/crawlApi';
+import { useAnalyzeMutation, useLazyGetAeoResultsQuery } from '../store/api/module_C/aeoApi';
+import { useLazyGetDataListQuery } from '../store/api/module_A/dataApi';
 
 const DashboardPage: React.FC = () => {
   const { user, isAuthenticated, logout, refreshUser, accessToken } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  
+  // RTK Query hooks
+  const [startCrawl] = useStartCrawlMutation();
+  const [cancelAudits] = useCancelAuditsMutation();
+  const [shareSession] = useShareSessionMutation();
+  const [analyze] = useAnalyzeMutation();
+  const [getDataList] = useLazyGetDataListQuery();
+  const [getAeoResults] = useLazyGetAeoResultsQuery();
   
   const [url, setUrl] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
@@ -241,36 +252,23 @@ const DashboardPage: React.FC = () => {
       setStopping(true);
       setError(null);
       
-      const response = await fetch('/api/cancel-audits', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {})
-        },
-        body: JSON.stringify({
-          ...(currentSessionId ? { sessionId: currentSessionId } : {})
-        }),
-        credentials: 'include'
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        setLoading(false);
-        setIsCrawling(false);
-        setCrawlStatus('idle');
-        setCurrentSessionId(null);
-        setLogs(prev => [...prev, {
-          message: result.message || '🛑 All processes stopped by user',
-          timestamp: new Date().toLocaleTimeString()
-        }]);
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to stop analysis');
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to stop analysis');
+      await cancelAudits({
+        sessionId: currentSessionId!,
+      }).unwrap();
+      
+      setLoading(false);
+      setIsCrawling(false);
+      setCrawlStatus('idle');
+      setCurrentSessionId(null);
       setLogs(prev => [...prev, {
-        message: `⚠️ Error stopping analysis: ${err.message}`,
+        message: '🛑 All processes stopped by user',
+        timestamp: new Date().toLocaleTimeString()
+      }]);
+    } catch (err: any) {
+      const errorMsg = err?.data?.error || err?.message || 'Failed to stop analysis';
+      setError(errorMsg);
+      setLogs(prev => [...prev, {
+        message: `⚠️ Error stopping analysis: ${errorMsg}`,
         timestamp: new Date().toLocaleTimeString()
       }]);
     } finally {
@@ -300,14 +298,55 @@ const DashboardPage: React.FC = () => {
     }
 
     try {
-      const analysisResult = runCrawl
-        ? await apiService.analyzeUrl(normalizedUrl, {
+      let analysisResult: any;
+      
+      if (runCrawl) {
+        // Start crawl first
+        const crawlResult = await startCrawl({
+          url: normalizedUrl,
           allowSubdomains,
           runAudits,
           auditDevice,
-          captureLinkDetails
-        })
-        : await apiService.analyzeUrl(normalizedUrl);
+          captureLinkDetails,
+        }).unwrap();
+        
+        // Check for reuse mode
+        if (crawlResult.reuseMode && crawlResult.sessionId) {
+          setCurrentSessionId(crawlResult.sessionId);
+          const auditsRunning = Boolean(crawlResult.auditsTriggered || crawlResult.auditsInProgress);
+          setIsCrawling(auditsRunning);
+          setCrawlStatus(auditsRunning ? 'auditing' : 'completed');
+          setLoading(false);
+          setReusePrompt({
+            sessionId: crawlResult.sessionId,
+            url: crawlResult.url || normalizedUrl,
+            hasAudits: crawlResult.hasAudits,
+            auditsTriggered: crawlResult.auditsTriggered,
+            auditsInProgress: crawlResult.auditsInProgress,
+            message: crawlResult.message,
+          });
+          return;
+        }
+        
+        // Then get AEO analysis
+        const aeoResult = await analyze({
+          url: normalizedUrl,
+          sessionId: crawlResult.sessionId,
+        }).unwrap();
+        
+        // Create a new object instead of mutating the immutable RTK Query result
+        const aeoData = aeoResult.results || aeoResult;
+        analysisResult = crawlResult.sessionId 
+          ? { ...aeoData, sessionId: crawlResult.sessionId }
+          : aeoData;
+      } else {
+        // Just analyze without crawl
+        const aeoResult = await analyze({
+          url: normalizedUrl,
+        }).unwrap();
+        
+        analysisResult = aeoResult.results || aeoResult;
+      }
 
       if ((analysisResult as any)?.reuseMode && (analysisResult as any)?.sessionId) {
         const sessionId = (analysisResult as any).sessionId;
@@ -400,28 +439,17 @@ const DashboardPage: React.FC = () => {
       setLoading(true);
       setCurrentSessionId(reusePrompt.sessionId); // Set the session ID so components can access it
       try {
-        const token = localStorage.getItem('accessToken');
-        const headers: HeadersInit = { 'Content-Type': 'application/json' };
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-        await fetch(`/api/sessions/${reusePrompt.sessionId}/share`, {
-          method: 'POST',
-          headers,
-          credentials: 'include'
-        });
+        await shareSession({ sessionId: reusePrompt.sessionId }).unwrap();
       } catch { }
-      const sessionData = await apiService.getSessionData(reusePrompt.sessionId);
+      
+      const sessionData = await getDataList({
+        sessionId: reusePrompt.sessionId,
+      }).unwrap();
+      
       let aeoResult: any = null;
       try {
-        const token = localStorage.getItem('accessToken');
-        const headers: HeadersInit = { 'Content-Type': 'application/json' };
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-        const aeoRes = await fetch(`/api/aeo/results/${reusePrompt.sessionId}`, {
-          headers,
-          credentials: 'include'
-        });
-        if (aeoRes.ok) {
-          aeoResult = await aeoRes.json();
-        }
+        const aeoData = await getAeoResults(reusePrompt.sessionId).unwrap();
+        aeoResult = aeoData;
       } catch { }
       const sessionPages = (sessionData.data || [])
         .filter((item: any) => item.resourceType === 'page')
@@ -530,13 +558,27 @@ const DashboardPage: React.FC = () => {
       setLogs([]);
       setPages([]);
       setCrawlStats(null);
-      const analysisResult = await apiService.analyzeUrl(reusePrompt.url, {
+      // Start crawl with forceRecrawl
+      const crawlResult = await startCrawl({
+        url: reusePrompt.url,
         allowSubdomains,
         runAudits,
         auditDevice,
         captureLinkDetails,
         forceRecrawl: true,
-      });
+      }).unwrap();
+      
+      // Then get AEO analysis
+      const aeoResult = await analyze({
+        url: reusePrompt.url,
+        sessionId: crawlResult.sessionId,
+      }).unwrap();
+      
+      // Create a new object instead of mutating the immutable RTK Query result
+      const aeoData = aeoResult.results || aeoResult;
+      const analysisResult = crawlResult.sessionId 
+        ? { ...aeoData, sessionId: crawlResult.sessionId }
+        : aeoData;
       setResult(analysisResult);
     } catch (e: any) {
       setError(e.message || 'Failed to start re-crawl');
@@ -553,7 +595,9 @@ const DashboardPage: React.FC = () => {
     setCurrentSessionId(sessionId); // Set the session ID so components can access it
 
     try {
-      const sessionData = await apiService.getSessionData(sessionId);
+      const sessionData = await getDataList({
+        sessionId,
+      }).unwrap();
 
       const sessionStatus = sessionData.session?.status || sessionData.statistics?.status || 'unknown';
       if (sessionStatus === 'cancelled') {
@@ -624,17 +668,8 @@ const DashboardPage: React.FC = () => {
       let restoredResult: AnalysisResult | null = null;
 
       try {
-        const token = localStorage.getItem('accessToken');
-        const headers: HeadersInit = { 'Content-Type': 'application/json' };
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-
-        const aeoRes = await fetch(`/api/aeo/results/${sessionId}`, {
-          headers,
-          credentials: 'include'
-        });
-
-        if (aeoRes.ok) {
-          const fetchedAeo = await aeoRes.json();
+        const fetchedAeo = await getAeoResults(sessionId).unwrap();
+        if (fetchedAeo) {
           if (fetchedAeo && fetchedAeo.results) {
             const r = fetchedAeo.results;
             restoredResult = {

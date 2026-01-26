@@ -435,6 +435,20 @@ const AuditChecker: React.FC<AuditCheckerProps> = ({ initialSessionId }) => {
             >
               {checking ? 'Checking Audit...' : 'check audit'}
             </button>
+            {checking && (
+              <div style={{
+                marginTop: '12px',
+                padding: '12px',
+                background: 'rgba(245, 158, 11, 0.1)',
+                border: '1px solid rgba(245, 158, 11, 0.3)',
+                borderRadius: '6px',
+                color: '#f59e0b',
+                fontSize: '13px',
+                textAlign: 'center'
+              }}>
+                ⏳ This will take a few minutes. Please wait...
+              </div>
+            )}
           </div>
 
           {/* Results Section */}

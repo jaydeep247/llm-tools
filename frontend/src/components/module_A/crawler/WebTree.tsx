@@ -290,8 +290,8 @@ export default function WebTree({ onClose, sessionId = null }: WebTreeProps) {
 
         // Determine start root from the selected session's startUrl
         if (urls.length === 0) throw new Error('No URLs found for this session');
-        // Use rootUrl or first URL from list
-        const sessionStart = sess?.startUrl || urls[0];
+        // Use rootUrl state or first URL from list
+        const sessionStart = rootUrl || urls[0];
         normalizedRoot = normalizeUrl(sessionStart);
         root = new URL(normalizedRoot);
         setRootUrl(normalizedRoot);

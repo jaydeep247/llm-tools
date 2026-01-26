@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTrackSentimentMutation, useGetSentimentHistoryQuery } from '../../store/api/module_E/sentimentApi';
 
 interface SentimentTrackingProps {
     brandName: string;
@@ -38,55 +39,38 @@ export const SentimentTracking: React.FC<SentimentTrackingProps> = ({ brandName 
     useEffect(() => {
         if (!brandName) return;
 
-        const loadHistory = async () => {
-            try {
-                const historyResp = await fetch(`/api/aeo/sentiment-history/${encodeURIComponent(brandName)}`);
-                if (historyResp.ok) {
-                    const hData = await historyResp.json();
-                    if (hData.success) {
-                        setHistory(hData.history);
-                        // Hydrate the dashboard with the latest saved run
-                        if (hData.latestResult) {
-                            setData(hData.latestResult);
-                        }
-                    }
-                }
-            } catch (err) {
-                console.error("Failed to load history", err);
-            }
-        };
-
-        loadHistory();
     }, [brandName]);
+
+    // RTK Query hooks
+    const [trackSentiment] = useTrackSentimentMutation();
+    const { data: historyData, refetch: refetchHistory } = useGetSentimentHistoryQuery(brandName, {
+        skip: !brandName,
+    });
+
+    // Load history when data changes
+    useEffect(() => {
+        if (historyData?.success) {
+            setHistory(historyData.history || []);
+            // Hydrate the dashboard with the latest saved run
+            if (historyData.latestResult) {
+                setData(historyData.latestResult);
+            }
+        }
+    }, [historyData]);
 
     // 2. Manual Analysis Trigger
     const runAnalysis = async () => {
         setLoading(true);
         setError(null);
         try {
-            const response = await fetch('/api/aeo/sentiment-tracking', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ brand_name: brandName }),
-            });
-
-            if (!response.ok) throw new Error('Failed to fetch sentiment data');
-
-            const result = await response.json();
-            setData(result);
+            const result = await trackSentiment({ brand_name: brandName }).unwrap();
+            // Handle both direct result and result.data structure
+            setData(result.data || result);
 
             // Refresh history after new run
-            const historyResp = await fetch(`/api/aeo/sentiment-history/${encodeURIComponent(brandName)}`);
-            if (historyResp.ok) {
-                const hData = await historyResp.json();
-                if (hData.success) {
-                    setHistory(hData.history);
-                    // Do not overwrite 'data' here, as we just received fresh data from the analysis
-                }
-            }
-
+            await refetchHistory();
         } catch (err: any) {
-            setError(err.message);
+            setError(err?.data?.error || err?.message || 'Failed to fetch sentiment data');
         } finally {
             setLoading(false);
         }

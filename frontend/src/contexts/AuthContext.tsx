@@ -1,27 +1,20 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import {
+    useLoginMutation,
+    useRegisterMutation,
+    useLogoutMutation,
+    useRefreshTokenMutation,
+    useGetMeQuery,
+    useLazyGetMeQuery,
+    useUpdateProfileMutation,
+    useUpdateSettingsMutation,
+    type User,
+    type UserSettings,
+    type UsageStats,
+} from '../store/api/authApi';
 
-export interface User {
-    id: number;
-    email: string;
-    name: string | null;
-    role: 'user' | 'admin' | 'premium';
-    createdAt: string;
-    lastLogin: string | null;
-}
-
-export interface UserSettings {
-    maxCrawlsPerDay: number;
-    emailNotifications: boolean;
-    hasOpenaiApiKey: boolean;
-    hasPsiApiKey: boolean;
-}
-
-export interface UsageStats {
-    totalCrawls: number;
-    totalAudits: number;
-    totalAeoAnalyses: number;
-    totalCredits: number;
-}
+// Re-export types for use in other components
+export type { User, UserSettings, UsageStats };
 
 interface AuthContextType {
     user: User | null;
@@ -41,40 +34,28 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Use relative URLs when VITE_API_BASE_URL is empty (production Docker) or not set (development)
-// This allows nginx to proxy requests to the backend service
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
-
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-    const [user, setUser] = useState<User | null>(null);
-    const [settings, setSettings] = useState<UserSettings | null>(null);
-    const [usage, setUsage] = useState<UsageStats | null>(null);
     const [accessToken, setAccessToken] = useState<string | null>(
         localStorage.getItem('accessToken')
     );
-    const [isLoading, setIsLoading] = useState(true);
-
-    // Load user on mount
-    useEffect(() => {
-        const initAuth = async () => {
-            if (accessToken) {
-                console.log('[AuthContext] Token found in storage, loading user...');
-                await loadUser();
-            } else {
-                console.log('[AuthContext] No token in storage, attempting to refresh via cookie...');
-                const refreshed = await refreshAccessToken();
-                if (refreshed) {
-                    console.log('[AuthContext] Session restored via refresh token.');
-                    await loadUser();
-                } else {
-                    console.log('[AuthContext] No session found.');
-                    setIsLoading(false);
-                }
-            }
-        };
-
-        initAuth();
-    }, []);
+    
+    // RTK Query hooks
+    const [loginMutation] = useLoginMutation();
+    const [registerMutation] = useRegisterMutation();
+    const [logoutMutation] = useLogoutMutation();
+    const [refreshTokenMutation] = useRefreshTokenMutation();
+    const [updateProfileMutation] = useUpdateProfileMutation();
+    const [updateSettingsMutation] = useUpdateSettingsMutation();
+    const [getMeLazy] = useLazyGetMeQuery();
+    
+    const { data: meData, isLoading: isLoadingMe, refetch: refetchMe } = useGetMeQuery(undefined, {
+        skip: !accessToken,
+    });
+    
+    const user = meData?.user || null;
+    const settings = meData?.settings || null;
+    const usage = meData?.usage || null;
+    const isLoading = isLoadingMe && !!accessToken;
 
     // Set up token refresh interval (every 10 minutes)
     useEffect(() => {
@@ -87,210 +68,80 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     }, [accessToken]);
 
-    const loadUser = async () => {
-        console.log('[AuthContext] loadUser called. Has accessToken:', !!accessToken);
-        if (!accessToken) {
-            console.log('[AuthContext] No access token, skipping loadUser');
-            setIsLoading(false);
-            return;
-        }
-
-        try {
-            console.log(`[AuthContext] Fetching user profile from: ${API_BASE}/api/auth/me`);
-            const response = await fetch(`${API_BASE}/api/auth/me`, {
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`
-                },
-                credentials: 'include'
-            });
-
-            console.log('[AuthContext] Profile fetch response status:', response.status);
-
-            if (response.ok) {
-                const data = await response.json();
-                console.log('[AuthContext] User loaded successfully:', data.user.email);
-                setUser(data.user);
-                setSettings(data.settings);
-                setUsage(data.usage);
-            } else {
-                // Token invalid, clear and don't retry
-                const errorText = await response.text();
-                console.warn('[AuthContext] Failed to load user, token may be invalid. Status:', response.status, 'Response:', errorText);
-                setAccessToken(null);
-                setUser(null);
-                localStorage.removeItem('accessToken');
-            }
-        } catch (error) {
-            console.error('[AuthContext] Failed to load user (Network/CORS error):', error);
-            // setAccessToken(null);
-            // setUser(null);
-            // localStorage.removeItem('accessToken');
-            // TEMPORARY: Don't wipe token on network error to debug
-            console.warn('[AuthContext] Keeping token despite network error for debugging');
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
     const refreshAccessToken = async () => {
         try {
-            const response = await fetch(`${API_BASE}/api/auth/refresh`, {
-                method: 'POST',
-                credentials: 'include'
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                setAccessToken(data.accessToken);
-                localStorage.setItem('accessToken', data.accessToken);
-                // Don't call loadUser here to avoid infinite loop
-                return true;
-            } else {
-                // Refresh failed, clear state
-                setAccessToken(null);
-                setUser(null);
-                localStorage.removeItem('accessToken');
-                return false;
-            }
+            const result = await refreshTokenMutation().unwrap();
+            setAccessToken(result.accessToken);
+            localStorage.setItem('accessToken', result.accessToken);
+            return true;
         } catch (error) {
             console.error('Token refresh failed:', error);
             setAccessToken(null);
-            setUser(null);
             localStorage.removeItem('accessToken');
             return false;
         }
     };
 
     const login = async (email: string, password: string) => {
-        const response = await fetch(`${API_BASE}/api/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password }),
-            credentials: 'include'
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'Login failed');
-        }
-
-        const data = await response.json();
-        setAccessToken(data.accessToken);
-        localStorage.setItem('accessToken', data.accessToken);
-
-        // Load full profile with the new token
-        const meResponse = await fetch(`${API_BASE}/api/auth/me`, {
-            headers: {
-                'Authorization': `Bearer ${data.accessToken}`
-            },
-            credentials: 'include'
-        });
-
-        if (meResponse.ok) {
-            const meData = await meResponse.json();
-            setUser(meData.user);
-            setSettings(meData.settings);
-            setUsage(meData.usage);
+        try {
+            const result = await loginMutation({ email, password }).unwrap();
+            setAccessToken(result.accessToken);
+            localStorage.setItem('accessToken', result.accessToken);
+            // RTK Query will automatically refetch user data via useGetMeQuery
+            await refetchMe();
+        } catch (error: any) {
+            throw new Error(error?.data?.message || error?.message || 'Login failed');
         }
     };
 
     const register = async (email: string, password: string, name?: string) => {
-        const response = await fetch(`${API_BASE}/api/auth/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password, name }),
-            credentials: 'include'
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'Registration failed');
-        }
-
-        const data = await response.json();
-        setAccessToken(data.accessToken);
-        localStorage.setItem('accessToken', data.accessToken);
-
-        // Load full profile with the new token
-        const meResponse = await fetch(`${API_BASE}/api/auth/me`, {
-            headers: {
-                'Authorization': `Bearer ${data.accessToken}`
-            },
-            credentials: 'include'
-        });
-
-        if (meResponse.ok) {
-            const meData = await meResponse.json();
-            setUser(meData.user);
-            setSettings(meData.settings);
-            setUsage(meData.usage);
+        try {
+            const result = await registerMutation({ email, password, name }).unwrap();
+            setAccessToken(result.accessToken);
+            localStorage.setItem('accessToken', result.accessToken);
+            // RTK Query will automatically refetch user data via useGetMeQuery
+            await refetchMe();
+        } catch (error: any) {
+            throw new Error(error?.data?.message || error?.message || 'Registration failed');
         }
     };
 
     const logout = async () => {
         try {
-            await fetch(`${API_BASE}/api/auth/logout`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`
-                },
-                credentials: 'include'
-            });
+            await logoutMutation().unwrap();
         } catch (error) {
             console.error('Logout error:', error);
         } finally {
             setAccessToken(null);
-            setUser(null);
-            setSettings(null);
-            setUsage(null);
             localStorage.removeItem('accessToken');
         }
     };
 
     const refreshUser = async () => {
         if (accessToken) {
-            await loadUser();
+            await refetchMe();
         }
     };
 
     const updateProfile = async (updates: { name?: string; currentPassword?: string; newPassword?: string }) => {
-        const response = await fetch(`${API_BASE}/api/auth/profile`, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(updates),
-            credentials: 'include'
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'Update failed');
+        try {
+            await updateProfileMutation(updates).unwrap();
+            await refetchMe();
+        } catch (error: any) {
+            throw new Error(error?.data?.message || error?.message || 'Update failed');
         }
-
-        await refreshUser();
     };
 
     const updateSettings = async (updates: Partial<Pick<UserSettings, 'maxCrawlsPerDay' | 'emailNotifications'>>) => {
-        const response = await fetch(`${API_BASE}/api/auth/settings`, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(updates),
-            credentials: 'include'
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || 'Settings update failed');
+        try {
+            await updateSettingsMutation(updates).unwrap();
+            await refetchMe();
+        } catch (error: any) {
+            throw new Error(error?.data?.message || error?.message || 'Settings update failed');
         }
-
-        await refreshUser();
     };
 
+    // Keep authFetch for backward compatibility, but it's deprecated - use RTK Query instead
     const authFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
         // Ensure Authorization header is present
         const initHeaders = new Headers(init?.headers);

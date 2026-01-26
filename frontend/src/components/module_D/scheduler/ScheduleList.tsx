@@ -1,23 +1,27 @@
 import React, { useState, useEffect } from 'react';
+import {
+    useGetSchedulesQuery,
+    useGetScheduleStatsQuery,
+    useToggleScheduleMutation,
+    useTriggerScheduleMutation,
+    useDeleteScheduleMutation,
+    type Schedule as ApiSchedule,
+} from '../../../store/api/module_D/schedulerApi';
 import './ScheduleList.css';
 import ScheduleForm from './ScheduleForm';
 
-interface Schedule {
-    id: number;
-    name: string;
-    description: string;
-    startUrl: string;
-    allowSubdomains: boolean;
-    maxConcurrency: number;
-    mode: string;
-    cronExpression: string;
-    enabled: boolean;
-    createdAt: string;
+// Extended Schedule interface for UI with additional fields
+interface Schedule extends ApiSchedule {
+    description?: string;
+    startUrl?: string;
+    allowSubdomains?: boolean;
+    maxConcurrency?: number;
+    mode?: string;
     lastRun?: string;
     nextRun?: string;
-    totalRuns: number;
-    successfulRuns: number;
-    failedRuns: number;
+    totalRuns?: number;
+    successfulRuns?: number;
+    failedRuns?: number;
 }
 
 interface ScheduleStats {
@@ -39,65 +43,53 @@ const ScheduleList: React.FC = () => {
     const [showForm, setShowForm] = useState(false);
     const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
 
+    // RTK Query hooks
+    const { data: schedulesData, isLoading: isLoadingSchedules, refetch: refetchSchedules } = useGetSchedulesQuery();
+    const [selectedScheduleId, setSelectedScheduleId] = useState<number | null>(null);
+    const { data: scheduleStatsData } = useGetScheduleStatsQuery(selectedScheduleId!, {
+        skip: !selectedScheduleId,
+    });
+    const [toggleScheduleMutation] = useToggleScheduleMutation();
+    const [triggerScheduleMutation] = useTriggerScheduleMutation();
+    const [deleteScheduleMutation] = useDeleteScheduleMutation();
+
     useEffect(() => {
-        fetchSchedules();
-    }, []);
-
-    const fetchSchedules = async () => {
-        try {
-            setLoading(true);
-            const response = await fetch('/api/schedules');
-            if (!response.ok) {
-                throw new Error('Failed to fetch schedules');
-            }
-            const data = await response.json();
-            setSchedules(data.schedules || []);
-            setError(null);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to fetch schedules');
-        } finally {
+        if (schedulesData) {
+            // Map API schedules to extended Schedule type
+            setSchedules(schedulesData as Schedule[]);
             setLoading(false);
+        } else if (isLoadingSchedules) {
+            setLoading(true);
         }
-    };
+    }, [schedulesData, isLoadingSchedules]);
 
-    const fetchStats = async (scheduleId: number) => {
-        try {
-            const response = await fetch(`/api/schedules/${scheduleId}/stats`);
-            if (!response.ok) {
-                throw new Error('Failed to fetch stats');
-            }
-            const data = await response.json();
-            setStats(data.stats);
-        } catch (err) {
-            console.error('Failed to fetch stats:', err);
+    useEffect(() => {
+        if (scheduleStatsData) {
+            setStats({
+                ...scheduleStatsData,
+                successRate: scheduleStatsData.totalRuns > 0 
+                    ? (scheduleStatsData.successfulRuns / scheduleStatsData.totalRuns) * 100 
+                    : 0,
+                averageDuration: 0, // API doesn't provide this, set to 0
+            });
         }
-    };
+    }, [scheduleStatsData]);
 
     const toggleSchedule = async (scheduleId: number) => {
         try {
-            const response = await fetch(`/api/schedules/${scheduleId}/toggle`, {
-                method: 'POST'
-            });
-            if (!response.ok) {
-                throw new Error('Failed to toggle schedule');
-            }
-            await fetchSchedules();
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to toggle schedule');
+            await toggleScheduleMutation(scheduleId).unwrap();
+            await refetchSchedules();
+        } catch (err: any) {
+            setError(err?.data?.error || err?.message || 'Failed to toggle schedule');
         }
     };
 
     const triggerSchedule = async (scheduleId: number) => {
         try {
-            const response = await fetch(`/api/schedules/${scheduleId}/trigger`, {
-                method: 'POST'
-            });
-            if (!response.ok) {
-                throw new Error('Failed to trigger schedule');
-            }
+            await triggerScheduleMutation(scheduleId).unwrap();
             alert('Schedule triggered successfully!');
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to trigger schedule');
+        } catch (err: any) {
+            setError(err?.data?.error || err?.message || 'Failed to trigger schedule');
         }
     };
 
@@ -107,21 +99,16 @@ const ScheduleList: React.FC = () => {
         }
         
         try {
-            const response = await fetch(`/api/schedules/${scheduleId}`, {
-                method: 'DELETE'
-            });
-            if (!response.ok) {
-                throw new Error('Failed to delete schedule');
-            }
-            await fetchSchedules();
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to delete schedule');
+            await deleteScheduleMutation(scheduleId).unwrap();
+            await refetchSchedules();
+        } catch (err: any) {
+            setError(err?.data?.error || err?.message || 'Failed to delete schedule');
         }
     };
 
     const handleScheduleClick = (schedule: Schedule) => {
         setSelectedSchedule(schedule);
-        fetchStats(schedule.id);
+        setSelectedScheduleId(schedule.id);
     };
 
     const handleEdit = (schedule: Schedule) => {
@@ -132,7 +119,7 @@ const ScheduleList: React.FC = () => {
     const handleFormClose = () => {
         setShowForm(false);
         setEditingSchedule(null);
-        fetchSchedules();
+        refetchSchedules();
     };
 
     const formatDate = (dateString: string) => {
@@ -187,25 +174,33 @@ const ScheduleList: React.FC = () => {
                         </div>
                         
                         <div className="schedule-info">
-                            <p className="description">{schedule.description}</p>
-                            <p className="url">URL: {schedule.startUrl}</p>
+                            {schedule.description && <p className="description">{schedule.description}</p>}
+                            <p className="url">URL: {schedule.startUrl || schedule.url}</p>
                             <p className="cron">Schedule: {getCronDescription(schedule.cronExpression)}</p>
                         </div>
 
-                        <div className="schedule-stats">
-                            <div className="stat">
-                                <span className="label">Runs:</span>
-                                <span className="value">{schedule.totalRuns}</span>
+                        {(schedule.totalRuns !== undefined || schedule.successfulRuns !== undefined || schedule.failedRuns !== undefined) && (
+                            <div className="schedule-stats">
+                                {schedule.totalRuns !== undefined && (
+                                    <div className="stat">
+                                        <span className="label">Runs:</span>
+                                        <span className="value">{schedule.totalRuns}</span>
+                                    </div>
+                                )}
+                                {schedule.successfulRuns !== undefined && (
+                                    <div className="stat">
+                                        <span className="label">Success:</span>
+                                        <span className="value success">{schedule.successfulRuns}</span>
+                                    </div>
+                                )}
+                                {schedule.failedRuns !== undefined && (
+                                    <div className="stat">
+                                        <span className="label">Failed:</span>
+                                        <span className="value error">{schedule.failedRuns}</span>
+                                    </div>
+                                )}
                             </div>
-                            <div className="stat">
-                                <span className="label">Success:</span>
-                                <span className="value success">{schedule.successfulRuns}</span>
-                            </div>
-                            <div className="stat">
-                                <span className="label">Failed:</span>
-                                <span className="value error">{schedule.failedRuns}</span>
-                            </div>
-                        </div>
+                        )}
 
                         <div className="schedule-actions">
                             <button 
@@ -283,7 +278,7 @@ const ScheduleList: React.FC = () => {
                 {/* Right side - Schedule Form (Always visible) */}
                 <div className="schedule-form-section">
                     <ScheduleForm 
-                        schedule={editingSchedule}
+                        schedule={editingSchedule as any}
                         onClose={handleFormClose}
                     />
                 </div>

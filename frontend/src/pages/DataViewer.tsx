@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useLazyGetDataListQuery, useLazyExportDataQuery } from '../store/api/module_A/dataApi';
 import './DataViewer.css';
 
 interface CrawlData {
@@ -81,10 +82,8 @@ interface DataViewerProps {
 }
 
 const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) => {
-  const { accessToken } = useAuth(); // ✅ GET AUTH TOKEN FROM CONTEXT
   const [data, setData] = useState<CrawlData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null); // ✅ ADD ERROR STATE
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<keyof CrawlData>('timestamp');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -94,17 +93,8 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
   const [serverOffset, setServerOffset] = useState(0);
   const [serverLimit] = useState(1000);
 
-  // ✅ HELPER: Get auth headers
-  const getAuthHeaders = (): HeadersInit => {
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
-    if (accessToken) {
-      headers['Authorization'] = `Bearer ${accessToken}`;
-    }
-    console.log(`[DataViewer] Using auth headers:`, { hasToken: !!accessToken });
-    return headers;
-  };
+  const [getDataList, { isLoading: loading }] = useLazyGetDataListQuery();
+  const [exportDataQuery] = useLazyExportDataQuery();
 
   // Load data whenever initialSessionId changes
   useEffect(() => {
@@ -112,57 +102,21 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
       setServerOffset(0);
       loadData();
     } else {
-      setLoading(false);
       setData([]); // Clear data when no session is selected
     }
-  }, [initialSessionId, accessToken]); // ✅ RELOAD WHEN SESSION OR TOKEN CHANGES
+  }, [initialSessionId]);
 
-  // ✅ IMPROVED: Better error handling and logging
+  // Load data using RTK Query
   const loadData = async (opts?: { append?: boolean }) => {
     try {
-      setLoading(true);
-      setError(null); // Clear previous errors
+      setError(null);
       
-      const params = new URLSearchParams();
-      params.set('limit', String(serverLimit));
-      params.set('offset', String(opts?.append ? serverOffset : 0));
-      if (initialSessionId) params.set('sessionId', String(initialSessionId));
-      
-      console.log(`[DataViewer] Loading data with params:`, {
-        sessionId: initialSessionId,
+      const result = await getDataList({
         limit: serverLimit,
-        offset: opts?.append ? serverOffset : 0
-      });
+        offset: opts?.append ? serverOffset : 0,
+        sessionId: initialSessionId || undefined,
+      }).unwrap();
       
-      const url = `/api/data/list?${params.toString()}`;
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: getAuthHeaders(), // ✅ INCLUDE AUTH HEADERS
-        credentials: 'include'
-      });
-      
-      console.log(`[DataViewer] Response status:`, response.status);
-      
-      if (!response.ok) {
-        const errorBody = await response.text();
-        console.error(`[DataViewer] HTTP Error ${response.status}:`, errorBody);
-        
-        if (response.status === 401) {
-          setError('Authentication failed. Please log in again.');
-          return;
-        } else if (response.status === 403) {
-          setError('You do not have permission to access this session.');
-          return;
-        } else if (response.status === 404) {
-          setError('Session not found. It may have been deleted.');
-          return;
-        } else {
-          setError(`Failed to load data: HTTP ${response.status}`);
-          return;
-        }
-      }
-      
-      const result = await response.json();
       console.log('[DataViewer] Successfully received data:', result);
       console.log('[DataViewer] First item indexability:', result.data?.[0]?.indexable, result.data?.[0]?.indexabilityStatus);
       
@@ -175,13 +129,20 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
         setData(items);
       }
       setServerOffset((opts?.append ? serverOffset : 0) + items.length);
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
+    } catch (error: any) {
+      const errorMsg = error?.data?.message || error?.message || 'Failed to load data';
       console.error('[DataViewer] Error loading data:', errorMsg);
-      setError(`Failed to load data: ${errorMsg}`);
+      
+      if (error?.status === 401) {
+        setError('Authentication failed. Please log in again.');
+      } else if (error?.status === 403) {
+        setError('You do not have permission to access this session.');
+      } else if (error?.status === 404) {
+        setError('Session not found. It may have been deleted.');
+      } else {
+        setError(errorMsg);
+      }
       setData([]);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -226,18 +187,11 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
 
   const exportData = async (format: string) => {
     try {
-      const params = new URLSearchParams();
-      params.set('format', format);
-      if (initialSessionId) {
-        params.set('sessionId', String(initialSessionId));
-      }
-      const response = await fetch(`/api/export?${params.toString()}`, {
-        headers: getAuthHeaders(), // ✅ INCLUDE AUTH HEADERS
-        credentials: 'include'
-      });
-      if (!response.ok) throw new Error('Export failed');
+      const blob = await exportDataQuery({
+        format: format as 'csv' | 'json',
+        sessionId: initialSessionId || undefined,
+      }).unwrap();
       
-      const blob = await response.blob();
       const downloadUrl = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = downloadUrl;

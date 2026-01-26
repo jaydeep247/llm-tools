@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './AEODashboard.css';
-import { apiService } from '../services/api/api';
+import { useLazyGetWebsiteScoreQuery, useSimulateAnswerMutation, useAnalyzeBulkMutation } from '../store/api/module_C/aeoApi';
 import {
   OverallScoreSection,
   DashboardCards,
@@ -135,25 +135,26 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
     return { seconds: 0, milliseconds: 0 };
   };
 
+  const [getWebsiteScore] = useLazyGetWebsiteScoreQuery();
+  const [simulateAnswer] = useSimulateAnswerMutation();
+  const [analyzeBulk] = useAnalyzeBulkMutation();
+
   const analyzeWebsiteScores = async () => {
     if (!url) return;
     setModuleELoading(true);
     setModuleEError(null);
     try {
-      const response = await fetch('/api/aeo/website-score', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, sessionId: result?.session_id }),
-        credentials: 'include'
-      });
-      const data = await response.json();
+      const data = await getWebsiteScore({
+        url,
+        sessionId: result?.session_id,
+      }).unwrap();
       if (data.success) {
         setModuleEScores(data.scores);
       } else {
         setModuleEError(data.error || 'Analysis failed');
       }
     } catch (e: any) {
-      setModuleEError(e.message || 'Analysis failed');
+      setModuleEError(e?.data?.error || e?.message || 'Analysis failed');
     } finally {
       setModuleELoading(false);
     }
@@ -182,7 +183,10 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
     if (!simulationQuery) return;
     setSimulationLoading(true);
     try {
-      const response = await apiService.simulateAnswer(url, simulationQuery);
+      const response = await simulateAnswer({
+        url,
+        query: simulationQuery,
+      }).unwrap();
       setSimulationResults(response.results);
     } catch (error) {
       console.error("Simulation failed:", error);
@@ -202,7 +206,9 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
 
     setBulkLoading(true);
     try {
-      const response = await apiService.analyzeBulk(cleanedUrl);
+      const response = await analyzeBulk({
+        sitemap: cleanedUrl,
+      }).unwrap();
       // 2. Safe Unwrapping: Handle if backend returns { data: ... } or just the data directly
       setBulkResults(response.data || response);
     } catch (error) {
