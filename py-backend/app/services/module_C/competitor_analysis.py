@@ -486,7 +486,7 @@ class CompetitorAnalysisService:
             print("WARNING: DataForSEO API not available - credentials not configured")
             return {
                 'score': 0,
-                'error': 'DataForSEO API not configured. Please set DATAFORSEO_USERNAME and DATAFORSEO_PASSWORD environment variables.',
+                'error': 'DataForSEO API not configured. Please set encrypted credentials (DATAFORSEO_USERNAME_ENC, DATAFORSEO_PASSWORD_ENC, DATAFORSEO_MASTER_KEY) environment variables. Use py-backend/dataforseo_encryption/encrypt.py to generate encrypted credentials.',
                 'metrics': {
                     'total_referring_domains': 0,
                     'total_individual_backlinks': 0,

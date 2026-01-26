@@ -18,3 +18,4 @@ slowapi==0.1.9
 lxml>=4.9
 python-dateutil==2.8.2
 python-dotenv==1.0.1
+pycryptodome>=3.20.0
