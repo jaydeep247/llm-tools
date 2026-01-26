@@ -36,6 +36,23 @@ export interface StrategyMetric {
   color: 'green' | 'orange' | 'red';
 }
 
+export interface ContentMetrics {
+  content_type_accuracy: number;
+  prompt_intent_match: number;
+  visibility_impact: number;
+  suggested_content_type: string;
+  prompt_intent_details: {
+    matched_intents: string[];
+    confidence: number;
+    search_queries: string[];
+  };
+  visibility_factors: {
+    factors: string[];
+    score_breakdown: Record<string, number>;
+    recommendations: string[];
+  };
+}
+
 export interface AEODashboardProps {
   sessionId?: number | null;
   url?: string;
@@ -54,4 +71,4 @@ export interface AEODashboardProps {
   discoveredPages?: any[];
 }
 
-export type ActiveView = 'crawler' | 'data' | 'links' | 'tree' | 'audits' | 'schema' | 'intelligence' | 'simulator' | 'page_metrics' | 'wordcount_analysis' | 'broken_links' | 'module_e';
+export type ActiveView = 'crawler' | 'data' | 'links' | 'tree' | 'audits' | 'schema' | 'intelligence' | 'simulator' | 'page_metrics' | 'wordcount_analysis' | 'broken_links' | 'module_e' | 'content_metrics';
