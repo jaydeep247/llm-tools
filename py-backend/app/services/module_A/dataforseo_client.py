@@ -10,6 +10,7 @@ import os
 import time
 import logging
 from typing import Dict, Any, Optional
+from dataforseo_encryption.decrypt import get_dataforseo_auth
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -31,17 +32,37 @@ class DataForSEOClient:
         Initialize the DataForSEO client
         
         Args:
-            username: DataForSEO API username (defaults to env var DATAFORSEO_USERNAME)
-            password: DataForSEO API password (defaults to env var DATAFORSEO_PASSWORD)
+            username: DataForSEO API username (defaults to decrypted env vars)
+            password: DataForSEO API password (defaults to decrypted env vars)
+            
+        Note:
+            If username/password are not provided, credentials will be decrypted
+            from encrypted environment variables (DATAFORSEO_USERNAME_ENC, 
+            DATAFORSEO_PASSWORD_ENC, DATAFORSEO_MASTER_KEY).
         """
-        self.username = username or os.getenv('DATAFORSEO_USERNAME', '')
-        self.password = password or os.getenv('DATAFORSEO_PASSWORD', '')
+        if username and password:
+            # Use provided credentials directly
+            self.username = username
+            self.password = password
+        else:
+            # Decrypt credentials from environment variables
+            try:
+                creds = get_dataforseo_auth()
+                self.username = creds['username']
+                self.password = creds['password']
+            except ValueError as e:
+                raise ValueError(
+                    f"DataForSEO credentials not available: {str(e)}. "
+                    "Please configure encrypted credentials (DATAFORSEO_USERNAME_ENC, "
+                    "DATAFORSEO_PASSWORD_ENC, DATAFORSEO_MASTER_KEY) or pass them to the constructor."
+                ) from e
         
         if not self.username or not self.password:
             raise ValueError(
                 "DataForSEO credentials not provided. "
-                "Set DATAFORSEO_USERNAME and DATAFORSEO_PASSWORD environment variables "
-                "or pass them to the constructor."
+                "Set encrypted credentials (DATAFORSEO_USERNAME_ENC, DATAFORSEO_PASSWORD_ENC, "
+                "DATAFORSEO_MASTER_KEY) environment variables, or pass them to the constructor. "
+                "Use py-backend/dataforseo_encryption/encrypt.py to generate encrypted credentials."
             )
         
         logger.info("DataForSEO client initialized successfully")
