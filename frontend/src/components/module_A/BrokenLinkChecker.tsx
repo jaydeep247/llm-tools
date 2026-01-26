@@ -485,25 +485,111 @@ const BrokenLinkChecker: React.FC<BrokenLinkCheckerProps> = ({ initialSessionId 
                                   border: '1px solid rgba(255, 255, 255, 0.05)'
                                 }}
                               >
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                  {/* Broken Link - Main focus */}
+                                  <div style={{ 
+                                    padding: '10px', 
+                                    background: 'rgba(239, 68, 68, 0.1)', 
+                                    borderRadius: '6px',
+                                    border: '1px solid rgba(239, 68, 68, 0.3)'
+                                  }}>
+                                    <div style={{ 
+                                      fontSize: '11px', 
+                                      color: '#ef4444', 
+                                      fontWeight: '600',
+                                      marginBottom: '6px',
+                                      textTransform: 'uppercase',
+                                      letterSpacing: '0.5px'
+                                    }}>
+                                      🔗 Broken Link:
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: '12px' }}>
+                                      <div style={{ flex: 1 }}>
+                                        <a
+                                          href={link.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          style={{
+                                            color: '#ef4444',
+                                            fontSize: '13px',
+                                            fontWeight: '500',
+                                            textDecoration: 'none',
+                                            wordBreak: 'break-all',
+                                            display: 'block'
+                                          }}
+                                          onMouseEnter={(e) => {
+                                            e.currentTarget.style.textDecoration = 'underline';
+                                            e.currentTarget.style.color = '#dc2626';
+                                          }}
+                                          onMouseLeave={(e) => {
+                                            e.currentTarget.style.textDecoration = 'none';
+                                            e.currentTarget.style.color = '#ef4444';
+                                          }}
+                                        >
+                                          {link.url}
+                                        </a>
+                                        {(link as any).missingType && (
+                                          <div style={{ fontSize: '11px', color: '#fca5a5', marginTop: '6px', fontWeight: '500' }}>
+                                            Type: {(link as any).missingType === '404' ? 'Not Found (404)' : 'Gone (410 - Permanently Removed)'}
+                                          </div>
+                                        )}
+                                        {link.error && (
+                                          <div style={{ fontSize: '11px', color: '#fca5a5', marginTop: '6px', fontWeight: '500' }}>
+                                            Error: {link.error}
+                                          </div>
+                                        )}
+                                      </div>
+                                      <span style={{
+                                        color: color,
+                                        fontSize: '11px',
+                                        fontWeight: '600',
+                                        padding: '6px 12px',
+                                        background: `${color}20`,
+                                        borderRadius: '4px',
+                                        whiteSpace: 'nowrap',
+                                        height: 'fit-content',
+                                        border: `1px solid ${color}40`
+                                      }}>
+                                        {link.statusCode || link.errorType || 'Error'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Source Page - Where the broken link was found */}
                                   {link.sourceUrl && (
-                                    <div style={{ fontSize: '11px', color: '#999' }}>
-                                      <span style={{ fontWeight: '500' }}>Source: </span>
+                                    <div style={{ 
+                                      padding: '8px 10px', 
+                                      background: 'rgba(102, 126, 234, 0.1)', 
+                                      borderRadius: '6px',
+                                      border: '1px solid rgba(102, 126, 234, 0.2)'
+                                    }}>
+                                      <div style={{ 
+                                        fontSize: '10px', 
+                                        color: '#667eea', 
+                                        fontWeight: '600',
+                                        marginBottom: '4px',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.5px'
+                                      }}>
+                                        📄 Found on Page:
+                                      </div>
                                       <a
                                         href={link.sourceUrl}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         style={{
-                                          color: '#999',
+                                          color: '#93c5fd',
+                                          fontSize: '12px',
                                           textDecoration: 'none',
-                                          wordBreak: 'break-all'
+                                          wordBreak: 'break-all',
+                                          display: 'block'
                                         }}
                                         onMouseEnter={(e) => {
                                           e.currentTarget.style.color = '#667eea';
                                           e.currentTarget.style.textDecoration = 'underline';
                                         }}
                                         onMouseLeave={(e) => {
-                                          e.currentTarget.style.color = '#999';
+                                          e.currentTarget.style.color = '#93c5fd';
                                           e.currentTarget.style.textDecoration = 'none';
                                         }}
                                       >
@@ -511,48 +597,6 @@ const BrokenLinkChecker: React.FC<BrokenLinkCheckerProps> = ({ initialSessionId 
                                       </a>
                                     </div>
                                   )}
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: '12px' }}>
-                                    <div style={{ flex: 1 }}>
-                                      <a
-                                        href={link.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        style={{
-                                          color: '#667eea',
-                                          fontSize: '12px',
-                                          textDecoration: 'none',
-                                          wordBreak: 'break-all',
-                                          display: 'block'
-                                        }}
-                                        onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
-                                        onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
-                                      >
-                                        {link.url}
-                                      </a>
-                                      {(link as any).missingType && (
-                                        <div style={{ fontSize: '10px', color: '#999', marginTop: '4px' }}>
-                                          Type: {(link as any).missingType === '404' ? 'Not Found' : 'Gone (Permanently Removed)'}
-                                        </div>
-                                      )}
-                                      {link.error && (
-                                        <div style={{ fontSize: '10px', color: '#999', marginTop: '4px' }}>
-                                          Error: {link.error}
-                                        </div>
-                                      )}
-                                    </div>
-                                    <span style={{
-                                      color: color,
-                                      fontSize: '11px',
-                                      fontWeight: '600',
-                                      padding: '4px 10px',
-                                      background: `${color}20`,
-                                      borderRadius: '4px',
-                                      whiteSpace: 'nowrap',
-                                      height: 'fit-content'
-                                    }}>
-                                      {link.statusCode || link.errorType || 'Error'}
-                                    </span>
-                                  </div>
                                 </div>
                               </div>
                             ))}

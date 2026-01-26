@@ -355,6 +355,20 @@ router.post('/api/links/check/:sessionId', async (req, res) => {
             return true;
         });
         
+        // Remove duplicate links - keep only one entry per unique normalized URL
+        const uniqueLinksMap = new Map<string, any>();
+        pageLinks.forEach(link => {
+            const targetUrl = link.target_url || link.targetUrl;
+            if (targetUrl) {
+                const normalizedUrl = normalizeUrl(targetUrl);
+                // Keep the first occurrence of each unique URL
+                if (!uniqueLinksMap.has(normalizedUrl)) {
+                    uniqueLinksMap.set(normalizedUrl, link);
+                }
+            }
+        });
+        const uniquePageLinks = Array.from(uniqueLinksMap.values());
+        
         // Helper function to check a single link with HEAD first, GET fallback, and retry logic
         const checkLink = async (link: any, baseDomain: string, retryCount: number = 0): Promise<{
             url: string;
@@ -516,7 +530,7 @@ router.post('/api/links/check/:sessionId', async (req, res) => {
         };
 
         // Check page links only (limit to 1000 for performance, with throttling for external)
-        const linksToCheck = pageLinks.slice(0, 1000);
+        const linksToCheck = uniquePageLinks.slice(0, 1000);
         
         // Separate internal and external links for different throttling
         const internalLinks: any[] = [];
@@ -635,7 +649,7 @@ router.post('/api/links/check/:sessionId', async (req, res) => {
             },
             totalChecked: checkedLinks.length,
             totalLinks: allLinks.length,
-            totalPageLinks: pageLinks.length
+            totalPageLinks: uniquePageLinks.length
         });
     } catch (error) {
         console.error('Error checking links:', error);
