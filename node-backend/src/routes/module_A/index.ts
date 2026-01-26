@@ -6,3 +6,4 @@ export { auditsRoutes } from './audits.routes.js';
 export { default as crawlerRoutes } from './crawler.routes.js';
 export { default as auditActionsRoutes } from './audit-actions.routes.js';
 export { default as crawlRoutes } from './crawl.routes.js';
+export { default as auditCheckerRoutes } from './audit-checker.routes.js';

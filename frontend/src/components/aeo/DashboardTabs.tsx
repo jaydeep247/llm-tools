@@ -4,7 +4,7 @@ import LinkExplorer from '../../pages/LinkExplorer';
 import { MindMapWebTree } from '../module_A/crawler';
 import AuditsPage from '../../pages/AuditsPage';
 import PageMetrics from '../module_C/aeo/PageMetrics';
-import { WordcountAnalysis, BrokenLinkChecker } from '../module_A';
+import { WordcountAnalysis, BrokenLinkChecker, AuditChecker } from '../module_A';
 import CrawlerContent from './CrawlerContent';
 import SchemaGenerator from './SchemaGenerator';
 import IntelligenceModule from './IntelligenceModule';
@@ -177,6 +177,12 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
           🔗 Broken Link Checker
         </button>
         <button
+          onClick={() => setActiveView('audit_checker')}
+          className={`tab-button ${activeView === 'audit_checker' ? 'active' : ''}`}
+        >
+          🔍 Audit Checker
+        </button>
+        <button
           onClick={() => setActiveView('links')}
           className={`tab-button ${activeView === 'links' ? 'active' : ''}`}
         >
@@ -262,6 +268,14 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
         {activeView === 'broken_links' && (
           <div className="broken-links-content-embedded">
             <BrokenLinkChecker
+              initialSessionId={effectiveSessionId}
+            />
+          </div>
+        )}
+
+        {activeView === 'audit_checker' && (
+          <div className="audit-checker-content-embedded">
+            <AuditChecker
               initialSessionId={effectiveSessionId}
             />
           </div>
