@@ -10,6 +10,7 @@ from .knowledge_base import KnowledgeBaseService
 from .answerability import AnswerabilityService
 from ..module_A.crawler_accessibility import CrawlerAccessibilityService
 from ..module_B.structured_data import StructuredDataService
+from .openai_service import OpenAIService
 
 # --- Import the Multi-AI Service ---
 from .multi_ai_service import MultiAIService
@@ -30,6 +31,7 @@ class AEOServiceOrchestrator:
         self.answerability_service = AnswerabilityService()
         self.crawler_accessibility_service = CrawlerAccessibilityService()
         self.structured_data_service = StructuredDataService()
+        self.openai_service = OpenAIService()
         
         # --- Initialize Multi-AI Service ---
         self.multi_ai_service = MultiAIService()
@@ -144,6 +146,56 @@ class AEOServiceOrchestrator:
             except Exception as e:
                 results['competitor_analysis'] = {'score': 0, 'error': str(e)}
             
+            # H. Content Metrics (New: Content Type, Prompt Intent, Visibility Impact)
+            try:
+                from bs4 import BeautifulSoup
+                soup = BeautifulSoup(html_content, 'html.parser')
+                text_content = soup.get_text()[:12000]  # Limit for cost efficiency
+                results['content_metrics'] = self.openai_service.analyze_content_metrics(text_content, url)
+            except Exception as e:
+                logging.error(f"Content metrics analysis failed: {str(e)}")
+                results['content_metrics'] = {
+                    'content_type_accuracy': 0,
+                    'prompt_intent_match': 0,
+                    'visibility_impact': 0,
+                    'error': str(e)
+                }
+            
+            # I. Entity Relevance Analysis (New: Relevance of entities to prompt)
+            try:
+                kb_data = results.get('knowledge_base', {})
+                ec_data = kb_data.get('entity_coverage', {})
+                found_entities_list = ec_data.get('found_entities', [])
+                missing_entities_list = ec_data.get('missing_entities', [])
+                # Calculate expected entities from found + missing
+                expected_entities_list = ec_data.get('all_expected', []) or ec_data.get('expected_entities', [])
+                if not expected_entities_list:
+                    # If not provided, calculate from found + missing
+                    expected_entities_list = found_entities_list + missing_entities_list
+                
+                if found_entities_list and expected_entities_list:
+                    from bs4 import BeautifulSoup
+                    soup = BeautifulSoup(html_content, 'html.parser')
+                    text_content = soup.get_text()[:10000]  # Limit for cost efficiency
+                    results['entity_relevance'] = self.openai_service.analyze_entity_relevance(
+                        text_content, url, found_entities_list, expected_entities_list
+                    )
+                else:
+                    results['entity_relevance'] = {
+                        'entity_relevance_score': 0,
+                        'relevance_explanation': 'No entities found for analysis',
+                        'relevant_entities': [],
+                        'irrelevant_entities': []
+                    }
+            except Exception as e:
+                logging.error(f"Entity relevance analysis failed: {str(e)}")
+                results['entity_relevance'] = {
+                    'entity_relevance_score': 0,
+                    'relevance_explanation': f'Analysis failed: {str(e)}',
+                    'relevant_entities': [],
+                    'irrelevant_entities': []
+                }
+            
             # --- STRICT METRIC CALCULATION (PER INSTRUCTIONS) ---
             
             # 1. LLM-Friendliness Score (0-100)
@@ -163,17 +215,37 @@ class AEOServiceOrchestrator:
             )
             llm_friendliness_score = round(overall_score, 1)
 
-            # 2. Entity Presence Ratio
+            # 2. Entity Metrics
             kb_data = results.get('knowledge_base', {})
             ec_data = kb_data.get('entity_coverage', {})
-            found_entities = len(ec_data.get('found_entities', []))
-            missing_entities = len(ec_data.get('missing_entities', []))
-            total_entities = found_entities + missing_entities
+            found_entities_list = ec_data.get('found_entities', []) or []
+            missing_entities_list = ec_data.get('missing_entities', []) or []
+            expected_entities_list = ec_data.get('all_expected', []) or ec_data.get('expected_entities', [])
             
-            if total_entities > 0:
-                entity_presence_ratio = round((found_entities / total_entities) * 100, 1)
+            # Number of required entities detected
+            entities_detected_count = len(found_entities_list)
+            
+            # Coverage score (% of required entities included)
+            # First try to use the coverage_score from entity_coverage if available
+            if 'coverage_score' in ec_data and ec_data['coverage_score'] is not None:
+                entity_coverage_score = round(ec_data['coverage_score'], 1)
             else:
-                entity_presence_ratio = 0.0
+                # Calculate from found + missing entities
+                if not expected_entities_list:
+                    expected_entities_list = found_entities_list + missing_entities_list
+                
+                total_required = len(expected_entities_list)
+                if total_required > 0:
+                    entity_coverage_score = round((entities_detected_count / total_required) * 100, 1)
+                else:
+                    entity_coverage_score = 0.0
+            
+            # Entity presence ratio (for backward compatibility)
+            entity_presence_ratio = entity_coverage_score
+            
+            # Relevance of entities to the prompt
+            entity_relevance_data = results.get('entity_relevance', {})
+            entity_relevance_score = entity_relevance_data.get('entity_relevance_score', 0)
 
             # 3. Structured Data Completeness
             sd_data = results.get('structured_data', {})
@@ -192,7 +264,11 @@ class AEOServiceOrchestrator:
                     'llm_friendliness_score': llm_friendliness_score,
                     'entity_presence_ratio': entity_presence_ratio,
                     'structured_data_completeness': round(sd_completeness, 1),
-                    'readability_score': readability_score
+                    'readability_score': readability_score,
+                    # New Entity Metrics
+                    'entities_detected_count': entities_detected_count,
+                    'entity_coverage_score': entity_coverage_score,
+                    'entity_relevance_score': round(entity_relevance_score, 1)
                 },
                 
                 'module_scores': {
@@ -210,7 +286,9 @@ class AEOServiceOrchestrator:
                     'structured_data': results.get('structured_data', {}),
                     'answerability': results.get('answerability', {}),
                     'competitor_analysis': results.get('competitor_analysis', {}),
-                    'crawler_accessibility': results.get('crawler_accessibility', {})
+                    'crawler_accessibility': results.get('crawler_accessibility', {}),
+                    'content_metrics': results.get('content_metrics', {}),
+                    'entity_relevance': results.get('entity_relevance', {})
                 },
                 'recommendations': self._generate_recommendations(results),
                 'analysis_timestamp': datetime.datetime.now().isoformat()

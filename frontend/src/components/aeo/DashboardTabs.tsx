@@ -10,6 +10,7 @@ import SchemaGenerator from './SchemaGenerator';
 import IntelligenceModule from './IntelligenceModule';
 import ModuleE from './ModuleE';
 import AISimulator from './AISimulator';
+import ContentMetrics from './ContentMetrics';
 
 interface Competitor {
   name: string;
@@ -65,6 +66,10 @@ interface DashboardTabsProps {
   simulationResults: any;
   simulationLoading: boolean;
   handleSimulation: () => void;
+  
+  // Content Metrics props
+  contentMetrics?: any;
+  entityMetrics?: any;
 }
 
 const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
@@ -108,7 +113,9 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
     setSimulationQuery,
     simulationResults,
     simulationLoading,
-    handleSimulation
+    handleSimulation,
+    contentMetrics,
+    entityMetrics
   } = props;
 
   // Helper function to extract session ID (prioritizing prop sessionId, then result object)
@@ -223,6 +230,12 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
           className={`tab-button ${activeView === 'simulator' ? 'active' : ''}`}
         >
           🤖 AI Simulator
+        </button>
+        <button
+          onClick={() => setActiveView('content_metrics')}
+          className={`tab-button ${activeView === 'content_metrics' ? 'active' : ''}`}
+        >
+          📄 Content Metrics
         </button>
       </div>
 
@@ -348,6 +361,12 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
             simulationLoading={simulationLoading}
             handleSimulation={handleSimulation}
           />
+        )}
+
+        {activeView === 'content_metrics' && (
+          <div className="content-metrics-content-embedded">
+            <ContentMetrics contentMetrics={contentMetrics} entityMetrics={entityMetrics} />
+          </div>
         )}
       </div>
     </div>

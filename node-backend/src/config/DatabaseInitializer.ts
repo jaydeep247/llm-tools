@@ -498,6 +498,108 @@ export class DatabaseInitializer {
                         CREATE INDEX IF NOT EXISTS idx_page_metrics_total_resource_size_bytes ON page_metrics (total_resource_size_bytes DESC NULLS LAST);
                     END IF;
                 END $$;`
+            },
+            {
+                name: '043_add_content_metrics_to_aeo_module_c',
+                sql: `
+                DO $$
+                BEGIN
+                    -- Add content_type_accuracy
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'aeo_module_c_metrics' AND column_name = 'content_type_accuracy'
+                    ) THEN
+                        ALTER TABLE aeo_module_c_metrics 
+                        ADD COLUMN content_type_accuracy NUMERIC(5,2) DEFAULT 0;
+                    END IF;
+                    
+                    -- Add prompt_intent_match
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'aeo_module_c_metrics' AND column_name = 'prompt_intent_match'
+                    ) THEN
+                        ALTER TABLE aeo_module_c_metrics 
+                        ADD COLUMN prompt_intent_match NUMERIC(5,2) DEFAULT 0;
+                    END IF;
+                    
+                    -- Add visibility_impact
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'aeo_module_c_metrics' AND column_name = 'visibility_impact'
+                    ) THEN
+                        ALTER TABLE aeo_module_c_metrics 
+                        ADD COLUMN visibility_impact NUMERIC(5,2) DEFAULT 0;
+                    END IF;
+                    
+                    -- Add suggested_content_type
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'aeo_module_c_metrics' AND column_name = 'suggested_content_type'
+                    ) THEN
+                        ALTER TABLE aeo_module_c_metrics 
+                        ADD COLUMN suggested_content_type TEXT;
+                    END IF;
+                    
+                    -- Add prompt_intent_details
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'aeo_module_c_metrics' AND column_name = 'prompt_intent_details'
+                    ) THEN
+                        ALTER TABLE aeo_module_c_metrics 
+                        ADD COLUMN prompt_intent_details TEXT;
+                    END IF;
+                    
+                    -- Add visibility_factors
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'aeo_module_c_metrics' AND column_name = 'visibility_factors'
+                    ) THEN
+                        ALTER TABLE aeo_module_c_metrics 
+                        ADD COLUMN visibility_factors TEXT;
+                    END IF;
+                END $$;`
+            },
+            {
+                name: '044_add_entity_metrics_to_aeo_module_c',
+                sql: `
+                DO $$
+                BEGIN
+                    -- Add entities_detected_count
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'aeo_module_c_metrics' AND column_name = 'entities_detected_count'
+                    ) THEN
+                        ALTER TABLE aeo_module_c_metrics 
+                        ADD COLUMN entities_detected_count INTEGER DEFAULT 0;
+                    END IF;
+                    
+                    -- Add entity_coverage_score (if not already exists as entity_coverage_score)
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'aeo_module_c_metrics' AND column_name = 'entity_coverage_score'
+                    ) THEN
+                        ALTER TABLE aeo_module_c_metrics 
+                        ADD COLUMN entity_coverage_score NUMERIC(5,2) DEFAULT 0;
+                    END IF;
+                    
+                    -- Add entity_relevance_score
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'aeo_module_c_metrics' AND column_name = 'entity_relevance_score'
+                    ) THEN
+                        ALTER TABLE aeo_module_c_metrics 
+                        ADD COLUMN entity_relevance_score NUMERIC(5,2) DEFAULT 0;
+                    END IF;
+                    
+                    -- Add entity_relevance_details
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'aeo_module_c_metrics' AND column_name = 'entity_relevance_details'
+                    ) THEN
+                        ALTER TABLE aeo_module_c_metrics 
+                        ADD COLUMN entity_relevance_details TEXT;
+                    END IF;
+                END $$;`
             }
         ];
 

@@ -329,3 +329,187 @@ JSON:
         except Exception as e:
             logging.error(f"OpenAI summarization failed: {str(e)}")
             return "Summary unavailable (Quota Exceeded)"
+    
+    def analyze_content_metrics(self, content: str, url: str) -> Dict:
+        """
+        Analyze three key metrics:
+        1. Accuracy of content type suggestion
+        2. Match with prompt intent
+        3. Potential impact on visibility
+        
+        Returns comprehensive metrics for AEO optimization.
+        """
+        fallback_result = {
+            'content_type_accuracy': 50,
+            'prompt_intent_match': 50,
+            'visibility_impact': 50,
+            'suggested_content_type': 'Unknown (Safe Mode)',
+            'prompt_intent_details': {
+                'matched_intents': [],
+                'confidence': 0,
+                'search_queries': []
+            },
+            'visibility_factors': {
+                'factors': ['Service Unavailable'],
+                'score_breakdown': {},
+                'recommendations': ['Check OpenAI Billing']
+            }
+        }
+
+        if not self._is_available():
+            return fallback_result
+        
+        try:
+            # Truncate content for cost efficiency
+            if len(content) > 12000:
+                content = content[:12000] + "..."
+            
+            prompt = f"""You are an AEO (Answer Engine Optimization) Expert. Analyze this content from {url}.
+
+Content:
+{content}
+
+Analyze and return a JSON object with:
+
+1. **Content Type Accuracy** (0-100): How accurately can you identify the content type?
+   - Analyze: blog post, product page, FAQ, landing page, article, tutorial, documentation, etc.
+   - Consider: structure, formatting, headings, call-to-actions, metadata
+   - Score: 0-100 based on how clear/obvious the content type is
+
+2. **Prompt Intent Match** (0-100): How well does this content match user search intent?
+   - Analyze: informational, navigational, transactional, commercial investigation
+   - Consider: question patterns, keyword alignment, user journey stage
+   - Score: 0-100 based on how well content satisfies likely search queries
+
+3. **Visibility Impact** (0-100): Potential impact on search visibility/ranking
+   - Factors: keyword relevance, content depth, freshness, authority signals, schema markup potential
+   - Consider: uniqueness, comprehensiveness, E-A-T signals, technical SEO
+   - Score: 0-100 based on potential to rank and gain visibility
+
+Return JSON:
+{{
+    "content_type_accuracy": number,
+    "suggested_content_type": "string (e.g., 'blog', 'product', 'faq', 'landing_page')",
+    "prompt_intent_match": number,
+    "prompt_intent_details": {{
+        "matched_intents": ["informational", "transactional", etc.],
+        "confidence": number (0-100),
+        "search_queries": ["example query 1", "example query 2"]
+    }},
+    "visibility_impact": number,
+    "visibility_factors": {{
+        "factors": ["factor1", "factor2"],
+        "score_breakdown": {{
+            "keyword_relevance": number,
+            "content_depth": number,
+            "freshness": number,
+            "authority_signals": number
+        }},
+        "recommendations": ["rec1", "rec2"]
+    }}
+}}"""
+
+            response = self.client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "You are an expert AEO analyst. Output JSON only with accurate metrics."},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.3
+            )
+            
+            response_content = response.choices[0].message.content.strip()
+            result = json.loads(response_content)
+            
+            return {
+                'content_type_accuracy': result.get('content_type_accuracy', 50),
+                'prompt_intent_match': result.get('prompt_intent_match', 50),
+                'visibility_impact': result.get('visibility_impact', 50),
+                'suggested_content_type': result.get('suggested_content_type', 'Unknown'),
+                'prompt_intent_details': result.get('prompt_intent_details', {
+                    'matched_intents': [],
+                    'confidence': 0,
+                    'search_queries': []
+                }),
+                'visibility_factors': result.get('visibility_factors', {
+                    'factors': [],
+                    'score_breakdown': {},
+                    'recommendations': []
+                })
+            }
+            
+        except Exception as e:
+            logging.error(f"Content metrics analysis failed (Safe Mode): {str(e)}")
+            return fallback_result
+    
+    def analyze_entity_relevance(self, content: str, url: str, found_entities: list, expected_entities: list) -> Dict:
+        """
+        Analyze how relevant the found entities are to the user's search intent/prompt.
+        Returns relevance score (0-100) based on how well entities match search intent.
+        """
+        fallback_result = {
+            'entity_relevance_score': 50,
+            'relevance_explanation': 'Analysis unavailable',
+            'relevant_entities': [],
+            'irrelevant_entities': []
+        }
+        
+        if not self._is_available():
+            return fallback_result
+        
+        try:
+            if len(content) > 10000:
+                content = content[:10000] + "..."
+            
+            # Prepare entity lists
+            found_str = ", ".join(found_entities[:20]) if found_entities else "None"
+            expected_str = ", ".join(expected_entities[:20]) if expected_entities else "None"
+            
+            prompt = f"""You are an AEO (Answer Engine Optimization) Expert. Analyze entity relevance for content from {url}.
+
+Content Preview:
+{content}
+
+Found Entities: {found_str}
+Expected Entities: {expected_str}
+
+Analyze how RELEVANT the found entities are to typical user search queries and search intent for this content.
+
+Return JSON:
+{{
+    "entity_relevance_score": number (0-100),
+    "relevance_explanation": "string explaining relevance",
+    "relevant_entities": ["list of entities highly relevant to search intent"],
+    "irrelevant_entities": ["list of entities that don't match search intent well"]
+}}
+
+Scoring Guide:
+- 80-100: Entities perfectly match search intent and user queries
+- 60-79: Most entities are relevant, some minor gaps
+- 40-59: Mixed relevance, some entities don't match intent
+- 0-39: Entities poorly match search intent"""
+            
+            response = self.client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "You are an expert AEO analyst. Output JSON only."},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.3
+            )
+            
+            response_content = response.choices[0].message.content.strip()
+            result = json.loads(response_content)
+            
+            return {
+                'entity_relevance_score': result.get('entity_relevance_score', 50),
+                'relevance_explanation': result.get('relevance_explanation', ''),
+                'relevant_entities': result.get('relevant_entities', []),
+                'irrelevant_entities': result.get('irrelevant_entities', [])
+            }
+            
+        except Exception as e:
+            logging.error(f"Entity relevance analysis failed: {str(e)}")
+            return fallback_result

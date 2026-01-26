@@ -212,11 +212,120 @@ export const useAEOData = (result: any) => {
     return module?.recommendations || [];
   };
 
+  const getContentMetrics = () => {
+    if (!result?.detailed_analysis?.content_metrics) {
+      return {
+        content_type_accuracy: 0,
+        prompt_intent_match: 0,
+        visibility_impact: 0,
+        suggested_content_type: 'Unknown',
+        prompt_intent_details: {
+          matched_intents: [],
+          confidence: 0,
+          search_queries: []
+        },
+        visibility_factors: {
+          factors: [],
+          score_breakdown: {},
+          recommendations: []
+        }
+      };
+    }
+
+    const metrics = result.detailed_analysis.content_metrics;
+    
+    // Parse JSON strings if they exist
+    let promptIntentDetails = metrics.prompt_intent_details;
+    if (typeof promptIntentDetails === 'string') {
+      try {
+        promptIntentDetails = JSON.parse(promptIntentDetails);
+      } catch (e) {
+        promptIntentDetails = { matched_intents: [], confidence: 0, search_queries: [] };
+      }
+    }
+
+    let visibilityFactors = metrics.visibility_factors;
+    if (typeof visibilityFactors === 'string') {
+      try {
+        visibilityFactors = JSON.parse(visibilityFactors);
+      } catch (e) {
+        visibilityFactors = { factors: [], score_breakdown: {}, recommendations: [] };
+      }
+    }
+
+    return {
+      content_type_accuracy: Math.round(metrics.content_type_accuracy || 0),
+      prompt_intent_match: Math.round(metrics.prompt_intent_match || 0),
+      visibility_impact: Math.round(metrics.visibility_impact || 0),
+      suggested_content_type: metrics.suggested_content_type || 'Unknown',
+      prompt_intent_details: promptIntentDetails || {
+        matched_intents: [],
+        confidence: 0,
+        search_queries: []
+      },
+      visibility_factors: visibilityFactors || {
+        factors: [],
+        score_breakdown: {},
+        recommendations: []
+      }
+    };
+  };
+
+  const getEntityMetrics = () => {
+    // Get from metrics block first (new format)
+    const metrics = result?.metrics;
+    const entityRelevance = result?.detailed_analysis?.entity_relevance;
+    
+    if (metrics) {
+      let entityRelevanceDetails = entityRelevance || {};
+      if (typeof entityRelevanceDetails === 'string') {
+        try {
+          entityRelevanceDetails = JSON.parse(entityRelevanceDetails);
+        } catch (e) {
+          entityRelevanceDetails = {};
+        }
+      }
+      
+      return {
+        entities_detected_count: metrics.entities_detected_count || 0,
+        entity_coverage_score: metrics.entity_coverage_score || 0,
+        entity_relevance_score: metrics.entity_relevance_score || 0,
+        entity_relevance_details: entityRelevanceDetails
+      };
+    }
+    
+    // Fallback: calculate from entity_coverage if available
+    const kbData = result?.detailed_analysis?.knowledge_base;
+    const ecData = kbData?.entity_coverage;
+    
+    if (ecData) {
+      const foundCount = ecData.found_entities?.length || 0;
+      const totalExpected = (ecData.found_entities?.length || 0) + (ecData.missing_entities?.length || 0);
+      const coverageScore = totalExpected > 0 ? Math.round((foundCount / totalExpected) * 100) : 0;
+      
+      return {
+        entities_detected_count: foundCount,
+        entity_coverage_score: coverageScore,
+        entity_relevance_score: entityRelevance?.entity_relevance_score || 0,
+        entity_relevance_details: entityRelevance || {}
+      };
+    }
+    
+    return {
+      entities_detected_count: 0,
+      entity_coverage_score: 0,
+      entity_relevance_score: 0,
+      entity_relevance_details: {}
+    };
+  };
+
   return {
     scores: getScores(),
     aiPlatforms: getAIPlatforms(),
     competitors: getCompetitors(),
     strategyMetrics: getStrategyMetrics(),
-    getModuleRecommendations
+    getModuleRecommendations,
+    contentMetrics: getContentMetrics(),
+    entityMetrics: getEntityMetrics()
   };
 };

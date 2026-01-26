@@ -18,6 +18,30 @@ export interface ModuleCData {
     llm_friendliness_score: number;
     readability_score: number;
     fact_density: number;
+    // New Metrics
+    content_type_accuracy?: number;
+    prompt_intent_match?: number;
+    visibility_impact?: number;
+    suggested_content_type?: string;
+    prompt_intent_details?: {
+        matched_intents: string[];
+        confidence: number;
+        search_queries: string[];
+    };
+    visibility_factors?: {
+        factors: string[];
+        score_breakdown: Record<string, number>;
+        recommendations: string[];
+    };
+    // Entity Metrics
+    entities_detected_count?: number;
+    entity_coverage_score?: number;
+    entity_relevance_score?: number;
+    entity_relevance_details?: {
+        relevance_explanation: string;
+        relevant_entities: string[];
+        irrelevant_entities: string[];
+    };
 }
 
 export const aeoMetricsRepository = {
@@ -29,13 +53,19 @@ export const aeoMetricsRepository = {
                 difficulty_score, complexity_level, ai_feasibility_score,
                 entity_coverage_score, found_entities, missing_entities,
                 consistency_score, main_topics,
-                llm_friendliness_score, readability_score, fact_density
+                llm_friendliness_score, readability_score, fact_density,
+                content_type_accuracy, prompt_intent_match, visibility_impact,
+                suggested_content_type, prompt_intent_details, visibility_factors,
+                entities_detected_count, entity_relevance_score, entity_relevance_details
             ) VALUES (
                 $1, $2,
                 $3, $4, $5,
                 $6, $7, $8,
                 $9, $10,
-                $11, $12, $13
+                $11, $12, $13,
+                $14, $15, $16,
+                $17, $18, $19,
+                $20, $21, $22
             ) RETURNING id;
         `;
 
@@ -52,7 +82,16 @@ export const aeoMetricsRepository = {
             JSON.stringify(data.main_topics || []),
             data.llm_friendliness_score,
             data.readability_score,
-            data.fact_density
+            data.fact_density,
+            data.content_type_accuracy || 0,
+            data.prompt_intent_match || 0,
+            data.visibility_impact || 0,
+            data.suggested_content_type || null,
+            JSON.stringify(data.prompt_intent_details || {}),
+            JSON.stringify(data.visibility_factors || {}),
+            data.entities_detected_count || 0,
+            data.entity_relevance_score || 0,
+            data.entity_relevance_details ? JSON.stringify(data.entity_relevance_details) : null
         ];
 
         try {
@@ -84,7 +123,10 @@ export const aeoMetricsRepository = {
                 ...row,
                 found_entities: JSON.parse(row.found_entities || '[]'),
                 missing_entities: JSON.parse(row.missing_entities || '[]'),
-                main_topics: JSON.parse(row.main_topics || '[]')
+                main_topics: JSON.parse(row.main_topics || '[]'),
+                prompt_intent_details: JSON.parse(row.prompt_intent_details || '{}'),
+                visibility_factors: JSON.parse(row.visibility_factors || '{}'),
+                entity_relevance_details: JSON.parse(row.entity_relevance_details || '{}')
             };
         } catch (error) {
             console.error('❌ Error fetching Module C metrics:', error);
