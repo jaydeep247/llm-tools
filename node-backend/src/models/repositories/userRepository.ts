@@ -1,194 +1,212 @@
-import { Pool } from 'pg';
+import { prisma } from '../../config/prismaClient.js';
 import { User, UserSettings, UserUsage } from '../types.js';
 
 export class UserRepository {
-    constructor(private pool: Pool) { }
-
-    private safeInt(val: any): number | null {
-        if (val === undefined || val === null) return null;
-        if (typeof val === 'number') return Math.round(val);
-        const parsed = parseFloat(val);
-        return isNaN(parsed) ? null : Math.round(parsed);
-    }
+    constructor() { }
 
     async createUser(data: Omit<User, 'id' | 'createdAt' | 'lastLogin'>): Promise<number> {
-        const client = await this.pool.connect();
-        try {
-            await client.query('BEGIN');
-
-            const userRes = await client.query(
-                `INSERT INTO users (email, password_hash, name, created_at, is_active, role)
-         VALUES ($1, $2, $3, NOW(), $4, $5)
-         RETURNING id`,
-                [data.email, data.passwordHash, data.name || null, data.isActive, data.role]
-            );
-
-            const userId = userRes.rows[0].id;
+        const result = await prisma.$transaction(async (tx: any) => {
+            // Create user
+            const user = await tx.user.create({
+                data: {
+                    email: data.email,
+                    passwordHash: data.passwordHash,
+                    name: data.name || null,
+                    isActive: data.isActive,
+                    role: data.role,
+                },
+            });
 
             // Create default user settings
-            await client.query(
-                `INSERT INTO user_settings (user_id, max_crawls_per_day, email_notifications)
-         VALUES ($1, 100, TRUE)`,
-                [userId]
-            );
+            await tx.userSettings.create({
+                data: {
+                    userId: user.id,
+                    maxCrawlsPerDay: 100,
+                    emailNotifications: true,
+                },
+            });
 
-            await client.query('COMMIT');
-            return userId;
-        } catch (err) {
-            await client.query('ROLLBACK');
-            throw err;
-        } finally {
-            client.release();
-        }
+            return user.id;
+        });
+
+        return result;
     }
 
     async getUserById(id: number): Promise<User | null> {
-        const res = await this.pool.query('SELECT * FROM users WHERE id = $1', [id]);
-        if (res.rows.length === 0) return null;
-        return this.mapUser(res.rows[0]);
+        const user = await prisma.user.findUnique({
+            where: { id },
+        });
+
+        if (!user) return null;
+
+        return this.mapUser(user);
     }
 
     async getUserByEmail(email: string): Promise<User | null> {
-        const res = await this.pool.query('SELECT * FROM users WHERE email = $1', [email]);
-        if (res.rows.length === 0) return null;
-        return this.mapUser(res.rows[0]);
+        const user = await prisma.user.findUnique({
+            where: { email },
+        });
+
+        if (!user) return null;
+
+        return this.mapUser(user);
     }
 
     async updateUser(id: number, updates: Partial<Omit<User, 'id' | 'createdAt'>>): Promise<void> {
-        const fields: string[] = [];
-        const values: any[] = [];
-        let idx = 1;
+        const updateData: any = {};
 
-        if (updates.email !== undefined) { fields.push(`email = $${idx++}`); values.push(updates.email); }
-        if (updates.passwordHash !== undefined) { fields.push(`password_hash = $${idx++}`); values.push(updates.passwordHash); }
-        if (updates.name !== undefined) { fields.push(`name = $${idx++}`); values.push(updates.name); }
-        if (updates.lastLogin !== undefined) { fields.push(`last_login = $${idx++}`); values.push(updates.lastLogin); }
-        if (updates.isActive !== undefined) { fields.push(`is_active = $${idx++}`); values.push(updates.isActive); }
-        if (updates.role !== undefined) { fields.push(`role = $${idx++}`); values.push(updates.role); }
+        if (updates.email !== undefined) updateData.email = updates.email;
+        if (updates.passwordHash !== undefined) updateData.passwordHash = updates.passwordHash;
+        if (updates.name !== undefined) updateData.name = updates.name;
+        if (updates.lastLogin !== undefined) updateData.lastLogin = updates.lastLogin;
+        if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
+        if (updates.role !== undefined) updateData.role = updates.role;
 
-        if (fields.length === 0) return;
+        if (Object.keys(updateData).length === 0) return;
 
-        values.push(id);
-        await this.pool.query(
-            `UPDATE users SET ${fields.join(', ')} WHERE id = $${idx}`,
-            values
-        );
+        await prisma.user.update({
+            where: { id },
+            data: updateData,
+        });
     }
 
     async updateUserLastLogin(userId: number): Promise<void> {
-        await this.pool.query('UPDATE users SET last_login = NOW() WHERE id = $1', [userId]);
+        await prisma.user.update({
+            where: { id: userId },
+            data: { lastLogin: new Date() },
+        });
     }
 
     async deleteUser(id: number): Promise<void> {
-        await this.pool.query('DELETE FROM users WHERE id = $1', [id]);
+        await prisma.user.delete({
+            where: { id },
+        });
     }
 
     async getAllUsers(limit: number = 100, offset: number = 0): Promise<User[]> {
-        const res = await this.pool.query(
-            'SELECT * FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2',
-            [limit, offset]
-        );
-        return res.rows.map(row => this.mapUser(row));
+        const users = await prisma.user.findMany({
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+            skip: offset,
+        });
+
+        return users.map((user: any) => this.mapUser(user));
     }
 
     async getUserSettings(userId: number): Promise<UserSettings | null> {
-        const res = await this.pool.query('SELECT * FROM user_settings WHERE user_id = $1', [userId]);
-        if (res.rows.length === 0) return null;
-        const row = res.rows[0];
+        const settings = await prisma.userSettings.findUnique({
+            where: { userId },
+        });
+
+        if (!settings) return null;
+
         return {
-            userId: row.user_id,
-            openaiApiKey: row.openai_api_key,
-            psiApiKey: row.psi_api_key,
-            maxCrawlsPerDay: row.max_crawls_per_day,
-            emailNotifications: row.email_notifications
+            userId: settings.userId,
+            openaiApiKey: settings.openaiApiKey,
+            psiApiKey: settings.psiApiKey,
+            maxCrawlsPerDay: settings.maxCrawlsPerDay,
+            emailNotifications: settings.emailNotifications,
         };
     }
 
     async updateUserSettings(userId: number, updates: Partial<Omit<UserSettings, 'userId'>>): Promise<void> {
-        const fields: string[] = [];
-        const values: any[] = [];
-        let idx = 1;
+        const updateData: any = {};
 
-        if (updates.openaiApiKey !== undefined) { fields.push(`openai_api_key = $${idx++}`); values.push(updates.openaiApiKey); }
-        if (updates.psiApiKey !== undefined) { fields.push(`psi_api_key = $${idx++}`); values.push(updates.psiApiKey); }
-        if (updates.maxCrawlsPerDay !== undefined) { fields.push(`max_crawls_per_day = $${idx++}`); values.push(updates.maxCrawlsPerDay); }
-        if (updates.emailNotifications !== undefined) { fields.push(`email_notifications = $${idx++}`); values.push(updates.emailNotifications); }
+        if (updates.openaiApiKey !== undefined) updateData.openaiApiKey = updates.openaiApiKey;
+        if (updates.psiApiKey !== undefined) updateData.psiApiKey = updates.psiApiKey;
+        if (updates.maxCrawlsPerDay !== undefined) updateData.maxCrawlsPerDay = updates.maxCrawlsPerDay;
+        if (updates.emailNotifications !== undefined) updateData.emailNotifications = updates.emailNotifications;
 
-        if (fields.length === 0) return;
+        if (Object.keys(updateData).length === 0) return;
 
-        values.push(userId);
-        await this.pool.query(
-            `UPDATE user_settings SET ${fields.join(', ')} WHERE user_id = $${idx}`,
-            values
-        );
+        await prisma.userSettings.update({
+            where: { userId },
+            data: updateData,
+        });
     }
 
     async recordUserUsage(userId: number, actionType: string, creditsUsed: number = 1): Promise<void> {
-        await this.pool.query(
-            'INSERT INTO user_usage (user_id, action_type, timestamp, credits_used) VALUES ($1, $2, NOW(), $3)',
-            [this.safeInt(userId), actionType, this.safeInt(creditsUsed)]
-        );
+        await prisma.userUsage.create({
+            data: {
+                userId,
+                actionType,
+                creditsUsed,
+            },
+        });
     }
 
     async getUserUsage(userId: number, actionType?: string, limit: number = 100): Promise<UserUsage[]> {
-        let sql = 'SELECT * FROM user_usage WHERE user_id = $1';
-        const params: any[] = [userId];
-
+        const where: any = { userId };
         if (actionType) {
-            sql += ' AND action_type = $2';
-            params.push(actionType);
+            where.actionType = actionType;
         }
 
-        sql += ` ORDER BY timestamp DESC LIMIT $${params.length + 1}`;
-        params.push(limit);
+        const usage = await prisma.userUsage.findMany({
+            where,
+            orderBy: { timestamp: 'desc' },
+            take: limit,
+        });
 
-        const res = await this.pool.query(sql, params);
-        return res.rows.map(row => ({
+        return usage.map((row: any) => ({
             id: row.id,
-            userId: row.user_id,
-            actionType: row.action_type,
+            userId: row.userId,
+            actionType: row.actionType,
             timestamp: row.timestamp,
-            creditsUsed: row.credits_used
+            creditsUsed: row.creditsUsed,
         }));
     }
 
     async getTodayUsageCount(userId: number, actionType: string): Promise<number> {
-        const res = await this.pool.query(
-            "SELECT COUNT(*) FROM user_usage WHERE user_id = $1 AND action_type = $2 AND timestamp >= CURRENT_DATE",
-            [userId, actionType]
-        );
-        return parseInt(res.rows[0].count);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const count = await prisma.userUsage.count({
+            where: {
+                userId,
+                actionType,
+                timestamp: {
+                    gte: today,
+                },
+            },
+        });
+
+        return count;
     }
 
     async getUserUsageStats(userId: number, since?: string): Promise<any> {
-        let sql = 'SELECT action_type as type, COUNT(*) as count, SUM(credits_used) as credits FROM user_usage WHERE user_id = $1';
-        const params: any[] = [userId];
-
+        const where: any = { userId };
         if (since) {
-            sql += ' AND timestamp >= $2';
-            params.push(since);
+            where.timestamp = { gte: new Date(since) };
         }
 
-        sql += ' GROUP BY action_type';
+        const stats = await prisma.userUsage.groupBy({
+            by: ['actionType'],
+            where,
+            _count: {
+                id: true,
+            },
+            _sum: {
+                creditsUsed: true,
+            },
+        });
 
-        const res = await this.pool.query(sql, params);
-        return res.rows.map(row => ({
-            type: row.type,
-            count: parseInt(row.count),
-            credits: parseInt(row.credits || 0)
+        return stats.map((stat: any) => ({
+            type: stat.actionType,
+            count: stat._count.id,
+            credits: stat._sum.creditsUsed || 0,
         }));
     }
 
-    private mapUser(row: any): User {
+    private mapUser(user: any): User {
         return {
-            id: row.id,
-            email: row.email,
-            passwordHash: row.password_hash,
-            name: row.name,
-            createdAt: row.created_at,
-            lastLogin: row.last_login,
-            isActive: row.is_active,
-            role: row.role
+            id: user.id,
+            email: user.email,
+            passwordHash: user.passwordHash,
+            name: user.name,
+            createdAt: user.createdAt,
+            lastLogin: user.lastLogin,
+            isActive: user.isActive,
+            role: user.role,
         };
     }
 }

@@ -1,4 +1,4 @@
-import { getPool } from '../src/config/dbConnection.js';
+import { prisma } from '../src/config/prismaClient.js';
 import { Logger } from '../src/helpers/logging/Logger.js';
 
 const logger = Logger.getInstance();
@@ -395,7 +395,6 @@ COMMENT ON COLUMN pages.url_encoded_address IS 'The percent-encoded (URL-safe) v
 ];
 
 export async function runCrawlerTableMigrations() {
-    const pool = getPool();
     const results: MigrationResult[] = [];
     
     try {
@@ -407,8 +406,8 @@ export async function runCrawlerTableMigrations() {
             try {
                 logger.info(`\n📝 Running migration: ${migration.name}`);
                 
-                // Execute migration
-                await pool.query(migration.sql);
+                // Execute migration using Prisma (unsafe raw SQL by design for migrations)
+                await prisma.$executeRawUnsafe(migration.sql);
                 
                 logger.info(`✅ Successfully executed: ${migration.name}`);
                 results.push({
@@ -467,28 +466,28 @@ export async function runCrawlerTableMigrations() {
         
         // Verify migrations - check pages table structure
         console.log('\n🔍 Verifying pages table structure...');
-        const columnsResult = await pool.query(`
+        const columnsResult = await prisma.$queryRaw<any[]>`
             SELECT column_name, data_type, is_nullable, column_default
             FROM information_schema.columns 
             WHERE table_name = 'pages'
             ORDER BY ordinal_position
-        `);
+        `;
         
-        console.log(`\n📊 Total columns in pages table: ${columnsResult.rows.length}`);
+        console.log(`\n📊 Total columns in pages table: ${columnsResult.length}`);
         console.log('\nColumns added by migrations:');
-        columnsResult.rows.forEach(row => {
+        columnsResult.forEach(row => {
             console.log(`  - ${row.column_name} (${row.data_type})${row.is_nullable === 'YES' ? ' NULL' : ' NOT NULL'}`);
         });
         
         // Check indexes
-        const indexesResult = await pool.query(`
+        const indexesResult = await prisma.$queryRaw<any[]>`
             SELECT indexname, indexdef
             FROM pg_indexes
             WHERE tablename = 'pages'
             ORDER BY indexname
-        `);
+        `;
         
-        console.log(`\n📇 Total indexes on pages table: ${indexesResult.rows.length}`);
+        console.log(`\n📇 Total indexes on pages table: ${indexesResult.length}`);
         
         if (failed > 0) {
             logger.error(`\n⚠️  ${failed} migration(s) failed. Please review errors above.`);
@@ -501,7 +500,7 @@ export async function runCrawlerTableMigrations() {
         logger.error('Failed to run migrations', error as Error);
         throw error;
     } finally {
-        await pool.end();
+        await prisma.$disconnect();
     }
 }
 

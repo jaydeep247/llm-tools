@@ -1,5 +1,5 @@
 
-import { query } from '../../config/dbConnection.js';
+import { prisma } from '../../config/prismaClient.js';
 import * as cheerio from 'cheerio';
 
 
@@ -478,32 +478,57 @@ ${page.content.substring(0, 3000)} ...[truncated]
     }
 
     private static async saveScores(url: string, scores: AeoScoreResult, entityResult: EntityAnalysisResult, pageCount: number, sessionId?: number) {
-        const sql = `
-            INSERT INTO aeo_results(
-        url, session_id,
-        score_openai, score_claude, score_gemini, score_consistency, brand_metrics,
-        score_entity_coverage, entities_expected, entities_observed, entities_missing,
-        analyzed_pages_count
-    )
-VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-            RETURNING id;
-`;
-
-        const params = [
-            url,
-            sessionId || null,
-            scores.openai,
-            scores.claude,
-            scores.gemini,
-            scores.consistency || 0,
-            scores.brand_metrics ? JSON.stringify(scores.brand_metrics) : null,
-            entityResult.score,
-            JSON.stringify(entityResult.entities_expected),
-            JSON.stringify(entityResult.entities_observed),
-            JSON.stringify(entityResult.entities_missing),
-            pageCount
-        ];
-
-        await query(sql, params);
+        if (sessionId) {
+            // Use upsert when sessionId exists (unique constraint)
+            await prisma.aeoResult.upsert({
+                where: { sessionId },
+                update: {
+                    url,
+                    scoreOpenai: scores.openai,
+                    scoreClaude: scores.claude,
+                    scoreGemini: scores.gemini,
+                    consistency: scores.consistency || 0,
+                    brandMetrics: scores.brand_metrics as any,
+                    scoreEntityCoverage: entityResult.score,
+                    entitiesExpected: entityResult.entities_expected as any,
+                    entitiesObserved: entityResult.entities_observed as any,
+                    entitiesMissing: entityResult.entities_missing as any,
+                    analyzedPagesCount: pageCount,
+                    updatedAt: new Date(),
+                },
+                create: {
+                    url,
+                    sessionId,
+                    scoreOpenai: scores.openai,
+                    scoreClaude: scores.claude,
+                    scoreGemini: scores.gemini,
+                    consistency: scores.consistency || 0,
+                    brandMetrics: scores.brand_metrics as any,
+                    scoreEntityCoverage: entityResult.score,
+                    entitiesExpected: entityResult.entities_expected as any,
+                    entitiesObserved: entityResult.entities_observed as any,
+                    entitiesMissing: entityResult.entities_missing as any,
+                    analyzedPagesCount: pageCount,
+                },
+            });
+        } else {
+            // Just create if no sessionId (no unique constraint)
+            await prisma.aeoResult.create({
+                data: {
+                    url,
+                    sessionId: null,
+                    scoreOpenai: scores.openai,
+                    scoreClaude: scores.claude,
+                    scoreGemini: scores.gemini,
+                    consistency: scores.consistency || 0,
+                    brandMetrics: scores.brand_metrics as any,
+                    scoreEntityCoverage: entityResult.score,
+                    entitiesExpected: entityResult.entities_expected as any,
+                    entitiesObserved: entityResult.entities_observed as any,
+                    entitiesMissing: entityResult.entities_missing as any,
+                    analyzedPagesCount: pageCount,
+                },
+            });
+        }
     }
 }

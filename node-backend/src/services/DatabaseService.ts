@@ -1,5 +1,4 @@
 import { Logger } from '../helpers/logging/Logger.js';
-import { getPool } from '../config/dbConnection.js';
 import { UserRepository } from '../models/repositories/userRepository.js';
 import { CrawlRepository } from '../models/repositories/crawlRepository.js';
 import { PageRepository } from '../models/repositories/pageRepository.js';
@@ -31,12 +30,10 @@ export class DatabaseService {
 
     private constructor() {
         this.logger = Logger.getInstance();
-        const pool = getPool();
-
-        this.users = new UserRepository(pool);
-        this.crawls = new CrawlRepository(pool);
-        this.pages = new PageRepository(pool);
-        this.audits = new AuditRepository(pool);
+        this.users = new UserRepository();
+        this.crawls = new CrawlRepository();
+        this.pages = new PageRepository();
+        this.audits = new AuditRepository();
     }
 
     public static getInstance(): DatabaseService {

@@ -1,9 +1,9 @@
-import { Pool } from 'pg';
+import { prisma, Prisma } from '../../config/prismaClient.js';
 import { Page, Resource } from '../types.js';
 import type { ContentFingerprint, NearDuplicateMetrics, SimilarityResult } from '../../helpers/module_A/duplicateDetection/types.js';
 
 export class PageRepository {
-    constructor(private pool: Pool) { }
+    constructor() { }
 
     private safeInt(val: any): number | null {
         if (val === undefined || val === null) return null;
@@ -13,223 +13,222 @@ export class PageRepository {
     }
 
     async insertPage(data: Omit<Page, 'id'>): Promise<number> {
-        const res = await this.pool.query(
-            `INSERT INTO pages 
-      (session_id, url, title, title_length, title_pixel_width, description, description_length, description_pixel_width, content_type, last_modified, status_code, response_time, word_count, sentence_count, average_words_per_sentence, flesch_reading_ease_score, readability_level, text_to_html_ratio, crawl_depth, folder_depth, size_bytes, timestamp, success, error_message, indexable, indexability_status, meta_keywords, meta_keywords_length, meta_robots, x_robots_tag, meta_refresh, canonical_url, rel_next, rel_prev, http_rel_next, http_rel_prev, amphtml_url, mobile_alternate_url, transferred_bytes, total_transferred_bytes, co2_mg, carbon_rating, heading_tags, spelling_errors, grammar_errors, redirect_url, redirect_type, cookies, language, http_version, closest_semantically_similar_address, semantic_similarity_score, no_semantically_similar, semantic_relevance_score, url_encoded_address, content_hash)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55, $56)
-      RETURNING id`,
-            [
-                this.safeInt(data.sessionId), data.url, data.title, this.safeInt(data.titleLength) || 0,
-                this.safeInt(data.titlePixelWidth),
-                data.description, this.safeInt(data.descriptionLength) || 0,
-                this.safeInt(data.descriptionPixelWidth),
-                data.contentType,
-                data.lastModified, this.safeInt(data.statusCode), this.safeInt(data.responseTime),
-                this.safeInt(data.wordCount) || 0, this.safeInt(data.sentenceCount) || 0,
-                data.averageWordsPerSentence !== undefined && data.averageWordsPerSentence !== null ? parseFloat(data.averageWordsPerSentence.toString()) : null,
-                data.fleschReadingEase !== undefined && data.fleschReadingEase !== null ? parseFloat(data.fleschReadingEase.toString()) : null,
-                data.readabilityLevel && data.readabilityLevel.trim().length > 0 ? data.readabilityLevel.trim() : null,
-                data.textToHtmlRatio !== undefined && data.textToHtmlRatio !== null ? parseFloat(data.textToHtmlRatio.toString()) : null,
-                this.safeInt(data.crawlDepth) || 0,
-                this.safeInt(data.folderDepth) || 0,
-                this.safeInt(data.sizeBytes),
-                data.timestamp, data.success, data.errorMessage,
-                data.indexable !== undefined ? data.indexable : true,
-                data.indexabilityStatus || 'indexable',
-                data.metaKeywords || null,
-                this.safeInt(data.metaKeywordsLength),
-                data.metaRobots || null,
-                data.xRobotsTag || null,
-                data.metaRefresh || null,
-                data.canonicalUrl || null,
-                data.relNext || null,
-                data.relPrev || null,
-                data.httpRelNext || null,
-                data.httpRelPrev || null,
-                data.amphtmlUrl || null,
-                data.mobileAlternateUrl || null,
-                this.safeInt(data.transferredBytes),
-                this.safeInt(data.totalTransferredBytes),
-                data.co2Mg ? parseFloat(data.co2Mg.toString()) : null,
-                data.carbonRating || null,
-                data.headingTags || null,
-                this.safeInt(data.spellingErrors) || 0,
-                this.safeInt(data.grammarErrors) || 0,
-                data.redirectUrl || null,
-                data.redirectType || null,
-                data.cookies || null,
-                data.language || null,
-                data.httpVersion || null,
-                // Semantic Analysis Fields
-                data.closestSemanticallySimilarAddress || null,
-                data.semanticSimilarityScore !== undefined && data.semanticSimilarityScore !== null ? parseFloat(data.semanticSimilarityScore.toString()) : null,
-                this.safeInt(data.noSemanticallySimilar) || 0,
-                data.semanticRelevanceScore !== undefined && data.semanticRelevanceScore !== null ? parseFloat(data.semanticRelevanceScore.toString()) : null,
-                // URL Encoded Address
-                data.urlEncodedAddress || null,
-                // Content Hash
-                data.contentHash || null
-            ]
-        );
-        return res.rows[0].id;
+        const page = await prisma.page.create({
+            data: {
+                sessionId: data.sessionId,
+                url: data.url,
+                title: data.title,
+                titleLength: data.titleLength || 0,
+                titlePixelWidth: data.titlePixelWidth ?? null,
+                description: data.description,
+                descriptionLength: data.descriptionLength || 0,
+                descriptionPixelWidth: data.descriptionPixelWidth ?? null,
+                contentType: data.contentType,
+                lastModified: data.lastModified ?? null,
+                statusCode: data.statusCode,
+                responseTime: data.responseTime,
+                wordCount: data.wordCount || 0,
+                sentenceCount: data.sentenceCount ?? null,
+                averageWordsPerSentence: data.averageWordsPerSentence !== undefined && data.averageWordsPerSentence !== null 
+                    ? data.averageWordsPerSentence 
+                    : null,
+                fleschReadingEase: data.fleschReadingEase !== undefined && data.fleschReadingEase !== null 
+                    ? data.fleschReadingEase 
+                    : null,
+                readabilityLevel: data.readabilityLevel && data.readabilityLevel.trim().length > 0 
+                    ? data.readabilityLevel.trim() 
+                    : null,
+                textToHtmlRatio: data.textToHtmlRatio !== undefined && data.textToHtmlRatio !== null 
+                    ? data.textToHtmlRatio 
+                    : null,
+                crawlDepth: data.crawlDepth || 0,
+                folderDepth: data.folderDepth || 0,
+                sizeBytes: data.sizeBytes ?? null,
+                timestamp: new Date(data.timestamp),
+                success: data.success,
+                errorMessage: data.errorMessage ?? null,
+                indexable: data.indexable !== undefined ? data.indexable : true,
+                indexabilityStatus: data.indexabilityStatus || 'indexable',
+                metaKeywords: data.metaKeywords ?? null,
+                metaKeywordsLength: data.metaKeywordsLength ?? null,
+                metaRobots: data.metaRobots ?? null,
+                xRobotsTag: data.xRobotsTag ?? null,
+                metaRefresh: data.metaRefresh ?? null,
+                canonicalUrl: data.canonicalUrl ?? null,
+                relNext: data.relNext ?? null,
+                relPrev: data.relPrev ?? null,
+                httpRelNext: data.httpRelNext ?? null,
+                httpRelPrev: data.httpRelPrev ?? null,
+                amphtmlUrl: data.amphtmlUrl ?? null,
+                mobileAlternateUrl: data.mobileAlternateUrl ?? null,
+                transferredBytes: data.transferredBytes ? BigInt(data.transferredBytes) : null,
+                totalTransferredBytes: data.totalTransferredBytes ? BigInt(data.totalTransferredBytes) : null,
+                co2Mg: data.co2Mg ?? null,
+                carbonRating: data.carbonRating ?? null,
+                headingTags: data.headingTags ?? null,
+                spellingErrors: data.spellingErrors || 0,
+                grammarErrors: data.grammarErrors || 0,
+                redirectUrl: data.redirectUrl ?? null,
+                redirectType: data.redirectType ?? null,
+                cookies: data.cookies ?? null,
+                language: data.language ?? null,
+                httpVersion: data.httpVersion ?? null,
+                closestSemanticallySimilarAddress: data.closestSemanticallySimilarAddress ?? null,
+                semanticSimilarityScore: data.semanticSimilarityScore ?? null,
+                noSemanticallySimilar: data.noSemanticallySimilar || 0,
+                semanticRelevanceScore: data.semanticRelevanceScore ?? null,
+                urlEncodedAddress: data.urlEncodedAddress ?? null,
+                contentHash: data.contentHash ?? null,
+            },
+        });
+        return page.id;
     }
 
-    /**
-     * Insert or update a content fingerprint for a page.
-     * Uses ON CONFLICT to keep the latest fingerprint per (page_id, session_id).
-     */
     async upsertContentFingerprint(fingerprint: ContentFingerprint): Promise<number> {
-        const res = await this.pool.query(
-            `INSERT INTO content_fingerprints 
-      (page_id, session_id, url, content_hash, simhash, word_count)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      ON CONFLICT (page_id, session_id) DO UPDATE SET
-        url = EXCLUDED.url,
-        content_hash = EXCLUDED.content_hash,
-        simhash = EXCLUDED.simhash,
-        word_count = EXCLUDED.word_count
-      RETURNING id`,
-            [
-                fingerprint.pageId,
-                fingerprint.sessionId,
-                fingerprint.url,
-                fingerprint.contentHash,
-                fingerprint.simhash,
-                fingerprint.wordCount
-            ]
-        );
-        return res.rows[0].id;
+        const result = await prisma.contentFingerprint.upsert({
+            where: {
+                pageId_sessionId: {
+                    pageId: fingerprint.pageId,
+                    sessionId: fingerprint.sessionId,
+                },
+            },
+            update: {
+                url: fingerprint.url,
+                contentHash: fingerprint.contentHash,
+                simhash: fingerprint.simhash,
+                wordCount: fingerprint.wordCount,
+            },
+            create: {
+                pageId: fingerprint.pageId,
+                sessionId: fingerprint.sessionId,
+                url: fingerprint.url,
+                contentHash: fingerprint.contentHash,
+                simhash: fingerprint.simhash,
+                wordCount: fingerprint.wordCount,
+            },
+        });
+        return result.id;
     }
 
-    /**
-     * Get all content fingerprints for a given session.
-     */
     async getContentFingerprintsBySession(sessionId: number): Promise<ContentFingerprint[]> {
-        const res = await this.pool.query(
-            `SELECT page_id, session_id, url, content_hash, simhash, word_count
-       FROM content_fingerprints
-       WHERE session_id = $1`,
-            [sessionId]
-        );
+        const fingerprints = await prisma.contentFingerprint.findMany({
+            where: { sessionId },
+            select: {
+                pageId: true,
+                sessionId: true,
+                url: true,
+                contentHash: true,
+                simhash: true,
+                wordCount: true,
+            },
+        });
 
-        return res.rows.map(row => ({
-            url: row.url,
-            pageId: row.page_id,
-            sessionId: row.session_id,
-            contentHash: row.content_hash,
-            simhash: row.simhash,
-            wordCount: row.word_count
+        return fingerprints.map(f => ({
+            url: f.url,
+            pageId: f.pageId,
+            sessionId: f.sessionId,
+            contentHash: f.contentHash,
+            simhash: f.simhash,
+            wordCount: f.wordCount,
         }));
     }
 
-    /**
-     * Clear similarity index entries for a session before recomputing.
-     */
     async clearSimilarityIndexForSession(sessionId: number): Promise<void> {
-        await this.pool.query(
-            `DELETE FROM similarity_index WHERE session_id = $1`,
-            [sessionId]
-        );
+        await prisma.similarityIndex.deleteMany({
+            where: { sessionId },
+        });
     }
 
-    /**
-     * Bulk insert similarity index entries for a session.
-     * Uses a transaction and UPSERT semantics.
-     */
     async insertSimilarityResults(results: SimilarityResult[]): Promise<void> {
         if (results.length === 0) return;
 
-        const client = await this.pool.connect();
-        try {
-            await client.query('BEGIN');
-            for (const r of results) {
-                await client.query(
-                    `INSERT INTO similarity_index 
-          (source_page_id, target_page_id, session_id, similarity_score)
-          VALUES ($1, $2, $3, $4)
-          ON CONFLICT (source_page_id, target_page_id, session_id) DO UPDATE SET
-            similarity_score = EXCLUDED.similarity_score`,
-                    [r.sourcePageId, r.targetPageId, r.sessionId, r.similarityScore]
-                );
-            }
-            await client.query('COMMIT');
-        } catch (err) {
-            await client.query('ROLLBACK');
-            throw err;
-        } finally {
-            client.release();
-        }
+        await prisma.$transaction(
+            results.map(r =>
+                prisma.similarityIndex.upsert({
+                    where: {
+                        sourcePageId_targetPageId_sessionId: {
+                            sourcePageId: r.sourcePageId,
+                            targetPageId: r.targetPageId,
+                            sessionId: r.sessionId,
+                        },
+                    },
+                    update: {
+                        similarityScore: r.similarityScore,
+                    },
+                    create: {
+                        sourcePageId: r.sourcePageId,
+                        targetPageId: r.targetPageId,
+                        sessionId: r.sessionId,
+                        similarityScore: r.similarityScore,
+                    },
+                })
+            )
+        );
     }
 
-    /**
-     * Bulk update pages with near-duplicate metrics.
-     */
     async updatePagesNearDuplicateMetrics(metrics: Map<number, NearDuplicateMetrics>): Promise<void> {
         if (metrics.size === 0) return;
 
-        const client = await this.pool.connect();
-        try {
-            await client.query('BEGIN');
-            for (const [pageId, m] of metrics.entries()) {
-                await client.query(
-                    `UPDATE pages
-           SET closest_duplicate_url = $2,
-               closest_duplicate_similarity = $3,
-               near_duplicate_count = $4
-           WHERE id = $1`,
-                    [
-                        pageId,
-                        m.closestMatch?.url || null,
-                        m.closestMatch?.similarity ?? null,
-                        m.nearDuplicateCount ?? 0
-                    ]
-                );
-            }
-            await client.query('COMMIT');
-        } catch (err) {
-            await client.query('ROLLBACK');
-            throw err;
-        } finally {
-            client.release();
-        }
+        await prisma.$transaction(
+            Array.from(metrics.entries()).map(([pageId, m]) =>
+                prisma.page.update({
+                    where: { id: pageId },
+                    data: {
+                        closestDuplicateUrl: m.closestMatch?.url ?? null,
+                        closestDuplicateSimilarity: m.closestMatch?.similarity ?? null,
+                        nearDuplicateCount: m.nearDuplicateCount ?? 0,
+                    },
+                })
+            )
+        );
     }
 
     async insertResource(data: Omit<Resource, 'id'>): Promise<number> {
-        const res = await this.pool.query(
-            `INSERT INTO resources 
-      (session_id, page_id, url, resource_type, title, description, content_type, status_code, response_time, timestamp)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      ON CONFLICT(session_id, url) DO UPDATE SET
-        page_id=EXCLUDED.page_id,
-        resource_type=EXCLUDED.resource_type,
-        title=EXCLUDED.title,
-        description=EXCLUDED.description,
-        content_type=EXCLUDED.content_type,
-        status_code=EXCLUDED.status_code,
-        response_time=EXCLUDED.response_time,
-        timestamp=EXCLUDED.timestamp
-      RETURNING id`,
-            [
-                this.safeInt(data.sessionId), this.safeInt(data.pageId), data.url, data.resourceType,
-                data.title, data.description, data.contentType,
-                this.safeInt(data.statusCode), this.safeInt(data.responseTime), data.timestamp
-            ]
-        );
-        return res.rows[0]?.id || 0;
+        const resource = await prisma.resource.upsert({
+            where: {
+                sessionId_url: {
+                    sessionId: data.sessionId,
+                    url: data.url,
+                },
+            },
+            update: {
+                pageId: data.pageId ?? null,
+                resourceType: data.resourceType,
+                title: data.title,
+                description: data.description,
+                contentType: data.contentType,
+                statusCode: data.statusCode ?? null,
+                responseTime: data.responseTime ?? null,
+                timestamp: new Date(data.timestamp),
+            },
+            create: {
+                sessionId: data.sessionId,
+                pageId: data.pageId ?? null,
+                url: data.url,
+                resourceType: data.resourceType,
+                title: data.title,
+                description: data.description,
+                contentType: data.contentType,
+                statusCode: data.statusCode ?? null,
+                responseTime: data.responseTime ?? null,
+                timestamp: new Date(data.timestamp),
+            },
+        });
+        return resource.id;
     }
 
     async updatePageCarbon(pageId: number, data: { transferredBytes: number, totalTransferredBytes: number, co2Mg: number, carbonRating: string }): Promise<void> {
-        await this.pool.query(
-            `UPDATE pages 
-             SET transferred_bytes = $2, total_transferred_bytes = $3, co2_mg = $4, carbon_rating = $5
-             WHERE id = $1`,
-            [pageId, this.safeInt(data.transferredBytes), this.safeInt(data.totalTransferredBytes), data.co2Mg, data.carbonRating]
-        );
+        await prisma.page.update({
+            where: { id: pageId },
+            data: {
+                transferredBytes: BigInt(data.transferredBytes),
+                totalTransferredBytes: BigInt(data.totalTransferredBytes),
+                co2Mg: data.co2Mg,
+                carbonRating: data.carbonRating,
+            },
+        });
     }
 
-    /**
-     * Bulk update pages with semantic analysis results
-     */
     async updatePagesSemanticAnalysis(semanticResults: Map<number, {
         closestSemanticallySimilarAddress: string | null;
         semanticSimilarityScore: number;
@@ -238,69 +237,50 @@ export class PageRepository {
     }>): Promise<void> {
         if (semanticResults.size === 0) return;
 
-        const client = await this.pool.connect();
-        try {
-            await client.query('BEGIN');
-            for (const [pageId, result] of semanticResults.entries()) {
-                await client.query(
-                    `UPDATE pages
-                     SET closest_semantically_similar_address = $2,
-                         semantic_similarity_score = $3,
-                         no_semantically_similar = $4,
-                         semantic_relevance_score = $5
-                     WHERE id = $1`,
-                    [
-                        pageId,
-                        result.closestSemanticallySimilarAddress || null,
-                        result.semanticSimilarityScore ?? 0,
-                        result.noSemanticallySimilar ?? 0,
-                        result.semanticRelevanceScore ?? 0.5
-                    ]
-                );
-            }
-            await client.query('COMMIT');
-        } catch (err) {
-            await client.query('ROLLBACK');
-            throw err;
-        } finally {
-            client.release();
-        }
+        await prisma.$transaction(
+            Array.from(semanticResults.entries()).map(([pageId, result]) =>
+                prisma.page.update({
+                    where: { id: pageId },
+                    data: {
+                        closestSemanticallySimilarAddress: result.closestSemanticallySimilarAddress ?? null,
+                        semanticSimilarityScore: result.semanticSimilarityScore,
+                        noSemanticallySimilar: result.noSemanticallySimilar ?? 0,
+                        semanticRelevanceScore: result.semanticRelevanceScore,
+                    },
+                })
+            )
+        );
     }
 
-    /**
-     * Update canonical validation for a page in page_metrics table
-     * This extracts and validates the canonical URL
-     */
     async updateCanonicalValidation(
-        pageId: number, 
-        sessionId: number, 
+        pageId: number,
+        sessionId: number,
         canonicalUrl: string | null,
         validationStatus: string | null,
         validationMessage: string | null
     ): Promise<void> {
-        // Insert or update in page_metrics table
-        await this.pool.query(
-            `INSERT INTO page_metrics (page_id, session_id, canonical_url, canonical_validation_status, canonical_validation_message, updated_at)
-             VALUES ($1, $2, $3, $4, $5, NOW())
-             ON CONFLICT (page_id, session_id) DO UPDATE SET
-                 canonical_url = EXCLUDED.canonical_url,
-                 canonical_validation_status = EXCLUDED.canonical_validation_status,
-                 canonical_validation_message = EXCLUDED.canonical_validation_message,
-                 updated_at = NOW()`,
-            [
+        await prisma.pageMetric.upsert({
+            where: {
+                pageId_sessionId: {
+                    pageId,
+                    sessionId,
+                },
+            },
+            update: {
+                canonicalUrl,
+                canonicalValidationStatus: validationStatus,
+                canonicalValidationMessage: validationMessage,
+            },
+            create: {
                 pageId,
                 sessionId,
                 canonicalUrl,
-                validationStatus,
-                validationMessage
-            ]
-        );
+                canonicalValidationStatus: validationStatus,
+                canonicalValidationMessage: validationMessage,
+            },
+        });
     }
 
-    /**
-     * Update table extraction data for a page in page_metrics table
-     * This stores the extracted table information from the page
-     */
     async updateTableExtraction(
         pageId: number,
         sessionId: number,
@@ -308,29 +288,28 @@ export class PageRepository {
         tableData: string | null,
         hasTables: boolean
     ): Promise<void> {
-        // Insert or update in page_metrics table
-        await this.pool.query(
-            `INSERT INTO page_metrics (page_id, session_id, table_count, table_data, has_tables, updated_at)
-             VALUES ($1, $2, $3, $4, $5, NOW())
-             ON CONFLICT (page_id, session_id) DO UPDATE SET
-                 table_count = EXCLUDED.table_count,
-                 table_data = EXCLUDED.table_data,
-                 has_tables = EXCLUDED.has_tables,
-                 updated_at = NOW()`,
-            [
+        await prisma.pageMetric.upsert({
+            where: {
+                pageId_sessionId: {
+                    pageId,
+                    sessionId,
+                },
+            },
+            update: {
+                tableCount,
+                tableData,
+                hasTables,
+            },
+            create: {
                 pageId,
                 sessionId,
                 tableCount,
                 tableData,
-                hasTables
-            ]
-        );
+                hasTables,
+            },
+        });
     }
 
-    /**
-     * Update FAQ extraction data for a page in page_metrics table
-     * This stores the extracted FAQ information from the page
-     */
     async updateFaqExtraction(
         pageId: number,
         sessionId: number,
@@ -341,19 +320,22 @@ export class PageRepository {
         faqDetectionMethod: string | null,
         faqSchemaPresent: boolean
     ): Promise<void> {
-        // Insert or update in page_metrics table
-        await this.pool.query(
-            `INSERT INTO page_metrics (page_id, session_id, faq_count, faq_data, has_faqs, faq_score, faq_detection_method, faq_schema_present, updated_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
-             ON CONFLICT (page_id, session_id) DO UPDATE SET
-                 faq_count = EXCLUDED.faq_count,
-                 faq_data = EXCLUDED.faq_data,
-                 has_faqs = EXCLUDED.has_faqs,
-                 faq_score = EXCLUDED.faq_score,
-                 faq_detection_method = EXCLUDED.faq_detection_method,
-                 faq_schema_present = EXCLUDED.faq_schema_present,
-                 updated_at = NOW()`,
-            [
+        await prisma.pageMetric.upsert({
+            where: {
+                pageId_sessionId: {
+                    pageId,
+                    sessionId,
+                },
+            },
+            update: {
+                faqCount,
+                faqData,
+                hasFaqs,
+                faqScore,
+                faqDetectionMethod,
+                faqSchemaPresent,
+            },
+            create: {
                 pageId,
                 sessionId,
                 faqCount,
@@ -361,15 +343,11 @@ export class PageRepository {
                 hasFaqs,
                 faqScore,
                 faqDetectionMethod,
-                faqSchemaPresent
-            ]
-        );
+                faqSchemaPresent,
+            },
+        });
     }
 
-    /**
-     * Update mixed content detection data for a page in page_metrics table
-     * This stores the detected mixed content information from the page
-     */
     async updateMixedContentDetection(
         pageId: number,
         sessionId: number,
@@ -380,34 +358,34 @@ export class PageRepository {
         passiveCount: number,
         totalCount: number
     ): Promise<void> {
-        // Insert or update in page_metrics table
-        await this.pool.query(
-            `INSERT INTO page_metrics (page_id, session_id, has_mixed_content, mixed_content_severity, mixed_content_data, active_mixed_content_count, passive_mixed_content_count, total_insecure_resources, updated_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
-             ON CONFLICT (page_id, session_id) DO UPDATE SET
-                 has_mixed_content = EXCLUDED.has_mixed_content,
-                 mixed_content_severity = EXCLUDED.mixed_content_severity,
-                 mixed_content_data = EXCLUDED.mixed_content_data,
-                 active_mixed_content_count = EXCLUDED.active_mixed_content_count,
-                 passive_mixed_content_count = EXCLUDED.passive_mixed_content_count,
-                 total_insecure_resources = EXCLUDED.total_insecure_resources,
-                 updated_at = NOW()`,
-            [
+        await prisma.pageMetric.upsert({
+            where: {
+                pageId_sessionId: {
+                    pageId,
+                    sessionId,
+                },
+            },
+            update: {
+                hasMixedContent,
+                mixedContentSeverity: severity,
+                mixedContentData,
+                activeMixedContentCount: activeCount,
+                passiveMixedContentCount: passiveCount,
+                totalInsecureResources: totalCount,
+            },
+            create: {
                 pageId,
                 sessionId,
                 hasMixedContent,
-                severity,
+                mixedContentSeverity: severity,
                 mixedContentData,
-                activeCount,
-                passiveCount,
-                totalCount
-            ]
-        );
+                activeMixedContentCount: activeCount,
+                passiveMixedContentCount: passiveCount,
+                totalInsecureResources: totalCount,
+            },
+        });
     }
 
-    /**
-     * Update word count analysis data for a page in wordcount_analysis table
-     */
     async updateWordCountAnalysis(
         pageId: number,
         sessionId: number,
@@ -430,114 +408,111 @@ export class PageRepository {
             headingWordCountMapping: Record<string, number>;
         }
     ): Promise<void> {
-        // Insert or update in wordcount_analysis table
-        await this.pool.query(
-            `INSERT INTO wordcount_analysis (
-                page_id, session_id, 
-                total_word_count, visible_word_count, unique_word_count, text_to_html_ratio,
-                sentence_count, paragraph_count,
-                average_sentence_length, average_paragraph_length, keyword_density,
-                thin_content, thin_content_reason,
-                duplicate_content, duplicate_with_urls,
-                section_word_count_mapping, section_word_count_breakdown, heading_word_count_mapping,
-                updated_at
-            )
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW())
-             ON CONFLICT (page_id, session_id) DO UPDATE SET
-                 total_word_count = EXCLUDED.total_word_count,
-                 visible_word_count = EXCLUDED.visible_word_count,
-                 unique_word_count = EXCLUDED.unique_word_count,
-                 text_to_html_ratio = EXCLUDED.text_to_html_ratio,
-                 sentence_count = EXCLUDED.sentence_count,
-                 paragraph_count = EXCLUDED.paragraph_count,
-                 average_sentence_length = EXCLUDED.average_sentence_length,
-                 average_paragraph_length = EXCLUDED.average_paragraph_length,
-                 keyword_density = EXCLUDED.keyword_density,
-                 thin_content = EXCLUDED.thin_content,
-                 thin_content_reason = EXCLUDED.thin_content_reason,
-                 duplicate_content = EXCLUDED.duplicate_content,
-                 duplicate_with_urls = EXCLUDED.duplicate_with_urls,
-                 section_word_count_mapping = EXCLUDED.section_word_count_mapping,
-                 section_word_count_breakdown = EXCLUDED.section_word_count_breakdown,
-                 heading_word_count_mapping = EXCLUDED.heading_word_count_mapping,
-                 updated_at = NOW()`,
-            [
+        await prisma.wordcountAnalysis.upsert({
+            where: {
+                pageId_sessionId: {
+                    pageId,
+                    sessionId,
+                },
+            },
+            update: {
+                totalWordCount: wordCountData.totalWordCount,
+                visibleWordCount: wordCountData.visibleWordCount,
+                uniqueWordCount: wordCountData.uniqueWordCount,
+                textToHtmlRatio: wordCountData.textToHtmlRatio,
+                sentenceCount: wordCountData.sentenceCount,
+                paragraphCount: wordCountData.paragraphCount,
+                averageSentenceLength: wordCountData.averageSentenceLength,
+                averageParagraphLength: wordCountData.averageParagraphLength,
+                keywordDensity: wordCountData.keywordDensity ?? null,
+                thinContent: wordCountData.thinContent,
+                thinContentReason: wordCountData.thinContentReason,
+                duplicateContent: wordCountData.duplicateContent,
+                duplicateWithUrls: wordCountData.duplicateWithUrls.length > 0 
+                    ? wordCountData.duplicateWithUrls as any 
+                    : null,
+                sectionWordCountMapping: Object.keys(wordCountData.sectionWordCountMapping).length > 0 
+                    ? wordCountData.sectionWordCountMapping as any 
+                    : null,
+                sectionWordCountBreakdown: Object.keys(wordCountData.sectionWordCountBreakdown).length > 0 
+                    ? wordCountData.sectionWordCountBreakdown as any 
+                    : null,
+                headingWordCountMapping: Object.keys(wordCountData.headingWordCountMapping).length > 0 
+                    ? wordCountData.headingWordCountMapping as any 
+                    : null,
+            },
+            create: {
                 pageId,
                 sessionId,
-                wordCountData.totalWordCount,
-                wordCountData.visibleWordCount,
-                wordCountData.uniqueWordCount,
-                wordCountData.textToHtmlRatio,
-                wordCountData.sentenceCount,
-                wordCountData.paragraphCount,
-                wordCountData.averageSentenceLength,
-                wordCountData.averageParagraphLength,
-                wordCountData.keywordDensity,
-                wordCountData.thinContent,
-                wordCountData.thinContentReason,
-                wordCountData.duplicateContent,
-                wordCountData.duplicateWithUrls.length > 0 ? JSON.stringify(wordCountData.duplicateWithUrls) : null,
-                Object.keys(wordCountData.sectionWordCountMapping).length > 0 ? JSON.stringify(wordCountData.sectionWordCountMapping) : null,
-                Object.keys(wordCountData.sectionWordCountBreakdown).length > 0 ? JSON.stringify(wordCountData.sectionWordCountBreakdown) : null,
-                Object.keys(wordCountData.headingWordCountMapping).length > 0 ? JSON.stringify(wordCountData.headingWordCountMapping) : null
-            ]
-        );
+                totalWordCount: wordCountData.totalWordCount,
+                visibleWordCount: wordCountData.visibleWordCount,
+                uniqueWordCount: wordCountData.uniqueWordCount,
+                textToHtmlRatio: wordCountData.textToHtmlRatio,
+                sentenceCount: wordCountData.sentenceCount,
+                paragraphCount: wordCountData.paragraphCount,
+                averageSentenceLength: wordCountData.averageSentenceLength,
+                averageParagraphLength: wordCountData.averageParagraphLength,
+                keywordDensity: wordCountData.keywordDensity ?? null,
+                thinContent: wordCountData.thinContent,
+                thinContentReason: wordCountData.thinContentReason,
+                duplicateContent: wordCountData.duplicateContent,
+                duplicateWithUrls: wordCountData.duplicateWithUrls.length > 0 
+                    ? wordCountData.duplicateWithUrls as any 
+                    : null,
+                sectionWordCountMapping: Object.keys(wordCountData.sectionWordCountMapping).length > 0 
+                    ? wordCountData.sectionWordCountMapping as any 
+                    : null,
+                sectionWordCountBreakdown: Object.keys(wordCountData.sectionWordCountBreakdown).length > 0 
+                    ? wordCountData.sectionWordCountBreakdown as any 
+                    : null,
+                headingWordCountMapping: Object.keys(wordCountData.headingWordCountMapping).length > 0 
+                    ? wordCountData.headingWordCountMapping as any 
+                    : null,
+            },
+        });
     }
 
-    /**
-     * Get a page by ID
-     */
     async getPageById(pageId: number): Promise<{ id: number; url: string; contentHash: string | null; sessionId: number } | null> {
-        const result = await this.pool.query(
-            `SELECT id, url, content_hash, session_id 
-             FROM pages 
-             WHERE id = $1`,
-            [pageId]
-        );
-        
-        if (result.rows.length === 0) {
-            return null;
-        }
-        
-        const row = result.rows[0];
+        const page = await prisma.page.findUnique({
+            where: { id: pageId },
+            select: {
+                id: true,
+                url: true,
+                contentHash: true,
+                sessionId: true,
+            },
+        });
+
+        if (!page) return null;
+
         return {
-            id: row.id,
-            url: row.url,
-            contentHash: row.content_hash || null,
-            sessionId: row.session_id
+            id: page.id,
+            url: page.url,
+            contentHash: page.contentHash,
+            sessionId: page.sessionId,
         };
     }
 
-    /**
-     * Get pages with the same content hash in a session (excluding a specific page)
-     */
     async getPagesByContentHash(
         contentHash: string,
         sessionId: number,
         excludePageId?: number
     ): Promise<{ id: number; url: string }[]> {
-        let query = `
-            SELECT id, url 
-            FROM pages 
-            WHERE content_hash = $1 AND session_id = $2
-        `;
-        const params: any[] = [contentHash, sessionId];
-        
-        if (excludePageId) {
-            query += ` AND id != $3`;
-            params.push(excludePageId);
-        }
-        
-        const result = await this.pool.query(query, params);
-        return result.rows.map(row => ({
-            id: row.id,
-            url: row.url
-        }));
+        const pages = await prisma.page.findMany({
+            where: {
+                contentHash,
+                sessionId,
+                ...(excludePageId ? { id: { not: excludePageId } } : {}),
+            },
+            select: {
+                id: true,
+                url: true,
+            },
+        });
+
+        return pages;
     }
 
-    /**
-     * Update header structure, viewport, and structured data information for a page in page_metrics table
-     */
     async updateSeoStructureData(
         pageId: number,
         sessionId: number,
@@ -551,22 +526,25 @@ export class PageRepository {
         structuredDataTypes: string | null,
         structuredDataPriorityType: string | null
     ): Promise<void> {
-        // Insert or update in page_metrics table
-        await this.pool.query(
-            `INSERT INTO page_metrics (page_id, session_id, header_structure_data, header_structure_issues, viewport_present, viewport_content, viewport_status, structured_data_present, structured_data_format, structured_data_types, structured_data_priority_type, updated_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
-             ON CONFLICT (page_id, session_id) DO UPDATE SET
-                 header_structure_data = EXCLUDED.header_structure_data,
-                 header_structure_issues = EXCLUDED.header_structure_issues,
-                 viewport_present = EXCLUDED.viewport_present,
-                 viewport_content = EXCLUDED.viewport_content,
-                 viewport_status = EXCLUDED.viewport_status,
-                 structured_data_present = EXCLUDED.structured_data_present,
-                 structured_data_format = EXCLUDED.structured_data_format,
-                 structured_data_types = EXCLUDED.structured_data_types,
-                 structured_data_priority_type = EXCLUDED.structured_data_priority_type,
-                 updated_at = NOW()`,
-            [
+        await prisma.pageMetric.upsert({
+            where: {
+                pageId_sessionId: {
+                    pageId,
+                    sessionId,
+                },
+            },
+            update: {
+                headerStructureData,
+                headerStructureIssues,
+                viewportPresent,
+                viewportContent,
+                viewportStatus,
+                structuredDataPresent,
+                structuredDataFormat,
+                structuredDataTypes,
+                structuredDataPriorityType,
+            },
+            create: {
                 pageId,
                 sessionId,
                 headerStructureData,
@@ -577,15 +555,11 @@ export class PageRepository {
                 structuredDataPresent,
                 structuredDataFormat,
                 structuredDataTypes,
-                structuredDataPriorityType
-            ]
-        );
+                structuredDataPriorityType,
+            },
+        });
     }
 
-    /**
-     * Update page size measurement fields for a page in page_metrics table
-     * This stores the page size, HTML size, and resource size measurements
-     */
     async updatePageSizeMeasurements(
         pageId: number,
         sessionId: number,
@@ -596,19 +570,22 @@ export class PageRepository {
         totalResourceSizeBytes: number,
         resourceSizeBreakdown: string | null
     ): Promise<void> {
-        // Insert or update in page_metrics table
-        await this.pool.query(
-            `INSERT INTO page_metrics (page_id, session_id, page_size_bytes, page_size_status, html_size_bytes, html_size_status, total_resource_size_bytes, resource_size_breakdown, updated_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
-             ON CONFLICT (page_id, session_id) DO UPDATE SET
-                 page_size_bytes = EXCLUDED.page_size_bytes,
-                 page_size_status = EXCLUDED.page_size_status,
-                 html_size_bytes = EXCLUDED.html_size_bytes,
-                 html_size_status = EXCLUDED.html_size_status,
-                 total_resource_size_bytes = EXCLUDED.total_resource_size_bytes,
-                 resource_size_breakdown = EXCLUDED.resource_size_breakdown,
-                 updated_at = NOW()`,
-            [
+        await prisma.pageMetric.upsert({
+            where: {
+                pageId_sessionId: {
+                    pageId,
+                    sessionId,
+                },
+            },
+            update: {
+                pageSizeBytes,
+                pageSizeStatus,
+                htmlSizeBytes,
+                htmlSizeStatus,
+                totalResourceSizeBytes,
+                resourceSizeBreakdown,
+            },
+            create: {
                 pageId,
                 sessionId,
                 pageSizeBytes,
@@ -616,323 +593,295 @@ export class PageRepository {
                 htmlSizeBytes,
                 htmlSizeStatus,
                 totalResourceSizeBytes,
-                resourceSizeBreakdown
-            ]
-        );
+                resourceSizeBreakdown,
+            },
+        });
     }
 
-    /**
-     * Update meta description detection fields for a page in page_metrics table
-     * This calculates missing/duplicate meta description status by checking against other pages in the session
-     */
     async updateMetaDescriptionDetection(pageId: number, sessionId: number, metaDescription: string | null): Promise<void> {
-        // Import here to avoid circular dependencies
         const { detectMissingMetaDescription, detectDuplicateMetaDescription, buildMetaDescriptionIndex } = await import('../../helpers/module_A/metaDescriptionDetection/metaDescriptionDetectionService.js');
-        
-        // Get all pages in the session for duplicate detection
-        const allPages = await this.pool.query(
-            `SELECT url, description FROM pages WHERE session_id = $1`,
-            [sessionId]
-        );
-        
-        // Get current page URL
-        const currentPage = await this.pool.query(
-            `SELECT url FROM pages WHERE id = $1`,
-            [pageId]
-        );
-        
-        if (currentPage.rows.length === 0) return;
-        
-        const currentUrl = currentPage.rows[0].url;
-        
-        // Build meta description index for duplicate detection
+
+        const allPages = await prisma.page.findMany({
+            where: { sessionId },
+            select: { url: true, description: true },
+        });
+
+        const currentPage = await prisma.page.findUnique({
+            where: { id: pageId },
+            select: { url: true },
+        });
+
+        if (!currentPage) return;
+
         const descriptionIndex = buildMetaDescriptionIndex(
-            allPages.rows.map(row => ({ url: row.url, metaDescription: row.description }))
+            allPages.map(p => ({ url: p.url, metaDescription: p.description }))
         );
-        
-        // Detect meta description status
+
         const missingStatus = detectMissingMetaDescription(metaDescription);
-        const duplicateResult = detectDuplicateMetaDescription(currentUrl, metaDescription, descriptionIndex);
-        
-        // Determine final status (Missing takes precedence)
+        const duplicateResult = detectDuplicateMetaDescription(currentPage.url, metaDescription, descriptionIndex);
         const finalStatus = missingStatus === 'Missing' ? 'Missing' : duplicateResult.metaDescriptionStatus;
-        
-        // Insert or update in page_metrics table
-        await this.pool.query(
-            `INSERT INTO page_metrics (page_id, session_id, meta_description_status, duplicate_meta_description_count, duplicate_meta_description_with, updated_at)
-             VALUES ($1, $2, $3, $4, $5, NOW())
-             ON CONFLICT (page_id, session_id) DO UPDATE SET
-                 meta_description_status = EXCLUDED.meta_description_status,
-                 duplicate_meta_description_count = EXCLUDED.duplicate_meta_description_count,
-                 duplicate_meta_description_with = EXCLUDED.duplicate_meta_description_with,
-                 updated_at = NOW()`,
-            [
+
+        await prisma.pageMetric.upsert({
+            where: {
+                pageId_sessionId: {
+                    pageId,
+                    sessionId,
+                },
+            },
+            update: {
+                metaDescriptionStatus: finalStatus,
+                duplicateMetaDescriptionCount: duplicateResult.duplicateMetaDescriptionCount ?? null,
+                duplicateMetaDescriptionWith: duplicateResult.duplicateWith && duplicateResult.duplicateWith.length > 0 
+                    ? JSON.stringify(duplicateResult.duplicateWith) 
+                    : null,
+            },
+            create: {
                 pageId,
                 sessionId,
-                finalStatus,
-                duplicateResult.duplicateMetaDescriptionCount || null,
-                duplicateResult.duplicateWith && duplicateResult.duplicateWith.length > 0 
+                metaDescriptionStatus: finalStatus,
+                duplicateMetaDescriptionCount: duplicateResult.duplicateMetaDescriptionCount ?? null,
+                duplicateMetaDescriptionWith: duplicateResult.duplicateWith && duplicateResult.duplicateWith.length > 0 
                     ? JSON.stringify(duplicateResult.duplicateWith) 
-                    : null
-            ]
-        );
+                    : null,
+            },
+        });
     }
 
-    /**
-     * Batch update meta description detection for all pages in a session
-     * This is more efficient than updating one by one
-     */
     async batchUpdateMetaDescriptionDetection(sessionId: number): Promise<void> {
-        // Import here to avoid circular dependencies
         const { batchDetectMetaDescriptionIssues } = await import('../../helpers/module_A/metaDescriptionDetection/metaDescriptionDetectionService.js');
-        
-        // Get all pages in the session
-        const allPages = await this.pool.query(
-            `SELECT id, url, description FROM pages WHERE session_id = $1`,
-            [sessionId]
-        );
-        
-        if (allPages.rows.length === 0) return;
-        
-        // Batch detect meta description issues
-        const pages = allPages.rows.map(row => ({ url: row.url, metaDescription: row.description }));
+
+        const allPages = await prisma.page.findMany({
+            where: { sessionId },
+            select: { id: true, url: true, description: true },
+        });
+
+        if (allPages.length === 0) return;
+
+        const pages = allPages.map(p => ({ url: p.url, metaDescription: p.description }));
         const results = batchDetectMetaDescriptionIssues(pages);
-        
-        // Update all pages in page_metrics table in a transaction
-        const client = await this.pool.connect();
-        try {
-            await client.query('BEGIN');
-            
-            for (const row of allPages.rows) {
-                const result = results.get(row.url);
-                if (result) {
-                    await client.query(
-                        `INSERT INTO page_metrics (page_id, session_id, meta_description_status, duplicate_meta_description_count, duplicate_meta_description_with, updated_at)
-                         VALUES ($1, $2, $3, $4, $5, NOW())
-                         ON CONFLICT (page_id, session_id) DO UPDATE SET
-                             meta_description_status = EXCLUDED.meta_description_status,
-                             duplicate_meta_description_count = EXCLUDED.duplicate_meta_description_count,
-                             duplicate_meta_description_with = EXCLUDED.duplicate_meta_description_with,
-                             updated_at = NOW()`,
-                        [
-                            row.id,
+
+        const updates = allPages
+            .map(page => {
+                const result = results.get(page.url);
+                if (!result) return null;
+
+                return prisma.pageMetric.upsert({
+                    where: {
+                        pageId_sessionId: {
+                            pageId: page.id,
                             sessionId,
-                            result.metaDescriptionStatus,
-                            result.duplicateMetaDescriptionCount || null,
-                            result.duplicateWith && result.duplicateWith.length > 0 
-                                ? JSON.stringify(result.duplicateWith) 
-                                : null
-                        ]
-                    );
-                }
-            }
-            
-            await client.query('COMMIT');
-        } catch (err) {
-            await client.query('ROLLBACK');
-            throw err;
-        } finally {
-            client.release();
+                        },
+                    },
+                    update: {
+                        metaDescriptionStatus: result.metaDescriptionStatus,
+                        duplicateMetaDescriptionCount: result.duplicateMetaDescriptionCount ?? null,
+                        duplicateMetaDescriptionWith: result.duplicateWith && result.duplicateWith.length > 0 
+                            ? JSON.stringify(result.duplicateWith) 
+                            : null,
+                    },
+                    create: {
+                        pageId: page.id,
+                        sessionId,
+                        metaDescriptionStatus: result.metaDescriptionStatus,
+                        duplicateMetaDescriptionCount: result.duplicateMetaDescriptionCount ?? null,
+                        duplicateMetaDescriptionWith: result.duplicateWith && result.duplicateWith.length > 0 
+                            ? JSON.stringify(result.duplicateWith) 
+                            : null,
+                    },
+                });
+            })
+            .filter((update): update is NonNullable<typeof update> => update !== null);
+
+        if (updates.length > 0) {
+            await prisma.$transaction(updates);
         }
     }
 
-    /**
-     * Update title detection fields for a page in page_metrics table
-     * This calculates missing/duplicate title status by checking against other pages in the session
-     */
     async updateTitleDetection(pageId: number, sessionId: number, title: string | null): Promise<void> {
-        // Import here to avoid circular dependencies
         const { detectMissingTitle, detectDuplicateTitle, buildTitleIndex } = await import('../../helpers/module_A/titleDetection/titleDetectionService.js');
-        
-        // Get all pages in the session for duplicate detection
-        const allPages = await this.pool.query(
-            `SELECT url, title FROM pages WHERE session_id = $1`,
-            [sessionId]
-        );
-        
-        // Get current page URL
-        const currentPage = await this.pool.query(
-            `SELECT url FROM pages WHERE id = $1`,
-            [pageId]
-        );
-        
-        if (currentPage.rows.length === 0) return;
-        
-        const currentUrl = currentPage.rows[0].url;
-        
-        // Build title index for duplicate detection
+
+        const allPages = await prisma.page.findMany({
+            where: { sessionId },
+            select: { url: true, title: true },
+        });
+
+        const currentPage = await prisma.page.findUnique({
+            where: { id: pageId },
+            select: { url: true },
+        });
+
+        if (!currentPage) return;
+
         const titleIndex = buildTitleIndex(
-            allPages.rows.map(row => ({ url: row.url, title: row.title }))
+            allPages.map(p => ({ url: p.url, title: p.title }))
         );
-        
-        // Detect title status
+
         const missingStatus = detectMissingTitle(title);
-        const duplicateResult = detectDuplicateTitle(currentUrl, title, titleIndex);
-        
-        // Determine final status (Missing takes precedence)
+        const duplicateResult = detectDuplicateTitle(currentPage.url, title, titleIndex);
         const finalStatus = missingStatus === 'Missing' ? 'Missing' : duplicateResult.titleStatus;
-        
-        // Insert or update in page_metrics table
-        await this.pool.query(
-            `INSERT INTO page_metrics (page_id, session_id, title_status, duplicate_title_count, duplicate_with, updated_at)
-             VALUES ($1, $2, $3, $4, $5, NOW())
-             ON CONFLICT (page_id, session_id) DO UPDATE SET
-                 title_status = EXCLUDED.title_status,
-                 duplicate_title_count = EXCLUDED.duplicate_title_count,
-                 duplicate_with = EXCLUDED.duplicate_with,
-                 updated_at = NOW()`,
-            [
+
+        await prisma.pageMetric.upsert({
+            where: {
+                pageId_sessionId: {
+                    pageId,
+                    sessionId,
+                },
+            },
+            update: {
+                titleStatus: finalStatus,
+                duplicateTitleCount: duplicateResult.duplicateTitleCount ?? null,
+                duplicateWith: duplicateResult.duplicateWith && duplicateResult.duplicateWith.length > 0 
+                    ? JSON.stringify(duplicateResult.duplicateWith) 
+                    : null,
+            },
+            create: {
                 pageId,
                 sessionId,
-                finalStatus,
-                duplicateResult.duplicateTitleCount || null,
-                duplicateResult.duplicateWith && duplicateResult.duplicateWith.length > 0 
+                titleStatus: finalStatus,
+                duplicateTitleCount: duplicateResult.duplicateTitleCount ?? null,
+                duplicateWith: duplicateResult.duplicateWith && duplicateResult.duplicateWith.length > 0 
                     ? JSON.stringify(duplicateResult.duplicateWith) 
-                    : null
-            ]
-        );
+                    : null,
+            },
+        });
     }
 
-    /**
-     * Batch update title detection for all pages in a session
-     * This is more efficient than updating one by one
-     */
     async batchUpdateTitleDetection(sessionId: number): Promise<void> {
-        // Import here to avoid circular dependencies
         const { batchDetectTitleIssues } = await import('../../helpers/module_A/titleDetection/titleDetectionService.js');
-        
-        // Get all pages in the session
-        const allPages = await this.pool.query(
-            `SELECT id, url, title FROM pages WHERE session_id = $1`,
-            [sessionId]
-        );
-        
-        if (allPages.rows.length === 0) return;
-        
-        // Batch detect title issues
-        const pages = allPages.rows.map(row => ({ url: row.url, title: row.title }));
+
+        const allPages = await prisma.page.findMany({
+            where: { sessionId },
+            select: { id: true, url: true, title: true },
+        });
+
+        if (allPages.length === 0) return;
+
+        const pages = allPages.map(p => ({ url: p.url, title: p.title }));
         const results = batchDetectTitleIssues(pages);
-        
-        // Update all pages in page_metrics table in a transaction
-        const client = await this.pool.connect();
-        try {
-            await client.query('BEGIN');
-            
-            for (const row of allPages.rows) {
-                const result = results.get(row.url);
-                if (result) {
-                    await client.query(
-                        `INSERT INTO page_metrics (page_id, session_id, title_status, duplicate_title_count, duplicate_with, updated_at)
-                         VALUES ($1, $2, $3, $4, $5, NOW())
-                         ON CONFLICT (page_id, session_id) DO UPDATE SET
-                             title_status = EXCLUDED.title_status,
-                             duplicate_title_count = EXCLUDED.duplicate_title_count,
-                             duplicate_with = EXCLUDED.duplicate_with,
-                             updated_at = NOW()`,
-                        [
-                            row.id,
+
+        const updates = allPages
+            .map(page => {
+                const result = results.get(page.url);
+                if (!result) return null;
+
+                return prisma.pageMetric.upsert({
+                    where: {
+                        pageId_sessionId: {
+                            pageId: page.id,
                             sessionId,
-                            result.titleStatus,
-                            result.duplicateTitleCount || null,
-                            result.duplicateWith && result.duplicateWith.length > 0 
-                                ? JSON.stringify(result.duplicateWith) 
-                                : null
-                        ]
-                    );
-                }
-            }
-            
-            await client.query('COMMIT');
-        } catch (err) {
-            await client.query('ROLLBACK');
-            throw err;
-        } finally {
-            client.release();
+                        },
+                    },
+                    update: {
+                        titleStatus: result.titleStatus,
+                        duplicateTitleCount: result.duplicateTitleCount ?? null,
+                        duplicateWith: result.duplicateWith && result.duplicateWith.length > 0 
+                            ? JSON.stringify(result.duplicateWith) 
+                            : null,
+                    },
+                    create: {
+                        pageId: page.id,
+                        sessionId,
+                        titleStatus: result.titleStatus,
+                        duplicateTitleCount: result.duplicateTitleCount ?? null,
+                        duplicateWith: result.duplicateWith && result.duplicateWith.length > 0 
+                            ? JSON.stringify(result.duplicateWith) 
+                            : null,
+                    },
+                });
+            })
+            .filter((update): update is NonNullable<typeof update> => update !== null);
+
+        if (updates.length > 0) {
+            await prisma.$transaction(updates);
         }
     }
 
-    /**
-     * Batch update both title and meta description detection for all pages in a session
-     * This is the most efficient way to update all metrics at once
-     */
     async batchUpdateAllDetections(sessionId: number): Promise<void> {
-        // Import here to avoid circular dependencies
         const { batchDetectTitleIssues } = await import('../../helpers/module_A/titleDetection/titleDetectionService.js');
         const { batchDetectMetaDescriptionIssues } = await import('../../helpers/module_A/metaDescriptionDetection/metaDescriptionDetectionService.js');
-        
-        // Get all pages in the session
-        const allPages = await this.pool.query(
-            `SELECT id, url, title, description FROM pages WHERE session_id = $1`,
-            [sessionId]
-        );
-        
-        if (allPages.rows.length === 0) return;
-        
-        // Batch detect title issues
-        const titlePages = allPages.rows.map(row => ({ url: row.url, title: row.title }));
+
+        const allPages = await prisma.page.findMany({
+            where: { sessionId },
+            select: { id: true, url: true, title: true, description: true },
+        });
+
+        if (allPages.length === 0) return;
+
+        const titlePages = allPages.map(p => ({ url: p.url, title: p.title }));
         const titleResults = batchDetectTitleIssues(titlePages);
-        
-        // Batch detect meta description issues
-        const descPages = allPages.rows.map(row => ({ url: row.url, metaDescription: row.description }));
+
+        const descPages = allPages.map(p => ({ url: p.url, metaDescription: p.description }));
         const descResults = batchDetectMetaDescriptionIssues(descPages);
-        
-        // Update all pages in page_metrics table in a transaction
-        const client = await this.pool.connect();
-        try {
-            await client.query('BEGIN');
-            
-            for (const row of allPages.rows) {
-                const titleResult = titleResults.get(row.url);
-                const descResult = descResults.get(row.url);
-                
-                if (titleResult || descResult) {
-                    await client.query(
-                        `INSERT INTO page_metrics (
-                            page_id, session_id, 
-                            title_status, duplicate_title_count, duplicate_with,
-                            meta_description_status, duplicate_meta_description_count, duplicate_meta_description_with,
-                            updated_at
-                        )
-                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
-                         ON CONFLICT (page_id, session_id) DO UPDATE SET
-                             title_status = EXCLUDED.title_status,
-                             duplicate_title_count = EXCLUDED.duplicate_title_count,
-                             duplicate_with = EXCLUDED.duplicate_with,
-                             meta_description_status = EXCLUDED.meta_description_status,
-                             duplicate_meta_description_count = EXCLUDED.duplicate_meta_description_count,
-                             duplicate_meta_description_with = EXCLUDED.duplicate_meta_description_with,
-                             updated_at = NOW()`,
-                        [
-                            row.id,
-                            sessionId,
-                            titleResult?.titleStatus || null,
-                            titleResult?.duplicateTitleCount || null,
-                            titleResult?.duplicateWith && titleResult.duplicateWith.length > 0 
-                                ? JSON.stringify(titleResult.duplicateWith) 
-                                : null,
-                            descResult?.metaDescriptionStatus || null,
-                            descResult?.duplicateMetaDescriptionCount || null,
-                            descResult?.duplicateWith && descResult.duplicateWith.length > 0 
-                                ? JSON.stringify(descResult.duplicateWith) 
-                                : null
-                        ]
-                    );
+
+        const updates = allPages
+            .map(page => {
+                const titleResult = titleResults.get(page.url);
+                const descResult = descResults.get(page.url);
+
+                if (!titleResult && !descResult) return null;
+
+                const updateData: any = {};
+                const createData: any = {
+                    pageId: page.id,
+                    sessionId,
+                };
+
+                if (titleResult) {
+                    updateData.titleStatus = titleResult.titleStatus;
+                    updateData.duplicateTitleCount = titleResult.duplicateTitleCount ?? null;
+                    updateData.duplicateWith = titleResult.duplicateWith && titleResult.duplicateWith.length > 0 
+                        ? JSON.stringify(titleResult.duplicateWith) 
+                        : null;
+                    createData.titleStatus = titleResult.titleStatus;
+                    createData.duplicateTitleCount = titleResult.duplicateTitleCount ?? null;
+                    createData.duplicateWith = titleResult.duplicateWith && titleResult.duplicateWith.length > 0 
+                        ? JSON.stringify(titleResult.duplicateWith) 
+                        : null;
+                } else {
+                    createData.titleStatus = null;
+                    createData.duplicateTitleCount = null;
+                    createData.duplicateWith = null;
                 }
-            }
-            
-            await client.query('COMMIT');
-        } catch (err) {
-            await client.query('ROLLBACK');
-            throw err;
-        } finally {
-            client.release();
+
+                if (descResult) {
+                    updateData.metaDescriptionStatus = descResult.metaDescriptionStatus;
+                    updateData.duplicateMetaDescriptionCount = descResult.duplicateMetaDescriptionCount ?? null;
+                    updateData.duplicateMetaDescriptionWith = descResult.duplicateWith && descResult.duplicateWith.length > 0 
+                        ? JSON.stringify(descResult.duplicateWith) 
+                        : null;
+                    createData.metaDescriptionStatus = descResult.metaDescriptionStatus;
+                    createData.duplicateMetaDescriptionCount = descResult.duplicateMetaDescriptionCount ?? null;
+                    createData.duplicateMetaDescriptionWith = descResult.duplicateWith && descResult.duplicateWith.length > 0 
+                        ? JSON.stringify(descResult.duplicateWith) 
+                        : null;
+                } else {
+                    createData.metaDescriptionStatus = null;
+                    createData.duplicateMetaDescriptionCount = null;
+                    createData.duplicateMetaDescriptionWith = null;
+                }
+
+                return prisma.pageMetric.upsert({
+                    where: {
+                        pageId_sessionId: {
+                            pageId: page.id,
+                            sessionId,
+                        },
+                    },
+                    update: updateData,
+                    create: createData,
+                });
+            })
+            .filter((update): update is NonNullable<typeof update> => update !== null);
+
+        if (updates.length > 0) {
+            await prisma.$transaction(updates);
         }
     }
 
     async getPages(sessionId?: number, limit: number = 1000, offset: number = 0): Promise<Page[]> {
+        // Complex query with joins - use $queryRaw for now
         if (!sessionId) {
-            // If no sessionId, use simple query with page_metrics join
-            const sql = `
+            const result = await prisma.$queryRaw<any[]>`
                 SELECT p.*, 
                     pm.title_status, pm.duplicate_title_count, pm.duplicate_with,
                     pm.meta_description_status, pm.duplicate_meta_description_count, pm.duplicate_meta_description_with,
@@ -956,20 +905,19 @@ export class PageRepository {
                 LEFT JOIN page_metrics pm ON p.id = pm.page_id AND p.session_id = pm.session_id
                 LEFT JOIN wordcount_analysis wc ON p.id = wc.page_id AND p.session_id = wc.session_id
                 ORDER BY p.timestamp DESC 
-                LIMIT $1 OFFSET $2
+                LIMIT ${limit} OFFSET ${offset}
             `;
-            const res = await this.pool.query(sql, [limit, offset]);
-            return res.rows.map(row => this.mapPage(row));
+            return result.map((row: any) => this.mapPage(row));
         }
 
-        // With sessionId, include link statistics and page metrics
-        const sql = `
+        // With sessionId - complex query with CTEs and multiple joins
+        const result = await prisma.$queryRaw<any[]>`
             WITH total_unique_inlinks AS (
                 SELECT SUM(unique_count) as total
                 FROM (
                     SELECT COUNT(DISTINCT source_page_id) as unique_count
                     FROM links
-                    WHERE session_id = $1
+                    WHERE session_id = ${sessionId}
                     GROUP BY target_page_id
                 ) sub
             )
@@ -1037,45 +985,45 @@ export class PageRepository {
             LEFT JOIN (
                 SELECT target_page_id, COUNT(DISTINCT source_page_id) as count
                 FROM links
-                WHERE session_id = $1
+                WHERE session_id = ${sessionId}
                 GROUP BY target_page_id
             ) unique_in_links ON p.id = unique_in_links.target_page_id
             LEFT JOIN (
                 SELECT target_page_id, COUNT(DISTINCT source_page_id) as count
                 FROM links
-                WHERE session_id = $1 AND is_js_rendered = TRUE
+                WHERE session_id = ${sessionId} AND is_js_rendered = TRUE
                 GROUP BY target_page_id
             ) unique_js_in_links ON p.id = unique_js_in_links.target_page_id
             LEFT JOIN (
                 SELECT source_page_id, COUNT(DISTINCT target_url) as count
                 FROM links
-                WHERE session_id = $1
+                WHERE session_id = ${sessionId}
                 GROUP BY source_page_id
             ) unique_out_links ON p.id = unique_out_links.source_page_id
             LEFT JOIN (
                 SELECT source_page_id, COUNT(DISTINCT target_url) as count
                 FROM links
-                WHERE session_id = $1 AND is_js_rendered = TRUE
+                WHERE session_id = ${sessionId} AND is_js_rendered = TRUE
                 GROUP BY source_page_id
             ) unique_js_out_links ON p.id = unique_js_out_links.source_page_id
             LEFT JOIN (
                 SELECT source_page_id, COUNT(DISTINCT target_url) as count
                 FROM links
-                WHERE session_id = $1 AND is_internal = FALSE
+                WHERE session_id = ${sessionId} AND is_internal = FALSE
                 GROUP BY source_page_id
             ) unique_external_out_links ON p.id = unique_external_out_links.source_page_id
             LEFT JOIN (
                 SELECT source_page_id, COUNT(DISTINCT target_url) as count
                 FROM links
-                WHERE session_id = $1 AND is_internal = FALSE AND is_js_rendered = TRUE
+                WHERE session_id = ${sessionId} AND is_internal = FALSE AND is_js_rendered = TRUE
                 GROUP BY source_page_id
             ) unique_external_js_out_links ON p.id = unique_external_js_out_links.source_page_id
-            WHERE p.session_id = $1
+            WHERE p.session_id = ${sessionId}
             ORDER BY p.timestamp DESC 
-            LIMIT $2 OFFSET $3
+            LIMIT ${limit} OFFSET ${offset}
         `;
-        const res = await this.pool.query(sql, [sessionId, limit, offset]);
-        return res.rows.map(row => ({
+
+        return result.map((row: any) => ({
             ...this.mapPage(row),
             uniqueInlinks: parseInt(row.uniqueInlinks) || 0,
             uniqueJsInlinks: parseInt(row.uniqueJsInlinks) || 0,
@@ -1083,99 +1031,81 @@ export class PageRepository {
             uniqueOutlinks: parseInt(row.uniqueOutlinks) || 0,
             uniqueJsOutlinks: parseInt(row.uniqueJsOutlinks) || 0,
             uniqueExternalOutlinks: parseInt(row.uniqueExternalOutlinks) || 0,
-            uniqueExternalJsOutlinks: parseInt(row.uniqueExternalJsOutlinks) || 0
+            uniqueExternalJsOutlinks: parseInt(row.uniqueExternalJsOutlinks) || 0,
         }));
     }
 
     async getResources(sessionId?: number, resourceType?: string, limit: number = 1000, offset: number = 0): Promise<Resource[]> {
-        let sql = 'SELECT * FROM resources';
-        const conditions: string[] = [];
-        const params: any[] = [];
-
+        const where: any = {};
         if (sessionId) {
-            conditions.push(`session_id = $${params.length + 1}`);
-            params.push(sessionId);
+            where.sessionId = sessionId;
         }
-
         if (resourceType) {
-            conditions.push(`resource_type = $${params.length + 1}`);
-            params.push(resourceType);
+            where.resourceType = resourceType;
         }
 
-        if (conditions.length > 0) {
-            sql += ' WHERE ' + conditions.join(' AND ');
-        }
+        const resources = await prisma.resource.findMany({
+            where,
+            orderBy: { timestamp: 'desc' },
+            take: limit,
+            skip: offset,
+        });
 
-        sql += ` ORDER BY timestamp DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
-        params.push(limit, offset);
-
-        const res = await this.pool.query(sql, params);
-        return res.rows.map(row => this.mapResource(row));
+        return resources.map((r: any) => this.mapResource(r));
     }
 
     async insertLinks(links: any[]): Promise<void> {
         if (links.length === 0) return;
 
-        const client = await this.pool.connect();
-        try {
-            await client.query('BEGIN');
-            for (const link of links) {
-                await client.query(
-                    `INSERT INTO links 
-          (session_id, source_page_id, source_url, target_url, target_page_id, is_internal, anchor_text, xpath, position, rel, nofollow, is_js_rendered, created_at)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())`,
-                    [
-                        link.sessionId, link.sourcePageId, link.sourceUrl, link.targetUrl,
-                        link.targetPageId || null, link.isInternal, link.anchorText || null,
-                        link.xpath || null, link.position || null, link.rel || null,
-                        link.nofollow || false, link.isJsRendered || false
-                    ]
-                );
-            }
-            await client.query('COMMIT');
-        } catch (err) {
-            await client.query('ROLLBACK');
-            throw err;
-        } finally {
-            client.release();
-        }
+        await prisma.$transaction(
+            links.map(link =>
+                prisma.link.create({
+                    data: {
+                        sessionId: link.sessionId,
+                        sourcePageId: link.sourcePageId,
+                        sourceUrl: link.sourceUrl,
+                        targetUrl: link.targetUrl,
+                        targetPageId: link.targetPageId || null,
+                        isInternal: link.isInternal,
+                        anchorText: link.anchorText || null,
+                        xpath: link.xpath || null,
+                        position: link.position || null,
+                        rel: link.rel || null,
+                        nofollow: link.nofollow || false,
+                        isJsRendered: link.isJsRendered || false,
+                    },
+                })
+            )
+        );
     }
 
-    /**
-     * Calculate and update external outlinks counts for a specific page
-     * This counts unique external domain links (both regular and JS-rendered)
-     */
     async updatePageExternalOutlinks(pageId: number, sessionId: number): Promise<void> {
-        const sql = `
+        // Use raw query for complex UPDATE with subqueries
+        await prisma.$executeRaw`
             UPDATE pages 
             SET 
                 unique_external_outlinks = (
                     SELECT COUNT(DISTINCT target_url)
                     FROM links
-                    WHERE source_page_id = $1 
-                      AND session_id = $2 
+                    WHERE source_page_id = ${pageId} 
+                      AND session_id = ${sessionId} 
                       AND is_internal = FALSE
                       AND (is_js_rendered IS NULL OR is_js_rendered = FALSE)
                 ),
                 unique_external_js_outlinks = (
                     SELECT COUNT(DISTINCT target_url)
                     FROM links
-                    WHERE source_page_id = $1 
-                      AND session_id = $2 
+                    WHERE source_page_id = ${pageId} 
+                      AND session_id = ${sessionId} 
                       AND is_internal = FALSE
                       AND is_js_rendered = TRUE
                 )
-            WHERE id = $1
+            WHERE id = ${pageId}
         `;
-        await this.pool.query(sql, [pageId, sessionId]);
     }
 
-    /**
-     * Batch update external outlinks for all pages in a session
-     * This is useful for recalculating counts after bulk link insertion
-     */
     async updateAllPagesExternalOutlinks(sessionId: number): Promise<void> {
-        const sql = `
+        await prisma.$executeRaw`
             UPDATE pages p
             SET 
                 unique_external_outlinks = COALESCE(external_links.count, 0),
@@ -1183,7 +1113,7 @@ export class PageRepository {
             FROM (
                 SELECT source_page_id, COUNT(DISTINCT target_url) as count
                 FROM links
-                WHERE session_id = $1 
+                WHERE session_id = ${sessionId} 
                   AND is_internal = FALSE
                   AND (is_js_rendered IS NULL OR is_js_rendered = FALSE)
                 GROUP BY source_page_id
@@ -1191,301 +1121,273 @@ export class PageRepository {
             FULL OUTER JOIN (
                 SELECT source_page_id, COUNT(DISTINCT target_url) as count
                 FROM links
-                WHERE session_id = $1 
+                WHERE session_id = ${sessionId} 
                   AND is_internal = FALSE
                   AND is_js_rendered = TRUE
                 GROUP BY source_page_id
             ) external_js_links ON external_links.source_page_id = external_js_links.source_page_id
             WHERE p.id = COALESCE(external_links.source_page_id, external_js_links.source_page_id)
-              AND p.session_id = $1
+              AND p.session_id = ${sessionId}
         `;
-        await this.pool.query(sql, [sessionId]);
     }
 
     async getPageCount(sessionId?: number): Promise<number> {
-        let sql = 'SELECT COUNT(*) FROM pages';
-        const params: any[] = [];
-        if (sessionId) {
-            sql += ' WHERE session_id = $1';
-            params.push(sessionId);
-        }
-        const res = await this.pool.query(sql, params);
-        return parseInt(res.rows[0].count);
+        const where = sessionId ? { sessionId } : {};
+        return await prisma.page.count({ where });
     }
 
     async getResourceCount(sessionId?: number): Promise<number> {
-        let sql = 'SELECT COUNT(*) FROM resources';
-        const params: any[] = [];
-        if (sessionId) {
-            sql += ' WHERE session_id = $1';
-            params.push(sessionId);
-        }
-        const res = await this.pool.query(sql, params);
-        return parseInt(res.rows[0].count);
+        const where = sessionId ? { sessionId } : {};
+        return await prisma.resource.count({ where });
     }
 
     async getResourceTypeStats(sessionId?: number): Promise<any[]> {
-        let sql = 'SELECT resource_type as type, COUNT(*) as count FROM resources';
-        const params: any[] = [];
-        if (sessionId) {
-            sql += ' WHERE session_id = $1';
-            params.push(sessionId);
-        }
-        sql += ' GROUP BY resource_type';
-        const res = await this.pool.query(sql, params);
-        return res.rows;
+        const where = sessionId ? { sessionId } : {};
+        const stats = await prisma.resource.groupBy({
+            by: ['resourceType'],
+            where,
+            _count: {
+                id: true,
+            },
+        });
+
+        return stats.map((stat: any) => ({
+            type: stat.resourceType,
+            count: stat._count.id,
+        }));
     }
 
     async getLinkAnalysis(sessionId?: number): Promise<any[]> {
-        const params: any[] = [];
-        let whereClause = '';
-        if (sessionId) {
-            whereClause = ' WHERE p.session_id = $1';
-            params.push(sessionId);
-        }
-
-        const sql = `
+        // Complex query with subqueries - use $queryRaw
+        const result = await prisma.$queryRaw<any[]>`
             SELECT 
                 p.id, 
                 p.url, 
                 p.title,
-                (SELECT COUNT(*) FROM links l WHERE l.target_page_id = p.id ${sessionId ? `AND l.session_id = $1` : ''}) as inlinks,
-                (SELECT COUNT(*) FROM links l WHERE l.source_page_id = p.id ${sessionId ? `AND l.session_id = $1` : ''}) as outlinks
+                (SELECT COUNT(*) FROM links l WHERE l.target_page_id = p.id ${sessionId ? Prisma.sql`AND l.session_id = ${sessionId}` : Prisma.empty}) as inlinks,
+                (SELECT COUNT(*) FROM links l WHERE l.source_page_id = p.id ${sessionId ? Prisma.sql`AND l.session_id = ${sessionId}` : Prisma.empty}) as outlinks
             FROM pages p
-            ${whereClause}
+            ${sessionId ? Prisma.sql`WHERE p.session_id = ${sessionId}` : Prisma.empty}
             ORDER BY inlinks DESC
         `;
-        const res = await this.pool.query(sql, [sessionId]);
-        return res.rows;
+        return result;
     }
 
     async getAllLinksForSession(sessionId: number): Promise<any[]> {
-        const sql = `
-            SELECT l.*, sp.url as source_url, sp.title as source_title, tp.url as target_url, tp.title as target_title
-            FROM links l
-            LEFT JOIN pages sp ON l.source_page_id = sp.id
-            LEFT JOIN pages tp ON l.target_page_id = tp.id
-            WHERE l.session_id = $1
-            ORDER BY l.created_at DESC
-        `;
-        const res = await this.pool.query(sql, [sessionId]);
-        return res.rows;
+        const links = await prisma.link.findMany({
+            where: { sessionId },
+            include: {
+                sourcePage: {
+                    select: {
+                        url: true,
+                        title: true,
+                    },
+                },
+                targetPage: {
+                    select: {
+                        url: true,
+                        title: true,
+                    },
+                },
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        return links.map(link => ({
+            ...link,
+            source_url: link.sourcePage?.url || link.sourceUrl,
+            source_title: link.sourcePage?.title,
+            target_url: link.targetPage?.url || link.targetUrl,
+            target_title: link.targetPage?.title,
+        }));
     }
 
-    // New Link methods for links.routes.ts
     async getLinksByPage(pageId: number, type: 'in' | 'out' | 'all' = 'out', limit: number = 100): Promise<any[]> {
-        let sql = '';
-        const params: any[] = [pageId, limit];
+        let where: any = {};
+        let include: any = {
+            sourcePage: {
+                select: {
+                    url: true,
+                    title: true,
+                },
+            },
+            targetPage: {
+                select: {
+                    url: true,
+                    title: true,
+                },
+            },
+        };
 
         if (type === 'out') {
-            sql = `
-        SELECT 
-            l.id,
-            l.session_id as "sessionId",
-            l.source_page_id as "sourcePageId",
-            COALESCE(sp.url, l.source_url) as "sourceUrl",
-            COALESCE(tp.url, l.target_url) as "targetUrl",
-            l.target_page_id as "targetPageId",
-            l.is_internal as "isInternal",
-            l.anchor_text as "anchorText",
-            l.xpath,
-            l.position,
-            l.rel,
-            l.nofollow,
-            l.created_at as "createdAt",
-            tp.title as "targetTitle"
-        FROM links l
-        LEFT JOIN pages tp ON l.target_page_id = tp.id
-        LEFT JOIN pages sp ON l.source_page_id = sp.id
-        WHERE l.source_page_id = $1
-        LIMIT $2
-      `;
+            where.sourcePageId = pageId;
         } else if (type === 'in') {
-            sql = `
-        SELECT 
-            l.id,
-            l.session_id as "sessionId",
-            l.source_page_id as "sourcePageId",
-            COALESCE(sp.url, l.source_url) as "sourceUrl",
-            COALESCE(tp.url, l.target_url) as "targetUrl",
-            l.target_page_id as "targetPageId",
-            l.is_internal as "isInternal",
-            l.anchor_text as "anchorText",
-            l.xpath,
-            l.position,
-            l.rel,
-            l.nofollow,
-            l.created_at as "createdAt",
-            sp.title as "sourceTitle"
-        FROM links l
-        LEFT JOIN pages sp ON l.source_page_id = sp.id
-        LEFT JOIN pages tp ON l.target_page_id = tp.id
-        WHERE l.target_page_id = $1
-        LIMIT $2
-      `;
+            where.targetPageId = pageId;
         } else {
-            sql = `
-        SELECT 
-            l.id,
-            l.session_id as "sessionId",
-            l.source_page_id as "sourcePageId",
-            COALESCE(sp.url, l.source_url) as "sourceUrl",
-            COALESCE(tp.url, l.target_url) as "targetUrl",
-            l.target_page_id as "targetPageId",
-            l.is_internal as "isInternal",
-            l.anchor_text as "anchorText",
-            l.xpath,
-            l.position,
-            l.rel,
-            l.nofollow,
-            l.created_at as "createdAt",
-            sp.title as "sourceTitle",
-            tp.title as "targetTitle"
-        FROM links l
-        LEFT JOIN pages sp ON l.source_page_id = sp.id
-        LEFT JOIN pages tp ON l.target_page_id = tp.id
-        WHERE l.source_page_id = $1 OR l.target_page_id = $1
-        LIMIT $2
-      `;
+            where.OR = [
+                { sourcePageId: pageId },
+                { targetPageId: pageId },
+            ];
         }
 
-        const res = await this.pool.query(sql, params);
-        return res.rows;
+        const links = await prisma.link.findMany({
+            where,
+            include,
+            take: limit,
+        });
+
+        return links.map((link: any) => ({
+            id: link.id,
+            sessionId: link.sessionId,
+            sourcePageId: link.sourcePageId,
+            sourceUrl: link.sourcePage?.url || link.sourceUrl,
+            targetUrl: link.targetPage?.url || link.targetUrl,
+            targetPageId: link.targetPageId,
+            isInternal: link.isInternal,
+            anchorText: link.anchorText,
+            xpath: link.xpath,
+            position: link.position,
+            rel: link.rel,
+            nofollow: link.nofollow,
+            createdAt: link.createdAt,
+            targetTitle: link.targetPage?.title,
+            sourceTitle: link.sourcePage?.title,
+        }));
     }
 
     async getLinkStats(sessionId: number): Promise<any> {
-        const sql = `
-      SELECT 
-        COUNT(*) as "totalLinks",
-        COUNT(CASE WHEN is_internal = TRUE THEN 1 END) as "internalLinks",
-        COUNT(CASE WHEN is_internal = FALSE THEN 1 END) as "externalLinks",
-        COUNT(CASE WHEN nofollow = TRUE THEN 1 END) as "nofollowLinks"
-      FROM links
-      WHERE session_id = $1
-    `;
-        const res = await this.pool.query(sql, [sessionId]);
-        const row = res.rows[0];
+        const [total, internal, external, nofollow, positionStats] = await Promise.all([
+            prisma.link.count({ where: { sessionId } }),
+            prisma.link.count({ where: { sessionId, isInternal: true } }),
+            prisma.link.count({ where: { sessionId, isInternal: false } }),
+            prisma.link.count({ where: { sessionId, nofollow: true } }),
+            prisma.link.groupBy({
+                by: ['position'],
+                where: {
+                    sessionId,
+                    position: { not: null },
+                },
+                _count: {
+                    id: true,
+                },
+            }),
+        ]);
 
-        // Get links by position
-        const positionSql = `
-            SELECT position, COUNT(*) as count
-            FROM links
-            WHERE session_id = $1 AND position IS NOT NULL
-            GROUP BY position
-        `;
-        const positionRes = await this.pool.query(positionSql, [sessionId]);
         const linksByPosition: Record<string, number> = {};
-        positionRes.rows.forEach(r => {
-            linksByPosition[r.position] = parseInt(r.count);
+        positionStats.forEach((stat: any) => {
+            if (stat.position) {
+                linksByPosition[stat.position] = stat._count.id;
+            }
         });
 
         return {
-            totalLinks: parseInt(row.totalLinks),
-            internalLinks: parseInt(row.internalLinks),
-            externalLinks: parseInt(row.externalLinks),
-            nofollowLinks: parseInt(row.nofollowLinks),
-            linksByPosition
+            totalLinks: total,
+            internalLinks: internal,
+            externalLinks: external,
+            nofollowLinks: nofollow,
+            linksByPosition,
         };
     }
 
     async getPageLinkStats(sessionId: number): Promise<any[]> {
-        const sql = `
-      WITH total_unique_inlinks AS (
-        SELECT SUM(unique_count) as total
-        FROM (
-          SELECT COUNT(DISTINCT source_page_id) as unique_count
-          FROM links
-          WHERE session_id = $1
-          GROUP BY target_page_id
-        ) sub
-      )
-      SELECT 
-        p.id as "pageId", 
-        p.url, 
-        p.title,
-        COALESCE(out_links.count, 0) as "outlinksCount",
-        COALESCE(unique_out_links.count, 0) as "uniqueOutlinksCount",
-        COALESCE(in_links.count, 0) as "inlinksCount",
-        COALESCE(unique_in_links.count, 0) as "uniqueInlinksCount",
-        COALESCE(unique_js_in_links.count, 0) as "uniqueJsInlinksCount",
-        CASE 
-          WHEN total_unique_inlinks.total > 0 AND unique_in_links.count > 0 
-          THEN ROUND((unique_in_links.count::numeric / total_unique_inlinks.total::numeric * 100), 2)
-          ELSE 0 
-        END as "percentOfTotal"
-      FROM pages p
-      CROSS JOIN total_unique_inlinks
-      LEFT JOIN (
-        SELECT source_page_id, COUNT(*) as count
-        FROM links
-        WHERE session_id = $1
-        GROUP BY source_page_id
-      ) out_links ON p.id = out_links.source_page_id
-      LEFT JOIN (
-        SELECT source_page_id, COUNT(DISTINCT target_url) as count
-        FROM links
-        WHERE session_id = $1
-        GROUP BY source_page_id
-      ) unique_out_links ON p.id = unique_out_links.source_page_id
-      LEFT JOIN (
-        SELECT target_page_id, COUNT(*) as count
-        FROM links
-        WHERE session_id = $1
-        GROUP BY target_page_id
-      ) in_links ON p.id = in_links.target_page_id
-      LEFT JOIN (
-        SELECT target_page_id, COUNT(DISTINCT source_page_id) as count
-        FROM links
-        WHERE session_id = $1
-        GROUP BY target_page_id
-      ) unique_in_links ON p.id = unique_in_links.target_page_id
-      LEFT JOIN (
-        SELECT target_page_id, COUNT(DISTINCT source_page_id) as count
-        FROM links
-        WHERE session_id = $1 AND is_js_rendered = TRUE
-        GROUP BY target_page_id
-      ) unique_js_in_links ON p.id = unique_js_in_links.target_page_id
-      WHERE p.session_id = $1
-      ORDER BY "inlinksCount" DESC
-      LIMIT 100
-    `;
-        const res = await this.pool.query(sql, [sessionId]);
-        return res.rows.map(row => ({
+        // Complex query with CTEs - use $queryRaw
+        const result = await prisma.$queryRaw<any[]>`
+            WITH total_unique_inlinks AS (
+                SELECT SUM(unique_count) as total
+                FROM (
+                    SELECT COUNT(DISTINCT source_page_id) as unique_count
+                    FROM links
+                    WHERE session_id = ${sessionId}
+                    GROUP BY target_page_id
+                ) sub
+            )
+            SELECT 
+                p.id as "pageId", 
+                p.url, 
+                p.title,
+                COALESCE(out_links.count, 0) as "outlinksCount",
+                COALESCE(unique_out_links.count, 0) as "uniqueOutlinksCount",
+                COALESCE(in_links.count, 0) as "inlinksCount",
+                COALESCE(unique_in_links.count, 0) as "uniqueInlinksCount",
+                COALESCE(unique_js_in_links.count, 0) as "uniqueJsInlinksCount",
+                CASE 
+                    WHEN total_unique_inlinks.total > 0 AND unique_in_links.count > 0 
+                    THEN ROUND((unique_in_links.count::numeric / total_unique_inlinks.total::numeric * 100), 2)
+                    ELSE 0 
+                END as "percentOfTotal"
+            FROM pages p
+            CROSS JOIN total_unique_inlinks
+            LEFT JOIN (
+                SELECT source_page_id, COUNT(*) as count
+                FROM links
+                WHERE session_id = ${sessionId}
+                GROUP BY source_page_id
+            ) out_links ON p.id = out_links.source_page_id
+            LEFT JOIN (
+                SELECT source_page_id, COUNT(DISTINCT target_url) as count
+                FROM links
+                WHERE session_id = ${sessionId}
+                GROUP BY source_page_id
+            ) unique_out_links ON p.id = unique_out_links.source_page_id
+            LEFT JOIN (
+                SELECT target_page_id, COUNT(*) as count
+                FROM links
+                WHERE session_id = ${sessionId}
+                GROUP BY target_page_id
+            ) in_links ON p.id = in_links.target_page_id
+            LEFT JOIN (
+                SELECT target_page_id, COUNT(DISTINCT source_page_id) as count
+                FROM links
+                WHERE session_id = ${sessionId}
+                GROUP BY target_page_id
+            ) unique_in_links ON p.id = unique_in_links.target_page_id
+            LEFT JOIN (
+                SELECT target_page_id, COUNT(DISTINCT source_page_id) as count
+                FROM links
+                WHERE session_id = ${sessionId} AND is_js_rendered = TRUE
+                GROUP BY target_page_id
+            ) unique_js_in_links ON p.id = unique_js_in_links.target_page_id
+            WHERE p.session_id = ${sessionId}
+            ORDER BY "inlinksCount" DESC
+            LIMIT 100
+        `;
+
+        return result.map((row: any) => ({
             ...row,
             outlinksCount: parseInt(row.outlinksCount) || 0,
             uniqueOutlinksCount: parseInt(row.uniqueOutlinksCount) || 0,
             inlinksCount: parseInt(row.inlinksCount) || 0,
             uniqueInlinksCount: parseInt(row.uniqueInlinksCount) || 0,
             uniqueJsInlinksCount: parseInt(row.uniqueJsInlinksCount) || 0,
-            percentOfTotal: parseFloat(row.percentOfTotal) || 0
+            percentOfTotal: parseFloat(row.percentOfTotal) || 0,
         }));
     }
 
     async getLinkRelationships(sessionId: number, limit: number = 50): Promise<any[]> {
-        const sql = `
-      SELECT 
-        l.source_page_id as "sourcePageId",
-        sp.url as "sourceUrl",
-        sp.title as "sourceTitle",
-        l.target_page_id as "targetPageId",
-        tp.url as "targetUrl",
-        tp.title as "targetTitle",
-        COUNT(*) as "linkCount",
-        ARRAY_AGG(DISTINCT l.anchor_text) as "anchorTexts"
-      FROM links l
-      JOIN pages sp ON l.source_page_id = sp.id
-      JOIN pages tp ON l.target_page_id = tp.id
-      WHERE l.session_id = $1
-      GROUP BY l.source_page_id, sp.url, sp.title, l.target_page_id, tp.url, tp.title
-      ORDER BY "linkCount" DESC
-      LIMIT $2
-    `;
-        const res = await this.pool.query(sql, [sessionId, limit]);
-        return res.rows;
+        // Complex query with aggregation - use $queryRaw
+        const result = await prisma.$queryRaw<any[]>`
+            SELECT 
+                l.source_page_id as "sourcePageId",
+                sp.url as "sourceUrl",
+                sp.title as "sourceTitle",
+                l.target_page_id as "targetPageId",
+                tp.url as "targetUrl",
+                tp.title as "targetTitle",
+                COUNT(*) as "linkCount",
+                ARRAY_AGG(DISTINCT l.anchor_text) as "anchorTexts"
+            FROM links l
+            JOIN pages sp ON l.source_page_id = sp.id
+            JOIN pages tp ON l.target_page_id = tp.id
+            WHERE l.session_id = ${sessionId}
+            GROUP BY l.source_page_id, sp.url, sp.title, l.target_page_id, tp.url, tp.title
+            ORDER BY "linkCount" DESC
+            LIMIT ${limit}
+        `;
+        return result;
     }
 
     async getUniqueInlinks(pageId: number, limit: number = 100): Promise<any[]> {
-        const sql = `
+        const result = await prisma.$queryRaw<any[]>`
             SELECT DISTINCT
                 l.source_page_id as "sourcePageId",
                 p.url as "sourceUrl",
@@ -1494,17 +1396,16 @@ export class PageRepository {
                 ARRAY_AGG(DISTINCT l.anchor_text) FILTER (WHERE l.anchor_text IS NOT NULL) as "anchorTexts"
             FROM links l
             JOIN pages p ON l.source_page_id = p.id
-            WHERE l.target_page_id = $1
+            WHERE l.target_page_id = ${pageId}
             GROUP BY l.source_page_id, p.url, p.title
             ORDER BY "linkCount" DESC
-            LIMIT $2
+            LIMIT ${limit}
         `;
-        const res = await this.pool.query(sql, [pageId, limit]);
-        return res.rows;
+        return result;
     }
 
     async getUniqueJsInlinks(pageId: number, limit: number = 100): Promise<any[]> {
-        const sql = `
+        const result = await prisma.$queryRaw<any[]>`
             SELECT DISTINCT
                 l.source_page_id as "sourcePageId",
                 p.url as "sourceUrl",
@@ -1513,145 +1414,161 @@ export class PageRepository {
                 ARRAY_AGG(DISTINCT l.anchor_text) FILTER (WHERE l.anchor_text IS NOT NULL) as "anchorTexts"
             FROM links l
             JOIN pages p ON l.source_page_id = p.id
-            WHERE l.target_page_id = $1 AND l.is_js_rendered = TRUE
+            WHERE l.target_page_id = ${pageId} AND l.is_js_rendered = TRUE
             GROUP BY l.source_page_id, p.url, p.title
             ORDER BY "linkCount" DESC
-            LIMIT $2
+            LIMIT ${limit}
         `;
-        const res = await this.pool.query(sql, [pageId, limit]);
-        return res.rows;
+        return result;
     }
 
-    // SEO Cache methods
     async getSeoData(url: string): Promise<any | null> {
-        const sql = 'SELECT * FROM seo_cache WHERE url = $1';
-        const res = await this.pool.query(sql, [url]);
-        if (res.rows.length === 0) return null;
+        const cache = await prisma.seoCache.findUnique({
+            where: { url },
+        });
 
-        const row = res.rows[0];
-        const isExpired = new Date() > new Date(row.expires_at);
+        if (!cache) return null;
+
+        const isExpired = new Date() > cache.expiresAt;
 
         return {
-            url: row.url,
-            parentText: row.parent_text,
-            keywords: JSON.parse(row.keywords || '[]'),
-            language: row.language,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at,
-            expiresAt: row.expires_at,
-            isExpired: new Date() > new Date(row.expires_at)
+            url: cache.url,
+            parentText: cache.parentText,
+            keywords: JSON.parse(cache.keywords || '[]'),
+            language: cache.language,
+            createdAt: cache.createdAt,
+            updatedAt: cache.updatedAt,
+            expiresAt: cache.expiresAt,
+            isExpired,
         };
     }
 
     async saveSeoData(data: { url: string, parentText?: string, keywords: any[], language?: string, expiresAt: string }): Promise<void> {
-        const sql = `
-      INSERT INTO seo_cache (url, parent_text, keywords, language, expires_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, NOW())
-      ON CONFLICT(url) DO UPDATE SET
-        parent_text = EXCLUDED.parent_text,
-        keywords = EXCLUDED.keywords,
-        language = EXCLUDED.language,
-        expires_at = EXCLUDED.expires_at,
-        updated_at = NOW()
-    `;
-        await this.pool.query(sql, [
-            data.url,
-            data.parentText || null,
-            JSON.stringify(data.keywords),
-            data.language || null,
-            data.expiresAt
-        ]);
+        await prisma.seoCache.upsert({
+            where: { url: data.url },
+            update: {
+                parentText: data.parentText || null,
+                keywords: JSON.stringify(data.keywords),
+                language: data.language || null,
+                expiresAt: new Date(data.expiresAt),
+            },
+            create: {
+                url: data.url,
+                parentText: data.parentText || null,
+                keywords: JSON.stringify(data.keywords),
+                language: data.language || null,
+                expiresAt: new Date(data.expiresAt),
+            },
+        });
     }
 
-    // Sitemap methods
     async insertSitemapDiscovery(data: { sessionId: number, sitemapUrl: string, discoveredUrls: number, lastModified: string, success: boolean, errorMessage?: string }): Promise<number> {
-        const res = await this.pool.query(
-            `INSERT INTO sitemap_discoveries (session_id, sitemap_url, discovered_urls, last_modified, success, error_message)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id`,
-            [data.sessionId, data.sitemapUrl, data.discoveredUrls, data.lastModified, data.success, data.errorMessage || null]
-        );
-        return res.rows[0].id;
+        const discovery = await prisma.sitemapDiscovery.create({
+            data: {
+                sessionId: data.sessionId,
+                sitemapUrl: data.sitemapUrl,
+                discoveredUrls: data.discoveredUrls,
+                lastModified: data.lastModified,
+                success: data.success,
+                errorMessage: data.errorMessage || null,
+            },
+        });
+        return discovery.id;
     }
 
     async insertSitemapUrl(data: { sessionId: number, url: string, lastModified?: string, changeFrequency?: string, priority?: string }): Promise<void> {
-        await this.pool.query(
-            `INSERT INTO sitemap_urls (session_id, url, last_modified, change_frequency, priority)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT DO NOTHING`,
-            [data.sessionId, data.url, data.lastModified || null, data.changeFrequency || null, data.priority || null]
-        );
+        await prisma.sitemapUrl.createMany({
+            data: [{
+                sessionId: data.sessionId,
+                url: data.url,
+                lastModified: data.lastModified || null,
+                changeFrequency: data.changeFrequency || null,
+                priority: data.priority || null,
+            }],
+            skipDuplicates: true,
+        });
     }
 
     async getSitemapUrls(sessionId: number): Promise<any[]> {
-        const res = await this.pool.query('SELECT * FROM sitemap_urls WHERE session_id = $1', [sessionId]);
-        return res.rows;
+        const urls = await prisma.sitemapUrl.findMany({
+            where: { sessionId },
+        });
+        return urls;
     }
 
     async getSitemapDiscoveries(sessionId: number): Promise<any[]> {
-        const res = await this.pool.query('SELECT * FROM sitemap_discoveries WHERE session_id = $1', [sessionId]);
-        return res.rows;
+        const discoveries = await prisma.sitemapDiscovery.findMany({
+            where: { sessionId },
+        });
+        return discoveries;
     }
 
     async getUncrawledSitemapUrls(sessionId: number): Promise<any[]> {
-        const res = await this.pool.query(
-            "SELECT url FROM sitemap_urls WHERE session_id = $1 AND crawled = FALSE",
-            [sessionId]
-        );
-        return res.rows;
+        const urls = await prisma.sitemapUrl.findMany({
+            where: {
+                sessionId,
+                crawled: false,
+            },
+            select: {
+                url: true,
+            },
+        });
+        return urls.map(u => ({ url: u.url }));
     }
 
     async markSitemapUrlAsCrawled(sessionId: number, url: string): Promise<void> {
-        await this.pool.query(
-            "UPDATE sitemap_urls SET crawled = TRUE WHERE session_id = $1 AND url = $2",
-            [sessionId, url]
-        );
+        await prisma.sitemapUrl.updateMany({
+            where: {
+                sessionId,
+                url,
+            },
+            data: {
+                crawled: true,
+            },
+        });
     }
 
     async resolveTargetPageIds(sessionId: number): Promise<number> {
-        const res = await this.pool.query(
-            `UPDATE links l
-       SET target_page_id = p.id
-       FROM pages p
-       WHERE l.session_id = $1 
-       AND p.session_id = $1
-       AND l.target_url = p.url
-       AND l.target_page_id IS NULL`,
-            [sessionId]
-        );
-        return res.rowCount || 0;
+        // Complex UPDATE with JOIN - use $executeRaw
+        const result = await prisma.$executeRaw`
+            UPDATE links l
+            SET target_page_id = p.id
+            FROM pages p
+            WHERE l.session_id = ${sessionId} 
+            AND p.session_id = ${sessionId}
+            AND l.target_url = p.url
+            AND l.target_page_id IS NULL
+        `;
+        return Number(result);
     }
 
     async updatePageLinkScore(pageId: number, linkScore: number): Promise<void> {
-        await this.pool.query(
-            `UPDATE pages SET link_score = $2 WHERE id = $1`,
-            [pageId, linkScore]
-        );
+        await prisma.page.update({
+            where: { id: pageId },
+            data: {
+                linkScore: linkScore,
+            },
+        });
     }
 
     async updatePageLinkScores(scores: Map<number, number>): Promise<void> {
         if (scores.size === 0) return;
 
-        const client = await this.pool.connect();
-        try {
-            await client.query('BEGIN');
-            for (const [pageId, score] of scores.entries()) {
-                await client.query(
-                    `UPDATE pages SET link_score = $2 WHERE id = $1`,
-                    [pageId, score]
-                );
-            }
-            await client.query('COMMIT');
-        } catch (err) {
-            await client.query('ROLLBACK');
-            throw err;
-        } finally {
-            client.release();
-        }
+        await prisma.$transaction(
+            Array.from(scores.entries()).map(([pageId, score]) =>
+                prisma.page.update({
+                    where: { id: pageId },
+                    data: {
+                        linkScore: score,
+                    },
+                })
+            )
+        );
     }
 
     async getPageLinkData(sessionId: number): Promise<any[]> {
-        const sql = `
+        // Complex query with JSON aggregation - use $queryRaw
+        const result = await prisma.$queryRaw<any[]>`
             SELECT 
                 p.id as "pageId",
                 p.url,
@@ -1670,23 +1587,22 @@ export class PageRepository {
                     '[]'
                 ) as "inlinks"
             FROM pages p
-            LEFT JOIN links l ON l.target_page_id = p.id AND l.session_id = $1 AND l.is_internal = TRUE
+            LEFT JOIN links l ON l.target_page_id = p.id AND l.session_id = ${sessionId} AND l.is_internal = TRUE
             LEFT JOIN pages sp ON l.source_page_id = sp.id
-            WHERE p.session_id = $1
+            WHERE p.session_id = ${sessionId}
             GROUP BY p.id, p.url, p.crawl_depth, p.link_score
         `;
-        const res = await this.pool.query(sql, [sessionId]);
-        return res.rows.map(row => ({
+        return result.map((row: any) => ({
             pageId: row.pageId,
             url: row.url,
             crawlDepth: row.crawlDepth || 0,
             currentLinkScore: row.currentLinkScore,
-            inlinks: row.inlinks
+            inlinks: typeof row.inlinks === 'string' ? JSON.parse(row.inlinks) : row.inlinks,
         }));
     }
 
     async getLinkScoreStats(sessionId: number): Promise<any> {
-        const sql = `
+        const result = await prisma.$queryRaw<any[]>`
             SELECT 
                 COUNT(*) FILTER (WHERE link_score >= 80) as "excellentCount",
                 COUNT(*) FILTER (WHERE link_score >= 60 AND link_score < 80) as "goodCount",
@@ -1698,10 +1614,9 @@ export class PageRepository {
                 MAX(link_score) as "maxLinkScore",
                 MIN(link_score) as "minLinkScore"
             FROM pages
-            WHERE session_id = $1
+            WHERE session_id = ${sessionId}
         `;
-        const res = await this.pool.query(sql, [sessionId]);
-        return res.rows[0];
+        return result[0];
     }
 
     async getPagesWithLinkScores(sessionId: number, limit: number, offset: number, sortField: string = 'link_score', sortOrder: string = 'DESC'): Promise<any[]> {
@@ -1709,7 +1624,8 @@ export class PageRepository {
         const dbSortField = validSortFields.includes(sortField) ? sortField : 'link_score';
         const order = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
-        const sql = `
+        // Dynamic sorting requires raw query
+        const result = await prisma.$queryRaw<any[]>`
             SELECT 
                 id as "pageId",
                 url,
@@ -1718,23 +1634,24 @@ export class PageRepository {
                 link_score as "linkScore",
                 (SELECT COUNT(*) FROM links WHERE target_page_id = pages.id AND is_internal = TRUE) as "inlinkCount"
             FROM pages
-            WHERE session_id = $1 AND link_score IS NOT NULL
-            ORDER BY ${dbSortField} ${order} NULLS LAST
-            LIMIT $2 OFFSET $3
+            WHERE session_id = ${sessionId} AND link_score IS NOT NULL
+            ORDER BY ${Prisma.raw(dbSortField)} ${Prisma.raw(order)} NULLS LAST
+            LIMIT ${limit} OFFSET ${offset}
         `;
-
-        const res = await this.pool.query(sql, [sessionId, limit, offset]);
-        return res.rows;
+        return result;
     }
 
     async countPagesWithLinkScores(sessionId: number): Promise<number> {
-        const sql = `SELECT COUNT(*) FROM pages WHERE session_id = $1 AND link_score IS NOT NULL`;
-        const res = await this.pool.query(sql, [sessionId]);
-        return parseInt(res.rows[0].count);
+        return await prisma.page.count({
+            where: {
+                sessionId,
+                linkScore: { not: null },
+            },
+        });
     }
 
     async getLinkScoreDistribution(sessionId: number): Promise<any[]> {
-        const sql = `
+        const result = await prisma.$queryRaw<any[]>`
             SELECT 
                 CASE 
                     WHEN link_score >= 80 THEN 'Excellent (80-100)'
@@ -1745,32 +1662,40 @@ export class PageRepository {
                 END as category,
                 COUNT(*) as count
             FROM pages
-            WHERE session_id = $1 AND link_score IS NOT NULL
+            WHERE session_id = ${sessionId} AND link_score IS NOT NULL
             GROUP BY category
             ORDER BY MIN(link_score) DESC
         `;
-        const res = await this.pool.query(sql, [sessionId]);
-        return res.rows;
+        return result;
     }
 
     async getPageWithLinkScore(pageId: number): Promise<any | null> {
-        const sql = `
-            SELECT 
-                id as "pageId",
-                session_id as "sessionId",
-                url,
-                title,
-                crawl_depth as "crawlDepth",
-                link_score as "linkScore"
-            FROM pages
-            WHERE id = $1
-        `;
-        const res = await this.pool.query(sql, [pageId]);
-        return res.rows.length > 0 ? res.rows[0] : null;
+        const page = await prisma.page.findUnique({
+            where: { id: pageId },
+            select: {
+                id: true,
+                sessionId: true,
+                url: true,
+                title: true,
+                crawlDepth: true,
+                linkScore: true,
+            },
+        });
+
+        if (!page) return null;
+
+        return {
+            pageId: page.id,
+            sessionId: page.sessionId,
+            url: page.url,
+            title: page.title,
+            crawlDepth: page.crawlDepth,
+            linkScore: page.linkScore,
+        };
     }
 
     async getTopPagesByLinkScore(sessionId: number, limit: number): Promise<any[]> {
-        const sql = `
+        const result = await prisma.$queryRaw<any[]>`
             SELECT 
                 id as "pageId",
                 url,
@@ -1779,16 +1704,15 @@ export class PageRepository {
                 link_score as "linkScore",
                 (SELECT COUNT(*) FROM links WHERE target_page_id = pages.id AND is_internal = TRUE) as "inlinkCount"
             FROM pages
-            WHERE session_id = $1 AND link_score IS NOT NULL
+            WHERE session_id = ${sessionId} AND link_score IS NOT NULL
             ORDER BY link_score DESC
-            LIMIT $2
+            LIMIT ${limit}
         `;
-        const res = await this.pool.query(sql, [sessionId, limit]);
-        return res.rows;
+        return result;
     }
 
     async getBottomPagesByLinkScore(sessionId: number, limit: number): Promise<any[]> {
-        const sql = `
+        const result = await prisma.$queryRaw<any[]>`
             SELECT 
                 id as "pageId",
                 url,
@@ -1797,238 +1721,281 @@ export class PageRepository {
                 link_score as "linkScore",
                 (SELECT COUNT(*) FROM links WHERE target_page_id = pages.id AND is_internal = TRUE) as "inlinkCount"
             FROM pages
-            WHERE session_id = $1 AND link_score IS NOT NULL
+            WHERE session_id = ${sessionId} AND link_score IS NOT NULL
             ORDER BY link_score ASC
-            LIMIT $2
+            LIMIT ${limit}
         `;
-        const res = await this.pool.query(sql, [sessionId, limit]);
-        return res.rows;
+        return result;
+    }
+
+    async getPagesWithContent(sessionId: number): Promise<any[]> {
+        // Note: raw_html_content and html_content columns don't exist in schema
+        // This method may need adjustment based on actual schema
+        const pages = await prisma.page.findMany({
+            where: {
+                sessionId,
+                success: true,
+            },
+            select: {
+                id: true,
+                url: true,
+                title: true,
+            },
+            orderBy: { timestamp: 'asc' },
+        });
+
+        return pages.map(p => ({
+            id: p.id,
+            url: p.url,
+            title: p.title,
+            html_content: '', // Column doesn't exist in schema
+        }));
+    }
+
+    async getAllPagesForSession(sessionId: number): Promise<any[]> {
+        const pages = await prisma.page.findMany({
+            where: {
+                sessionId,
+                success: true,
+            },
+            select: {
+                id: true,
+                url: true,
+                title: true,
+                description: true,
+                wordCount: true,
+                crawlDepth: true,
+            },
+            orderBy: [
+                { crawlDepth: 'asc' },
+                { timestamp: 'asc' },
+            ],
+        });
+
+        return pages;
     }
 
     private mapPage(row: any): Page {
         return {
             id: row.id,
-            sessionId: row.session_id,
+            sessionId: row.session_id || row.sessionId,
             url: row.url,
             title: row.title,
-            titleLength: row.title_length,
-            titlePixelWidth: row.title_pixel_width,
+            titleLength: row.title_length || row.titleLength || 0,
+            titlePixelWidth: row.title_pixel_width || row.titlePixelWidth,
             description: row.description,
-            descriptionLength: row.description_length,
-            descriptionPixelWidth: row.description_pixel_width,
-            contentType: row.content_type,
-            lastModified: row.last_modified,
-            statusCode: row.status_code,
-            responseTime: row.response_time,
-            wordCount: row.word_count,
-            averageWordsPerSentence: row.average_words_per_sentence ? parseFloat(row.average_words_per_sentence) : undefined,
-            fleschReadingEase: row.flesch_reading_ease_score ? parseFloat(row.flesch_reading_ease_score) : undefined,
-            readabilityLevel: row.readability_level && row.readability_level.trim().length > 0 ? row.readability_level.trim() : undefined,
-            crawlDepth: row.crawl_depth !== null && row.crawl_depth !== undefined ? parseInt(row.crawl_depth) : undefined,
-            folderDepth: row.folder_depth !== null && row.folder_depth !== undefined ? parseInt(row.folder_depth) : undefined,
-            sizeBytes: row.size_bytes,
-            timestamp: row.timestamp,
+            descriptionLength: row.description_length || row.descriptionLength || 0,
+            descriptionPixelWidth: row.description_pixel_width || row.descriptionPixelWidth,
+            contentType: row.content_type || row.contentType,
+            lastModified: row.last_modified || row.lastModified,
+            statusCode: row.status_code || row.statusCode,
+            responseTime: row.response_time || row.responseTime,
+            wordCount: row.word_count || row.wordCount || 0,
+            averageWordsPerSentence: row.average_words_per_sentence || row.averageWordsPerSentence 
+                ? parseFloat(row.average_words_per_sentence?.toString() || row.averageWordsPerSentence?.toString() || '0') 
+                : undefined,
+            fleschReadingEase: row.flesch_reading_ease_score || row.fleschReadingEase 
+                ? parseFloat(row.flesch_reading_ease_score?.toString() || row.fleschReadingEase?.toString() || '0') 
+                : undefined,
+            readabilityLevel: row.readability_level || row.readabilityLevel,
+            crawlDepth: row.crawl_depth !== undefined && row.crawl_depth !== null 
+                ? parseInt(row.crawl_depth.toString()) 
+                : row.crawlDepth,
+            folderDepth: row.folder_depth !== undefined && row.folder_depth !== null 
+                ? parseInt(row.folder_depth.toString()) 
+                : row.folderDepth,
+            sizeBytes: row.size_bytes || row.sizeBytes,
+            timestamp: row.timestamp instanceof Date ? row.timestamp.toISOString() : row.timestamp,
             success: row.success,
-            errorMessage: row.error_message,
+            errorMessage: row.error_message || row.errorMessage,
             indexable: row.indexable,
-            indexabilityStatus: row.indexability_status,
-            metaKeywords: row.meta_keywords,
-            metaKeywordsLength: row.meta_keywords_length,
-            metaRobots: row.meta_robots,
-            xRobotsTag: row.x_robots_tag,
-            metaRefresh: row.meta_refresh,
-            canonicalUrl: row.canonical_url,
-            relNext: row.rel_next,
-            relPrev: row.rel_prev,
-            httpRelNext: row.http_rel_next,
-            httpRelPrev: row.http_rel_prev,
-            amphtmlUrl: row.amphtml_url,
-            mobileAlternateUrl: row.mobile_alternate_url,
-            transferredBytes: row.transferred_bytes ? parseInt(row.transferred_bytes) : undefined,
-            totalTransferredBytes: row.total_transferred_bytes ? parseInt(row.total_transferred_bytes) : undefined,
-            co2Mg: row.co2_mg ? parseFloat(row.co2_mg) : undefined,
-            carbonRating: row.carbon_rating,
-            headingTags: row.heading_tags,
-            linkScore: row.link_score ? parseFloat(row.link_score) : undefined,
-            closestDuplicateUrl: row.closest_duplicate_url || undefined,
+            indexabilityStatus: row.indexability_status || row.indexabilityStatus,
+            metaKeywords: row.meta_keywords || row.metaKeywords,
+            metaKeywordsLength: row.meta_keywords_length || row.metaKeywordsLength,
+            metaRobots: row.meta_robots || row.metaRobots,
+            xRobotsTag: row.x_robots_tag || row.xRobotsTag,
+            metaRefresh: row.meta_refresh || row.metaRefresh,
+            canonicalUrl: row.canonical_url || row.canonicalUrl,
+            relNext: row.rel_next || row.relNext,
+            relPrev: row.rel_prev || row.relPrev,
+            httpRelNext: row.http_rel_next || row.httpRelNext,
+            httpRelPrev: row.http_rel_prev || row.httpRelPrev,
+            amphtmlUrl: row.amphtml_url || row.amphtmlUrl,
+            mobileAlternateUrl: row.mobile_alternate_url || row.mobileAlternateUrl,
+            transferredBytes: row.transferred_bytes ? parseInt(row.transferred_bytes.toString()) : row.transferredBytes,
+            totalTransferredBytes: row.total_transferred_bytes ? parseInt(row.total_transferred_bytes.toString()) : row.totalTransferredBytes,
+            co2Mg: row.co2_mg ? parseFloat(row.co2_mg.toString()) : row.co2Mg,
+            carbonRating: row.carbon_rating || row.carbonRating,
+            headingTags: row.heading_tags || row.headingTags,
+            linkScore: row.link_score ? parseFloat(row.link_score.toString()) : row.linkScore,
+            closestDuplicateUrl: row.closest_duplicate_url || row.closestDuplicateUrl,
             closestDuplicateSimilarity: row.closest_duplicate_similarity !== null && row.closest_duplicate_similarity !== undefined
-                ? parseFloat(row.closest_duplicate_similarity)
-                : undefined,
+                ? parseFloat(row.closest_duplicate_similarity.toString())
+                : row.closestDuplicateSimilarity,
             nearDuplicateCount: row.near_duplicate_count !== null && row.near_duplicate_count !== undefined
-                ? parseInt(row.near_duplicate_count)
-                : undefined,
+                ? parseInt(row.near_duplicate_count.toString())
+                : row.nearDuplicateCount,
             spellingErrors: row.spelling_errors !== null && row.spelling_errors !== undefined
-                ? parseInt(row.spelling_errors)
-                : undefined,
+                ? parseInt(row.spelling_errors.toString())
+                : row.spellingErrors,
             grammarErrors: row.grammar_errors !== null && row.grammar_errors !== undefined
-                ? parseInt(row.grammar_errors)
-                : undefined,
-            redirectUrl: row.redirect_url || undefined,
-            redirectType: row.redirect_type || undefined,
-            cookies: row.cookies || undefined,
-            language: row.language || undefined,
-            httpVersion: row.http_version || undefined,
-            // Semantic Analysis Fields
-            closestSemanticallySimilarAddress: row.closest_semantically_similar_address || undefined,
+                ? parseInt(row.grammar_errors.toString())
+                : row.grammarErrors,
+            redirectUrl: row.redirect_url || row.redirectUrl,
+            redirectType: row.redirect_type || row.redirectType,
+            cookies: row.cookies,
+            language: row.language,
+            httpVersion: row.http_version || row.httpVersion,
+            closestSemanticallySimilarAddress: row.closest_semantically_similar_address || row.closestSemanticallySimilarAddress,
             semanticSimilarityScore: row.semantic_similarity_score !== null && row.semantic_similarity_score !== undefined
-                ? parseFloat(row.semantic_similarity_score)
-                : undefined,
+                ? parseFloat(row.semantic_similarity_score.toString())
+                : row.semanticSimilarityScore,
             noSemanticallySimilar: row.no_semantically_similar !== null && row.no_semantically_similar !== undefined
-                ? parseInt(row.no_semantically_similar)
-                : undefined,
+                ? parseInt(row.no_semantically_similar.toString())
+                : row.noSemanticallySimilar,
             semanticRelevanceScore: row.semantic_relevance_score !== null && row.semantic_relevance_score !== undefined
-                ? parseFloat(row.semantic_relevance_score)
-                : undefined,
-            // URL Encoded Address
-            urlEncodedAddress: row.url_encoded_address || undefined,
-            // Content Hash
-            contentHash: row.content_hash || undefined,
-            // Title Detection Fields (from page_metrics table)
-            titleStatus: row.title_status || undefined,
+                ? parseFloat(row.semantic_relevance_score.toString())
+                : row.semanticRelevanceScore,
+            urlEncodedAddress: row.url_encoded_address || row.urlEncodedAddress,
+            contentHash: row.content_hash || row.contentHash,
+            titleStatus: row.title_status || row.titleStatus,
             duplicateTitleCount: row.duplicate_title_count !== null && row.duplicate_title_count !== undefined
-                ? parseInt(row.duplicate_title_count)
-                : undefined,
-            duplicateWith: row.duplicate_with ? (typeof row.duplicate_with === 'string' ? JSON.parse(row.duplicate_with) : row.duplicate_with) : undefined,
-            // Meta Description Detection Fields (from page_metrics table)
-            metaDescriptionStatus: row.meta_description_status || undefined,
+                ? parseInt(row.duplicate_title_count.toString())
+                : row.duplicateTitleCount,
+            duplicateWith: row.duplicate_with 
+                ? (typeof row.duplicate_with === 'string' ? JSON.parse(row.duplicate_with) : row.duplicate_with) 
+                : row.duplicateWith,
+            metaDescriptionStatus: row.meta_description_status || row.metaDescriptionStatus,
             duplicateMetaDescriptionCount: row.duplicate_meta_description_count !== null && row.duplicate_meta_description_count !== undefined
-                ? parseInt(row.duplicate_meta_description_count)
-                : undefined,
-            duplicateMetaDescriptionWith: row.duplicate_meta_description_with ? (typeof row.duplicate_meta_description_with === 'string' ? JSON.parse(row.duplicate_meta_description_with) : row.duplicate_meta_description_with) : undefined,
-            // Canonical Validation Fields (from page_metrics table)
-            // Note: canonicalUrl already exists from pages table, so we use that
-            // The canonical_validation_status and canonical_validation_message are from page_metrics
-            canonicalValidationStatus: row.canonical_validation_status || undefined,
-            canonicalValidationMessage: row.canonical_validation_message || undefined,
-            // Table extraction fields (from page_metrics table)
+                ? parseInt(row.duplicate_meta_description_count.toString())
+                : row.duplicateMetaDescriptionCount,
+            duplicateMetaDescriptionWith: row.duplicate_meta_description_with 
+                ? (typeof row.duplicate_meta_description_with === 'string' ? JSON.parse(row.duplicate_meta_description_with) : row.duplicate_meta_description_with) 
+                : row.duplicateMetaDescriptionWith,
+            canonicalValidationStatus: row.canonical_validation_status || row.canonicalValidationStatus,
+            canonicalValidationMessage: row.canonical_validation_message || row.canonicalValidationMessage,
             tableCount: row.table_count !== null && row.table_count !== undefined
-                ? parseInt(row.table_count)
-                : undefined,
-            tableData: row.table_data || undefined,
+                ? parseInt(row.table_count.toString())
+                : row.tableCount,
+            tableData: row.table_data || row.tableData,
             hasTables: row.has_tables !== null && row.has_tables !== undefined
                 ? Boolean(row.has_tables)
-                : undefined,
-            // FAQ extraction fields (from page_metrics table)
+                : row.hasTables,
             faqCount: row.faq_count !== null && row.faq_count !== undefined
-                ? parseInt(row.faq_count)
-                : undefined,
-            faqData: row.faq_data || undefined,
+                ? parseInt(row.faq_count.toString())
+                : row.faqCount,
+            faqData: row.faq_data || row.faqData,
             hasFaqs: row.has_faqs !== null && row.has_faqs !== undefined
                 ? Boolean(row.has_faqs)
-                : undefined,
+                : row.hasFaqs,
             faqScore: row.faq_score !== null && row.faq_score !== undefined
-                ? parseInt(row.faq_score)
-                : undefined,
-            faqDetectionMethod: row.faq_detection_method || undefined,
+                ? parseInt(row.faq_score.toString())
+                : row.faqScore,
+            faqDetectionMethod: row.faq_detection_method || row.faqDetectionMethod,
             faqSchemaPresent: row.faq_schema_present !== null && row.faq_schema_present !== undefined
                 ? Boolean(row.faq_schema_present)
-                : undefined,
-            // Mixed Content detection fields (from page_metrics table)
+                : row.faqSchemaPresent,
             hasMixedContent: row.has_mixed_content !== null && row.has_mixed_content !== undefined
                 ? Boolean(row.has_mixed_content)
-                : undefined,
-            mixedContentSeverity: row.mixed_content_severity || undefined,
-            mixedContentData: row.mixed_content_data || undefined,
+                : row.hasMixedContent,
+            mixedContentSeverity: row.mixed_content_severity || row.mixedContentSeverity,
+            mixedContentData: row.mixed_content_data || row.mixedContentData,
             activeMixedContentCount: row.active_mixed_content_count !== null && row.active_mixed_content_count !== undefined
-                ? parseInt(row.active_mixed_content_count)
-                : undefined,
+                ? parseInt(row.active_mixed_content_count.toString())
+                : row.activeMixedContentCount,
             passiveMixedContentCount: row.passive_mixed_content_count !== null && row.passive_mixed_content_count !== undefined
-                ? parseInt(row.passive_mixed_content_count)
-                : undefined,
+                ? parseInt(row.passive_mixed_content_count.toString())
+                : row.passiveMixedContentCount,
             totalInsecureResources: row.total_insecure_resources !== null && row.total_insecure_resources !== undefined
-                ? parseInt(row.total_insecure_resources)
-                : undefined,
-            // Header Structure Mapping fields (from page_metrics table)
-            headerStructureData: row.header_structure_data || undefined,
-            headerStructureIssues: row.header_structure_issues || undefined,
-            // Viewport Meta fields (from page_metrics table)
+                ? parseInt(row.total_insecure_resources.toString())
+                : row.totalInsecureResources,
+            headerStructureData: row.header_structure_data || row.headerStructureData,
+            headerStructureIssues: row.header_structure_issues || row.headerStructureIssues,
             viewportPresent: row.viewport_present !== null && row.viewport_present !== undefined
                 ? Boolean(row.viewport_present)
-                : undefined,
-            viewportContent: row.viewport_content || undefined,
-            viewportStatus: row.viewport_status || undefined,
-            // Structured Data fields (from page_metrics table)
+                : row.viewportPresent,
+            viewportContent: row.viewport_content || row.viewportContent,
+            viewportStatus: row.viewport_status || row.viewportStatus,
             structuredDataPresent: row.structured_data_present !== null && row.structured_data_present !== undefined
                 ? Boolean(row.structured_data_present)
-                : undefined,
-            structuredDataFormat: row.structured_data_format || undefined,
-            structuredDataTypes: row.structured_data_types || undefined,
-            structuredDataPriorityType: row.structured_data_priority_type || undefined,
-            // Page Size Measurement fields (from page_metrics table)
+                : row.structuredDataPresent,
+            structuredDataFormat: row.structured_data_format || row.structuredDataFormat,
+            structuredDataTypes: row.structured_data_types || row.structuredDataTypes,
+            structuredDataPriorityType: row.structured_data_priority_type || row.structuredDataPriorityType,
             pageSizeBytes: row.page_size_bytes !== null && row.page_size_bytes !== undefined
-                ? parseInt(row.page_size_bytes)
-                : undefined,
-            pageSizeStatus: row.page_size_status || undefined,
-            // Word Count Analysis fields (from wordcount_analysis table)
-            totalWordCount: row.total_word_count !== null && row.total_word_count !== undefined ? parseInt(row.total_word_count) : undefined,
-            visibleWordCount: row.visible_word_count !== null && row.visible_word_count !== undefined ? parseInt(row.visible_word_count) : undefined,
-            uniqueWordCount: row.unique_word_count !== null && row.unique_word_count !== undefined ? parseInt(row.unique_word_count) : undefined,
-            textToHtmlRatio: row.text_to_html_ratio !== null && row.text_to_html_ratio !== undefined ? parseFloat(row.text_to_html_ratio) : undefined,
-            sentenceCount: row.sentence_count !== null && row.sentence_count !== undefined ? parseInt(row.sentence_count) : undefined,
-            paragraphCount: row.paragraph_count !== null && row.paragraph_count !== undefined ? parseInt(row.paragraph_count) : undefined,
-            averageSentenceLength: row.average_sentence_length !== null && row.average_sentence_length !== undefined ? parseFloat(row.average_sentence_length) : undefined,
-            averageParagraphLength: row.average_paragraph_length !== null && row.average_paragraph_length !== undefined ? parseFloat(row.average_paragraph_length) : undefined,
-            keywordDensity: row.keyword_density !== null && row.keyword_density !== undefined ? parseFloat(row.keyword_density) : undefined,
-            // Advanced Word Count Analysis fields
-            thinContent: row.thin_content !== null && row.thin_content !== undefined ? Boolean(row.thin_content) : undefined,
-            thinContentReason: row.thin_content_reason || undefined,
-            duplicateContent: row.duplicate_content !== null && row.duplicate_content !== undefined ? Boolean(row.duplicate_content) : undefined,
-            duplicateWithUrls: row.duplicate_with_urls ? (typeof row.duplicate_with_urls === 'string' ? JSON.parse(row.duplicate_with_urls) : row.duplicate_with_urls) : undefined,
-            sectionWordCountMapping: row.section_word_count_mapping ? (typeof row.section_word_count_mapping === 'string' ? JSON.parse(row.section_word_count_mapping) : row.section_word_count_mapping) : undefined,
-            sectionWordCountBreakdown: row.section_word_count_breakdown ? (typeof row.section_word_count_breakdown === 'string' ? JSON.parse(row.section_word_count_breakdown) : row.section_word_count_breakdown) : undefined,
-            headingWordCountMapping: row.heading_word_count_mapping ? (typeof row.heading_word_count_mapping === 'string' ? JSON.parse(row.heading_word_count_mapping) : row.heading_word_count_mapping) : undefined,
+                ? parseInt(row.page_size_bytes.toString())
+                : row.pageSizeBytes,
+            pageSizeStatus: row.page_size_status || row.pageSizeStatus,
+            totalWordCount: row.total_word_count !== null && row.total_word_count !== undefined 
+                ? parseInt(row.total_word_count.toString()) 
+                : row.totalWordCount,
+            visibleWordCount: row.visible_word_count !== null && row.visible_word_count !== undefined 
+                ? parseInt(row.visible_word_count.toString()) 
+                : row.visibleWordCount,
+            uniqueWordCount: row.unique_word_count !== null && row.unique_word_count !== undefined 
+                ? parseInt(row.unique_word_count.toString()) 
+                : row.uniqueWordCount,
+            textToHtmlRatio: row.text_to_html_ratio !== null && row.text_to_html_ratio !== undefined 
+                ? parseFloat(row.text_to_html_ratio.toString()) 
+                : row.textToHtmlRatio,
+            sentenceCount: row.sentence_count !== null && row.sentence_count !== undefined 
+                ? parseInt(row.sentence_count.toString()) 
+                : row.sentenceCount,
+            paragraphCount: row.paragraph_count !== null && row.paragraph_count !== undefined 
+                ? parseInt(row.paragraph_count.toString()) 
+                : row.paragraphCount,
+            averageSentenceLength: row.average_sentence_length !== null && row.average_sentence_length !== undefined 
+                ? parseFloat(row.average_sentence_length.toString()) 
+                : row.averageSentenceLength,
+            averageParagraphLength: row.average_paragraph_length !== null && row.average_paragraph_length !== undefined 
+                ? parseFloat(row.average_paragraph_length.toString()) 
+                : row.averageParagraphLength,
+            keywordDensity: row.keyword_density !== null && row.keyword_density !== undefined 
+                ? parseFloat(row.keyword_density.toString()) 
+                : row.keywordDensity,
+            thinContent: row.thin_content !== null && row.thin_content !== undefined 
+                ? Boolean(row.thin_content) 
+                : row.thinContent,
+            thinContentReason: row.thin_content_reason || row.thinContentReason,
+            duplicateContent: row.duplicate_content !== null && row.duplicate_content !== undefined 
+                ? Boolean(row.duplicate_content) 
+                : row.duplicateContent,
+            duplicateWithUrls: row.duplicate_with_urls 
+                ? (typeof row.duplicate_with_urls === 'string' ? JSON.parse(row.duplicate_with_urls) : row.duplicate_with_urls) 
+                : row.duplicateWithUrls,
+            sectionWordCountMapping: row.section_word_count_mapping 
+                ? (typeof row.section_word_count_mapping === 'string' ? JSON.parse(row.section_word_count_mapping) : row.section_word_count_mapping) 
+                : row.sectionWordCountMapping,
+            sectionWordCountBreakdown: row.section_word_count_breakdown 
+                ? (typeof row.section_word_count_breakdown === 'string' ? JSON.parse(row.section_word_count_breakdown) : row.section_word_count_breakdown) 
+                : row.sectionWordCountBreakdown,
+            headingWordCountMapping: row.heading_word_count_mapping 
+                ? (typeof row.heading_word_count_mapping === 'string' ? JSON.parse(row.heading_word_count_mapping) : row.heading_word_count_mapping) 
+                : row.headingWordCountMapping,
             htmlSizeBytes: row.html_size_bytes !== null && row.html_size_bytes !== undefined
-                ? parseInt(row.html_size_bytes)
-                : undefined,
-            htmlSizeStatus: row.html_size_status || undefined,
+                ? parseInt(row.html_size_bytes.toString())
+                : row.htmlSizeBytes,
+            htmlSizeStatus: row.html_size_status || row.htmlSizeStatus,
             totalResourceSizeBytes: row.total_resource_size_bytes !== null && row.total_resource_size_bytes !== undefined
-                ? parseInt(row.total_resource_size_bytes)
-                : undefined,
-            resourceSizeBreakdown: row.resource_size_breakdown || undefined
+                ? parseInt(row.total_resource_size_bytes.toString())
+                : row.totalResourceSizeBytes,
+            resourceSizeBreakdown: row.resource_size_breakdown || row.resourceSizeBreakdown,
         };
-    }
-
-    /**
-     * Get pages with HTML content for semantic analysis
-     * Note: Assumes there's a raw_html_content or html_content column
-     * If not available in your schema, you may need to fetch from a separate storage
-     */
-    async getPagesWithContent(sessionId: number): Promise<any[]> {
-        const res = await this.pool.query(
-            `SELECT id, url, title, 
-                    COALESCE(raw_html_content, html_content, '') as html_content
-             FROM pages
-             WHERE session_id = $1 AND success = true
-             ORDER BY timestamp ASC`,
-            [sessionId]
-        );
-        return res.rows;
-    }
-
-    async getAllPagesForSession(sessionId: number): Promise<any[]> {
-        const res = await this.pool.query(
-            `SELECT id, url, title, description, word_count, crawl_depth
-             FROM pages
-             WHERE session_id = $1 AND success = true
-             ORDER BY crawl_depth ASC, timestamp ASC`,
-            [sessionId]
-        );
-        return res.rows;
     }
 
     private mapResource(row: any): Resource {
         return {
             id: row.id,
-            sessionId: row.session_id,
-            pageId: row.page_id,
+            sessionId: row.session_id || row.sessionId,
+            pageId: row.page_id || row.pageId,
             url: row.url,
-            resourceType: row.resource_type,
+            resourceType: row.resource_type || row.resourceType,
             title: row.title,
             description: row.description,
-            contentType: row.content_type,
-            statusCode: row.status_code,
-            responseTime: row.response_time,
-            timestamp: row.timestamp
+            contentType: row.content_type || row.contentType,
+            statusCode: row.status_code || row.statusCode,
+            responseTime: row.response_time || row.responseTime,
+            timestamp: row.timestamp instanceof Date ? row.timestamp.toISOString() : row.timestamp,
         };
     }
 }

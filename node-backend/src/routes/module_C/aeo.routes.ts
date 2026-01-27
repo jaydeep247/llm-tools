@@ -1,6 +1,5 @@
 import express from 'express';
 import { MultiModelScoringService } from '../../helpers/module_E/MultiModelScoringService.js';
-import { getPool } from '../../config/dbConnection.js';
 import { aeoMetricsRepository } from '../../models/repositories/aeoMetricsRepository.js';
 import { Logger } from '../../helpers/logging/Logger.js';
 import { authenticateUser, checkUsageLimit } from '../../middleware/authMiddleware.js';

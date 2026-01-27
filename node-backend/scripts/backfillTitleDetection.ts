@@ -4,27 +4,30 @@
  * for all existing pages in the database
  */
 
-import { getPool } from '../src/config/dbConnection.js';
+import { prisma } from '../src/config/prismaClient.js';
 import { PageRepository } from '../src/models/repositories/pageRepository.js';
 import { Logger } from '../src/helpers/logging/Logger.js';
 
 const logger = Logger.getInstance();
 
 async function backfillTitleDetection() {
-    const pool = getPool();
-    const pageRepo = new PageRepository(pool);
+    const pageRepo = new PageRepository();
 
     try {
         console.log('\n' + '='.repeat(60));
         console.log('🚀 Starting Title and Meta Description Detection Backfill');
         console.log('='.repeat(60));
 
-        // Get all unique session IDs
-        const sessionsResult = await pool.query(
-            `SELECT DISTINCT session_id FROM pages ORDER BY session_id`
-        );
+        // Get all unique session IDs from pages table
+        const sessionsResult = await prisma.page.findMany({
+            distinct: ['sessionId'],
+            select: { sessionId: true },
+            orderBy: { sessionId: 'asc' }
+        });
 
-        const sessionIds = sessionsResult.rows.map(row => row.session_id);
+        const sessionIds = sessionsResult
+            .map(row => row.sessionId)
+            .filter((id): id is number => id !== null && id !== undefined);
         console.log(`📊 Found ${sessionIds.length} sessions to process\n`);
 
         let totalPagesProcessed = 0;
@@ -33,11 +36,9 @@ async function backfillTitleDetection() {
         for (const sessionId of sessionIds) {
             try {
                 // Get page count for this session
-                const pageCountResult = await pool.query(
-                    `SELECT COUNT(*) as count FROM pages WHERE session_id = $1`,
-                    [sessionId]
-                );
-                const pageCount = parseInt(pageCountResult.rows[0].count);
+                const pageCount = await prisma.page.count({
+                    where: { sessionId }
+                });
 
                 if (pageCount === 0) {
                     console.log(`⏭️  Session ${sessionId}: No pages, skipping`);
@@ -72,7 +73,7 @@ async function backfillTitleDetection() {
         logger.error('Title detection backfill failed', error as Error);
         throw error;
     } finally {
-        await pool.end();
+        await prisma.$disconnect();
     }
 }
 

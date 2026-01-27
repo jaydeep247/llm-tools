@@ -1,20 +1,19 @@
-import { databaseInitializer } from '../src/config/DatabaseInitializer.js';
-import { getPool } from '../src/config/dbConnection.js';
+import { prisma } from '../src/config/prismaClient.js';
 
 async function initModuleC() {
     console.log('🚀 Initializing Module C Database Tables...');
 
     try {
-        // Use the main database initializer which includes Module C tables
-        await databaseInitializer.initialize();
-        console.log('✅ Module C tables initialized successfully.');
+        // Module C tables are managed via Prisma schema & migrations
+        console.log('🔧 Checking database connection via Prisma...');
+        await prisma.$executeRawUnsafe('SELECT 1');
+        console.log('✅ Module C database connection verified. Tables are managed via Prisma migrations.');
         process.exit(0);
     } catch (err) {
         console.error('❌ Failed to initialize Module C tables:', err);
         process.exit(1);
     } finally {
-        const pool = getPool();
-        await pool.end();
+        await prisma.$disconnect();
     }
 }
 

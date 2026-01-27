@@ -1,8 +1,8 @@
-import { Pool } from 'pg';
+import { prisma } from '../../config/prismaClient.js';
 import { AuditSchedule, AuditExecution } from '../types.js';
 
 export class AuditRepository {
-    constructor(private pool: Pool) { }
+    constructor() { }
 
     private safeInt(val: any): number | null {
         if (val === undefined || val === null) return null;
@@ -12,351 +12,364 @@ export class AuditRepository {
     }
 
     async insertAuditSchedule(schedule: Omit<AuditSchedule, 'id'>): Promise<number> {
-        const res = await this.pool.query(
-            `INSERT INTO audit_schedules 
-      (name, description, urls, device, cron_expression, enabled, user_id, created_at, last_run, next_run, total_runs, successful_runs, failed_runs)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-      RETURNING id`,
-            [
-                schedule.name, schedule.description, schedule.urls, schedule.device,
-                schedule.cronExpression, schedule.enabled, schedule.userId || null,
-                schedule.createdAt, schedule.lastRun || null, schedule.nextRun || null,
-                schedule.totalRuns, schedule.successfulRuns, schedule.failedRuns
-            ]
-        );
-        return res.rows[0].id;
+        const result = await prisma.auditSchedule.create({
+            data: {
+                name: schedule.name,
+                description: schedule.description,
+                urls: schedule.urls,
+                device: schedule.device,
+                cronExpression: schedule.cronExpression,
+                enabled: schedule.enabled,
+                userId: schedule.userId ?? null,
+                createdAt: schedule.createdAt,
+                lastRun: schedule.lastRun || null,
+                nextRun: schedule.nextRun || null,
+                totalRuns: schedule.totalRuns,
+                successfulRuns: schedule.successfulRuns,
+                failedRuns: schedule.failedRuns,
+            },
+        });
+        return result.id;
     }
 
     async updateAuditSchedule(id: number, updates: Partial<AuditSchedule>): Promise<void> {
-        const fields: string[] = [];
-        const values: any[] = [];
-        let idx = 1;
+        const updateData: any = {};
 
-        const columnMap: Record<string, string> = {
-            cronExpression: 'cron_expression',
-            userId: 'user_id',
-            createdAt: 'created_at',
-            lastRun: 'last_run',
-            nextRun: 'next_run',
-            totalRuns: 'total_runs',
-            successfulRuns: 'successful_runs',
-            failedRuns: 'failed_runs',
-        };
+        if (updates.name !== undefined) updateData.name = updates.name;
+        if (updates.description !== undefined) updateData.description = updates.description;
+        if (updates.urls !== undefined) updateData.urls = updates.urls;
+        if (updates.device !== undefined) updateData.device = updates.device;
+        if (updates.cronExpression !== undefined) updateData.cronExpression = updates.cronExpression;
+        if (updates.enabled !== undefined) updateData.enabled = updates.enabled;
+        if (updates.userId !== undefined) updateData.userId = updates.userId;
+        if (updates.createdAt !== undefined) updateData.createdAt = updates.createdAt;
+        if (updates.lastRun !== undefined) updateData.lastRun = updates.lastRun;
+        if (updates.nextRun !== undefined) updateData.nextRun = updates.nextRun;
+        if (updates.totalRuns !== undefined) updateData.totalRuns = updates.totalRuns;
+        if (updates.successfulRuns !== undefined) updateData.successfulRuns = updates.successfulRuns;
+        if (updates.failedRuns !== undefined) updateData.failedRuns = updates.failedRuns;
 
-        for (const [key, value] of Object.entries(updates)) {
-            if (key === 'id') continue;
-            const column = columnMap[key] || key;
-            fields.push(`${column} = $${idx++}`);
-            values.push(value);
-        }
+        if (Object.keys(updateData).length === 0) return;
 
-        if (fields.length === 0) return;
-
-        values.push(id);
-        await this.pool.query(
-            `UPDATE audit_schedules SET ${fields.join(', ')} WHERE id = $${idx}`,
-            values
-        );
+        await prisma.auditSchedule.update({
+            where: { id },
+            data: updateData,
+        });
     }
 
     async deleteAuditSchedule(id: number): Promise<void> {
-        await this.pool.query('DELETE FROM audit_schedules WHERE id = $1', [id]);
+        await prisma.auditSchedule.delete({
+            where: { id },
+        });
     }
 
     async getAuditSchedule(id: number): Promise<AuditSchedule | null> {
-        const res = await this.pool.query('SELECT * FROM audit_schedules WHERE id = $1', [id]);
-        if (res.rows.length === 0) return null;
-        return this.mapAuditSchedule(res.rows[0]);
+        const schedule = await prisma.auditSchedule.findUnique({
+            where: { id },
+        });
+        if (!schedule) return null;
+        return this.mapAuditSchedule(schedule);
     }
 
     async getAllAuditSchedules(limit: number = 100): Promise<AuditSchedule[]> {
-        const res = await this.pool.query('SELECT * FROM audit_schedules ORDER BY created_at DESC LIMIT $1', [limit]);
-        return res.rows.map(row => this.mapAuditSchedule(row));
+        const schedules = await prisma.auditSchedule.findMany({
+            orderBy: { createdAt: 'desc' },
+            take: limit,
+        });
+        return schedules.map((schedule: any) => this.mapAuditSchedule(schedule));
     }
 
     async getEnabledAuditSchedules(): Promise<AuditSchedule[]> {
-        const res = await this.pool.query('SELECT * FROM audit_schedules WHERE enabled = TRUE');
-        return res.rows.map(row => this.mapAuditSchedule(row));
+        const schedules = await prisma.auditSchedule.findMany({
+            where: { enabled: true },
+        });
+        return schedules.map((schedule: any) => this.mapAuditSchedule(schedule));
     }
 
     async insertAuditExecution(execution: Omit<AuditExecution, 'id'>): Promise<number> {
-        const res = await this.pool.query(
-            `INSERT INTO audit_executions 
-      (schedule_id, started_at, completed_at, status, error_message, urls_processed, urls_successful, urls_failed, duration)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      RETURNING id`,
-            [
-                execution.scheduleId, execution.startedAt, execution.completedAt || null,
-                execution.status, execution.errorMessage || null, execution.urlsProcessed,
-                execution.urlsSuccessful, execution.urlsFailed, execution.duration
-            ]
-        );
-        return res.rows[0].id;
+        const result = await prisma.auditExecution.create({
+            data: {
+                scheduleId: execution.scheduleId,
+                startedAt: execution.startedAt,
+                completedAt: execution.completedAt || null,
+                status: execution.status,
+                errorMessage: execution.errorMessage || null,
+                urlsProcessed: execution.urlsProcessed,
+                urlsSuccessful: execution.urlsSuccessful,
+                urlsFailed: execution.urlsFailed,
+                duration: execution.duration,
+            },
+        });
+        return result.id;
     }
 
     async updateAuditExecution(id: number, updates: Partial<AuditExecution>): Promise<void> {
-        const fields: string[] = [];
-        const values: any[] = [];
-        let idx = 1;
+        const updateData: any = {};
 
-        const columnMap: Record<string, string> = {
-            scheduleId: 'schedule_id',
-            startedAt: 'started_at',
-            completedAt: 'completed_at',
-            urlsProcessed: 'urls_processed',
-            urlsSuccessful: 'urls_successful',
-            urlsFailed: 'urls_failed',
-        };
+        if (updates.scheduleId !== undefined) updateData.scheduleId = updates.scheduleId;
+        if (updates.startedAt !== undefined) updateData.startedAt = updates.startedAt;
+        if (updates.completedAt !== undefined) updateData.completedAt = updates.completedAt;
+        if (updates.status !== undefined) updateData.status = updates.status;
+        if (updates.errorMessage !== undefined) updateData.errorMessage = updates.errorMessage;
+        if (updates.urlsProcessed !== undefined) updateData.urlsProcessed = updates.urlsProcessed;
+        if (updates.urlsSuccessful !== undefined) updateData.urlsSuccessful = updates.urlsSuccessful;
+        if (updates.urlsFailed !== undefined) updateData.urlsFailed = updates.urlsFailed;
+        if (updates.duration !== undefined) updateData.duration = updates.duration;
 
-        for (const [key, value] of Object.entries(updates)) {
-            if (key === 'id') continue;
-            const column = columnMap[key] || key;
-            fields.push(`${column} = $${idx++}`);
-            values.push(value);
-        }
+        if (Object.keys(updateData).length === 0) return;
 
-        if (fields.length === 0) return;
-
-        values.push(id);
-        await this.pool.query(
-            `UPDATE audit_executions SET ${fields.join(', ')} WHERE id = $${idx}`,
-            values
-        );
+        await prisma.auditExecution.update({
+            where: { id },
+            data: updateData,
+        });
     }
 
     async getAuditExecutions(scheduleId: number, limit: number = 50): Promise<AuditExecution[]> {
-        const res = await this.pool.query(
-            'SELECT * FROM audit_executions WHERE schedule_id = $1 ORDER BY started_at DESC LIMIT $2',
-            [scheduleId, limit]
-        );
-        return res.rows.map(row => this.mapAuditExecution(row));
+        const executions = await prisma.auditExecution.findMany({
+            where: { scheduleId },
+            orderBy: { startedAt: 'desc' },
+            take: limit,
+        });
+        return executions.map((execution: any) => this.mapAuditExecution(execution));
     }
 
     async getAllAuditExecutions(limit: number = 100): Promise<AuditExecution[]> {
-        const res = await this.pool.query(
-            'SELECT * FROM audit_executions ORDER BY started_at DESC LIMIT $1',
-            [limit]
-        );
-        return res.rows.map(row => this.mapAuditExecution(row));
+        const executions = await prisma.auditExecution.findMany({
+            orderBy: { startedAt: 'desc' },
+            take: limit,
+        });
+        return executions.map((execution: any) => this.mapAuditExecution(execution));
     }
 
     async getAuditResultsByUrl(url: string, device: string, limit: number = 5): Promise<any[]> {
-        const sql = 'SELECT * FROM audit_results WHERE url = $1 AND device = $2 ORDER BY timestamp DESC LIMIT $3';
-        const res = await this.pool.query(sql, [url, device, limit]);
-        return res.rows.map(row => ({
-            ...row,
-            fullReport: row.full_report ? JSON.parse(row.full_report) : undefined
+        const results = await prisma.auditResult.findMany({
+            where: {
+                url,
+                device,
+            },
+            orderBy: { runAt: 'desc' },
+            take: limit,
+        });
+
+        return results.map((result: any) => ({
+            ...result,
+            fullReport: undefined, // This field doesn't exist in schema
         }));
     }
 
     async insertAuditResult(data: any): Promise<number> {
-        const sql = `
-      INSERT INTO audit_results (
-        url, device, run_at, 
-        lcp_ms, tbt_ms, cls, fcp_ms, ttfb_ms,
-        performance_score, psi_report_url, 
-        metrics_json, raw_json, session_id,
-        status, progress
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-      RETURNING id
-    `;
-        const res = await this.pool.query(sql, [
-            data.url, data.device, data.run_at || new Date().toISOString(),
-            this.safeInt(data.lcp_ms), this.safeInt(data.tbt_ms), data.cls,
-            this.safeInt(data.fcp_ms), this.safeInt(data.ttfb_ms),
-            this.safeInt(data.performance_score), data.psi_report_url,
-            data.metrics_json ? JSON.stringify(data.metrics_json) : null,
-            data.raw_json ? JSON.stringify(data.raw_json) : null,
-            this.safeInt(data.session_id),
-            data.status || 'completed',
-            this.safeInt(data.progress) || 100
-        ]);
-        return res.rows[0].id;
+        const result = await prisma.auditResult.create({
+            data: {
+                url: data.url,
+                device: data.device,
+                runAt: data.run_at ? new Date(data.run_at) : new Date(),
+                lcpMs: data.lcp_ms ?? null,
+                tbtMs: data.tbt_ms ?? null,
+                cls: data.cls ?? null,
+                fcpMs: data.fcp_ms ?? null,
+                ttfbMs: data.ttfb_ms ?? null,
+                performanceScore: data.performance_score ?? null,
+                psiReportUrl: data.psi_report_url ?? null,
+                metricsJson: data.metrics_json ? JSON.stringify(data.metrics_json) : null,
+                rawJson: data.raw_json ? JSON.stringify(data.raw_json) : null,
+                sessionId: data.session_id ?? null,
+                status: data.status || 'completed',
+                progress: data.progress || 100,
+            },
+        });
+        return result.id;
     }
 
     async updateAuditResult(id: number, updates: any): Promise<void> {
-        const sets: string[] = [];
-        const params: any[] = [id];
-        let i = 2;
+        const updateData: any = {};
 
-        const fieldMap: Record<string, string> = {
-            lcp_ms: 'lcp_ms',
-            tbt_ms: 'tbt_ms',
-            cls: 'cls',
-            fcp_ms: 'fcp_ms',
-            ttfb_ms: 'ttfb_ms',
-            performance_score: 'performance_score',
-            psi_report_url: 'psi_report_url',
-            status: 'status',
-            progress: 'progress',
-            metrics_json: 'metrics_json',
-            raw_json: 'raw_json'
-        };
-
-        for (const [key, dbField] of Object.entries(fieldMap)) {
-            if (updates[key] !== undefined) {
-                sets.push(`${dbField} = $${i++}`);
-                let val = updates[key];
-                if (key.endsWith('_json')) {
-                    val = JSON.stringify(val);
-                } else if (['lcp_ms', 'tbt_ms', 'fcp_ms', 'ttfb_ms', 'performance_score', 'progress', 'session_id'].includes(key)) {
-                    val = this.safeInt(val);
-                }
-                params.push(val);
-            }
+        if (updates.lcp_ms !== undefined) updateData.lcpMs = updates.lcp_ms;
+        if (updates.tbt_ms !== undefined) updateData.tbtMs = updates.tbt_ms;
+        if (updates.cls !== undefined) updateData.cls = updates.cls;
+        if (updates.fcp_ms !== undefined) updateData.fcpMs = updates.fcp_ms;
+        if (updates.ttfb_ms !== undefined) updateData.ttfbMs = updates.ttfb_ms;
+        if (updates.performance_score !== undefined) updateData.performanceScore = updates.performance_score;
+        if (updates.psi_report_url !== undefined) updateData.psiReportUrl = updates.psi_report_url;
+        if (updates.status !== undefined) updateData.status = updates.status;
+        if (updates.progress !== undefined) updateData.progress = updates.progress;
+        if (updates.metrics_json !== undefined) {
+            updateData.metricsJson = typeof updates.metrics_json === 'string' 
+                ? updates.metrics_json 
+                : JSON.stringify(updates.metrics_json);
+        }
+        if (updates.raw_json !== undefined) {
+            updateData.rawJson = typeof updates.raw_json === 'string' 
+                ? updates.raw_json 
+                : JSON.stringify(updates.raw_json);
         }
 
-        if (sets.length === 0) return;
+        if (Object.keys(updateData).length === 0) return;
 
-        const sql = `UPDATE audit_results SET ${sets.join(', ')} WHERE id = $1`;
-        await this.pool.query(sql, params);
+        await prisma.auditResult.update({
+            where: { id },
+            data: updateData,
+        });
     }
 
     async getAuditResult(url: string, device: string): Promise<any | null> {
-        const sql = 'SELECT * FROM audit_results WHERE url = $1 AND device = $2 ORDER BY run_at DESC LIMIT 1';
-        const res = await this.pool.query(sql, [url, device]);
-        if (res.rows.length === 0) return null;
-        const row = res.rows[0];
+        const result = await prisma.auditResult.findFirst({
+            where: {
+                url,
+                device,
+            },
+            orderBy: { runAt: 'desc' },
+        });
+
+        if (!result) return null;
+
         return {
-            ...row,
-            metrics_json: row.metrics_json ? JSON.parse(row.metrics_json) : undefined,
-            raw_json: row.raw_json ? JSON.parse(row.raw_json) : undefined
+            ...result,
+            metrics_json: result.metricsJson ? JSON.parse(result.metricsJson) : undefined,
+            raw_json: result.rawJson ? JSON.parse(result.rawJson) : undefined,
         };
     }
 
     async getAuditResultById(id: number): Promise<any | null> {
-        const res = await this.pool.query('SELECT * FROM audit_results WHERE id = $1', [id]);
-        if (res.rows.length === 0) return null;
-        const row = res.rows[0];
+        const result = await prisma.auditResult.findUnique({
+            where: { id },
+        });
+
+        if (!result) return null;
+
         return {
-            ...row,
-            metrics_json: row.metrics_json ? JSON.parse(row.metrics_json) : undefined,
-            raw_json: row.raw_json ? JSON.parse(row.raw_json) : undefined
+            ...result,
+            metrics_json: result.metricsJson ? JSON.parse(result.metricsJson) : undefined,
+            raw_json: result.rawJson ? JSON.parse(result.rawJson) : undefined,
         };
     }
 
     async getAuditResults(device?: string, limit: number = 100): Promise<any[]> {
-        let sql = 'SELECT * FROM audit_results';
-        const params: any[] = [];
+        const where: any = {};
         if (device && device !== 'all' && device !== undefined) {
-            sql += ' WHERE device = $1';
-            params.push(device);
+            where.device = device;
         }
-        sql += ' ORDER BY run_at DESC LIMIT $' + (params.length + 1);
-        params.push(limit);
-        const res = await this.pool.query(sql, params);
-        return res.rows;
+
+        const results = await prisma.auditResult.findMany({
+            where,
+            orderBy: { runAt: 'desc' },
+            take: limit,
+        });
+
+        return results;
     }
 
     async getAuditResultsBySessionId(sessionId: number, device?: string, limit: number = 200): Promise<any[]> {
-        let sql = 'SELECT * FROM audit_results WHERE session_id = $1';
-        const params: any[] = [sessionId];
+        const where: any = { sessionId };
         if (device && device !== 'all' && device !== undefined) {
-            sql += ' AND device = $2';
-            params.push(device);
+            where.device = device;
         }
-        sql += ' ORDER BY run_at DESC LIMIT $' + (params.length + 1);
-        params.push(limit);
-        const res = await this.pool.query(sql, params);
-        return res.rows;
+
+        const results = await prisma.auditResult.findMany({
+            where,
+            orderBy: { runAt: 'desc' },
+            take: limit,
+        });
+
+        return results;
     }
 
     async hasAuditsForSession(sessionId: number): Promise<boolean> {
-        const res = await this.pool.query(
-            'SELECT EXISTS(SELECT 1 FROM audit_results WHERE session_id = $1) as has_audits',
-            [sessionId]
-        );
-        return res.rows[0].has_audits;
+        const count = await prisma.auditResult.count({
+            where: { sessionId },
+        });
+        return count > 0;
     }
 
     async getAuditProgressBySession(sessionId: number): Promise<{ total: number; completed: number; }> {
-        // Only count pages that were successfully crawled (status 200) as they are the only ones audited
-        const totalSql = 'SELECT COUNT(*) FROM pages WHERE session_id = $1 AND status_code = 200';
-        const completedSql = 'SELECT COUNT(*) FROM audit_results WHERE session_id = $1';
-
-        const [totalRes, completedRes] = await Promise.all([
-            this.pool.query(totalSql, [sessionId]),
-            this.pool.query(completedSql, [sessionId])
+        const [total, completed] = await Promise.all([
+            prisma.page.count({
+                where: {
+                    sessionId,
+                    statusCode: 200,
+                },
+            }),
+            prisma.auditResult.count({
+                where: { sessionId },
+            }),
         ]);
 
         return {
-            total: parseInt(totalRes.rows[0].count),
-            completed: parseInt(completedRes.rows[0].count)
+            total,
+            completed,
         };
     }
 
     async insertAEOAnalysisResult(data: any): Promise<number> {
-        const res = await this.pool.query(
-            `INSERT INTO aeo_analysis_results 
-      (session_id, url, user_id, grade, grade_color, overall_score, module_scores, module_weights, detailed_analysis, structured_data, recommendations, errors, warnings, analysis_timestamp, run_id)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-      RETURNING id`,
-            [
-                data.sessionId, data.url, data.userId, data.grade, data.gradeColor,
-                data.overallScore, JSON.stringify(data.moduleScores), JSON.stringify(data.moduleWeights),
-                JSON.stringify(data.detailedAnalysis), JSON.stringify(data.structuredData),
-                JSON.stringify(data.recommendations), JSON.stringify(data.errors),
-                JSON.stringify(data.warnings), data.analysisTimestamp, data.runId
-            ]
-        );
-        return res.rows[0].id;
+        const result = await prisma.aeoAnalysisResult.create({
+            data: {
+                sessionId: data.sessionId ?? null,
+                url: data.url,
+                userId: data.userId ?? null,
+                grade: data.grade ?? null,
+                gradeColor: data.gradeColor ?? null,
+                overallScore: data.overallScore ?? null,
+                moduleScores: data.moduleScores ? JSON.stringify(data.moduleScores) : null,
+                moduleWeights: data.moduleWeights ? JSON.stringify(data.moduleWeights) : null,
+                detailedAnalysis: data.detailedAnalysis ? JSON.stringify(data.detailedAnalysis) : null,
+                structuredData: data.structuredData ? JSON.stringify(data.structuredData) : null,
+                recommendations: data.recommendations ? JSON.stringify(data.recommendations) : null,
+                errors: data.errors ? JSON.stringify(data.errors) : null,
+                warnings: data.warnings ? JSON.stringify(data.warnings) : null,
+                analysisTimestamp: data.analysisTimestamp ? new Date(data.analysisTimestamp) : new Date(),
+                runId: data.runId ?? null,
+            },
+        });
+        return result.id;
     }
 
     async getAeoResultsTableBySessionId(sessionId: number): Promise<any | null> {
-        const res = await this.pool.query(
-            'SELECT * FROM aeo_results WHERE session_id = $1 ORDER BY created_at DESC LIMIT 1',
-            [sessionId]
-        );
-        if (res.rows.length === 0) return null;
+        const result = await prisma.aeoResult.findUnique({
+            where: { sessionId },
+        });
 
-        const row = res.rows[0];
-        console.log('DEBUG: Raw aeo_results row:', JSON.stringify(row, null, 2));
+        if (!result) return null;
 
-        // Parse JSON fields
         return {
-            ...row,
-            openai: row.score_openai,
-            claude: row.score_claude,
-            gemini: row.score_gemini,
-            consistency: row.consistency || row.score_consistency,
-            brand_metrics: row.brand_metrics, // Already JSONB (object)
+            ...result,
+            openai: result.scoreOpenai,
+            claude: result.scoreClaude,
+            gemini: result.scoreGemini,
+            consistency: result.consistency,
+            brand_metrics: result.brandMetrics,
             entity_coverage: {
-                score: row.score_entity_coverage,
-                entities_expected: row.entities_expected,
-                entities_observed: row.entities_observed,
-                entities_missing: row.entities_missing
-            }
+                score: result.scoreEntityCoverage,
+                entities_expected: result.entitiesExpected,
+                entities_observed: result.entitiesObserved,
+                entities_missing: result.entitiesMissing,
+            },
         };
     }
 
     async insertAeoResultsTable(data: any): Promise<number> {
-        const res = await this.pool.query(
-            `INSERT INTO aeo_results 
-            (session_id, url, consistency, score_entity_coverage, entities_expected, entities_observed, entities_missing, brand_metrics)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            ON CONFLICT (session_id) 
-            DO UPDATE SET 
-                url = EXCLUDED.url,
-                consistency = EXCLUDED.consistency,
-                score_entity_coverage = EXCLUDED.score_entity_coverage,
-                entities_expected = EXCLUDED.entities_expected,
-                entities_observed = EXCLUDED.entities_observed,
-                entities_missing = EXCLUDED.entities_missing,
-                brand_metrics = EXCLUDED.brand_metrics,
-                updated_at = CURRENT_TIMESTAMP
-            RETURNING id`,
-            [
-                data.session_id,
-                data.url,
-                data.consistency,
-                data.score_entity_coverage,
-                JSON.stringify(data.entities_expected),
-                JSON.stringify(data.entities_observed),
-                JSON.stringify(data.entities_missing),
-                JSON.stringify(data.brand_metrics)
-            ]
-        );
-        return res.rows[0].id;
+        const result = await prisma.aeoResult.upsert({
+            where: { sessionId: data.session_id },
+            update: {
+                url: data.url,
+                consistency: data.consistency,
+                scoreEntityCoverage: data.score_entity_coverage,
+                entitiesExpected: data.entities_expected as any,
+                entitiesObserved: data.entities_observed as any,
+                entitiesMissing: data.entities_missing as any,
+                brandMetrics: data.brand_metrics as any,
+                updatedAt: new Date(),
+            },
+            create: {
+                sessionId: data.session_id,
+                url: data.url,
+                consistency: data.consistency,
+                scoreEntityCoverage: data.score_entity_coverage,
+                entitiesExpected: data.entities_expected as any,
+                entitiesObserved: data.entities_observed as any,
+                entitiesMissing: data.entities_missing as any,
+                brandMetrics: data.brand_metrics as any,
+            },
+        });
+        return result.id;
     }
 
     async saveAeoAnalysisResult(data: any): Promise<number> {
@@ -364,62 +377,62 @@ export class AuditRepository {
     }
 
     async getAeoAnalysisResultBySessionId(sessionId: number): Promise<any | null> {
-        const res = await this.pool.query(
-            'SELECT * FROM aeo_analysis_results WHERE session_id = $1 ORDER BY analysis_timestamp DESC LIMIT 1',
-            [sessionId]
-        );
-        if (res.rows.length === 0) return null;
-        const row = res.rows[0];
-        // Parse JSON fields
+        const result = await prisma.aeoAnalysisResult.findFirst({
+            where: { sessionId },
+            orderBy: { analysisTimestamp: 'desc' },
+        });
+
+        if (!result) return null;
+
         return {
-            ...row,
-            sessionId: row.session_id,
-            userId: row.user_id,
-            gradeColor: row.grade_color,
-            overallScore: row.overall_score,
-            moduleScores: typeof row.module_scores === 'string' ? JSON.parse(row.module_scores) : row.module_scores,
-            moduleWeights: typeof row.module_weights === 'string' ? JSON.parse(row.module_weights) : row.module_weights,
-            detailedAnalysis: typeof row.detailed_analysis === 'string' ? JSON.parse(row.detailed_analysis) : row.detailed_analysis,
-            structuredData: typeof row.structured_data === 'string' ? JSON.parse(row.structured_data) : row.structured_data,
-            recommendations: typeof row.recommendations === 'string' ? JSON.parse(row.recommendations) : row.recommendations,
-            errors: typeof row.errors === 'string' ? JSON.parse(row.errors) : row.errors,
-            warnings: typeof row.warnings === 'string' ? JSON.parse(row.warnings) : row.warnings,
-            analysisTimestamp: row.analysis_timestamp,
-            runId: row.run_id
+            ...result,
+            sessionId: result.sessionId,
+            userId: result.userId,
+            gradeColor: result.gradeColor,
+            overallScore: result.overallScore,
+            moduleScores: result.moduleScores ? JSON.parse(result.moduleScores) : undefined,
+            moduleWeights: result.moduleWeights ? JSON.parse(result.moduleWeights) : undefined,
+            detailedAnalysis: result.detailedAnalysis ? JSON.parse(result.detailedAnalysis) : undefined,
+            structuredData: result.structuredData ? JSON.parse(result.structuredData) : undefined,
+            recommendations: result.recommendations ? JSON.parse(result.recommendations) : undefined,
+            errors: result.errors ? JSON.parse(result.errors) : undefined,
+            warnings: result.warnings ? JSON.parse(result.warnings) : undefined,
+            analysisTimestamp: result.analysisTimestamp,
+            runId: result.runId,
         };
     }
 
-    private mapAuditExecution(row: any): AuditExecution {
+    private mapAuditExecution(execution: any): AuditExecution {
         return {
-            id: row.id,
-            scheduleId: row.schedule_id,
-            startedAt: row.started_at,
-            completedAt: row.completed_at,
-            status: row.status,
-            errorMessage: row.error_message,
-            urlsProcessed: row.urls_processed,
-            urlsSuccessful: row.urls_successful,
-            urlsFailed: row.urls_failed,
-            duration: row.duration
+            id: execution.id,
+            scheduleId: execution.scheduleId,
+            startedAt: execution.startedAt instanceof Date ? execution.startedAt.toISOString() : execution.startedAt,
+            completedAt: execution.completedAt ? (execution.completedAt instanceof Date ? execution.completedAt.toISOString() : execution.completedAt) : undefined,
+            status: execution.status,
+            errorMessage: execution.errorMessage,
+            urlsProcessed: execution.urlsProcessed,
+            urlsSuccessful: execution.urlsSuccessful,
+            urlsFailed: execution.urlsFailed,
+            duration: execution.duration,
         };
     }
 
-    private mapAuditSchedule(row: any): AuditSchedule {
+    private mapAuditSchedule(schedule: any): AuditSchedule {
         return {
-            id: row.id,
-            name: row.name,
-            description: row.description,
-            urls: row.urls,
-            device: row.device,
-            cronExpression: row.cron_expression,
-            enabled: row.enabled,
-            userId: row.user_id,
-            createdAt: row.created_at,
-            lastRun: row.last_run,
-            nextRun: row.next_run,
-            totalRuns: row.total_runs,
-            successfulRuns: row.successful_runs,
-            failedRuns: row.failed_runs
+            id: schedule.id,
+            name: schedule.name,
+            description: schedule.description,
+            urls: schedule.urls,
+            device: schedule.device,
+            cronExpression: schedule.cronExpression,
+            enabled: schedule.enabled,
+            userId: schedule.userId,
+            createdAt: schedule.createdAt instanceof Date ? schedule.createdAt.toISOString() : schedule.createdAt,
+            lastRun: schedule.lastRun ? (schedule.lastRun instanceof Date ? schedule.lastRun.toISOString() : schedule.lastRun) : undefined,
+            nextRun: schedule.nextRun ? (schedule.nextRun instanceof Date ? schedule.nextRun.toISOString() : schedule.nextRun) : undefined,
+            totalRuns: schedule.totalRuns,
+            successfulRuns: schedule.successfulRuns,
+            failedRuns: schedule.failedRuns,
         };
     }
 }

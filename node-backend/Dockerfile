@@ -9,8 +9,17 @@ RUN apk update && apk upgrade --no-cache
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
+# Install dependencies (including Prisma CLI)
 RUN npm ci
+
+# Copy Prisma schema and config files
+COPY prisma ./prisma
+COPY prisma.config.ts ./
+
+# Generate Prisma Client
+# Note: DATABASE_URL not needed for client generation, but prisma.config.ts requires it
+# Set a dummy URL for build time (real URL used at runtime)
+RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" npm run prisma:generate
 
 # Copy source code
 COPY . .
@@ -26,9 +35,17 @@ WORKDIR /app
 # Update Alpine packages to fix security vulnerabilities (CVE-2025-60876)
 RUN apk update && apk upgrade --no-cache
 
-# Install production dependencies only
+# Install production dependencies (includes @prisma/client and prisma CLI)
 COPY package*.json ./
 RUN npm ci --only=production
+
+# Copy Prisma schema and config (needed for runtime and client generation)
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/prisma.config.ts ./
+
+# Regenerate Prisma Client in production stage
+# This ensures @prisma/client can properly resolve to the generated client
+RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" npm run prisma:generate
 
 # Copy built application from builder
 COPY --from=builder /app/dist ./dist
@@ -51,5 +68,5 @@ EXPOSE 3004
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD node -e "require('http').get('http://localhost:3004/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})" || exit 1
 
-# Start the server
-CMD ["node", "dist/server.js"]
+# Start the server: run Prisma migrations then launch Node
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]

@@ -13,7 +13,6 @@ import { fileURLToPath } from 'url';
 import { Logger } from './helpers/logging/Logger.js';
 import { registerRoutes } from './config/routeRegistration.js';
 import { notFoundHandler, globalErrorHandler } from './middleware/errorHandler.js';
-import { initializeDatabase, startServer, setupProcessHandlers } from './services/serverLifecycle.js';
 
 const logger = Logger.getInstance();
 
@@ -130,11 +129,8 @@ registerRoutes(app);
 app.use(notFoundHandler);
 app.use(globalErrorHandler);
 
-// Initialize database and start server
-await initializeDatabase();
-startServer(app, PORT);
-
-// Setup process event handlers for graceful shutdown
-setupProcessHandlers();
-
-
+// Start server (migrations are handled externally, e.g. via Docker CMD)
+app.listen(PORT, () => {
+    logger.info(`Server started`, { port: PORT, environment: process.env.NODE_ENV || 'development' });
+    console.log(`Server listening on http://localhost:${PORT}`);
+});

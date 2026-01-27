@@ -1,6 +1,6 @@
 import express from 'express';
 import { Logger } from '../../helpers/logging/Logger.js';
-import { getPool } from '../../config/dbConnection.js';
+import { prisma } from '../../config/prismaClient.js';
 
 const router = express.Router();
 const logger = Logger.getInstance();
@@ -36,7 +36,6 @@ router.post('/sentiment-tracking',
 
             // --- SAVE TO DATABASE FOR HISTORY ---
             try {
-                const pool = getPool();
                 // We use a simplified URL key to track history for this brand, appending timestamp for uniqueness
                 const trackingUrl = `sentiment-tracker:${req.body.brand_name}:${Date.now()}`;
 
@@ -45,11 +44,12 @@ router.post('/sentiment-tracking',
                     url: trackingUrl
                 });
 
-                await pool.query(
-                    `INSERT INTO aeo_results (url, brand_metrics, created_at) 
-                     VALUES ($1, $2, NOW())`,
-                    [trackingUrl, data]
-                );
+                await prisma.aeoResult.create({
+                    data: {
+                        url: trackingUrl,
+                        brandMetrics: data as any,
+                    },
+                });
                 logger.info(`[DEBUG] Successfully saved sentiment history for ${trackingUrl}`);
             } catch (dbError: any) {
                 logger.error(`[DEBUG-ERROR] Failed to save sentiment history. Code: ${dbError.code}, Message: ${dbError.message}`);
@@ -73,25 +73,24 @@ router.get('/sentiment-history/:brandName',
     async (req: express.Request, res: express.Response) => {
         try {
             const { brandName } = req.params;
-            const trackingUrl = `sentiment-tracker:${brandName}`;
-            const pool = getPool();
+            const trackingUrlPattern = `sentiment-tracker:${brandName}:%`;
 
-            const result = await pool.query(
-                `SELECT brand_metrics, created_at 
-                 FROM aeo_results 
-                 WHERE url LIKE $1 
-                 ORDER BY created_at ASC`,
-                [`sentiment-tracker:${brandName}:%`]
-            );
+            // Use Prisma raw query for LIKE pattern matching
+            const results = await prisma.$queryRaw<any[]>`
+                SELECT brand_metrics, created_at 
+                FROM aeo_results 
+                WHERE url LIKE ${trackingUrlPattern}
+                ORDER BY created_at ASC
+            `;
 
             // Format for frontend
-            const history = result.rows.map((row: any) => ({
+            const history = results.map((row: any) => ({
                 date: row.created_at,
                 score: row.brand_metrics?.overall_score || 0
             }));
 
             // Get latest full result for hydration
-            const latestResult = result.rows.length > 0 ? result.rows[result.rows.length - 1].brand_metrics : null;
+            const latestResult = results.length > 0 ? results[results.length - 1].brand_metrics : null;
 
             res.json({ success: true, history, latestResult });
 

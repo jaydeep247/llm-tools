@@ -1,555 +1,695 @@
-import { Pool } from 'pg';
+import { prisma } from '../../config/prismaClient.js';
 import { CrawlSession, CrawlSchedule, ScheduleExecution } from '../types.js';
 
 export class CrawlRepository {
-    constructor(private pool: Pool) { }
+    constructor() { }
 
     async createCrawlSession(data: Omit<CrawlSession, 'id'>): Promise<number> {
-        const res = await this.pool.query(
-            `INSERT INTO crawl_sessions 
-      (start_url, allow_subdomains, max_concurrency, mode, schedule_id, user_id, started_at, completed_at, total_pages, total_resources, duration, status)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-      RETURNING id`,
-            [
-                data.startUrl, data.allowSubdomains, data.maxConcurrency, data.mode,
-                data.scheduleId ?? null, data.userId ?? null, data.startedAt,
-                data.completedAt ?? null, data.totalPages, data.totalResources,
-                data.duration, data.status
-            ]
-        );
-        return res.rows[0].id;
+        const session = await prisma.crawlSession.create({
+            data: {
+                startUrl: data.startUrl,
+                allowSubdomains: data.allowSubdomains,
+                maxConcurrency: data.maxConcurrency,
+                mode: data.mode,
+                scheduleId: data.scheduleId ?? null,
+                userId: data.userId ?? null,
+                startedAt: data.startedAt,
+                completedAt: data.completedAt ?? null,
+                totalPages: data.totalPages,
+                totalResources: data.totalResources,
+                duration: data.duration,
+                status: data.status,
+            },
+        });
+        return session.id;
     }
 
     async updateCrawlSession(id: number, updates: Partial<CrawlSession>): Promise<void> {
-        const fields: string[] = [];
-        const values: any[] = [];
-        let idx = 1;
+        const updateData: any = {};
+        
+        if (updates.startUrl !== undefined) updateData.startUrl = updates.startUrl;
+        if (updates.allowSubdomains !== undefined) updateData.allowSubdomains = updates.allowSubdomains;
+        if (updates.maxConcurrency !== undefined) updateData.maxConcurrency = updates.maxConcurrency;
+        if (updates.mode !== undefined) updateData.mode = updates.mode;
+        if (updates.scheduleId !== undefined) updateData.scheduleId = updates.scheduleId;
+        if (updates.startedAt !== undefined) updateData.startedAt = updates.startedAt;
+        if (updates.completedAt !== undefined) updateData.completedAt = updates.completedAt;
+        if (updates.totalPages !== undefined) updateData.totalPages = updates.totalPages;
+        if (updates.totalResources !== undefined) updateData.totalResources = updates.totalResources;
+        if (updates.duration !== undefined) updateData.duration = updates.duration;
+        if (updates.status !== undefined) updateData.status = updates.status;
 
-        const columnMap: Record<string, string> = {
-            startUrl: 'start_url',
-            allowSubdomains: 'allow_subdomains',
-            maxConcurrency: 'max_concurrency',
-            mode: 'mode',
-            scheduleId: 'schedule_id',
-            startedAt: 'started_at',
-            completedAt: 'completed_at',
-            totalPages: 'total_pages',
-            totalResources: 'total_resources',
-            duration: 'duration',
-            status: 'status',
-        };
+        if (Object.keys(updateData).length === 0) return;
 
-        for (const [key, value] of Object.entries(updates)) {
-            if (key === 'id') continue;
-            const column = columnMap[key] || key;
-            fields.push(`${column} = $${idx++}`);
-            values.push(value);
-        }
-
-        if (fields.length === 0) return;
-
-        values.push(id);
-        await this.pool.query(
-            `UPDATE crawl_sessions SET ${fields.join(', ')} WHERE id = $${idx}`,
-            values
-        );
+        await prisma.crawlSession.update({
+            where: { id },
+            data: updateData,
+        });
     }
 
     async getCrawlSession(id: number): Promise<CrawlSession | null> {
-        const res = await this.pool.query('SELECT * FROM crawl_sessions WHERE id = $1', [id]);
-        if (res.rows.length === 0) return null;
-        return this.mapSession(res.rows[0]);
+        const session = await prisma.crawlSession.findUnique({
+            where: { id },
+        });
+        if (!session) return null;
+        return this.mapSession(session);
     }
 
     async getLatestCrawlSession(): Promise<CrawlSession | null> {
-        const res = await this.pool.query('SELECT * FROM crawl_sessions ORDER BY started_at DESC LIMIT 1');
-        if (res.rows.length === 0) return null;
-        return this.mapSession(res.rows[0]);
+        const session = await prisma.crawlSession.findFirst({
+            orderBy: { startedAt: 'desc' },
+        });
+        if (!session) return null;
+        return this.mapSession(session);
     }
 
     async getCrawlSessions(limit: number = 50, offset: number = 0, scheduleId?: number, userId?: number): Promise<CrawlSession[]> {
-        let sql = 'SELECT * FROM crawl_sessions';
-        const params: any[] = [];
-        const conditions: string[] = [];
-
+        const where: any = {};
         if (typeof scheduleId === 'number') {
-            conditions.push(`schedule_id = $${params.length + 1}`);
-            params.push(scheduleId);
+            where.scheduleId = scheduleId;
         }
-
         if (typeof userId === 'number') {
-            conditions.push(`user_id = $${params.length + 1}`);
-            params.push(userId);
+            where.userId = userId;
         }
 
-        if (conditions.length > 0) {
-            sql += ' WHERE ' + conditions.join(' AND ');
-        }
+        const sessions = await prisma.crawlSession.findMany({
+            where,
+            orderBy: { startedAt: 'desc' },
+            take: limit,
+            skip: offset,
+        });
 
-        sql += ` ORDER BY started_at DESC LIMIT ${params.length + 1} OFFSET ${params.length + 2}`;
-        params.push(limit, offset);
-
-        const res = await this.pool.query(sql, params);
-        return res.rows.map(row => this.mapSession(row));
+        return sessions.map((session: any) => this.mapSession(session));
     }
 
     async insertCrawlSchedule(data: Omit<CrawlSchedule, 'id'>): Promise<number> {
-        const res = await this.pool.query(
-            `INSERT INTO crawl_schedules 
-      (name, description, start_url, allow_subdomains, max_concurrency, mode, cron_expression, enabled, user_id, created_at, last_run, next_run, total_runs, successful_runs, failed_runs)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-      RETURNING id`,
-            [
-                data.name, data.description, data.startUrl, data.allowSubdomains,
-                data.maxConcurrency, data.mode, data.cronExpression, data.enabled,
-                data.userId ?? null, data.createdAt, data.lastRun || null,
-                data.nextRun || null, data.totalRuns, data.successfulRuns, data.failedRuns
-            ]
-        );
-        return res.rows[0].id;
+        const schedule = await prisma.crawlSchedule.create({
+            data: {
+                name: data.name,
+                description: data.description,
+                startUrl: data.startUrl,
+                allowSubdomains: data.allowSubdomains,
+                maxConcurrency: data.maxConcurrency,
+                mode: data.mode,
+                cronExpression: data.cronExpression,
+                enabled: data.enabled,
+                userId: data.userId ?? null,
+                createdAt: data.createdAt,
+                lastRun: data.lastRun || null,
+                nextRun: data.nextRun || null,
+                totalRuns: data.totalRuns,
+                successfulRuns: data.successfulRuns,
+                failedRuns: data.failedRuns,
+            },
+        });
+        return schedule.id;
     }
 
     async updateCrawlSchedule(id: number, updates: Partial<CrawlSchedule>): Promise<void> {
-        const fields: string[] = [];
-        const values: any[] = [];
-        let idx = 1;
+        const updateData: any = {};
 
-        const columnMap: Record<string, string> = {
-            startUrl: 'start_url',
-            allowSubdomains: 'allow_subdomains',
-            maxConcurrency: 'max_concurrency',
-            cronExpression: 'cron_expression',
-            userId: 'user_id',
-            createdAt: 'created_at',
-            lastRun: 'last_run',
-            nextRun: 'next_run',
-            totalRuns: 'total_runs',
-            successfulRuns: 'successful_runs',
-            failedRuns: 'failed_runs',
-        };
+        if (updates.name !== undefined) updateData.name = updates.name;
+        if (updates.description !== undefined) updateData.description = updates.description;
+        if (updates.startUrl !== undefined) updateData.startUrl = updates.startUrl;
+        if (updates.allowSubdomains !== undefined) updateData.allowSubdomains = updates.allowSubdomains;
+        if (updates.maxConcurrency !== undefined) updateData.maxConcurrency = updates.maxConcurrency;
+        if (updates.mode !== undefined) updateData.mode = updates.mode;
+        if (updates.cronExpression !== undefined) updateData.cronExpression = updates.cronExpression;
+        if (updates.enabled !== undefined) updateData.enabled = updates.enabled;
+        if (updates.userId !== undefined) updateData.userId = updates.userId;
+        if (updates.createdAt !== undefined) updateData.createdAt = updates.createdAt;
+        if (updates.lastRun !== undefined) updateData.lastRun = updates.lastRun;
+        if (updates.nextRun !== undefined) updateData.nextRun = updates.nextRun;
+        if (updates.totalRuns !== undefined) updateData.totalRuns = updates.totalRuns;
+        if (updates.successfulRuns !== undefined) updateData.successfulRuns = updates.successfulRuns;
+        if (updates.failedRuns !== undefined) updateData.failedRuns = updates.failedRuns;
 
-        for (const [key, value] of Object.entries(updates)) {
-            if (key === 'id') continue;
-            const column = columnMap[key] || key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-            fields.push(`${column} = $${idx++}`);
-            values.push(value);
-        }
+        if (Object.keys(updateData).length === 0) return;
 
-        if (fields.length === 0) return;
-
-        values.push(id);
-        await this.pool.query(
-            `UPDATE crawl_schedules SET ${fields.join(', ')} WHERE id = $${idx}`,
-            values
-        );
+        await prisma.crawlSchedule.update({
+            where: { id },
+            data: updateData,
+        });
     }
 
     async deleteCrawlSchedule(id: number): Promise<void> {
-        await this.pool.query('DELETE FROM crawl_schedules WHERE id = $1', [id]);
+        await prisma.crawlSchedule.delete({
+            where: { id },
+        });
     }
 
     async deleteCrawlSession(id: number): Promise<void> {
-        // Delete session - CASCADE will handle related tables (crawl_logs, session_shares, schedule_executions, pages, resources, links, etc.)
-        await this.pool.query('DELETE FROM crawl_sessions WHERE id = $1', [id]);
+        // CASCADE will handle related tables automatically
+        await prisma.crawlSession.delete({
+            where: { id },
+        });
     }
 
     async getCrawlSchedule(id: number): Promise<CrawlSchedule | null> {
-        const res = await this.pool.query('SELECT * FROM crawl_schedules WHERE id = $1', [id]);
-        if (res.rows.length === 0) return null;
-        return this.mapSchedule(res.rows[0]);
+        const schedule = await prisma.crawlSchedule.findUnique({
+            where: { id },
+        });
+        if (!schedule) return null;
+        return this.mapSchedule(schedule);
     }
 
     async getAllCrawlSchedules(): Promise<CrawlSchedule[]> {
-        const res = await this.pool.query('SELECT * FROM crawl_schedules ORDER BY created_at DESC');
-        return res.rows.map(row => this.mapSchedule(row));
+        const schedules = await prisma.crawlSchedule.findMany({
+            orderBy: { createdAt: 'desc' },
+        });
+        return schedules.map((schedule: any) => this.mapSchedule(schedule));
     }
 
     async getEnabledCrawlSchedules(): Promise<CrawlSchedule[]> {
-        const res = await this.pool.query('SELECT * FROM crawl_schedules WHERE enabled = TRUE');
-        return res.rows.map(row => this.mapSchedule(row));
+        const schedules = await prisma.crawlSchedule.findMany({
+            where: { enabled: true },
+        });
+        return schedules.map((schedule: any) => this.mapSchedule(schedule));
     }
 
     async insertScheduleExecution(data: Omit<ScheduleExecution, 'id'>): Promise<number> {
-        const res = await this.pool.query(
-            `INSERT INTO schedule_executions 
-      (schedule_id, session_id, started_at, completed_at, status, error_message, pages_crawled, resources_found, duration)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      RETURNING id`,
-            [
-                data.scheduleId, data.sessionId, data.startedAt, data.completedAt || null,
-                data.status, data.errorMessage || null, data.pagesCrawled,
-                data.resourcesFound, data.duration
-            ]
-        );
-        return res.rows[0].id;
+        const execution = await prisma.scheduleExecution.create({
+            data: {
+                scheduleId: data.scheduleId,
+                sessionId: data.sessionId,
+                startedAt: data.startedAt,
+                completedAt: data.completedAt || null,
+                status: data.status,
+                errorMessage: data.errorMessage || null,
+                pagesCrawled: data.pagesCrawled,
+                resourcesFound: data.resourcesFound,
+                duration: data.duration,
+            },
+        });
+        return execution.id;
     }
 
     async updateScheduleExecution(id: number, updates: Partial<ScheduleExecution>): Promise<void> {
-        const fields: string[] = [];
-        const values: any[] = [];
-        let idx = 1;
+        const updateData: any = {};
 
-        const columnMap: Record<string, string> = {
-            scheduleId: 'schedule_id',
-            sessionId: 'session_id',
-            startedAt: 'started_at',
-            completedAt: 'completed_at',
-            errorMessage: 'error_message',
-            pagesCrawled: 'pages_crawled',
-            resourcesFound: 'resources_found',
-        };
+        if (updates.scheduleId !== undefined) updateData.scheduleId = updates.scheduleId;
+        if (updates.sessionId !== undefined) updateData.sessionId = updates.sessionId;
+        if (updates.startedAt !== undefined) updateData.startedAt = updates.startedAt;
+        if (updates.completedAt !== undefined) updateData.completedAt = updates.completedAt;
+        if (updates.status !== undefined) updateData.status = updates.status;
+        if (updates.errorMessage !== undefined) updateData.errorMessage = updates.errorMessage;
+        if (updates.pagesCrawled !== undefined) updateData.pagesCrawled = updates.pagesCrawled;
+        if (updates.resourcesFound !== undefined) updateData.resourcesFound = updates.resourcesFound;
+        if (updates.duration !== undefined) updateData.duration = updates.duration;
 
-        for (const [key, value] of Object.entries(updates)) {
-            if (key === 'id') continue;
-            const column = columnMap[key] || key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-            fields.push(`${column} = $${idx++}`);
-            values.push(value);
-        }
+        if (Object.keys(updateData).length === 0) return;
 
-        if (fields.length === 0) return;
-
-        values.push(id);
-        await this.pool.query(
-            `UPDATE schedule_executions SET ${fields.join(', ')} WHERE id = $${idx}`,
-            values
-        );
+        await prisma.scheduleExecution.update({
+            where: { id },
+            data: updateData,
+        });
     }
 
     async getScheduleExecutions(scheduleId: number, limit: number = 50): Promise<ScheduleExecution[]> {
-        const res = await this.pool.query(
-            'SELECT * FROM schedule_executions WHERE schedule_id = $1 ORDER BY started_at DESC LIMIT $2',
-            [scheduleId, limit]
-        );
-        return res.rows.map(row => this.mapExecution(row));
+        const executions = await prisma.scheduleExecution.findMany({
+            where: { scheduleId },
+            orderBy: { startedAt: 'desc' },
+            take: limit,
+        });
+        return executions.map((execution: any) => this.mapExecution(execution));
     }
 
     async getAllScheduleExecutions(limit: number = 100): Promise<ScheduleExecution[]> {
-        const res = await this.pool.query(
-            'SELECT * FROM schedule_executions ORDER BY started_at DESC LIMIT $1',
-            [limit]
-        );
-        return res.rows.map(row => this.mapExecution(row));
+        const executions = await prisma.scheduleExecution.findMany({
+            orderBy: { startedAt: 'desc' },
+            take: limit,
+        });
+        return executions.map((execution: any) => this.mapExecution(execution));
     }
 
     async getUserCrawlSessionsWithResults(userId: number, limit: number = 50, offset: number = 0): Promise<any[]> {
-        const sql = `
-            SELECT 
-                cs.*,
-                COALESCE((SELECT COUNT(*) FROM pages WHERE session_id = cs.id), 0) as total_pages,
-                COALESCE((SELECT COUNT(*) FROM resources WHERE session_id = cs.id), 0) as total_resources,
-                aar.grade,
-                aar.grade_color,
-                aar.overall_score,
-                aar.analysis_timestamp
-            FROM crawl_sessions cs
-            LEFT JOIN aeo_analysis_results aar ON cs.id = aar.session_id
-            WHERE cs.user_id = $1 OR cs.id IN (SELECT session_id FROM session_shares WHERE user_id = $1)
-            ORDER BY cs.started_at DESC
-            LIMIT $2 OFFSET $3
-        `;
-        const res = await this.pool.query(sql, [userId, limit, offset]);
+        // Get sessions owned by user or shared with user
+        const ownedSessions = await prisma.crawlSession.findMany({
+            where: { userId },
+            take: limit,
+            skip: offset,
+            orderBy: { startedAt: 'desc' },
+            include: {
+                aeoAnalysisResults: {
+                    take: 1,
+                    orderBy: { analysisTimestamp: 'desc' },
+                },
+            },
+        });
 
-        return res.rows.map(row => ({
-            session: this.mapSession(row),
-            aeoResult: row.overall_score !== null ? {
-                grade: row.grade,
-                gradeColor: row.grade_color,
-                overallScore: row.overall_score,
-                analysisTimestamp: row.analysis_timestamp
-            } : null
+        const sharedSessions = await prisma.sessionShare.findMany({
+            where: { userId },
+            include: {
+                session: {
+                    include: {
+                        aeoAnalysisResults: {
+                            take: 1,
+                            orderBy: { analysisTimestamp: 'desc' },
+                        },
+                    },
+                },
+            },
+            take: limit,
+            skip: offset,
+        });
+
+        const allSessions = [
+            ...ownedSessions,
+            ...sharedSessions.map((share: any) => share.session),
+        ];
+
+        return allSessions.map(session => ({
+            session: this.mapSession(session),
+            aeoResult: session.aeoAnalysisResults && session.aeoAnalysisResults.length > 0 ? {
+                grade: session.aeoAnalysisResults[0].grade,
+                gradeColor: session.aeoAnalysisResults[0].gradeColor,
+                overallScore: session.aeoAnalysisResults[0].overallScore,
+                analysisTimestamp: session.aeoAnalysisResults[0].analysisTimestamp,
+            } : null,
         }));
     }
 
     async shareSessionWithUser(sessionId: number, userId: number): Promise<void> {
-        await this.pool.query(
-            'INSERT INTO session_shares (session_id, user_id, accessed_at) VALUES ($1, $2, NOW()) ON CONFLICT DO NOTHING',
-            [sessionId, userId]
-        );
+        await prisma.sessionShare.upsert({
+            where: {
+                sessionId_userId: {
+                    sessionId,
+                    userId,
+                },
+            },
+            update: {
+                accessedAt: new Date(),
+            },
+            create: {
+                sessionId,
+                userId,
+            },
+        });
     }
 
     async getCrawlLogs(sessionId: number): Promise<any[]> {
-        const res = await this.pool.query(
-            'SELECT * FROM crawl_logs WHERE session_id = $1 ORDER BY timestamp ASC',
-            [sessionId]
-        );
-        return res.rows;
+        const logs = await prisma.crawlLog.findMany({
+            where: { sessionId },
+            orderBy: { timestamp: 'asc' },
+        });
+        return logs;
     }
 
     async getLatestSessionByUrl(url: string, userId: number): Promise<CrawlSession | null> {
-        const res = await this.pool.query(
-            'SELECT * FROM crawl_sessions WHERE start_url = $1 AND user_id = $2 AND status != $3 ORDER BY started_at DESC LIMIT 1',
-            [url, userId, 'cancelled']
-        );
-        if (res.rows.length === 0) return null;
-        return this.mapSession(res.rows[0]);
+        const session = await prisma.crawlSession.findFirst({
+            where: {
+                startUrl: url,
+                userId,
+                status: {
+                    not: 'cancelled',
+                },
+            },
+            orderBy: { startedAt: 'desc' },
+        });
+        if (!session) return null;
+        return this.mapSession(session);
     }
 
     async getRunningSessionByUrl(url: string, userId?: number): Promise<CrawlSession | null> {
-        let sql = "SELECT * FROM crawl_sessions WHERE start_url = $1 AND status = 'running'";
-        const params: any[] = [url];
+        const where: any = {
+            startUrl: url,
+            status: 'running',
+        };
         if (userId) {
-            sql += " AND user_id = $2";
-            params.push(userId);
+            where.userId = userId;
         }
-        const res = await this.pool.query(sql, params);
-        return res.rows.length > 0 ? this.mapSession(res.rows[0]) : null;
+
+        const session = await prisma.crawlSession.findFirst({
+            where,
+        });
+        return session ? this.mapSession(session) : null;
     }
 
     async getAnyRunningSessionByUserId(userId: number): Promise<CrawlSession | null> {
-        // Check for any running or auditing session for this user
-        // 'running' = crawling in progress, 'auditing' = audit processing in progress
-        const sql = "SELECT * FROM crawl_sessions WHERE user_id = $1 AND status IN ('running', 'auditing') ORDER BY started_at DESC LIMIT 1";
-        const res = await this.pool.query(sql, [userId]);
-        return res.rows.length > 0 ? this.mapSession(res.rows[0]) : null;
+        const session = await prisma.crawlSession.findFirst({
+            where: {
+                userId,
+                status: {
+                    in: ['running', 'auditing'],
+                },
+            },
+            orderBy: { startedAt: 'desc' },
+        });
+        return session ? this.mapSession(session) : null;
     }
 
     async getUserSessionsWithShares(userId: number, limit: number = 100, offset: number = 0): Promise<any[]> {
-        const query = `
-      SELECT cs.*
-      FROM crawl_sessions cs
-      LEFT JOIN session_shares ss ON cs.id = ss.session_id
-      WHERE cs.user_id = $1 OR ss.user_id = $1
-      GROUP BY cs.id
-      ORDER BY COALESCE(cs.completed_at, cs.started_at) DESC
-      LIMIT $2 OFFSET $3
-    `;
-        const res = await this.pool.query(query, [userId, limit, offset]);
-        return res.rows.map(row => this.mapSession(row));
+        // Get owned sessions
+        const ownedSessions = await prisma.crawlSession.findMany({
+            where: { userId },
+            take: limit,
+            skip: offset,
+        });
+
+        // Get shared sessions
+        const sharedSessions = await prisma.sessionShare.findMany({
+            where: { userId },
+            include: { session: true },
+            take: limit,
+            skip: offset,
+        });
+
+        const allSessions = [
+            ...ownedSessions,
+            ...sharedSessions.map((share: any) => share.session),
+        ];
+
+        // Sort by completed_at or started_at
+        allSessions.sort((a, b) => {
+            const dateA = a.completedAt || a.startedAt;
+            const dateB = b.completedAt || b.startedAt;
+            return dateB.getTime() - dateA.getTime();
+        });
+
+        return allSessions.slice(0, limit).map(session => this.mapSession(session));
     }
 
     async getAverageDurationForUrl(url: string, userId?: number): Promise<number> {
-        let sql = "SELECT AVG(duration) as avg_duration FROM crawl_sessions WHERE start_url = $1 AND status = 'completed'";
-        const params: any[] = [url];
+        const where: any = {
+            startUrl: url,
+            status: 'completed',
+        };
         if (userId) {
-            sql += " AND user_id = $2";
-            params.push(userId);
+            where.userId = userId;
         }
-        const res = await this.pool.query(sql, params);
-        return parseFloat(res.rows[0].avg_duration) || 0;
+
+        const result = await prisma.crawlSession.aggregate({
+            where,
+            _avg: {
+                duration: true,
+            },
+        });
+
+        return result._avg.duration ? Math.round(result._avg.duration) : 0;
     }
 
     async clearAllData(): Promise<void> {
-        const tables = [
-            'aeo_analysis_results', 'aeo_executions', 'aeo_schedules',
-            'audit_results', 'audit_executions', 'audit_schedules',
-            'seo_cache', 'sitemap_urls', 'sitemap_discoveries',
-            'links', 'resources', 'pages',
-            'crawl_logs', 'schedule_executions', 'session_shares', 'crawl_sessions'
-        ];
-        const client = await this.pool.connect();
-        try {
-            await client.query('BEGIN');
-            for (const table of tables) {
-                await client.query(`TRUNCATE TABLE ${table} CASCADE`);
-            }
-            await client.query('COMMIT');
-        } catch (err) {
-            await client.query('ROLLBACK');
-            throw err;
-        } finally {
-            client.release();
-        }
+        await prisma.$transaction([
+            prisma.aeoAnalysisResult.deleteMany(),
+            prisma.aeoExecution.deleteMany(),
+            prisma.aeoSchedule.deleteMany(),
+            prisma.auditResult.deleteMany(),
+            prisma.auditExecution.deleteMany(),
+            prisma.auditSchedule.deleteMany(),
+            prisma.seoCache.deleteMany(),
+            prisma.sitemapUrl.deleteMany(),
+            prisma.sitemapDiscovery.deleteMany(),
+            prisma.link.deleteMany(),
+            prisma.resource.deleteMany(),
+            prisma.page.deleteMany(),
+            prisma.crawlLog.deleteMany(),
+            prisma.scheduleExecution.deleteMany(),
+            prisma.sessionShare.deleteMany(),
+            prisma.crawlSession.deleteMany(),
+        ]);
     }
 
     async getScheduleExecutionsWithDetails(filters: any, limit: number = 100, offset: number = 0): Promise<any> {
-        let query = `
-      SELECT se.*, cs.name as schedule_name, cs.start_url, cs.mode, cs.allow_subdomains, cs.max_concurrency
-      FROM schedule_executions se
-      LEFT JOIN crawl_schedules cs ON se.schedule_id = cs.id
-    `;
-        const conditions: string[] = [];
-        const params: any[] = [];
+        const where: any = {};
 
         if (filters.scheduleId) {
-            conditions.push(`se.schedule_id = $${params.length + 1}`);
-            params.push(filters.scheduleId);
+            where.scheduleId = filters.scheduleId;
         }
         if (filters.status) {
-            conditions.push(`se.status = $${params.length + 1}`);
-            params.push(filters.status);
+            where.status = filters.status;
         }
         if (filters.startDate) {
-            conditions.push(`se.started_at >= $${params.length + 1}`);
-            params.push(filters.startDate);
+            where.startedAt = { gte: new Date(filters.startDate) };
         }
         if (filters.endDate) {
-            conditions.push(`se.started_at <= $${params.length + 1}`);
-            params.push(filters.endDate);
+            where.startedAt = { ...where.startedAt, lte: new Date(filters.endDate) };
         }
 
-        if (conditions.length > 0) {
-            query += ' WHERE ' + conditions.join(' AND ');
-        }
+        const [executions, total] = await Promise.all([
+            prisma.scheduleExecution.findMany({
+                where,
+                include: {
+                    schedule: {
+                        select: {
+                            name: true,
+                            startUrl: true,
+                            mode: true,
+                            allowSubdomains: true,
+                            maxConcurrency: true,
+                        },
+                    },
+                },
+                orderBy: { startedAt: 'desc' },
+                take: limit,
+                skip: offset,
+            }),
+            prisma.scheduleExecution.count({ where }),
+        ]);
 
-        const countQuery = `SELECT COUNT(*) FROM (${query}) as sub`;
-        const countRes = await this.pool.query(countQuery, params);
-
-        query += ` ORDER BY se.started_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
-        params.push(limit, offset);
-
-        const res = await this.pool.query(query, params);
         return {
-            executions: res.rows,
-            total: parseInt(countRes.rows[0].count)
+            executions: executions.map((exec: any) => ({
+                ...exec,
+                schedule_name: exec.schedule.name,
+                start_url: exec.schedule.startUrl,
+                mode: exec.schedule.mode,
+                allow_subdomains: exec.schedule.allowSubdomains,
+                max_concurrency: exec.schedule.maxConcurrency,
+            })),
+            total,
         };
     }
 
     async getExecutionWithSession(executionId: number): Promise<any> {
-        const query = `
-      SELECT se.*, cs.name as schedule_name, cs.start_url, cs.mode, cs.allow_subdomains, cs.max_concurrency
-      FROM schedule_executions se
-      LEFT JOIN crawl_schedules cs ON se.schedule_id = cs.id
-      WHERE se.id = $1
-    `;
-        const res = await this.pool.query(query, [executionId]);
-        if (res.rows.length === 0) return null;
-        return res.rows[0];
+        const execution = await prisma.scheduleExecution.findUnique({
+            where: { id: executionId },
+            include: {
+                schedule: {
+                    select: {
+                        name: true,
+                        startUrl: true,
+                        mode: true,
+                        allowSubdomains: true,
+                        maxConcurrency: true,
+                    },
+                },
+            },
+        });
+
+        if (!execution) return null;
+
+        return {
+            ...execution,
+            schedule_name: execution.schedule.name,
+            start_url: execution.schedule.startUrl,
+            mode: execution.schedule.mode,
+            allow_subdomains: execution.schedule.allowSubdomains,
+            max_concurrency: execution.schedule.maxConcurrency,
+        };
     }
 
     async getScheduleStats(scheduleId?: number): Promise<any> {
-        let query = `
-      SELECT 
-        COUNT(*) as total_executions,
-        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as successful_executions,
-        SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed_executions,
-        SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END) as running_executions,
-        AVG(CASE WHEN status = 'completed' THEN duration ELSE NULL END) as avg_duration,
-        SUM(pages_crawled) as total_pages_crawled,
-        SUM(resources_found) as total_resources_found
-      FROM schedule_executions
-    `;
-        const params: any[] = [];
+        const where: any = {};
         if (scheduleId) {
-            query += ' WHERE schedule_id = $1';
-            params.push(scheduleId);
+            where.scheduleId = scheduleId;
         }
-        const res = await this.pool.query(query, params);
-        return res.rows[0];
+
+        const [total, successful, failed, running, avgDuration, totalPages, totalResources] = await Promise.all([
+            prisma.scheduleExecution.count({ where }),
+            prisma.scheduleExecution.count({ where: { ...where, status: 'completed' } }),
+            prisma.scheduleExecution.count({ where: { ...where, status: 'failed' } }),
+            prisma.scheduleExecution.count({ where: { ...where, status: 'running' } }),
+            prisma.scheduleExecution.aggregate({
+                where: { ...where, status: 'completed' },
+                _avg: { duration: true },
+            }),
+            prisma.scheduleExecution.aggregate({
+                where,
+                _sum: { pagesCrawled: true },
+            }),
+            prisma.scheduleExecution.aggregate({
+                where,
+                _sum: { resourcesFound: true },
+            }),
+        ]);
+
+        return {
+            total_executions: total,
+            successful_executions: successful,
+            failed_executions: failed,
+            running_executions: running,
+            avg_duration: avgDuration._avg.duration ? Math.round(avgDuration._avg.duration) : null,
+            total_pages_crawled: totalPages._sum.pagesCrawled || 0,
+            total_resources_found: totalResources._sum.resourcesFound || 0,
+        };
     }
 
     async getRecentExecutions(limit: number = 10, scheduleId?: number): Promise<any[]> {
-        let query = `
-      SELECT se.*, cs.name as schedule_name
-      FROM schedule_executions se
-      LEFT JOIN crawl_schedules cs ON se.schedule_id = cs.id
-    `;
-        const params: any[] = [];
+        const where: any = {};
         if (scheduleId) {
-            query += ' WHERE se.schedule_id = $1';
-            params.push(scheduleId);
+            where.scheduleId = scheduleId;
         }
-        query += ` ORDER BY se.started_at DESC LIMIT $${params.length + 1}`;
-        params.push(limit);
-        const res = await this.pool.query(query, params);
-        return res.rows;
+
+        const executions = await prisma.scheduleExecution.findMany({
+            where,
+            include: {
+                schedule: {
+                    select: {
+                        name: true,
+                    },
+                },
+            },
+            orderBy: { startedAt: 'desc' },
+            take: limit,
+        });
+
+        return executions.map((exec: any) => ({
+            ...exec,
+            schedule_name: exec.schedule.name,
+        }));
     }
 
     async getSchedulePerformance(): Promise<any[]> {
-        const query = `
-      SELECT 
-        cs.id,
-        cs.name,
-        cs.start_url,
-        COUNT(se.id) as total_runs,
-        SUM(CASE WHEN se.status = 'completed' THEN 1 ELSE 0 END) as successful_runs,
-        SUM(CASE WHEN se.status = 'failed' THEN 1 ELSE 0 END) as failed_runs,
-        AVG(CASE WHEN se.status = 'completed' THEN se.duration ELSE NULL END) as avg_duration,
-        MAX(se.started_at) as last_run
-      FROM crawl_schedules cs
-      LEFT JOIN schedule_executions se ON cs.id = se.schedule_id
-      GROUP BY cs.id, cs.name, cs.start_url
-      ORDER BY last_run DESC
-    `;
-        const res = await this.pool.query(query);
-        return res.rows;
+        const schedules = await prisma.crawlSchedule.findMany({
+            include: {
+                scheduleExecutions: {
+                    select: {
+                        status: true,
+                        duration: true,
+                        startedAt: true,
+                    },
+                },
+            },
+        });
+
+        return schedules.map((schedule: any) => {
+            const executions = schedule.scheduleExecutions;
+            const completed = executions.filter((e: any) => e.status === 'completed');
+            const failed = executions.filter((e: any) => e.status === 'failed');
+            const avgDuration = completed.length > 0
+                ? Math.round(completed.reduce((sum: number, e: any) => sum + (e.duration || 0), 0) / completed.length)
+                : null;
+            const lastRun = executions.length > 0
+                ? executions.reduce((latest: Date, e: any) => e.startedAt > latest ? e.startedAt : latest, executions[0].startedAt)
+                : null;
+
+            return {
+                id: schedule.id,
+                name: schedule.name,
+                start_url: schedule.startUrl,
+                total_runs: executions.length,
+                successful_runs: completed.length,
+                failed_runs: failed.length,
+                avg_duration: avgDuration,
+                last_run: lastRun,
+            };
+        }).sort((a: any, b: any) => {
+            if (!a.last_run && !b.last_run) return 0;
+            if (!a.last_run) return 1;
+            if (!b.last_run) return -1;
+            return b.last_run.getTime() - a.last_run.getTime();
+        });
     }
 
     async exportCronHistory(filters: any): Promise<any[]> {
-        let query = `
-      SELECT se.*, cs.name as schedule_name, cs.start_url, cs.mode, cs.allow_subdomains, cs.max_concurrency
-      FROM schedule_executions se
-      LEFT JOIN crawl_schedules cs ON se.schedule_id = cs.id
-    `;
-        const conditions: string[] = [];
-        const params: any[] = [];
+        const where: any = {};
+
         if (filters.scheduleId) {
-            conditions.push(`se.schedule_id = $${params.length + 1}`);
-            params.push(filters.scheduleId);
+            where.scheduleId = filters.scheduleId;
         }
         if (filters.startDate) {
-            conditions.push(`se.started_at >= $${params.length + 1}`);
-            params.push(filters.startDate);
+            where.startedAt = { gte: new Date(filters.startDate) };
         }
         if (filters.endDate) {
-            conditions.push(`se.started_at <= $${params.length + 1}`);
-            params.push(filters.endDate);
+            where.startedAt = { ...where.startedAt, lte: new Date(filters.endDate) };
         }
-        if (conditions.length > 0) {
-            query += ' WHERE ' + conditions.join(' AND ');
-        }
-        query += ' ORDER BY se.started_at DESC';
-        const res = await this.pool.query(query, params);
-        return res.rows;
+
+        const executions = await prisma.scheduleExecution.findMany({
+            where,
+            include: {
+                schedule: {
+                    select: {
+                        name: true,
+                        startUrl: true,
+                        mode: true,
+                        allowSubdomains: true,
+                        maxConcurrency: true,
+                    },
+                },
+            },
+            orderBy: { startedAt: 'desc' },
+        });
+
+        return executions.map((exec: any) => ({
+            ...exec,
+            schedule_name: exec.schedule.name,
+            start_url: exec.schedule.startUrl,
+            mode: exec.schedule.mode,
+            allow_subdomains: exec.schedule.allowSubdomains,
+            max_concurrency: exec.schedule.maxConcurrency,
+        }));
     }
 
     async logCrawlMessage(sessionId: number, message: string, level: string = 'info'): Promise<void> {
-        await this.pool.query(
-            'INSERT INTO crawl_logs (session_id, message, level, timestamp) VALUES ($1, $2, $3, NOW())',
-            [sessionId, message, level]
-        );
+        await prisma.crawlLog.create({
+            data: {
+                sessionId,
+                message,
+                level,
+            },
+        });
     }
 
-    private mapSession(row: any): CrawlSession {
+    private mapSession(session: any): CrawlSession {
         return {
-            id: row.id,
-            startUrl: row.start_url,
-            allowSubdomains: row.allow_subdomains,
-            maxConcurrency: row.max_concurrency,
-            mode: row.mode,
-            scheduleId: row.schedule_id,
-            userId: row.user_id,
-            startedAt: row.started_at,
-            completedAt: row.completed_at,
-            totalPages: row.total_pages,
-            totalResources: row.total_resources,
-            duration: row.duration,
-            status: row.status
+            id: session.id,
+            startUrl: session.startUrl,
+            allowSubdomains: session.allowSubdomains,
+            maxConcurrency: session.maxConcurrency,
+            mode: session.mode,
+            scheduleId: session.scheduleId,
+            userId: session.userId,
+            startedAt: session.startedAt,
+            completedAt: session.completedAt,
+            totalPages: session.totalPages,
+            totalResources: session.totalResources,
+            duration: session.duration,
+            status: session.status,
         };
     }
 
-    private mapSchedule(row: any): CrawlSchedule {
+    private mapSchedule(schedule: any): CrawlSchedule {
         return {
-            id: row.id,
-            name: row.name,
-            description: row.description,
-            startUrl: row.start_url,
-            allowSubdomains: row.allow_subdomains,
-            maxConcurrency: row.max_concurrency,
-            mode: row.mode,
-            cronExpression: row.cron_expression,
-            enabled: row.enabled,
-            userId: row.user_id,
-            createdAt: row.created_at,
-            lastRun: row.last_run,
-            nextRun: row.next_run,
-            totalRuns: row.total_runs,
-            successfulRuns: row.successful_runs,
-            failedRuns: row.failed_runs
+            id: schedule.id,
+            name: schedule.name,
+            description: schedule.description,
+            startUrl: schedule.startUrl,
+            allowSubdomains: schedule.allowSubdomains,
+            maxConcurrency: schedule.maxConcurrency,
+            mode: schedule.mode,
+            cronExpression: schedule.cronExpression,
+            enabled: schedule.enabled,
+            userId: schedule.userId,
+            createdAt: schedule.createdAt,
+            lastRun: schedule.lastRun,
+            nextRun: schedule.nextRun,
+            totalRuns: schedule.totalRuns,
+            successfulRuns: schedule.successfulRuns,
+            failedRuns: schedule.failedRuns,
         };
     }
 
-    private mapExecution(row: any): ScheduleExecution {
+    private mapExecution(execution: any): ScheduleExecution {
         return {
-            id: row.id,
-            scheduleId: row.schedule_id,
-            sessionId: row.session_id,
-            startedAt: row.started_at,
-            completedAt: row.completed_at,
-            status: row.status,
-            errorMessage: row.error_message,
-            pagesCrawled: row.pages_crawled,
-            resourcesFound: row.resources_found,
-            duration: row.duration
+            id: execution.id,
+            scheduleId: execution.scheduleId,
+            sessionId: execution.sessionId,
+            startedAt: execution.startedAt,
+            completedAt: execution.completedAt,
+            status: execution.status,
+            errorMessage: execution.errorMessage,
+            pagesCrawled: execution.pagesCrawled,
+            resourcesFound: execution.resourcesFound,
+            duration: execution.duration,
         };
     }
 }

@@ -12,6 +12,15 @@ COPY package*.json ./
 # Install all dependencies (needed for build)
 RUN npm ci
 
+# Copy Prisma schema and config files
+COPY prisma ./prisma
+COPY prisma.config.ts ./
+
+# Generate Prisma Client
+# Note: DATABASE_URL not needed for client generation, but prisma.config.ts requires it
+# Set a dummy URL for build time (real URL used at runtime)
+RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" npm run prisma:generate
+
 # Copy source code
 COPY . .
 
@@ -31,6 +40,14 @@ COPY package*.json ./
 
 # Install production dependencies only
 RUN npm ci --only=production
+
+# Copy Prisma schema and config (needed for runtime and client generation)
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/prisma.config.ts ./
+
+# Regenerate Prisma Client in production stage
+# This ensures @prisma/client can properly resolve to the generated client
+RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" npm run prisma:generate
 
 # Copy the built backend dist files (including audit worker)
 COPY --from=builder /app/dist ./dist

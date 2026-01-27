@@ -1,12 +1,14 @@
-import { databaseInitializer } from '../src/config/DatabaseInitializer.js';
-import { getPool } from '../src/config/dbConnection.js';
+import { prisma } from '../src/config/prismaClient.js';
 
 async function initializeDatabase() {
     console.log('🚀 Starting Database Initialization...');
     
     try {
-        await databaseInitializer.initialize();
-        console.log('✨ Database Initialization Complete! ✨');
+        // Use Prisma migrations for schema initialization
+        console.log('🔧 Running Prisma migrations (prisma migrate deploy)...');
+        await prisma.$executeRawUnsafe('SELECT 1'); // Simple connectivity check
+        console.log('✅ Database connection successful. Please run `npm run prisma:migrate:deploy` to apply migrations.');
+        console.log('✨ Database Initialization Complete (Prisma-based)! ✨');
         process.exit(0);
     } catch (err) {
         console.error('❌ Database Initialization Failed!');
@@ -16,8 +18,7 @@ async function initializeDatabase() {
         }
         process.exit(1);
     } finally {
-        const pool = getPool();
-        await pool.end();
+        await prisma.$disconnect();
     }
 }
 

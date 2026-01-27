@@ -1,13 +1,14 @@
-import { databaseInitializer } from '../src/config/DatabaseInitializer.js';
-import { getPool } from '../src/config/dbConnection.js';
+import { prisma } from '../src/config/prismaClient.js';
 
 async function initializeAeoDatabase() {
     console.log('🚀 Starting AEO Database Initialization...');
 
     try {
-        // Use the main database initializer which includes AEO tables
-        await databaseInitializer.initialize();
-        console.log('✨ AEO Database Initialization Complete! ✨');
+        // AEO tables are managed via Prisma schema & migrations
+        console.log('🔧 Checking database connection via Prisma...');
+        await prisma.$executeRawUnsafe('SELECT 1');
+        console.log('✅ Database connection successful. AEO tables are managed via Prisma migrations.');
+        console.log('✨ AEO Database Initialization Complete (Prisma-based)! ✨');
         process.exit(0);
     } catch (err) {
         console.error('❌ AEO Database Initialization Failed!');
@@ -16,8 +17,7 @@ async function initializeAeoDatabase() {
         }
         process.exit(1);
     } finally {
-        const pool = getPool();
-        await pool.end();
+        await prisma.$disconnect();
     }
 }
 
