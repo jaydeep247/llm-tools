@@ -1,25 +1,23 @@
 import * as dotenv from 'dotenv';
 dotenv.config();
 
-// Import PrismaClient from @prisma/client package (Prisma 7)
-// This is the standard way to import Prisma Client in Prisma 7
+// Central Prisma Client configuration for the Node backend.
+// All database access in the app should go through this module.
 import { PrismaClient, Prisma } from '@prisma/client';
 
-// Build DATABASE_URL from individual env vars if not provided
-const databaseUrl = process.env.DATABASE_URL || 
-  `postgresql://${process.env.DB_USER || 'postgres'}:${process.env.DB_PASSWORD || ''}@${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || '5432'}/${process.env.DB_NAME || 'contentlytics'}`;
+// Prisma must use DATABASE_URL from the environment only.
+// Fail fast if it is missing so configuration issues are obvious.
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  throw new Error('DATABASE_URL environment variable is required for Prisma');
+}
 
-// Create Prisma Client singleton
+// Create a process-wide Prisma Client singleton
 class PrismaClientSingleton {
   private static instance: PrismaClient;
 
   public static getInstance(): PrismaClient {
     if (!PrismaClientSingleton.instance) {
-      // Set DATABASE_URL environment variable if not already set
-      if (!process.env.DATABASE_URL) {
-        process.env.DATABASE_URL = databaseUrl;
-      }
-      // Prisma 6: Standard connection via DATABASE_URL
       PrismaClientSingleton.instance = new PrismaClient();
     }
     return PrismaClientSingleton.instance;

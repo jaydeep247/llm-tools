@@ -1,31 +1,7 @@
-services:
-  # PostgreSQL Database (LOCAL DOCKER)
-  # NOTE: This service is included by default for local development
-  # When using cloud database (Neon DB), use: docker-compose -f docker-compose.cloud.yml up
-  postgres:
-    image: postgres:16-alpine
-    container_name: contentlytics-db
-    env_file: .env
-    environment:
-      # Database config is fixed here; application uses only DATABASE_URL
-      POSTGRES_DB: contentlytics
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - contentlytics-network
-    profiles:
-      - local
-      - ""  # Empty profile means it runs by default
+# Docker Compose - CLOUD DATABASE (Neon DB)
+# Use this file when connecting to Neon DB or other cloud PostgreSQL
 
+services:
   # Redis for Queue Management
   redis:
     image: redis:7-alpine
@@ -83,7 +59,6 @@ services:
     env_file: .env
     environment:
       NODE_ENV: ${NODE_ENV}
-      # Application talks to DB only via DATABASE_URL
       DATABASE_URL: ${DATABASE_URL}
       DB_ENVIRONMENT: ${DB_ENVIRONMENT}
       REDIS_HOST: ${REDIS_HOST}
@@ -106,8 +81,6 @@ services:
     expose:
       - "3004"
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
       aeo-api:
@@ -122,8 +95,6 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        # Use empty string to route through nginx proxy (relative URLs)
-        # nginx.conf proxies /api to backend:3004
         VITE_API_BASE_URL: ""
         VITE_AEO_API_BASE_URL: ""
     container_name: contentlytics-frontend
@@ -157,8 +128,6 @@ services:
       PY_API_BASE: ${PY_API_BASE}
     command: ["node", "dist/redis/seo/seo-worker.js"]
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
       aeo-api:
@@ -189,8 +158,6 @@ services:
       AUDIT_CONCURRENCY: ${AUDIT_CONCURRENCY:-100}
     command: ["node", "dist/audit/audit-worker.js"]
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
     networks:
@@ -202,5 +169,4 @@ networks:
     driver: bridge
 
 volumes:
-  postgres_data:
   redis_data:

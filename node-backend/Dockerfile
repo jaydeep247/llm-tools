@@ -1,6 +1,9 @@
 # Multi-stage build for Node.js/TypeScript application
 FROM node:20-alpine AS builder
 
+ARG DATABASE_URL
+ENV DATABASE_URL=${DATABASE_URL}
+
 WORKDIR /app
 
 # Update Alpine packages to fix security vulnerabilities (CVE-2025-60876)
@@ -17,9 +20,8 @@ COPY prisma ./prisma
 COPY prisma.config.ts ./
 
 # Generate Prisma Client
-# Note: DATABASE_URL not needed for client generation, but prisma.config.ts requires it
-# Set a dummy URL for build time (real URL used at runtime)
-RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" npm run prisma:generate
+# DATABASE_URL must come from the environment (.env or build-time env/args)
+RUN npm run prisma:generate
 
 # Copy source code
 COPY . .
@@ -29,6 +31,9 @@ RUN npm run build
 
 # Production stage
 FROM node:20-alpine
+
+ARG DATABASE_URL
+ENV DATABASE_URL=${DATABASE_URL}
 
 WORKDIR /app
 
@@ -45,7 +50,7 @@ COPY --from=builder /app/prisma.config.ts ./
 
 # Regenerate Prisma Client in production stage
 # This ensures @prisma/client can properly resolve to the generated client
-RUN DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy" npm run prisma:generate
+RUN npm run prisma:generate
 
 # Copy built application from builder
 COPY --from=builder /app/dist ./dist
