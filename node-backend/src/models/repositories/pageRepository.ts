@@ -79,6 +79,12 @@ export class PageRepository {
                 semanticRelevanceScore: data.semanticRelevanceScore ?? null,
                 urlEncodedAddress: data.urlEncodedAddress ?? null,
                 contentHash: data.contentHash ?? null,
+                metaDescription: data.metaDescription ?? null,
+                ogTitle: data.ogTitle ?? null,
+                ogDescription: data.ogDescription ?? null,
+                ogImage: data.ogImage ?? null,
+                uniqueOutlinks: data.uniqueOutlinks ?? null,
+                uniqueJsOutlinks: data.uniqueJsOutlinks ?? null,
             },
         });
         return page.id;

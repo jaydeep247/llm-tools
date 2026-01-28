@@ -168,6 +168,10 @@ export class AuditRepository {
                 cls: data.cls ?? null,
                 fcpMs: data.fcp_ms ?? null,
                 ttfbMs: data.ttfb_ms ?? null,
+                fcp: data.fcp ?? null,
+                ttfb: data.ttfb ?? null,
+                fid: data.fid ?? null,
+                deviceType: data.device_type ?? data.device ?? 'desktop',
                 performanceScore: data.performance_score ?? null,
                 psiReportUrl: data.psi_report_url ?? null,
                 metricsJson: data.metrics_json ? JSON.stringify(data.metrics_json) : null,
@@ -188,6 +192,12 @@ export class AuditRepository {
         if (updates.cls !== undefined) updateData.cls = updates.cls;
         if (updates.fcp_ms !== undefined) updateData.fcpMs = updates.fcp_ms;
         if (updates.ttfb_ms !== undefined) updateData.ttfbMs = updates.ttfb_ms;
+        if (updates.fcp !== undefined) updateData.fcp = updates.fcp;
+        if (updates.ttfb !== undefined) updateData.ttfb = updates.ttfb;
+        if (updates.fid !== undefined) updateData.fid = updates.fid;
+        if (updates.device_type !== undefined || updates.deviceType !== undefined) {
+            updateData.deviceType = updates.device_type ?? updates.deviceType;
+        }
         if (updates.performance_score !== undefined) updateData.performanceScore = updates.performance_score;
         if (updates.psi_report_url !== undefined) updateData.psiReportUrl = updates.psi_report_url;
         if (updates.status !== undefined) updateData.status = updates.status;

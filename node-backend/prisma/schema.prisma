@@ -68,19 +68,25 @@ model UserUsage {
 // ============================================
 
 model CrawlSession {
-  id              Int       @id @default(autoincrement())
-  startUrl        String    @map("start_url") @db.Text
-  allowSubdomains Boolean   @default(true) @map("allow_subdomains")
-  maxConcurrency  Int       @map("max_concurrency")
-  mode            String    @db.Text
-  scheduleId      Int?      @map("schedule_id")
-  userId          Int?      @map("user_id")
-  startedAt       DateTime  @default(now()) @map("started_at") @db.Timestamptz
-  completedAt     DateTime? @map("completed_at") @db.Timestamptz
-  totalPages      Int       @default(0) @map("total_pages")
-  totalResources  Int       @default(0) @map("total_resources")
-  duration        Int       @default(0)
-  status          String    @default("running") @db.Text
+  id               Int       @id @default(autoincrement())
+  startUrl         String    @map("start_url") @db.Text
+  allowSubdomains  Boolean   @default(true) @map("allow_subdomains")
+  maxConcurrency   Int       @map("max_concurrency")
+  mode             String    @db.Text
+  scheduleId       Int?      @map("schedule_id")
+  userId           Int?      @map("user_id")
+  startedAt        DateTime  @default(now()) @map("started_at") @db.Timestamptz
+  completedAt      DateTime? @map("completed_at") @db.Timestamptz
+  totalPages       Int       @default(0) @map("total_pages")
+  totalResources   Int       @default(0) @map("total_resources")
+  duration         Int       @default(0)
+  status           String    @default("running") @db.Text
+  maxDepth         Int?      @default(3) @map("max_depth")
+  maxPages         Int?      @default(100) @map("max_pages")
+  respectRobotsTxt Boolean?  @default(true) @map("respect_robots_txt")
+  userAgent        String?   @map("user_agent") @db.Text
+  errorMessage     String?   @map("error_message") @db.Text
+  pagesCrawled     Int?      @default(0) @map("pages_crawled")
 
   // Relations
   user                User?                @relation(fields: [userId], references: [id])
@@ -207,7 +213,7 @@ model Page {
   amphtmlUrl                        String?  @map("amphtml_url") @db.Text
   mobileAlternateUrl                String?  @map("mobile_alternate_url") @db.Text
   indexable                         Boolean? @default(true)
-  indexabilityStatus                String?  @map("indexability_status") @db.VarChar(50)
+  indexabilityStatus                String?  @map("indexability_status") @db.VarChar(100)
   metaRobots                        String?  @map("meta_robots") @db.Text
   xRobotsTag                        String?  @map("x_robots_tag") @db.Text
   metaRefresh                       String?  @map("meta_refresh") @db.Text
@@ -225,10 +231,10 @@ model Page {
   spellingErrors                    Int      @default(0) @map("spelling_errors")
   grammarErrors                     Int      @default(0) @map("grammar_errors")
   redirectUrl                       String?  @map("redirect_url") @db.Text
-  redirectType                      String?  @map("redirect_type") @db.Text
+  redirectType                      String?  @map("redirect_type") @db.VarChar(50)
   cookies                           String?  @db.Text
-  language                          String?  @db.Text
-  httpVersion                       String?  @map("http_version") @db.Text
+  language                          String?  @db.VarChar(10)
+  httpVersion                       String?  @map("http_version") @db.VarChar(20)
   closestSemanticallySimilarAddress String?  @map("closest_semantically_similar_address") @db.Text
   semanticSimilarityScore           Decimal? @map("semantic_similarity_score") @db.Decimal(3, 2)
   noSemanticallySimilar             Int      @default(0) @map("no_semantically_similar")
@@ -240,6 +246,12 @@ model Page {
   nearDuplicateCount                Int      @default(0) @map("near_duplicate_count")
   uniqueExternalOutlinks            Int      @default(0) @map("unique_external_outlinks")
   uniqueExternalJsOutlinks          Int      @default(0) @map("unique_external_js_outlinks")
+  uniqueOutlinks                    Int?     @default(0) @map("unique_outlinks")
+  uniqueJsOutlinks                  Int?     @default(0) @map("unique_js_outlinks")
+  metaDescription                   String?  @map("meta_description") @db.Text
+  ogTitle                           String?  @map("og_title") @db.Text
+  ogDescription                     String?  @map("og_description") @db.Text
+  ogImage                           String?  @map("og_image") @db.Text
 
   // Relations
   session             CrawlSession         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
@@ -269,6 +281,35 @@ model Page {
   @@index([closestDuplicateSimilarity(sort: Desc)], map: "idx_pages_closest_duplicate_similarity")
   @@index([uniqueExternalOutlinks(sort: Desc)], map: "idx_pages_unique_external_outlinks")
   @@index([uniqueExternalJsOutlinks(sort: Desc)], map: "idx_pages_unique_external_js_outlinks")
+  @@index([uniqueOutlinks(sort: Desc)], map: "idx_pages_unique_outlinks")
+  @@index([uniqueJsOutlinks(sort: Desc)], map: "idx_pages_unique_js_outlinks")
+  @@index([indexable], map: "idx_pages_indexable")
+  @@index([indexabilityStatus], map: "idx_pages_indexability_status")
+  @@index([metaRobots], map: "idx_pages_meta_robots")
+  @@index([xRobotsTag], map: "idx_pages_x_robots_tag")
+  @@index([metaRefresh], map: "idx_pages_meta_refresh")
+  @@index([relNext], map: "idx_pages_rel_next")
+  @@index([relPrev], map: "idx_pages_rel_prev")
+  @@index([httpRelNext], map: "idx_pages_http_rel_next")
+  @@index([httpRelPrev], map: "idx_pages_http_rel_prev")
+  @@index([textToHtmlRatio], map: "idx_pages_text_to_html_ratio")
+  @@index([titlePixelWidth], map: "idx_pages_title_pixel_width")
+  @@index([descriptionPixelWidth], map: "idx_pages_description_pixel_width")
+  @@index([fleschReadingEase(sort: Desc)], map: "idx_pages_flesch_reading_ease_score")
+  @@index([readabilityLevel], map: "idx_pages_readability_level")
+  @@index([metaKeywordsLength], map: "idx_pages_meta_keywords_length")
+  @@index([crawlDepth], map: "idx_pages_crawl_depth")
+  @@index([folderDepth], map: "idx_pages_folder_depth")
+  @@index([averageWordsPerSentence(sort: Desc)], map: "idx_pages_average_words_per_sentence")
+  @@index([sentenceCount(sort: Desc)], map: "idx_pages_sentence_count")
+  @@index([sizeBytes(sort: Desc)], map: "idx_pages_size_bytes")
+  @@index([spellingErrors(sort: Desc)], map: "idx_pages_spelling_errors")
+  @@index([grammarErrors(sort: Desc)], map: "idx_pages_grammar_errors")
+  @@index([redirectUrl], map: "idx_pages_redirect_url")
+  @@index([redirectType], map: "idx_pages_redirect_type")
+  @@index([language], map: "idx_pages_language")
+  @@index([httpVersion], map: "idx_pages_http_version")
+  @@index([mobileAlternateUrl], map: "idx_pages_mobile_alternate_url")
   @@map("pages")
 }
 
@@ -574,6 +615,10 @@ model AuditResult {
   cls              Float?
   fcpMs            Int?     @map("fcp_ms")
   ttfbMs           Int?     @map("ttfb_ms")
+  fcp              Decimal? @db.Decimal(10, 2)
+  ttfb             Decimal? @db.Decimal(10, 2)
+  fid              Decimal? @db.Decimal(10, 2)
+  deviceType       String?  @default("desktop") @map("device_type") @db.VarChar(20)
   performanceScore Int?     @map("performance_score")
   psiReportUrl     String?  @map("psi_report_url") @db.Text
   metricsJson      String?  @map("metrics_json") @db.Text

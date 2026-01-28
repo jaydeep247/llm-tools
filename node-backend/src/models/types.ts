@@ -77,6 +77,10 @@ export interface Page {
     httpVersion?: string; // HTTP protocol version (HTTP/1.1, HTTP/2, HTTP/3)
     urlEncodedAddress?: string; // The percent-encoded (URL-safe) version of the URL
     contentHash?: string; // SHA-256 hash of normalized page content (visible text) for change detection and duplicate identification
+    metaDescription?: string; // Meta description tag content (different from description field)
+    ogTitle?: string; // Open Graph title
+    ogDescription?: string; // Open Graph description
+    ogImage?: string; // Open Graph image URL
     // Semantic Analysis Fields (Module A)
     closestSemanticallySimilarAddress?: string; // URL of the most semantically similar page
     semanticSimilarityScore?: number; // Similarity score (0.0-1.0) with closest semantically similar page

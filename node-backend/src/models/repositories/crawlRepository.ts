@@ -19,6 +19,12 @@ export class CrawlRepository {
                 totalResources: data.totalResources,
                 duration: data.duration,
                 status: data.status,
+                maxDepth: (data as any).maxDepth ?? null,
+                maxPages: (data as any).maxPages ?? null,
+                respectRobotsTxt: (data as any).respectRobotsTxt ?? null,
+                userAgent: (data as any).userAgent ?? null,
+                errorMessage: (data as any).errorMessage ?? null,
+                pagesCrawled: (data as any).pagesCrawled ?? null,
             },
         });
         return session.id;
@@ -38,6 +44,15 @@ export class CrawlRepository {
         if (updates.totalResources !== undefined) updateData.totalResources = updates.totalResources;
         if (updates.duration !== undefined) updateData.duration = updates.duration;
         if (updates.status !== undefined) updateData.status = updates.status;
+        
+        // Handle new fields from old schema
+        const extendedUpdates = updates as any;
+        if (extendedUpdates.maxDepth !== undefined) updateData.maxDepth = extendedUpdates.maxDepth;
+        if (extendedUpdates.maxPages !== undefined) updateData.maxPages = extendedUpdates.maxPages;
+        if (extendedUpdates.respectRobotsTxt !== undefined) updateData.respectRobotsTxt = extendedUpdates.respectRobotsTxt;
+        if (extendedUpdates.userAgent !== undefined) updateData.userAgent = extendedUpdates.userAgent;
+        if (extendedUpdates.errorMessage !== undefined) updateData.errorMessage = extendedUpdates.errorMessage;
+        if (extendedUpdates.pagesCrawled !== undefined) updateData.pagesCrawled = extendedUpdates.pagesCrawled;
 
         if (Object.keys(updateData).length === 0) return;
 
