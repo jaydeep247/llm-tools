@@ -5,7 +5,7 @@
 
 import express from 'express';
 import { monitoringRoutes } from '../routes/module_D/index.js';
-import { auditsRoutes, linksRoutes, linkScoreRoutes, auditRoutes, crawlerRoutes, auditActionsRoutes, crawlRoutes, auditCheckerRoutes } from '../routes/module_A/index.js';
+import { auditsRoutes, linksRoutes, linkScoreRoutes, auditRoutes, crawlerRoutes, auditActionsRoutes, crawlRoutes, auditCheckerRoutes, serpRoutes } from '../routes/module_A/index.js';
 import { seoRoutes } from '../routes/module_B/index.js';
 import { aeoRoutes } from '../routes/module_C/index.js';
 import { sentimentRoutes } from '../routes/module_E/index.js';
@@ -28,6 +28,7 @@ export function registerRoutes(app: express.Application): void {
     app.use('/api', crawlerRoutes);
     app.use('/api', crawlRoutes);
     app.use(auditCheckerRoutes);
+    app.use('/api', serpRoutes);
 
     // Module B: SEO & Structured Data
     app.use('/api', seoRoutes);

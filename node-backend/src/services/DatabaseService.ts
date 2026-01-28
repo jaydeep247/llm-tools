@@ -7,8 +7,9 @@ import type {
     User, UserSettings, UserUsage,
     CrawlSession, CrawlSchedule, ScheduleExecution,
     Page, Resource, Link, AuditSchedule, AuditResult, AuditExecution,
-    CrawlLog
+    CrawlLog, SerpSnapshot
 } from '../models/types.js';
+import { SerpRepository } from '../models/repositories/serpRepository.js';
 import type { ContentFingerprint, NearDuplicateMetrics, SimilarityResult } from '../helpers/module_A/duplicateDetection/types.js';
 
 export type {
@@ -27,6 +28,7 @@ export class DatabaseService {
     public crawls: CrawlRepository;
     public pages: PageRepository;
     public audits: AuditRepository;
+    public serp: SerpRepository;
 
     private constructor() {
         this.logger = Logger.getInstance();
@@ -34,6 +36,7 @@ export class DatabaseService {
         this.crawls = new CrawlRepository();
         this.pages = new PageRepository();
         this.audits = new AuditRepository();
+        this.serp = new SerpRepository();
     }
 
     public static getInstance(): DatabaseService {
@@ -163,6 +166,30 @@ export class DatabaseService {
 
     async getScheduleStats(scheduleId?: number): Promise<any> {
         return this.crawls.getScheduleStats(scheduleId);
+    }
+
+    // ==================== SERP Snapshot Methods (Module A) ====================
+    async createSerpSnapshot(data: Omit<SerpSnapshot, 'id' | 'runAt'>): Promise<SerpSnapshot> {
+        return this.serp.createSnapshot(data);
+    }
+
+    async getLatestSerpSnapshot(
+        keyword: string,
+        normalizedDomain: string,
+        location: string,
+        device: string,
+    ): Promise<SerpSnapshot | null> {
+        return this.serp.getLatestSnapshot(keyword, normalizedDomain, location, device);
+    }
+
+    async getSerpHistory(
+        keyword: string,
+        normalizedDomain: string,
+        location?: string,
+        device?: string,
+        limit: number = 50,
+    ): Promise<SerpSnapshot[]> {
+        return this.serp.getHistory(keyword, normalizedDomain, location, device, limit);
     }
 
     async getRecentExecutions(limit: number = 10, scheduleId?: number): Promise<any[]> {
