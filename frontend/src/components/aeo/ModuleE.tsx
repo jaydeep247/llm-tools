@@ -22,6 +22,12 @@ const ModuleE: React.FC<ModuleEProps> = ({
   moduleEError,
   competitors
 }) => {
+  // Temporary hardcoded brand for testing visibility metrics
+  const effectiveBrandName =
+    moduleEScores?.brand_metrics?.data?.brand_name ||
+    competitors[0]?.name ||
+    'https://www.corangelab.com';
+
   return (
     <div className="p-4" style={{ minHeight: 'auto' }}>
       {/* New Summary Table (Replaces Multi-Model Cards) */}
@@ -83,7 +89,7 @@ const ModuleE: React.FC<ModuleEProps> = ({
 
       {/* Brand Pulse & Sentiment Section */}
       <div className="mt-8">
-        <SentimentTracking brandName={moduleEScores?.brand_metrics?.data?.brand_name || competitors[0]?.name || ''} />
+        <SentimentTracking brandName={effectiveBrandName} />
       </div>
 
       {moduleEScores && moduleEScores.brand_metrics && (

@@ -27,13 +27,25 @@ interface SentimentResult {
     models: {
         [key: string]: ModelData;
     };
+    visibility?: {
+        overall_visibility_score: number;
+        models: {
+            [key: string]: {
+                appearance_rate: number;
+                avg_position_weight: number;
+                visibility_score: number;
+                total_prompts: number;
+                appearances: number;
+            };
+        };
+    };
 }
 
 export const SentimentTracking: React.FC<SentimentTrackingProps> = ({ brandName }) => {
     const [data, setData] = useState<SentimentResult | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [history, setHistory] = useState<{ date: string; score: number }[]>([]);
+    const [history, setHistory] = useState<{ date: string; sentimentScore?: number; visibilityScore?: number; score?: number }[]>([]);
 
     // 1. Load History on Mount
     useEffect(() => {
@@ -60,6 +72,11 @@ export const SentimentTracking: React.FC<SentimentTrackingProps> = ({ brandName 
 
     // 2. Manual Analysis Trigger
     const runAnalysis = async () => {
+        if (!brandName) {
+            setError('Brand name is missing. Configure a brand before running analysis.');
+            return;
+        }
+
         setLoading(true);
         setError(null);
         try {
@@ -92,9 +109,9 @@ export const SentimentTracking: React.FC<SentimentTrackingProps> = ({ brandName 
         if (history.length < 2) {
             return (
                 <div className="mt-6 p-4 bg-gray-900/30 rounded border border-gray-800 border-dashed text-center">
-                    <h3 className="text-sm text-gray-400 mb-2">Sentiment Trend</h3>
+                    <h3 className="text-sm text-gray-400 mb-2">Visibility Trend</h3>
                     <p className="text-xs text-gray-500">
-                        {history.length === 1 ? "1 analysis saved. Run again to see a trend line." : "No history yet. Run an analysis to track sentiment over time."}
+                        {history.length === 1 ? "1 analysis saved. Run again to see a trend line." : "No history yet. Run an analysis to track visibility over time."}
                     </p>
                 </div>
             );
@@ -115,10 +132,11 @@ export const SentimentTracking: React.FC<SentimentTrackingProps> = ({ brandName 
         const timeRange = endTime - startTime || 1;
 
         // Helper to get coordinates
-        const getCoord = (h: { date: string; score: number }) => {
-            const time = new Date(h.date).getTime();
+        const getCoord = (h: { date: string; sentimentScore?: number; visibilityScore?: number; score?: number }) => {
+            const time = new Date((h as any).date).getTime();
+            const value = (h.visibilityScore ?? h.score ?? 0);
             const x = paddingLeft + ((time - startTime) / timeRange) * (width - paddingLeft - paddingRight);
-            const y = height - paddingBottom - (h.score / 100) * (height - paddingBottom - paddingTop);
+            const y = height - paddingBottom - (value / 100) * (height - paddingBottom - paddingTop);
             return { x, y };
         };
 
@@ -160,13 +178,95 @@ export const SentimentTracking: React.FC<SentimentTrackingProps> = ({ brandName 
                         <path d={linePath} className="stroke-blue-500 stroke-[2] fill-none drop-shadow-md" />
 
                         {/* Dots */}
-                        {points.map((p, i) => (
+                        {points.map((p, i) => {
+                            const entry = recentHistory[i] as any;
+                            const value = entry.visibilityScore ?? entry.score ?? 0;
+                            return (
                             <circle key={i} cx={p.x} cy={p.y} r="4" className="fill-blue-900 stroke-blue-400 stroke-2 hover:fill-white cursor-pointer transition-colors">
-                                <title>{`Score: ${recentHistory[i].score}`}</title>
+                                <title>{`Visibility: ${value}`}</title>
                             </circle>
-                        ))}
+                        );
+                        })}
 
 
+                    </svg>
+                </div>
+            </div>
+        );
+    };
+
+    // Sentiment trend chart (uses sentimentScore from history)
+    const renderSentimentChart = () => {
+        if (history.length < 2) {
+            return (
+                <div className="mt-6 p-4 bg-gray-900/30 rounded border border-gray-800 border-dashed text-center">
+                    <h3 className="text-sm text-gray-400 mb-2">Sentiment Trend</h3>
+                    <p className="text-xs text-gray-500">
+                        {history.length === 1 ? "1 analysis saved. Run again to see a trend line." : "No history yet. Run an analysis to track sentiment over time."}
+                    </p>
+                </div>
+            );
+        }
+
+        const height = 150;
+        const width = 600;
+        const paddingLeft = 30;
+        const paddingRight = 20;
+        const paddingBottom = 25;
+        const paddingTop = 20;
+
+        const recentHistory = history.slice(-12);
+
+        const startTime = new Date((recentHistory[0] as any).date).getTime();
+        const endTime = new Date((recentHistory[recentHistory.length - 1] as any).date).getTime();
+        const timeRange = endTime - startTime || 1;
+
+        const getCoord = (h: { date: string; sentimentScore?: number; visibilityScore?: number; score?: number }) => {
+            const time = new Date((h as any).date).getTime();
+            const value = (h.sentimentScore ?? h.score ?? 0);
+            const x = paddingLeft + ((time - startTime) / timeRange) * (width - paddingLeft - paddingRight);
+            const y = height - paddingBottom - (value / 100) * (height - paddingBottom - paddingTop);
+            return { x, y };
+        };
+
+        const points = recentHistory.map(getCoord);
+
+        const linePath = points.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(" ");
+        const areaPath = `${linePath} L ${points[points.length - 1].x} ${height - paddingBottom} L ${points[0].x} ${height - paddingBottom} Z`;
+
+        return (
+            <div className="w-full h-full flex flex-col items-center justify-center p-2">
+                <div className="w-full overflow-hidden relative" style={{ height: '100%' }}>
+                    <div className="absolute left-0 top-0 h-full flex flex-col justify-between text-[10px] text-gray-500 font-mono pointer-events-none" style={{ height: `${height}px`, paddingBottom: `${paddingBottom}px`, paddingTop: `${paddingTop}px` }}>
+                        <span>100</span>
+                        <span>50</span>
+                        <span>0</span>
+                    </div>
+
+                    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-40 ml-2" preserveAspectRatio="none">
+                        <defs>
+                            <linearGradient id="sentimentChartGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#FBBF24" stopOpacity="0.5" />
+                                <stop offset="100%" stopColor="#FBBF24" stopOpacity="0" />
+                            </linearGradient>
+                        </defs>
+
+                        <line x1={paddingLeft} y1={paddingTop} x2={width - paddingRight} y2={paddingTop} className="stroke-gray-800 stroke-[0.5] stroke-dashed" />
+                        <line x1={paddingLeft} y1={(height - paddingBottom - paddingTop) / 2 + paddingTop} x2={width - paddingRight} y2={(height - paddingBottom - paddingTop) / 2 + paddingTop} className="stroke-gray-800 stroke-[0.5] stroke-dashed" />
+                        <line x1={paddingLeft} y1={height - paddingBottom} x2={width - paddingRight} y2={height - paddingBottom} className="stroke-gray-700 stroke-[1]" />
+
+                        <path d={areaPath} fill="url(#sentimentChartGradient)" className="stroke-none" />
+                        <path d={linePath} className="stroke-yellow-400 stroke-[2] fill-none drop-shadow-md" />
+
+                        {points.map((p, i) => {
+                            const entry = recentHistory[i] as any;
+                            const value = entry.sentimentScore ?? entry.score ?? 0;
+                            return (
+                                <circle key={i} cx={p.x} cy={p.y} r="4" className="fill-yellow-900 stroke-yellow-400 stroke-2 hover:fill-white cursor-pointer transition-colors">
+                                    <title>{`Sentiment: ${value}`}</title>
+                                </circle>
+                            );
+                        })}
                     </svg>
                 </div>
             </div>
@@ -207,7 +307,7 @@ export const SentimentTracking: React.FC<SentimentTrackingProps> = ({ brandName 
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
                 <h4 className="text-xl font-bold text-gray-200 flex items-center gap-2">
-                    <span>❤️</span> Sentiment Tracking
+                    <span>❤️</span> Sentiment & Visibility Tracking
                     <span className="text-sm font-normal text-gray-400 ml-2">({brandName})</span>
                 </h4>
                 {!loading && (
@@ -229,66 +329,111 @@ export const SentimentTracking: React.FC<SentimentTrackingProps> = ({ brandName 
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        {/* LEFT COLUMN: Metrics */}
+                        {/* LEFT COLUMN: Sentiment only */}
                         <div className="space-y-6">
-                            {/* Score Card */}
                             {data && (
-                                <div className="flex items-center gap-4 bg-gray-900/50 p-6 rounded-lg border border-gray-700/50">
-                                    <div className="text-center pr-4 border-r border-gray-700">
-                                        <div className={`text-4xl font-bold ${getScoreColor(data.overall_score)}`}>{data.overall_score}</div>
-                                        <div className="text-[10px] text-gray-400 uppercase tracking-widest mt-1">Score</div>
-                                    </div>
-                                    <div className="flex-grow pl-2">
-                                        <div className="text-sm text-gray-300 mb-2 flex justify-between">
-                                            <span>Sentiment:</span>
-                                            <span className={`font-bold ${data.overall_score >= 60 ? 'text-green-400' : 'text-yellow-400'}`}>
-                                                {getSentimentLabel(data.distribution)}
-                                            </span>
+                                <div className="flex flex-col gap-4 bg-gray-900/50 p-6 rounded-lg border border-gray-700/50">
+                                    <h5 className="text-sm font-bold text-gray-300 uppercase mb-1">Sentiment Overview</h5>
+                                    <div className="flex items-center gap-4">
+                                        <div className="text-center pr-4 border-r border-gray-700">
+                                            <div className={`text-4xl font-bold ${getScoreColor(data.overall_score)}`}>{data.overall_score}</div>
+                                            <div className="text-[10px] text-gray-400 uppercase tracking-widest mt-1">Sentiment Score</div>
                                         </div>
-                                        <div className="flex h-3 rounded-full overflow-hidden bg-gray-700 w-full shadow-inner">
-                                            <div style={{ width: getBarWidth(data.distribution.Positive, (data.distribution.Positive + data.distribution.Neutral + data.distribution.Negative)) }} className="bg-green-500 h-full" title={`Positive: ${data.distribution.Positive}`} />
-                                            <div style={{ width: getBarWidth(data.distribution.Neutral, (data.distribution.Positive + data.distribution.Neutral + data.distribution.Negative)) }} className="bg-yellow-500 h-full" title={`Neutral: ${data.distribution.Neutral}`} />
-                                            <div style={{ width: getBarWidth(data.distribution.Negative, (data.distribution.Positive + data.distribution.Neutral + data.distribution.Negative)) }} className="bg-red-500 h-full" title={`Negative: ${data.distribution.Negative}`} />
-                                        </div>
-                                        <div className="flex justify-between mt-1 text-[10px] text-gray-500">
-                                            <span>Pos</span>
-                                            <span>Neu</span>
-                                            <span>Neg</span>
+                                        <div className="flex-grow pl-2">
+                                            <div className="text-sm text-gray-300 mb-2 flex justify-between">
+                                                <span>Sentiment:</span>
+                                                <span className={`font-bold ${data.overall_score >= 60 ? 'text-green-400' : 'text-yellow-400'}`}>
+                                                    {getSentimentLabel(data.distribution)}
+                                                </span>
+                                            </div>
+                                            <div className="flex h-3 rounded-full overflow-hidden bg-gray-700 w-full shadow-inner">
+                                                <div style={{ width: getBarWidth(data.distribution.Positive, (data.distribution.Positive + data.distribution.Neutral + data.distribution.Negative)) }} className="bg-green-500 h-full" title={`Positive: ${data.distribution.Positive}`} />
+                                                <div style={{ width: getBarWidth(data.distribution.Neutral, (data.distribution.Positive + data.distribution.Neutral + data.distribution.Negative)) }} className="bg-yellow-500 h-full" title={`Neutral: ${data.distribution.Neutral}`} />
+                                                <div style={{ width: getBarWidth(data.distribution.Negative, (data.distribution.Positive + data.distribution.Neutral + data.distribution.Negative)) }} className="bg-red-500 h-full" title={`Negative: ${data.distribution.Negative}`} />
+                                            </div>
+                                            <div className="flex justify-between mt-1 text-[10px] text-gray-500">
+                                                <span>Pos</span>
+                                                <span>Neu</span>
+                                                <span>Neg</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             )}
 
-                            {/* Model Breakdown List */}
-                            <div>
-                                <h5 className="text-sm font-bold text-gray-300 uppercase mb-3 px-1">Model Analysis</h5>
+                            {/* Sentiment Trend */}
+                            <div className="flex flex-col h-full min-h-[200px] bg-gray-900/30 p-2 rounded-lg border border-gray-700/50">
+                                <h5 className="text-sm font-bold text-gray-300 uppercase mb-2 text-center pt-2">Sentiment Trend</h5>
+                                <div className="flex-grow flex items-center justify-center w-full">
+                                    {renderSentimentChart()}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* RIGHT COLUMN: All visibility metrics */}
+                        <div className="flex flex-col h-full space-y-4">
+                            {data?.visibility && (
+                                <div className="flex items-center justify-between bg-gray-900/50 p-6 rounded-lg border border-gray-700/50">
+                                    <div>
+                                        <h5 className="text-sm font-bold text-gray-300 uppercase mb-1">Visibility Overview</h5>
+                                        <p className="text-xs text-gray-400">
+                                            How often and how prominently your brand appears across AI models.
+                                        </p>
+                                    </div>
+                                    <div className={`text-3xl font-bold ${getScoreColor(data.visibility.overall_visibility_score)}`}>
+                                        {data.visibility.overall_visibility_score}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700/50 flex-1">
+                                <h5 className="text-sm font-bold text-gray-300 uppercase mb-3 px-1">Model-wise Visibility</h5>
                                 <div className="overflow-hidden rounded-lg border border-gray-700/50">
                                     <table className="w-full text-sm text-left">
                                         <thead className="text-xs text-gray-500 uppercase bg-gray-800/50 border-b border-gray-700/50 font-semibold">
                                             <tr>
                                                 <th scope="col" className="px-4 py-3">Model</th>
                                                 <th scope="col" className="px-4 py-3 text-right">Pos/Neu/Neg</th>
-                                                <th scope="col" className="px-4 py-3 text-right">Score</th>
+                                                <th scope="col" className="px-4 py-3 text-right">Sentiment</th>
+                                                <th scope="col" className="px-4 py-3 text-right">Visibility</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-700/30">
-                                            {data ? Object.entries(data.models).map(([model, info]) => (
-                                                <tr key={model} className="bg-gray-750/30 hover:bg-gray-700/50 transition-colors">
-                                                    <td className="px-4 py-3 font-medium text-gray-300 capitalize">
-                                                        {model}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right text-xs">
-                                                        <span className="text-green-500">{info.distribution.Positive}</span>
-                                                        <span className="text-gray-600 mx-1">/</span>
-                                                        <span className="text-yellow-500">{info.distribution.Neutral}</span>
-                                                        <span className="text-gray-600 mx-1">/</span>
-                                                        <span className="text-red-500">{info.distribution.Negative}</span>
-                                                    </td>
-                                                    <td className={`px-4 py-3 text-right font-bold ${getScoreColor(info.average_score)}`}>
-                                                        {info.average_score}
-                                                    </td>
-                                                </tr>
-                                            )) : (
+                                            {data ? Object.entries(data.models).map(([model, info]) => {
+                                                const visibilityForModel = data.visibility?.models?.[model];
+                                                return (
+                                                    <tr key={model} className="bg-gray-750/30 hover:bg-gray-700/50 transition-colors">
+                                                        <td className="px-4 py-3 font-medium text-gray-300 capitalize">
+                                                            {model}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right text-xs">
+                                                            <span className="text-green-500">{info.distribution.Positive}</span>
+                                                            <span className="text-gray-600 mx-1">/</span>
+                                                            <span className="text-yellow-500">{info.distribution.Neutral}</span>
+                                                            <span className="text-gray-600 mx-1">/</span>
+                                                            <span className="text-red-500">{info.distribution.Negative}</span>
+                                                        </td>
+                                                        <td className={`px-4 py-3 text-right font-bold ${getScoreColor(info.average_score)}`}>
+                                                            {info.average_score}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right text-xs">
+                                                            {visibilityForModel ? (
+                                                                <div className="flex flex-col items-end">
+                                                                    <span className={`font-bold ${getScoreColor(visibilityForModel.visibility_score)}`}>
+                                                                        {visibilityForModel.visibility_score}
+                                                                    </span>
+                                                                    <span className="text-[10px] text-gray-500">
+                                                                        {(visibilityForModel.appearance_rate * 100).toFixed(0)}% appear •{" "}
+                                                                        {visibilityForModel.avg_position_weight.toFixed(2)} pos-wt
+                                                                    </span>
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-gray-500 text-xs">N/A</span>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            }) : (
                                                 <tr>
                                                     <td colSpan={3} className="px-4 py-3 text-center text-gray-500 italic">No model data available.</td>
                                                 </tr>
@@ -297,13 +442,12 @@ export const SentimentTracking: React.FC<SentimentTrackingProps> = ({ brandName 
                                     </table>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* RIGHT COLUMN: Chart */}
-                        <div className="flex flex-col h-full min-h-[250px] bg-gray-900/30 p-2 rounded-lg border border-gray-700/50">
-                            <h5 className="text-sm font-bold text-gray-300 uppercase mb-2 text-center pt-2">Sentiment Trend</h5>
-                            <div className="flex-grow flex items-center justify-center w-full">
-                                {renderChart()}
+                            <div className="flex flex-col h-full min-h-[200px] bg-gray-900/30 p-2 rounded-lg border border-gray-700/50">
+                                <h5 className="text-sm font-bold text-gray-300 uppercase mb-2 text-center pt-2">Visibility Trend</h5>
+                                <div className="flex-grow flex items-center justify-center w-full">
+                                    {renderChart()}
+                                </div>
                             </div>
                         </div>
                     </div>

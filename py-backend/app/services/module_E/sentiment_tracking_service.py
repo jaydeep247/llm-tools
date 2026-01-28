@@ -67,10 +67,16 @@ class SentimentTrackingService:
             "brand_name": brand_name,
             "overall_score": 0,
             "distribution": {"Positive": 0, "Neutral": 0, "Negative": 0},
-            "models": {}
+            "models": {},
+            # Visibility metrics derived from the same probes/answers
+            "visibility": {
+                "overall_visibility_score": 0,
+                "models": {}
+            }
         }
         
         valid_model_scores = []
+        visibility_scores: List[int] = []
         
         for result in results_list:
             if not result:
@@ -78,6 +84,13 @@ class SentimentTrackingService:
                 
             model_name = result["model"]
             aggregated_results["models"][model_name] = result
+
+            # --- Compute visibility metrics for this model based on its answers ---
+            visibility_for_model = self._compute_visibility_for_model(
+                brand_name=brand_name,
+                model_result=result
+            )
+            aggregated_results["visibility"]["models"][model_name] = visibility_for_model
             
             # Add to global distribution
             for label, count in result["distribution"].items():
@@ -86,12 +99,72 @@ class SentimentTrackingService:
             # Add to proper score list
             if result["average_score"] > 0:
                 valid_model_scores.append(result["average_score"])
+            if visibility_for_model["visibility_score"] > 0:
+                visibility_scores.append(visibility_for_model["visibility_score"])
 
         # Global Average
         if valid_model_scores:
             aggregated_results["overall_score"] = int(sum(valid_model_scores) / len(valid_model_scores))
+
+        if visibility_scores:
+            aggregated_results["visibility"]["overall_visibility_score"] = int(
+                sum(visibility_scores) / len(visibility_scores)
+            )
             
         return aggregated_results
+
+    def _compute_visibility_for_model(self, brand_name: str, model_result: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Compute visibility metrics for a single model using its detailed answers.
+
+        Heuristic:
+        - appearance_rate: fraction of probe answers where the brand name appears
+        - position_weight: earlier mentions are better (1.0 for very early, down to 0.2 for very late)
+        - visibility_score: appearance_rate * avg_position_weight scaled to 0–100
+        """
+        details: List[Dict[str, Any]] = model_result.get("details") or []
+        total_prompts = len(details) or 1
+
+        brand_lower = brand_name.lower()
+
+        appearance_count = 0
+        position_weights: List[float] = []
+
+        for item in details:
+            answer = (item.get("answer") or "")
+            answer_lower = str(answer).lower()
+
+            idx = answer_lower.find(brand_lower)
+            if idx == -1:
+                continue
+
+            appearance_count += 1
+
+            # Simple heuristic for prominence based on character index
+            if idx <= 50:
+                weight = 1.0
+            elif idx <= 200:
+                weight = 0.8
+            elif idx <= 400:
+                weight = 0.5
+            else:
+                weight = 0.2
+
+            position_weights.append(weight)
+
+        appearance_rate = appearance_count / total_prompts
+        avg_position_weight = sum(position_weights) / len(position_weights) if position_weights else 0.0
+
+        raw_visibility = appearance_rate * avg_position_weight
+        visibility_score = int(max(0.0, min(raw_visibility * 100.0, 100.0)))
+
+        return {
+            "appearance_rate": appearance_rate,
+            "avg_position_weight": avg_position_weight,
+            "visibility_score": visibility_score,
+            "total_prompts": total_prompts,
+            "appearances": appearance_count,
+        }
 
     async def _audit_model(self, brand_name: str, model_name: str) -> Dict[str, Any]:
         """
