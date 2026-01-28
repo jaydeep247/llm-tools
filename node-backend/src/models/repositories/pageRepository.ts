@@ -1389,7 +1389,19 @@ export class PageRepository {
             ORDER BY "linkCount" DESC
             LIMIT ${limit}
         `;
-        return result;
+
+        // Prisma / node-postgres can return COUNT(*) as BigInt when using $queryRaw.
+        // Convert any BigInt fields to regular numbers so Express can JSON.stringify the response.
+        return result.map((row: any) => ({
+            sourcePageId: typeof row.sourcePageId === 'bigint' ? Number(row.sourcePageId) : row.sourcePageId,
+            sourceUrl: row.sourceUrl,
+            sourceTitle: row.sourceTitle,
+            targetPageId: typeof row.targetPageId === 'bigint' ? Number(row.targetPageId) : row.targetPageId,
+            targetUrl: row.targetUrl,
+            targetTitle: row.targetTitle,
+            linkCount: typeof row.linkCount === 'bigint' ? Number(row.linkCount) : row.linkCount,
+            anchorTexts: Array.isArray(row.anchorTexts) ? row.anchorTexts : [],
+        }));
     }
 
     async getUniqueInlinks(pageId: number, limit: number = 100): Promise<any[]> {

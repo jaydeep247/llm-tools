@@ -95,7 +95,13 @@ export class Logger {
     }
     
     if (entry.context && Object.keys(entry.context).length > 0) {
-      logMessage += ` | Context: ${JSON.stringify(entry.context)}`;
+      // Safely stringify context objects that may contain BigInt values
+      // JSON.stringify throws on BigInt by default, so we convert them to strings
+      const safeContext = JSON.stringify(
+        entry.context,
+        (_key, value) => (typeof value === 'bigint' ? value.toString() : value)
+      );
+      logMessage += ` | Context: ${safeContext}`;
     }
 
     console.log(logMessage);
