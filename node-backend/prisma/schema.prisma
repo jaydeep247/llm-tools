@@ -104,9 +104,37 @@ model CrawlSession {
   wordcountAnalyses   WordcountAnalysis[]
   contentFingerprints ContentFingerprint[]
   similarityIndices   SimilarityIndex[]
+  serpSnapshots       SerpSnapshot[]
 
   @@index([userId], map: "idx_crawl_sessions_user_id")
   @@map("crawl_sessions")
+}
+
+model SerpSnapshot {
+  id               Int      @id @default(autoincrement())
+  keyword          String   @db.Text
+  targetDomain     String   @map("target_domain") @db.Text
+  normalizedDomain String   @map("normalized_domain") @db.Text
+  searchEngine     String   @default("google") @map("search_engine") @db.Text
+  location         String   @db.Text
+  device           String   @db.VarChar(20)
+  maxResults       Int      @map("max_results")
+  runAt            DateTime @default(now()) @map("run_at") @db.Timestamptz
+  position         Int?     
+  rankingUrl       String?  @map("ranking_url") @db.Text
+  rankStatus       String   @default("ranked") @map("rank_status") @db.VarChar(20)
+  change           Int?
+  changeLabel      String?  @map("change_label") @db.VarChar(16)
+  intent           String   @db.VarChar(50)
+  topCompetitors   Json     @map("top_competitors")
+  serpFeatures     Json     @map("serp_features")
+  serp             Json
+  sessionId        Int?     @map("session_id")
+
+  session CrawlSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([keyword, normalizedDomain, location, device, runAt], map: "idx_serp_keyword_domain_time")
+  @@map("serp_snapshots")
 }
 
 model SessionShare {

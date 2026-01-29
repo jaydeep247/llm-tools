@@ -251,6 +251,33 @@ export interface AuditExecution {
     duration: number;
 }
 
+export interface SerpSnapshot {
+  id: number;
+  keyword: string;
+  targetDomain: string;
+  normalizedDomain: string;
+  searchEngine: string;
+  location: string;
+  device: string;
+  maxResults: number;
+  runAt: string;
+  position: number | null;
+  rankingUrl: string | null;
+  rankStatus: 'ranked' | 'not_ranked' | 'lost';
+  change: number | null;
+  changeLabel: string | null;
+  intent: string;
+  topCompetitors: { domain: string; count: number }[];
+  serpFeatures: {
+    featured_snippet: boolean;
+    paa: boolean;
+    video: boolean;
+    images: boolean;
+  };
+  serp: { position: number; url: string; title: string }[];
+  sessionId?: number | null;
+}
+
 export interface AEOSchedule {
     id: number;
     name: string;

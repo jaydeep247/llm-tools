@@ -222,7 +222,20 @@ export const useAEOData = (result: any) => {
         prompt_intent_details: {
           matched_intents: [],
           confidence: 0,
-          search_queries: []
+          search_queries: [],
+          intent_clusters: {
+            informational: { prompt_count: 0, example_prompts: [] },
+            commercial: { prompt_count: 0, example_prompts: [] },
+            comparative: { prompt_count: 0, example_prompts: [] },
+            transactional: { prompt_count: 0, example_prompts: [] },
+            agent_style: { prompt_count: 0, example_prompts: [] }
+          },
+          cluster_metrics: {
+            total_prompts: 0,
+            categorized_prompts: 0,
+            coverage_percentage: 0,
+            clustering_accuracy: 0
+          }
         },
         visibility_factors: {
           factors: [],
@@ -240,7 +253,24 @@ export const useAEOData = (result: any) => {
       try {
         promptIntentDetails = JSON.parse(promptIntentDetails);
       } catch (e) {
-        promptIntentDetails = { matched_intents: [], confidence: 0, search_queries: [] };
+        promptIntentDetails = { 
+          matched_intents: [], 
+          confidence: 0, 
+          search_queries: [],
+          intent_clusters: {
+            informational: { prompt_count: 0, example_prompts: [] },
+            commercial: { prompt_count: 0, example_prompts: [] },
+            comparative: { prompt_count: 0, example_prompts: [] },
+            transactional: { prompt_count: 0, example_prompts: [] },
+            agent_style: { prompt_count: 0, example_prompts: [] }
+          },
+          cluster_metrics: {
+            total_prompts: 0,
+            categorized_prompts: 0,
+            coverage_percentage: 0,
+            clustering_accuracy: 0
+          }
+        };
       }
     }
 
@@ -261,7 +291,20 @@ export const useAEOData = (result: any) => {
       prompt_intent_details: promptIntentDetails || {
         matched_intents: [],
         confidence: 0,
-        search_queries: []
+        search_queries: [],
+        intent_clusters: {
+          informational: { prompt_count: 0, example_prompts: [] },
+          commercial: { prompt_count: 0, example_prompts: [] },
+          comparative: { prompt_count: 0, example_prompts: [] },
+          transactional: { prompt_count: 0, example_prompts: [] },
+          agent_style: { prompt_count: 0, example_prompts: [] }
+        },
+        cluster_metrics: {
+          total_prompts: 0,
+          categorized_prompts: 0,
+          coverage_percentage: 0,
+          clustering_accuracy: 0
+        }
       },
       visibility_factors: visibilityFactors || {
         factors: [],
