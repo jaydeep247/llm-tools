@@ -329,15 +329,23 @@ JSON:
         except Exception as e:
             logging.error(f"OpenAI summarization failed: {str(e)}")
             return "Summary unavailable (Quota Exceeded)"
-    
+12      
     def analyze_content_metrics(self, content: str, url: str) -> Dict:
         """
-        Analyze three key metrics:
+        Analyze three key metrics + prompt intent clustering:
         1. Accuracy of content type suggestion
         2. Match with prompt intent
         3. Potential impact on visibility
+        4. Prompt clusters across intent types (informational, commercial, comparative, transactional, agent-style)
         
-        Returns comprehensive metrics for AEO optimization.
+        Returns comprehensive metrics for AEO optimization, including:
+        - High-level scores (content_type_accuracy, prompt_intent_match, visibility_impact)
+        - Prompt intent details with:
+          - matched_intents
+          - confidence
+          - search_queries
+          - intent_clusters (per-intent counts and examples)
+          - cluster_metrics (accuracy, coverage, totals)
         """
         fallback_result = {
             'content_type_accuracy': 50,
@@ -347,7 +355,20 @@ JSON:
             'prompt_intent_details': {
                 'matched_intents': [],
                 'confidence': 0,
-                'search_queries': []
+                'search_queries': [],
+                'intent_clusters': {
+                    'informational': {'prompt_count': 0, 'example_prompts': []},
+                    'commercial': {'prompt_count': 0, 'example_prompts': []},
+                    'comparative': {'prompt_count': 0, 'example_prompts': []},
+                    'transactional': {'prompt_count': 0, 'example_prompts': []},
+                    'agent_style': {'prompt_count': 0, 'example_prompts': []},
+                },
+                'cluster_metrics': {
+                    'total_prompts': 0,
+                    'categorized_prompts': 0,
+                    'coverage_percentage': 0.0,
+                    'clustering_accuracy': 0.0,
+                },
             },
             'visibility_factors': {
                 'factors': ['Service Unavailable'],
@@ -377,7 +398,12 @@ Analyze and return a JSON object with:
    - Score: 0-100 based on how clear/obvious the content type is
 
 2. **Prompt Intent Match** (0-100): How well does this content match user search intent?
-   - Analyze: informational, navigational, transactional, commercial investigation
+   - Primary intent types to consider:
+     - informational
+     - commercial (commercial investigation, product/service research)
+     - comparative (comparing options or alternatives)
+     - transactional (purchase or action-focused)
+     - agent_style (chatbot/assistant style queries or interactions)
    - Consider: question patterns, keyword alignment, user journey stage
    - Score: 0-100 based on how well content satisfies likely search queries
 
@@ -386,15 +412,39 @@ Analyze and return a JSON object with:
    - Consider: uniqueness, comprehensiveness, E-A-T signals, technical SEO
    - Score: 0-100 based on potential to rank and gain visibility
 
+4. **Prompt Intent Clusters**: Examine the implicit and explicit prompts/queries a user might ask that this content answers.
+   - Cluster those prompts into the 5 intent types above.
+   - For each cluster, estimate:
+       - prompt_count: how many prompts you would assign to this cluster
+       - example_prompts: list of 1-3 example natural-language prompts typical for this intent on this page
+   - Also calculate:
+       - total_prompts: total prompts you considered across all clusters
+       - categorized_prompts: how many of those prompts you could confidently assign to one of the 5 clusters
+       - coverage_percentage: (categorized_prompts / max(total_prompts,1)) * 100, rounded to 1 decimal place
+       - clustering_accuracy: your estimated accuracy (0-1 range) of the clustering you produced
+
 Return JSON:
 {{
     "content_type_accuracy": number,
     "suggested_content_type": "string (e.g., 'blog', 'product', 'faq', 'landing_page')",
     "prompt_intent_match": number,
     "prompt_intent_details": {{
-        "matched_intents": ["informational", "transactional", etc.],
+        "matched_intents": ["informational", "transactional", "commercial", "comparative", "agent_style"],
         "confidence": number (0-100),
-        "search_queries": ["example query 1", "example query 2"]
+        "search_queries": ["example query 1", "example query 2"],
+        "intent_clusters": {{
+            "informational": {{"prompt_count": number, "example_prompts": ["prompt1", "prompt2"]}},
+            "commercial": {{"prompt_count": number, "example_prompts": ["prompt1", "prompt2"]}},
+            "comparative": {{"prompt_count": number, "example_prompts": ["prompt1", "prompt2"]}},
+            "transactional": {{"prompt_count": number, "example_prompts": ["prompt1", "prompt2"]}},
+            "agent_style": {{"prompt_count": number, "example_prompts": ["prompt1", "prompt2"]}}
+        }},
+        "cluster_metrics": {{
+            "total_prompts": number,
+            "categorized_prompts": number,
+            "coverage_percentage": number,
+            "clustering_accuracy": number
+        }}
     }},
     "visibility_impact": number,
     "visibility_factors": {{
@@ -422,21 +472,42 @@ Return JSON:
             response_content = response.choices[0].message.content.strip()
             result = json.loads(response_content)
             
+            prompt_intent_details = result.get('prompt_intent_details', {}) or {}
+
+            # Ensure nested structures exist so frontend can safely rely on them
+            intent_clusters = prompt_intent_details.get('intent_clusters') or {
+                'informational': {'prompt_count': 0, 'example_prompts': []},
+                'commercial': {'prompt_count': 0, 'example_prompts': []},
+                'comparative': {'prompt_count': 0, 'example_prompts': []},
+                'transactional': {'prompt_count': 0, 'example_prompts': []},
+                'agent_style': {'prompt_count': 0, 'example_prompts': []},
+            }
+            cluster_metrics = prompt_intent_details.get('cluster_metrics') or {
+                'total_prompts': 0,
+                'categorized_prompts': 0,
+                'coverage_percentage': 0.0,
+                'clustering_accuracy': 0.0,
+            }
+
+            # Backfill into prompt_intent_details object
+            prompt_intent_details.setdefault('matched_intents', [])
+            prompt_intent_details.setdefault('confidence', 0)
+            prompt_intent_details.setdefault('search_queries', [])
+            prompt_intent_details['intent_clusters'] = intent_clusters
+            prompt_intent_details['cluster_metrics'] = cluster_metrics
+
+            visibility_factors = result.get('visibility_factors', {}) or {}
+            visibility_factors.setdefault('factors', [])
+            visibility_factors.setdefault('score_breakdown', {})
+            visibility_factors.setdefault('recommendations', [])
+
             return {
                 'content_type_accuracy': result.get('content_type_accuracy', 50),
                 'prompt_intent_match': result.get('prompt_intent_match', 50),
                 'visibility_impact': result.get('visibility_impact', 50),
                 'suggested_content_type': result.get('suggested_content_type', 'Unknown'),
-                'prompt_intent_details': result.get('prompt_intent_details', {
-                    'matched_intents': [],
-                    'confidence': 0,
-                    'search_queries': []
-                }),
-                'visibility_factors': result.get('visibility_factors', {
-                    'factors': [],
-                    'score_breakdown': {},
-                    'recommendations': []
-                })
+                'prompt_intent_details': prompt_intent_details,
+                'visibility_factors': visibility_factors,
             }
             
         except Exception as e:
