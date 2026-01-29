@@ -225,6 +225,10 @@ export class DatabaseService {
         return this.pages.getPages(sessionId, limit, offset);
     }
 
+    async getPageById(pageId: number): Promise<Page | null> {
+        return this.pages.getPageById(pageId);
+    }
+
     async getResources(sessionId?: number, resourceType?: string, limit: number = 1000, offset: number = 0): Promise<Resource[]> {
         return this.pages.getResources(sessionId, resourceType, limit, offset);
     }
