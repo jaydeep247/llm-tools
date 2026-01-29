@@ -2,7 +2,7 @@ export { CrawlHistoryCard } from './CrawlHistoryComponents/CrawlHistoryCard';
 export { LoadingState } from './CrawlHistoryComponents/LoadingState';
 export { ErrorState } from './CrawlHistoryComponents/ErrorState';
 export { EmptyState } from './CrawlHistoryComponents/EmptyState';
-export { CrawlHistoryItem } from './types';
+export type { CrawlHistoryItem } from './types';
 export { default as FixedWebTree } from './FixedWebTree';
 export { default as MindMapWebTree } from './MindMapWebTree';
 export { default as WebTree } from './WebTree';

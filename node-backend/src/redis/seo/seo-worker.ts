@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { dequeueSeo, markJobComplete, getQueueStats, closeRedis } from './seo-queue.js';
 import { getDatabase } from '../../services/DatabaseService.js';
 import { extractSeoKeywords } from '../../services/module_B/seo/on-demand-extractor.js';

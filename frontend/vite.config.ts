@@ -1,6 +1,10 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+// Backend and AEO API URLs for dev proxy (default: local services)
+const BACKEND_TARGET = process.env.VITE_PROXY_BACKEND || 'http://localhost:3004'
+const AEO_API_TARGET = process.env.VITE_PROXY_AEO_API || 'http://localhost:8000'
+
 export default defineConfig({
   plugins: [react()],
   server: {
@@ -10,28 +14,28 @@ export default defineConfig({
     },
     proxy: {
       '/aeo': {
-        target: `${process.env.PUBLIC_IP}:3004`,
+        target: BACKEND_TARGET,
         changeOrigin: true,
         secure: false,
         timeout: 600000,
         proxyTimeout: 600000
       },
       '/api': {
-        target: `${process.env.PUBLIC_IP}:3004`,
+        target: BACKEND_TARGET,
         changeOrigin: true,
         secure: false,
         timeout: 600000,
         proxyTimeout: 600000
       },
       '/crawl': {
-        target: `${process.env.PUBLIC_IP}:3004`,
+        target: BACKEND_TARGET,
         changeOrigin: true,
         secure: false,
         timeout: 600000,
         proxyTimeout: 600000
       },
       '/events': {
-        target: `${process.env.PUBLIC_IP}:3004`,
+        target: BACKEND_TARGET,
         changeOrigin: true,
         secure: false,
         timeout: 0,
@@ -42,13 +46,13 @@ export default defineConfig({
         },
       },
       '/queue': {
-        target: `${process.env.PUBLIC_IP}:3004`,
+        target: BACKEND_TARGET,
         changeOrigin: true,
         secure: false,
         timeout: 60000,
       },
       '/aeo-api': {
-        target: `${process.env.PUBLIC_IP}:8000`,
+        target: AEO_API_TARGET,
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/aeo-api/, '/api'),
@@ -56,7 +60,7 @@ export default defineConfig({
         proxyTimeout: 600000
       },
       '/aeo-health': {
-        target: `${process.env.PUBLIC_IP}:3004`,
+        target: BACKEND_TARGET,
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/aeo-health/, '/health'),

@@ -37,7 +37,8 @@ interface ExtractResult {
  */
 export async function extractSeoKeywords(url: string, config?: any): Promise<ExtractResult> {
   const cfg = config || loadConfig();
-  const apiBase = cfg.pythonApiBase || process.env.PY_API_BASE || 'http://localhost:8000';
+  // Prefer env so local dev (PY_API_BASE=http://localhost:8000) overrides seo.json (aeo-api:8000 for Docker)
+  const apiBase = process.env.PY_API_BASE || cfg.pythonApiBase || 'http://localhost:8000';
   const timeoutMs = cfg.timeoutMs || 30000;
 
   // Python API endpoint for SEO extraction - uses /extract_html endpoint
