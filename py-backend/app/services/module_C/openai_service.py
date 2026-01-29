@@ -329,7 +329,7 @@ JSON:
         except Exception as e:
             logging.error(f"OpenAI summarization failed: {str(e)}")
             return "Summary unavailable (Quota Exceeded)"
-12      
+      
     def analyze_content_metrics(self, content: str, url: str) -> Dict:
         """
         Analyze three key metrics + prompt intent clustering:
