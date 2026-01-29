@@ -27,6 +27,26 @@ export interface ModuleCData {
         matched_intents: string[];
         confidence: number;
         search_queries: string[];
+        // Optional enriched clustering info from GPT
+        intent_clusters?: {
+            informational?: { prompt_count?: number; example_prompts?: string[] };
+            commercial?: { prompt_count?: number; example_prompts?: string[] };
+            comparative?: { prompt_count?: number; example_prompts?: string[] };
+            transactional?: { prompt_count?: number; example_prompts?: string[] };
+            agent_style?: { prompt_count?: number; example_prompts?: string[] };
+            // Allow future keys without breaking typing
+            [key: string]: any;
+        };
+        cluster_metrics?: {
+            total_prompts?: number;
+            categorized_prompts?: number;
+            coverage_percentage?: number;
+            clustering_accuracy?: number;
+            // Allow extension
+            [key: string]: any;
+        };
+        // Allow any extra keys future analyses might add
+        [key: string]: any;
     };
     visibility_factors?: {
         factors: string[];
