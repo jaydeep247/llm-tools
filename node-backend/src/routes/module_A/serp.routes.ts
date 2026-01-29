@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticateUser } from '../../middleware/authMiddleware.js';
 import { SerpService } from '../../services/module_A/SerpService.js';
 import { Logger } from '../../helpers/logging/Logger.js';
+import { getDatabase } from '../../services/DatabaseService.js';
 
 const router = Router();
 const logger = Logger.getInstance();
@@ -77,19 +78,9 @@ router.get(
         return res.status(400).json({ error: 'domain is required' });
       }
 
-      const { SerpService: _ignore } = await import('../../services/module_A/SerpService.js'); // keep bundle reference
-      const { getDatabase } = await import('../../services/DatabaseService.js');
       const db = getDatabase();
 
-      const normalizedDomain = (await (async () => {
-        const { default: svcModule } = await import('../../services/module_A/SerpService.js').catch(() => ({ default: {} as any }));
-        const normalize = (svcModule && (svcModule as any).normalizeDomain) || null;
-        if (typeof normalize === 'function') {
-          return normalize(domain);
-        }
-        // Fallback simple normalization if we can't reuse internal
-        return domain.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '');
-      })());
+      const normalizedDomain = domain.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '');
 
       const history = await db.getSerpHistory(keyword, normalizedDomain, location, device as any, limit);
 

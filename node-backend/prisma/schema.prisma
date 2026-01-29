@@ -104,6 +104,7 @@ model CrawlSession {
   wordcountAnalyses   WordcountAnalysis[]
   contentFingerprints ContentFingerprint[]
   similarityIndices   SimilarityIndex[]
+  serpSnapshots       SerpSnapshot[]
 
   @@index([userId], map: "idx_crawl_sessions_user_id")
   @@map("crawl_sessions")

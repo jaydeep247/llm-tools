@@ -4,7 +4,7 @@ import LinkExplorer from '../../pages/LinkExplorer';
 import { MindMapWebTree } from '../module_A/crawler';
 import AuditsPage from '../../pages/AuditsPage';
 import PageMetrics from '../module_C/aeo/PageMetrics';
-import { WordcountAnalysis, BrokenLinkChecker, AuditChecker, SerpAnalysis } from '../module_A';
+import { WordcountAnalysis, BrokenLinkChecker, AuditChecker, SerpAnalysis, TextQualityAnalyzer } from '../module_A';
 import CrawlerContent from './CrawlerContent';
 import SchemaGenerator from './SchemaGenerator';
 import IntelligenceModule from './IntelligenceModule';
@@ -172,6 +172,12 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
           📊 Page Metrics
         </button>
         <button
+          onClick={() => setActiveView('text_quality_analyzer')}
+          className={`tab-button ${activeView === 'text_quality_analyzer' ? 'active' : ''}`}
+        >
+          ✨ Text Quality Analyzer
+        </button>
+        <button
           onClick={() => setActiveView('serp_analysis')}
           className={`tab-button ${activeView === 'serp_analysis' ? 'active' : ''}`}
         >
@@ -273,6 +279,12 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
             <PageMetrics
               initialSessionId={effectiveSessionId}
             />
+          </div>
+        )}
+
+        {activeView === 'text_quality_analyzer' && (
+          <div className="data-content-embedded">
+            <TextQualityAnalyzer initialSessionId={effectiveSessionId} />
           </div>
         )}
 
