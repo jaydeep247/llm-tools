@@ -41,22 +41,25 @@ interface SentimentResult {
     };
 }
 
+const NOT_CONFIGURED = 'not configured';
+
 export const SentimentTracking: React.FC<SentimentTrackingProps> = ({ brandName }) => {
+    const normalizedBrand = (brandName || '').trim();
+    const isBrandConfigured = normalizedBrand.length > 0 && normalizedBrand.toLowerCase() !== NOT_CONFIGURED;
+
+    if (typeof window !== 'undefined') {
+        console.log('[SentimentTracking] brandName:', JSON.stringify(brandName), 'normalizedBrand:', JSON.stringify(normalizedBrand), 'isBrandConfigured:', isBrandConfigured);
+    }
+
     const [data, setData] = useState<SentimentResult | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [history, setHistory] = useState<{ date: string; sentimentScore?: number; visibilityScore?: number; score?: number }[]>([]);
 
-    // 1. Load History on Mount
-    useEffect(() => {
-        if (!brandName) return;
-
-    }, [brandName]);
-
-    // RTK Query hooks
+    // RTK Query hooks — skip history when brand is not configured
     const [trackSentiment] = useTrackSentimentMutation();
-    const { data: historyData, refetch: refetchHistory } = useGetSentimentHistoryQuery(brandName, {
-        skip: !brandName,
+    const { data: historyData, refetch: refetchHistory } = useGetSentimentHistoryQuery(normalizedBrand, {
+        skip: !isBrandConfigured,
     });
 
     // Load history when data changes
@@ -70,23 +73,29 @@ export const SentimentTracking: React.FC<SentimentTrackingProps> = ({ brandName 
         }
     }, [historyData]);
 
-    // 2. Manual Analysis Trigger
+    // Manual Analysis Trigger — do not call API when brand is not configured
     const runAnalysis = async () => {
-        if (!brandName) {
-            setError('Brand name is missing. Configure a brand before running analysis.');
+        if (typeof window !== 'undefined') {
+            console.log('[SentimentTracking] runAnalysis called with brandName:', JSON.stringify(brandName));
+        }
+        if (!isBrandConfigured) {
+            setError('Brand name is not configured. Please set a valid brand (e.g. from Analysis Summary or competitor) before running analysis.');
             return;
         }
 
         setLoading(true);
         setError(null);
         try {
-            const result = await trackSentiment({ brand_name: brandName }).unwrap();
-            // Handle both direct result and result.data structure
+            const result = await trackSentiment({ brand_name: normalizedBrand }).unwrap();
+            if (typeof window !== 'undefined') {
+                console.log('[SentimentTracking] trackSentiment success:', result);
+            }
             setData(result.data || result);
-
-            // Refresh history after new run
             await refetchHistory();
         } catch (err: any) {
+            if (typeof window !== 'undefined') {
+                console.log('[SentimentTracking] trackSentiment error:', err);
+            }
             setError(err?.data?.error || err?.message || 'Failed to fetch sentiment data');
         } finally {
             setLoading(false);
@@ -286,6 +295,21 @@ export const SentimentTracking: React.FC<SentimentTrackingProps> = ({ brandName 
         return "Neutral / Mixed";
     };
 
+    // Brand not configured: show clear error and do not render charts/API UI
+    if (!isBrandConfigured) {
+        return (
+            <div className="bg-gray-800 p-6 rounded-xl border border-gray-700">
+                <div className="bg-yellow-900/40 border border-yellow-600 rounded-lg p-4 mb-3">
+                    <p className="text-yellow-200 font-semibold">Brand is Not Configured</p>
+                    <p className="text-yellow-100/90 text-sm mt-1">
+                        Set a valid brand name (e.g. from Analysis Summary or competitor) to run sentiment and visibility analysis.
+                    </p>
+                    <p className="text-gray-400 text-xs mt-2 font-mono">Current value: {brandName === '' ? '(empty)' : JSON.stringify(brandName)}</p>
+                </div>
+            </div>
+        );
+    }
+
     if (error) {
         return (
             <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 text-center">
@@ -308,7 +332,7 @@ export const SentimentTracking: React.FC<SentimentTrackingProps> = ({ brandName 
             <div className="flex items-center justify-between mb-8">
                 <h4 className="text-xl font-bold text-gray-200 flex items-center gap-2">
                     <span>❤️</span> Sentiment & Visibility Tracking
-                    <span className="text-sm font-normal text-gray-400 ml-2">({brandName})</span>
+                    <span className="text-sm font-normal text-gray-400 ml-2">({normalizedBrand})</span>
                 </h4>
                 {!loading && (
                     <button

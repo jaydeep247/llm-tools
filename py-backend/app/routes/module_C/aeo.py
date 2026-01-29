@@ -13,6 +13,7 @@ from ...services.module_C.bulk_aeo_service import BulkAEOService
 from ...services.module_C.competitor_mentions_service import CompetitorMentionsService
 
 router = APIRouter(prefix="/api/aeo", tags=["AEOCHECKER"])
+logger = logging.getLogger(__name__)
 
 # Initialize service orchestrator
 aeo_orchestrator = AEOServiceOrchestrator()
@@ -344,8 +345,17 @@ async def generate_expected_entities(request: ExpectedEntitiesRequest):
     """
     Step 1: Get the list of entities the site SHOULD have.
     """
-    entities = await EntityCoverageService.generate_expected_entities(request.topic_context, request.fallback_context)
-    return {"success": True, "entities": entities}
+    logger.info("[MODULE E] entity/generate-expected called")
+    print("[MODULE E DEBUG] entity/generate-expected called", flush=True)
+    try:
+        entities = await EntityCoverageService.generate_expected_entities(request.topic_context, request.fallback_context)
+        logger.info(f"[MODULE E] generate-expected returned {len(entities or [])} entities")
+        print(f"[MODULE E DEBUG] generate-expected returned {len(entities or [])} entities", flush=True)
+        return {"success": True, "entities": entities}
+    except Exception as e:
+        logger.exception("[MODULE E] generate-expected failed")
+        print(f"[MODULE E DEBUG] generate-expected failed: {e}", flush=True)
+        raise
 
 @router.post("/entity/extract-observed")
 async def extract_observed_entities(request: ObservedEntitiesRequest):
@@ -360,8 +370,18 @@ async def compare_entity_coverage(request: CompareEntitiesRequest):
     """
     Step 3: Calculate the score.
     """
-    result = EntityCoverageService.compare_entity_coverage(request.expected_list, request.observed_list)
-    return {"success": True, "result": result}
+    logger.info("[MODULE E] entity/compare-coverage called")
+    print("[MODULE E DEBUG] entity/compare-coverage called", flush=True)
+    try:
+        result = EntityCoverageService.compare_entity_coverage(request.expected_list, request.observed_list)
+        score = result.get("score", 0) if isinstance(result, dict) else getattr(result, "score", 0)
+        logger.info(f"[MODULE E] compare-coverage returned score={score}")
+        print(f"[MODULE E DEBUG] compare-coverage returned score={score}", flush=True)
+        return {"success": True, "result": result}
+    except Exception as e:
+        logger.exception("[MODULE E] compare-coverage failed")
+        print(f"[MODULE E DEBUG] compare-coverage failed: {e}", flush=True)
+        raise
 
 # ------------------------------------------------------------------------------
 # Content Consistency & Brand Analysis
@@ -381,7 +401,9 @@ async def generate_topic(req: TopicRequest):
     """
     Generates the Canonical Content Mandate (Topic, Audience, Tone, Brand).
     """
+    print(f"[CONTENT CONSISTENCY] generate-topic called: contextLen={len(req.context or '')}", flush=True)
     result = await ContentConsistencyService.generate_canonical_topic(req.context)
+    print(f"[CONTENT CONSISTENCY] generate-topic result: topic={result.get('topic')}, audience={result.get('audience')}, tone={result.get('tone')}, brand_name={result.get('brand_name')}", flush=True)
     return {"success": True, **result}
 
 @router.post("/entity/consistency/score-batch")
@@ -389,13 +411,22 @@ async def score_consistency_batch(req: BatchScoreRequest):
     """
     Scores a content batch against the Mandate (0-100).
     """
-    score = await ContentConsistencyService.calculate_batch_consistency(
-        req.topic, 
-        req.audience, 
-        req.tone, 
-        req.content
-    )
-    return {"success": True, "score": score}
+    logger.info("[MODULE E] entity/consistency/score-batch called")
+    print(f"[CONTENT CONSISTENCY] score-batch called: topic={req.topic!r}, audience={req.audience!r}, tone={req.tone!r}, contentLen={len(req.content or '')}", flush=True)
+    try:
+        score = await ContentConsistencyService.calculate_batch_consistency(
+            req.topic,
+            req.audience,
+            req.tone,
+            req.content
+        )
+        logger.info(f"[MODULE E] score-batch returned score={score}")
+        print(f"[CONTENT CONSISTENCY] score-batch returned score={score}", flush=True)
+        return {"success": True, "score": score}
+    except Exception as e:
+        logger.exception("[MODULE E] score-batch failed")
+        print(f"[MODULE E DEBUG] score-batch failed: {e}", flush=True)
+        raise
 
 from ...services.module_C.brand_analysis_service import BrandAnalysisService
 

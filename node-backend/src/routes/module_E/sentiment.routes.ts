@@ -69,10 +69,13 @@ router.post('/sentiment-tracking',
 );
 
 // --- Get Sentiment History ---
+// NOTE: This endpoint does NOT call Python. It reads from the DB only.
+// Python (aeo-api) is only called on POST /sentiment-tracking (Run Analysis).
 router.get('/sentiment-history/:brandName',
     async (req: express.Request, res: express.Response) => {
         try {
             const { brandName } = req.params;
+            logger.info('GET sentiment-history (DB only, no Python call)', { brandName });
             const trackingUrlPattern = `sentiment-tracker:${brandName}:%`;
 
             // Use Prisma raw query for LIKE pattern matching

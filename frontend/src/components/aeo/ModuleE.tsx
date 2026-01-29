@@ -22,11 +22,35 @@ const ModuleE: React.FC<ModuleEProps> = ({
   moduleEError,
   competitors
 }) => {
-  // Temporary hardcoded brand for testing visibility metrics
+  // Brand for sentiment/visibility: prefer configured brand, never pass literal "Not Configured"
+  const rawBrandFromScores = moduleEScores?.brand_metrics?.data?.brand_name;
+  const rawBrandFromCompetitor = competitors[0]?.name;
+
+  const normalizeBrand = (value?: string) => (value || '').trim();
+  const isConfiguredBrand = (value?: string) => {
+    const norm = normalizeBrand(value);
+    return norm.length > 0 && norm.toLowerCase() !== 'not configured';
+  };
+
+  // Fallback: use website URL when no brand/competitor is configured (API accepts brand name or URL)
+  const websiteUrl = (url || moduleEScores?.url || '').trim();
   const effectiveBrandName =
-    moduleEScores?.brand_metrics?.data?.brand_name ||
-    competitors[0]?.name ||
-    'https://www.corangelab.com';
+    (isConfiguredBrand(rawBrandFromScores) ? normalizeBrand(rawBrandFromScores) : '') ||
+    (isConfiguredBrand(rawBrandFromCompetitor) ? normalizeBrand(rawBrandFromCompetitor) : '') ||
+    (websiteUrl ? websiteUrl : '');
+
+  if (typeof window !== 'undefined') {
+    console.log(
+      '[ModuleE] brand → rawBrandFromScores:',
+      JSON.stringify(rawBrandFromScores),
+      'rawBrandFromCompetitor:',
+      JSON.stringify(rawBrandFromCompetitor),
+      'websiteUrl:',
+      JSON.stringify(websiteUrl),
+      'effectiveBrandName (sent to API):',
+      JSON.stringify(effectiveBrandName)
+    );
+  }
 
   return (
     <div className="p-4" style={{ minHeight: 'auto' }}>
@@ -52,12 +76,17 @@ const ModuleE: React.FC<ModuleEProps> = ({
                     {url || moduleEScores.url || 'Unknown Website'}
                   </td>
                   <td className="px-6 py-4 border-r border-gray-800/50">
-                    <span className={`inline-flex items-center rounded px-2.5 py-1 text-xs font-bold ${(moduleEScores.consistency || 0) >= 80 ? 'bg-green-900/40 text-green-400 border border-green-800' :
-                      (moduleEScores.consistency || 0) >= 50 ? 'bg-yellow-900/40 text-yellow-400 border border-yellow-800' :
-                        'bg-red-900/40 text-red-400 border border-red-800'
-                      }`}>
-                      {moduleEScores.consistency !== undefined ? `${moduleEScores.consistency}%` : 'N/A'}
-                    </span>
+                    {(() => {
+                      const consistency = moduleEScores?.consistency ?? moduleEScores?.module_scores?.consistency;
+                      return (
+                        <span className={`inline-flex items-center rounded px-2.5 py-1 text-xs font-bold ${(consistency ?? 0) >= 80 ? 'bg-green-900/40 text-green-400 border border-green-800' :
+                          (consistency ?? 0) >= 50 ? 'bg-yellow-900/40 text-yellow-400 border border-yellow-800' :
+                            'bg-red-900/40 text-red-400 border border-red-800'
+                          }`}>
+                          {consistency !== undefined && consistency !== null ? `${consistency}%` : 'N/A'}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex items-center rounded px-2.5 py-1 text-xs font-bold ${(moduleEScores.entity_coverage?.score || 0) >= 80 ? 'bg-green-900/40 text-green-400 border border-green-800' :

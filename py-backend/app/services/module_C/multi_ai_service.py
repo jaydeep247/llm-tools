@@ -33,7 +33,7 @@ class MultiAIService:
             try:
                 # print("Initializing Gemini client")
                 genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
-                self.gemini_client = genai.GenerativeModel('gemini-2.0-flash-exp')
+                self.gemini_client = genai.GenerativeModel('gemini-2.0-flash')
                 logging.info("Gemini client initialized")
             except Exception as e:
                 logging.error(f"Gemini initialization failed: {str(e)}")

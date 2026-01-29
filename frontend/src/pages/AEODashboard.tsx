@@ -160,23 +160,42 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
     }
   };
 
-  // Load Module E data from result when available
+  // Load Module E data from result when available (from actualResult or top-level result after website-score merge).
+  // Only merge defined values so we never overwrite moduleEScores (e.g. from "Run Analysis") with undefined.
   useEffect(() => {
-    console.log('=== AEODashboard: FULL result object ===', JSON.stringify(result, null, 2));
+    if (!result) return;
 
-    // Handle both direct result and nested result.results structure
     const actualResult = result?.results || result;
 
-    if (actualResult?.module_scores) {
-      // Extract Module E data from result
-      const moduleEData = {
-        consistency: actualResult.module_scores.consistency,
-        entity_coverage: actualResult.entity_coverage,
-        brand_metrics: actualResult.module_scores.brand_metrics,
-        url: actualResult.url
-      };
-      setModuleEScores(moduleEData);
-    }
+    const fromResult = {
+      consistency:
+        actualResult?.module_scores?.consistency ??
+        result?.module_scores?.consistency ??
+        (result as any)?.scores?.consistency,
+      entity_coverage:
+        actualResult?.entity_coverage ?? result?.entity_coverage ?? (result as any)?.scores?.entity_coverage,
+      brand_metrics:
+        actualResult?.module_scores?.brand_metrics ??
+        result?.module_scores?.brand_metrics ??
+        (result as any)?.scores?.brand_metrics,
+      url: actualResult?.url ?? result?.url
+    };
+
+    const hasAnyFromResult =
+      fromResult.consistency !== undefined ||
+      fromResult.entity_coverage != null ||
+      fromResult.brand_metrics != null;
+
+    if (!hasAnyFromResult) return;
+
+    setModuleEScores((prev) => {
+      const next = { ...prev };
+      if (fromResult.consistency !== undefined) next.consistency = fromResult.consistency;
+      if (fromResult.entity_coverage != null) next.entity_coverage = fromResult.entity_coverage;
+      if (fromResult.brand_metrics != null) next.brand_metrics = fromResult.brand_metrics;
+      if (fromResult.url != null && fromResult.url !== '') next.url = fromResult.url;
+      return next;
+    });
   }, [result]);
 
   const handleSimulation = async () => {
