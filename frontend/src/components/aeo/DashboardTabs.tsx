@@ -11,6 +11,8 @@ import IntelligenceModule from './IntelligenceModule';
 import ModuleE from './ModuleE';
 import AISimulator from './AISimulator';
 import ContentMetrics from './ContentMetrics';
+import AnswerCompletenessScore from './AnswerCompletenessScore';
+
 
 interface Competitor {
   name: string;
@@ -70,6 +72,9 @@ interface DashboardTabsProps {
   // Content Metrics props
   contentMetrics?: any;
   entityMetrics?: any;
+  
+  // Answer Completeness Score props
+  answerCompletenessData?: any;
 }
 
 const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
@@ -115,7 +120,8 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
     simulationLoading,
     handleSimulation,
     contentMetrics,
-    entityMetrics
+    entityMetrics,
+    answerCompletenessData
   } = props;
 
   // Helper function to extract session ID (prioritizing prop sessionId, then result object)
@@ -248,6 +254,12 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
           className={`tab-button ${activeView === 'content_metrics' ? 'active' : ''}`}
         >
           📄 Content Metrics
+        </button>
+        <button
+          onClick={() => setActiveView('answer_completeness')}
+          className={`tab-button ${activeView === 'answer_completeness' ? 'active' : ''}`}
+        >
+          ✅ Answer Completeness
         </button>
       </div>
 
@@ -390,6 +402,12 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
         {activeView === 'content_metrics' && (
           <div className="content-metrics-content-embedded">
             <ContentMetrics contentMetrics={contentMetrics} entityMetrics={entityMetrics} />
+          </div>
+        )}
+
+        {activeView === 'answer_completeness' && (
+          <div className="content-metrics-content-embedded">
+            <AnswerCompletenessScore completenessData={answerCompletenessData} />
           </div>
         )}
       </div>

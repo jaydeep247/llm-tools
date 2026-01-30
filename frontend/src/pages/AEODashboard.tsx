@@ -31,7 +31,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
   const [showRecommendations, setShowRecommendations] = useState<string | null>(null);
   
   // Use custom hooks for better organization
-  const { scores, aiPlatforms, competitors, strategyMetrics, getModuleRecommendations, contentMetrics, entityMetrics } = useAEOData(result);
+  const { scores, aiPlatforms, competitors, strategyMetrics, getModuleRecommendations, contentMetrics, entityMetrics, answerCompletenessData } = useAEOData(result);
   const {
     schemaData,
     schemaLoading,
@@ -324,6 +324,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
         handleSimulation={handleSimulation}
         contentMetrics={contentMetrics}
         entityMetrics={entityMetrics}
+        answerCompletenessData={answerCompletenessData}
       />
 
       <RecommendationsModal

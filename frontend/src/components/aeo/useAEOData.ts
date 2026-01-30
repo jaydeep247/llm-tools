@@ -319,6 +319,90 @@ export const useAEOData = (result: any) => {
     };
   };
 
+  const getAnswerCompletenessData = () => {
+    // Check if backend provides answer_completeness data
+    if (result?.detailed_analysis?.answer_completeness) {
+      const completeness = result.detailed_analysis.answer_completeness;
+      return {
+        overall_score: Math.round(completeness.overall_score || 0),
+        completeness_percentage: Math.round(completeness.completeness_percentage || 0),
+        key_aspects_covered: completeness.key_aspects_covered || [],
+        missing_aspects: completeness.missing_aspects || [],
+        depth_score: Math.round(completeness.depth_score || 0),
+        breadth_score: Math.round(completeness.breadth_score || 0),
+        relevance_score: Math.round(completeness.relevance_score || 0),
+        recommendations: completeness.recommendations || []
+      };
+    }
+
+    // Calculate derived metrics from existing data
+    if (result?.detailed_analysis) {
+      const analysis = result.detailed_analysis;
+      
+      // Calculate completeness from knowledge base entity coverage
+      const kbData = analysis.knowledge_base;
+      const ecData = kbData?.entity_coverage;
+      
+      let foundEntities = ecData?.found_entities || [];
+      let missingEntities = ecData?.missing_entities || [];
+      
+      const totalEntities = foundEntities.length + missingEntities.length;
+      const completenessPercentage = totalEntities > 0 
+        ? Math.round((foundEntities.length / totalEntities) * 100) 
+        : 0;
+      
+      // Calculate depth score from answerability module
+      const answerabilityScore = result.module_scores?.answerability || 0;
+      
+      // Calculate breadth score from structured data coverage
+      const structuredDataScore = result.module_scores?.structured_data || 0;
+      
+      // Calculate relevance from content metrics if available
+      const contentMetrics = analysis.content_metrics;
+      const relevanceScore = contentMetrics?.prompt_intent_match || answerabilityScore;
+      
+      // Calculate overall score
+      const overallScore = Math.round(
+        (completenessPercentage + answerabilityScore + structuredDataScore + relevanceScore) / 4
+      );
+      
+      // Generate recommendations based on missing aspects
+      const recommendations = [];
+      if (completenessPercentage < 80) {
+        recommendations.push('Add missing key entities to improve content completeness');
+      }
+      if (answerabilityScore < 70) {
+        recommendations.push('Improve content structure to better answer user queries');
+      }
+      if (structuredDataScore < 70) {
+        recommendations.push('Add structured data markup to enhance search visibility');
+      }
+      
+      return {
+        overall_score: overallScore,
+        completeness_percentage: completenessPercentage,
+        key_aspects_covered: foundEntities.map((e: any) => typeof e === 'string' ? e : e.name || 'Entity'),
+        missing_aspects: missingEntities.map((e: any) => typeof e === 'string' ? e : e.name || 'Entity'),
+        depth_score: Math.round(answerabilityScore),
+        breadth_score: Math.round(structuredDataScore),
+        relevance_score: Math.round(relevanceScore),
+        recommendations
+      };
+    }
+
+    // Fallback to zeros
+    return {
+      overall_score: 0,
+      completeness_percentage: 0,
+      key_aspects_covered: [],
+      missing_aspects: [],
+      depth_score: 0,
+      breadth_score: 0,
+      relevance_score: 0,
+      recommendations: []
+    };
+  };
+
   return {
     scores: getScores(),
     aiPlatforms: getAIPlatforms(),
@@ -326,6 +410,7 @@ export const useAEOData = (result: any) => {
     strategyMetrics: getStrategyMetrics(),
     getModuleRecommendations,
     contentMetrics: getContentMetrics(),
-    entityMetrics: getEntityMetrics()
+    entityMetrics: getEntityMetrics(),
+    answerCompletenessData: getAnswerCompletenessData()
   };
 };
