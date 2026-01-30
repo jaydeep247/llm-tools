@@ -478,27 +478,6 @@ export class PageRepository {
         });
     }
 
-    async getPageById(pageId: number): Promise<{ id: number; url: string; contentHash: string | null; sessionId: number } | null> {
-        const page = await prisma.page.findUnique({
-            where: { id: pageId },
-            select: {
-                id: true,
-                url: true,
-                contentHash: true,
-                sessionId: true,
-            },
-        });
-
-        if (!page) return null;
-
-        return {
-            id: page.id,
-            url: page.url,
-            contentHash: page.contentHash,
-            sessionId: page.sessionId,
-        };
-    }
-
     async getPagesByContentHash(
         contentHash: string,
         sessionId: number,
@@ -882,6 +861,17 @@ export class PageRepository {
         if (updates.length > 0) {
             await prisma.$transaction(updates);
         }
+    }
+
+    async getPageById(pageId: number): Promise<Page | null> {
+        const result = await prisma.$queryRaw<any[]>`
+            SELECT p.*
+            FROM pages p
+            WHERE p.id = ${pageId}
+            LIMIT 1
+        `;
+        
+        return result.length > 0 ? this.mapPage(result[0]) : null;
     }
 
     async getPages(sessionId?: number, limit: number = 1000, offset: number = 0): Promise<Page[]> {

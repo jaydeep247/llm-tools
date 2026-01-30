@@ -87,8 +87,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const result = await loginMutation({ email, password }).unwrap();
             setAccessToken(result.accessToken);
             localStorage.setItem('accessToken', result.accessToken);
-            // RTK Query will automatically refetch user data via useGetMeQuery
-            await refetchMe();
         } catch (error: any) {
             throw new Error(error?.data?.message || error?.message || 'Login failed');
         }
@@ -99,8 +97,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const result = await registerMutation({ email, password, name }).unwrap();
             setAccessToken(result.accessToken);
             localStorage.setItem('accessToken', result.accessToken);
-            // RTK Query will automatically refetch user data via useGetMeQuery
-            await refetchMe();
+            // useGetMeQuery runs automatically on next render when skip becomes false (token is set)
         } catch (error: any) {
             throw new Error(error?.data?.message || error?.message || 'Registration failed');
         }

@@ -69,10 +69,13 @@ router.post('/sentiment-tracking',
 );
 
 // --- Get Sentiment History ---
+// NOTE: This endpoint does NOT call Python. It reads from the DB only.
+// Python (aeo-api) is only called on POST /sentiment-tracking (Run Analysis).
 router.get('/sentiment-history/:brandName',
     async (req: express.Request, res: express.Response) => {
         try {
             const { brandName } = req.params;
+            logger.info('GET sentiment-history (DB only, no Python call)', { brandName });
             const trackingUrlPattern = `sentiment-tracker:${brandName}:%`;
 
             // Use Prisma raw query for LIKE pattern matching
@@ -83,11 +86,21 @@ router.get('/sentiment-history/:brandName',
                 ORDER BY created_at ASC
             `;
 
-            // Format for frontend
-            const history = results.map((row: any) => ({
-                date: row.created_at,
-                score: row.brand_metrics?.overall_score || 0
-            }));
+            // Format for frontend: include both sentiment and visibility scores
+            const history = results.map((row: any) => {
+                const metrics = row.brand_metrics as any;
+
+                const sentimentScore = metrics?.overall_score ?? 0;
+                const visibilityScore =
+                    metrics?.visibility?.overall_visibility_score ??
+                    sentimentScore;
+
+                return {
+                    date: row.created_at,
+                    sentimentScore,
+                    visibilityScore,
+                };
+            });
 
             // Get latest full result for hydration
             const latestResult = results.length > 0 ? results[results.length - 1].brand_metrics : null;

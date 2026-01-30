@@ -8,7 +8,7 @@ import { ErrorDisplay } from '../components/ui/app/ErrorDisplay/ErrorDisplay';
 import { ReuseModal } from '../components/ui/app/ReuseModal/ReuseModal';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useStartCrawlMutation, useCancelAuditsMutation, useShareSessionMutation } from '../store/api/module_A/crawlApi';
-import { useAnalyzeMutation, useLazyGetAeoResultsQuery } from '../store/api/module_C/aeoApi';
+import { useAnalyzeMutation, useLazyGetAeoResultsQuery, useLazyGetWebsiteScoreQuery } from '../store/api/module_C/aeoApi';
 import { useLazyGetDataListQuery } from '../store/api/module_A/dataApi';
 
 const DashboardPage: React.FC = () => {
@@ -21,6 +21,7 @@ const DashboardPage: React.FC = () => {
   const [cancelAudits] = useCancelAuditsMutation();
   const [shareSession] = useShareSessionMutation();
   const [analyze] = useAnalyzeMutation();
+  const [triggerWebsiteScore] = useLazyGetWebsiteScoreQuery();
   const [getDataList] = useLazyGetDataListQuery();
   const [getAeoResults] = useLazyGetAeoResultsQuery();
   
@@ -299,7 +300,8 @@ const DashboardPage: React.FC = () => {
 
     try {
       let analysisResult: any;
-      
+      let sessionIdForScore: number | undefined;
+
       if (runCrawl) {
         // Start crawl first
         const crawlResult = await startCrawl({
@@ -309,7 +311,7 @@ const DashboardPage: React.FC = () => {
           auditDevice,
           captureLinkDetails,
         }).unwrap();
-        
+
         // Check for reuse mode
         if (crawlResult.reuseMode && crawlResult.sessionId) {
           setCurrentSessionId(crawlResult.sessionId);
@@ -327,16 +329,18 @@ const DashboardPage: React.FC = () => {
           });
           return;
         }
-        
+
+        sessionIdForScore = crawlResult.sessionId;
+
         // Then get AEO analysis
         const aeoResult = await analyze({
           url: normalizedUrl,
           sessionId: crawlResult.sessionId,
         }).unwrap();
-        
+
         // Create a new object instead of mutating the immutable RTK Query result
         const aeoData = aeoResult.results || aeoResult;
-        analysisResult = crawlResult.sessionId 
+        analysisResult = crawlResult.sessionId
           ? { ...aeoData, sessionId: crawlResult.sessionId }
           : aeoData;
       } else {
@@ -344,8 +348,9 @@ const DashboardPage: React.FC = () => {
         const aeoResult = await analyze({
           url: normalizedUrl,
         }).unwrap();
-        
+
         analysisResult = aeoResult.results || aeoResult;
+        sessionIdForScore = (aeoResult as any)?.results?.sessionId ?? (aeoResult as any)?.sessionId;
       }
 
       if ((analysisResult as any)?.reuseMode && (analysisResult as any)?.sessionId) {
@@ -372,6 +377,31 @@ const DashboardPage: React.FC = () => {
         setCurrentSessionId((analysisResult as any).data.session.id);
       } else if ((analysisResult as any)?.session?.id) {
         setCurrentSessionId((analysisResult as any).session.id);
+      }
+
+      // Trigger Module E (Content Consistency + Entity Coverage) and merge into result
+      try {
+        const websiteScoreResult = await triggerWebsiteScore({
+          url: normalizedUrl,
+          sessionId: sessionIdForScore,
+        }).unwrap();
+        if (websiteScoreResult?.success && websiteScoreResult?.scores) {
+          const existingModuleScores =
+            analysisResult.module_scores && typeof analysisResult.module_scores === 'object'
+              ? analysisResult.module_scores
+              : {};
+          analysisResult = {
+            ...analysisResult,
+            entity_coverage: websiteScoreResult.scores.entity_coverage,
+            module_scores: {
+              ...existingModuleScores,
+              consistency: websiteScoreResult.scores.consistency,
+              brand_metrics: websiteScoreResult.scores.brand_metrics,
+            },
+          };
+        }
+      } catch {
+        // Non-blocking: main AEO result is still shown without Module E scores
       }
 
       setResult(analysisResult);

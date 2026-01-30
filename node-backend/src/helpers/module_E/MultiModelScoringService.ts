@@ -142,21 +142,38 @@ ${page.content.substring(0, 3000)} ...[truncated]
     }
 
     static async generateWebsiteScores(url: string, pages: Page[], sessionId?: number) {
+        console.log('[MODULE E DEBUG] generateWebsiteScores: url=' + url + ', pagesCount=' + pages.length + ', sessionId=' + sessionId);
+
         // 1. Filter
         const qualifiedPages = this.selectQualifiedPages(pages);
         if (qualifiedPages.length === 0) {
+            console.error('[MODULE E DEBUG] No qualified pages found for analysis (pages had status_code/word_count issues)');
             throw new Error('No qualified pages found for analysis.');
         }
+        console.log('[MODULE E DEBUG] qualifiedPagesCount=' + qualifiedPages.length);
 
         // 2. Aggregate (for Consistency/Performance)
         const context = this.aggregateContent(qualifiedPages);
 
         // 3. Parallel Execution
-        const [scores, entityResult, consistencyResult] = await Promise.all([
-            this.callAeoApi(context),
-            this.runEntityAnalysis(pages, qualifiedPages),
-            this.runContentConsistency(pages, qualifiedPages)
-        ]);
+        const pyApiBase = process.env.PY_API_BASE || 'http://localhost:8001';
+        console.log('[MODULE E DEBUG] PY_API_BASE=' + pyApiBase + ' (Content Consistency & Entity Coverage call Python)');
+
+        let scores: AeoScoreResult;
+        let entityResult: EntityAnalysisResult;
+        let consistencyResult: { score: number; brandName?: string };
+        try {
+            [scores, entityResult, consistencyResult] = await Promise.all([
+                this.callAeoApi(context),
+                this.runEntityAnalysis(pages, qualifiedPages),
+                this.runContentConsistency(pages, qualifiedPages)
+            ]);
+        } catch (e) {
+            console.error('[MODULE E DEBUG] One of callAeoApi / runEntityAnalysis / runContentConsistency failed:', e);
+            throw e;
+        }
+
+        console.log('[MODULE E DEBUG] consistencyResult.score=' + consistencyResult.score + ', entityResult.score=' + entityResult.score);
 
         // Merge results
         scores.consistency = consistencyResult.score;
@@ -176,7 +193,8 @@ ${page.content.substring(0, 3000)} ...[truncated]
 
     private static async runContentConsistency(allPages: Page[], qualifiedPages: Page[]): Promise<{ score: number, brandName?: string }> {
         try {
-            const apiUrl = process.env.PY_API_BASE;
+            const apiUrl = process.env.PY_API_BASE || 'http://localhost:8001';
+            console.log('[MODULE E DEBUG] runContentConsistency: PY_API_BASE=' + (process.env.PY_API_BASE || '(not set, using default)') + ', qualifiedPages=' + qualifiedPages.length);
             const domainKey = allPages[0]?.url ? new URL(allPages[0].url).hostname : 'unknown_domain';
 
             // Simple fallback extraction: "www.example.com" -> "Example"
@@ -189,15 +207,21 @@ ${page.content.substring(0, 3000)} ...[truncated]
             let audience = cached?.audience || 'General';
             let tone = cached?.tone || 'Neutral';
 
+            if (topic) {
+                console.log(`[CONTENT CONSISTENCY] Using CACHED topic for domainKey=${domainKey}: topic="${topic}", audience="${audience}", tone="${tone}"`);
+            }
+
             if (!topic) {
                 const { topicContext, fallbackContext } = this.getHomepageContext(allPages);
                 const cleanContext = this.sanitizeContent(topicContext || fallbackContext || '').substring(0, 5000);
+                console.log(`[CONTENT CONSISTENCY] No cached topic for domainKey=${domainKey}, contextLen=${(cleanContext || '').length}, will call generate-topic`);
 
                 if (!cleanContext.trim()) {
-                    console.warn('⚠️ No text content for Canonical Topic. Consistency Score = 0.');
+                    console.warn('[MODULE E DEBUG] Content Consistency: No text content for Canonical Topic. Consistency Score = 0.');
                     return { score: 0 };
                 }
 
+                console.log('[MODULE E DEBUG] Content Consistency: Calling generate-topic (Python)');
                 const res = await fetch(`${apiUrl}/api/aeo/entity/consistency/generate-topic`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -213,31 +237,38 @@ ${page.content.substring(0, 3000)} ...[truncated]
 
                     if (topic) {
                         this.canonicalTopicCache.set(domainKey, { topic, brandName, audience, tone });
-                        console.log(`📌 Mandate for ${domainKey}: ${topic} | Audience: ${audience}`);
+                        console.log(`[CONTENT CONSISTENCY] generate-topic OK: topic="${topic}", audience="${audience}", tone="${tone}", brandName="${brandName}" (contextLen=${cleanContext.length})`);
                     }
+                } else {
+                    console.warn('[MODULE E DEBUG] Content Consistency: generate-topic failed status=' + res.status + ' ' + res.statusText);
                 }
             }
 
             if (!topic) {
-                console.warn('failed to generate canonical topic');
+                console.warn('[MODULE E DEBUG] Content Consistency: no canonical topic. Returning score=0 (N/A).');
                 return { score: 0 };
             }
 
             // 2. Batch Scoring
             let totalScore = 0;
             let validBatches = 0;
+            const totalBatches = Math.ceil(qualifiedPages.length / this.BATCH_SIZE);
 
+            console.log(`[CONTENT CONSISTENCY] qualifiedPages=${qualifiedPages.length}, BATCH_SIZE=${this.BATCH_SIZE}, totalBatches=${totalBatches}, topic="${topic}", audience="${audience}", tone="${tone}"`);
             console.log(`📉 Scoring Content Consistency for ${qualifiedPages.length} pages...`);
 
             for (let i = 0; i < qualifiedPages.length; i += this.BATCH_SIZE) {
                 const batch = qualifiedPages.slice(i, i + this.BATCH_SIZE);
                 const batchContent = batch.map(p => this.sanitizeContent(p.content)).join('\n');
                 const cleanBatch = batchContent.replace(/\s+/g, ' ').trim();
+                const contentSent = cleanBatch.substring(0, 4000);
 
-                if (cleanBatch.length < 500 || !cleanBatch) {
-                    console.warn(`Skipping thin/empty consistency batch ${i}`);
+                if (!cleanBatch || cleanBatch.length < 100) {
+                    console.warn(`[CONTENT CONSISTENCY] Skipping empty/too-short batch index=${i}, cleanBatchLen=${cleanBatch.length}`);
                     continue;
                 }
+
+                console.log(`[CONTENT CONSISTENCY] Batch index=${i}, batchPages=${batch.length}, cleanBatchLen=${cleanBatch.length}, contentSentLen=${contentSent.length}`);
 
                 try {
                     const res = await fetch(`${apiUrl}/api/aeo/entity/consistency/score-batch`, {
@@ -247,28 +278,30 @@ ${page.content.substring(0, 3000)} ...[truncated]
                             topic,
                             audience,
                             tone,
-                            content: cleanBatch.substring(0, 4000)
+                            content: contentSent
                         })
                     });
 
                     if (res.ok) {
                         const data = await res.json();
                         const score = data.score;
-                        console.log(`Batch ${i} Consistency: ${score}/100`);
                         totalScore += score;
                         validBatches++;
+                        console.log(`[CONTENT CONSISTENCY] batch index=${i} score=${score} (raw), totalScore=${totalScore}, validBatches=${validBatches}`);
+                    } else {
+                        console.warn('[MODULE E DEBUG] Content Consistency: score-batch failed status=' + res.status);
                     }
                 } catch (e) {
-                    console.error(`Error scoring batch ${i}:`, e);
+                    console.error('[MODULE E DEBUG] Content Consistency: score-batch error:', e);
                 }
             }
 
             const finalScore = validBatches > 0 ? Math.round(totalScore / validBatches) : 0;
-            console.log(`✅ Final Content Consistency Score: ${finalScore}%`);
+            console.log(`[CONTENT CONSISTENCY] FINAL: totalScore=${totalScore}, validBatches=${validBatches}, formula=round(${totalScore}/${validBatches})=${validBatches > 0 ? Math.round(totalScore / validBatches) : 0}, finalScore=${finalScore}%`);
             return { score: finalScore, brandName };
 
         } catch (error) {
-            console.error('❌ Content Consistency Analysis Failed:', error);
+            console.error('[MODULE E DEBUG] Content Consistency failed:', error);
             return { score: 0 };
         }
     }
@@ -317,7 +350,7 @@ ${page.content.substring(0, 3000)} ...[truncated]
             }
 
             if (!cleanTopicContext && !cleanFallbackContext) {
-                console.warn('⚠️ No text content found for context. Aborting entity analysis.');
+                console.warn('[MODULE E DEBUG] Entity Coverage: No text content for context. Returning score=0 (N/A).');
                 return { score: 0, entities_expected: [], entities_observed: [], entities_missing: [] };
             }
 
@@ -356,9 +389,10 @@ ${page.content.substring(0, 3000)} ...[truncated]
             }
 
             if (expectedEntities.length === 0) {
-                console.warn('⚠️ No expected entities generated. Aborting analysis.');
+                console.warn('[MODULE E DEBUG] Entity Coverage: No expected entities from Python. Returning score=0 (N/A).');
                 return { score: 0, entities_expected: [], entities_observed: [], entities_missing: [] };
             }
+            console.log('[MODULE E DEBUG] Entity Coverage: expectedEntities count=' + expectedEntities.length);
 
             // Step C: Batch Observed Entities
             console.log(`👁️ Extracting Observed Entities from ${qualifiedPages.length} pages in batches...`);
@@ -426,6 +460,7 @@ ${page.content.substring(0, 3000)} ...[truncated]
 
             const result = compareData.result;
 
+            console.log('[MODULE E DEBUG] Entity Coverage: compare-coverage OK, score=' + (result.score || 0));
             return {
                 score: result.score || 0,
                 entities_expected: expectedEntities,
@@ -434,7 +469,7 @@ ${page.content.substring(0, 3000)} ...[truncated]
             };
 
         } catch (error) {
-            console.error('❌ Entity Analysis Failed:', error);
+            console.error('[MODULE E DEBUG] Entity Coverage failed:', error);
             return { score: 0, entities_expected: [], entities_observed: [], entities_missing: [] };
         }
     }
