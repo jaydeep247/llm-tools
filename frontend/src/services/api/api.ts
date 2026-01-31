@@ -56,6 +56,12 @@ export interface AnalysisResult {
 }
 
 class ApiService {
+  get(arg0: string) {
+      throw new Error('Method not implemented.');
+  }
+  post(arg0: string, arg1: { text: string; }) {
+      throw new Error('Method not implemented.');
+  }
   private baseURL: string;
 
   constructor(baseURL: string = API_BASE_URL) {

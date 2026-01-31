@@ -6,9 +6,6 @@ interface AnswerCompletenessData {
   completeness_percentage: number;
   key_aspects_covered: string[];
   missing_aspects: string[];
-  depth_score: number;
-  breadth_score: number;
-  relevance_score: number;
   recommendations?: string[];
 }
 
@@ -133,81 +130,6 @@ const AnswerCompletenessScore: React.FC<AnswerCompletenessScoreProps> = ({ compl
               <div className="info-label">Partial Coverage</div>
               <div className="info-value">
                 {100 - completenessData.completeness_percentage}% incomplete
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Additional Metrics Grid */}
-      <div className="content-metrics-grid" style={{ marginTop: '1.5rem' }}>
-        {/* Depth Score */}
-        <div className="content-metric-card">
-          <div className="metric-card-header">
-            <div className="metric-icon-large">🔍</div>
-            <div>
-              <h3>Depth Score</h3>
-              <p className="metric-description">How thoroughly topics are covered</p>
-            </div>
-          </div>
-          <div className="metric-card-body">
-            <div className="metric-score-display">
-              <div
-                className="score-circle-large"
-                style={{
-                  '--progress': completenessData.depth_score,
-                  '--color': getScoreColor(completenessData.depth_score)
-                } as React.CSSProperties}
-              >
-                <div className="score-value-large">{completenessData.depth_score}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Breadth Score */}
-        <div className="content-metric-card">
-          <div className="metric-card-header">
-            <div className="metric-icon-large">📚</div>
-            <div>
-              <h3>Breadth Score</h3>
-              <p className="metric-description">Range of topics and aspects addressed</p>
-            </div>
-          </div>
-          <div className="metric-card-body">
-            <div className="metric-score-display">
-              <div
-                className="score-circle-large"
-                style={{
-                  '--progress': completenessData.breadth_score,
-                  '--color': getScoreColor(completenessData.breadth_score)
-                } as React.CSSProperties}
-              >
-                <div className="score-value-large">{completenessData.breadth_score}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Relevance Score */}
-        <div className="content-metric-card">
-          <div className="metric-card-header">
-            <div className="metric-icon-large">🎯</div>
-            <div>
-              <h3>Relevance Score</h3>
-              <p className="metric-description">How relevant content is to user intent</p>
-            </div>
-          </div>
-          <div className="metric-card-body">
-            <div className="metric-score-display">
-              <div
-                className="score-circle-large"
-                style={{
-                  '--progress': completenessData.relevance_score,
-                  '--color': getScoreColor(completenessData.relevance_score)
-                } as React.CSSProperties}
-              >
-                <div className="score-value-large">{completenessData.relevance_score}</div>
               </div>
             </div>
           </div>

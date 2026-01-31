@@ -10,8 +10,7 @@ import { seoRoutes } from '../routes/module_B/index.js';
 import { aeoRoutes } from '../routes/module_C/index.js';
 import { sentimentRoutes } from '../routes/module_E/index.js';
 import { schedulerRoutes } from '../routes/module_D/index.js';
-import { answerCompletenessRoutes } from '../routes/module_C/answerCompleteness.routes.js';
-import sseRoutes from '../routes/sse.routes.js';
+import { answerCompletenessRoutes } from '../routes/module_C/answerCompleteness.routes.js';import sseRoutes from '../routes/sse.routes.js';
 import authRoutes from '../routes/auth.routes.js';
 
 /**

@@ -29,6 +29,10 @@ export class DatabaseService {
     public pages: PageRepository;
     public audits: AuditRepository;
     public serp: SerpRepository;
+    aeoAnalysisResults: any;
+    page: any;
+    aEOAnalysisResults: any;
+    session: any;
 
     private constructor() {
         this.logger = Logger.getInstance();

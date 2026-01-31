@@ -433,17 +433,112 @@ export const useAEOData = (result: any) => {
       };
     }
 
-    // Fallback to zeros
-    return {
-      overall_score: 0,
-      completeness_percentage: 0,
-      key_aspects_covered: [],
-      missing_aspects: [],
-      depth_score: 0,
-      breadth_score: 0,
-      relevance_score: 0,
-      recommendations: []
+      // Fallback to zeros
+      return {
+        overall_score: 0,
+        completeness_percentage: 0,
+        key_aspects_covered: [],
+        missing_aspects: [],
+        depth_score: 0,
+        breadth_score: 0,
+        relevance_score: 0,
+        recommendations: []
+      };
     };
+  const getEntityData = () => {
+    if (!result || !result.detailed_analysis) {
+      return undefined;
+    }
+
+    const analysis = result.detailed_analysis;
+
+    // Extract entities from various sources
+    const entityData: any = {
+      entities: [],
+      total_entities: 0,
+      entity_types: [],
+      entity_coverage: {
+        found_entities: [],
+        missing_entities: []
+      },
+      named_entities: {},
+      semantic_entities: []
+    };
+
+    // 1. Entity coverage from module C
+    if (analysis.entity_coverage) {
+      const coverage = analysis.entity_coverage;
+      
+      if (coverage.found_entities && Array.isArray(coverage.found_entities)) {
+        entityData.entity_coverage.found_entities = coverage.found_entities.map((e: any) => ({
+          name: e.name || e,
+          type: 'found',
+          confidence: e.confidence || 0.9
+        }));
+      }
+
+      if (coverage.missing_entities && Array.isArray(coverage.missing_entities)) {
+        entityData.entity_coverage.missing_entities = coverage.missing_entities.map((e: any) => ({
+          name: e.name || e,
+          type: 'missing',
+          confidence: e.confidence || 0.5
+        }));
+      }
+    }
+
+    // 2. Named entities (NER)
+    if (analysis.named_entities && typeof analysis.named_entities === 'object') {
+      const nerData = analysis.named_entities;
+      Object.entries(nerData).forEach(([type, entities]: [string, any]) => {
+        if (Array.isArray(entities)) {
+          entityData.named_entities[type] = entities.map((e: any) => ({
+            name: typeof e === 'string' ? e : e.name || e.text,
+            type: type,
+            confidence: e.confidence || e.score || 0.85,
+            frequency: e.frequency || 1
+          }));
+        }
+      });
+    }
+
+    // 3. Semantic entities
+    if (analysis.semantic_entities && Array.isArray(analysis.semantic_entities)) {
+      entityData.semantic_entities = analysis.semantic_entities.map((e: any) => ({
+        name: e.name || e,
+        type: 'semantic',
+        confidence: e.confidence || 0.8,
+        frequency: e.frequency || 1
+      }));
+    }
+
+    // 4. Combine all entities
+    const allEntities = [
+      ...entityData.entity_coverage.found_entities,
+      ...entityData.entity_coverage.missing_entities,
+      ...Object.values(entityData.named_entities).flat() as any[],
+      ...entityData.semantic_entities
+    ];
+
+    // Remove duplicates by name
+    const uniqueEntities: any[] = [];
+    const seen = new Set<string>();
+
+    allEntities.forEach(entity => {
+      if (!seen.has(entity.name.toLowerCase())) {
+        seen.add(entity.name.toLowerCase());
+        uniqueEntities.push(entity);
+      }
+    });
+
+    entityData.entities = uniqueEntities;
+    entityData.total_entities = uniqueEntities.length;
+    
+    // Extract unique entity types
+    const types = new Set<string>();
+    uniqueEntities.forEach(e => types.add(e.type));
+    entityData.entity_types = Array.from(types);
+
+    return entityData.total_entities > 0 ? entityData : undefined;
   };
 
   return {
@@ -454,6 +549,7 @@ export const useAEOData = (result: any) => {
     getModuleRecommendations,
     contentMetrics: getContentMetrics(),
     entityMetrics: getEntityMetrics(),
-    answerCompletenessData: getAnswerCompletenessData()
+    answerCompletenessData: getAnswerCompletenessData(),
+    entityData: getEntityData()
   };
 };
