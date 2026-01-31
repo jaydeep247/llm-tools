@@ -1,6 +1,7 @@
 import React from 'react';
 import CompetitorMentionsList from '../module_C/aeo/CompetitorMentionsList';
 import { SentimentTracking } from '../module_E/SentimentTracking';
+import { AICitationRankingSection } from '../module_E/AICitationRankingSection';
 
 interface Competitor {
   name: string;
@@ -115,6 +116,9 @@ const ModuleE: React.FC<ModuleEProps> = ({
           ❌ Error: {moduleEError}
         </div>
       )}
+
+      {/* AI Citation Ranking Section */}
+      <AICitationRankingSection url={websiteUrl} />
 
       {/* Brand Pulse & Sentiment Section */}
       <div className="mt-8">

@@ -2,14 +2,18 @@
  * Server Entry Point
  */
 
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __serverDir = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__serverDir, '..', '.env'), override: true });
+
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { Logger } from './helpers/logging/Logger.js';
 import { registerRoutes } from './config/routeRegistration.js';
 import { notFoundHandler, globalErrorHandler } from './middleware/errorHandler.js';

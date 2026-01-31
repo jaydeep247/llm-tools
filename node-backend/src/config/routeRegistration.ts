@@ -8,7 +8,7 @@ import { monitoringRoutes } from '../routes/module_D/index.js';
 import { auditsRoutes, linksRoutes, linkScoreRoutes, auditRoutes, crawlerRoutes, auditActionsRoutes, crawlRoutes, auditCheckerRoutes, serpRoutes, pageContentRoutes } from '../routes/module_A/index.js';
 import { seoRoutes } from '../routes/module_B/index.js';
 import { aeoRoutes } from '../routes/module_C/index.js';
-import { sentimentRoutes } from '../routes/module_E/index.js';
+import { sentimentRoutes, rankingRoutes } from '../routes/module_E/index.js';
 import { schedulerRoutes } from '../routes/module_D/index.js';
 import sseRoutes from '../routes/sse.routes.js';
 import authRoutes from '../routes/auth.routes.js';
@@ -37,8 +37,11 @@ export function registerRoutes(app: express.Application): void {
     // Module C: AI Intelligence
     app.use('/api/aeo', aeoRoutes);
 
-    // Module E: Sentiment Tracking (New)
+    // Module E: Sentiment Tracking
     app.use('/api/aeo', sentimentRoutes);
+
+    // Module E: AI Citation Ranking
+    app.use('/api/aeo', rankingRoutes);
 
     // Module D: Scheduling
     app.use('/api', schedulerRoutes);

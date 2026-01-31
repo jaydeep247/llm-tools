@@ -1,5 +1,9 @@
 import * as dotenv from 'dotenv';
-dotenv.config();
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, '..', '..', '.env'), override: true });
 
 // Central Prisma Client configuration for the Node backend.
 // All database access in the app should go through this module.

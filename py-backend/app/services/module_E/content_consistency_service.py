@@ -116,3 +116,47 @@ class ContentConsistencyService:
         except Exception as e:
             print(f"❌ [ERROR] calculate_batch_consistency failed: {e}")
             return 0
+
+    @staticmethod
+    async def generate_ranking_prompts(topic: str, audience: str, brand_name: str) -> List[str]:
+        """
+        Generate 5 natural search prompts users would type when looking for this business.
+        Used for AI Citation Ranking when prompts are not provided.
+        """
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            # Fallback to simple templates
+            prompts = [f"best {topic} companies", f"top {topic} services"]
+            if brand_name:
+                prompts.append(f"{brand_name} reviews")
+            return prompts[:5]
+
+        prompt_text = f"""
+        Given this website's profile:
+        - Topic/Field: {topic}
+        - Target Audience: {audience}
+        - Brand Name: {brand_name or '(not provided)'}
+
+        Generate exactly 5 short, natural search prompts that real users would type into ChatGPT, Perplexity, or Google when looking for this type of business or service.
+        Prompts should NOT include the brand name (we want discovery-style queries).
+        Examples: "best IT companies in Surat", "top CRM software for startups", "how to choose project management tools".
+        Return ONLY a JSON object: {{ "prompts": ["prompt1", "prompt2", "prompt3", "prompt4", "prompt5"] }}
+        """
+
+        try:
+            client = openai.AsyncOpenAI(api_key=api_key)
+            response = await client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "user", "content": prompt_text}],
+                temperature=0.5,
+                response_format={"type": "json_object"},
+            )
+            data = json.loads(response.choices[0].message.content)
+            prompts = data.get("prompts", [])
+            return [str(p).strip()[:200] for p in prompts if p][:5]
+        except Exception as e:
+            print(f"❌ [ERROR] generate_ranking_prompts failed: {e}", flush=True)
+            prompts = [f"best {topic} companies", f"top {topic} services"]
+            if brand_name:
+                prompts.append(f"{brand_name} reviews")
+            return prompts[:5]
