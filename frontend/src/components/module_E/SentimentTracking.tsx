@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTrackSentimentMutation, useGetSentimentHistoryQuery } from '../../store/api/module_E/sentimentApi';
+import { getApiErrorMessage } from '../../utils';
 
 interface SentimentTrackingProps {
     brandName: string;
@@ -62,14 +63,17 @@ export const SentimentTracking: React.FC<SentimentTrackingProps> = ({ brandName 
         skip: !isBrandConfigured,
     });
 
-    // Load history when data changes
+    // Load history when data changes; only hydrate data from history on initial load so Run Analysis doesn't get overwritten by cumulative latestResult
     useEffect(() => {
         if (historyData?.success) {
             setHistory(historyData.history || []);
-            // Hydrate the dashboard with the latest saved run
-            if (historyData.latestResult) {
-                setData(historyData.latestResult);
-            }
+            setData((prev) => {
+                // Only set from history when we have no current data (initial load)
+                if (prev == null && historyData.latestResult) {
+                    return historyData.latestResult;
+                }
+                return prev;
+            });
         }
     }, [historyData]);
 
@@ -92,11 +96,11 @@ export const SentimentTracking: React.FC<SentimentTrackingProps> = ({ brandName 
             }
             setData(result.data || result);
             await refetchHistory();
-        } catch (err: any) {
+        } catch (err: unknown) {
             if (typeof window !== 'undefined') {
                 console.log('[SentimentTracking] trackSentiment error:', err);
             }
-            setError(err?.data?.error || err?.message || 'Failed to fetch sentiment data');
+            setError(getApiErrorMessage(err, 'Failed to fetch sentiment data'));
         } finally {
             setLoading(false);
         }
@@ -346,10 +350,13 @@ export const SentimentTracking: React.FC<SentimentTrackingProps> = ({ brandName 
 
             {
                 loading ? (
-                    <div className="mb-6 animate-pulse">
-                        <div className="h-4 bg-gray-700 rounded w-full mb-2"></div>
-                        <div className="h-4 bg-gray-700 rounded w-2/3"></div>
-                        <p className="text-center text-xs text-gray-400 mt-2">Consulting OpenAI, Gemini, and Claude...</p>
+                    <div className="flex flex-col items-center justify-center py-16 px-4 min-h-[280px]">
+                        <div className="relative w-14 h-14 mb-4">
+                            <div className="absolute inset-0 border-2 border-gray-600 rounded-full" />
+                            <div className="absolute inset-0 border-2 border-transparent border-t-blue-500 rounded-full animate-spin" />
+                        </div>
+                        <p className="text-gray-300 font-medium">Running sentiment & visibility analysis...</p>
+                        <p className="text-gray-500 text-sm mt-1">Consulting AI models (OpenAI, Gemini, Claude). This may take a moment.</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

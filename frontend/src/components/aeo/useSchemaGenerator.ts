@@ -42,13 +42,41 @@ export const useSchemaGenerator = () => {
   };
 
   const copySchemaToClipboard = () => {
-    const textToCopy = schemaFormat === 'json-ld' ? schemaData?.schema_text : schemaData?.rdfa_markup;
-    if (!textToCopy) return;
+    const textToCopy = schemaFormat === 'json-ld'
+      ? (schemaData?.schema_text ?? schemaData?.schemaText ?? schemaData?.json_ld)
+      : (schemaData?.rdfa_markup ?? schemaData?.rdfaMarkup ?? schemaData?.rdfa);
+    if (!textToCopy || typeof textToCopy !== 'string') return;
 
-    navigator.clipboard.writeText(textToCopy).then(() => {
-      setCopiedSchema(true);
-      setTimeout(() => setCopiedSchema(false), 2000);
-    });
+    const doCopy = (text: string) => {
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+          setCopiedSchema(true);
+          setTimeout(() => setCopiedSchema(false), 2000);
+        }).catch(() => fallbackCopy(text));
+      } else {
+        fallbackCopy(text);
+      }
+    };
+
+    const fallbackCopy = (text: string) => {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+        setCopiedSchema(true);
+        setTimeout(() => setCopiedSchema(false), 2000);
+      } catch {
+        // ignore
+      }
+      document.body.removeChild(ta);
+    };
+
+    doCopy(textToCopy);
   };
 
   return {

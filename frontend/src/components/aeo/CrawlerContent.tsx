@@ -109,12 +109,23 @@ const CrawlerContent: React.FC<CrawlerContentProps> = ({
                   {(isCrawling || crawlStatus === 'running' || crawlStatus === 'auditing') ? '🕷️ Elapsed Time' : 'Duration'}
                 </div>
               </div>
-              {crawlStats && (
-                <div className="stat-box">
-                  <div className="stat-value">{crawlStats.pagesPerSecond.toFixed(1)}</div>
-                  <div className="stat-label">Items/Sec</div>
+              <div className="stat-box">
+                <div className="stat-value">
+                  {(() => {
+                    const isActive = isCrawling || crawlStatus === 'running' || crawlStatus === 'auditing';
+                    const elapsed = calculateElapsedTime();
+                    const elapsedSec = elapsed.seconds + elapsed.milliseconds / 10;
+                    if (isActive && pageCount >= 0 && elapsedSec > 0) {
+                      return (pageCount / elapsedSec).toFixed(1);
+                    }
+                    if (crawlStats?.pagesPerSecond != null) {
+                      return crawlStats.pagesPerSecond.toFixed(1);
+                    }
+                    return '0.0';
+                  })()}
                 </div>
-              )}
+                <div className="stat-label">Items/Sec</div>
+              </div>
             </>
           )}
         </div>

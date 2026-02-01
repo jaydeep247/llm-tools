@@ -67,6 +67,10 @@ export class DatabaseService {
         return this.crawls.getCrawlSessions(limit, offset, scheduleId, userId);
     }
 
+    async getRunningSessionsStartedBefore(cutoffDate: Date): Promise<CrawlSession[]> {
+        return this.crawls.getRunningSessionsStartedBefore(cutoffDate);
+    }
+
     async getUserCrawlSessionsWithResults(userId: number, limit: number = 50, offset: number = 0): Promise<any[]> {
         return this.crawls.getUserCrawlSessionsWithResults(userId, limit, offset);
     }
@@ -498,6 +502,14 @@ export class DatabaseService {
 
     async getAuditResultsBySessionId(sessionId: number, device?: string, limit: number = 200): Promise<any[]> {
         return this.audits.getAuditResultsBySessionId(sessionId, device, limit);
+    }
+
+    /** Returns audit results only for crawl sessions owned by the given user. */
+    async getAuditResultsForUser(userId: number, device?: string, limit: number = 200): Promise<any[]> {
+        const sessions = await this.getCrawlSessions(500, 0, undefined, userId);
+        const sessionIds = sessions.map((s) => s.id).filter((id): id is number => id != null && Number.isFinite(id));
+        if (sessionIds.length === 0) return [];
+        return this.audits.getAuditResultsBySessionIds(sessionIds, device, limit);
     }
 
     async updateAuditSchedule(id: number, updates: Partial<AuditSchedule>): Promise<void> {

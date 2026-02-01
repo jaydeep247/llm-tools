@@ -12,6 +12,7 @@ import {
     type UserSettings,
     type UsageStats,
 } from '../store/api/authApi';
+import { getApiErrorMessage } from '../utils';
 
 // Re-export types for use in other components
 export type { User, UserSettings, UsageStats };
@@ -89,8 +90,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             localStorage.setItem('accessToken', result.accessToken);
             // RTK Query will automatically refetch user data via useGetMeQuery
             await refetchMe();
-        } catch (error: any) {
-            throw new Error(error?.data?.message || error?.message || 'Login failed');
+        } catch (error: unknown) {
+            throw new Error(getApiErrorMessage(error, 'Login failed'));
         }
     };
 
@@ -101,12 +102,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             localStorage.setItem('accessToken', result.accessToken);
             // RTK Query will automatically refetch user data via useGetMeQuery
             await refetchMe();
-        } catch (error: any) {
-            throw new Error(error?.data?.message || error?.message || 'Registration failed');
+        } catch (error: unknown) {
+            throw new Error(getApiErrorMessage(error, 'Registration failed'));
         }
     };
 
     const logout = async () => {
+        // Cancel all running crawls/audits for this user (same as Stop button) before clearing session
+        const apiBase = import.meta.env.VITE_API_BASE_URL || '';
+        const cancelUrl = apiBase ? `${apiBase}/api/cancel-audits` : '/api/cancel-audits';
+        try {
+            await fetch(cancelUrl, {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+                },
+                body: JSON.stringify({}),
+            });
+        } catch (err) {
+            console.error('Cancel-all on logout:', err);
+        }
+
         try {
             await logoutMutation().unwrap();
         } catch (error) {
@@ -127,8 +145,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         try {
             await updateProfileMutation(updates).unwrap();
             await refetchMe();
-        } catch (error: any) {
-            throw new Error(error?.data?.message || error?.message || 'Update failed');
+        } catch (error: unknown) {
+            throw new Error(getApiErrorMessage(error, 'Update failed'));
         }
     };
 
@@ -136,8 +154,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         try {
             await updateSettingsMutation(updates).unwrap();
             await refetchMe();
-        } catch (error: any) {
-            throw new Error(error?.data?.message || error?.message || 'Settings update failed');
+        } catch (error: unknown) {
+            throw new Error(getApiErrorMessage(error, 'Settings update failed'));
         }
     };
 

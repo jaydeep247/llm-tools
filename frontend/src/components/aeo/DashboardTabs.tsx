@@ -9,7 +9,6 @@ import CrawlerContent from './CrawlerContent';
 import SchemaGenerator from './SchemaGenerator';
 import IntelligenceModule from './IntelligenceModule';
 import ModuleE from './ModuleE';
-import AISimulator from './AISimulator';
 import ContentMetrics from './ContentMetrics';
 
 interface Competitor {
@@ -60,13 +59,6 @@ interface DashboardTabsProps {
   moduleEError: string | null;
   competitors: Competitor[];
   
-  // AI Simulator props
-  simulationQuery: string;
-  setSimulationQuery: (query: string) => void;
-  simulationResults: any;
-  simulationLoading: boolean;
-  handleSimulation: () => void;
-  
   // Content Metrics props
   contentMetrics?: any;
   entityMetrics?: any;
@@ -109,11 +101,6 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
     moduleELoading,
     moduleEError,
     competitors,
-    simulationQuery,
-    setSimulationQuery,
-    simulationResults,
-    simulationLoading,
-    handleSimulation,
     contentMetrics,
     entityMetrics
   } = props;
@@ -238,12 +225,6 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
           🧠 AI Intelligence
         </button>
         <button
-          onClick={() => setActiveView('simulator')}
-          className={`tab-button ${activeView === 'simulator' ? 'active' : ''}`}
-        >
-          🤖 AI Simulator
-        </button>
-        <button
           onClick={() => setActiveView('content_metrics')}
           className={`tab-button ${activeView === 'content_metrics' ? 'active' : ''}`}
         >
@@ -330,7 +311,7 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
         {activeView === 'tree' && (
           <div className="tree-content-embedded">
             <MindMapWebTree
-              onClose={() => { }}
+              onClose={() => setActiveView(runCrawl ? 'crawler' : 'data')}
               sessionId={effectiveSessionId}
             />
           </div>
@@ -374,16 +355,6 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
             bulkResults={bulkResults}
             result={result}
             handleBulkAnalyze={handleBulkAnalyze}
-          />
-        )}
-
-        {activeView === 'simulator' && (
-          <AISimulator
-            simulationQuery={simulationQuery}
-            setSimulationQuery={setSimulationQuery}
-            simulationResults={simulationResults}
-            simulationLoading={simulationLoading}
-            handleSimulation={handleSimulation}
           />
         )}
 

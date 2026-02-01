@@ -368,6 +368,34 @@ const BrokenLinkChecker: React.FC<BrokenLinkCheckerProps> = ({ initialSessionId 
 
             {checkResults && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* Section summary: "We have found X broken links" or "No broken links found" */}
+                {(() => {
+                  const totalBroken =
+                    checkResults.brokenInternalLinks.count +
+                    checkResults.brokenExternalLinks.count +
+                    checkResults.missingPages.count +
+                    checkResults.serverErrors.count +
+                    checkResults.timeoutUnreachable.count;
+                  return (
+                    <div
+                      style={{
+                        padding: '16px 20px',
+                        borderRadius: '8px',
+                        border: totalBroken > 0 ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(16, 185, 129, 0.4)',
+                        background: totalBroken > 0 ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)',
+                        marginBottom: '8px',
+                        fontSize: '15px',
+                        fontWeight: '600',
+                        color: totalBroken > 0 ? '#fca5a5' : '#6ee7b7'
+                      }}
+                    >
+                      {totalBroken > 0
+                        ? `We have found ${totalBroken} broken link${totalBroken === 1 ? '' : 's'}.`
+                        : 'No broken links found.'}
+                    </div>
+                  );
+                })()}
+
                 {/* Summary Statistics */}
                 {(checkResults.totalChecked !== undefined || checkResults.totalPageLinks !== undefined) && (
                   <div style={{

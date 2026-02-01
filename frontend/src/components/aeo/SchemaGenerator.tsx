@@ -125,7 +125,11 @@ const SchemaGenerator: React.FC<SchemaGeneratorProps> = ({
             </div>
             <div className="schema-code-container">
               <pre className="schema-code">
-                <code>{schemaFormat === 'json-ld' ? schemaData.schema_text : schemaData.rdfa_markup}</code>
+                <code>
+                  {schemaFormat === 'json-ld'
+                    ? (schemaData.schema_text ?? schemaData.schemaText ?? schemaData.json_ld ?? '')
+                    : (schemaData.rdfa_markup ?? schemaData.rdfaMarkup ?? schemaData.rdfa ?? '')}
+                </code>
               </pre>
             </div>
           </div>

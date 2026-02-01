@@ -77,29 +77,31 @@ class CrawlCancellationManager {
     }
 
     /**
-     * Cancel a specific crawl by sessionId
+     * Cancel a specific crawl by sessionId.
+     * @param message Optional message (e.g. "Crawl timed out (exceeded 12 hours)") for SSE and DB errorMessage.
      */
-    async cancelCrawl(sessionId: number, userId?: number): Promise<void> {
+    async cancelCrawl(sessionId: number, userId?: number, message?: string): Promise<void> {
         const crawl = this.activeCrawls.get(sessionId);
-        
+        const displayMessage = message || 'Crawl cancelled by user';
+
         if (!crawl) {
             // Check if it's already cancelled
             if (this.cancelledSessions.has(sessionId)) {
                 logger.info(`[CancellationManager] Session ${sessionId} already cancelled`);
                 return;
             }
-            
+
             // Session might not be registered yet, but mark it as cancelled
             this.cancelledSessions.add(sessionId);
             logger.info(`[CancellationManager] Marked session ${sessionId} as cancelled (not yet registered)`);
-            
+
             // Also cancel audits for this session
             try {
                 await cancelAuditsForSession(sessionId);
             } catch (error) {
                 logger.warn(`[CancellationManager] Failed to cancel audits for session ${sessionId}`, error as Error);
             }
-            
+
             // Update database status even if crawler not registered yet
             try {
                 const db = getDatabase();
@@ -107,9 +109,10 @@ class CrawlCancellationManager {
                 if (session) {
                     await db.updateCrawlSession(sessionId, {
                         status: 'cancelled',
-                        completedAt: new Date().toISOString()
+                        completedAt: new Date().toISOString(),
+                        ...(message && { errorMessage: message } as any),
                     });
-                    
+
                     // Send SSE event if we have userId
                     if (session.userId) {
                         try {
@@ -117,7 +120,7 @@ class CrawlCancellationManager {
                                 type: 'session-status-update',
                                 sessionId: sessionId,
                                 status: 'cancelled',
-                                message: 'Crawl cancelled by user'
+                                message: displayMessage
                             }, 'session-status-update', session.userId);
                         } catch (sseError) {
                             logger.warn(`[CancellationManager] Failed to send SSE event`, sseError as Error);
@@ -127,7 +130,7 @@ class CrawlCancellationManager {
             } catch (error) {
                 logger.warn(`[CancellationManager] Failed to update session ${sessionId} status (not registered)`, error as Error);
             }
-            
+
             return;
         }
 
@@ -165,17 +168,18 @@ class CrawlCancellationManager {
             const db = getDatabase();
             await db.updateCrawlSession(sessionId, {
                 status: 'cancelled',
-                completedAt: new Date().toISOString()
+                completedAt: new Date().toISOString(),
+                ...(message && { errorMessage: message } as any),
             });
             logger.info(`[CancellationManager] Updated session ${sessionId} status to cancelled`);
-            
+
             // Send SSE event to notify frontend
             try {
                 sendEvent({
                     type: 'session-status-update',
                     sessionId: sessionId,
                     status: 'cancelled',
-                    message: 'Crawl cancelled by user'
+                    message: displayMessage
                 }, 'session-status-update', crawl.userId);
             } catch (sseError) {
                 logger.warn(`[CancellationManager] Failed to send SSE event for cancelled session`, sseError as Error);
@@ -183,6 +187,15 @@ class CrawlCancellationManager {
         } catch (error) {
             logger.warn(`[CancellationManager] Failed to update session ${sessionId} status`, error as Error);
         }
+    }
+
+    /**
+     * Mark a crawl as timed out (exceeded CRAWL_COMPLETION_TIMEOUT_HOURS).
+     * Uses cancelCrawl with a timeout message.
+     */
+    async timeoutCrawl(sessionId: number, timeoutHours: number): Promise<void> {
+        const message = `Crawl timed out (exceeded ${timeoutHours} hour limit)`;
+        await this.cancelCrawl(sessionId, undefined, message);
     }
 
     /**

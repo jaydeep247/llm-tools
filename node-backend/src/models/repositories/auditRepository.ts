@@ -283,6 +283,25 @@ export class AuditRepository {
         return results;
     }
 
+    /** Returns audit results for sessions belonging to the given session IDs (e.g. current user's sessions). */
+    async getAuditResultsBySessionIds(sessionIds: number[], device?: string, limit: number = 200): Promise<any[]> {
+        const validIds = sessionIds.filter((id): id is number => id != null && Number.isFinite(id));
+        if (validIds.length === 0) return [];
+
+        const where: any = { sessionId: { in: validIds } };
+        if (device && device !== 'all' && device !== undefined) {
+            where.device = device;
+        }
+
+        const results = await prisma.auditResult.findMany({
+            where,
+            orderBy: { runAt: 'desc' },
+            take: limit,
+        });
+
+        return results;
+    }
+
     async hasAuditsForSession(sessionId: number): Promise<boolean> {
         const count = await prisma.auditResult.count({
             where: { sessionId },

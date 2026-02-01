@@ -34,4 +34,8 @@
 .error-message {
   color: rgba(254, 226, 226, 1);
   font-size: 0.875rem;
+  line-height: 1.5;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
 }

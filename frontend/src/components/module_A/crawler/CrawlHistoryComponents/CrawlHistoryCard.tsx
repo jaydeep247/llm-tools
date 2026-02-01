@@ -94,7 +94,7 @@ export const CrawlHistoryCard: React.FC<CrawlHistoryCardProps> = ({
   return (
     <div
       key={session.id}
-      className={`history-card bg-gray-800 border border-gray-700 rounded-lg p-5 transition-all ${
+      className={`history-card bg-gray-800 border border-gray-700 rounded-lg p-4 sm:p-5 transition-all ${
         isCancelled ? 'opacity-60 cursor-not-allowed' : 'hover:border-purple-500 cursor-pointer'
       }`}
       onClick={() => {
@@ -103,16 +103,17 @@ export const CrawlHistoryCard: React.FC<CrawlHistoryCardProps> = ({
         }
       }}
     >
-      <div className="flex justify-between items-start mb-3">
-        <div className="flex-1">
-          <h3 className="text-lg font-semibold text-white truncate mb-1">
+      {/* Header: URL + date on left; badges + delete fixed on right */}
+      <div className="history-card-header flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 sm:gap-3 mb-3">
+        <div className="min-w-0 flex-1">
+          <h3 className="text-base sm:text-lg font-semibold text-white truncate mb-0.5" title={startUrl}>
             {startUrl}
           </h3>
-          <p className="text-sm text-gray-400">
+          <p className="text-xs sm:text-sm text-gray-400">
             {startedAt ? formatDate(startedAt) : 'Unknown date'}
           </p>
         </div>
-        <div className="flex gap-2 items-start">
+        <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-start">
           {getStatusBadge(status)}
           {isReused && (
             <span className="px-2 py-1 text-xs font-semibold rounded-full bg-amber-600 text-white whitespace-nowrap">
@@ -122,12 +123,12 @@ export const CrawlHistoryCard: React.FC<CrawlHistoryCardProps> = ({
           <button
             onClick={(e) => onDeleteSession(e, session.id)}
             disabled={deletingSessionId === session.id}
-            className="ml-2 p-1.5 text-red-400 hover:text-red-300 hover:bg-red-900/30 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="history-card-delete p-1.5 sm:p-2 text-red-400 hover:text-red-300 hover:bg-red-900/30 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
             title="Delete session"
             aria-label="Delete session"
           >
             {deletingSessionId === session.id ? (
-              <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin"></div>
+              <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
             ) : (
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -137,24 +138,24 @@ export const CrawlHistoryCard: React.FC<CrawlHistoryCardProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 mb-3">
-        <div className="stat-box bg-gray-900 rounded p-2">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-3">
+        <div className="stat-box bg-gray-900 rounded p-2 sm:p-2.5">
           <p className="text-xs text-gray-400">Pages Crawled</p>
-          <p className="text-xl font-bold text-white">{totalPages}</p>
+          <p className="text-lg sm:text-xl font-bold text-white">{totalPages}</p>
         </div>
-        <div className="stat-box bg-gray-900 rounded p-2">
+        <div className="stat-box bg-gray-900 rounded p-2 sm:p-2.5">
           <p className="text-xs text-gray-400">
             {isRunning ? '🕷️ Elapsed Time' : 'Duration'}
           </p>
-          <p className={`text-xl font-bold ${isRunning ? 'text-purple-400' : 'text-white'}`}>
+          <p className={`text-lg sm:text-xl font-bold ${isRunning ? 'text-purple-400' : 'text-white'}`}>
             {formatDurationWithHours(elapsedTime.seconds, elapsedTime.milliseconds, isRunning)}
-            {isRunning && <span className="ml-1 inline-block w-2 h-2 bg-purple-500 rounded-full animate-pulse"></span>}
+            {isRunning && <span className="ml-1 inline-block w-2 h-2 bg-purple-500 rounded-full animate-pulse" />}
           </p>
         </div>
       </div>
 
       {aeoResult && (
-        <div className="aeo-score-box bg-gradient-to-r from-purple-900 to-purple-800 rounded p-3 mt-3">
+        <div className="aeo-score-box bg-gradient-to-r from-purple-900 to-purple-800 rounded p-2.5 sm:p-3 mt-3">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-purple-200">AEO Score</p>
