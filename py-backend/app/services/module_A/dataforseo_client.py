@@ -186,7 +186,15 @@ class DataForSEOClient:
         else:
             data_str = dumps(data)
         return self.request(path, 'POST', data_str)
-    
+
+    def post_llm_responses(self, platform: str, payload: list) -> Dict[str, Any]:
+        """
+        Call DataForSEO LLM Responses Live API for a given platform.
+        Platforms: chat_gpt, claude, gemini, perplexity
+        """
+        path = f'/v3/ai_optimization/{platform}/llm_responses/live'
+        return self.post(path, payload)
+
     def get_all_backlinks(
         self,
         target: str,
