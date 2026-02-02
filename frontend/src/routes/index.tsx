@@ -18,8 +18,10 @@ import AuditsPage from '../pages/AuditsPage';
 import DashboardPage from '../pages/DashboardPage';
 import HistoryDetailPage from '../pages/HistoryDetailPage';
 import { Navbar } from '../components/ui/navbar/Navbar';
+import { AdminNavbar } from '../components/ui/navbar/AdminNavbar';
 import { Footer } from '../components/ui/footer/Footer';
 import { AdminPanel } from '../pages/AdminPanel';
+import { AdminUserDetail } from '../pages/AdminUserDetail';
 // Wrapper components for pages that need navigation props
 const HomePageWrapper: React.FC = () => {
   const navigate = useNavigate();
@@ -224,9 +226,19 @@ export const AppRoutes: React.FC = () => {
         path="/admin"
         element={
           <AdminRoute>
-            <ProtectedLayout>
+            <AdminLayout>
               <AdminPanel />
-            </ProtectedLayout>
+            </AdminLayout>
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="/admin/users/:userId"
+        element={
+          <AdminRoute>
+            <AdminLayout>
+              <AdminUserDetail />
+            </AdminLayout>
           </AdminRoute>
         }
       />
@@ -294,6 +306,29 @@ const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
         <div className="container mx-auto px-4 py-8">
           {children}
         </div>
+      </main>
+      <Footer />
+    </div>
+  );
+};
+
+const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/admin/login');
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-900 flex flex-col">
+      <AdminNavbar
+        user={user}
+        onLogout={handleLogout}
+      />
+      <main className="flex-1">
+        {children}
       </main>
       <Footer />
     </div>

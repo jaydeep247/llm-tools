@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
   useGetAdminUsersQuery,
@@ -10,6 +11,7 @@ import {
 
 export const AdminPanel: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('createdAt');
@@ -242,7 +244,7 @@ export const AdminPanel: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                           <button
-                            onClick={() => window.open(`/admin/users/${u.id}`, '_blank')}
+                            onClick={() => navigate(`/admin/users/${u.id}`)}
                             className="text-blue-400 hover:text-blue-300"
                           >
                             View Details

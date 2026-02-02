@@ -41,10 +41,20 @@ export interface AdminUserDetail {
   recentUsage: Array<{
     id: number;
     userId: number;
-    date: string;
-    crawls: number;
-    audits: number;
-    aeoAnalyses: number;
+    actionType: string;
+    timestamp: string;
+    creditsUsed: number;
+  }>;
+  crawlSessions: Array<{
+    id: number;
+    startUrl: string;
+    startedAt: string;
+    completedAt: string | null;
+    status: string;
+    totalPages: number;
+    pagesCrawled: number | null;
+    duration: number;
+    errorMessage: string | null;
   }>;
 }
 

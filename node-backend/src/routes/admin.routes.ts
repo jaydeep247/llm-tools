@@ -108,6 +108,21 @@ router.get('/users/:userId', authenticateUser, requireAdmin, async (req: Request
                     orderBy: { timestamp: 'desc' },
                     take: 30, // Last 30 records
                 },
+                crawlSessions: {
+                    orderBy: { startedAt: 'desc' },
+                    take: 50, // Last 50 crawl sessions
+                    select: {
+                        id: true,
+                        startUrl: true,
+                        startedAt: true,
+                        completedAt: true,
+                        status: true,
+                        totalPages: true,
+                        pagesCrawled: true,
+                        duration: true,
+                        errorMessage: true,
+                    },
+                },
             },
         });
 
@@ -132,6 +147,7 @@ router.get('/users/:userId', authenticateUser, requireAdmin, async (req: Request
             settings: user.userSettings,
             stats,
             recentUsage: user.userUsage,
+            crawlSessions: user.crawlSessions,
         });
     } catch (error) {
         logger.error('Error fetching user details for admin', error as Error);
