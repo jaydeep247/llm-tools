@@ -12,6 +12,7 @@ import {
     type UserSettings,
     type UsageStats,
 } from '../store/api/authApi';
+import { getApiErrorMessage } from '../utils';
 
 // Re-export types for use in other components
 export type { User, UserSettings, UsageStats };
@@ -87,8 +88,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const result = await loginMutation({ email, password }).unwrap();
             setAccessToken(result.accessToken);
             localStorage.setItem('accessToken', result.accessToken);
-        } catch (error: any) {
-            throw new Error(error?.data?.message || error?.message || 'Login failed');
+            // RTK Query will automatically refetch user data via useGetMeQuery
+            await refetchMe();
+        } catch (error: unknown) {
+            throw new Error(getApiErrorMessage(error, 'Login failed'));
         }
     };
 
@@ -97,9 +100,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const result = await registerMutation({ email, password, name }).unwrap();
             setAccessToken(result.accessToken);
             localStorage.setItem('accessToken', result.accessToken);
-            // useGetMeQuery runs automatically on next render when skip becomes false (token is set)
-        } catch (error: any) {
-            throw new Error(error?.data?.message || error?.message || 'Registration failed');
+            // RTK Query will automatically refetch user data via useGetMeQuery
+            await refetchMe();
+        } catch (error: unknown) {
+            throw new Error(getApiErrorMessage(error, 'Registration failed'));
         }
     };
 
@@ -124,8 +128,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         try {
             await updateProfileMutation(updates).unwrap();
             await refetchMe();
-        } catch (error: any) {
-            throw new Error(error?.data?.message || error?.message || 'Update failed');
+        } catch (error: unknown) {
+            throw new Error(getApiErrorMessage(error, 'Update failed'));
         }
     };
 
@@ -133,8 +137,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         try {
             await updateSettingsMutation(updates).unwrap();
             await refetchMe();
-        } catch (error: any) {
-            throw new Error(error?.data?.message || error?.message || 'Settings update failed');
+        } catch (error: unknown) {
+            throw new Error(getApiErrorMessage(error, 'Settings update failed'));
         }
     };
 

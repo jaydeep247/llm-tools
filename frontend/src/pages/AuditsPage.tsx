@@ -20,6 +20,12 @@ function formatMs(value?: number): string {
   return `${Math.round(value)} ms`;
 }
 
+function formatRunTime(runAt?: string | null): string {
+  if (runAt == null || String(runAt).trim() === '') return '-';
+  const d = new Date(runAt);
+  return Number.isNaN(d.getTime()) ? '-' : d.toLocaleString();
+}
+
 function formatScore(value?: number): string {
   if (value == null || !Number.isFinite(value)) return '-';
   return `${Math.round(value)}/100`;
@@ -83,7 +89,12 @@ export default function AuditsPage({ sessionId = null }: AuditsPageProps = {}) {
   return (
     <div className="panel audits-dark">
       <div className="panel-header" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <h3 style={{ margin: 0 }}>📈 Audits</h3>
+        <div>
+          <h3 style={{ margin: 0 }}>📈 Performance Audits</h3>
+          <p style={{ margin: '4px 0 0', fontSize: 12, opacity: 0.85 }}>
+            {sessionId ? `Showing audits for this session only` : `Showing your audits across all sessions`}
+          </p>
+        </div>
         <select value={device} onChange={(e) => setDevice(e.target.value as any)} className="select">
           <option value="mobile">Mobile</option>
           <option value="desktop">Desktop</option>
@@ -134,7 +145,7 @@ export default function AuditsPage({ sessionId = null }: AuditsPageProps = {}) {
                 const status = statusFromVitals(it.LCP_ms, it.TBT_ms, it.CLS);
                 return (
                   <tr key={it.id}>
-                    <td>{new Date(it.runAt).toLocaleString()}</td>
+                    <td>{formatRunTime(it.runAt)}</td>
                     <td>{it.device}</td>
                     <td style={{ maxWidth: 360, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       <a href={it.url} target="_blank" rel="noreferrer noopener">{it.url}</a>

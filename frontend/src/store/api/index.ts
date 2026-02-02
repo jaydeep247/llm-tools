@@ -8,6 +8,7 @@ export * from './module_B/seoApi';
 export * from './module_C/aeoApi';
 export * from './module_C/entityExtractorApi';
 export * from './module_E/sentimentApi';
+export * from './module_E/rankingApi';
 
 // Export auditApi separately to avoid conflicts
 export {

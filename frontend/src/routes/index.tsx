@@ -16,6 +16,7 @@ import AuditsPage from '../pages/AuditsPage';
 import DashboardPage from '../pages/DashboardPage';
 import HistoryDetailPage from '../pages/HistoryDetailPage';
 import { Navbar } from '../components/ui/navbar/Navbar';
+import { Footer } from '../components/ui/footer/Footer';
 
 // Wrapper components for pages that need navigation props
 const HomePageWrapper: React.FC = () => {
@@ -220,14 +221,15 @@ const PublicLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   };
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-black flex flex-col">
       <Navbar
         user={null}
         isAuthenticated={false}
         onNavigate={handleNavigate}
         onLogout={handleLogout}
       />
-      {children}
+      <main className="flex-1">{children}</main>
+      <Footer />
     </div>
   );
 };
@@ -249,7 +251,7 @@ const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
   };
 
   return (
-    <div className="min-h-screen bg-black" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.1) 1px, transparent 0)', backgroundSize: '20px 20px' }}>
+    <div className="min-h-screen bg-black flex flex-col" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.1) 1px, transparent 0)', backgroundSize: '20px 20px' }}>
       <Navbar
         user={user}
         isAuthenticated={isAuthenticated}
@@ -257,9 +259,12 @@ const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
         onLogout={handleLogout}
         currentView={window.location.pathname}
       />
-      <div className="container mx-auto px-4 py-8">
-        {children}
-      </div>
+      <main className="flex-1">
+        <div className="container mx-auto px-4 py-8">
+          {children}
+        </div>
+      </main>
+      <Footer />
     </div>
   );
 };
