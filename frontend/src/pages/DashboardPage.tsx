@@ -99,6 +99,10 @@ const DashboardPage: React.FC = () => {
 
     eventSource.addEventListener('log', (e) => {
       const data = JSON.parse(e.data);
+      // Only process events for the current session
+      if (data.sessionId && currentSessionId && data.sessionId !== currentSessionId) {
+        return;
+      }
       setLogs(prev => [...prev.slice(-99), {
         message: data.message,
         timestamp: new Date().toLocaleTimeString()
@@ -107,12 +111,21 @@ const DashboardPage: React.FC = () => {
 
     eventSource.addEventListener('page', (e) => {
       const data = JSON.parse(e.data);
+      // Only process events for the current session
+      if (data.sessionId && currentSessionId && data.sessionId !== currentSessionId) {
+        return;
+      }
       setPages(prev => [...prev.slice(-199), data.url]);
       setPageCount(prev => prev + 1);
     });
 
     eventSource.addEventListener('done', (e) => {
       const data = JSON.parse(e.data);
+      // Only process events for the current session
+      if (data.sessionId && currentSessionId && data.sessionId !== currentSessionId) {
+        return;
+      }
+      
       setCrawlStats({
         count: data.count,
         duration: data.duration || 0,
@@ -142,7 +155,12 @@ const DashboardPage: React.FC = () => {
     eventSource.addEventListener('session-status-update', (e) => {
       try {
         const data = JSON.parse(e.data);
-        if (data?.sessionId) {
+        // Only process events for the current session
+        if (data?.sessionId && currentSessionId && data.sessionId !== currentSessionId) {
+          return;
+        }
+        
+        if (data?.sessionId && !currentSessionId) {
           setCurrentSessionId(data.sessionId);
         }
         const message = data?.message || `Session ${data?.status || ''}`.trim();
@@ -183,6 +201,11 @@ const DashboardPage: React.FC = () => {
     eventSource.addEventListener('audit', (e) => {
       try {
         const data = JSON.parse(e.data);
+        // Only process events for the current session
+        if (data.sessionId && currentSessionId && data.sessionId !== currentSessionId) {
+          return;
+        }
+        
         const formatNum = (v: unknown) => (typeof v === 'number' && isFinite(v))
           ? v.toLocaleString(undefined, { maximumFractionDigits: 2 })
           : undefined;
@@ -230,7 +253,7 @@ const DashboardPage: React.FC = () => {
       console.log('SSE: Closing connection');
       eventSource.close();
     };
-  }, [isAuthenticated, accessToken]);
+  }, [isAuthenticated, accessToken, currentSessionId, getDataList]);
 
   // Clear all crawl/history data when user logs out
   useEffect(() => {
@@ -303,17 +326,22 @@ const DashboardPage: React.FC = () => {
 
     const normalizedUrl = normalizeUrl(url.trim());
 
+    // Reset ALL states before starting new crawl to prevent stale state
     setLoading(true);
     setResult(null);
     setError(null);
     setStopping(false);
+    setIsCrawling(false);
+    setCrawlStatus('idle');
+    setCurrentSessionId(null);
+    setCrawlStartTime(null);
+    setReusePrompt(null);
 
     if (runCrawl) {
       setPageCount(0);
       setLogs([]);
       setPages([]);
       setCrawlStats(null);
-      setCurrentSessionId(null);
     }
 
     try {
@@ -615,13 +643,20 @@ const DashboardPage: React.FC = () => {
   const handleRecrawl = async () => {
     if (!reusePrompt) return;
     try {
+      // Reset ALL states before starting new crawl
       setReusePrompt(null);
       setLoading(true);
+      setError(null);
+      setStopping(false);
       setIsCrawling(true);
       setCrawlStatus('running');
+      setCurrentSessionId(null);
+      setCrawlStartTime(null);
       setLogs([]);
       setPages([]);
+      setPageCount(0);
       setCrawlStats(null);
+      setResult(null);
       // Start crawl with forceRecrawl
       const crawlResult = await startCrawl({
         url: reusePrompt.url,
@@ -657,10 +692,13 @@ const DashboardPage: React.FC = () => {
 
   // Handle selecting a crawl from history
   const handleSelectCrawl = async (crawlUrl: string, sessionId: number, aeoResult: any) => {
+    // Reset all states before loading a historical session
     setUrl(crawlUrl);
     setLoading(true);
     setError(null);
-    setCurrentSessionId(sessionId); // Set the session ID so components can access it
+    setStopping(false);
+    setCurrentSessionId(sessionId);
+    setReusePrompt(null);
 
     try {
       const sessionData = await getDataList({
@@ -676,7 +714,8 @@ const DashboardPage: React.FC = () => {
         setPages([]);
         setCrawlStats(null);
         setResult(null);
-        setRunCrawl(false);
+        setRunCrawl(true);
+        setCrawlStartTime(null);
         setLogs([{
           message: '🛑 Session was cancelled',
           timestamp: new Date().toLocaleTimeString()
@@ -862,6 +901,24 @@ const DashboardPage: React.FC = () => {
   };
 
   const handleLogout = async () => {
+    // Stop all running operations before logout
+    if (currentSessionId && (isCrawling || loading)) {
+      try {
+        await cancelAudits({
+          sessionId: currentSessionId,
+        }).unwrap();
+        
+        // Reset all states
+        setLoading(false);
+        setIsCrawling(false);
+        setCrawlStatus('idle');
+        setCurrentSessionId(null);
+        setCrawlStartTime(null);
+      } catch (err) {
+        console.error('Error stopping operations during logout:', err);
+      }
+    }
+    
     await logout();
     navigate('/');
   };

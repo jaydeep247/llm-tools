@@ -108,23 +108,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const logout = async () => {
-        // Cancel all running crawls/audits for this user (same as Stop button) before clearing session
-        const apiBase = import.meta.env.VITE_API_BASE_URL || '';
-        const cancelUrl = apiBase ? `${apiBase}/api/cancel-audits` : '/api/cancel-audits';
-        try {
-            await fetch(cancelUrl, {
-                method: 'POST',
-                credentials: 'include',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-                },
-                body: JSON.stringify({}),
-            });
-        } catch (err) {
-            console.error('Cancel-all on logout:', err);
-        }
-
         try {
             await logoutMutation().unwrap();
         } catch (error) {
