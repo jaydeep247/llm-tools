@@ -3,6 +3,12 @@ import { Page, Resource } from '../types.js';
 import type { ContentFingerprint, NearDuplicateMetrics, SimilarityResult } from '../../helpers/module_A/duplicateDetection/types.js';
 
 export class PageRepository {
+    findMany(arg0: { where: { sessionId: number; }; select: { id: boolean; url: boolean; title: boolean; description: boolean; }; take: number; }) {
+        throw new Error('Method not implemented.');
+    }
+    findBySessionId(arg0: number, arg1: number) {
+        throw new Error('Method not implemented.');
+    }
     constructor() { }
 
     private safeInt(val: any): number | null {

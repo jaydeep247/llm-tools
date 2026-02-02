@@ -11,13 +11,19 @@
     "docker:logs": "docker-compose logs -f",
     "install:all": "cd frontend && npm install && cd ../node-backend && npm install && cd ../py-backend && pip install -r requirements.txt",
     "build:frontend": "cd frontend && npm run build",
-  "build:backend": "cd node-backend && npm run build"
-},
-"description": "Contentlytics - Content Analytics & AEO Intelligence Platform (Monorepo)",
-"keywords": ["contentlytics", "aeo", "seo", "content-analytics", "crawler"],
-"author": "",
-"license": "ISC",
-"dependencies": {
+    "build:backend": "cd node-backend && npm run build"
+  },
+  "description": "Contentlytics - Content Analytics & AEO Intelligence Platform (Monorepo)",
+  "keywords": [
+    "contentlytics",
+    "aeo",
+    "seo",
+    "content-analytics",
+    "crawler"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/pg": "^8.16.0",
     "@types/react": "^19.1.13",
@@ -44,6 +50,7 @@
     "nodemailer": "^7.0.6",
     "normalize-url": "^8.1.0",
     "pg": "^8.16.3",
+    "puppeteer": "^24.36.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-router-dom": "^7.12.0",

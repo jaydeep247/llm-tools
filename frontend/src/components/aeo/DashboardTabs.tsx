@@ -10,6 +10,9 @@ import SchemaGenerator from './SchemaGenerator';
 import IntelligenceModule from './IntelligenceModule';
 import ModuleE from './ModuleE';
 import ContentMetrics from './ContentMetrics';
+import AnswerCompletenessScore from './AnswerCompletenessScore';
+import EntityExtractor from './EntityExtractor';
+
 
 interface Competitor {
   name: string;
@@ -62,6 +65,12 @@ interface DashboardTabsProps {
   // Content Metrics props
   contentMetrics?: any;
   entityMetrics?: any;
+  
+  // Answer Completeness props
+  answerCompletenessData?: any;
+  
+  // Entity Extractor props
+  entityData?: any;
 }
 
 const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
@@ -102,7 +111,9 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
     moduleEError,
     competitors,
     contentMetrics,
-    entityMetrics
+    entityMetrics,
+    answerCompletenessData,
+    entityData
   } = props;
 
   // Helper function to extract session ID (prioritizing prop sessionId, then result object)
@@ -229,6 +240,18 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
           className={`tab-button ${activeView === 'content_metrics' ? 'active' : ''}`}
         >
           📄 Content Metrics
+        </button>
+        <button
+          onClick={() => setActiveView('answer_completeness')}
+          className={`tab-button ${activeView === 'answer_completeness' ? 'active' : ''}`}
+        >
+          ✅ Answer Completeness
+        </button>
+        <button
+          onClick={() => setActiveView('entity_extractor')}
+          className={`tab-button ${activeView === 'entity_extractor' ? 'active' : ''}`}
+        >
+          🏷️ Entity Extractor
         </button>
       </div>
 
@@ -361,6 +384,18 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
         {activeView === 'content_metrics' && (
           <div className="content-metrics-content-embedded">
             <ContentMetrics contentMetrics={contentMetrics} entityMetrics={entityMetrics} />
+          </div>
+        )}
+
+        {activeView === 'answer_completeness' && (
+          <div className="content-metrics-content-embedded">
+            <AnswerCompletenessScore completenessData={answerCompletenessData} />
+          </div>
+        )}
+
+        {activeView === 'entity_extractor' && (
+          <div className="content-metrics-content-embedded">
+            <EntityExtractor entityData={entityData} />
           </div>
         )}
       </div>

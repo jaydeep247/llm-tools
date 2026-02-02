@@ -30,6 +30,10 @@ export class DatabaseService {
     public pages: PageRepository;
     public audits: AuditRepository;
     public serp: SerpRepository;
+    aeoAnalysisResults: any;
+    page: any;
+    aEOAnalysisResults: any;
+    session: any;
 
     // Expose Prisma client for direct database access
     public prisma = prisma;

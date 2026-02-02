@@ -33,7 +33,18 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
   const [showRecommendations, setShowRecommendations] = useState<string | null>(null);
   
   // Use custom hooks for better organization
-  const { scores, aiPlatforms, competitors, strategyMetrics, getModuleRecommendations, contentMetrics, entityMetrics } = useAEOData(result);
+  const aeoData = useAEOData(result);
+  const { scores, aiPlatforms, competitors, strategyMetrics, getModuleRecommendations, contentMetrics, entityMetrics, answerCompletenessData, entityData } = aeoData ?? {
+    scores: undefined,
+    aiPlatforms: undefined,
+    competitors: undefined,
+    strategyMetrics: undefined,
+    getModuleRecommendations: undefined,
+    contentMetrics: undefined,
+    entityMetrics: undefined,
+    answerCompletenessData: undefined,
+    entityData: undefined
+  };
   const {
     schemaData,
     schemaLoading,
@@ -264,20 +275,24 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
 
   return (
     <div className="aeo-dashboard">
-      <OverallScoreSection 
-        scores={scores}
-        result={result}
-      />
+      {scores && (
+        <OverallScoreSection 
+          scores={scores}
+          result={result}
+        />
+      )}
 
-      <DashboardCards
-        scores={scores}
-        aiPlatforms={aiPlatforms}
-        competitors={competitors}
-        strategyMetrics={strategyMetrics}
-        result={result}
-        getModuleRecommendations={getModuleRecommendations}
-        setShowRecommendations={setShowRecommendations}
-      />
+      {scores && (
+        <DashboardCards
+          scores={scores}
+          aiPlatforms={aiPlatforms || []}
+          competitors={competitors || []}
+          strategyMetrics={strategyMetrics || []}
+          result={result}
+          getModuleRecommendations={getModuleRecommendations || (() => [])}
+          setShowRecommendations={setShowRecommendations}
+        />
+      )}
 
       <DashboardTabs
         activeView={activeView}
@@ -317,12 +332,14 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
         competitors={competitors}
         contentMetrics={contentMetrics}
         entityMetrics={entityMetrics}
+        answerCompletenessData={answerCompletenessData}
+        entityData={entityData}
       />
 
       <RecommendationsModal
         showRecommendations={showRecommendations}
         setShowRecommendations={setShowRecommendations}
-        getModuleRecommendations={getModuleRecommendations}
+        getModuleRecommendations={getModuleRecommendations || (() => [])}
       />
     </div>
   );

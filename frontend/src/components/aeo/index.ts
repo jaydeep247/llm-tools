@@ -7,6 +7,7 @@ export { default as IntelligenceModule } from './IntelligenceModule';
 export { default as ModuleE } from './ModuleE';
 export { default as RecommendationsModal } from './RecommendationsModal';
 export { default as AISimulator } from './AISimulator';
+export { default as EntityExtractor } from './EntityExtractor';
 
 // Hooks
 export { useAEOData } from './useAEOData';
