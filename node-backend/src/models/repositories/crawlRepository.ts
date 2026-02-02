@@ -97,6 +97,17 @@ export class CrawlRepository {
         return sessions.map((session: any) => this.mapSession(session));
     }
 
+    /** Get running or auditing sessions that started before the given date (for timeout cleanup). */
+    async getRunningSessionsStartedBefore(cutoffDate: Date): Promise<CrawlSession[]> {
+        const sessions = await prisma.crawlSession.findMany({
+            where: {
+                status: { in: ['running', 'auditing'] },
+                startedAt: { lt: cutoffDate },
+            },
+        });
+        return sessions.map((session: any) => this.mapSession(session));
+    }
+
     async insertCrawlSchedule(data: Omit<CrawlSchedule, 'id'>): Promise<number> {
         const schedule = await prisma.crawlSchedule.create({
             data: {

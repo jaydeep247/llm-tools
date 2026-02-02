@@ -13,6 +13,7 @@ import { fileURLToPath } from 'url';
 import { Logger } from './helpers/logging/Logger.js';
 import { registerRoutes } from './config/routeRegistration.js';
 import { notFoundHandler, globalErrorHandler } from './middleware/errorHandler.js';
+import { startCrawlTimeoutScheduler } from './services/crawlTimeoutService.js';
 
 const logger = Logger.getInstance();
 
@@ -133,4 +134,6 @@ app.use(globalErrorHandler);
 app.listen(PORT, () => {
     logger.info(`Server started`, { port: PORT, environment: process.env.NODE_ENV || 'development' });
     console.log(`Server listening on http://localhost:${PORT}`);
+    // Start crawl timeout scheduler: cancel sessions that exceed CRAWL_COMPLETION_TIMEOUT_HOURS
+    startCrawlTimeoutScheduler();
 });

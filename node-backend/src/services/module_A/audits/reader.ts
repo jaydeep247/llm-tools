@@ -18,32 +18,43 @@ export type AuditSummary = {
 
 const BASE_DIR = path.resolve(process.cwd(), 'storage', 'audits');
 
-export async function listRecent(device: 'mobile' | 'desktop' | 'all' = 'all', limit = 100, sessionId?: number): Promise<AuditSummary[]> {
+export async function listRecent(
+    device: 'mobile' | 'desktop' | 'all' = 'all',
+    limit = 100,
+    sessionId?: number,
+    userId?: number
+): Promise<AuditSummary[]> {
     const db = getDatabase();
 
-    // Query from database
     let results: any[];
 
-    if (sessionId) {
+    if (sessionId != null) {
+        // Session-scoped: caller must have already verified the session belongs to the user
         results = await db.getAuditResultsBySessionId(sessionId, device, limit);
+    } else if (userId != null) {
+        // User-scoped: only audits for this user's crawl sessions
+        results = await db.getAuditResultsForUser(userId, device, limit);
     } else {
-        results = await db.getAuditResults(device, limit);
+        results = [];
     }
 
-    // Convert to AuditSummary format
-    return results.map((row) => ({
-        id: `${row.id}`,
-        url: row.url,
-        device: row.device,
-        runAt: row.run_at,
-        LCP_ms: row.lcp_ms,
-        TBT_ms: row.tbt_ms,
-        CLS: row.cls,
-        FCP_ms: row.fcp_ms,
-        TTFB_ms: row.ttfb_ms,
-        performanceScore: row.performance_score,
-        psiReportUrl: row.psi_report_url
-    }));
+    return results.map((row) => {
+        const runAt = row.runAt ?? row.run_at;
+        const runAtStr = runAt == null ? '' : runAt instanceof Date ? runAt.toISOString() : String(runAt);
+        return {
+            id: `${row.id}`,
+            url: row.url,
+            device: row.device,
+            runAt: runAtStr,
+            LCP_ms: row.lcpMs ?? row.lcp_ms,
+            TBT_ms: row.tbtMs ?? row.tbt_ms,
+            CLS: row.cls,
+            FCP_ms: row.fcpMs ?? row.fcp_ms,
+            TTFB_ms: row.ttfbMs ?? row.ttfb_ms,
+            performanceScore: row.performanceScore ?? row.performance_score,
+            psiReportUrl: row.psiReportUrl ?? row.psi_report_url
+        };
+    });
 }
 
 export async function getById(id: string): Promise<any | null> {
@@ -53,12 +64,14 @@ export async function getById(id: string): Promise<any | null> {
     if (!isNaN(numId)) {
         const result = await db.getAuditResultById(numId);
         if (result) {
+            const runAt = result.runAt ?? result.run_at;
+            const runAtStr = runAt == null ? '' : runAt instanceof Date ? runAt.toISOString() : String(runAt);
             return {
                 url: result.url,
                 device: result.device,
-                runAt: result.run_at,
-                metrics: result.metrics_json || {},
-                raw: result.raw_json || null
+                runAt: runAtStr,
+                metrics: result.metrics_json ?? result.metricsJson ?? {},
+                raw: result.raw_json ?? result.rawJson ?? null
             };
         }
     }

@@ -22,6 +22,7 @@ import { canonicalizeUrl, isSameSite } from '../../utils/url.js';
 
 import { markSitemapUrlAsCrawled, calculatePageCarbonFootprint } from '../modules/module_D/index.js';
 import { enqueueSeoIfEligible } from '../modules/module_B/index.js';
+import { CRAWL_COMPLETION_TIMEOUT_MS, CRAWL_COMPLETION_TIMEOUT_HOURS } from '../../config/appConfig.js';
 
 import type { CrawlEvents } from '../types/index.js';
 
@@ -71,6 +72,19 @@ export function createRequestHandler(context: RequestHandlerContext): CheerioCra
         if (cancellationManager.isCancelled(sessionId)) {
             reqLog.info(`[requestHandler] Request ${url} skipped - session ${sessionId} cancelled`);
             return; // Skip processing this request
+        }
+
+        // Check crawl completion timeout (session running longer than CRAWL_COMPLETION_TIMEOUT_HOURS)
+        const session = await db.getCrawlSession(sessionId);
+        if (session?.startedAt) {
+            const startedAt = typeof session.startedAt === 'string' ? new Date(session.startedAt).getTime() : (session.startedAt as Date).getTime();
+            const elapsed = Date.now() - startedAt;
+            if (elapsed >= CRAWL_COMPLETION_TIMEOUT_MS) {
+                reqLog.info(`[requestHandler] Session ${sessionId} timed out after ${(elapsed / 3600000).toFixed(1)}h`);
+                events.onLog?.(`⏱ Crawl timed out (exceeded ${CRAWL_COMPLETION_TIMEOUT_HOURS} hour limit)`);
+                await cancellationManager.timeoutCrawl(sessionId, CRAWL_COMPLETION_TIMEOUT_HOURS);
+                return;
+            }
         }
 
         // Handle HTTP errors

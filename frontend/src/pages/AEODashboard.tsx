@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './AEODashboard.css';
-import { useLazyGetWebsiteScoreQuery, useSimulateAnswerMutation, useAnalyzeBulkMutation } from '../store/api/module_C/aeoApi';
+import { useLazyGetWebsiteScoreQuery, useAnalyzeBulkMutation } from '../store/api/module_C/aeoApi';
 import {
   OverallScoreSection,
   DashboardCards,
@@ -11,6 +11,7 @@ import {
   AEODashboardProps,
   ActiveView
 } from '../components/aeo';
+import { getApiErrorMessage } from '../utils';
 
 
 
@@ -25,7 +26,8 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
   crawlStats = null,
   logs = [],
   discoveredPages = [],
-  sessionId
+  sessionId,
+  crawlStartTime: crawlStartTimeProp
 }) => {
   const [activeView, setActiveView] = useState<ActiveView>(runCrawl ? 'crawler' : 'data');
   const [showRecommendations, setShowRecommendations] = useState<string | null>(null);
@@ -45,11 +47,6 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
     copySchemaToClipboard
   } = useSchemaGenerator();
 
-  // Simulator State
-  const [simulationQuery, setSimulationQuery] = useState('');
-  const [simulationResults, setSimulationResults] = useState<any>(null);
-  const [simulationLoading, setSimulationLoading] = useState(false);
-
   // Module E State
   const [moduleEScores, setModuleEScores] = useState<any>(null);
   const [moduleELoading, setModuleELoading] = useState(false);
@@ -61,20 +58,19 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkResults, setBulkResults] = useState<any>(null);
 
-  // Live timer state
-  const [crawlStartTime, setCrawlStartTime] = useState<number | null>(null);
+  // Live timer state: use parent's crawlStartTime when provided (persists across refresh), else local
+  const [crawlStartTimeLocal, setCrawlStartTimeLocal] = useState<number | null>(null);
   const [currentTime, setCurrentTime] = useState(Date.now());
+  const crawlStartTime = crawlStartTimeProp != null ? crawlStartTimeProp : crawlStartTimeLocal;
 
-  // Track crawl start time when crawling begins
+  // Track crawl start time when crawling begins (only set local when parent doesn't provide)
   useEffect(() => {
     const isActive = isCrawling || crawlStatus === 'running' || crawlStatus === 'auditing';
     
-    if (isActive && !crawlStartTime) {
-      // Crawl just started - record start time
-      setCrawlStartTime(Date.now());
-    } else if (!isActive && crawlStartTime) {
-      // Crawl stopped - clear start time
-      setCrawlStartTime(null);
+    if (isActive && crawlStartTime == null) {
+      setCrawlStartTimeLocal(Date.now());
+    } else if (!isActive) {
+      setCrawlStartTimeLocal(null);
     }
   }, [isCrawling, crawlStatus, crawlStartTime]);
 
@@ -136,7 +132,6 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
   };
 
   const [getWebsiteScore] = useLazyGetWebsiteScoreQuery();
-  const [simulateAnswer] = useSimulateAnswerMutation();
   const [analyzeBulk] = useAnalyzeBulkMutation();
 
   const analyzeWebsiteScores = async () => {
@@ -153,8 +148,8 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
       } else {
         setModuleEError(data.error || 'Analysis failed');
       }
-    } catch (e: any) {
-      setModuleEError(e?.data?.error || e?.message || 'Analysis failed');
+    } catch (e: unknown) {
+      setModuleEError(getApiErrorMessage(e, 'Analysis failed'));
     } finally {
       setModuleELoading(false);
     }
@@ -188,8 +183,8 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
 
     if (!hasAnyFromResult) return;
 
-    setModuleEScores((prev) => {
-      const next = { ...prev };
+    setModuleEScores((prev: Record<string, unknown> | null) => {
+      const next = prev ? { ...prev } : {};
       if (fromResult.consistency !== undefined) next.consistency = fromResult.consistency;
       if (fromResult.entity_coverage != null) next.entity_coverage = fromResult.entity_coverage;
       if (fromResult.brand_metrics != null) next.brand_metrics = fromResult.brand_metrics;
@@ -198,23 +193,6 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
     });
   }, [result]);
 
-  const handleSimulation = async () => {
-    if (!simulationQuery) return;
-    setSimulationLoading(true);
-    try {
-      const response = await simulateAnswer({
-        url,
-        query: simulationQuery,
-      }).unwrap();
-      setSimulationResults(response.results);
-    } catch (error) {
-      console.error("Simulation failed:", error);
-    } finally {
-      setSimulationLoading(false);
-    }
-  };
-
-  // Find this function in your code and replace it
   const handleBulkAnalyze = async () => {
     // 1. Validate Input
     const cleanedUrl = sitemapUrl.trim();
@@ -230,9 +208,10 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
       }).unwrap();
       // 2. Safe Unwrapping: Handle if backend returns { data: ... } or just the data directly
       setBulkResults(response.data || response);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Bulk analysis failed:", error);
-      alert("Bulk analysis failed. Check console for details.");
+      const msg = getApiErrorMessage(error, 'Bulk analysis failed.');
+      alert(msg);
     } finally {
       setBulkLoading(false);
     }
@@ -336,11 +315,6 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
         moduleELoading={moduleELoading}
         moduleEError={moduleEError}
         competitors={competitors}
-        simulationQuery={simulationQuery}
-        setSimulationQuery={setSimulationQuery}
-        simulationResults={simulationResults}
-        simulationLoading={simulationLoading}
-        handleSimulation={handleSimulation}
         contentMetrics={contentMetrics}
         entityMetrics={entityMetrics}
       />

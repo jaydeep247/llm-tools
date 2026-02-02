@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Navbar } from '../components/ui/navbar/Navbar';
+import { Footer } from '../components/ui/footer/Footer';
 import AEODashboard from './AEODashboard';
 import { AnalysisResult } from '../services/api/api';
 import { useLazyGetDataListQuery, useLazyGetAeoResultsQuery } from '../store/api';
 import { ErrorDisplay } from '../components/ui/app/ErrorDisplay/ErrorDisplay';
+import { getApiErrorMessage } from '../utils';
 
 const HistoryDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -31,6 +33,8 @@ const HistoryDetailPage: React.FC = () => {
     duration: number;
     pagesPerSecond: number;
   } | null>(null);
+  /** Crawl start time (ms) for elapsed timer - set from session.startedAt when loading running session */
+  const [crawlStartTime, setCrawlStartTime] = useState<number | null>(null);
 
   // Load session data on mount
   useEffect(() => {
@@ -71,6 +75,7 @@ const HistoryDetailPage: React.FC = () => {
         setCrawlStats(null);
         setResult(null);
         setRunCrawl(false);
+        setCrawlStartTime(null);
         setLogs([{
           message: '🛑 Session was cancelled',
           timestamp: new Date().toLocaleTimeString()
@@ -134,6 +139,12 @@ const HistoryDetailPage: React.FC = () => {
         const sessionStatus = sessionData.session?.status || 'completed';
         setIsCrawling(sessionStatus === 'running' || sessionStatus === 'auditing');
         setCrawlStatus(sessionStatus as 'running' | 'auditing' | 'completed' | 'cancelled');
+        if (sessionStatus === 'running' || sessionStatus === 'auditing') {
+          const startedAt = sessionData.session?.startedAt ?? (sessionData.session as any)?.started_at;
+          if (startedAt) setCrawlStartTime(new Date(startedAt).getTime());
+        } else {
+          setCrawlStartTime(null);
+        }
       } else {
         setCrawlStats({
           count: totalPages,
@@ -142,6 +153,7 @@ const HistoryDetailPage: React.FC = () => {
         });
         setIsCrawling(false);
         setCrawlStatus('completed');
+        setCrawlStartTime(null);
       }
 
       // Fetch AEO result for this session
@@ -206,9 +218,9 @@ const HistoryDetailPage: React.FC = () => {
       setResult(restoredResult);
       setRunCrawl(true);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[HistoryDetailPage] Failed to load session data:', error);
-      setError(`Failed to load session data: ${error.message}`);
+      setError(getApiErrorMessage(error, 'Failed to load session data'));
     } finally {
       setLoading(false);
     }
@@ -249,7 +261,7 @@ const HistoryDetailPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-black aeo-dark" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.1) 1px, transparent 0)', backgroundSize: '20px 20px' }}>
+    <div className="min-h-screen bg-black aeo-dark flex flex-col" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.1) 1px, transparent 0)', backgroundSize: '20px 20px' }}>
       <Navbar
         user={user}
         isAuthenticated={isAuthenticated}
@@ -258,6 +270,7 @@ const HistoryDetailPage: React.FC = () => {
         currentView={window.location.pathname}
       />
 
+      <main className="flex-1">
       <div className="container mx-auto px-4 py-8">
         {/* Header with back button */}
         <div className="mb-6 flex items-center justify-between">
@@ -300,6 +313,7 @@ const HistoryDetailPage: React.FC = () => {
               logs={logs}
               discoveredPages={pages}
               sessionId={id ? parseInt(id, 10) : null}
+              crawlStartTime={crawlStartTime}
             />
           </div>
         )}
@@ -312,6 +326,8 @@ const HistoryDetailPage: React.FC = () => {
           </div>
         )}
       </div>
+      </main>
+      <Footer />
     </div>
   );
 };

@@ -22,8 +22,8 @@ export const UserInfo: React.FC<UserInfoProps> = ({ user, onNavigate }) => {
   const roleBadge = getRoleBadge(user.role);
 
   const handleClick = () => {
-    navigate('/dashboard');
-    onNavigate('dashboard');
+    navigate('/profile');
+    onNavigate('profile');
   };
 
   return (

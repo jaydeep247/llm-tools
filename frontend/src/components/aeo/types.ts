@@ -86,6 +86,8 @@ export interface AEODashboardProps {
   } | null;
   logs?: { message: string; timestamp: string }[];
   discoveredPages?: any[];
+  /** Crawl start time (ms) from parent - used so timer survives refresh/page change */
+  crawlStartTime?: number | null;
 }
 
 export type ActiveView = 'crawler' | 'data' | 'links' | 'tree' | 'audits' | 'schema' | 'intelligence' | 'simulator' | 'page_metrics' | 'wordcount_analysis' | 'broken_links' | 'module_e' | 'content_metrics';

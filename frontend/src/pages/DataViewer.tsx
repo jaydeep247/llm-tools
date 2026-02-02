@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLazyGetDataListQuery, useLazyExportDataQuery } from '../store/api/module_A/dataApi';
+import { getApiErrorMessage } from '../utils';
 import './DataViewer.css';
 
 interface CrawlData {
@@ -129,16 +130,17 @@ const DataViewer: React.FC<DataViewerProps> = ({ onClose, initialSessionId }) =>
         setData(items);
       }
       setServerOffset((opts?.append ? serverOffset : 0) + items.length);
-    } catch (error: any) {
-      const errorMsg = error?.data?.message || error?.message || 'Failed to load data';
+    } catch (error: unknown) {
+      const errorMsg = getApiErrorMessage(error, 'Failed to load data');
+      const err = error as { status?: number };
       console.error('[DataViewer] Error loading data:', errorMsg);
       
-      if (error?.status === 401) {
-        setError('Authentication failed. Please log in again.');
-      } else if (error?.status === 403) {
-        setError('You do not have permission to access this session.');
-      } else if (error?.status === 404) {
-        setError('Session not found. It may have been deleted.');
+      if (err?.status === 401) {
+        setError(getApiErrorMessage(error, 'Authentication failed. Please log in again.'));
+      } else if (err?.status === 403) {
+        setError(getApiErrorMessage(error, 'You do not have permission to access this session.'));
+      } else if (err?.status === 404) {
+        setError(getApiErrorMessage(error, 'Session not found. It may have been deleted.'));
       } else {
         setError(errorMsg);
       }

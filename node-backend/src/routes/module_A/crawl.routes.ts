@@ -29,7 +29,7 @@ router.post('/crawl',
     checkUsageLimit('crawl'),      // Check daily usage limit
     async (req: Request, res: Response) => {
         const { url, allowSubdomains, maxConcurrency, mode, runAudits, auditDevice, captureLinkDetails, forceRecrawl } = req.body ?? {};
-        if (!url) return res.status(400).json({ error: 'url is required' });
+        if (!url) return res.status(400).json({ error: 'url is required', message: 'Please enter a URL to analyze.' });
 
         // When forceRecrawl is true, log it to help debug any issues
         if (forceRecrawl) {
@@ -45,11 +45,50 @@ router.post('/crawl',
 
         const safeUrl = normalizeUrlInput(url);
         try {
-            // Validate
+            // Validate URL format
             // eslint-disable-next-line no-new
             new URL(safeUrl);
         } catch {
-            return res.status(400).json({ error: 'Invalid URL. Please include a valid domain (e.g. https://example.com)' });
+            return res.status(400).json({ error: 'Invalid URL. Please include a valid domain (e.g. https://example.com)', message: 'Invalid URL. Please include a valid domain (e.g. https://example.com).' });
+        }
+
+        // Verify the website exists and is reachable before creating any session
+        const URL_REACHABILITY_TIMEOUT_MS = 12000;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), URL_REACHABILITY_TIMEOUT_MS);
+        try {
+            const headResponse = await fetch(safeUrl, {
+                method: 'HEAD',
+                signal: controller.signal,
+                redirect: 'follow',
+                headers: { 'User-Agent': 'Contentlytics-Crawler/1.0 (URL validation)' },
+            });
+            clearTimeout(timeoutId);
+            if (!headResponse.ok && headResponse.status !== 405) {
+                const getController = new AbortController();
+                const getTimeoutId = setTimeout(() => getController.abort(), URL_REACHABILITY_TIMEOUT_MS);
+                const getResponse = await fetch(safeUrl, {
+                    method: 'GET',
+                    signal: getController.signal,
+                    redirect: 'follow',
+                    headers: { 'User-Agent': 'Contentlytics-Crawler/1.0 (URL validation)' },
+                }).catch(() => null);
+                clearTimeout(getTimeoutId);
+                if (!getResponse?.ok) {
+                    return res.status(400).json({
+                        error: 'URL is not reachable',
+                        message: `The website at ${safeUrl} could not be reached (HTTP ${headResponse.status}). Please check that the URL is correct and the website is online.`,
+                    });
+                }
+            }
+        } catch (reachError: any) {
+            clearTimeout(timeoutId);
+            const isAbort = reachError?.name === 'AbortError';
+            const msg = isAbort
+                ? `The website at ${safeUrl} did not respond in time. Please check that the URL is correct and the website is online.`
+                : `The website at ${safeUrl} could not be reached. Please check that the URL is correct and the website exists (e.g. DNS or connection error).`;
+            logger.warn('URL reachability check failed', { url: safeUrl, error: reachError?.message });
+            return res.status(400).json({ error: 'URL is not reachable', message: msg });
         }
 
         const userId = req.user!.userId; // Get authenticated user ID
