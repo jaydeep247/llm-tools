@@ -7,10 +7,11 @@ import express from 'express';
 import { monitoringRoutes } from '../routes/module_D/index.js';
 import { auditsRoutes, linksRoutes, linkScoreRoutes, auditRoutes, crawlerRoutes, auditActionsRoutes, crawlRoutes, auditCheckerRoutes, serpRoutes, pageContentRoutes } from '../routes/module_A/index.js';
 import { seoRoutes } from '../routes/module_B/index.js';
-import { aeoRoutes } from '../routes/module_C/index.js';
+import { aeoRoutes, entityExtractorRoutes } from '../routes/module_C/index.js';
 import { sentimentRoutes } from '../routes/module_E/index.js';
 import { schedulerRoutes } from '../routes/module_D/index.js';
-import { answerCompletenessRoutes } from '../routes/module_C/answerCompleteness.routes.js';import sseRoutes from '../routes/sse.routes.js';
+import { answerCompletenessRoutes } from '../routes/module_C/answerCompleteness.routes.js';
+import sseRoutes from '../routes/sse.routes.js';
 import authRoutes from '../routes/auth.routes.js';
 
 /**
@@ -36,6 +37,9 @@ export function registerRoutes(app: express.Application): void {
 
     // Module C: AI Intelligence
     app.use('/api/aeo', aeoRoutes);
+
+    // Entity Extractor
+    app.use('/api/entity-extractor', entityExtractorRoutes);
 
     // Answer Completeness Analysis
     app.use('/api/answer-completeness', answerCompletenessRoutes);

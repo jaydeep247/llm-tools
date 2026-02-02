@@ -1,8 +1,51 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { apiService } from '../../services/api/api';
 import { AEOScore, AIPlatform, Competitor, StrategyMetric } from './types';
 
 export const useAEOData = (result: any) => {
+  // Add state for historical entity data fetching
+  const [historicalEntityData, setHistoricalEntityData] = useState<any>(null);
+  const [fetchingHistoricalData, setFetchingHistoricalData] = useState(false);
+
+  // Fetch entity data for historical results that don't have entity_extraction
+  useEffect(() => {
+    const fetchHistoricalEntityData = async () => {
+      // Only fetch if we have a result with URL but no entity_extraction
+      if (!result || !result.url || result.entity_extraction || fetchingHistoricalData) return;
+      
+      try {
+        setFetchingHistoricalData(true);
+        
+        
+        const response = await fetch('/api/entity-extractor/analyze-url', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+          },
+          body: JSON.stringify({
+            url: result.url,
+            expectedEntities: ['brand name', 'contact information', 'key features', 'product name', 'company name']
+          })
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data) {
+            setHistoricalEntityData(data.data);
+          }
+        } 
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setFetchingHistoricalData(false);
+      }
+    };
+
+    fetchHistoricalEntityData();
+  }, [result?.url, result?.entity_extraction]);
+
+
   const getAIPlatforms = (): AIPlatform[] => {
     if (!result || !result.detailed_analysis?.ai_presence) {
       return [
@@ -382,17 +425,87 @@ export const useAEOData = (result: any) => {
     if (result?.detailed_analysis) {
       const analysis = result.detailed_analysis;
       
-      // Calculate completeness from knowledge base entity coverage
-      const kbData = analysis.knowledge_base;
-      const ecData = kbData?.entity_coverage;
+      // Calculate completeness from entity extraction data (new approach)
+      let foundEntities = [];
+      let missingEntities = [];
+      let completenessPercentage = 0;
       
-      let foundEntities = ecData?.found_entities || [];
-      let missingEntities = ecData?.missing_entities || [];
-      
-      const totalEntities = foundEntities.length + missingEntities.length;
-      const completenessPercentage = totalEntities > 0 
-        ? Math.round((foundEntities.length / totalEntities) * 100) 
-        : 0;
+      // Try to use entity extraction data first
+      if (result.entity_extraction) {
+        const entityData = result.entity_extraction;
+        foundEntities = entityData.extractedEntities || [];
+        missingEntities = entityData.missingExpectedEntities || [];
+        
+        const totalExpected = foundEntities.length + missingEntities.length;
+        if (totalExpected > 0) {
+          completenessPercentage = Math.round((foundEntities.length / totalExpected) * 100);
+        } else if (foundEntities.length > 0) {
+          // If we have entities but no expected entities defined, base it on detection count
+          completenessPercentage = Math.min(Math.round(foundEntities.length * 10), 100); // 10% per entity, max 100%
+        }
+      } else {
+        // Fallback to knowledge base entity coverage if available
+        const kbData = analysis.knowledge_base;
+        
+        // Try entity_coverage structure first
+        const ecData = kbData?.entity_coverage;
+        
+        if (ecData && (ecData.found_entities?.length > 0 || ecData.missing_entities?.length > 0)) {
+          // Use entity_coverage if it has data
+          foundEntities = ecData.found_entities || [];
+          missingEntities = ecData.missing_entities || [];
+        } else if (kbData?.entities && kbData?.entities_count > 0) {
+          // Use direct entities from knowledge base
+          const entitiesObj = kbData.entities;
+          foundEntities = [];
+          
+          // Extract entity names from different possible structures
+          if (typeof entitiesObj === 'object') {
+            // Try different possible structures
+            if (Array.isArray(entitiesObj)) {
+              foundEntities = entitiesObj.map(e => typeof e === 'string' ? e : e.name || e.text || 'Entity');
+            } else {
+              // If it's an object, try to extract values or keys
+              const entityKeys = Object.keys(entitiesObj);
+              const entityValues = Object.values(entitiesObj);
+              
+              // Use keys as entity names if they look like meaningful names
+              if (entityKeys.length > 0 && entityKeys.some(key => isNaN(parseInt(key)) && key.length > 2)) {
+                foundEntities = entityKeys.filter(key => key && key.length > 1);
+              } else if (entityValues.length > 0) {
+                // Try to extract from values
+                foundEntities = entityValues.map((value: any) => {
+                  if (typeof value === 'string' && value.length > 1) return value;
+                  if (typeof value === 'object' && value?.name) return value.name;
+                  if (typeof value === 'object' && value?.text) return value.text;
+                  return null;
+                }).filter(Boolean);
+              }
+              
+              // If still no meaningful entities, create generic ones based on available data
+              if (foundEntities.length === 0) {
+                foundEntities = entityKeys.slice(0, Math.min(kbData.entities_count, 10))
+                  .map(key => `Entity: ${key}`)
+                  .filter(name => name !== 'Entity: ');
+              }
+            }
+          }
+          
+          // Final fallback: create generic entities based on count
+          if (foundEntities.length === 0 && kbData.entities_count > 0) {
+            for (let i = 0; i < Math.min(kbData.entities_count, 10); i++) {
+              foundEntities.push(`Detected Entity ${i + 1}`);
+            }
+          }
+          
+          missingEntities = []; // No missing entities data in this structure
+        }
+        
+        const totalEntities = foundEntities.length + missingEntities.length;
+        completenessPercentage = totalEntities > 0 
+          ? Math.round((foundEntities.length / totalEntities) * 100) 
+          : (foundEntities.length > 0 ? Math.min(foundEntities.length * 15, 100) : 0);
+      }
       
       // Calculate depth score from answerability module
       const answerabilityScore = result.module_scores?.answerability || 0;
@@ -404,10 +517,27 @@ export const useAEOData = (result: any) => {
       const contentMetrics = analysis.content_metrics;
       const relevanceScore = contentMetrics?.prompt_intent_match || answerabilityScore;
       
-      // Calculate overall score
-      const overallScore = Math.round(
-        (completenessPercentage + answerabilityScore + structuredDataScore + relevanceScore) / 4
-      );
+      // Calculate overall score with improved logic
+      let overallScore;
+      if (completenessPercentage >= 80) {
+        // If completeness is high, give it more weight and provide reasonable fallbacks
+        const effectiveAnswerability = answerabilityScore || Math.min(completenessPercentage - 20, 60);
+        const effectiveStructuredData = structuredDataScore || Math.min(completenessPercentage - 30, 50);
+        const effectiveRelevance = relevanceScore || effectiveAnswerability;
+        
+        overallScore = Math.round(
+          (completenessPercentage * 0.4 + effectiveAnswerability * 0.3 + effectiveStructuredData * 0.2 + effectiveRelevance * 0.1)
+        );
+      } else {
+        // For lower completeness, use standard averaging but with minimum thresholds
+        const effectiveAnswerability = Math.max(answerabilityScore, completenessPercentage * 0.6);
+        const effectiveStructuredData = Math.max(structuredDataScore, completenessPercentage * 0.5);
+        const effectiveRelevance = Math.max(relevanceScore, effectiveAnswerability);
+        
+        overallScore = Math.round(
+          (completenessPercentage + effectiveAnswerability + effectiveStructuredData + effectiveRelevance) / 4
+        );
+      }
       
       // Generate recommendations based on missing aspects
       const recommendations = [];
@@ -424,8 +554,12 @@ export const useAEOData = (result: any) => {
       return {
         overall_score: overallScore,
         completeness_percentage: completenessPercentage,
-        key_aspects_covered: foundEntities.map((e: any) => typeof e === 'string' ? e : e.name || 'Entity'),
-        missing_aspects: missingEntities.map((e: any) => typeof e === 'string' ? e : e.name || 'Entity'),
+        key_aspects_covered: foundEntities.map((e: any) => 
+          typeof e === 'string' ? e : e.text || e.name || 'Entity'
+         ),
+        missing_aspects: missingEntities.map((e: any) => 
+          typeof e === 'string' ? e : e.text || e.name || 'Entity'
+        ),
         depth_score: Math.round(answerabilityScore),
         breadth_score: Math.round(structuredDataScore),
         relevance_score: Math.round(relevanceScore),
@@ -445,101 +579,35 @@ export const useAEOData = (result: any) => {
         recommendations: []
       };
     };
-  const getEntityData = () => {
-    if (!result || !result.detailed_analysis) {
-      return undefined;
-    }
-
-    const analysis = result.detailed_analysis;
-
-    // Extract entities from various sources
-    const entityData: any = {
-      entities: [],
-      total_entities: 0,
-      entity_types: [],
-      entity_coverage: {
-        found_entities: [],
-        missing_entities: []
-      },
-      named_entities: {},
-      semantic_entities: []
-    };
-
-    // 1. Entity coverage from module C
-    if (analysis.entity_coverage) {
-      const coverage = analysis.entity_coverage;
+  const getEntityData = useMemo(() => {
+    // Check if we have entity extraction data from the AEO result (integrated)
+    if (result && result.entity_extraction) {
+      const entityExtraction = result.entity_extraction;
       
-      if (coverage.found_entities && Array.isArray(coverage.found_entities)) {
-        entityData.entity_coverage.found_entities = coverage.found_entities.map((e: any) => ({
-          name: e.name || e,
-          type: 'found',
-          confidence: e.confidence || 0.9
-        }));
-      }
-
-      if (coverage.missing_entities && Array.isArray(coverage.missing_entities)) {
-        entityData.entity_coverage.missing_entities = coverage.missing_entities.map((e: any) => ({
-          name: e.name || e,
-          type: 'missing',
-          confidence: e.confidence || 0.5
-        }));
-      }
+      return {
+        totalEntitiesDetected: entityExtraction.totalEntitiesDetected || 0,
+        entityTypes: entityExtraction.entityTypes || {
+          Person: 0,
+          Product: 0,
+          Location: 0,
+          Concept: 0
+        },
+        missingExpectedEntities: entityExtraction.missingExpectedEntities || [],
+        extractedEntities: entityExtraction.extractedEntities || [],
+        overallScore: entityExtraction.overallScore || 0
+      };
     }
 
-    // 2. Named entities (NER)
-    if (analysis.named_entities && typeof analysis.named_entities === 'object') {
-      const nerData = analysis.named_entities;
-      Object.entries(nerData).forEach(([type, entities]: [string, any]) => {
-        if (Array.isArray(entities)) {
-          entityData.named_entities[type] = entities.map((e: any) => ({
-            name: typeof e === 'string' ? e : e.name || e.text,
-            type: type,
-            confidence: e.confidence || e.score || 0.85,
-            frequency: e.frequency || 1
-          }));
-        }
-      });
+    // Check if we have historical entity data fetched separately
+    if (historicalEntityData) {
+      return historicalEntityData;
     }
 
-    // 3. Semantic entities
-    if (analysis.semantic_entities && Array.isArray(analysis.semantic_entities)) {
-      entityData.semantic_entities = analysis.semantic_entities.map((e: any) => ({
-        name: e.name || e,
-        type: 'semantic',
-        confidence: e.confidence || 0.8,
-        frequency: e.frequency || 1
-      }));
+    // Show loading state while fetching historical data
+    if (fetchingHistoricalData) {
+      return null; // This will show loading state
     }
-
-    // 4. Combine all entities
-    const allEntities = [
-      ...entityData.entity_coverage.found_entities,
-      ...entityData.entity_coverage.missing_entities,
-      ...Object.values(entityData.named_entities).flat() as any[],
-      ...entityData.semantic_entities
-    ];
-
-    // Remove duplicates by name
-    const uniqueEntities: any[] = [];
-    const seen = new Set<string>();
-
-    allEntities.forEach(entity => {
-      if (!seen.has(entity.name.toLowerCase())) {
-        seen.add(entity.name.toLowerCase());
-        uniqueEntities.push(entity);
-      }
-    });
-
-    entityData.entities = uniqueEntities;
-    entityData.total_entities = uniqueEntities.length;
-    
-    // Extract unique entity types
-    const types = new Set<string>();
-    uniqueEntities.forEach(e => types.add(e.type));
-    entityData.entity_types = Array.from(types);
-
-    return entityData.total_entities > 0 ? entityData : undefined;
-  };
+  }, [result?.entity_extraction, result?.url, historicalEntityData, fetchingHistoricalData]); // Include historical data in dependencies
 
   return {
     scores: getScores(),
@@ -550,6 +618,6 @@ export const useAEOData = (result: any) => {
     contentMetrics: getContentMetrics(),
     entityMetrics: getEntityMetrics(),
     answerCompletenessData: getAnswerCompletenessData(),
-    entityData: getEntityData()
+    entityData: getEntityData
   };
 };

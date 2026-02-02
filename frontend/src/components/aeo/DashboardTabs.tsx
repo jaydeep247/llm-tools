@@ -12,6 +12,7 @@ import ModuleE from './ModuleE';
 import AISimulator from './AISimulator';
 import ContentMetrics from './ContentMetrics';
 import AnswerCompletenessScore from './AnswerCompletenessScore';
+import EntityExtractor from './EntityExtractor';
 
 
 interface Competitor {
@@ -73,8 +74,11 @@ interface DashboardTabsProps {
   contentMetrics?: any;
   entityMetrics?: any;
   
-  // Answer Completeness Score props
+  // Answer Completeness props
   answerCompletenessData?: any;
+  
+  // Entity Extractor props
+  entityData?: any;
 }
 
 const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
@@ -121,7 +125,8 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
     handleSimulation,
     contentMetrics,
     entityMetrics,
-    answerCompletenessData
+    answerCompletenessData,
+    entityData
   } = props;
 
   // Helper function to extract session ID (prioritizing prop sessionId, then result object)
@@ -260,6 +265,12 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
           className={`tab-button ${activeView === 'answer_completeness' ? 'active' : ''}`}
         >
           ✅ Answer Completeness
+        </button>
+        <button
+          onClick={() => setActiveView('entity_extractor')}
+          className={`tab-button ${activeView === 'entity_extractor' ? 'active' : ''}`}
+        >
+          🏷️ Entity Extractor
         </button>
       </div>
 
@@ -408,6 +419,12 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
         {activeView === 'answer_completeness' && (
           <div className="content-metrics-content-embedded">
             <AnswerCompletenessScore completenessData={answerCompletenessData} />
+          </div>
+        )}
+
+        {activeView === 'entity_extractor' && (
+          <div className="content-metrics-content-embedded">
+            <EntityExtractor entityData={entityData} />
           </div>
         )}
       </div>

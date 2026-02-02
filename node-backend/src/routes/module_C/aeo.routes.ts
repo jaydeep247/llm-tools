@@ -3,6 +3,7 @@ import { MultiModelScoringService } from '../../helpers/module_E/MultiModelScori
 import { aeoMetricsRepository } from '../../models/repositories/aeoMetricsRepository.js';
 import { Logger } from '../../helpers/logging/Logger.js';
 import { authenticateUser, checkUsageLimit } from '../../middleware/authMiddleware.js';
+import { EntityExtractorService } from '../../services/EntityExtractorService.js';
 
 const router = express.Router();
 const logger = Logger.getInstance();
@@ -66,6 +67,33 @@ router.post('/analyze',
                 hasResults: !!data.results,
                 error: data.error
             });
+
+            // Add entity extraction to the AEO results
+            if (data.success && data.results && req.body.url) {
+                try {
+                    logger.info('Running entity extraction for URL', { url: req.body.url });
+                    
+                    // Fetch content and extract entities
+                    const urlResponse = await fetch(req.body.url);
+                    if (urlResponse.ok) {
+                        const content = await urlResponse.text();
+                        const extractedEntities = EntityExtractorService.extractEntities(
+                            content,
+                            ['brand name', 'contact information', 'key features', 'product name', 'company name']
+                        );
+                        
+                        // Add entity data to the AEO results
+                        data.results.entity_extraction = extractedEntities;
+                        
+                        logger.info('Entity extraction completed', {
+                            totalEntities: extractedEntities.totalEntitiesDetected,
+                            score: extractedEntities.overallScore
+                        });
+                    }
+                } catch (entityError) {
+                    logger.warn('Entity extraction failed, continuing without entity data', entityError as Error);
+                }
+            }
 
             // Track user usage
             try {

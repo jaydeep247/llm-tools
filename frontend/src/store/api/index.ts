@@ -6,6 +6,7 @@ export * from './module_A/linksApi';
 export * from './module_A/crawlApi';
 export * from './module_B/seoApi';
 export * from './module_C/aeoApi';
+export * from './module_C/entityExtractorApi';
 export * from './module_E/sentimentApi';
 
 // Export auditApi separately to avoid conflicts
