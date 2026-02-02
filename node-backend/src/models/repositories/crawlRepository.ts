@@ -284,15 +284,31 @@ export class CrawlRepository {
             ...sharedSessions.map((share: any) => share.session),
         ];
 
-        return allSessions.map(session => ({
-            session: this.mapSession(session),
-            aeoResult: session.aeoAnalysisResults && session.aeoAnalysisResults.length > 0 ? {
-                grade: session.aeoAnalysisResults[0].grade,
-                gradeColor: session.aeoAnalysisResults[0].gradeColor,
-                overallScore: session.aeoAnalysisResults[0].overallScore,
-                analysisTimestamp: session.aeoAnalysisResults[0].analysisTimestamp,
-            } : null,
+        // For each session, get the actual page count from database
+        // This is especially important for running sessions where totalPages isn't updated until completion
+        const sessionsWithCounts = await Promise.all(allSessions.map(async (session) => {
+            const mappedSession = this.mapSession(session);
+            
+            // If session is running or auditing, or if totalPages is 0, get actual count from database
+            if (session.status === 'running' || session.status === 'auditing' || session.totalPages === 0) {
+                const actualPageCount = await prisma.page.count({
+                    where: { sessionId: session.id }
+                });
+                mappedSession.totalPages = actualPageCount;
+            }
+            
+            return {
+                session: mappedSession,
+                aeoResult: session.aeoAnalysisResults && session.aeoAnalysisResults.length > 0 ? {
+                    grade: session.aeoAnalysisResults[0].grade,
+                    gradeColor: session.aeoAnalysisResults[0].gradeColor,
+                    overallScore: session.aeoAnalysisResults[0].overallScore,
+                    analysisTimestamp: session.aeoAnalysisResults[0].analysisTimestamp,
+                } : null,
+            };
         }));
+
+        return sessionsWithCounts;
     }
 
     async shareSessionWithUser(sessionId: number, userId: number): Promise<void> {

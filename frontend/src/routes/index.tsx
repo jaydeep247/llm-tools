@@ -2,11 +2,13 @@ import React from 'react';
 import { Routes, Route, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { ProtectedRoute } from '../components/auth/ProtectedRoute';
+import { AdminRoute } from '../components/auth/AdminRoute';
 
 // Pages
 import { HomePage } from '../app/home/HomePage';
 import { Login } from '../components/auth/Login';
 import { Register } from '../components/auth/Register';
+import { AdminLogin } from '../components/auth/AdminLogin';
 import { UserProfile } from '../components/ui/user/UserProfile';
 import { UserSettings } from '../components/ui/user/UserSettings';
 import { CrawlHistory } from '../pages/CrawlHistory';
@@ -17,7 +19,7 @@ import DashboardPage from '../pages/DashboardPage';
 import HistoryDetailPage from '../pages/HistoryDetailPage';
 import { Navbar } from '../components/ui/navbar/Navbar';
 import { Footer } from '../components/ui/footer/Footer';
-
+import { AdminPanel } from '../pages/AdminPanel';
 // Wrapper components for pages that need navigation props
 const HomePageWrapper: React.FC = () => {
   const navigate = useNavigate();
@@ -48,6 +50,19 @@ const RegisterWrapper: React.FC = () => {
     <Register
       onSwitchToLogin={() => navigate('/login')}
       onSuccess={() => navigate('/dashboard')}
+    />
+  );
+};
+
+const AdminLoginWrapper: React.FC = () => {
+  const navigate = useNavigate();
+  
+  return (
+    <AdminLogin
+      onSuccess={() => {
+        // Redirect to /admin - AdminRoute will handle access control
+        navigate('/admin');
+      }}
     />
   );
 };
@@ -197,6 +212,22 @@ export const AppRoutes: React.FC = () => {
               <AuditsPage />
             </ProtectedLayout>
           </ProtectedRoute>
+        }
+      />
+      
+      {/* Admin Routes */}
+      <Route
+        path="/admin/login"
+        element={<AdminLoginWrapper />}
+      />
+      <Route
+        path="/admin"
+        element={
+          <AdminRoute>
+            <ProtectedLayout>
+              <AdminPanel />
+            </ProtectedLayout>
+          </AdminRoute>
         }
       />
 

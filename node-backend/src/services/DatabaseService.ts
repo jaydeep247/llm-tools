@@ -11,6 +11,7 @@ import type {
 } from '../models/types.js';
 import { SerpRepository } from '../models/repositories/serpRepository.js';
 import type { ContentFingerprint, NearDuplicateMetrics, SimilarityResult } from '../helpers/module_A/duplicateDetection/types.js';
+import { prisma } from '../config/prismaClient.js';
 
 export type {
     User, UserSettings, UserUsage,
@@ -29,6 +30,9 @@ export class DatabaseService {
     public pages: PageRepository;
     public audits: AuditRepository;
     public serp: SerpRepository;
+
+    // Expose Prisma client for direct database access
+    public prisma = prisma;
 
     private constructor() {
         this.logger = Logger.getInstance();

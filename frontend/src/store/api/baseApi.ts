@@ -63,6 +63,8 @@ export const baseApi = createApi({
     'Schedule',
     'Cron',
     'Sentiment',
+    'AdminUsers',
+    'AdminStats',
   ],
   endpoints: () => ({}),
 });

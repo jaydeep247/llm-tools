@@ -12,6 +12,7 @@ import { sentimentRoutes, rankingRoutes } from '../routes/module_E/index.js';
 import { schedulerRoutes } from '../routes/module_D/index.js';
 import sseRoutes from '../routes/sse.routes.js';
 import authRoutes from '../routes/auth.routes.js';
+import adminRoutes from '../routes/admin.routes.js';
 
 /**
  * Register all application routes
@@ -51,4 +52,7 @@ export function registerRoutes(app: express.Application): void {
 
     // Auth routes
     app.use('/api/auth', authRoutes);
+
+    // Admin routes
+    app.use('/api/admin', adminRoutes);
 }

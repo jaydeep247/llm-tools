@@ -13,6 +13,7 @@
     "audit:worker": "tsx src/audit/audit-worker.ts",
     "db:init": "tsx scripts/initDb.ts",
     "db:migrate": "tsx scripts/crawlerTableMigration.ts",
+    "db:seed:admin": "tsx scripts/seedAdmin.ts",
     "clear:sessions": "echo 'clear-all-sessions.ts removed - use db:init instead'",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",

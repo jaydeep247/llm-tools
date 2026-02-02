@@ -255,6 +255,101 @@ router.post('/login', async (req: Request, res: Response) => {
 });
 
 /**
+ * POST /api/auth/admin/login
+ * Admin-only login with email and password
+ */
+router.post('/admin/login', async (req: Request, res: Response) => {
+    try {
+        const { email, password } = req.body;
+
+        // Validate input
+        if (!email || !password) {
+            return res.status(400).json({
+                error: 'Missing credentials',
+                message: 'Email and password are required'
+            });
+        }
+
+        // Find user
+        const user = await db.getUserByEmail(email);
+        if (!user) {
+            return res.status(401).json({
+                error: 'Invalid credentials',
+                message: 'Invalid admin credentials'
+            });
+        }
+
+        // Check if user is admin BEFORE checking password
+        if (user.role !== 'admin') {
+            return res.status(403).json({
+                error: 'Access denied',
+                message: 'Admin access required'
+            });
+        }
+
+        // Check if user is active
+        if (!user.isActive) {
+            return res.status(403).json({
+                error: 'Account disabled',
+                message: 'Your account has been disabled. Please contact support.'
+            });
+        }
+
+        // Verify password
+        const isPasswordValid = await authService.verifyPassword(password, user.passwordHash);
+        if (!isPasswordValid) {
+            return res.status(401).json({
+                error: 'Invalid credentials',
+                message: 'Invalid admin credentials'
+            });
+        }
+
+        // Update last login
+        await db.updateUserLastLogin(user.id);
+
+        // Generate tokens
+        const tokens = authService.generateTokens({
+            id: user.id,
+            email: user.email,
+            role: user.role
+        });
+
+        // Set both access token and refresh token as HTTP-only cookies
+        const cookieOptions = getCookieOptions();
+        res.cookie('accessToken', tokens.accessToken, {
+            ...cookieOptions,
+            maxAge: 15 * 60 * 1000 // 15 minutes
+        });
+
+        res.cookie('refreshToken', tokens.refreshToken, {
+            ...cookieOptions,
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        });
+
+        logger.info('Admin logged in successfully', { userId: user.id, email: user.email });
+
+        res.json({
+            success: true,
+            message: 'Admin login successful',
+            user: {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                role: user.role,
+                lastLogin: user.lastLogin
+            },
+            accessToken: tokens.accessToken
+        });
+    } catch (error) {
+        logger.error('Admin login error', error as Error);
+        res.status(500).json({
+            error: 'Login failed',
+            message: 'An error occurred during login'
+        });
+    }
+});
+
+/**
  * POST /api/auth/logout
  * Logout user by clearing refresh token cookie
  */
