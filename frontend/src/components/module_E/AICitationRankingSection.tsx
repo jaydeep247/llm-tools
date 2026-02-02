@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   useRunRankingAnalysisMutation,
   type RankingAnalysisResponse,
@@ -18,17 +18,9 @@ interface AICitationRankingSectionProps {
   url: string;
 }
 
-function parsePrompts(input: string): string[] {
-  return input
-    .split(/[\n,;]/)
-    .map((p) => p.trim())
-    .filter(Boolean);
-}
-
 export const AICitationRankingSection: React.FC<AICitationRankingSectionProps> = ({
   url,
 }) => {
-  const [promptInput, setPromptInput] = useState('');
   const [runRankingAnalysis, { data, isLoading, error }] =
     useRunRankingAnalysisMutation();
 
@@ -36,8 +28,7 @@ export const AICitationRankingSection: React.FC<AICitationRankingSectionProps> =
 
   const handleRun = () => {
     if (!websiteUrl) return;
-    const prompts = parsePrompts(promptInput);
-    runRankingAnalysis({ url: websiteUrl, prompts: prompts.length > 0 ? prompts : [] });
+    runRankingAnalysis({ url: websiteUrl, prompts: [] });
   };
 
   const resp = data as RankingAnalysisResponse | undefined;
@@ -56,18 +47,11 @@ export const AICitationRankingSection: React.FC<AICitationRankingSectionProps> =
       </div>
       <div className="p-6">
         <p className="text-sm text-gray-400 mb-4">
-          Click Run Analysis to auto-generate prompts from your page, or enter
-          custom prompts (one per line or comma-separated) to see how your URL
-          ranks in AI citations across ChatGPT, Claude, Gemini, and Perplexity.
+          Click Run Analysis to see how your URL ranks in AI citations across
+          ChatGPT, Claude, Gemini, and Perplexity. Prompts are auto-generated
+          from your page content.
         </p>
-        <textarea
-          value={promptInput}
-          onChange={(e) => setPromptInput(e.target.value)}
-          placeholder={'Optional: enter custom prompts, or leave empty to auto-generate'}
-          className="w-full h-24 px-4 py-2 rounded-lg bg-gray-900 border border-gray-700 text-gray-200 placeholder-gray-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-none"
-          disabled={!websiteUrl}
-        />
-        <div className="mt-3 flex items-center gap-3">
+        <div className="flex items-center gap-3">
           <button
             onClick={handleRun}
             disabled={!websiteUrl || isLoading}
