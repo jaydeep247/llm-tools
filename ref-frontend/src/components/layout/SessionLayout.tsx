@@ -29,6 +29,7 @@ export function SessionLayout({
         projectId={projectId}
         projectName={projectName}
         sessionId={sessionId}
+        activeSection={activeSection}
         onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
       />
       

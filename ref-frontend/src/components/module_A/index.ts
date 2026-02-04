@@ -1,0 +1,1 @@
+export { CrawledDataTable } from './CrawledDataTable'

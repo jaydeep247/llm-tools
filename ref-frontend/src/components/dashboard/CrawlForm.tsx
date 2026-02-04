@@ -199,9 +199,14 @@ export function CrawlForm({ onSubmit, onStop, loading = false, isCrawling = fals
 
               {/* Run Audits */}
               <div className="flex items-center justify-between">
-                <Label htmlFor="runAudits" className="text-white/80 text-sm cursor-pointer">
-                  🔍 Run Performance Audits
-                </Label>
+                <div className="space-y-0.5">
+                  <Label htmlFor="runAudits" className="text-white/80 text-sm cursor-pointer">
+                    🔍 Run Performance Audits (Optional)
+                  </Label>
+                  <p className="text-[10px] text-white/50">
+                    Lighthouse audits with Core Web Vitals (LCP, TBT, CLS)
+                  </p>
+                </div>
                 <Switch
                   id="runAudits"
                   checked={runAudits}

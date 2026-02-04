@@ -83,9 +83,9 @@ export function HeroSection() {
         description: `Successfully started crawling ${pendingUrl}`,
       })
 
-      // Navigate to the session detail page if sessionId is returned
+      // Navigate to the session progress page if sessionId is returned
       if (result.sessionId) {
-        router.push(`/dashboard/sessions/${result.sessionId}`)
+        router.push(`/dashboard/projects/${projectId}/sessions/${result.sessionId}/progress`)
       }
     } catch (error: any) {
       toast({

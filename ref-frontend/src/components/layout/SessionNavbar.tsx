@@ -8,10 +8,33 @@ interface SessionNavbarProps {
   projectId: string
   projectName: string
   sessionId: string
+  activeSection?: string
   onMenuToggle?: () => void
 }
 
-export function SessionNavbar({ projectId, projectName, sessionId, onMenuToggle }: SessionNavbarProps) {
+const sectionLabels: Record<string, string> = {
+  'crawler': 'Crawler',
+  'crawled-data': 'Crawled Data',
+  'page-metrics': 'Page Metrics',
+  'text-quality': 'Text Quality Analyzer',
+  'serp-analysis': 'SERP Analysis',
+  'wordcount': 'Wordcount Analysis',
+  'broken-links': 'Broken Link Checker',
+  'audit-checker': 'Audit Checker',
+  'link-analysis': 'Link Analysis',
+  'site-structure': 'Site Structure',
+  'performance': 'Performance Audits',
+  'schema-generator': 'Schema Generator',
+  'module-e': 'Module E',
+  'ai-intelligence': 'AI Intelligence',
+  'content-metrics': 'Content Metrics',
+  'answer-completeness': 'Answer Completeness',
+  'entity-extractor': 'Entity Extractor',
+}
+
+export function SessionNavbar({ projectId, projectName, sessionId, activeSection, onMenuToggle }: SessionNavbarProps) {
+  const activeSectionLabel = activeSection ? sectionLabels[activeSection] || activeSection : ''
+  
   return (
     <nav className="fixed top-0 left-0 md:left-64 right-0 z-40 w-full md:w-[calc(100%-16rem)]">
       <div className="bg-white/10 backdrop-blur-2xl border-b border-white/20 shadow-lg shadow-black/20 h-12 sm:h-14 md:h-16 px-3 sm:px-4 md:px-6 flex items-center gap-3 sm:gap-4">
@@ -48,6 +71,15 @@ export function SessionNavbar({ projectId, projectName, sessionId, onMenuToggle 
           <span className="text-white font-medium truncate">
             Session #{sessionId}
           </span>
+          
+          {activeSectionLabel && (
+            <>
+              <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 text-white/50" />
+              <span className="text-white/60 truncate">
+                {activeSectionLabel}
+              </span>
+            </>
+          )}
         </div>
       </div>
     </nav>

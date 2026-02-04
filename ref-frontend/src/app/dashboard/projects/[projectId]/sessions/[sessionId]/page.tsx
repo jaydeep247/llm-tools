@@ -1,12 +1,14 @@
 'use client'
 
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Clock, Globe, CheckCircle, XCircle, Loader2, AlertCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { CrawlLogger, DiscoveredPages, CrawlStatusHeader } from '@/components/crawl'
 import { SessionLayout } from '@/components/layout/SessionLayout'
+import { CrawledDataTable } from '@/components/module_A'
+import { useGetDataListQuery } from '@/store/api/module_A/dataApi'
 
 interface LogEntry {
   message: string
@@ -16,6 +18,7 @@ interface LogEntry {
 export default function SessionDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const projectId = params.projectId as string
   const sessionId = params.sessionId as string
   
@@ -23,7 +26,13 @@ export default function SessionDetailPage() {
   const [project, setProject] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [activeSection, setActiveSection] = useState('crawler')
+  const activeSection = searchParams.get('tab') || 'crawler'
+  
+  // Fetch crawled pages data when on crawled-data tab
+  const { data: pagesData, isLoading: isLoadingPages, refetch: refetchPages } = useGetDataListQuery(
+    { sessionId: parseInt(sessionId), limit: 10000, offset: 0 },
+    { skip: activeSection !== 'crawled-data' }
+  )
   
   // Live crawl state
   const [isCrawling, setIsCrawling] = useState(false)
@@ -225,6 +234,10 @@ export default function SessionDetailPage() {
     fetchData()
   }, [sessionId, projectId, session?.status])
 
+  const handleSectionChange = (section: string) => {
+    router.push(`/dashboard/projects/${projectId}/sessions/${sessionId}?tab=${section}`)
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
@@ -320,7 +333,7 @@ export default function SessionDetailPage() {
         projectName="Loading..."
         sessionId={sessionId}
         activeSection={activeSection}
-        onSectionChange={setActiveSection}
+        onSectionChange={handleSectionChange}
       >
         <div className="p-6 space-y-6 sm:space-y-8 animate-fade-in-hero">
           <div className="space-y-2">
@@ -346,7 +359,7 @@ export default function SessionDetailPage() {
         projectName={project?.name || "Unknown Project"}
         sessionId={sessionId}
         activeSection={activeSection}
-        onSectionChange={setActiveSection}
+        onSectionChange={handleSectionChange}
       >
         <div className="p-6 space-y-8 animate-fade-in-hero">
           <div className="flex flex-col items-center justify-center py-20">
@@ -371,81 +384,102 @@ export default function SessionDetailPage() {
       projectName={project?.name || "Unknown Project"}
       sessionId={sessionId}
       activeSection={activeSection}
-      onSectionChange={setActiveSection}
+      onSectionChange={handleSectionChange}
     >
       <div className="p-6 space-y-6 sm:space-y-8 animate-fade-in-hero">
-        {/* Crawling Status Header */}
-        <CrawlStatusHeader
-          crawlStatus={crawlStatus}
-          isCrawling={isCrawling}
-          pageCount={pageCount}
-          duration={(() => {
-            const elapsed = calculateElapsedTime()
-            const isActive = isCrawling || crawlStatus === 'running' || crawlStatus === 'auditing'
-            return formatDuration(elapsed.seconds, elapsed.milliseconds, isActive)
-          })()}
-          itemsPerSecond={calculateItemsPerSecond()}
-        />
+        {/* Show Crawler Status only on crawler tab */}
+        {activeSection === 'crawler' && (
+          <>
+            {/* Crawling Status Header */}
+            <CrawlStatusHeader
+              crawlStatus={crawlStatus}
+              isCrawling={isCrawling}
+              pageCount={pageCount}
+              duration={(() => {
+                const elapsed = calculateElapsedTime()
+                const isActive = isCrawling || crawlStatus === 'running' || crawlStatus === 'auditing'
+                return formatDuration(elapsed.seconds, elapsed.milliseconds, isActive)
+              })()}
+              itemsPerSecond={calculateItemsPerSecond()}
+            />
 
-        {/* Live Logs and Discovered Pages */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 h-400px">
-          <CrawlLogger logs={logs} isCrawling={isCrawling} />
-          <DiscoveredPages pages={discoveredPages} />
-        </div>
+            {/* Session Info */}
+            <div className="rounded-lg p-3 sm:p-4 md:p-5 border border-white/20 bg-white/10 backdrop-blur-xl">
+              <h2 className="text-base sm:text-lg md:text-xl font-bold text-white mb-3 sm:mb-4">Session Details</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
+                <div className="space-y-0.5 sm:space-y-1">
+                  <p className="text-[10px] sm:text-xs text-white/60">Session ID</p>
+                  <p className="text-xs sm:text-sm text-white font-medium">#{session.id}</p>
+                </div>
+                <div className="space-y-0.5 sm:space-y-1">
+                  <p className="text-[10px] sm:text-xs text-white/60">Project ID</p>
+                  <p className="text-xs sm:text-sm text-white font-medium">{session.projectId}</p>
+                </div>
+                <div className="space-y-0.5 sm:space-y-1">
+                  <p className="text-[10px] sm:text-xs text-white/60">Start URL</p>
+                  <p className="text-xs sm:text-sm text-white font-medium truncate">{session.startUrl}</p>
+                </div>
+                <div className="space-y-0.5 sm:space-y-1">
+                  <p className="text-[10px] sm:text-xs text-white/60">Status</p>
+                  <Badge className={`${getStatusColor(session.status)} text-[10px] inline-flex items-center gap-1`}>
+                    {getStatusIcon(session.status)}
+                    {session.status.toUpperCase()}
+                  </Badge>
+                </div>
+                <div className="space-y-0.5 sm:space-y-1">
+                  <p className="text-[10px] sm:text-xs text-white/60">Total Pages</p>
+                  <p className="text-xs sm:text-sm text-white font-medium">{session.totalPages || 0}</p>
+                </div>
+                <div className="space-y-0.5 sm:space-y-1">
+                  <p className="text-[10px] sm:text-xs text-white/60">Total Resources</p>
+                  <p className="text-xs sm:text-sm text-white font-medium">{session.totalResources || 0}</p>
+                </div>
+                <div className="space-y-0.5 sm:space-y-1">
+                  <p className="text-[10px] sm:text-xs text-white/60">Started</p>
+                  <p className="text-xs sm:text-sm text-white font-medium">
+                    {new Date(session.startedAt).toLocaleString()}
+                  </p>
+                </div>
+                {session.completedAt && (
+                  <div className="space-y-0.5 sm:space-y-1">
+                    <p className="text-[10px] sm:text-xs text-white/60">Completed</p>
+                    <p className="text-xs sm:text-sm text-white font-medium">
+                      {new Date(session.completedAt).toLocaleString()}
+                    </p>
+                  </div>
+                )}
+                {session.userId && (
+                  <div className="space-y-0.5 sm:space-y-1">
+                    <p className="text-[10px] sm:text-xs text-white/60">User ID</p>
+                    <p className="text-xs sm:text-sm text-white font-medium">{session.userId}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
 
-        {/* Session Info */}
-        <div className="rounded-lg p-3 sm:p-4 md:p-5 border border-white/20 bg-white/10 backdrop-blur-xl">
-          <h2 className="text-base sm:text-lg md:text-xl font-bold text-white mb-3 sm:mb-4">Session Details</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
-            <div className="space-y-0.5 sm:space-y-1">
-              <p className="text-[10px] sm:text-xs text-white/60">Session ID</p>
-              <p className="text-xs sm:text-sm text-white font-medium">#{session.id}</p>
-            </div>
-            <div className="space-y-0.5 sm:space-y-1">
-              <p className="text-[10px] sm:text-xs text-white/60">Project ID</p>
-              <p className="text-xs sm:text-sm text-white font-medium">{session.projectId}</p>
-            </div>
-            <div className="space-y-0.5 sm:space-y-1">
-              <p className="text-[10px] sm:text-xs text-white/60">Start URL</p>
-              <p className="text-xs sm:text-sm text-white font-medium truncate">{session.startUrl}</p>
-            </div>
-            <div className="space-y-0.5 sm:space-y-1">
-              <p className="text-[10px] sm:text-xs text-white/60">Status</p>
-              <Badge className={`${getStatusColor(session.status)} text-[10px] inline-flex items-center gap-1`}>
-                {getStatusIcon(session.status)}
-                {session.status.toUpperCase()}
-              </Badge>
-            </div>
-            <div className="space-y-0.5 sm:space-y-1">
-              <p className="text-[10px] sm:text-xs text-white/60">Total Pages</p>
-              <p className="text-xs sm:text-sm text-white font-medium">{session.totalPages || 0}</p>
-            </div>
-            <div className="space-y-0.5 sm:space-y-1">
-              <p className="text-[10px] sm:text-xs text-white/60">Total Resources</p>
-              <p className="text-xs sm:text-sm text-white font-medium">{session.totalResources || 0}</p>
-            </div>
-            <div className="space-y-0.5 sm:space-y-1">
-              <p className="text-[10px] sm:text-xs text-white/60">Started</p>
-              <p className="text-xs sm:text-sm text-white font-medium">
-                {new Date(session.startedAt).toLocaleString()}
-              </p>
-            </div>
-            {session.completedAt && (
-              <div className="space-y-0.5 sm:space-y-1">
-                <p className="text-[10px] sm:text-xs text-white/60">Completed</p>
-                <p className="text-xs sm:text-sm text-white font-medium">
-                  {new Date(session.completedAt).toLocaleString()}
-                </p>
-              </div>
-            )}
-            {session.userId && (
-              <div className="space-y-0.5 sm:space-y-1">
-                <p className="text-[10px] sm:text-xs text-white/60">User ID</p>
-                <p className="text-xs sm:text-sm text-white font-medium">{session.userId}</p>
-              </div>
-            )}
+        {/* Show Crawled Data Table on crawled-data tab */}
+        {activeSection === 'crawled-data' && (
+          <div>
+
+            <CrawledDataTable 
+              data={pagesData?.data || []}
+              isLoading={isLoadingPages}
+              onRefresh={() => refetchPages()}
+            />
           </div>
-        </div>
+        )}
+
+        {/* Placeholder for other tabs */}
+        {activeSection !== 'crawler' && activeSection !== 'crawled-data' && (
+          <div className="rounded-lg p-8 border border-white/20 bg-white/10 backdrop-blur-xl text-center">
+            <h2 className="text-xl font-bold text-white mb-2">
+              {activeSection.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+            </h2>
+            <p className="text-white/60">This section is under development.</p>
+          </div>
+        )}
       </div>
     </SessionLayout>
   )

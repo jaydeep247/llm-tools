@@ -50,19 +50,19 @@ export function CrawlStatusHeader({
   }
 
   return (
-    <div className="rounded-lg p-4 sm:p-5 md:p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
-      <div className="flex items-center justify-between mb-4 sm:mb-6">
-        <div className="flex items-center gap-3">
-          <h2 className="text-xl sm:text-2xl font-bold text-white">🕷️ Crawling Status</h2>
-          <div className="flex items-center gap-2">
+    <div className="rounded-lg p-3 sm:p-4 border border-white/20 bg-white/10 backdrop-blur-xl">
+      <div className="flex items-center justify-between mb-3 sm:mb-4">
+        <div className="flex items-center gap-2">
+          <h2 className="text-base sm:text-lg font-bold text-white">🕷️ Crawling Status</h2>
+          <div className="flex items-center gap-1.5">
             <div
-              className={`h-2 w-2 rounded-full ${
+              className={`h-1.5 w-1.5 rounded-full ${
                 isCrawling || crawlStatus === 'running' || crawlStatus === 'auditing'
                   ? 'bg-purple-400 animate-pulse'
                   : 'bg-gray-500'
               }`}
             ></div>
-            <Badge className={`${getStatusColor(crawlStatus)} text-xs flex items-center gap-1`}>
+            <Badge className={`${getStatusColor(crawlStatus)} text-[10px] flex items-center gap-1`}>
               {getStatusIcon(crawlStatus)}
               {crawlStatus === 'running'
                 ? 'CRAWLING...'
@@ -81,19 +81,19 @@ export function CrawlStatusHeader({
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <div className="text-center">
-          <div className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-2">
+          <div className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-1">
             {pageCount}
           </div>
-          <div className="text-xs sm:text-sm text-white/60 uppercase tracking-wider">
+          <div className="text-[10px] sm:text-xs text-white/60 uppercase tracking-wider">
             Pages Discovered
           </div>
         </div>
 
         <div className="text-center">
           <div
-            className={`text-3xl sm:text-4xl md:text-5xl font-bold mb-2 ${
+            className={`text-xl sm:text-2xl md:text-3xl font-bold mb-1 ${
               isCrawling || crawlStatus === 'running' || crawlStatus === 'auditing'
                 ? 'text-purple-400'
                 : 'text-white'
@@ -101,14 +101,14 @@ export function CrawlStatusHeader({
           >
             {duration}
           </div>
-          <div className="text-xs sm:text-sm text-white/60 uppercase tracking-wider">Duration</div>
+          <div className="text-[10px] sm:text-xs text-white/60 uppercase tracking-wider">Duration</div>
         </div>
 
         <div className="text-center">
-          <div className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-2">
+          <div className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-1">
             {itemsPerSecond}
           </div>
-          <div className="text-xs sm:text-sm text-white/60 uppercase tracking-wider">Items/Sec</div>
+          <div className="text-[10px] sm:text-xs text-white/60 uppercase tracking-wider">Items/Sec</div>
         </div>
       </div>
     </div>

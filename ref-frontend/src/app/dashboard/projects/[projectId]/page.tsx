@@ -21,7 +21,7 @@ export default function ProjectDetailPage() {
   // Form state
   const [url, setUrl] = useState('')
   const [allowSubdomains, setAllowSubdomains] = useState(true)
-  const [runAudits, setRunAudits] = useState(true)
+  const [runAudits, setRunAudits] = useState(false)
   const [auditDevice, setAuditDevice] = useState<'mobile' | 'desktop'>('desktop')
   const [captureLinkDetails, setCaptureLinkDetails] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -102,9 +102,9 @@ export default function ProjectDetailPage() {
         captureLinkDetails,
       }).unwrap()
 
-      // Navigate to session detail page
+      // Navigate to session progress page
       if (result.sessionId) {
-        router.push(`/dashboard/projects/${projectId}/sessions/${result.sessionId}`)
+        router.push(`/dashboard/projects/${projectId}/sessions/${result.sessionId}/progress`)
       }
     } catch (err: any) {
       setError(err?.data?.message || err?.message || 'Failed to start crawl session')
@@ -139,7 +139,10 @@ export default function ProjectDetailPage() {
                 Start New Session
               </h3>
               <p className="text-[10px] sm:text-xs text-white/60 mt-0.5">
-                Enter a URL to begin crawling
+                Enter a URL to begin crawling and analysis
+              </p>
+              <p className="text-[9px] sm:text-[10px] text-white/40 mt-1">
+                Includes: Crawl, AEO Analysis, Page Metrics, Text Quality, AI Intelligence, Content Metrics, Answer Completeness, Entity Extractor
               </p>
             </div>
           </div>
@@ -213,7 +216,9 @@ export default function ProjectDetailPage() {
             {sessions.map((session: CrawlSession) => (
               <a
                 key={session.id}
-                href={`/dashboard/projects/${projectId}/sessions/${session.id}`}
+                href={session.status === 'running' || session.status === 'auditing' 
+                  ? `/dashboard/projects/${projectId}/sessions/${session.id}/progress`
+                  : `/dashboard/projects/${projectId}/sessions/${session.id}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group rounded-lg p-3 sm:p-4 md:p-5 border border-white/20 bg-white/10 backdrop-blur-xl hover:border-white/30 hover:bg-white/15 transition-all duration-500 cursor-pointer flex flex-col"
