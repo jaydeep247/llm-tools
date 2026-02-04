@@ -1,28 +1,43 @@
-
+import logging
 from typing import List, Dict, Any
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+
 from ..module_A.dataforseo_client import DataForSEOClient
+
+logger = logging.getLogger(__name__)
+
 
 class CompetitorMentionsService:
     """
-    Service for analyzing competitor mentions (Brand Pulse) 
+    Service for analyzing competitor mentions (Brand Pulse)
     in a modular, isolated way.
     """
-    
+
     def __init__(self):
-        self.client = DataForSEOClient()
+        try:
+            self.client = DataForSEOClient()
+            self.api_available = True
+        except (ValueError, Exception) as e:
+            logger.warning("DataForSEO API not configured for competitor mentions: %s", e)
+            self.api_available = False
+            self.client = None
 
     def analyze_mentions_batch(self, competitors: List[str]) -> List[Dict[str, Any]]:
         """
         Analyze mentions for a batch of competitors.
-        
+
         Args:
             competitors: List of competitor domain names.
-            
+
         Returns:
             List of result dictionaries.
         """
+        if not self.api_available or not self.client:
+            return [
+                {"name": c, "mentions": 0, "sentiment": "No Data", "trend": []}
+                for c in competitors
+            ]
         results = []
         
         # Calculate date range (last 12 months)
@@ -30,18 +45,9 @@ class CompetitorMentionsService:
         start_date = (today - relativedelta(months=11)).strftime("%Y-%m-%d")
         
         for competitor in competitors:
-            keyword = competitor
-            
-            # Reusing existing DataForSEO client logic
-            # We call the Content Analysis API via a method on the client if it exists,
-            # or we construct the request here using the generic POST.
-            # Looking at existing code, get_content_phrase_trends was inside CompetitorAnalysisService.
-            # We should probably implement a similar helper here or call the generic client directly.
-            
-            # Let's call the generic client directly to avoid dependency on CompetitorAnalysisService
             payload = {
                 "0": {
-                    "keyword": keyword,
+                    "keyword": competitor,
                     "date_from": start_date,
                     "date_group": "month",
                     "search_mode": "as_is",
@@ -57,14 +63,14 @@ class CompetitorMentionsService:
             }
             
             try:
-                # We assume client.post handles auth and base URL
-                # The endpoint is /v3/content_analysis/phrase_trends/live
                 response = self.client.post('/v3/content_analysis/phrase_trends/live', payload)
                 
                 if response.get('status_code') == 20000 and response.get('tasks'):
                     task = response['tasks'][0]
-                    if task.get('result'):
-                        items = task['result'][0].get('items', [])
+                    # Skip if task-level error (e.g. 40201 account paused)
+                    if task.get('status_code') == 20000:
+                        # DataForSEO phrase_trends: result is flat array of {date, total_count, connotation_types, ...}
+                        items = task.get('result') or []
                         
                         total_mentions = 0
                         sentiment_counts = {"positive": 0, "negative": 0, "neutral": 0}
@@ -99,7 +105,7 @@ class CompetitorMentionsService:
                                 competitor_result["sentiment"] = "Neutral"
 
             except Exception as e:
-                print(f"ERROR processing competitor {competitor}: {e}")
+                logger.error("Error processing competitor %s: %s", competitor, e)
                 competitor_result["sentiment"] = "Error"
             
             results.append(competitor_result)

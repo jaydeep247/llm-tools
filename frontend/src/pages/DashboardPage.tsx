@@ -397,7 +397,14 @@ const DashboardPage: React.FC = () => {
               ...existingModuleScores,
               consistency: websiteScoreResult.scores.consistency,
               brand_metrics: websiteScoreResult.scores.brand_metrics,
+              model_wise_performance: websiteScoreResult.scores.model_wise_performance,
+              response_accuracy: websiteScoreResult.scores.response_accuracy,
+              openai: websiteScoreResult.scores.openai,
+              claude: websiteScoreResult.scores.claude,
+              gemini: websiteScoreResult.scores.gemini,
             },
+            model_wise_performance: websiteScoreResult.scores.model_wise_performance,
+            response_accuracy: websiteScoreResult.scores.response_accuracy,
           };
         }
       } catch {

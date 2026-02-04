@@ -4,38 +4,61 @@ import {
   type RankingAnalysisResponse,
   type RankingPositionItem,
   type ModelWiseRow,
+  type EntityCoverage,
+  type ContentQuality,
 } from '../../store/api/module_E/rankingApi';
 
-const MODELS = ['chat_gpt', 'claude', 'gemini', 'perplexity'] as const;
+const MODELS = ['chat_gpt', 'claude', 'gemini'] as const;
 const MODEL_LABELS: Record<string, string> = {
   chat_gpt: 'ChatGPT',
   claude: 'Claude',
   gemini: 'Gemini',
-  perplexity: 'Perplexity',
 };
 
 interface AICitationRankingSectionProps {
   url: string;
+  sessionId?: number;
+  savedCitationMetrics?: { ranking_position_per_prompt?: RankingPositionItem[] } | null;
 }
 
 export const AICitationRankingSection: React.FC<AICitationRankingSectionProps> = ({
   url,
+  sessionId,
+  savedCitationMetrics,
 }) => {
   const [runRankingAnalysis, { data, isLoading, error }] =
     useRunRankingAnalysisMutation();
+  const [location, setLocation] = React.useState('');
+  const [topicOverride, setTopicOverride] = React.useState('');
+  const [showAdvanced, setShowAdvanced] = React.useState(false);
 
   const websiteUrl = (url || '').trim();
 
   const handleRun = () => {
     if (!websiteUrl) return;
-    runRankingAnalysis({ url: websiteUrl, prompts: [] });
+    runRankingAnalysis({
+      url: websiteUrl,
+      prompts: [],
+      sessionId,
+      location: location.trim() || undefined,
+      topicOverride: topicOverride.trim() || undefined,
+    });
   };
 
   const resp = data as RankingAnalysisResponse | undefined;
-  const hasResults = resp?.success && (
+  const hasFreshResults = resp?.success && (
     (resp.ranking_position_per_prompt?.length ?? 0) > 0 ||
     (resp.model_wise_comparison?.length ?? 0) > 0
   );
+  const hasSavedResults =
+    !hasFreshResults &&
+    (savedCitationMetrics?.ranking_position_per_prompt?.length ?? 0) > 0;
+  const hasResults = hasFreshResults || hasSavedResults;
+
+  const displayRows =
+    (hasFreshResults ? resp?.ranking_position_per_prompt : null) ??
+    savedCitationMetrics?.ranking_position_per_prompt ??
+    [];
 
   return (
     <div className="mt-8 overflow-hidden rounded-xl border border-gray-800 bg-black shadow-lg">
@@ -48,10 +71,10 @@ export const AICitationRankingSection: React.FC<AICitationRankingSectionProps> =
       <div className="p-6">
         <p className="text-sm text-gray-400 mb-4">
           Click Run Analysis to see how your URL ranks in AI citations across
-          ChatGPT, Claude, Gemini, and Perplexity. Prompts are auto-generated
-          from your page content.
+          ChatGPT, Claude, and Gemini. Prompts are auto-generated from your
+          page content. Add location (e.g. &quot;Surat&quot;, &quot;UAE&quot;) to surface local companies.
         </p>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-end gap-3">
           <button
             onClick={handleRun}
             disabled={!websiteUrl || isLoading}
@@ -59,12 +82,43 @@ export const AICitationRankingSection: React.FC<AICitationRankingSectionProps> =
           >
             {isLoading ? 'Analyzing...' : 'Run Analysis'}
           </button>
+          <button
+            type="button"
+            onClick={() => setShowAdvanced((s) => !s)}
+            className="text-xs text-gray-500 hover:text-gray-300"
+          >
+            {showAdvanced ? 'Hide' : 'Show'} location & topic
+          </button>
           {!websiteUrl && (
             <span className="text-xs text-amber-500">
               Enter a URL above to enable analysis
             </span>
           )}
         </div>
+        {showAdvanced && (
+          <div className="mt-3 flex flex-wrap gap-4">
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-gray-500">Location (e.g. Surat, UAE)</span>
+              <input
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="Surat, UAE, Spain..."
+                className="w-48 rounded border border-gray-700 bg-gray-900 px-2 py-1.5 text-sm text-white placeholder-gray-500"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-gray-500">Topic override (if auto-detected is wrong)</span>
+              <input
+                type="text"
+                value={topicOverride}
+                onChange={(e) => setTopicOverride(e.target.value)}
+                placeholder="Real Estate AI Chatbots..."
+                className="w-56 rounded border border-gray-700 bg-gray-900 px-2 py-1.5 text-sm text-white placeholder-gray-500"
+              />
+            </label>
+          </div>
+        )}
 
         {error && (
           <div className="mt-4 p-4 bg-red-900/50 border border-red-500 text-red-200 rounded-lg text-sm">
@@ -74,26 +128,32 @@ export const AICitationRankingSection: React.FC<AICitationRankingSectionProps> =
 
         {resp?.errors && resp.errors.length > 0 && (
           <div className="mt-4 p-3 bg-amber-900/30 border border-amber-700 text-amber-200 rounded-lg text-xs">
-            Some models failed: {resp.errors.join('; ')}
+            Some models failed: {resp?.errors.join('; ')}
           </div>
         )}
 
         {resp?.generated_prompts && resp.generated_prompts.length > 0 && (
           <div className="mt-4 p-3 bg-blue-900/20 border border-blue-700/50 rounded-lg text-sm">
-            <span className="text-blue-300 font-medium">Auto-generated prompts:</span>{' '}
-            <span className="text-gray-400">{resp.generated_prompts.join(' • ')}</span>
+            <span className="text-blue-300 font-medium">Prompts used (auto-generated from page content):</span>
+            <ul className="mt-2 list-inside list-disc space-y-1 text-gray-400">
+              {resp.generated_prompts.map((p, i) => (
+                <li key={i}>{p}</li>
+              ))}
+            </ul>
           </div>
         )}
 
         {hasResults && (
           <div className="mt-8 space-y-8">
-            {/* 1. Ranking position per prompt */}
-            {resp.ranking_position_per_prompt &&
-              resp.ranking_position_per_prompt.length > 0 && (
+            {/* 1. Ranking position per prompt (incl. Total Cited, Source Diversity, Credibility) */}
+            {displayRows.length > 0 && (
                 <div>
                   <h4 className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-3">
                     Ranking Position per Prompt
                   </h4>
+                  {hasSavedResults && (
+                    <p className="text-xs text-gray-500 mb-2">Saved from previous analysis</p>
+                  )}
                   <div className="overflow-x-auto rounded-lg border border-gray-800">
                     <table className="w-full text-left text-sm">
                       <thead className="bg-gray-900 text-xs uppercase text-gray-400 font-bold">
@@ -111,12 +171,21 @@ export const AICitationRankingSection: React.FC<AICitationRankingSectionProps> =
                             Total Cited
                           </th>
                           <th className="px-4 py-3 border-b border-gray-800">
+                            Source Diversity
+                          </th>
+                          <th className="px-4 py-3 border-b border-gray-800">
+                            Credibility
+                          </th>
+                          <th className="px-4 py-3 border-b border-gray-800">
                             Percentile
+                          </th>
+                          <th className="px-4 py-3 border-b border-gray-800">
+                            Content Quality
                           </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-800">
-                        {(resp.ranking_position_per_prompt as RankingPositionItem[]).map(
+                        {(displayRows as RankingPositionItem[]).map(
                           (row, i) => (
                             <tr key={i} className="hover:bg-gray-900/50">
                               <td className="px-4 py-3 text-gray-300 max-w-xs truncate">
@@ -137,6 +206,16 @@ export const AICitationRankingSection: React.FC<AICitationRankingSectionProps> =
                               <td className="px-4 py-3 text-gray-400">
                                 {row.total_cited}
                               </td>
+                              <td className="px-4 py-3 text-gray-400">
+                                {row.source_diversity != null
+                                  ? `${row.source_diversity}%`
+                                  : '—'}
+                              </td>
+                              <td className="px-4 py-3 text-gray-400">
+                                {row.credibility_score != null
+                                  ? String(row.credibility_score)
+                                  : '—'}
+                              </td>
                               <td className="px-4 py-3">
                                 {row.percentile != null ? (
                                   <span
@@ -154,6 +233,23 @@ export const AICitationRankingSection: React.FC<AICitationRankingSectionProps> =
                                   <span className="text-gray-500">—</span>
                                 )}
                               </td>
+                              <td className="px-4 py-3">
+                                {row.content_quality_score != null ? (
+                                  <span
+                                    className={`inline-flex rounded px-2 py-0.5 text-xs font-bold ${
+                                      row.content_quality_score >= 70
+                                        ? 'bg-green-900/40 text-green-400'
+                                        : row.content_quality_score >= 50
+                                        ? 'bg-yellow-900/40 text-yellow-400'
+                                        : 'bg-red-900/40 text-red-400'
+                                    }`}
+                                  >
+                                    {row.content_quality_score}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-500">—</span>
+                                )}
+                              </td>
                             </tr>
                           )
                         )}
@@ -163,9 +259,9 @@ export const AICitationRankingSection: React.FC<AICitationRankingSectionProps> =
                 </div>
               )}
 
-            {/* 2. Percentile rank summary */}
-            {resp.percentile_by_prompt &&
-              Object.keys(resp.percentile_by_prompt).length > 0 && (
+            {/* 2. Percentile rank summary (fresh run only) */}
+            {hasFreshResults && resp?.percentile_by_prompt &&
+              Object.keys(resp.percentile_by_prompt).length > 0 ? (
                 <div>
                   <h4 className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-3">
                     Percentile Rank by Model
@@ -188,7 +284,7 @@ export const AICitationRankingSection: React.FC<AICitationRankingSectionProps> =
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-800">
-                        {Object.entries(resp.percentile_by_prompt).map(
+                        {Object.entries(resp?.percentile_by_prompt ?? {}).map(
                           ([prompt, byModel]) => (
                             <tr key={prompt} className="hover:bg-gray-900/50">
                               <td className="px-4 py-3 text-gray-300 max-w-xs truncate">
@@ -223,10 +319,10 @@ export const AICitationRankingSection: React.FC<AICitationRankingSectionProps> =
                     </table>
                   </div>
                 </div>
-              )}
+              ) : null}
 
-            {/* 3. Model-wise ranking comparison */}
-            {resp.model_wise_comparison &&
+            {/* 3. Model-wise ranking comparison (fresh run only) */}
+            {hasFreshResults && resp?.model_wise_comparison &&
               resp.model_wise_comparison.length > 0 && (
                 <div>
                   <h4 className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-3">
@@ -250,7 +346,7 @@ export const AICitationRankingSection: React.FC<AICitationRankingSectionProps> =
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-800">
-                        {(resp.model_wise_comparison as ModelWiseRow[]).map(
+                        {((resp?.model_wise_comparison) as ModelWiseRow[] | undefined)?.map(
                           (row, i) => (
                             <tr key={i} className="hover:bg-gray-900/50">
                               <td className="px-4 py-3 text-gray-300 max-w-xs truncate">
@@ -280,6 +376,141 @@ export const AICitationRankingSection: React.FC<AICitationRankingSectionProps> =
                   </div>
                 </div>
               )}
+
+            {/* 4. Content Quality / Completeness (fresh run only) */}
+            {hasFreshResults && resp?.content_quality && (
+              <div>
+                <h4 className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-3">
+                  Content Quality / Completeness
+                </h4>
+                <div className="rounded-lg border border-gray-800 bg-gray-900/30 p-4">
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-400">Overall Score</span>
+                      <span
+                        className={`text-2xl font-bold ${
+                          resp.content_quality.overall_score >= 70
+                            ? 'text-green-400'
+                            : resp.content_quality.overall_score >= 50
+                            ? 'text-yellow-400'
+                            : 'text-red-400'
+                        }`}
+                      >
+                        {resp.content_quality.overall_score}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Measures citation context quality, completeness, and relevance (0-100)
+                    </p>
+                  </div>
+                  {Object.keys(resp.content_quality.by_prompt_model).length > 0 && (
+                    <div className="mt-4">
+                      <p className="text-xs text-gray-400 mb-2 font-medium">By Prompt & Model:</p>
+                      <div className="space-y-2">
+                        {Object.entries(resp.content_quality.by_prompt_model).map(
+                          ([prompt, modelScores]) => (
+                            <div key={prompt} className="text-xs">
+                              <div className="text-gray-300 font-medium mb-1 truncate max-w-md">
+                                {prompt}
+                              </div>
+                              <div className="flex gap-4 ml-4">
+                                {Object.entries(modelScores).map(([model, score]) => (
+                                  <div key={model} className="flex items-center gap-1">
+                                    <span className="text-gray-500">
+                                      {MODEL_LABELS[model] ?? model}:
+                                    </span>
+                                    <span
+                                      className={`font-medium ${
+                                        score >= 70
+                                          ? 'text-green-400'
+                                          : score >= 50
+                                          ? 'text-yellow-400'
+                                          : 'text-red-400'
+                                      }`}
+                                    >
+                                      {score}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 5. Entity Coverage (fresh run only) */}
+            {hasFreshResults && resp?.entity_coverage && (
+              <div>
+                <h4 className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-3">
+                  Entity Coverage
+                </h4>
+                <div className="rounded-lg border border-gray-800 bg-gray-900/30 p-4">
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-400">Coverage Score</span>
+                      <span
+                        className={`text-2xl font-bold ${
+                          resp.entity_coverage.score >= 70
+                            ? 'text-green-400'
+                            : resp.entity_coverage.score >= 50
+                            ? 'text-yellow-400'
+                            : 'text-red-400'
+                        }`}
+                      >
+                        {resp.entity_coverage.score}%
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      {resp.entity_coverage.found_entities?.length || 0} of{' '}
+                      {resp.entity_coverage.total_expected || 0} expected entities found in AI citations
+                    </p>
+                  </div>
+                  
+                  {resp.entity_coverage.found_entities &&
+                    resp.entity_coverage.found_entities.length > 0 && (
+                      <div className="mt-4">
+                        <p className="text-xs text-gray-400 mb-2 font-medium">
+                          Found Entities ({resp.entity_coverage.found_entities.length}):
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {resp.entity_coverage.found_entities.map((entity, idx) => (
+                            <span
+                              key={idx}
+                              className="px-2 py-1 rounded bg-green-900/30 text-green-300 text-xs"
+                            >
+                              {entity}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                  {resp.entity_coverage.missing_entities &&
+                    resp.entity_coverage.missing_entities.length > 0 && (
+                      <div className="mt-4">
+                        <p className="text-xs text-gray-400 mb-2 font-medium">
+                          Missing Entities ({resp.entity_coverage.missing_entities.length}):
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {resp.entity_coverage.missing_entities.map((entity, idx) => (
+                            <span
+                              key={idx}
+                              className="px-2 py-1 rounded bg-red-900/30 text-red-300 text-xs"
+                            >
+                              {entity}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

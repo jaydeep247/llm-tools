@@ -277,7 +277,9 @@ async def health_check():
 # ------------------------------------------------------------------------------
 # Module E: Website Score (Multi-Model)
 # ------------------------------------------------------------------------------
+import asyncio
 from ...services.module_E.website_score_service import WebsiteScoreService
+from ...services.module_E.response_accuracy_service import ResponseAccuracyService
 from pydantic import BaseModel
 
 class WebsiteScoreRequest(BaseModel):
@@ -289,10 +291,11 @@ class WebsiteScoreRequest(BaseModel):
 async def get_website_score(request: WebsiteScoreRequest):
     """
     Analyzes aggregated content to get scores from OpenAI, Claude, and Gemini.
+    Also computes model-wise performance and response accuracy.
     """
     try:
         content = request.content
-        
+
         # If content missing but URL provided, fetch it
         if not content and request.url:
             logging.info(f"Fetching content for website score analysis: {request.url}")
@@ -318,7 +321,23 @@ async def get_website_score(request: WebsiteScoreRequest):
         if not content:
             return {"success": False, "error": "No content provided and failed to fetch URL"}
 
-        scores = await WebsiteScoreService.calculate_scores(content)
+        async def _get_accuracy():
+            try:
+                return await asyncio.to_thread(ResponseAccuracyService.calculate_accuracy, content)
+            except Exception as acc_err:
+                logging.warning(f"Response accuracy calculation failed: {acc_err}")
+                return {"chatgpt": 0, "claude": 0, "gemini": 0, "overall": 0}
+
+        scores, accuracy = await asyncio.gather(
+            WebsiteScoreService.calculate_scores(content),
+            _get_accuracy(),
+        )
+        scores["model_wise_performance"] = {
+            "chatgpt": scores.get("openai", 0),
+            "claude": scores.get("claude", 0),
+            "gemini": scores.get("gemini", 0),
+        }
+        scores["response_accuracy"] = accuracy
         return {"success": True, "scores": scores}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -389,6 +408,7 @@ async def compare_entity_coverage(request: CompareEntitiesRequest):
 
 class TopicRequest(BaseModel):
     context: str
+    url: Optional[str] = None
 
 class BatchScoreRequest(BaseModel):
     topic: str
@@ -399,11 +419,11 @@ class BatchScoreRequest(BaseModel):
 @router.post("/entity/consistency/generate-topic")
 async def generate_topic(req: TopicRequest):
     """
-    Generates the Canonical Content Mandate (Topic, Audience, Tone, Brand).
+    Generates the Canonical Content Mandate (Topic, Audience, Tone, Brand, Location).
     """
-    print(f"[CONTENT CONSISTENCY] generate-topic called: contextLen={len(req.context or '')}", flush=True)
-    result = await ContentConsistencyService.generate_canonical_topic(req.context)
-    print(f"[CONTENT CONSISTENCY] generate-topic result: topic={result.get('topic')}, audience={result.get('audience')}, tone={result.get('tone')}, brand_name={result.get('brand_name')}", flush=True)
+    print(f"[CONTENT CONSISTENCY] generate-topic called: contextLen={len(req.context or '')}, url={req.url or 'none'}", flush=True)
+    result = await ContentConsistencyService.generate_canonical_topic(req.context, req.url or "")
+    print(f"[CONTENT CONSISTENCY] generate-topic result: topic={result.get('topic')}, audience={result.get('audience')}, location={result.get('location')}, brand_name={result.get('brand_name')}", flush=True)
     return {"success": True, **result}
 
 @router.post("/entity/consistency/score-batch")

@@ -339,6 +339,7 @@ export class AuditRepository {
 
         if (!result) return null;
 
+        const r = result as any;
         return {
             ...result,
             openai: result.scoreOpenai,
@@ -346,6 +347,13 @@ export class AuditRepository {
             gemini: result.scoreGemini,
             consistency: result.consistency,
             brand_metrics: result.brandMetrics,
+            response_accuracy: r.responseAccuracy,
+            citation_metrics: r.citationMetrics,
+            model_wise_performance: {
+                chatgpt: result.scoreOpenai,
+                claude: result.scoreClaude,
+                gemini: result.scoreGemini,
+            },
             entity_coverage: {
                 score: result.scoreEntityCoverage,
                 entities_expected: result.entitiesExpected,
@@ -356,34 +364,51 @@ export class AuditRepository {
     }
 
     async insertAeoResultsTable(data: any): Promise<number> {
+        const updateData: any = {
+            url: data.url,
+            consistency: data.consistency,
+            scoreEntityCoverage: data.score_entity_coverage,
+            entitiesExpected: data.entities_expected as any,
+            entitiesObserved: data.entities_observed as any,
+            entitiesMissing: data.entities_missing as any,
+            brandMetrics: data.brand_metrics as any,
+            responseAccuracy: data.response_accuracy as any,
+            citationMetrics: data.citation_metrics as any,
+            updatedAt: new Date(),
+        };
+        const createData: any = {
+            sessionId: data.session_id,
+            url: data.url,
+            consistency: data.consistency,
+            scoreEntityCoverage: data.score_entity_coverage,
+            entitiesExpected: data.entities_expected as any,
+            entitiesObserved: data.entities_observed as any,
+            entitiesMissing: data.entities_missing as any,
+            brandMetrics: data.brand_metrics as any,
+            responseAccuracy: data.response_accuracy as any,
+            citationMetrics: data.citation_metrics as any,
+        };
         const result = await prisma.aeoResult.upsert({
             where: { sessionId: data.session_id },
-            update: {
-                url: data.url,
-                consistency: data.consistency,
-                scoreEntityCoverage: data.score_entity_coverage,
-                entitiesExpected: data.entities_expected as any,
-                entitiesObserved: data.entities_observed as any,
-                entitiesMissing: data.entities_missing as any,
-                brandMetrics: data.brand_metrics as any,
-                updatedAt: new Date(),
-            },
-            create: {
-                sessionId: data.session_id,
-                url: data.url,
-                consistency: data.consistency,
-                scoreEntityCoverage: data.score_entity_coverage,
-                entitiesExpected: data.entities_expected as any,
-                entitiesObserved: data.entities_observed as any,
-                entitiesMissing: data.entities_missing as any,
-                brandMetrics: data.brand_metrics as any,
-            },
+            update: updateData,
+            create: createData,
         });
         return result.id;
     }
 
     async saveAeoAnalysisResult(data: any): Promise<number> {
         return this.insertAEOAnalysisResult(data);
+    }
+
+    async updateCitationMetricsForSession(sessionId: number, citationMetrics: any): Promise<boolean> {
+        const existing = await prisma.aeoResult.findUnique({ where: { sessionId } });
+        if (!existing) return false;
+        const updateData: any = { citationMetrics, updatedAt: new Date() };
+        await prisma.aeoResult.update({
+            where: { sessionId },
+            data: updateData,
+        });
+        return true;
     }
 
     async getAeoAnalysisResultBySessionId(sessionId: number): Promise<any | null> {

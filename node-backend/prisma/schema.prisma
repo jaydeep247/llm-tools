@@ -677,6 +677,8 @@ model AeoResult {
   entitiesObserved    Json      @default("[]") @map("entities_observed") @db.JsonB
   entitiesMissing     Json      @default("[]") @map("entities_missing") @db.JsonB
   brandMetrics        Json?     @map("brand_metrics") @db.JsonB
+  responseAccuracy    Json?     @map("response_accuracy") @db.JsonB
+  citationMetrics     Json?     @map("citation_metrics") @db.JsonB
   analyzedPagesCount  Int       @default(0) @map("analyzed_pages_count")
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt           DateTime? @map("updated_at") @db.Timestamptz

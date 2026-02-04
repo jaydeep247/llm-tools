@@ -14,6 +14,7 @@ interface ModuleEProps {
   moduleELoading: boolean;
   moduleEError: string | null;
   competitors: Competitor[];
+  sessionId?: number | null;
 }
 
 const ModuleE: React.FC<ModuleEProps> = ({
@@ -21,7 +22,8 @@ const ModuleE: React.FC<ModuleEProps> = ({
   moduleEScores,
   moduleELoading,
   moduleEError,
-  competitors
+  competitors,
+  sessionId,
 }) => {
   // Brand for sentiment/visibility: prefer configured brand, never pass literal "Not Configured"
   const rawBrandFromScores = moduleEScores?.brand_metrics?.data?.brand_name;
@@ -69,6 +71,8 @@ const ModuleE: React.FC<ModuleEProps> = ({
                   <th className="px-6 py-4 border-b border-gray-800">Website Name</th>
                   <th className="px-6 py-4 border-b border-gray-800">Content Consistency</th>
                   <th className="px-6 py-4 border-b border-gray-800">Entity Coverage</th>
+                  <th className="px-6 py-4 border-b border-gray-800">Model-wise Performance</th>
+                  <th className="px-6 py-4 border-b border-gray-800">Accuracy of Responses</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-800">
@@ -89,13 +93,65 @@ const ModuleE: React.FC<ModuleEProps> = ({
                       );
                     })()}
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 border-r border-gray-800/50">
                     <span className={`inline-flex items-center rounded px-2.5 py-1 text-xs font-bold ${(moduleEScores.entity_coverage?.score || 0) >= 80 ? 'bg-green-900/40 text-green-400 border border-green-800' :
                       (moduleEScores.entity_coverage?.score || 0) >= 50 ? 'bg-yellow-900/40 text-yellow-400 border border-yellow-800' :
                         'bg-red-900/40 text-red-400 border border-red-800'
                       }`}>
                       {moduleEScores.entity_coverage?.score !== undefined ? `${moduleEScores.entity_coverage.score}%` : 'N/A'}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 border-r border-gray-800/50">
+                    {(() => {
+                      const mwp = moduleEScores?.model_wise_performance ?? {
+                        chatgpt: moduleEScores?.openai,
+                        claude: moduleEScores?.claude,
+                        gemini: moduleEScores?.gemini,
+                      };
+                      const chatgpt = mwp?.chatgpt ?? mwp?.openai ?? moduleEScores?.openai;
+                      const claude = mwp?.claude ?? moduleEScores?.claude;
+                      const gemini = mwp?.gemini ?? moduleEScores?.gemini;
+                      const hasAny = chatgpt != null || claude != null || gemini != null;
+                      if (!hasAny) return <span className="text-gray-500">N/A</span>;
+                      const fmt = (v: number | null) =>
+                        v == null ? <span className="text-gray-500">-</span> : (
+                          <span className={v >= 80 ? 'text-green-400' : v >= 50 ? 'text-yellow-400' : 'text-red-400'}>
+                            {v}%
+                          </span>
+                        );
+                      return (
+                        <div className="flex flex-col gap-0.5 text-xs">
+                          <span>ChatGPT: {fmt(chatgpt ?? null)}</span>
+                          <span>Claude: {fmt(claude ?? null)}</span>
+                          <span>Gemini: {fmt(gemini ?? null)}</span>
+                        </div>
+                      );
+                    })()}
+                  </td>
+                  <td className="px-6 py-4">
+                    {(() => {
+                      const acc = moduleEScores?.response_accuracy;
+                      const overall = acc?.overall ?? null;
+                      const chatgpt = acc?.chatgpt ?? null;
+                      const claude = acc?.claude ?? null;
+                      const gemini = acc?.gemini ?? null;
+                      const hasAny = overall != null || chatgpt != null || claude != null || gemini != null;
+                      if (!hasAny) return <span className="text-gray-500">N/A</span>;
+                      const fmt = (v: number | null) =>
+                        v == null ? <span className="text-gray-500">-</span> : (
+                          <span className={v >= 80 ? 'text-green-400' : v >= 50 ? 'text-yellow-400' : 'text-red-400'}>
+                            {v}%
+                          </span>
+                        );
+                      return (
+                        <div className="flex flex-col gap-0.5 text-xs">
+                          {overall != null && <span className="font-medium">Overall: {fmt(overall)}</span>}
+                          <span>ChatGPT: {fmt(chatgpt ?? null)}</span>
+                          <span>Claude: {fmt(claude ?? null)}</span>
+                          <span>Gemini: {fmt(gemini ?? null)}</span>
+                        </div>
+                      );
+                    })()}
                   </td>
                 </tr>
               </tbody>
@@ -118,7 +174,11 @@ const ModuleE: React.FC<ModuleEProps> = ({
       )}
 
       {/* AI Citation Ranking Section */}
-      <AICitationRankingSection url={websiteUrl} />
+      <AICitationRankingSection
+            url={websiteUrl}
+            sessionId={sessionId ?? undefined}
+            savedCitationMetrics={moduleEScores?.citation_metrics}
+          />
 
       {/* Brand Pulse & Sentiment Section */}
       <div className="mt-8">
@@ -264,6 +324,31 @@ const ModuleE: React.FC<ModuleEProps> = ({
           </div>
         </div>
       )}
+
+      {/* Competitor Mentions: Share of Voice %, Model-wise breakdown, Trend over time */}
+      {(() => {
+        const validCompetitorNames = (competitors || [])
+          .map((c) => c?.name?.trim())
+          .filter(
+            (n) =>
+              n &&
+              n.toLowerCase() !== 'no data' &&
+              n.toLowerCase() !== 'not configured' &&
+              n.toLowerCase() !== 'no competitors found'
+          );
+        if (validCompetitorNames.length === 0) return null;
+        const brandTotalMentions = moduleEScores?.brand_metrics?.data?.total_mentions ?? 0;
+        const brandFrequencyTrend = moduleEScores?.brand_metrics?.data?.frequency_trend ?? [];
+        return (
+          <div className="mt-8">
+            <CompetitorMentionsList
+              competitors={validCompetitorNames}
+              brandTotalMentions={typeof brandTotalMentions === 'number' ? brandTotalMentions : 0}
+              brandFrequencyTrend={Array.isArray(brandFrequencyTrend) ? brandFrequencyTrend : []}
+            />
+          </div>
+        );
+      })()}
     </div>
   );
 };

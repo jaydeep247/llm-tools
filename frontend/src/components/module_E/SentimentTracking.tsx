@@ -113,6 +113,35 @@ export const SentimentTracking: React.FC<SentimentTrackingProps> = ({ brandName 
         return `${(count / total) * 100}%`;
     };
 
+    // --- Visibility Over Time: growth/decline % and time-based changes ---
+    const visibilityGrowthDecline = (() => {
+        if (history.length < 2) return null;
+        const current = history[history.length - 1].visibilityScore ?? history[history.length - 1].score ?? 0;
+        const previous = history[history.length - 2].visibilityScore ?? history[history.length - 2].score ?? 0;
+        if (previous <= 0) return null;
+        return Math.round(((current - previous) / previous) * 100);
+    })();
+
+    const timeBasedChanges = (() => {
+        if (history.length < 2) return null;
+        const current = history[history.length - 1];
+        const previous = history[history.length - 2];
+        const currVis = current.visibilityScore ?? current.score ?? 0;
+        const prevVis = previous.visibilityScore ?? previous.score ?? 0;
+        const currSent = current.sentimentScore ?? current.score ?? 0;
+        const prevSent = previous.sentimentScore ?? previous.score ?? 0;
+
+        const visibilityDelta = currVis - prevVis;
+        const sentimentDelta = currSent - prevSent;
+        const visibilityPct = prevVis > 0 ? Math.round(((currVis - prevVis) / prevVis) * 100) : null;
+        const sentimentPct = prevSent > 0 ? Math.round(((currSent - prevSent) / prevSent) * 100) : null;
+
+        return {
+            visibility: { current: currVis, previous: prevVis, delta: visibilityDelta, pct: visibilityPct },
+            sentiment: { current: currSent, previous: prevSent, delta: sentimentDelta, pct: sentimentPct },
+        };
+    })();
+
     // Chart with Area Fill and Gradient
     const renderChart = () => {
         if (history.length < 2) {
@@ -410,8 +439,69 @@ export const SentimentTracking: React.FC<SentimentTrackingProps> = ({ brandName 
                                 </div>
                             )}
 
+                            {/* Visibility Over Time submodule: [1] Trend graphs, [2] Growth %, [3] Time-based changes */}
+                            <div className="pt-2 pb-1">
+                                <h5 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Visibility Over Time</h5>
+                            </div>
+                            <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700/50">
+                                <h5 className="text-sm font-bold text-gray-300 uppercase mb-1">Visibility Growth or Decline (%)</h5>
+                                <p className="text-xs text-gray-400 mb-2">Percentage change in visibility score vs. last run</p>
+                                {visibilityGrowthDecline != null ? (
+                                    <div className="flex items-center gap-2">
+                                        <span className={`text-2xl font-bold ${visibilityGrowthDecline >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                            {visibilityGrowthDecline >= 0 ? '+' : ''}{visibilityGrowthDecline}%
+                                        </span>
+                                        <span className="text-xs text-gray-500">vs last run</span>
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-gray-500">Run analysis again to compare with previous run</p>
+                                )}
+                            </div>
+
+                            {/* Time-based Performance Changes */}
+                            <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700/50">
+                                <h5 className="text-sm font-bold text-gray-300 uppercase mb-1">Time-based Performance Changes</h5>
+                                <p className="text-xs text-gray-400 mb-3">Comparison vs. last run</p>
+                                {timeBasedChanges ? (
+                                    <div className="space-y-2 text-sm">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-gray-400">Visibility</span>
+                                            <span>
+                                                <span className="font-medium text-white">{timeBasedChanges.visibility.current}</span>
+                                                <span className="text-gray-500 text-xs mx-1">(was {timeBasedChanges.visibility.previous})</span>
+                                                <span className={timeBasedChanges.visibility.delta >= 0 ? 'text-green-400' : 'text-red-400'}>
+                                                    {timeBasedChanges.visibility.delta >= 0 ? '+' : ''}{timeBasedChanges.visibility.delta} pts
+                                                    {timeBasedChanges.visibility.pct != null && (
+                                                        <span className="ml-1">
+                                                            ({timeBasedChanges.visibility.pct >= 0 ? '+' : ''}{timeBasedChanges.visibility.pct}%)
+                                                        </span>
+                                                    )}
+                                                </span>
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-gray-400">Sentiment</span>
+                                            <span>
+                                                <span className="font-medium text-white">{timeBasedChanges.sentiment.current}</span>
+                                                <span className="text-gray-500 text-xs mx-1">(was {timeBasedChanges.sentiment.previous})</span>
+                                                <span className={timeBasedChanges.sentiment.delta >= 0 ? 'text-green-400' : 'text-red-400'}>
+                                                    {timeBasedChanges.sentiment.delta >= 0 ? '+' : ''}{timeBasedChanges.sentiment.delta} pts
+                                                    {timeBasedChanges.sentiment.pct != null && (
+                                                        <span className="ml-1">
+                                                            ({timeBasedChanges.sentiment.pct >= 0 ? '+' : ''}{timeBasedChanges.sentiment.pct}%)
+                                                        </span>
+                                                    )}
+                                                </span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-gray-500">Run analysis again to see performance changes</p>
+                                )}
+                            </div>
+
                             <div className="bg-gray-900/50 p-4 rounded-lg border border-gray-700/50 flex-1">
-                                <h5 className="text-sm font-bold text-gray-300 uppercase mb-3 px-1">Model-wise Visibility</h5>
+                                <h5 className="text-sm font-bold text-gray-300 uppercase mb-3 px-1">Model-wise Breakdown (ChatGPT, Claude, Gemini)</h5>
                                 <div className="overflow-hidden rounded-lg border border-gray-700/50">
                                     <table className="w-full text-sm text-left">
                                         <thead className="text-xs text-gray-500 uppercase bg-gray-800/50 border-b border-gray-700/50 font-semibold">

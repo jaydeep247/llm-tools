@@ -416,6 +416,19 @@ router.get('/results/:sessionId',
                     logger.info('DEBUG: Injected entity_coverage');
                 }
 
+                // Inject model_wise_performance and response_accuracy for Module E
+                if (multiModelResult.model_wise_performance) {
+                    finalResult.module_scores = finalResult.module_scores || {};
+                    finalResult.module_scores.model_wise_performance = multiModelResult.model_wise_performance;
+                }
+                if (multiModelResult.response_accuracy != null) {
+                    finalResult.module_scores = finalResult.module_scores || {};
+                    finalResult.module_scores.response_accuracy = multiModelResult.response_accuracy;
+                }
+                if (multiModelResult.citation_metrics != null) {
+                    finalResult.citation_metrics = multiModelResult.citation_metrics;
+                }
+
                 // Sync module_scores to moduleScores for frontend compatibility
                 // This ensures AppWithAuth (which prefers moduleScores) receives the updated data
                 if (finalResult.module_scores) {
@@ -463,80 +476,81 @@ router.post('/website-score', async (req: express.Request, res: express.Response
             return res.status(400).json({ success: false, error: 'URL is required' });
         }
 
-        // Prefer DB when sessionId is set (crawl data); fall back to live fetch only when needed.
+        // Prefer LIVE FETCH first to get real HTML content (fixes topic extraction).
+        // Fall back to DB when fetch fails.
         try {
             let text = '';
             let statusCode = 200;
             let actualWordCount: number | undefined;
+            let contentSource: 'live_fetch' | 'db_fallback' = 'live_fetch';
             const db = await import('../../services/DatabaseService.js').then(m => m.getDatabase());
 
+            /** Build content from DB pages: aggregate title, description, meta from top pages for better topic extraction */
             const buildTextFromPages = (pages: any[]): { text: string; actualWordCount?: number } => {
                 if (!pages?.length) return { text: '' };
-                let matchingPage = pages.find((p: any) => p.url === url);
-                if (!matchingPage) {
-                    try {
-                        const urlObj = new URL(url);
-                        const homepage = `${urlObj.protocol}//${urlObj.host}/`;
-                        matchingPage = pages.find((p: any) => p.url === homepage);
-                    } catch {
-                        // ignore
-                    }
+                const parts: string[] = [];
+                let totalWords = 0;
+                const topPages = pages
+                    .filter((p: any) => (p.statusCode ?? p.status_code) === 200)
+                    .sort((a: any, b: any) => (b.wordCount || 0) - (a.wordCount || 0))
+                    .slice(0, 5);
+                for (const p of topPages) {
+                    if (p.title) parts.push(`Title: ${p.title}`);
+                    if (p.description) parts.push(`Description: ${p.description}`);
+                    if (p.metaDescription && p.metaDescription !== p.description) parts.push(`Meta: ${p.metaDescription}`);
+                    if (p.ogDescription) parts.push(`OG: ${p.ogDescription}`);
+                    if (p.headingTags) parts.push(`Headings: ${p.headingTags}`);
+                    totalWords += p.wordCount ?? 0;
                 }
-                if (matchingPage) {
-                    const parts = [];
-                    if (matchingPage.title) parts.push(`Title: ${matchingPage.title}`);
-                    if (matchingPage.description) parts.push(`Description: ${matchingPage.description}`);
-                    if (matchingPage.wordCount) parts.push(`Content: ${matchingPage.wordCount} words`);
-                    return { text: parts.join('\n'), actualWordCount: matchingPage.wordCount };
-                }
-                const pageWithContent = pages.find((p: any) => p.wordCount && p.wordCount > 0);
-                if (pageWithContent) {
-                    const parts = [];
-                    if (pageWithContent.title) parts.push(`Title: ${pageWithContent.title}`);
-                    if (pageWithContent.description) parts.push(`Description: ${pageWithContent.description}`);
-                    parts.push(`This is content from crawled page: ${pageWithContent.url}`);
-                    return { text: parts.join('\n'), actualWordCount: pageWithContent.wordCount };
-                }
-                return { text: '' };
+                const combined = parts.join('\n\n');
+                logger.info('MODULE E: buildTextFromPages', { pageCount: topPages.length, combinedLen: combined.length, totalWords });
+                return { text: combined, actualWordCount: totalWords || Math.ceil(combined.length / 5) };
             };
 
-            // 1) When sessionId is provided: try DB first (crawl may have already written pages)
-            if (sessionId) {
-                let pages = await db.getPages(sessionId, 10000, 0);
-                logger.info('MODULE E: DB-first for sessionId', { sessionId, pageCount: pages.length });
-                if (pages.length === 0) {
-                    await new Promise(r => setTimeout(r, 3000));
-                    pages = await db.getPages(sessionId, 10000, 0);
-                    logger.info('MODULE E: Retry getPages after 3s', { sessionId, pageCount: pages.length });
-                }
-                const fromDb = buildTextFromPages(pages);
-                if (fromDb.text) {
-                    text = fromDb.text;
-                    actualWordCount = fromDb.actualWordCount;
-                    logger.info('MODULE E: Using content from database', { sessionId, contentLength: text.length });
-                }
-            }
-
-            // 2) If still no content: try live fetch
-            if (!text) {
-                try {
-                    const controller = new AbortController();
-                    const timeout = setTimeout(() => controller.abort(), 30000);
-                    const response = await fetch(url, { signal: controller.signal });
-                    clearTimeout(timeout);
-                    if (!response.ok) throw new Error(`Failed to fetch ${url}: ${response.statusText}`);
+            // 1) Try live fetch FIRST to get real HTML (ensures good content for topic extraction)
+            try {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 30000);
+                const response = await fetch(url, { signal: controller.signal });
+                clearTimeout(timeout);
+                if (response.ok) {
                     text = await response.text();
                     statusCode = response.status;
-                    logger.info('MODULE E: Successfully fetched URL live', { url });
-                } catch (fetchError) {
-                    logger.warn('MODULE E: Live fetch failed', { url, sessionId, fetchErrorMessage: (fetchError as Error).message });
-                    if (!sessionId) {
-                        const pages = await db.getPages(undefined, 10000, 0);
-                        const fromDb = buildTextFromPages(pages);
-                        if (fromDb.text) {
-                            text = fromDb.text;
-                            actualWordCount = fromDb.actualWordCount;
-                        }
+                    contentSource = 'live_fetch';
+                    actualWordCount = Math.ceil(text.length / 5);
+                    logger.info('MODULE E: Using content from live fetch', { url, contentLength: text.length, statusCode });
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (fetchError) {
+                logger.warn('MODULE E: Live fetch failed, falling back to DB', {
+                    url,
+                    sessionId,
+                    error: (fetchError as Error).message,
+                });
+
+                // 2) Fall back to DB when fetch fails
+                if (sessionId) {
+                    let pages = await db.getPages(sessionId, 10000, 0);
+                    if (pages.length === 0) {
+                        await new Promise(r => setTimeout(r, 3000));
+                        pages = await db.getPages(sessionId, 10000, 0);
+                    }
+                    const fromDb = buildTextFromPages(pages);
+                    if (fromDb.text) {
+                        text = fromDb.text;
+                        actualWordCount = fromDb.actualWordCount;
+                        contentSource = 'db_fallback';
+                        logger.info('MODULE E: Using content from DB fallback', { sessionId, contentLength: text.length });
+                    }
+                }
+                if (!sessionId) {
+                    const pages = await db.getPages(undefined, 10000, 0);
+                    const fromDb = buildTextFromPages(pages);
+                    if (fromDb.text) {
+                        text = fromDb.text;
+                        actualWordCount = fromDb.actualWordCount;
+                        contentSource = 'db_fallback';
                     }
                 }
             }
@@ -553,10 +567,17 @@ router.post('/website-score', async (req: express.Request, res: express.Response
                 });
             }
 
-            const wordCount = actualWordCount !== undefined ? actualWordCount : text.length / 5;
+            const wordCount = actualWordCount !== undefined ? actualWordCount : Math.ceil(text.length / 5);
             const pagesForScore = [{ url, content: text, title: 'Homepage', word_count: wordCount, status_code: statusCode }];
-            logger.info('MODULE E: Calling generateWebsiteScores', { url, sessionId, contentLength: text.length, wordCount, pagesCount: pagesForScore.length });
-            console.log('[MODULE E DEBUG] About to call generateWebsiteScores: pagesCount=1, contentLength=' + text.length + ', url=' + url);
+            logger.info('MODULE E: Calling generateWebsiteScores', {
+                url,
+                sessionId,
+                contentLength: text.length,
+                wordCount,
+                pagesCount: pagesForScore.length,
+                contentSource: contentSource!,
+            });
+            console.log('[MODULE E DEBUG] generateWebsiteScores: contentSource=' + (contentSource ?? 'unknown') + ', contentLength=' + text.length + ', url=' + url);
 
             let scores: any;
             const runScoring = () => MultiModelScoringService.generateWebsiteScores(url, pagesForScore, sessionId);
@@ -606,7 +627,8 @@ router.post('/website-score', async (req: express.Request, res: express.Response
                         entities_expected: scores.entity_coverage?.entities_expected,
                         entities_observed: scores.entity_coverage?.entities_observed,
                         entities_missing: scores.entity_coverage?.entities_missing,
-                        brand_metrics: scores.brand_metrics
+                        brand_metrics: scores.brand_metrics,
+                        response_accuracy: scores.response_accuracy
                     };
 
                     logger.info('MODULE E: Data prepared for save', {
@@ -655,6 +677,43 @@ router.post('/website-score', async (req: express.Request, res: express.Response
         res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
     }
 });
+
+// Proxy competitor mentions to FastAPI (DataForSEO phrase_trends)
+router.post('/analyze-competitors-mentions',
+    authenticateUser,
+    async (req: express.Request, res: express.Response) => {
+        try {
+            const { competitors } = req.body || {};
+            if (!Array.isArray(competitors) || competitors.length === 0) {
+                return res.status(400).json({ success: false, error: 'competitors array is required' });
+            }
+
+            const response = await fetch(`${AEO_API_BASE_URL}/api/aeo/analyze-competitors-mentions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ competitors })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                logger.warn(`Competitor mentions API failed: ${response.status} - ${errorText}`);
+                return res.status(response.status).json({
+                    success: false,
+                    error: errorText || 'Competitor mentions analysis failed'
+                });
+            }
+
+            const data = await response.json();
+            res.json(data);
+        } catch (error) {
+            logger.error('Competitor mentions proxy error:', error as Error);
+            res.status(500).json({
+                success: false,
+                error: (error as Error).message || 'Service unavailable'
+            });
+        }
+    }
+);
 
 // --- NEW: Proxy AI Answer Simulation Request ---
 router.post('/simulate-answer',

@@ -178,21 +178,39 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
         actualResult?.module_scores?.brand_metrics ??
         result?.module_scores?.brand_metrics ??
         (result as any)?.scores?.brand_metrics,
+      model_wise_performance:
+        actualResult?.module_scores?.model_wise_performance ??
+        result?.module_scores?.model_wise_performance ??
+        actualResult?.model_wise_performance ??
+        (result as any)?.model_wise_performance,
+      response_accuracy:
+        actualResult?.module_scores?.response_accuracy ??
+        result?.module_scores?.response_accuracy ??
+        actualResult?.response_accuracy ??
+        (result as any)?.response_accuracy,
+      citation_metrics:
+        actualResult?.citation_metrics ?? (result as any)?.citation_metrics,
       url: actualResult?.url ?? result?.url
     };
 
     const hasAnyFromResult =
       fromResult.consistency !== undefined ||
       fromResult.entity_coverage != null ||
-      fromResult.brand_metrics != null;
+      fromResult.brand_metrics != null ||
+      fromResult.model_wise_performance != null ||
+      fromResult.response_accuracy != null ||
+      fromResult.citation_metrics != null;
 
     if (!hasAnyFromResult) return;
 
-    setModuleEScores((prev) => {
+    setModuleEScores((prev: any) => {
       const next = { ...prev };
       if (fromResult.consistency !== undefined) next.consistency = fromResult.consistency;
       if (fromResult.entity_coverage != null) next.entity_coverage = fromResult.entity_coverage;
       if (fromResult.brand_metrics != null) next.brand_metrics = fromResult.brand_metrics;
+      if (fromResult.model_wise_performance != null) next.model_wise_performance = fromResult.model_wise_performance;
+      if (fromResult.response_accuracy != null) next.response_accuracy = fromResult.response_accuracy;
+      if (fromResult.citation_metrics != null) next.citation_metrics = fromResult.citation_metrics;
       if (fromResult.url != null && fromResult.url !== '') next.url = fromResult.url;
       return next;
     });

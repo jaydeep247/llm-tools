@@ -17,6 +17,7 @@ interface AeoScoreResult {
     gemini: number;
     consistency?: number;
     brand_metrics?: any;
+    response_accuracy?: { overall?: number; chatgpt?: number; claude?: number; gemini?: number };
 }
 
 interface EntityAnalysisResult {
@@ -217,15 +218,20 @@ ${page.content.substring(0, 3000)} ...[truncated]
                 console.log(`[CONTENT CONSISTENCY] No cached topic for domainKey=${domainKey}, contextLen=${(cleanContext || '').length}, will call generate-topic`);
 
                 if (!cleanContext.trim()) {
-                    console.warn('[MODULE E DEBUG] Content Consistency: No text content for Canonical Topic. Consistency Score = 0.');
+                    console.warn('[MODULE E DEBUG] Content Consistency: No text content for Canonical Topic. Consistency Score = 0.', {
+                        topicContextLen: (topicContext || '').length,
+                        fallbackContextLen: (fallbackContext || '').length,
+                        cleanContextLen: cleanContext.length,
+                    });
                     return { score: 0 };
                 }
 
-                console.log('[MODULE E DEBUG] Content Consistency: Calling generate-topic (Python)');
+                const homepageUrl = allPages[0]?.url || '';
+                console.log('[MODULE E DEBUG] Content Consistency: Calling generate-topic (Python)', { contextLen: cleanContext.length, url: homepageUrl });
                 const res = await fetch(`${apiUrl}/api/aeo/entity/consistency/generate-topic`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ context: cleanContext })
+                    body: JSON.stringify({ context: cleanContext, url: homepageUrl })
                 });
 
                 if (res.ok) {
@@ -240,7 +246,10 @@ ${page.content.substring(0, 3000)} ...[truncated]
                         console.log(`[CONTENT CONSISTENCY] generate-topic OK: topic="${topic}", audience="${audience}", tone="${tone}", brandName="${brandName}" (contextLen=${cleanContext.length})`);
                     }
                 } else {
-                    console.warn('[MODULE E DEBUG] Content Consistency: generate-topic failed status=' + res.status + ' ' + res.statusText);
+                    console.warn('[MODULE E DEBUG] Content Consistency: generate-topic failed', {
+                        status: res.status,
+                        statusText: res.statusText,
+                    });
                 }
             }
 
@@ -524,6 +533,7 @@ ${page.content.substring(0, 3000)} ...[truncated]
                     scoreGemini: scores.gemini,
                     consistency: scores.consistency || 0,
                     brandMetrics: scores.brand_metrics as any,
+                    responseAccuracy: scores.response_accuracy as any,
                     scoreEntityCoverage: entityResult.score,
                     entitiesExpected: entityResult.entities_expected as any,
                     entitiesObserved: entityResult.entities_observed as any,
@@ -539,6 +549,7 @@ ${page.content.substring(0, 3000)} ...[truncated]
                     scoreGemini: scores.gemini,
                     consistency: scores.consistency || 0,
                     brandMetrics: scores.brand_metrics as any,
+                    responseAccuracy: scores.response_accuracy as any,
                     scoreEntityCoverage: entityResult.score,
                     entitiesExpected: entityResult.entities_expected as any,
                     entitiesObserved: entityResult.entities_observed as any,
@@ -557,6 +568,7 @@ ${page.content.substring(0, 3000)} ...[truncated]
                     scoreGemini: scores.gemini,
                     consistency: scores.consistency || 0,
                     brandMetrics: scores.brand_metrics as any,
+                    responseAccuracy: scores.response_accuracy as any,
                     scoreEntityCoverage: entityResult.score,
                     entitiesExpected: entityResult.entities_expected as any,
                     entitiesObserved: entityResult.entities_observed as any,

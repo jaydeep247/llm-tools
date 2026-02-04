@@ -15,14 +15,17 @@ service = AIRankingService()
 class RankingAnalysisRequest(BaseModel):
     url: str
     prompts: Optional[List[str]] = None
+    location: Optional[str] = None
+    topic_override: Optional[str] = None
 
 
 @router.post("/api/aeo/ranking-analysis")
 async def ranking_analysis(request: RankingAnalysisRequest):
     """
     Analyze AI citation ranking: position per prompt, percentile rank, model-wise comparison.
-    Uses DataForSEO LLM Responses API (ChatGPT, Claude, Gemini, Perplexity).
-    If prompts is empty or omitted, auto-generates prompts from page content (topic/brand/audience).
+    Uses DataForSEO LLM Responses API (ChatGPT, Claude, Gemini).
+    If prompts is empty, auto-generates from page content (topic, audience, location).
+    Supports optional location and topic_override.
     """
     try:
         if not request.url:
@@ -32,7 +35,12 @@ async def ranking_analysis(request: RankingAnalysisRequest):
         generated_prompts = None
 
         if not prompts:
-            prompts = await service.generate_prompts_from_url(request.url)
+            prompts = await service.generate_prompts_from_url(
+                request.url,
+                location_override=request.location,
+                topic_override=request.topic_override,
+                custom_prompts=None,
+            )
             generated_prompts = prompts
 
         if not prompts:
@@ -41,7 +49,7 @@ async def ranking_analysis(request: RankingAnalysisRequest):
                 detail="Could not generate prompts from page. Provide prompts manually.",
             )
 
-        result = service.analyze_ranking(
+        result = await service.analyze_ranking(
             url=request.url,
             prompts=prompts,
             generated_prompts=generated_prompts,

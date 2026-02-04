@@ -361,6 +361,7 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
             moduleELoading={moduleELoading}
             moduleEError={moduleEError}
             competitors={competitors}
+            sessionId={sessionId}
           />
         )}
 

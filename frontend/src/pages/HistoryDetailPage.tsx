@@ -172,7 +172,8 @@ const HistoryDetailPage: React.FC = () => {
               warnings: r.warnings,
               analysis_timestamp: r.analysisTimestamp || r.analysis_timestamp,
               run_id: r.runId || r.run_id,
-              entity_coverage: r.entity_coverage
+              entity_coverage: r.entity_coverage,
+              citation_metrics: r.citation_metrics,
             } as AnalysisResult;
           }
         }

@@ -178,6 +178,11 @@ Thumbs.db
 storage/*
 !storage/.gitkeep
 
+# Crawler/SDK generated files (request queues, session pool, key-value stores)
+node-backend/storage/
+**/key_value_stores/
+**/request_queues/
+
 # AEO API config with secrets
 aeo-api/config/openai.json
 

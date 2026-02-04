@@ -39,6 +39,14 @@ BEGIN
         ALTER TABLE aeo_results ADD COLUMN brand_metrics JSONB;
     END IF;
 
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='aeo_results' AND column_name='response_accuracy') THEN
+        ALTER TABLE aeo_results ADD COLUMN response_accuracy JSONB;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='aeo_results' AND column_name='citation_metrics') THEN
+        ALTER TABLE aeo_results ADD COLUMN citation_metrics JSONB;
+    END IF;
+
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='aeo_results' AND column_name='updated_at') THEN
         ALTER TABLE aeo_results ADD COLUMN updated_at TIMESTAMPTZ DEFAULT NOW();
     END IF;
