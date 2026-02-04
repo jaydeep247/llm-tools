@@ -7,7 +7,7 @@ import { Clock, Globe, CheckCircle, XCircle, Loader2, AlertCircle } from 'lucide
 import { Badge } from '@/components/ui/badge'
 import { CrawlLogger, DiscoveredPages, CrawlStatusHeader } from '@/components/crawl'
 import { SessionLayout } from '@/components/layout/SessionLayout'
-import { CrawledDataTable } from '@/components/module_A'
+import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis } from '@/components/module_A'
 import { useGetDataListQuery } from '@/store/api/module_A/dataApi'
 
 interface LogEntry {
@@ -32,6 +32,24 @@ export default function SessionDetailPage() {
   const { data: pagesData, isLoading: isLoadingPages, refetch: refetchPages } = useGetDataListQuery(
     { sessionId: parseInt(sessionId), limit: 10000, offset: 0 },
     { skip: activeSection !== 'crawled-data' }
+  )
+  
+  // Fetch page metrics data when on page-metrics tab
+  const { data: pageMetricsData, isLoading: isLoadingMetrics, refetch: refetchMetrics } = useGetDataListQuery(
+    { sessionId: parseInt(sessionId), limit: 10000, offset: 0 },
+    { skip: activeSection !== 'page-metrics' }
+  )
+  
+  // Fetch text quality data when on text-quality tab
+  const { data: textQualityData, isLoading: isLoadingTextQuality, refetch: refetchTextQuality } = useGetDataListQuery(
+    { sessionId: parseInt(sessionId), limit: 10000, offset: 0 },
+    { skip: activeSection !== 'text-quality' }
+  )
+  
+  // Fetch word count data when on wordcount tab
+  const { data: wordCountData, isLoading: isLoadingWordCount, refetch: refetchWordCount } = useGetDataListQuery(
+    { sessionId: parseInt(sessionId), limit: 10000, offset: 0 },
+    { skip: activeSection !== 'wordcount' }
   )
   
   // Live crawl state
@@ -471,8 +489,41 @@ export default function SessionDetailPage() {
           </div>
         )}
 
+        {/* Show Page Metrics Table on page-metrics tab */}
+        {activeSection === 'page-metrics' && (
+          <div>
+            <PageMetricsTable 
+              data={pageMetricsData?.data || []}
+              isLoading={isLoadingMetrics}
+              onRefresh={() => refetchMetrics()}
+            />
+          </div>
+        )}
+
+        {/* Show Text Quality Table on text-quality tab */}
+        {activeSection === 'text-quality' && (
+          <div>
+            <TextQualityTable 
+              data={textQualityData?.data || []}
+              isLoading={isLoadingTextQuality}
+              onRefresh={() => refetchTextQuality()}
+            />
+          </div>
+        )}
+
+        {/* Show Word Count Analysis on wordcount tab */}
+        {activeSection === 'wordcount' && (
+          <div>
+            <WordCountAnalysis 
+              data={wordCountData?.data || []}
+              isLoading={isLoadingWordCount}
+              onRefresh={() => refetchWordCount()}
+            />
+          </div>
+        )}
+
         {/* Placeholder for other tabs */}
-        {activeSection !== 'crawler' && activeSection !== 'crawled-data' && (
+        {activeSection !== 'crawler' && activeSection !== 'crawled-data' && activeSection !== 'page-metrics' && activeSection !== 'text-quality' && activeSection !== 'wordcount' && (
           <div className="rounded-lg p-8 border border-white/20 bg-white/10 backdrop-blur-xl text-center">
             <h2 className="text-xl font-bold text-white mb-2">
               {activeSection.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}

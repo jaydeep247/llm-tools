@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { 
   ExternalLink, 
   ChevronDown, 
@@ -15,147 +15,149 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 
-interface CrawledPage {
-  id: number
+interface PageMetric {
   url: string
   title: string
-  titleLength: number
+  titleLength?: number
   titlePixelWidth?: number
+  titleStatus?: 'OK' | 'Missing' | 'Duplicate'
+  duplicateTitleCount?: number
+  duplicateWith?: string[]
+  resourceType?: string
   description: string
-  descriptionLength: number
+  descriptionLength?: number
   descriptionPixelWidth?: number
-  contentType: string
-  statusCode: number
-  responseTime: number
-  wordCount: number
-  sentenceCount?: number
-  averageWordsPerSentence?: number
-  fleschReadingEase?: number
-  readabilityLevel?: string
-  textToHtmlRatio?: number
-  crawlDepth: number
-  folderDepth: number
-  sizeBytes?: number
-  success: boolean
-  errorMessage?: string
-  linkScore?: number
-  canonicalUrl?: string
-  amphtmlUrl?: string
-  mobileAlternateUrl?: string
-  indexable?: boolean
-  indexabilityStatus?: string
-  metaRobots?: string
-  xRobotsTag?: string
-  metaRefresh?: string
-  transferredBytes?: number
-  totalTransferredBytes?: number
-  co2Mg?: number
-  carbonRating?: string
-  relNext?: string
-  relPrev?: string
-  httpRelNext?: string
-  httpRelPrev?: string
+  metaDescriptionStatus?: 'OK' | 'Missing' | 'Duplicate'
+  duplicateMetaDescriptionCount?: number
+  duplicateMetaDescriptionWith?: string[]
+  canonicalUrl?: string | null
+  canonicalValidationStatus?: 'Valid' | 'Invalid' | 'Missing' | 'Redirect' | 'Error' | 'Not Found' | 'Blocked'
+  canonicalValidationMessage?: string
   metaKeywords?: string
   metaKeywordsLength?: number
-  headingTags?: string
-  spellingErrors: number
-  grammarErrors: number
-  redirectUrl?: string
-  redirectType?: string
-  cookies?: string
-  language?: string
-  httpVersion?: string
-  semanticSimilarityScore?: number
-  semanticRelevanceScore?: number
-  contentHash?: string
-  closestDuplicateUrl?: string
-  closestDuplicateSimilarity?: number
-  nearDuplicateCount: number
-  uniqueExternalOutlinks: number
-  uniqueExternalJsOutlinks: number
-  uniqueOutlinks?: number
-  uniqueJsOutlinks?: number
-  metaDescription?: string
-  ogTitle?: string
-  ogDescription?: string
-  ogImage?: string
-  lastModified?: string
+  contentType?: string
+  lastModified?: string | null
   timestamp: string
+  success?: boolean
+  sessionId?: number
+  tableCount?: number | null
+  tableData?: string | null
+  hasTables?: boolean | null
+  faqCount?: number | null
+  faqData?: string | null
+  hasFaqs?: boolean | null
+  faqScore?: number | null
+  faqDetectionMethod?: string | null
+  faqSchemaPresent?: boolean | null
+  hasMixedContent?: boolean | null
+  mixedContentSeverity?: 'none' | 'warning' | 'critical' | null
+  mixedContentData?: string | null
+  activeMixedContentCount?: number | null
+  passiveMixedContentCount?: number | null
+  totalInsecureResources?: number | null
+  headerStructureData?: string | null
+  headerStructureIssues?: string | null
+  viewportPresent?: boolean | null
+  viewportContent?: string | null
+  viewportStatus?: 'ok' | 'warning' | 'error' | 'missing' | null
+  structuredDataPresent?: boolean | null
+  structuredDataFormat?: string | null
+  structuredDataTypes?: string | null
+  structuredDataPriorityType?: string | null
+  pageSizeBytes?: number | null
+  pageSizeStatus?: 'Small' | 'Medium' | 'Large' | null
+  htmlSizeBytes?: number | null
+  htmlSizeStatus?: 'Good' | 'Warning' | 'Large' | null
+  totalResourceSizeBytes?: number | null
+  resourceSizeBreakdown?: string | null
+  totalWordCount?: number | null
 }
 
-interface CrawledDataTableProps {
-  data: CrawledPage[]
+interface PageMetricsTableProps {
+  data: PageMetric[]
   isLoading?: boolean
   onRefresh?: () => void
   onExport?: () => void
 }
 
-type SortField = keyof CrawledPage
+type SortField = keyof PageMetric
 type SortDirection = 'asc' | 'desc'
 
 type ColumnCategory = {
   name: string
-  columns: (keyof CrawledPage)[]
+  columns: (keyof PageMetric)[]
 }
 
 const COLUMN_CATEGORIES: ColumnCategory[] = [
   {
     name: 'Basic Info',
-    columns: ['url', 'title', 'statusCode', 'contentType', 'success', 'timestamp']
+    columns: ['url', 'title', 'resourceType', 'contentType', 'lastModified', 'timestamp']
   },
   {
-    name: 'SEO Meta',
-    columns: ['titleLength', 'titlePixelWidth', 'descriptionLength', 'descriptionPixelWidth', 'description', 'metaKeywords']
+    name: 'Title Metrics',
+    columns: ['titleLength', 'titlePixelWidth', 'titleStatus', 'duplicateTitleCount']
   },
   {
-    name: 'Content Quality',
-    columns: ['wordCount', 'sentenceCount', 'averageWordsPerSentence', 'fleschReadingEase', 'readabilityLevel', 'textToHtmlRatio', 'spellingErrors', 'grammarErrors']
+    name: 'Description Metrics',
+    columns: ['description', 'descriptionLength', 'descriptionPixelWidth', 'metaDescriptionStatus', 'duplicateMetaDescriptionCount']
   },
   {
-    name: 'Indexability',
-    columns: ['indexable', 'indexabilityStatus', 'metaRobots', 'xRobotsTag', 'canonicalUrl']
+    name: 'Canonical',
+    columns: ['canonicalUrl', 'canonicalValidationStatus', 'canonicalValidationMessage']
   },
   {
-    name: 'Links',
-    columns: ['uniqueExternalOutlinks', 'uniqueExternalJsOutlinks', 'uniqueOutlinks', 'linkScore']
+    name: 'Meta Keywords',
+    columns: ['metaKeywords', 'metaKeywordsLength']
   },
   {
-    name: 'Performance',
-    columns: ['responseTime', 'sizeBytes', 'transferredBytes', 'totalTransferredBytes', 'co2Mg', 'carbonRating']
+    name: 'Tables',
+    columns: ['hasTables', 'tableCount', 'tableData']
   },
   {
-    name: 'Semantic',
-    columns: ['semanticSimilarityScore', 'semanticRelevanceScore', 'nearDuplicateCount', 'closestDuplicateSimilarity', 'contentHash']
+    name: 'FAQs',
+    columns: ['hasFaqs', 'faqCount', 'faqScore', 'faqDetectionMethod', 'faqSchemaPresent', 'faqData']
   },
   {
-    name: 'Open Graph',
-    columns: ['ogTitle', 'ogDescription', 'ogImage']
+    name: 'Mixed Content Security',
+    columns: ['hasMixedContent', 'mixedContentSeverity', 'activeMixedContentCount', 'passiveMixedContentCount', 'totalInsecureResources', 'mixedContentData']
   },
   {
-    name: 'Technical',
-    columns: ['crawlDepth', 'folderDepth', 'language', 'httpVersion', 'redirectUrl', 'redirectType']
+    name: 'Header Structure',
+    columns: ['headerStructureData', 'headerStructureIssues']
   },
   {
-    name: 'Other',
-    columns: ['lastModified', 'relNext', 'relPrev', 'errorMessage']
+    name: 'Viewport',
+    columns: ['viewportPresent', 'viewportContent', 'viewportStatus']
+  },
+  {
+    name: 'Structured Data',
+    columns: ['structuredDataPresent', 'structuredDataFormat', 'structuredDataTypes', 'structuredDataPriorityType']
+  },
+  {
+    name: 'Page Size',
+    columns: ['pageSizeBytes', 'pageSizeStatus', 'htmlSizeBytes', 'htmlSizeStatus', 'totalResourceSizeBytes', 'resourceSizeBreakdown']
+  },
+  {
+    name: 'Content',
+    columns: ['totalWordCount']
   }
 ]
 
-const DEFAULT_VISIBLE_COLUMNS: Set<keyof CrawledPage> = new Set(['url', 'title', 'titleLength', 'contentType', 'timestamp'])
+const DEFAULT_VISIBLE_COLUMNS: Set<keyof PageMetric> = new Set(['url', 'title', 'titleStatus', 'metaDescriptionStatus', 'hasTables', 'hasFaqs', 'timestamp'])
 
-export function CrawledDataTable({ 
+export function PageMetricsTable({ 
   data = [], 
   isLoading = false,
   onRefresh,
   onExport 
-}: CrawledDataTableProps) {
+}: PageMetricsTableProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [urlFilter, setUrlFilter] = useState('')
-  const [sortField, setSortField] = useState<SortField>('id')
+  const [sortField, setSortField] = useState<SortField>('url')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [currentPage, setCurrentPage] = useState(1)
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [visibleColumns, setVisibleColumns] = useState<Set<keyof CrawledPage>>(DEFAULT_VISIBLE_COLUMNS)
+  const [visibleColumns, setVisibleColumns] = useState<Set<keyof PageMetric>>(DEFAULT_VISIBLE_COLUMNS)
   const tableContainerRef = useRef<HTMLDivElement>(null)
   const itemsPerPage = 20
 
@@ -168,7 +170,7 @@ export function CrawledDataTable({
       filtered = filtered.filter(page => 
         page.url.toLowerCase().includes(query) ||
         page.title.toLowerCase().includes(query) ||
-        page.description.toLowerCase().includes(query)
+        (page.description && page.description.toLowerCase().includes(query))
       )
     }
 
@@ -176,7 +178,7 @@ export function CrawledDataTable({
       const query = urlFilter.toLowerCase()
       filtered = filtered.filter(page => 
         page.url.toLowerCase().includes(query) ||
-        page.contentType.toLowerCase().includes(query)
+        page.contentType?.toLowerCase().includes(query)
       )
     }
 
@@ -224,7 +226,7 @@ export function CrawledDataTable({
     }
   }
 
-  const toggleColumn = (column: keyof CrawledPage) => {
+  const toggleColumn = (column: keyof PageMetric) => {
     const newVisibleColumns = new Set(visibleColumns)
     const isAdding = !newVisibleColumns.has(column)
     if (newVisibleColumns.has(column)) {
@@ -266,8 +268,8 @@ export function CrawledDataTable({
   }
 
   // Get visible columns in correct order based on COLUMN_CATEGORIES
-  const getOrderedVisibleColumns = (): (keyof CrawledPage)[] => {
-    const ordered: (keyof CrawledPage)[] = []
+  const getOrderedVisibleColumns = (): (keyof PageMetric)[] => {
+    const ordered: (keyof PageMetric)[] = []
     for (const category of COLUMN_CATEGORIES) {
       for (const column of category.columns) {
         if (visibleColumns.has(column)) {
@@ -280,92 +282,82 @@ export function CrawledDataTable({
 
   const orderedVisibleColumns = useMemo(() => getOrderedVisibleColumns(), [visibleColumns])
 
-  const getColumnLabel = (column: keyof CrawledPage): string => {
+  const getColumnLabel = (column: keyof PageMetric): string => {
     const labels: Record<string, string> = {
       url: 'URL',
       title: 'Title',
       titleLength: 'Title Length',
-      titlePixelWidth: 'Title Pixel Width',
-      description: 'Description',
+      titlePixelWidth: 'Title Width (px)',
+      titleStatus: 'Title Status',
+      duplicateTitleCount: 'Duplicate Title Count',
+      resourceType: 'Resource Type',
+      description: 'Meta Description',
       descriptionLength: 'Description Length',
-      descriptionPixelWidth: 'Description Pixel Width',
-      contentType: 'Content Type',
-      statusCode: 'Status Code',
-      success: 'Success',
-      timestamp: 'Timestamp',
-      wordCount: 'Word Count',
-      sentenceCount: 'Sentence Count',
-      averageWordsPerSentence: 'Avg Words/Sentence',
-      fleschReadingEase: 'Reading Ease',
-      readabilityLevel: 'Readability Level',
-      textToHtmlRatio: 'Text/HTML Ratio',
-      spellingErrors: 'Spelling Errors',
-      grammarErrors: 'Grammar Errors',
-      indexable: 'Indexable',
-      indexabilityStatus: 'Indexability Status',
-      metaRobots: 'Meta Robots',
-      xRobotsTag: 'X-Robots-Tag',
+      descriptionPixelWidth: 'Description Width (px)',
+      metaDescriptionStatus: 'Meta Desc Status',
+      duplicateMetaDescriptionCount: 'Duplicate Desc Count',
       canonicalUrl: 'Canonical URL',
-      uniqueExternalOutlinks: 'External Links',
-      uniqueExternalJsOutlinks: 'External JS Links',
-      uniqueOutlinks: 'Total Outlinks',
-      linkScore: 'Link Score',
-      responseTime: 'Response Time (ms)',
-      sizeBytes: 'Size',
-      transferredBytes: 'Transferred',
-      totalTransferredBytes: 'Total Transferred',
-      co2Mg: 'CO₂ (mg)',
-      carbonRating: 'Carbon Rating',
-      semanticSimilarityScore: 'Semantic Score',
-      semanticRelevanceScore: 'Relevance Score',
-      nearDuplicateCount: 'Near Duplicates',
-      closestDuplicateSimilarity: 'Duplicate Similarity',
-      contentHash: 'Content Hash',
-      ogTitle: 'OG Title',
-      ogDescription: 'OG Description',
-      ogImage: 'OG Image',
-      crawlDepth: 'Crawl Depth',
-      folderDepth: 'Folder Depth',
-      language: 'Language',
-      httpVersion: 'HTTP Version',
-      redirectUrl: 'Redirect URL',
-      redirectType: 'Redirect Type',
+      canonicalValidationStatus: 'Canonical Validation',
+      canonicalValidationMessage: 'Canonical Message',
+      metaKeywords: 'Meta Keywords',
+      metaKeywordsLength: 'Keywords Length',
+      contentType: 'Content Type',
       lastModified: 'Last Modified',
-      relNext: 'Rel Next',
-      relPrev: 'Rel Prev',
-      errorMessage: 'Error Message',
-      metaKeywords: 'Meta Keywords'
+      timestamp: 'Timestamp',
+      tableCount: 'Table Count',
+      tableData: 'Table Data',
+      hasTables: 'Has Tables',
+      faqCount: 'FAQ Count',
+      faqData: 'FAQ Data',
+      hasFaqs: 'Has FAQs',
+      faqScore: 'FAQ Score',
+      faqDetectionMethod: 'FAQ Detection',
+      faqSchemaPresent: 'FAQ Schema',
+      hasMixedContent: 'Mixed Content',
+      mixedContentSeverity: 'Mixed Content Severity',
+      mixedContentData: 'Mixed Content Data',
+      activeMixedContentCount: 'Active Mixed Content',
+      passiveMixedContentCount: 'Passive Mixed Content',
+      totalInsecureResources: 'Total Insecure Resources',
+      headerStructureData: 'Header Structure',
+      headerStructureIssues: 'Header Issues',
+      viewportPresent: 'Viewport Present',
+      viewportContent: 'Viewport Content',
+      viewportStatus: 'Viewport Status',
+      structuredDataPresent: 'Structured Data',
+      structuredDataFormat: 'Structured Data Format',
+      structuredDataTypes: 'Structured Data Types',
+      structuredDataPriorityType: 'Priority Type',
+      pageSizeBytes: 'Page Size',
+      pageSizeStatus: 'Page Size Status',
+      htmlSizeBytes: 'HTML Size',
+      htmlSizeStatus: 'HTML Size Status',
+      totalResourceSizeBytes: 'Total Resources',
+      resourceSizeBreakdown: 'Resource Breakdown',
+      totalWordCount: 'Word Count'
     }
     return labels[column] || column
   }
 
   // Columns that support sorting
-  const sortableColumns: Set<keyof CrawledPage> = new Set([
-    'id', 'url', 'title', 'titleLength', 'titlePixelWidth', 'descriptionLength', 'descriptionPixelWidth',
-    'contentType', 'statusCode', 'responseTime', 'wordCount', 'sentenceCount', 'averageWordsPerSentence',
-    'fleschReadingEase', 'readabilityLevel', 'textToHtmlRatio', 'spellingErrors', 'grammarErrors',
-    'crawlDepth', 'folderDepth', 'indexable', 'uniqueExternalOutlinks', 'uniqueExternalJsOutlinks',
-    'uniqueOutlinks', 'linkScore', 'sizeBytes', 'transferredBytes', 'totalTransferredBytes', 'co2Mg',
-    'semanticSimilarityScore', 'semanticRelevanceScore', 'nearDuplicateCount', 'closestDuplicateSimilarity',
-    'timestamp', 'success'
+  const sortableColumns: Set<keyof PageMetric> = new Set([
+    'url', 'title', 'titleLength', 'titlePixelWidth', 'titleStatus', 'duplicateTitleCount',
+    'descriptionLength', 'descriptionPixelWidth', 'metaDescriptionStatus', 'duplicateMetaDescriptionCount',
+    'contentType', 'timestamp', 'lastModified', 'metaKeywordsLength',
+    'tableCount', 'faqCount', 'faqScore', 'activeMixedContentCount', 'passiveMixedContentCount',
+    'totalInsecureResources', 'canonicalValidationStatus', 'viewportStatus',
+    'pageSizeBytes', 'pageSizeStatus', 'htmlSizeBytes', 'htmlSizeStatus', 'totalResourceSizeBytes', 'totalWordCount'
   ])
 
-  const renderTableHeader = (column: keyof CrawledPage) => {
+  const renderTableHeader = (column: keyof PageMetric) => {
     const isSortable = sortableColumns.has(column)
     const label = getColumnLabel(column)
-    const isMinWidthColumn = ['url', 'description', 'canonicalUrl', 'errorMessage'].includes(column as string)
     
     return (
       <th
         key={String(column)}
         className={`px-3 py-2 text-center text-xs font-semibold text-white/80 whitespace-nowrap ${
           isSortable ? 'cursor-pointer hover:bg-white/5' : ''
-        } ${
-          isMinWidthColumn 
-            ? column === 'url' || column === 'description' 
-              ? 'min-w-50' 
-              : 'w-80'
-            : ''
         }`}
         onClick={isSortable ? () => handleSort(column as SortField) : undefined}
       >
@@ -376,123 +368,129 @@ export function CrawledDataTable({
     )
   }
 
-  const getStatusColor = (statusCode: number) => {
-    if (statusCode >= 200 && statusCode < 300) return 'bg-green-500/20 text-green-300 border-green-500/30'
-    if (statusCode >= 300 && statusCode < 400) return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
-    if (statusCode >= 400 && statusCode < 500) return 'bg-orange-500/20 text-orange-300 border-orange-500/30'
-    return 'bg-red-500/20 text-red-300 border-red-500/30'
-  }
-
-  const formatBytes = (bytes?: number) => {
-    if (!bytes) return 'N/A'
-    if (bytes < 1024) return `${bytes} B`
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
-  }
-
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortField !== field) return null
     return sortDirection === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
   }
 
-  const renderCellContent = (page: CrawledPage, column: keyof CrawledPage) => {
+  const formatBytes = (bytes: number | null | undefined): string => {
+    if (bytes === null || bytes === undefined || bytes === 0) return '0 B'
+    const k = 1024
+    const sizes = ['B', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
+
+  const renderCellContent = (page: PageMetric, column: keyof PageMetric) => {
     const value = page[column]
 
     switch (column) {
       case 'url':
+      case 'canonicalUrl':
+        if (!value || value === 'undefined' || value === 'null') return 'N/A'
         return (
           <a 
-            href={page.url} 
+            href={String(value)} 
             target="_blank" 
             rel="noopener noreferrer"
-            className="text-blue-400 hover:text-blue-300 flex items-center gap-1"
+            className="text-blue-400 hover:text-blue-300 flex items-center justify-center gap-1"
           >
-            <span>{page.url}</span>
+            <span className="truncate max-w-xs">{String(value)}</span>
             <ExternalLink className="h-3 w-3 shrink-0" />
           </a>
         )
-      case 'title':
-        return <span title={page.title}>{page.title || 'Untitled'}</span>
-      case 'statusCode':
-        return <Badge className={getStatusColor(page.statusCode)}>{page.statusCode}</Badge>
-      case 'success':
+      case 'titleStatus':
+      case 'metaDescriptionStatus':
+        if (!value) return 'N/A'
+        const statusColor = value === 'OK' ? 'bg-green-500/20 text-green-300 border-green-500/30' :
+                           value === 'Missing' ? 'bg-red-500/20 text-red-300 border-red-500/30' :
+                           'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
+        return <Badge className={statusColor}>{value}</Badge>
+      case 'canonicalValidationStatus':
+        if (!value) return 'N/A'
+        const validColor = value === 'Valid' ? 'bg-green-500/20 text-green-300 border-green-500/30' :
+                          value === 'Missing' ? 'bg-gray-500/20 text-gray-300 border-gray-500/30' :
+                          'bg-red-500/20 text-red-300 border-red-500/30'
+        return <Badge className={validColor}>{value}</Badge>
+      case 'hasTables':
+      case 'hasFaqs':
+      case 'faqSchemaPresent':
+      case 'viewportPresent':
+      case 'structuredDataPresent':
+        if (value === undefined || value === null) return 'N/A'
         return (
-          <Badge className={page.success ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}>
-            {page.success ? 'Yes' : 'No'}
+          <Badge className={value ? 'bg-green-500/20 text-green-300 border-green-500/30' : 'bg-gray-500/20 text-gray-300 border-gray-500/30'}>
+            {value ? '✅ Yes' : '❌ No'}
           </Badge>
         )
-      case 'indexable':
-        return (
-          <Badge className={page.indexable ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}>
-            {page.indexable ? 'Yes' : 'No'}
-          </Badge>
-        )
+      case 'hasMixedContent':
+        if (value === undefined || value === null) return 'N/A'
+        const severity = page.mixedContentSeverity
+        const mixedColor = !value ? 'bg-green-500/20 text-green-300 border-green-500/30' :
+                          severity === 'critical' ? 'bg-red-500/20 text-red-300 border-red-500/30' :
+                          'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
+        return <Badge className={mixedColor}>{value ? (severity === 'critical' ? 'Critical' : 'Warning') : 'Secure'}</Badge>
+      case 'viewportStatus':
+        if (!value) return 'N/A'
+        const vpColor = value === 'ok' ? 'bg-green-500/20 text-green-300 border-green-500/30' :
+                       value === 'missing' ? 'bg-red-500/20 text-red-300 border-red-500/30' :
+                       'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
+        return <Badge className={vpColor}>{typeof value === 'string' ? value.toUpperCase() : String(value)}</Badge>
       case 'timestamp':
-        return <span className="text-[10px]">{new Date(page.timestamp).toLocaleString()}</span>
-      case 'sizeBytes':
-        return formatBytes(page.sizeBytes)
-      case 'transferredBytes':
-        return formatBytes(page.transferredBytes ? Number(page.transferredBytes) : undefined)
-      case 'totalTransferredBytes':
-        return formatBytes(page.totalTransferredBytes ? Number(page.totalTransferredBytes) : undefined)
-      case 'textToHtmlRatio':
-        return page.textToHtmlRatio ? `${Number(page.textToHtmlRatio).toFixed(2)}%` : 'N/A'
-      case 'averageWordsPerSentence':
-        return page.averageWordsPerSentence ? Number(page.averageWordsPerSentence).toFixed(1) : 'N/A'
-      case 'fleschReadingEase':
-        return page.fleschReadingEase ? Number(page.fleschReadingEase).toFixed(1) : 'N/A'
-      case 'linkScore':
-        return page.linkScore ? Number(page.linkScore).toFixed(2) : 'N/A'
-      case 'co2Mg':
-        return page.co2Mg ? Number(page.co2Mg).toFixed(2) : 'N/A'
-      case 'carbonRating':
-        return page.carbonRating ? <Badge className="bg-green-500/20 text-green-300">{page.carbonRating}</Badge> : 'N/A'
-      case 'semanticSimilarityScore':
-        return page.semanticSimilarityScore ? Number(page.semanticSimilarityScore).toFixed(2) : 'N/A'
-      case 'semanticRelevanceScore':
-        return page.semanticRelevanceScore ? Number(page.semanticRelevanceScore).toFixed(2) : 'N/A'
-      case 'closestDuplicateSimilarity':
-        return page.closestDuplicateSimilarity ? Number(page.closestDuplicateSimilarity).toFixed(4) : 'N/A'
-      case 'contentHash':
-        return page.contentHash ? (
-          <span className="font-mono text-[10px]" title={page.contentHash}>
-            {page.contentHash}
-          </span>
-        ) : 'N/A'
-      case 'canonicalUrl':
-        return page.canonicalUrl ? (
-          <a href={page.canonicalUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300" title={page.canonicalUrl}>
-            {page.canonicalUrl}
-          </a>
-        ) : 'N/A'
-      case 'indexabilityStatus':
-        return <span title={page.indexabilityStatus || ''}>{page.indexabilityStatus || 'N/A'}</span>
-      case 'description':
-        return <span title={page.description}>{page.description || 'N/A'}</span>
-      case 'errorMessage':
-        return page.errorMessage ? (
-          <span className="text-red-300" title={page.errorMessage}>{page.errorMessage}</span>
-        ) : 'N/A'
-      case 'ogTitle':
-        return page.ogTitle ? <span title={page.ogTitle}>✓</span> : 'N/A'
-      case 'ogDescription':
-        return page.ogDescription ? '✓' : 'N/A'
-      case 'ogImage':
-        return page.ogImage ? (
-          <a href={page.ogImage} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">
-            ✓
-          </a>
-        ) : 'N/A'
-      case 'redirectUrl':
-        return <span title={page.redirectUrl || ''}>{page.redirectUrl || 'N/A'}</span>
-      case 'metaKeywords':
-        return <span title={page.metaKeywords || ''}>{page.metaKeywords || 'N/A'}</span>
-      case 'relNext':
-        return page.relNext ? '✓' : 'N/A'
-      case 'relPrev':
-        return page.relPrev ? '✓' : 'N/A'
+      case 'lastModified':
+        if (!value) return 'N/A'
+        return new Date(String(value)).toLocaleString()
+      case 'pageSizeBytes':
+      case 'htmlSizeBytes':
+      case 'totalResourceSizeBytes':
+        if (value === null || value === undefined) return 'N/A'
+        return formatBytes(Number(value))
+      case 'pageSizeStatus':
+      case 'htmlSizeStatus':
+        if (!value) return 'N/A'
+        const sizeColor = value === 'Small' || value === 'Good' ? 'bg-green-500/20 text-green-300 border-green-500/30' :
+                         value === 'Medium' || value === 'Warning' ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
+                         'bg-red-500/20 text-red-300 border-red-500/30'
+        return <Badge className={sizeColor}>{value}</Badge>
+      case 'titlePixelWidth':
+      case 'descriptionPixelWidth':
+        if (value === undefined || value === null) return 'N/A'
+        const width = Number(value)
+        const maxWidth = column === 'titlePixelWidth' ? 600 : 920
+        const badgeColor = width < maxWidth ? 'bg-green-500/20 text-green-300 border-green-500/30' :
+                          width <= maxWidth + 100 ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
+                          'bg-red-500/20 text-red-300 border-red-500/30'
+        return <Badge className={badgeColor}>{width}px</Badge>
+      case 'faqScore':
+        if (value === undefined || value === null) return 'N/A'
+        const faqScore = Number(value)
+        const faqColor = faqScore >= 70 ? 'bg-green-500/20 text-green-300 border-green-500/30' :
+                        faqScore >= 40 ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
+                        'bg-red-500/20 text-red-300 border-red-500/30'
+        return <Badge className={faqColor}>{faqScore}/100</Badge>
+      case 'mixedContentSeverity':
+        if (!value || value === 'none') return 'N/A'
+        const sevColor = value === 'critical' ? 'bg-red-500/20 text-red-300 border-red-500/30' :
+                        'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
+        return <Badge className={sevColor}>{typeof value === 'string' ? value.toUpperCase() : String(value)}</Badge>
+      case 'duplicateTitleCount':
+      case 'duplicateMetaDescriptionCount':
+      case 'tableCount':
+      case 'faqCount':
+      case 'activeMixedContentCount':
+      case 'passiveMixedContentCount':
+      case 'totalInsecureResources':
+        if (value === undefined || value === null) return 'N/A'
+        const count = Number(value)
+        const countColor = count === 0 ? 'bg-green-500/20 text-green-300 border-green-500/30' :
+                          count <= 2 ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
+                          'bg-red-500/20 text-red-300 border-red-500/30'
+        return <Badge className={countColor}>{count}</Badge>
+      case 'totalWordCount':
+        if (value === undefined || value === null) return 'N/A'
+        return Number(value).toLocaleString()
       default:
-        return value != null ? String(value) : 'N/A'
+        return value !== null && value !== undefined ? String(value) : 'N/A'
     }
   }
 
@@ -501,7 +499,7 @@ export function CrawledDataTable({
       {/* Sidebar Filter Panel */}
       <div className={`${sidebarOpen ? 'w-70' : 'w-0'} transition-all duration-300 overflow-hidden shrink-0`}>
         {sidebarOpen && (
-          <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg p-4 h-[calc(100vh-120px)] overflow-y-auto">
+          <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg p-4 h-[calc(100vh-120px)] overflow-y-auto custom-scrollbar">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-white">Column Filters</h3>
               <Button
@@ -588,7 +586,7 @@ export function CrawledDataTable({
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/40" />
               <Input
-                placeholder="Search by URL, title, or description..."
+                placeholder="Search by URL or title..."
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value)
@@ -636,15 +634,15 @@ export function CrawledDataTable({
             <div className="text-xl font-bold text-white mt-1">{filteredData.length}</div>
           </div>
           <div className="bg-white/5 border border-white/10 rounded-lg p-3">
-            <div className="text-xs text-white/60">Avg Word Count</div>
+            <div className="text-xs text-white/60">With Tables</div>
             <div className="text-xl font-bold text-white mt-1">
-              {data.length > 0 ? Math.round(data.reduce((sum, p) => sum + p.wordCount, 0) / data.length) : 0}
+              {data.filter(p => p.hasTables).length}
             </div>
           </div>
           <div className="bg-white/5 border border-white/10 rounded-lg p-3">
-            <div className="text-xs text-white/60">Success Rate</div>
+            <div className="text-xs text-white/60">With FAQs</div>
             <div className="text-xl font-bold text-white mt-1">
-              {data.length > 0 ? `${((data.filter(p => p.success).length / data.length) * 100).toFixed(1)}%` : '0%'}
+              {data.filter(p => p.hasFaqs).length}
             </div>
           </div>
         </div>
@@ -680,7 +678,7 @@ export function CrawledDataTable({
                 ) : (
                   paginatedData.map((page) => (
                     <tr 
-                      key={page.id}
+                      key={page.url}
                       className="hover:bg-white/5 transition-colors"
                     >
                       {orderedVisibleColumns.map((column) => (
@@ -698,7 +696,7 @@ export function CrawledDataTable({
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mt-4">
             <div className="text-sm text-white/60">
               Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, sortedData.length)} of {sortedData.length} results
             </div>
@@ -712,7 +710,7 @@ export function CrawledDataTable({
               >
                 Previous
               </Button>
-              <div className="flex items-center justify-center gap-1">
+              <div className="flex items-center gap-1">
                 {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                   let pageNum
                   if (totalPages <= 5) {

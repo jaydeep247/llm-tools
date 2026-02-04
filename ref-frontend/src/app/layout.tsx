@@ -2,21 +2,10 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Suspense } from "react"
 import "./globals.css"
-import { Dancing_Script, Caveat } from "next/font/google"
 import { StoreProvider } from "@/store/StoreProvider"
 
-// Commented out to avoid Docker build timeout issues
-const dancingScript = Dancing_Script({
-  subsets: ["latin"],
-  variable: "--font-dancing-script",
-  display: "swap",
-})
-
-const caveat = Caveat({
-  subsets: ["latin"],
-  variable: "--font-caveat",
-  display: "swap",
-})
+// Fonts removed to avoid Docker build timeout issues with Google Fonts API
+// If needed, fonts can be loaded via CDN in production or self-hosted
 
 export const metadata: Metadata = {
   title: "Contentlytics - Enterprise SEO & AEO Intelligence Platform",

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { 
   ExternalLink, 
   ChevronDown, 
@@ -15,147 +15,81 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 
-interface CrawledPage {
+interface WordCountData {
   id: number
   url: string
-  title: string
-  titleLength: number
-  titlePixelWidth?: number
-  description: string
-  descriptionLength: number
-  descriptionPixelWidth?: number
-  contentType: string
-  statusCode: number
-  responseTime: number
-  wordCount: number
-  sentenceCount?: number
-  averageWordsPerSentence?: number
-  fleschReadingEase?: number
-  readabilityLevel?: string
+  // Basic Word Count Metrics
+  totalWordCount?: number
+  visibleWordCount?: number
+  uniqueWordCount?: number
   textToHtmlRatio?: number
-  crawlDepth: number
-  folderDepth: number
-  sizeBytes?: number
-  success: boolean
-  errorMessage?: string
-  linkScore?: number
-  canonicalUrl?: string
-  amphtmlUrl?: string
-  mobileAlternateUrl?: string
-  indexable?: boolean
-  indexabilityStatus?: string
-  metaRobots?: string
-  xRobotsTag?: string
-  metaRefresh?: string
-  transferredBytes?: number
-  totalTransferredBytes?: number
-  co2Mg?: number
-  carbonRating?: string
-  relNext?: string
-  relPrev?: string
-  httpRelNext?: string
-  httpRelPrev?: string
-  metaKeywords?: string
-  metaKeywordsLength?: number
-  headingTags?: string
-  spellingErrors: number
-  grammarErrors: number
-  redirectUrl?: string
-  redirectType?: string
-  cookies?: string
-  language?: string
-  httpVersion?: string
-  semanticSimilarityScore?: number
-  semanticRelevanceScore?: number
-  contentHash?: string
-  closestDuplicateUrl?: string
-  closestDuplicateSimilarity?: number
-  nearDuplicateCount: number
-  uniqueExternalOutlinks: number
-  uniqueExternalJsOutlinks: number
-  uniqueOutlinks?: number
-  uniqueJsOutlinks?: number
-  metaDescription?: string
-  ogTitle?: string
-  ogDescription?: string
-  ogImage?: string
-  lastModified?: string
+  // Sentence & Paragraph Metrics
+  sentenceCount?: number
+  paragraphCount?: number
+  averageSentenceLength?: number
+  averageParagraphLength?: number
+  // Keyword & Content Quality
+  keywordDensity?: number
+  thinContent?: boolean
+  thinContentReason?: string | null
+  duplicateContent?: boolean
+  duplicateWithUrls?: string[]
+  // Content Structure
+  sectionWordCountMapping?: Record<string, number>
+  sectionWordCountBreakdown?: Record<string, number>
+  headingWordCountMapping?: Record<string, number>
   timestamp: string
 }
 
-interface CrawledDataTableProps {
-  data: CrawledPage[]
+interface WordCountAnalysisProps {
+  data: WordCountData[]
   isLoading?: boolean
   onRefresh?: () => void
   onExport?: () => void
 }
 
-type SortField = keyof CrawledPage
+type SortField = keyof WordCountData
 type SortDirection = 'asc' | 'desc'
 
 type ColumnCategory = {
   name: string
-  columns: (keyof CrawledPage)[]
+  columns: (keyof WordCountData)[]
 }
 
 const COLUMN_CATEGORIES: ColumnCategory[] = [
   {
     name: 'Basic Info',
-    columns: ['url', 'title', 'statusCode', 'contentType', 'success', 'timestamp']
+    columns: ['url', 'timestamp']
   },
   {
-    name: 'SEO Meta',
-    columns: ['titleLength', 'titlePixelWidth', 'descriptionLength', 'descriptionPixelWidth', 'description', 'metaKeywords']
+    name: 'Word Count Metrics',
+    columns: ['totalWordCount', 'visibleWordCount', 'uniqueWordCount', 'textToHtmlRatio']
+  },
+  {
+    name: 'Sentence & Paragraph',
+    columns: ['sentenceCount', 'paragraphCount', 'averageSentenceLength', 'averageParagraphLength']
   },
   {
     name: 'Content Quality',
-    columns: ['wordCount', 'sentenceCount', 'averageWordsPerSentence', 'fleschReadingEase', 'readabilityLevel', 'textToHtmlRatio', 'spellingErrors', 'grammarErrors']
-  },
-  {
-    name: 'Indexability',
-    columns: ['indexable', 'indexabilityStatus', 'metaRobots', 'xRobotsTag', 'canonicalUrl']
-  },
-  {
-    name: 'Links',
-    columns: ['uniqueExternalOutlinks', 'uniqueExternalJsOutlinks', 'uniqueOutlinks', 'linkScore']
-  },
-  {
-    name: 'Performance',
-    columns: ['responseTime', 'sizeBytes', 'transferredBytes', 'totalTransferredBytes', 'co2Mg', 'carbonRating']
-  },
-  {
-    name: 'Semantic',
-    columns: ['semanticSimilarityScore', 'semanticRelevanceScore', 'nearDuplicateCount', 'closestDuplicateSimilarity', 'contentHash']
-  },
-  {
-    name: 'Open Graph',
-    columns: ['ogTitle', 'ogDescription', 'ogImage']
-  },
-  {
-    name: 'Technical',
-    columns: ['crawlDepth', 'folderDepth', 'language', 'httpVersion', 'redirectUrl', 'redirectType']
-  },
-  {
-    name: 'Other',
-    columns: ['lastModified', 'relNext', 'relPrev', 'errorMessage']
+    columns: ['keywordDensity', 'thinContent', 'thinContentReason', 'duplicateContent']
   }
 ]
 
-const DEFAULT_VISIBLE_COLUMNS: Set<keyof CrawledPage> = new Set(['url', 'title', 'titleLength', 'contentType', 'timestamp'])
+const DEFAULT_VISIBLE_COLUMNS: Set<keyof WordCountData> = new Set(['url', 'totalWordCount', 'visibleWordCount', 'textToHtmlRatio', 'timestamp'])
 
-export function CrawledDataTable({ 
+export function WordCountAnalysis({ 
   data = [], 
   isLoading = false,
   onRefresh,
   onExport 
-}: CrawledDataTableProps) {
+}: WordCountAnalysisProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [urlFilter, setUrlFilter] = useState('')
   const [sortField, setSortField] = useState<SortField>('id')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [currentPage, setCurrentPage] = useState(1)
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [visibleColumns, setVisibleColumns] = useState<Set<keyof CrawledPage>>(DEFAULT_VISIBLE_COLUMNS)
+  const [visibleColumns, setVisibleColumns] = useState<Set<keyof WordCountData>>(DEFAULT_VISIBLE_COLUMNS)
   const tableContainerRef = useRef<HTMLDivElement>(null)
   const itemsPerPage = 20
 
@@ -165,18 +99,15 @@ export function CrawledDataTable({
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
-      filtered = filtered.filter(page => 
-        page.url.toLowerCase().includes(query) ||
-        page.title.toLowerCase().includes(query) ||
-        page.description.toLowerCase().includes(query)
+      filtered = filtered.filter(item => 
+        item.url.toLowerCase().includes(query)
       )
     }
 
     if (urlFilter.trim()) {
       const query = urlFilter.toLowerCase()
-      filtered = filtered.filter(page => 
-        page.url.toLowerCase().includes(query) ||
-        page.contentType.toLowerCase().includes(query)
+      filtered = filtered.filter(item => 
+        item.url.toLowerCase().includes(query)
       )
     }
 
@@ -224,7 +155,7 @@ export function CrawledDataTable({
     }
   }
 
-  const toggleColumn = (column: keyof CrawledPage) => {
+  const toggleColumn = (column: keyof WordCountData) => {
     const newVisibleColumns = new Set(visibleColumns)
     const isAdding = !newVisibleColumns.has(column)
     if (newVisibleColumns.has(column)) {
@@ -266,8 +197,8 @@ export function CrawledDataTable({
   }
 
   // Get visible columns in correct order based on COLUMN_CATEGORIES
-  const getOrderedVisibleColumns = (): (keyof CrawledPage)[] => {
-    const ordered: (keyof CrawledPage)[] = []
+  const getOrderedVisibleColumns = (): (keyof WordCountData)[] => {
+    const ordered: (keyof WordCountData)[] = []
     for (const category of COLUMN_CATEGORIES) {
       for (const column of category.columns) {
         if (visibleColumns.has(column)) {
@@ -280,80 +211,37 @@ export function CrawledDataTable({
 
   const orderedVisibleColumns = useMemo(() => getOrderedVisibleColumns(), [visibleColumns])
 
-  const getColumnLabel = (column: keyof CrawledPage): string => {
+  const getColumnLabel = (column: keyof WordCountData): string => {
     const labels: Record<string, string> = {
       url: 'URL',
-      title: 'Title',
-      titleLength: 'Title Length',
-      titlePixelWidth: 'Title Pixel Width',
-      description: 'Description',
-      descriptionLength: 'Description Length',
-      descriptionPixelWidth: 'Description Pixel Width',
-      contentType: 'Content Type',
-      statusCode: 'Status Code',
-      success: 'Success',
-      timestamp: 'Timestamp',
-      wordCount: 'Word Count',
-      sentenceCount: 'Sentence Count',
-      averageWordsPerSentence: 'Avg Words/Sentence',
-      fleschReadingEase: 'Reading Ease',
-      readabilityLevel: 'Readability Level',
-      textToHtmlRatio: 'Text/HTML Ratio',
-      spellingErrors: 'Spelling Errors',
-      grammarErrors: 'Grammar Errors',
-      indexable: 'Indexable',
-      indexabilityStatus: 'Indexability Status',
-      metaRobots: 'Meta Robots',
-      xRobotsTag: 'X-Robots-Tag',
-      canonicalUrl: 'Canonical URL',
-      uniqueExternalOutlinks: 'External Links',
-      uniqueExternalJsOutlinks: 'External JS Links',
-      uniqueOutlinks: 'Total Outlinks',
-      linkScore: 'Link Score',
-      responseTime: 'Response Time (ms)',
-      sizeBytes: 'Size',
-      transferredBytes: 'Transferred',
-      totalTransferredBytes: 'Total Transferred',
-      co2Mg: 'CO₂ (mg)',
-      carbonRating: 'Carbon Rating',
-      semanticSimilarityScore: 'Semantic Score',
-      semanticRelevanceScore: 'Relevance Score',
-      nearDuplicateCount: 'Near Duplicates',
-      closestDuplicateSimilarity: 'Duplicate Similarity',
-      contentHash: 'Content Hash',
-      ogTitle: 'OG Title',
-      ogDescription: 'OG Description',
-      ogImage: 'OG Image',
-      crawlDepth: 'Crawl Depth',
-      folderDepth: 'Folder Depth',
-      language: 'Language',
-      httpVersion: 'HTTP Version',
-      redirectUrl: 'Redirect URL',
-      redirectType: 'Redirect Type',
-      lastModified: 'Last Modified',
-      relNext: 'Rel Next',
-      relPrev: 'Rel Prev',
-      errorMessage: 'Error Message',
-      metaKeywords: 'Meta Keywords'
+      totalWordCount: 'Total Words',
+      visibleWordCount: 'Visible Words',
+      uniqueWordCount: 'Unique Words',
+      textToHtmlRatio: 'Text/HTML Ratio (%)',
+      sentenceCount: 'Sentences',
+      paragraphCount: 'Paragraphs',
+      averageSentenceLength: 'Avg Sentence Length',
+      averageParagraphLength: 'Avg Paragraph Length',
+      keywordDensity: 'Keyword Density (%)',
+      thinContent: 'Thin Content',
+      thinContentReason: 'Thin Content Reason',
+      duplicateContent: 'Duplicate Content',
+      timestamp: 'Timestamp'
     }
     return labels[column] || column
   }
 
   // Columns that support sorting
-  const sortableColumns: Set<keyof CrawledPage> = new Set([
-    'id', 'url', 'title', 'titleLength', 'titlePixelWidth', 'descriptionLength', 'descriptionPixelWidth',
-    'contentType', 'statusCode', 'responseTime', 'wordCount', 'sentenceCount', 'averageWordsPerSentence',
-    'fleschReadingEase', 'readabilityLevel', 'textToHtmlRatio', 'spellingErrors', 'grammarErrors',
-    'crawlDepth', 'folderDepth', 'indexable', 'uniqueExternalOutlinks', 'uniqueExternalJsOutlinks',
-    'uniqueOutlinks', 'linkScore', 'sizeBytes', 'transferredBytes', 'totalTransferredBytes', 'co2Mg',
-    'semanticSimilarityScore', 'semanticRelevanceScore', 'nearDuplicateCount', 'closestDuplicateSimilarity',
-    'timestamp', 'success'
+  const sortableColumns: Set<keyof WordCountData> = new Set([
+    'id', 'url', 'totalWordCount', 'visibleWordCount', 'uniqueWordCount', 'textToHtmlRatio',
+    'sentenceCount', 'paragraphCount', 'averageSentenceLength', 'averageParagraphLength',
+    'keywordDensity', 'timestamp'
   ])
 
-  const renderTableHeader = (column: keyof CrawledPage) => {
+  const renderTableHeader = (column: keyof WordCountData) => {
     const isSortable = sortableColumns.has(column)
     const label = getColumnLabel(column)
-    const isMinWidthColumn = ['url', 'description', 'canonicalUrl', 'errorMessage'].includes(column as string)
+    const isMinWidthColumn = ['url'].includes(column as string)
     
     return (
       <th
@@ -361,11 +249,7 @@ export function CrawledDataTable({
         className={`px-3 py-2 text-center text-xs font-semibold text-white/80 whitespace-nowrap ${
           isSortable ? 'cursor-pointer hover:bg-white/5' : ''
         } ${
-          isMinWidthColumn 
-            ? column === 'url' || column === 'description' 
-              ? 'min-w-50' 
-              : 'w-80'
-            : ''
+          isMinWidthColumn ? 'min-w-50' : ''
         }`}
         onClick={isSortable ? () => handleSort(column as SortField) : undefined}
       >
@@ -376,121 +260,51 @@ export function CrawledDataTable({
     )
   }
 
-  const getStatusColor = (statusCode: number) => {
-    if (statusCode >= 200 && statusCode < 300) return 'bg-green-500/20 text-green-300 border-green-500/30'
-    if (statusCode >= 300 && statusCode < 400) return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
-    if (statusCode >= 400 && statusCode < 500) return 'bg-orange-500/20 text-orange-300 border-orange-500/30'
-    return 'bg-red-500/20 text-red-300 border-red-500/30'
-  }
-
-  const formatBytes = (bytes?: number) => {
-    if (!bytes) return 'N/A'
-    if (bytes < 1024) return `${bytes} B`
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
-  }
-
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortField !== field) return null
     return sortDirection === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
   }
 
-  const renderCellContent = (page: CrawledPage, column: keyof CrawledPage) => {
-    const value = page[column]
+  const renderCellContent = (item: WordCountData, column: keyof WordCountData) => {
+    const value = item[column]
 
     switch (column) {
       case 'url':
         return (
           <a 
-            href={page.url} 
+            href={item.url} 
             target="_blank" 
             rel="noopener noreferrer"
             className="text-blue-400 hover:text-blue-300 flex items-center gap-1"
           >
-            <span>{page.url}</span>
+            <span>{item.url}</span>
             <ExternalLink className="h-3 w-3 shrink-0" />
           </a>
         )
-      case 'title':
-        return <span title={page.title}>{page.title || 'Untitled'}</span>
-      case 'statusCode':
-        return <Badge className={getStatusColor(page.statusCode)}>{page.statusCode}</Badge>
-      case 'success':
+      case 'thinContent':
         return (
-          <Badge className={page.success ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}>
-            {page.success ? 'Yes' : 'No'}
+          <Badge className={item.thinContent ? 'bg-red-500/20 text-red-300' : 'bg-green-500/20 text-green-300'}>
+            {item.thinContent ? 'Yes' : 'No'}
           </Badge>
         )
-      case 'indexable':
+      case 'duplicateContent':
         return (
-          <Badge className={page.indexable ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}>
-            {page.indexable ? 'Yes' : 'No'}
+          <Badge className={item.duplicateContent ? 'bg-yellow-500/20 text-yellow-300' : 'bg-green-500/20 text-green-300'}>
+            {item.duplicateContent ? 'Yes' : 'No'}
           </Badge>
         )
       case 'timestamp':
-        return <span className="text-[10px]">{new Date(page.timestamp).toLocaleString()}</span>
-      case 'sizeBytes':
-        return formatBytes(page.sizeBytes)
-      case 'transferredBytes':
-        return formatBytes(page.transferredBytes ? Number(page.transferredBytes) : undefined)
-      case 'totalTransferredBytes':
-        return formatBytes(page.totalTransferredBytes ? Number(page.totalTransferredBytes) : undefined)
+        return <span className="text-[10px]">{new Date(item.timestamp).toLocaleString()}</span>
       case 'textToHtmlRatio':
-        return page.textToHtmlRatio ? `${Number(page.textToHtmlRatio).toFixed(2)}%` : 'N/A'
-      case 'averageWordsPerSentence':
-        return page.averageWordsPerSentence ? Number(page.averageWordsPerSentence).toFixed(1) : 'N/A'
-      case 'fleschReadingEase':
-        return page.fleschReadingEase ? Number(page.fleschReadingEase).toFixed(1) : 'N/A'
-      case 'linkScore':
-        return page.linkScore ? Number(page.linkScore).toFixed(2) : 'N/A'
-      case 'co2Mg':
-        return page.co2Mg ? Number(page.co2Mg).toFixed(2) : 'N/A'
-      case 'carbonRating':
-        return page.carbonRating ? <Badge className="bg-green-500/20 text-green-300">{page.carbonRating}</Badge> : 'N/A'
-      case 'semanticSimilarityScore':
-        return page.semanticSimilarityScore ? Number(page.semanticSimilarityScore).toFixed(2) : 'N/A'
-      case 'semanticRelevanceScore':
-        return page.semanticRelevanceScore ? Number(page.semanticRelevanceScore).toFixed(2) : 'N/A'
-      case 'closestDuplicateSimilarity':
-        return page.closestDuplicateSimilarity ? Number(page.closestDuplicateSimilarity).toFixed(4) : 'N/A'
-      case 'contentHash':
-        return page.contentHash ? (
-          <span className="font-mono text-[10px]" title={page.contentHash}>
-            {page.contentHash}
-          </span>
-        ) : 'N/A'
-      case 'canonicalUrl':
-        return page.canonicalUrl ? (
-          <a href={page.canonicalUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300" title={page.canonicalUrl}>
-            {page.canonicalUrl}
-          </a>
-        ) : 'N/A'
-      case 'indexabilityStatus':
-        return <span title={page.indexabilityStatus || ''}>{page.indexabilityStatus || 'N/A'}</span>
-      case 'description':
-        return <span title={page.description}>{page.description || 'N/A'}</span>
-      case 'errorMessage':
-        return page.errorMessage ? (
-          <span className="text-red-300" title={page.errorMessage}>{page.errorMessage}</span>
-        ) : 'N/A'
-      case 'ogTitle':
-        return page.ogTitle ? <span title={page.ogTitle}>✓</span> : 'N/A'
-      case 'ogDescription':
-        return page.ogDescription ? '✓' : 'N/A'
-      case 'ogImage':
-        return page.ogImage ? (
-          <a href={page.ogImage} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">
-            ✓
-          </a>
-        ) : 'N/A'
-      case 'redirectUrl':
-        return <span title={page.redirectUrl || ''}>{page.redirectUrl || 'N/A'}</span>
-      case 'metaKeywords':
-        return <span title={page.metaKeywords || ''}>{page.metaKeywords || 'N/A'}</span>
-      case 'relNext':
-        return page.relNext ? '✓' : 'N/A'
-      case 'relPrev':
-        return page.relPrev ? '✓' : 'N/A'
+        return item.textToHtmlRatio ? `${Number(item.textToHtmlRatio).toFixed(2)}%` : 'N/A'
+      case 'averageSentenceLength':
+        return item.averageSentenceLength ? Number(item.averageSentenceLength).toFixed(1) : 'N/A'
+      case 'averageParagraphLength':
+        return item.averageParagraphLength ? Number(item.averageParagraphLength).toFixed(1) : 'N/A'
+      case 'keywordDensity':
+        return item.keywordDensity ? `${Number(item.keywordDensity).toFixed(2)}%` : 'N/A'
+      case 'thinContentReason':
+        return <span title={item.thinContentReason || ''}>{item.thinContentReason || 'N/A'}</span>
       default:
         return value != null ? String(value) : 'N/A'
     }
@@ -514,11 +328,11 @@ export function CrawledDataTable({
               </Button>
             </div>
 
-            {/* URL/Resource Filter */}
+            {/* URL Filter */}
             <div className="mb-4">
-              <label className="text-xs text-white/60 mb-1 block">Filter by URL/Type</label>
+              <label className="text-xs text-white/60 mb-1 block">Filter by URL</label>
               <Input
-                placeholder="URL or content type..."
+                placeholder="URL..."
                 value={urlFilter}
                 onChange={(e) => {
                   setUrlFilter(e.target.value)
@@ -588,7 +402,7 @@ export function CrawledDataTable({
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/40" />
               <Input
-                placeholder="Search by URL, title, or description..."
+                placeholder="Search by URL..."
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value)
@@ -636,15 +450,15 @@ export function CrawledDataTable({
             <div className="text-xl font-bold text-white mt-1">{filteredData.length}</div>
           </div>
           <div className="bg-white/5 border border-white/10 rounded-lg p-3">
-            <div className="text-xs text-white/60">Avg Word Count</div>
+            <div className="text-xs text-white/60">Avg Visible Words</div>
             <div className="text-xl font-bold text-white mt-1">
-              {data.length > 0 ? Math.round(data.reduce((sum, p) => sum + p.wordCount, 0) / data.length) : 0}
+              {data.length > 0 ? Math.round(data.reduce((sum, p) => sum + (p.visibleWordCount || 0), 0) / data.length) : 0}
             </div>
           </div>
           <div className="bg-white/5 border border-white/10 rounded-lg p-3">
-            <div className="text-xs text-white/60">Success Rate</div>
+            <div className="text-xs text-white/60">Avg Text Ratio</div>
             <div className="text-xl font-bold text-white mt-1">
-              {data.length > 0 ? `${((data.filter(p => p.success).length / data.length) * 100).toFixed(1)}%` : '0%'}
+              {data.length > 0 ? `${(data.reduce((sum, p) => sum + (p.textToHtmlRatio || 0), 0) / data.length).toFixed(1)}%` : '0%'}
             </div>
           </div>
         </div>
@@ -678,14 +492,14 @@ export function CrawledDataTable({
                     </td>
                   </tr>
                 ) : (
-                  paginatedData.map((page) => (
+                  paginatedData.map((item) => (
                     <tr 
-                      key={page.id}
+                      key={item.id}
                       className="hover:bg-white/5 transition-colors"
                     >
                       {orderedVisibleColumns.map((column) => (
                         <td key={String(column)} className="px-3 py-2 text-white/80 text-center whitespace-normal overflow-wrap-break-word">
-                          {renderCellContent(page, column)}
+                          {renderCellContent(item, column)}
                         </td>
                       ))}
                     </tr>
@@ -698,7 +512,7 @@ export function CrawledDataTable({
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mt-4">
             <div className="text-sm text-white/60">
               Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, sortedData.length)} of {sortedData.length} results
             </div>
