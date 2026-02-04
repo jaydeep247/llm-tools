@@ -15,7 +15,7 @@ export async function initializeSession(
     startUrlObj: URL,
     events: CrawlEvents
 ): Promise<number> {
-    const { scheduleId, userId } = options;
+    const { scheduleId, userId, projectId } = options;
     const db = getDatabase();
 
     if (options.sessionId) {
@@ -23,8 +23,17 @@ export async function initializeSession(
         return options.sessionId;
     }
 
+    // projectId is required for new sessions
+    if (!projectId) {
+        const errorMsg = 'projectId is required to create a new crawl session';
+        logger.error(errorMsg);
+        events.onLog?.(errorMsg);
+        throw new Error(errorMsg);
+    }
+
     try {
         const sessionId = await db.createCrawlSession({
+            projectId,
             startUrl,
             allowSubdomains: options.allowSubdomains,
             maxConcurrency: options.maxConcurrency,
@@ -37,7 +46,7 @@ export async function initializeSession(
             duration: 0,
             status: 'running'
         });
-        logger.info(`Created crawl session: ${sessionId}`);
+        logger.info(`Created crawl session: ${sessionId}`, { projectId });
         events.onSessionStart?.(sessionId);
         return sessionId;
     } catch (error) {

@@ -7,6 +7,7 @@ export class CrawlRepository {
     async createCrawlSession(data: Omit<CrawlSession, 'id'>): Promise<number> {
         const session = await prisma.crawlSession.create({
             data: {
+                projectId: data.projectId,
                 startUrl: data.startUrl,
                 allowSubdomains: data.allowSubdomains,
                 maxConcurrency: data.maxConcurrency,
@@ -248,67 +249,12 @@ export class CrawlRepository {
         return executions.map((execution: any) => this.mapExecution(execution));
     }
 
+    // DEPRECATED: Removed in favor of project-based organization
+    // Use project-based queries instead
     async getUserCrawlSessionsWithResults(userId: number, limit: number = 50, offset: number = 0): Promise<any[]> {
-        // Get sessions owned by user or shared with user
-        const ownedSessions = await prisma.crawlSession.findMany({
-            where: { userId },
-            take: limit,
-            skip: offset,
-            orderBy: { startedAt: 'desc' },
-            include: {
-                aeoAnalysisResults: {
-                    take: 1,
-                    orderBy: { analysisTimestamp: 'desc' },
-                },
-            },
-        });
-
-        const sharedSessions = await prisma.sessionShare.findMany({
-            where: { userId },
-            include: {
-                session: {
-                    include: {
-                        aeoAnalysisResults: {
-                            take: 1,
-                            orderBy: { analysisTimestamp: 'desc' },
-                        },
-                    },
-                },
-            },
-            take: limit,
-            skip: offset,
-        });
-
-        const allSessions = [
-            ...ownedSessions,
-            ...sharedSessions.map((share: any) => share.session),
-        ];
-
-        // For each session, get the actual page count from database
-        // This is especially important for running sessions where totalPages isn't updated until completion
-        const sessionsWithCounts = await Promise.all(allSessions.map(async (session) => {
-            const mappedSession = this.mapSession(session);
-            
-            // If session is running or auditing, or if totalPages is 0, get actual count from database
-            if (session.status === 'running' || session.status === 'auditing' || session.totalPages === 0) {
-                const actualPageCount = await prisma.page.count({
-                    where: { sessionId: session.id }
-                });
-                mappedSession.totalPages = actualPageCount;
-            }
-            
-            return {
-                session: mappedSession,
-                aeoResult: session.aeoAnalysisResults && session.aeoAnalysisResults.length > 0 ? {
-                    grade: session.aeoAnalysisResults[0].grade,
-                    gradeColor: session.aeoAnalysisResults[0].gradeColor,
-                    overallScore: session.aeoAnalysisResults[0].overallScore,
-                    analysisTimestamp: session.aeoAnalysisResults[0].analysisTimestamp,
-                } : null,
-            };
-        }));
-
-        return sessionsWithCounts;
+        // This method is deprecated and should not be used
+        // Use getUserProjects() and getProjectSessions() from DatabaseService instead
+        throw new Error('getUserCrawlSessionsWithResults is deprecated. Use project-based queries instead.');
     }
 
     async shareSessionWithUser(sessionId: number, userId: number): Promise<void> {
@@ -684,6 +630,7 @@ export class CrawlRepository {
     private mapSession(session: any): CrawlSession {
         return {
             id: session.id,
+            projectId: session.projectId,
             startUrl: session.startUrl,
             allowSubdomains: session.allowSubdomains,
             maxConcurrency: session.maxConcurrency,

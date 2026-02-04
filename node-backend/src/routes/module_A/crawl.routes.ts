@@ -28,12 +28,27 @@ router.post('/crawl',
     authenticateUser,              // Require authentication
     checkUsageLimit('crawl'),      // Check daily usage limit
     async (req: Request, res: Response) => {
-        const { url, allowSubdomains, maxConcurrency, mode, runAudits, auditDevice, captureLinkDetails, forceRecrawl } = req.body ?? {};
+        const { url, projectId, allowSubdomains, maxConcurrency, mode, runAudits, auditDevice, captureLinkDetails, forceRecrawl } = req.body ?? {};
         if (!url) return res.status(400).json({ error: 'url is required', message: 'Please enter a URL to analyze.' });
+        if (!projectId) return res.status(400).json({ error: 'projectId is required', message: 'Please select a project.' });
+
+        const userId = req.user!.userId; // Get authenticated user ID
+
+        // Verify project ownership
+        try {
+            const db = getDatabase();
+            const project = await db.getProject(projectId, userId);
+            if (!project) {
+                return res.status(404).json({ error: 'Project not found', message: 'The specified project does not exist or you do not have access to it.' });
+            }
+        } catch (error) {
+            logger.error('Failed to verify project ownership', error as Error);
+            return res.status(500).json({ error: 'Failed to verify project', message: 'An error occurred while verifying the project.' });
+        }
 
         // When forceRecrawl is true, log it to help debug any issues
         if (forceRecrawl) {
-            logger.info('Force recrawl requested - will create completely new session and ignore all previous sessions', { url, userId: req.user?.userId });
+            logger.info('Force recrawl requested - will create completely new session and ignore all previous sessions', { url, userId, projectId });
         }
 
         // Normalize and validate URL input
@@ -90,8 +105,6 @@ router.post('/crawl',
             logger.warn('URL reachability check failed', { url: safeUrl, error: reachError?.message });
             return res.status(400).json({ error: 'URL is not reachable', message: msg });
         }
-
-        const userId = req.user!.userId; // Get authenticated user ID
 
         // When forceRecrawl is true, mark any previous running or auditing session for the same URL as completed
         // This prevents the previous session from going into auditing or continuing to audit, avoiding conflicts with the new crawl
@@ -521,6 +534,7 @@ router.post('/crawl',
             try {
                 const db = getDatabase();
                 sessionId = await db.createCrawlSession({
+                    projectId: projectId,
                     startUrl: safeUrl,
                     allowSubdomains: Boolean(allowSubdomains),
                     maxConcurrency: 150, // Default for background crawl
@@ -532,12 +546,12 @@ router.post('/crawl',
                     duration: 0,
                     status: 'running'
                 });
-                logger.info(`Session created early for manual crawl: ${sessionId}`, { userId, url: safeUrl });
+                logger.info(`Session created early for manual crawl: ${sessionId}`, { userId, projectId, url: safeUrl });
             } catch (e) {
                 logger.warn('Failed to create session early', e as Error);
             }
         } else {
-            logger.info('Skipping early session creation for forceRecrawl - will create fresh session in runCrawl', { userId, url: safeUrl });
+            logger.info('Skipping early session creation for forceRecrawl - will create fresh session in runCrawl', { userId, projectId, url: safeUrl });
         }
 
         const requestId = `crawl_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -590,6 +604,7 @@ router.post('/crawl',
                         .map((s) => s.trim().toLowerCase())
                         .filter(Boolean),
                     mode: 'html',
+                    projectId: projectId,
                     userId: userId,
                     runAudits: Boolean(runAudits),
                     auditDevice: auditDevice === 'mobile' ? 'mobile' : 'desktop',

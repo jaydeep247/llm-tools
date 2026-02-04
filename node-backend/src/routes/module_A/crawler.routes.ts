@@ -36,31 +36,6 @@ router.post('/sessions/:sessionId/share', authenticateUser, async (req, res) => 
     }
 });
 
-// Crawl history endpoint
-router.get('/crawl-history', authenticateUser, validatePagination, handleValidationErrors, async (req: express.Request, res: express.Response) => {
-    try {
-        const userId = req.user!.userId;
-        const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
-        const offset = Math.max(parseInt(req.query.offset as string) || 0, 0);
-
-        const db = getDatabase();
-        const history = await db.getUserCrawlSessionsWithResults(userId, limit, offset);
-
-        res.json({
-            success: true,
-            history,
-            pagination: {
-                limit,
-                offset,
-                hasMore: history.length === limit
-            }
-        });
-    } catch (error) {
-        logger.error('Failed to get crawl history', error as Error);
-        res.status(500).json({ error: 'Failed to get crawl history' });
-    }
-});
-
 // Get session crawl data (pages, resources, logs, statistics)
 router.get('/data/list', authenticateUser, validatePagination, handleValidationErrors, async (req: express.Request, res: express.Response) => {
     const requestId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;

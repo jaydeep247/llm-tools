@@ -116,18 +116,18 @@ services:
       - contentlytics-network
     restart: unless-stopped
 
-  # Frontend (Vite)
+  # Frontend (Next.js)
   frontend:
     build:
-      context: ./frontend
+      context: ./ref-frontend
       dockerfile: Dockerfile
       args:
-        # Use empty string to route through nginx proxy (relative URLs)
-        # nginx.conf proxies /api to backend:3004
-        VITE_API_BASE_URL: ""
-        VITE_AEO_API_BASE_URL: ""
+        NEXT_PUBLIC_API_BASE_URL: ""
     container_name: contentlytics-frontend
     env_file: .env
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ""
+      PORT: 3000
     ports:
       - "80:80"
     depends_on:

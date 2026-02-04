@@ -1,5 +1,6 @@
 export interface CrawlSession {
     id: number;
+    projectId: string;
     startUrl: string;
     allowSubdomains: boolean;
     maxConcurrency: number;

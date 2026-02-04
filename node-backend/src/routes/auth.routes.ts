@@ -611,7 +611,7 @@ router.get('/usage', authenticateUser, async (req: Request, res: Response) => {
         const sinceDate = since ? String(since) : undefined;
 
         const stats = await db.getUserUsageStats(req.user.userId, sinceDate);
-        const history = await db.getUserUsage(req.user.userId, undefined, 50);
+        const usageLog = await db.getUserUsage(req.user.userId, undefined, 50);
         const settings = await db.getUserSettings(req.user.userId);
 
         const todayCrawls = await db.getTodayUsageCount(req.user.userId, 'crawl');
@@ -620,7 +620,7 @@ router.get('/usage', authenticateUser, async (req: Request, res: Response) => {
         res.json({
             success: true,
             stats,
-            history,
+            usageLog,
             today: {
                 crawls: todayCrawls,
                 audits: todayAudits,
@@ -668,6 +668,31 @@ router.put('/settings', authenticateUser, async (req: Request, res: Response) =>
         res.status(500).json({
             error: 'Failed to update settings',
             message: 'An error occurred while updating settings'
+        });
+    }
+});
+
+/**
+ * GET /api/auth/status
+ * Check if user is authenticated (quick status check)
+ */
+router.get('/status', authenticateUser, async (req: Request, res: Response) => {
+    try {
+        res.json({
+            success: true,
+            authenticated: !!req.user,
+            user: req.user ? {
+                id: req.user.userId,
+                email: req.user.email,
+                role: req.user.role
+            } : null
+        });
+    } catch (error) {
+        logger.error('Auth status check error', error as Error);
+        res.status(200).json({
+            success: true,
+            authenticated: false,
+            user: null
         });
     }
 });

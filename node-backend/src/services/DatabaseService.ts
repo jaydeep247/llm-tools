@@ -79,9 +79,8 @@ export class DatabaseService {
         return this.crawls.getRunningSessionsStartedBefore(cutoffDate);
     }
 
-    async getUserCrawlSessionsWithResults(userId: number, limit: number = 50, offset: number = 0): Promise<any[]> {
-        return this.crawls.getUserCrawlSessionsWithResults(userId, limit, offset);
-    }
+    // DEPRECATED: Removed in favor of project-based organization
+    // Use getUserProjects() and getProjectSessions() instead
 
     async shareSessionWithUser(sessionId: number, userId: number): Promise<void> {
         return this.crawls.shareSessionWithUser(sessionId, userId);
@@ -566,6 +565,148 @@ export class DatabaseService {
 
     async insertAeoResultsTable(data: any): Promise<number> {
         return this.audits.insertAeoResultsTable(data);
+    }
+
+    // ==================== Project Methods ====================
+    
+    async getUserProjects(userId: number): Promise<any[]> {
+        try {
+            const projects = await this.prisma.project.findMany({
+                where: {
+                    userId,
+                    isActive: true
+                },
+                include: {
+                    _count: {
+                        select: {
+                            crawlSessions: true
+                        }
+                    }
+                },
+                orderBy: {
+                    updatedAt: 'desc'
+                }
+            });
+            return projects;
+        } catch (error) {
+            this.logger.error('Failed to get user projects', error as Error);
+            throw error;
+        }
+    }
+
+    async getProject(projectId: string, userId: number): Promise<any | null> {
+        try {
+            const project = await this.prisma.project.findFirst({
+                where: {
+                    id: projectId,
+                    userId
+                }
+            });
+            return project;
+        } catch (error) {
+            this.logger.error('Failed to get project', error as Error);
+            throw error;
+        }
+    }
+
+    async getProjectWithSessions(projectId: string, userId: number): Promise<any | null> {
+        try {
+            const project = await this.prisma.project.findFirst({
+                where: {
+                    id: projectId,
+                    userId
+                },
+                include: {
+                    crawlSessions: {
+                        orderBy: {
+                            startedAt: 'desc'
+                        },
+                        take: 50
+                    },
+                    _count: {
+                        select: {
+                            crawlSessions: true
+                        }
+                    }
+                }
+            });
+            return project;
+        } catch (error) {
+            this.logger.error('Failed to get project with sessions', error as Error);
+            throw error;
+        }
+    }
+
+    async createProject(data: { name: string; description: string | null; userId: number }): Promise<any> {
+        try {
+            const project = await this.prisma.project.create({
+                data: {
+                    name: data.name,
+                    description: data.description,
+                    userId: data.userId
+                }
+            });
+            return project;
+        } catch (error) {
+            this.logger.error('Failed to create project', error as Error);
+            throw error;
+        }
+    }
+
+    async updateProject(projectId: string, data: { name?: string; description?: string; isActive?: boolean }): Promise<any> {
+        try {
+            const project = await this.prisma.project.update({
+                where: { id: projectId },
+                data: {
+                    ...(data.name !== undefined && { name: data.name }),
+                    ...(data.description !== undefined && { description: data.description }),
+                    ...(data.isActive !== undefined && { isActive: data.isActive }),
+                    updatedAt: new Date()
+                }
+            });
+            return project;
+        } catch (error) {
+            this.logger.error('Failed to update project', error as Error);
+            throw error;
+        }
+    }
+
+    async deleteProject(projectId: string): Promise<void> {
+        try {
+            await this.prisma.project.delete({
+                where: { id: projectId }
+            });
+        } catch (error) {
+            this.logger.error('Failed to delete project', error as Error);
+            throw error;
+        }
+    }
+
+    async getProjectSessions(projectId: string, limit: number = 50, offset: number = 0): Promise<any[]> {
+        try {
+            const sessions = await this.prisma.crawlSession.findMany({
+                where: {
+                    projectId
+                },
+                orderBy: {
+                    startedAt: 'desc'
+                },
+                take: limit,
+                skip: offset,
+                include: {
+                    _count: {
+                        select: {
+                            pages: true,
+                            resources: true
+                        }
+                    }
+                }
+            });
+            return sessions;
+        } catch (error) {
+            this.logger.error('Failed to get project sessions', error as Error);
+            throw error;
+        }
     }
 }
 

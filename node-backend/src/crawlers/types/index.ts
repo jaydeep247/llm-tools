@@ -4,6 +4,7 @@
 
 export type CrawlOptions = {
     startUrl: string;
+    projectId?: string;
     allowSubdomains: boolean;
     maxConcurrency: number;
     perHostDelayMs: number;

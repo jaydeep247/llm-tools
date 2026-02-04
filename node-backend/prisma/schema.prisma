@@ -27,6 +27,7 @@ model User {
   // Relations
   userSettings       UserSettings?
   userUsage          UserUsage[]
+  projects           Project[]
   crawlSessions      CrawlSession[]
   crawlSchedules     CrawlSchedule[]
   sessionShares      SessionShare[]
@@ -64,11 +65,34 @@ model UserUsage {
 }
 
 // ============================================
+// PROJECT TABLES
+// ============================================
+
+model Project {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String    @db.Text
+  description String?   @db.Text
+  userId      Int       @map("user_id")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  isActive    Boolean   @default(true) @map("is_active")
+
+  // Relations
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  crawlSessions CrawlSession[]
+
+  @@index([userId], map: "idx_projects_user_id")
+  @@index([userId, isActive], map: "idx_projects_user_active")
+  @@map("projects")
+}
+
+// ============================================
 // CRAWL SESSION TABLES
 // ============================================
 
 model CrawlSession {
   id               Int       @id @default(autoincrement())
+  projectId        String    @map("project_id") @db.Uuid
   startUrl         String    @map("start_url") @db.Text
   allowSubdomains  Boolean   @default(true) @map("allow_subdomains")
   maxConcurrency   Int       @map("max_concurrency")
@@ -89,6 +113,7 @@ model CrawlSession {
   pagesCrawled     Int?      @default(0) @map("pages_crawled")
 
   // Relations
+  project             Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
   user                User?                @relation(fields: [userId], references: [id])
   pages               Page[]
   resources           Resource[]
@@ -106,7 +131,9 @@ model CrawlSession {
   similarityIndices   SimilarityIndex[]
   serpSnapshots       SerpSnapshot[]
 
+  @@index([projectId], map: "idx_crawl_sessions_project_id")
   @@index([userId], map: "idx_crawl_sessions_user_id")
+  @@index([projectId, status], map: "idx_crawl_sessions_project_status")
   @@map("crawl_sessions")
 }
 

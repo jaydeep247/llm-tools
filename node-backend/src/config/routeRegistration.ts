@@ -14,6 +14,7 @@ import { answerCompletenessRoutes } from '../routes/module_C/answerCompleteness.
 import sseRoutes from '../routes/sse.routes.js';
 import authRoutes from '../routes/auth.routes.js';
 import adminRoutes from '../routes/admin.routes.js';
+import projectRoutes from '../routes/projects.routes.js';
 
 /**
  * Register all application routes
@@ -21,6 +22,9 @@ import adminRoutes from '../routes/admin.routes.js';
 export function registerRoutes(app: express.Application): void {
     // Module D: Monitoring & Health
     app.use('/api', monitoringRoutes);
+
+    // Projects
+    app.use('/api', projectRoutes);
 
     // Module A: Crawling, Link Analysis, Performance Audits
     app.use('/api', auditsRoutes);
