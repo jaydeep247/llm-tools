@@ -679,6 +679,10 @@ model AeoResult {
   brandMetrics        Json?     @map("brand_metrics") @db.JsonB
   responseAccuracy    Json?     @map("response_accuracy") @db.JsonB
   citationMetrics     Json?     @map("citation_metrics") @db.JsonB
+  sentimentMetrics    Json?     @map("sentiment_metrics") @db.JsonB
+  visibilityMetrics   Json?     @map("visibility_metrics") @db.JsonB
+  shareOfVoice        Json?     @map("share_of_voice") @db.JsonB
+  rankingMetrics      Json?     @map("ranking_metrics") @db.JsonB
   analyzedPagesCount  Int       @default(0) @map("analyzed_pages_count")
   createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt           DateTime? @map("updated_at") @db.Timestamptz

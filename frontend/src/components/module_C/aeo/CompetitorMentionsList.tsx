@@ -39,7 +39,6 @@ const CompetitorMentionsList: React.FC<CompetitorMentionsListProps> = ({
     const [loading, setLoading] = useState(false);
     const [sovLoading, setSovLoading] = useState(false);
     const [processedCount, setProcessedCount] = useState(0);
-    const [processedCount, setProcessedCount] = useState(0);
     const [error, setError] = useState<string | null>(null);
     const [hasRun, setHasRun] = useState(false);
 
@@ -56,79 +55,47 @@ const CompetitorMentionsList: React.FC<CompetitorMentionsListProps> = ({
         if (competitors.length === 0) return;
 
         setLoading(true);
+        setSovLoading(brandName ? true : false); // Only show SOV loading if brand_name is provided
         setHasRun(true);
         setProcessedCount(0);
         setError(null);
-
-        const BATCH_SIZE = 5;
-
-        // Fetch SOV separately with ALL competitors (not per batch)
-        const fetchSOV = async () => {
-            if (!brandName) return;
-
-            setSovLoading(true);
-            try {
-                const sovResponse = await fetch('/api/aeo/analyze-competitors-mentions', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        competitors: competitors, // ALL competitors at once
-                        brand_name: brandName
-                    })
-                });
-
-                if (sovResponse.ok) {
-                    const sovResult = await sovResponse.json();
-                    if (sovResult.share_of_voice) {
-                        setSovData(sovResult.share_of_voice);
-                    }
-                }
-            } catch (err) {
-                console.warn("Failed to fetch model-wise SOV:", err);
-            } finally {
-                setSovLoading(false);
-            }
-        };
-
-        // Start SOV calculation in parallel (doesn't block mentions fetching)
-        fetchSOV();
+        setMentionsData([]);
+        setSovData(null);
 
         try {
-            // Fetch competitor mentions in batches (without brand_name to avoid duplicate SOV calculation)
-            for (let i = 0; i < competitors.length; i += BATCH_SIZE) {
-                const batch = competitors.slice(i, i + BATCH_SIZE);
+            // Single API call: fetch both mentions data AND SOV if brand_name is provided
+            const response = await fetch('/api/aeo/analyze-competitors-mentions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    competitors: competitors, // ALL competitors at once
+                    ...(brandName && { brand_name: brandName }) // Include brand_name only if available
+                })
+            });
 
-                const response = await fetch('/api/aeo/analyze-competitors-mentions', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        competitors: batch
-                        // Don't send brand_name here - SOV is calculated separately above
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`Batch failed: ${response.statusText}`);
-                }
-
-                const result = await response.json();
-                if (result.success && result.data) {
-                    setMentionsData(prev => {
-                        // Prevent duplicates if effect double-fires
-                        const newNames = new Set(result.data.map((d: any) => d.name));
-                        return [...prev.filter(d => !newNames.has(d.name)), ...result.data];
-                    });
-                    setProcessedCount(prev => Math.min(prev + batch.length, competitors.length));
-                }
-
-                // Small delay to be gentle on the API
-                await new Promise(resolve => setTimeout(resolve, 500));
+            if (!response.ok) {
+                throw new Error(`API request failed: ${response.statusText}`);
             }
+
+            const result = await response.json();
+            
+            if (result.success && result.data) {
+                // Set mentions data
+                setMentionsData(result.data);
+                setProcessedCount(competitors.length);
+            }
+
+            // Set SOV data if available
+            if (result.share_of_voice) {
+                setSovData(result.share_of_voice);
+            }
+
         } catch (err: any) {
             console.error("Error fetching competitor mentions:", err);
             setError(err.message);
         } finally {
             setLoading(false);
+            setSovLoading(false);
         }
     };
 
@@ -309,62 +276,69 @@ const CompetitorMentionsList: React.FC<CompetitorMentionsListProps> = ({
                             </div>
                         )}
 
-                        <div className="mentions-table-container overflow-x-auto">
-                            <table className="w-full text-left text-sm border-collapse">
-                                <thead>
-                                    <tr className="border-b border-gray-700">
-                                        <th className="px-4 py-3 text-xs font-bold uppercase text-gray-400">Competitor</th>
-                                        <th className="px-4 py-3 text-xs font-bold uppercase text-gray-400">Mentions (12mo)</th>
-                                        <th className="px-4 py-3 text-xs font-bold uppercase text-gray-400">Sentiment</th>
-                                        <th className="px-4 py-3 text-xs font-bold uppercase text-gray-400">Frequency Trend</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {mentionsData.map((comp, idx) => (
-                                        <tr key={idx} className="border-b border-gray-800 hover:bg-gray-900/50 transition-colors">
-                                            <td className="px-4 py-3 font-medium text-white">{comp.name}</td>
-                                            <td className="px-4 py-3 text-gray-400">{comp.mentions.toLocaleString()}</td>
-                                            <td className="px-4 py-3">
-                                                <span
-                                                    className={`inline-flex items-center rounded px-2.5 py-1 text-xs font-medium ${comp.sentiment === 'Positive'
-                                                        ? 'bg-green-900/40 text-green-400 border border-green-800'
-                                                        : comp.sentiment === 'Negative'
-                                                            ? 'bg-red-900/40 text-red-400 border border-red-800'
-                                                            : 'bg-gray-700/50 text-gray-300 border border-gray-600'
-                                                        }`}
-                                                >
-                                                    {comp.sentiment}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <div className="flex items-end h-6 gap-0.5">
-                                                    {comp.trend.map((t, i) => {
-                                                        const maxCount = Math.max(...comp.trend.map((x) => x.count), 1);
-                                                        const pct = (t.count / maxCount) * 100;
-                                                        const barHeight = Math.max(4, (pct / 100) * 24);
-                                                        return (
-                                                            <div
-                                                                key={i}
-                                                                className="w-1 bg-blue-600 rounded-sm flex-shrink-0"
-                                                                style={{ height: `${barHeight}px` }}
-                                                                title={`${t.date}: ${t.count}`}
-                                                            />
-                                                        );
-                                                    })}
-                                                </div>
-                                            </td>
+                        {!loading && mentionsData.length === 0 && !error && (
+                            <div className="mb-4 p-4 bg-yellow-900/30 border border-yellow-700/50 text-yellow-200 rounded-lg text-sm">
+                                Analysis completed, but no mentions data found for the competitors.
+                            </div>
+                        )}
+
+                        {mentionsData.length > 0 && (
+                            <div className="mentions-table-container overflow-x-auto">
+                                <table className="w-full text-left text-sm border-collapse">
+                                    <thead>
+                                        <tr className="border-b border-gray-700">
+                                            <th className="px-4 py-3 text-xs font-bold uppercase text-gray-400">Competitor</th>
+                                            <th className="px-4 py-3 text-xs font-bold uppercase text-gray-400">Mentions (12mo)</th>
+                                            <th className="px-4 py-3 text-xs font-bold uppercase text-gray-400">Sentiment</th>
+                                            <th className="px-4 py-3 text-xs font-bold uppercase text-gray-400">Frequency Trend</th>
                                         </tr>
-                                    ))}
-                                    {loading && mentionsData.length < competitors.length && (
-                                        <tr>
-                                            <td colSpan={4} className="px-4 py-6 text-center text-gray-500 text-sm">
-                                                Loading more competitors...
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody>
+                                        {mentionsData.map((comp, idx) => (
+                                            <tr key={idx} className="border-b border-gray-800 hover:bg-gray-900/50 transition-colors">
+                                                <td className="px-4 py-3 font-medium text-white">{comp.name}</td>
+                                                <td className="px-4 py-3 text-gray-400">{comp.mentions.toLocaleString()}</td>
+                                                <td className="px-4 py-3">
+                                                    <span
+                                                        className={`inline-flex items-center rounded px-2.5 py-1 text-xs font-medium ${comp.sentiment === 'Positive'
+                                                            ? 'bg-green-900/40 text-green-400 border border-green-800'
+                                                            : comp.sentiment === 'Negative'
+                                                                ? 'bg-red-900/40 text-red-400 border border-red-800'
+                                                                : comp.sentiment === 'No Data'
+                                                                    ? 'bg-gray-800/50 text-gray-500 border border-gray-700'
+                                                                    : 'bg-gray-700/50 text-gray-300 border border-gray-600'
+                                                            }`}
+                                                    >
+                                                        {comp.sentiment}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-end h-6 gap-0.5">
+                                                        {comp.trend && comp.trend.length > 0 ? (
+                                                            comp.trend.map((t, i) => {
+                                                                const maxCount = Math.max(...comp.trend.map((x) => x.count), 1);
+                                                                const pct = (t.count / maxCount) * 100;
+                                                                const barHeight = Math.max(4, (pct / 100) * 24);
+                                                                return (
+                                                                    <div
+                                                                        key={i}
+                                                                        className="w-1 bg-blue-600 rounded-sm flex-shrink-0"
+                                                                        style={{ height: `${barHeight}px` }}
+                                                                        title={`${t.date}: ${t.count}`}
+                                                                    />
+                                                                );
+                                                            })
+                                                        ) : (
+                                                            <span className="text-xs text-gray-500">No trend data</span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </>
                 )}
             </div>

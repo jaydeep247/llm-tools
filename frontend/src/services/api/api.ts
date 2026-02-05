@@ -384,16 +384,23 @@ class ApiService {
   }
 
   // --- NEW: Run Brand Pulse Analysis ---
-  async analyzeBrandPulse(brandName: string): Promise<any> {
+  async analyzeBrandPulse(brandName: string, sessionId?: number | null, url?: string): Promise<any> {
     try {
-      console.log('Starting Brand Pulse Analysis for:', brandName);
+      console.log('Starting Brand Pulse Analysis for:', brandName, 'sessionId:', sessionId);
+      const requestBody: any = { brand_name: brandName };
+      if (sessionId) {
+        requestBody.sessionId = sessionId;
+      }
+      if (url) {
+        requestBody.url = url;
+      }
       const response = await this.fetchWithTimeout(
         '/api/aeo/analyze-brand',
         {
           method: 'POST',
           headers: this.getAuthHeaders(),
           credentials: 'include',
-          body: JSON.stringify({ brand_name: brandName }),
+          body: JSON.stringify(requestBody),
         },
         60000 // 1 minute timeout
       );

@@ -374,6 +374,10 @@ export class AuditRepository {
             brandMetrics: data.brand_metrics as any,
             responseAccuracy: data.response_accuracy as any,
             citationMetrics: data.citation_metrics as any,
+            sentimentMetrics: data.sentiment_metrics as any,
+            visibilityMetrics: data.visibility_metrics as any,
+            shareOfVoice: data.share_of_voice as any,
+            rankingMetrics: data.ranking_metrics as any,
             updatedAt: new Date(),
         };
         const createData: any = {
@@ -387,6 +391,10 @@ export class AuditRepository {
             brandMetrics: data.brand_metrics as any,
             responseAccuracy: data.response_accuracy as any,
             citationMetrics: data.citation_metrics as any,
+            sentimentMetrics: data.sentiment_metrics as any,
+            visibilityMetrics: data.visibility_metrics as any,
+            shareOfVoice: data.share_of_voice as any,
+            rankingMetrics: data.ranking_metrics as any,
         };
         const result = await prisma.aeoResult.upsert({
             where: { sessionId: data.session_id },
@@ -403,7 +411,11 @@ export class AuditRepository {
     async updateCitationMetricsForSession(sessionId: number, citationMetrics: any): Promise<boolean> {
         const existing = await prisma.aeoResult.findUnique({ where: { sessionId } });
         if (!existing) return false;
-        const updateData: any = { citationMetrics, updatedAt: new Date() };
+        const updateData: any = { 
+            citationMetrics: citationMetrics.citation_metrics || citationMetrics,
+            rankingMetrics: citationMetrics.ranking_metrics || citationMetrics,
+            updatedAt: new Date() 
+        };
         await prisma.aeoResult.update({
             where: { sessionId },
             data: updateData,

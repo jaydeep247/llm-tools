@@ -28,7 +28,6 @@ const ModuleE: React.FC<ModuleEProps> = ({
 }) => {
   // Brand for sentiment/visibility: prefer configured brand, never pass literal "Not Configured"
   const rawBrandFromScores = moduleEScores?.brand_metrics?.data?.brand_name;
-  const rawBrandFromCompetitor = competitors[0]?.name;
 
   const normalizeBrand = (value?: string) => (value || '').trim();
   const isConfiguredBrand = (value?: string) => {
@@ -36,12 +35,28 @@ const ModuleE: React.FC<ModuleEProps> = ({
     return norm.length > 0 && norm.toLowerCase() !== 'not configured';
   };
 
-  // Fallback: use website URL when no brand/competitor is configured (API accepts brand name or URL)
+  // Extract domain from URL as brand name fallback
+  const extractDomainFromUrl = (urlString: string): string => {
+    try {
+      // Remove protocol if present
+      let cleanUrl = urlString.replace(/^https?:\/\//i, '');
+      // Remove trailing slashes and paths
+      cleanUrl = cleanUrl.split('/')[0];
+      // Remove www. prefix
+      cleanUrl = cleanUrl.replace(/^www\./i, '');
+      return cleanUrl.trim();
+    } catch (e) {
+      return urlString.trim();
+    }
+  };
+
+  // Fallback: extract domain from website URL when no brand is configured
   const websiteUrl = (url || moduleEScores?.url || '').trim();
+  const domainFromUrl = websiteUrl ? extractDomainFromUrl(websiteUrl) : '';
+  
   const effectiveBrandName =
     (isConfiguredBrand(rawBrandFromScores) ? normalizeBrand(rawBrandFromScores) : '') ||
-    (isConfiguredBrand(rawBrandFromCompetitor) ? normalizeBrand(rawBrandFromCompetitor) : '') ||
-    (websiteUrl ? websiteUrl : '');
+    (domainFromUrl ? domainFromUrl : '');
 
   // --- Brand Pulse State ---
   const [brandPulseData, setBrandPulseData] = React.useState<any>(null);
@@ -56,7 +71,12 @@ const ModuleE: React.FC<ModuleEProps> = ({
     setBrandPulseLoading(true);
     setBrandPulseError(null);
     try {
-      const result = await apiService.analyzeBrandPulse(effectiveBrandName);
+      console.log('[ModuleE] Calling analyzeBrandPulse with:', {
+        brandName: effectiveBrandName,
+        sessionId: sessionId,
+        url: url
+      });
+      const result = await apiService.analyzeBrandPulse(effectiveBrandName, sessionId || undefined, url);
       setBrandPulseData(result);
     } catch (error: any) {
       setBrandPulseError(error.message || 'Failed to analyze brand');
@@ -69,10 +89,10 @@ const ModuleE: React.FC<ModuleEProps> = ({
     console.log(
       '[ModuleE] brand → rawBrandFromScores:',
       JSON.stringify(rawBrandFromScores),
-      'rawBrandFromCompetitor:',
-      JSON.stringify(rawBrandFromCompetitor),
       'websiteUrl:',
       JSON.stringify(websiteUrl),
+      'domainFromUrl:',
+      JSON.stringify(domainFromUrl),
       'effectiveBrandName (sent to API):',
       JSON.stringify(effectiveBrandName)
     );

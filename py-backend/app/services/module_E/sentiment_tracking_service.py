@@ -11,7 +11,7 @@ from typing import Dict, List, Any
 from urllib.parse import urlparse
 import requests
 from bs4 import BeautifulSoup
-from ..module_C.multi_ai_service import MultiAIService
+from ..module_C.multi_ai_service import MultiAIService  # pylint: disable=relative-beyond-top-level
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -53,7 +53,8 @@ class SentimentTrackingService:
             "Rate the sentiment of your response on a scale of 0 to 100 "
             "(0=Negative, 50=Neutral, 100=Positive). "
             "Also provide a label: 'Positive', 'Neutral', or 'Negative'. "
-            "Return ONLY a JSON object with this format (no markdown, no extra text): "
+            "CRITICAL: You must return your response as a json object (valid json format). "
+            "Return ONLY a json object with this exact format (no markdown, no extra text): "
             "{\"response_text\": \"your answer here\", \"sentiment_score\": 85, \"sentiment_label\": \"Positive\"}"
         )
 
@@ -130,7 +131,7 @@ class SentimentTrackingService:
                 "Wrong: 'What are some popular brands in this industry?' or mixing in 'IT industry' when the site is about fashion. "
                 "Every question MUST ask for a LIST of companies, brands, or key players so answers contain brand names. "
                 "Do NOT ask about trends, target customers, or marketing tactics. "
-                "Return ONLY a JSON object with key \"questions\" whose value is an array of exactly 6 question strings. Example: {\"questions\": [\"What are some popular brands in the fashion industry?\", \"Which apparel companies would you recommend?\"]}"
+                "You must return a json object with key \"questions\" whose value is an array of exactly 6 question strings. Return ONLY valid json. Example: {\"questions\": [\"What are some popular brands in the fashion industry?\", \"Which apparel companies would you recommend?\"]}"
             )
         else:
             prompt = (
@@ -143,7 +144,7 @@ class SentimentTrackingService:
                 "Wrong: 'What are some popular brands in this industry?' (model has no context for 'this'). "
                 "Every question MUST ask for a LIST of companies, brands, or key players so answers contain brand names. "
                 "Do NOT ask about trends, target customers, or marketing tactics. "
-                "Return ONLY a JSON object with key \"questions\" whose value is an array of exactly 6 question strings. Example: {\"questions\": [\"What are some popular brands in the IT industry?\", \"Which software companies would you recommend?\"]}"
+                "You must return a json object with key \"questions\" whose value is an array of exactly 6 question strings. Return ONLY valid json. Example: {\"questions\": [\"What are some popular brands in the IT industry?\", \"Which software companies would you recommend?\"]}"
             )
 
         try:
@@ -324,7 +325,7 @@ class SentimentTrackingService:
         appearance_count = 0
         position_weights: List[float] = []
 
-        for detail_idx, item in enumerate(details):
+        for item in details:
             answer = (item.get("answer") or "")
             answer_lower = str(answer).lower()
 
@@ -367,8 +368,10 @@ class SentimentTrackingService:
         questions_block = "\n".join(f"Question {i+1}: {q}" for i, q in enumerate(queries[:6]))
         return (
             "Answer the following 6 questions briefly. Each answer should be a short paragraph or list. "
-            "Return ONLY a JSON object with exactly these keys: answer_1, answer_2, answer_3, answer_4, answer_5, answer_6. "
-            "Each value must be your answer text for the corresponding question. No other keys or markdown.\n\n"
+            "CRITICAL: You must return your response as a json object (valid json format). "
+            "The json object must have exactly these keys: answer_1, answer_2, answer_3, answer_4, answer_5, answer_6. "
+            "Each value must be your answer text for the corresponding question. "
+            "Return ONLY valid json, no markdown, no other text, no other keys.\n\n"
             f"{questions_block}"
         )
 
@@ -496,7 +499,7 @@ class SentimentTrackingService:
             start = text.find('{')
             end = text.rfind('}') + 1
             if start != -1 and end != -1:
-                 return json.loads(text[start:end])
+                return json.loads(text[start:end])
             return None
         except Exception as e:
             logger.error(f"Gemini Call Failed: {e}")
@@ -514,7 +517,7 @@ class SentimentTrackingService:
             start = text.find('{')
             end = text.rfind('}') + 1
             if start != -1 and end != -1:
-                 return json.loads(text[start:end])
+                return json.loads(text[start:end])
             return None
         except Exception as e:
             logger.error(f"Claude Call Failed: {e}")

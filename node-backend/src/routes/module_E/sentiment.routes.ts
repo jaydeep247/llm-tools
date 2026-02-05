@@ -36,23 +36,91 @@ router.post('/sentiment-tracking',
 
             // --- SAVE TO DATABASE FOR HISTORY ---
             try {
-                // We use a simplified URL key to track history for this brand, appending timestamp for uniqueness
-                const trackingUrl = `sentiment-tracker:${req.body.brand_name}:${Date.now()}`;
+                const { sessionId, url, brand_name } = req.body;
+                const db = await import('../../services/DatabaseService.js').then(m => m.getDatabase());
 
-                logger.info(`[DEBUG] Attempting to save history. URL: ${trackingUrl}`, {
-                    brand: req.body.brand_name,
-                    url: trackingUrl
+                // Extract sentiment and visibility metrics from the response
+                const sentimentMetrics = {
+                    overall_score: data?.overall_score,
+                    by_model: data?.by_model,
+                    sentiment_distribution: data?.sentiment_distribution,
+                    average_sentiment_score: data?.average_sentiment_score,
+                    sentiment_trend: data?.sentiment_trend
+                };
+                const visibilityMetrics = {
+                    overall_visibility_score: data?.visibility?.overall_visibility_score,
+                    by_model: data?.visibility?.by_model,
+                    trend: data?.visibility?.trend
+                };
+
+                // Use sessionId if provided, otherwise create a tracking URL
+                const saveUrl = url || `sentiment-tracker:${brand_name || 'unknown'}:${Date.now()}`;
+
+                logger.info(`[SENTIMENT] Attempting to save to database`, {
+                    brand: brand_name,
+                    url: saveUrl,
+                    hasSessionId: !!sessionId,
+                    sessionId: sessionId || 'none'
                 });
 
-                await prisma.aeoResult.create({
-                    data: {
-                        url: trackingUrl,
-                        brandMetrics: data as any,
-                    },
-                });
-                logger.info(`[DEBUG] Successfully saved sentiment history for ${trackingUrl}`);
+                // Use DatabaseService to save (handles sessionId properly)
+                const dataToSave = {
+                    session_id: sessionId || undefined,
+                    url: saveUrl,
+                    brand_metrics: data,
+                    sentiment_metrics: sentimentMetrics,
+                    visibility_metrics: visibilityMetrics,
+                    consistency: 0, // Not applicable for sentiment tracking
+                    score_entity_coverage: 0, // Not applicable
+                    entities_expected: [],
+                    entities_observed: [],
+                    entities_missing: []
+                };
+
+                if (sessionId) {
+                    // Update existing record if sessionId exists
+                    await db.insertAeoResultsTable(dataToSave);
+                    logger.info(`[SENTIMENT] ✅ Successfully saved/updated sentiment data for sessionId=${sessionId}`);
+                } else {
+                    // Create new record without sessionId
+                    // Try with new fields first, fallback to old schema if migration not applied
+                    try {
+                        await prisma.aeoResult.create({
+                            data: {
+                                url: saveUrl,
+                                brandMetrics: data as any,
+                                sentimentMetrics: sentimentMetrics as any,
+                                visibilityMetrics: visibilityMetrics as any,
+                            },
+                        });
+                        logger.info(`[SENTIMENT] ✅ Successfully saved sentiment history with new fields for ${saveUrl}`);
+                    } catch (fieldError: any) {
+                        // Fallback: save without new fields if migration not applied
+                        if (fieldError.message?.includes('Unknown arg') || fieldError.message?.includes('does not exist')) {
+                            logger.warn(`[SENTIMENT] New fields not available, saving with brandMetrics only`);
+                            await prisma.aeoResult.create({
+                                data: {
+                                    url: saveUrl,
+                                    brandMetrics: {
+                                        ...data,
+                                        sentiment_metrics: sentimentMetrics,
+                                        visibility_metrics: visibilityMetrics
+                                    } as any,
+                                },
+                            });
+                            logger.info(`[SENTIMENT] ✅ Successfully saved sentiment history (fallback) for ${saveUrl}`);
+                        } else {
+                            throw fieldError; // Re-throw if it's a different error
+                        }
+                    }
+                }
             } catch (dbError: any) {
-                logger.error(`[DEBUG-ERROR] Failed to save sentiment history. Code: ${dbError.code}, Message: ${dbError.message}`);
+                logger.error(`[SENTIMENT] ❌ Failed to save sentiment history`, {
+                    error: dbError.message,
+                    code: dbError.code,
+                    stack: dbError.stack,
+                    body: JSON.stringify(req.body).substring(0, 200)
+                });
                 // Non-blocking: don't fail the request if save fails
             }
 

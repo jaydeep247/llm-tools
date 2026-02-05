@@ -96,7 +96,7 @@ class ContentConsistencyService:
         4. **Brand Name**: The official name.
         5. **Location** (optional): City, region, or country if the business targets a specific geography (e.g., "Surat", "UAE", "Spain"). Leave empty if not applicable.
 
-        STRICT OUTPUT FORMAT (JSON ONLY, no other text):
+        STRICT OUTPUT FORMAT (json only, no other text):
         {{
             "topic": "...",
             "audience": "...",

@@ -6,12 +6,29 @@ import os
 import asyncio
 from concurrent.futures import ProcessPoolExecutor
 from dotenv import load_dotenv
+from pathlib import Path
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 # Load environment variables from .env file
-load_dotenv()
+# Check multiple locations: current dir, parent dir (llm-tools), and parent's parent
+env_paths = [
+    Path(__file__).parent.parent.parent / ".env",  # py-backend/.env
+    Path(__file__).parent.parent.parent.parent / ".env",  # llm-tools/.env
+    Path(__file__).parent.parent.parent.parent.parent / ".env",  # root/.env
+]
+env_loaded = False
+for env_path in env_paths:
+    if env_path.exists():
+        load_dotenv(env_path)
+        print(f"✅ Loaded .env from: {env_path}")
+        env_loaded = True
+        break
+if not env_loaded:
+    # Fallback to default behavior (current directory)
+    load_dotenv()
+    print("⚠️  Using default .env loading (current directory)")
 
 from .services.module_B.models import ExtractHtmlRequest, ExtractResponse
 from .services.module_B.keyword_extraction import extract_keywords_from_html

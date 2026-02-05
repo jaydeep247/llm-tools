@@ -50,9 +50,9 @@ class WebsiteScoreService:
                 2. Content Consistency Score (0-100): Measure how uniform, stable, and non-contradictory the information is across pages. "Does this website say the same thing everywhere, or does it contradict itself?"
                 
                 Rules:
-                1. Return ONLY a JSON object: {{ "score": <number>, "consistency_score": <number> }}
+                1. Return ONLY a json object: {{ "score": <number>, "consistency_score": <number> }}
                 2. Be strict but fair.
-                3. Do NOT include markdown formatting. Just raw JSON.
+                3. Do NOT include markdown formatting. Just raw json.
                 
                 Content:
                 {content[:15000]}...

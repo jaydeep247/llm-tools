@@ -709,9 +709,167 @@ router.post('/analyze-competitors-mentions',
             }
 
             const data = await response.json();
+            
+            // Save Share of Voice data if available
+            if (data.share_of_voice && req.body.sessionId) {
+                try {
+                    const db = await import('../../services/DatabaseService.js').then(m => m.getDatabase());
+                    await db.insertAeoResultsTable({
+                        session_id: req.body.sessionId,
+                        url: req.body.url || 'competitor-mentions',
+                        share_of_voice: data.share_of_voice
+                    });
+                    logger.info('Share of Voice data saved successfully');
+                } catch (saveError) {
+                    logger.warn('Failed to save Share of Voice data', saveError as Error);
+                }
+            }
+            
             res.json(data);
         } catch (error) {
             logger.error('Competitor mentions proxy error:', error as Error);
+            res.status(500).json({
+                success: false,
+                error: (error as Error).message || 'Service unavailable'
+            });
+        }
+    }
+);
+
+// Proxy brand analysis to FastAPI
+router.post('/analyze-brand',
+    authenticateUser,
+    async (req: express.Request, res: express.Response) => {
+        try {
+            const { brand_name } = req.body || {};
+            if (!brand_name) {
+                return res.status(400).json({ success: false, error: 'brand_name is required' });
+            }
+
+            const { sessionId: reqSessionId, url: reqUrl } = req.body || {};
+            logger.info('[BRAND PULSE] ⚡ Endpoint called - Proxying brand analysis request', {
+                brandName: brand_name,
+                sessionId: reqSessionId || 'NOT PROVIDED',
+                url: reqUrl || 'NOT PROVIDED',
+                body: JSON.stringify(req.body).substring(0, 300)
+            });
+
+            const response = await fetch(`${AEO_API_BASE_URL}/api/aeo/analyze-brand`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ brand_name })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                logger.warn(`Brand analysis API failed: ${response.status} - ${errorText}`);
+                return res.status(response.status).json({
+                    success: false,
+                    error: errorText || 'Brand analysis failed'
+                });
+            }
+
+            const data = await response.json();
+            
+            // Log the response structure for debugging
+            logger.info(`[BRAND PULSE] API response received`, {
+                hasSuccess: !!data.success,
+                success: data.success,
+                hasData: !!data.data,
+                dataKeys: data.data ? Object.keys(data.data) : [],
+                fullResponse: JSON.stringify(data).substring(0, 500)
+            });
+            
+            // --- SAVE TO DATABASE FOR HISTORY ---
+            if (data.success && data.data) {
+                try {
+                    // Extract sessionId and url from request (already extracted above)
+                    const sessionId = reqSessionId;
+                    const url = reqUrl;
+                    const db = await import('../../services/DatabaseService.js').then(m => m.getDatabase());
+                    const { prisma } = await import('../../config/prismaClient.js');
+
+                    // Extract brand metrics from response
+                    const brandMetrics = {
+                        brand_name: data.data.brand_name,
+                        total_mentions: data.data.total_mentions,
+                        sentiment: data.data.sentiment,
+                        frequency_trend: data.data.frequency_trend || []
+                    };
+
+                    // Use sessionId if provided, otherwise create a tracking URL
+                    // If sessionId exists, try to get the session URL, otherwise use provided url or create tracking URL
+                    let saveUrl = url;
+                    if (sessionId && !saveUrl) {
+                        try {
+                            const session = await prisma.crawlSession.findUnique({
+                                where: { id: sessionId },
+                                select: { startUrl: true }
+                            });
+                            saveUrl = session?.startUrl || `brand-pulse:${brand_name}:${Date.now()}`;
+                        } catch (e) {
+                            saveUrl = `brand-pulse:${brand_name}:${Date.now()}`;
+                        }
+                    }
+                    if (!saveUrl) {
+                        saveUrl = `brand-pulse:${brand_name}:${Date.now()}`;
+                    }
+
+                    logger.info(`[BRAND PULSE] Attempting to save to database`, {
+                        brand: brand_name,
+                        url: saveUrl,
+                        hasSessionId: !!sessionId,
+                        sessionId: sessionId || 'none',
+                        totalMentions: brandMetrics.total_mentions,
+                        requestUrl: url || 'NOT PROVIDED',
+                        requestSessionId: sessionId || 'NOT PROVIDED'
+                    });
+
+                    // Use DatabaseService to save (handles sessionId properly)
+                    const dataToSave = {
+                        session_id: sessionId || undefined,
+                        url: saveUrl,
+                        brand_metrics: brandMetrics,
+                        consistency: 0, // Not applicable for brand pulse
+                        score_entity_coverage: 0, // Not applicable
+                        entities_expected: [],
+                        entities_observed: [],
+                        entities_missing: []
+                    };
+
+                    if (sessionId) {
+                        // Update existing record if sessionId exists
+                        await db.insertAeoResultsTable(dataToSave);
+                        logger.info(`[BRAND PULSE] ✅ Successfully saved/updated brand pulse data for sessionId=${sessionId}`);
+                    } else {
+                        // Create new record without sessionId
+                        await prisma.aeoResult.create({
+                            data: {
+                                url: saveUrl,
+                                brandMetrics: brandMetrics as any,
+                            },
+                        });
+                        logger.info(`[BRAND PULSE] ✅ Successfully saved brand pulse history for ${saveUrl}`);
+                    }
+                } catch (dbError: any) {
+                    const errorObj = dbError instanceof Error ? dbError : new Error(dbError?.message || String(dbError));
+                    logger.error(`[BRAND PULSE] ❌ Failed to save brand pulse data`, errorObj, {
+                        code: (dbError as any)?.code,
+                        brand: brand_name
+                    });
+                    // Non-blocking: don't fail the request if save fails
+                }
+            } else {
+                logger.warn(`[BRAND PULSE] ⚠️ Skipping database save - invalid response structure`, {
+                    success: data.success,
+                    hasData: !!data.data,
+                    response: JSON.stringify(data).substring(0, 300)
+                });
+            }
+            
+            res.json(data);
+        } catch (error) {
+            logger.error('Brand analysis proxy error:', error as Error);
             res.status(500).json({
                 success: false,
                 error: (error as Error).message || 'Service unavailable'

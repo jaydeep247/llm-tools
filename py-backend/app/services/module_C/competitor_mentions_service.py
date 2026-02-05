@@ -197,25 +197,25 @@ class CompetitorMentionsService:
                 "gemini": {"brand_count": 0, "competitor_count": 0, "total_queries": 0}
             }
             
-            # Query each model with discovery questions
+            # Query each model with discovery questions using batched visibility audit
+            # This method already handles JSON formatting correctly for OpenAI
             for model_name in ["openai", "claude", "gemini"]:
                 model_key = "chatgpt" if model_name == "openai" else model_name
                 
-                for query in visibility_queries:
-                    try:
-                        # Get answer from model
-                        answer_data = None
-                        if model_name == "openai":
-                            answer_data = await sentiment_service._call_openai(query)
-                        elif model_name == "claude":
-                            answer_data = await sentiment_service._call_claude(query)
-                        elif model_name == "gemini":
-                            answer_data = await sentiment_service._call_gemini(query)
-                        
-                        if not answer_data:
+                try:
+                    # Use _audit_model_visibility which batches queries and handles JSON correctly
+                    visibility_responses = await sentiment_service._audit_model_visibility(
+                        brand_name=brand_name,
+                        model_name=model_name,
+                        visibility_queries=visibility_queries[:6]  # Limit to 6 queries
+                    )
+                    
+                    # Process each response
+                    for response_item in visibility_responses:
+                        answer_text = (response_item.get("answer") or "").lower()
+                        if not answer_text:
                             continue
                         
-                        answer_text = (answer_data.get("response_text") or "").lower()
                         model_results[model_key]["total_queries"] += 1
                         
                         # Check for brand mentions
@@ -235,9 +235,9 @@ class CompetitorMentionsService:
                             if comp_mentioned:
                                 model_results[model_key]["competitor_count"] += 1
                                 
-                    except Exception as e:
-                        logger.warning(f"Error querying {model_name} for SOV (query: {query[:50]}...): {e}")
-                        continue
+                except Exception as e:
+                    logger.warning(f"Error querying {model_name} for SOV: {e}")
+                    continue
             
             # Calculate SOV per model
             sov_by_model = {}
