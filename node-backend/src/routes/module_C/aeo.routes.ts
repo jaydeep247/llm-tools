@@ -530,26 +530,26 @@ router.post('/website-score', async (req: express.Request, res: express.Response
                 });
 
                 // 2) Fall back to DB when fetch fails
-                if (sessionId) {
-                    let pages = await db.getPages(sessionId, 10000, 0);
-                    if (pages.length === 0) {
-                        await new Promise(r => setTimeout(r, 3000));
-                        pages = await db.getPages(sessionId, 10000, 0);
-                    }
-                    const fromDb = buildTextFromPages(pages);
-                    if (fromDb.text) {
-                        text = fromDb.text;
-                        actualWordCount = fromDb.actualWordCount;
+            if (sessionId) {
+                let pages = await db.getPages(sessionId, 10000, 0);
+                if (pages.length === 0) {
+                    await new Promise(r => setTimeout(r, 3000));
+                    pages = await db.getPages(sessionId, 10000, 0);
+                }
+                const fromDb = buildTextFromPages(pages);
+                if (fromDb.text) {
+                    text = fromDb.text;
+                    actualWordCount = fromDb.actualWordCount;
                         contentSource = 'db_fallback';
                         logger.info('MODULE E: Using content from DB fallback', { sessionId, contentLength: text.length });
                     }
                 }
-                if (!sessionId) {
-                    const pages = await db.getPages(undefined, 10000, 0);
-                    const fromDb = buildTextFromPages(pages);
-                    if (fromDb.text) {
-                        text = fromDb.text;
-                        actualWordCount = fromDb.actualWordCount;
+                    if (!sessionId) {
+                        const pages = await db.getPages(undefined, 10000, 0);
+                        const fromDb = buildTextFromPages(pages);
+                        if (fromDb.text) {
+                            text = fromDb.text;
+                            actualWordCount = fromDb.actualWordCount;
                         contentSource = 'db_fallback';
                     }
                 }
