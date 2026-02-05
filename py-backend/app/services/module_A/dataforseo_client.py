@@ -46,11 +46,14 @@ class DataForSEOClient:
             self.password = password
         else:
             # Decrypt credentials from environment variables
+            print("🔐 [DATAFORSEO] Attempting to decrypt credentials from environment variables...")
             try:
                 creds = get_dataforseo_auth()
                 self.username = creds['username']
                 self.password = creds['password']
+                print(f"✅ [DATAFORSEO] Successfully decrypted credentials for user: {self.username}")
             except ValueError as e:
+                print(f"❌ [DATAFORSEO] Failed to decrypt credentials: {str(e)}")
                 raise ValueError(
                     f"DataForSEO credentials not available: {str(e)}. "
                     "Please configure encrypted credentials (DATAFORSEO_USERNAME_ENC, "
@@ -65,6 +68,7 @@ class DataForSEOClient:
                 "Use py-backend/dataforseo_encryption/encrypt.py to generate encrypted credentials."
             )
         
+        print("🚀 [DATAFORSEO] Client initialized successfully!")
         logger.info("DataForSEO client initialized successfully")
     
     def request(self, path: str, method: str, data: Optional[Any] = None) -> Dict[str, Any]:
@@ -89,6 +93,7 @@ class DataForSEOClient:
             try:
                 start_time = time.time()
                 # Log attempt
+                print(f"📡 [DATAFORSEO API] Request attempt {attempt + 1}/{self.MAX_RETRIES}: {method} {path}")
                 logger.info(f"DataForSEO API request attempt {attempt + 1}/{self.MAX_RETRIES}: {method} {path}")
                 
                 # Create connection with timeout
@@ -139,6 +144,8 @@ class DataForSEOClient:
                 
                 # Success
                 duration = time.time() - start_time
+                print(f"✅ [DATAFORSEO API] Request successful: {method} {path} (Duration: {duration:.2f}s)")
+                print(f"📊 [DATAFORSEO API] Response status: {result.get('status_code', 'N/A')} - {result.get('status_message', 'N/A')}")
                 logger.info(f"DataForSEO API request successful: {method} {path} (Duration: {duration:.2f}s)")
                 return result
                 
@@ -193,7 +200,11 @@ class DataForSEOClient:
         Platforms: chat_gpt, claude, gemini, perplexity
         """
         path = f'/v3/ai_optimization/{platform}/llm_responses/live'
-        return self.post(path, payload)
+        print(f"🤖 [DATAFORSEO LLM] Calling {platform} API with {len(payload)} payload(s)")
+        print(f"🔍 [DATAFORSEO LLM] Payload preview: {str(payload)[:200]}...")
+        result = self.post(path, payload)
+        print(f"📥 [DATAFORSEO LLM] Received response for {platform}")
+        return result
 
     def get_all_backlinks(
         self,

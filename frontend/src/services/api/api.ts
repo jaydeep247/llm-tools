@@ -294,7 +294,8 @@ class ApiService {
 
                 // Add Module E scores to module_scores
                 aeoData.results.module_scores.consistency = moduleEData.scores.consistency;
-                aeoData.results.module_scores.brand_metrics = moduleEData.scores.brand_metrics;
+                // Decoupled: Brand Pulse is now manually triggered
+                // aeoData.results.module_scores.brand_metrics = moduleEData.scores.brand_metrics;
 
                 // Add entity_coverage to top level
                 aeoData.results.entity_coverage = moduleEData.scores.entity_coverage;
@@ -379,6 +380,37 @@ class ApiService {
     } catch (error: any) {
       console.error('API Error:', error);
       throw new Error(error.message || 'Failed to analyze URL');
+    }
+  }
+
+  // --- NEW: Run Brand Pulse Analysis ---
+  async analyzeBrandPulse(brandName: string): Promise<any> {
+    try {
+      console.log('Starting Brand Pulse Analysis for:', brandName);
+      const response = await this.fetchWithTimeout(
+        '/api/aeo/analyze-brand',
+        {
+          method: 'POST',
+          headers: this.getAuthHeaders(),
+          credentials: 'include',
+          body: JSON.stringify({ brand_name: brandName }),
+        },
+        60000 // 1 minute timeout
+      );
+
+      if (!response.ok) {
+        let errorData: any = {};
+        try {
+            errorData = await response.json();
+        } catch (e) {}
+        throw new Error(errorData.error || errorData.message || 'Brand analysis failed');
+      }
+
+      const data = await response.json();
+      return data.data;
+    } catch (error: any) {
+      console.error('Brand Pulse API Error:', error);
+      throw error;
     }
   }
 

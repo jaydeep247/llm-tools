@@ -228,10 +228,13 @@ class AIRankingService:
     """Service for analyzing AI citation rankings across LLM models."""
 
     def __init__(self):
+        print("🎯 [AI RANKING] Initializing AI Ranking Service...")
         try:
             from ..module_A.dataforseo_client import DataForSEOClient
             self.client = DataForSEOClient()
+            print("✅ [AI RANKING] DataForSEO client initialized successfully")
         except Exception as e:
+            print(f"⚠️ [AI RANKING] DataForSEO client not available: {str(e)}")
             logger.warning("DataForSEO client not available: %s", e)
             self.client = None
 
@@ -398,6 +401,7 @@ class AIRankingService:
         content quality, and entity coverage.
         """
         if not self.client:
+            print("❌ [AI RANKING] DataForSEO API not configured - client is None")
             return {
                 "success": False,
                 "error": "DataForSEO API not configured",
@@ -435,6 +439,8 @@ class AIRankingService:
         content_quality_by_prompt_model: Dict[str, Dict[str, float]] = {}
 
         logger.info("[ranking] analyze_ranking: url=%s, prompts=%s, platforms=%s", url, prompts, platforms)
+        print(f"🔍 [AI RANKING] Starting analysis for URL: {url}")
+        print(f"📝 [AI RANKING] Analyzing {len(prompts)} prompts across {len(platforms)} platforms")
         for prompt in prompts:
             percentile_by_prompt[prompt] = {}
             content_quality_by_prompt_model[prompt] = {}
@@ -455,8 +461,10 @@ class AIRankingService:
                     }
                 ]
 
+                print(f"🚀 [AI RANKING] Querying {platform} for prompt: '{prompt[:60]}...'")
                 try:
                     response = self.client.post_llm_responses(platform, payload)
+                    print(f"📥 [AI RANKING] Received response from {platform}")
                 except Exception as e:
                     err_msg = f"{platform}: {str(e)}"
                     errors.append(err_msg)
@@ -474,6 +482,8 @@ class AIRankingService:
                 position, percentile = _find_position_and_percentile(
                     annotations, target_normalized
                 )
+                
+                print(f"📊 [AI RANKING] {platform} results: position={position}, percentile={percentile}, citations={len(annotations)}")
 
                 citations_count = len(annotations)
                 source_diversity = _compute_source_diversity(annotations)
