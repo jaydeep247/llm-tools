@@ -1,6 +1,6 @@
 -- CreateTable
 CREATE TABLE IF NOT EXISTS "projects" (
-    "id" SERIAL NOT NULL,
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "name" TEXT NOT NULL,
     "description" TEXT,
     "user_id" INTEGER NOT NULL,
@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS "projects" (
 );
 
 -- CreateIndex
+DROP INDEX IF EXISTS "idx_projects_user_id";
+DROP INDEX IF EXISTS "idx_projects_user_active";
 CREATE INDEX "idx_projects_user_id" ON "projects"("user_id");
 CREATE INDEX "idx_projects_user_active" ON "projects"("user_id", "is_active");
 
@@ -19,7 +21,7 @@ CREATE INDEX "idx_projects_user_active" ON "projects"("user_id", "is_active");
 ALTER TABLE "projects" ADD CONSTRAINT "projects_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- Add project_id column to crawl_sessions
-ALTER TABLE "crawl_sessions" ADD COLUMN IF NOT EXISTS "project_id" INTEGER;
+ALTER TABLE "crawl_sessions" ADD COLUMN IF NOT EXISTS "project_id" UUID;
 
 -- Create a default project for each user
 INSERT INTO "projects" (name, description, user_id, created_at, updated_at, is_active)
@@ -65,6 +67,8 @@ AND cs.project_id IS NULL;
 ALTER TABLE "crawl_sessions" ALTER COLUMN "project_id" SET NOT NULL;
 
 -- CreateIndex
+DROP INDEX IF EXISTS "idx_crawl_sessions_project_id";
+DROP INDEX IF EXISTS "idx_crawl_sessions_project_status";
 CREATE INDEX "idx_crawl_sessions_project_id" ON "crawl_sessions"("project_id");
 CREATE INDEX "idx_crawl_sessions_project_status" ON "crawl_sessions"("project_id", "status");
 
