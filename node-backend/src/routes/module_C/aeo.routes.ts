@@ -683,15 +683,20 @@ router.post('/analyze-competitors-mentions',
     authenticateUser,
     async (req: express.Request, res: express.Response) => {
         try {
-            const { competitors } = req.body || {};
+            const { competitors, brand_name } = req.body || {};
             if (!Array.isArray(competitors) || competitors.length === 0) {
                 return res.status(400).json({ success: false, error: 'competitors array is required' });
             }
 
+            logger.info('Proxying competitor mentions request', {
+                competitorsCount: competitors.length,
+                hasBrandName: !!brand_name
+            });
+
             const response = await fetch(`${AEO_API_BASE_URL}/api/aeo/analyze-competitors-mentions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ competitors })
+                body: JSON.stringify({ competitors, brand_name: brand_name || undefined })
             });
 
             if (!response.ok) {

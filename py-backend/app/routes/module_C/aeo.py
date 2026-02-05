@@ -230,7 +230,6 @@ async def generate_schema(request: SchemaGenerateRequest):
             error=result.get('error')
         )
         
-        import json
         try:
             # Verify JSON serializability
             json_str = json.dumps(final_response.model_dump()) # Use model_dump for Pydantic v2
@@ -280,7 +279,6 @@ async def health_check():
 import asyncio
 from ...services.module_E.website_score_service import WebsiteScoreService
 from ...services.module_E.response_accuracy_service import ResponseAccuracyService
-from pydantic import BaseModel
 
 class WebsiteScoreRequest(BaseModel):
     url: Optional[str] = None
@@ -465,16 +463,39 @@ async def analyze_brand(req: BrandAnalysisRequest):
 
 class AnalyzeCompetitorsMentionsRequest(BaseModel):
     competitors: List[str]
+    brand_name: Optional[str] = None
 
 @router.post("/analyze-competitors-mentions")
 async def analyze_competitors_mentions(req: AnalyzeCompetitorsMentionsRequest):
     """
     Analyzes mentions for a batch of competitors.
+    Now includes model-wise Share of Voice if brand_name is provided.
     """
-    import logging
-    logging.info(f"Analyzing mentions for {len(req.competitors)} competitors")
+    logger.info(f"Analyzing mentions for {len(req.competitors)} competitors")
+    
+    # Existing DataForSEO-based mentions
     results = competitor_mentions_service.analyze_mentions_batch(req.competitors)
-    return {"success": True, "data": results}
+    
+    response_data = {
+        "success": True,
+        "data": results,
+        "share_of_voice": None
+    }
+    
+    # Calculate model-wise SOV if brand_name provided
+    if req.brand_name:
+        try:
+            logging.info(f"Calculating model-wise SOV for brand: {req.brand_name}")
+            sov_data = await competitor_mentions_service.analyze_mentions_by_ai_model(
+                brand_name=req.brand_name,
+                competitors=req.competitors
+            )
+            response_data["share_of_voice"] = sov_data
+            logging.info(f"Model-wise SOV calculated: {sov_data.get('overall', 0)}% overall")
+        except Exception as e:
+            logging.warning(f"Failed to calculate model-wise SOV: {e}")
+    
+    return response_data
 
 # --- NEW: Bulk Analysis Endpoint ---
 @router.post("/analyze-bulk")

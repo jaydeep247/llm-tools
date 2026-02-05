@@ -12,21 +12,39 @@ interface CompetitorMentionsListProps {
     competitors: string[];
     brandTotalMentions?: number;
     brandFrequencyTrend?: { date?: string; count?: number }[];
+    brandName?: string;
+}
+
+interface ShareOfVoiceData {
+    overall: number;
+    by_model: {
+        [key: string]: {
+            sov: number;
+            brand_mentions: number;
+            competitor_mentions: number;
+            total_mentions: number;
+            queries_analyzed: number;
+        };
+    };
 }
 
 const CompetitorMentionsList: React.FC<CompetitorMentionsListProps> = ({
     competitors,
     brandTotalMentions = 0,
     brandFrequencyTrend = [],
+    brandName,
 }) => {
     const [mentionsData, setMentionsData] = useState<CompetitorMention[]>([]);
+    const [sovData, setSovData] = useState<ShareOfVoiceData | null>(null);
     const [loading, setLoading] = useState(false);
+    const [sovLoading, setSovLoading] = useState(false);
     const [processedCount, setProcessedCount] = useState(0);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         // Reset when competitors list changes drastically
         setMentionsData([]);
+        setSovData(null);
         setProcessedCount(0);
         setError(null);
 
@@ -36,14 +54,49 @@ const CompetitorMentionsList: React.FC<CompetitorMentionsListProps> = ({
             setLoading(true);
             const BATCH_SIZE = 5;
 
+            // Fetch SOV separately with ALL competitors (not per batch)
+            const fetchSOV = async () => {
+                if (!brandName) return;
+                
+                setSovLoading(true);
+                try {
+                    const sovResponse = await fetch('/api/aeo/analyze-competitors-mentions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            competitors: competitors, // ALL competitors at once
+                            brand_name: brandName
+                        })
+                    });
+
+                    if (sovResponse.ok) {
+                        const sovResult = await sovResponse.json();
+                        if (sovResult.share_of_voice) {
+                            setSovData(sovResult.share_of_voice);
+                        }
+                    }
+                } catch (err) {
+                    console.warn("Failed to fetch model-wise SOV:", err);
+                } finally {
+                    setSovLoading(false);
+                }
+            };
+
+            // Start SOV calculation in parallel (doesn't block mentions fetching)
+            fetchSOV();
+
             try {
+                // Fetch competitor mentions in batches (without brand_name to avoid duplicate SOV calculation)
                 for (let i = 0; i < competitors.length; i += BATCH_SIZE) {
                     const batch = competitors.slice(i, i + BATCH_SIZE);
 
                     const response = await fetch('/api/aeo/analyze-competitors-mentions', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ competitors: batch })
+                        body: JSON.stringify({ 
+                            competitors: batch
+                            // Don't send brand_name here - SOV is calculated separately above
+                        })
                     });
 
                     if (!response.ok) {
@@ -73,7 +126,7 @@ const CompetitorMentionsList: React.FC<CompetitorMentionsListProps> = ({
 
         fetchMentionsBatch();
 
-    }, [competitors]); // Re-run if ALL competitors change (e.g. new analysis)
+    }, [competitors, brandName]); // Re-run if competitors or brandName changes
 
     if (competitors.length === 0) return null;
 
@@ -121,13 +174,82 @@ const CompetitorMentionsList: React.FC<CompetitorMentionsListProps> = ({
                 )}
             </div>
             <div className="p-6">
-                {/* Share of Voice (%) */}
+                {/* Share of Voice (%) - Overall */}
                 {shareOfVoice != null && (
                     <div className="mb-6 p-4 bg-gray-900/50 rounded-lg border border-gray-700/50">
-                        <h5 className="text-sm font-bold text-gray-300 uppercase mb-2">Share of Voice (%)</h5>
+                        <h5 className="text-sm font-bold text-gray-300 uppercase mb-2">Share of Voice (%) - Overall</h5>
                         <p className="text-xs text-gray-400 mb-2">Your brand&apos;s share of total mentions vs. competitors (last 12 months)</p>
                         <div className={`text-3xl font-bold ${shareOfVoice >= 50 ? 'text-green-400' : shareOfVoice >= 25 ? 'text-yellow-400' : 'text-red-400'}`}>
                             {shareOfVoice}%
+                        </div>
+                    </div>
+                )}
+
+                {/* Model-wise Share of Voice Breakdown */}
+                {sovData && sovData.by_model && Object.keys(sovData.by_model).length > 0 && (
+                    <div className="mb-6 p-4 bg-gray-900/50 rounded-lg border border-gray-700/50">
+                        <h5 className="text-sm font-bold text-gray-300 uppercase mb-3">
+                            Share of Voice - Model-wise Breakdown
+                        </h5>
+                        <p className="text-xs text-gray-400 mb-3">
+                            Your brand&apos;s share of mentions across AI models when answering discovery questions
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {Object.entries(sovData.by_model).map(([model, data]) => {
+                                const modelLabel = {
+                                    chatgpt: 'ChatGPT',
+                                    claude: 'Claude',
+                                    gemini: 'Gemini'
+                                }[model] || model;
+                                
+                                return (
+                                    <div 
+                                        key={model}
+                                        className="p-4 bg-gray-800/50 rounded-lg border border-gray-700/50 hover:border-gray-600/50 transition-colors"
+                                    >
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="text-sm font-semibold text-gray-300">{modelLabel}</div>
+                                            <div className={`text-xl font-bold ${
+                                                data.sov >= 50 
+                                                    ? 'text-green-400' 
+                                                    : data.sov >= 25 
+                                                    ? 'text-yellow-400' 
+                                                    : 'text-red-400'
+                                            }`}>
+                                                {data.sov}%
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1.5 mt-3 pt-3 border-t border-gray-700/50">
+                                            <div className="flex justify-between text-xs">
+                                                <span className="text-gray-400">Brand mentions:</span>
+                                                <span className="text-gray-300 font-medium">{data.brand_mentions}</span>
+                                            </div>
+                                            <div className="flex justify-between text-xs">
+                                                <span className="text-gray-400">Competitor mentions:</span>
+                                                <span className="text-gray-300 font-medium">{data.competitor_mentions}</span>
+                                            </div>
+                                            <div className="flex justify-between text-xs">
+                                                <span className="text-gray-400">Total mentions:</span>
+                                                <span className="text-gray-300 font-medium">{data.total_mentions}</span>
+                                            </div>
+                                            <div className="flex justify-between text-xs pt-1 border-t border-gray-700/30">
+                                                <span className="text-gray-500">Queries analyzed:</span>
+                                                <span className="text-gray-500">{data.queries_analyzed}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* Loading indicator for SOV */}
+                {sovLoading && brandName && (
+                    <div className="mb-6 p-4 bg-gray-900/50 rounded-lg border border-gray-700/50">
+                        <div className="text-sm text-gray-400 flex items-center gap-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400"></div>
+                            Calculating model-wise Share of Voice...
                         </div>
                     </div>
                 )}

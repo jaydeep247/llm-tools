@@ -345,6 +345,7 @@ const ModuleE: React.FC<ModuleEProps> = ({
               competitors={validCompetitorNames}
               brandTotalMentions={typeof brandTotalMentions === 'number' ? brandTotalMentions : 0}
               brandFrequencyTrend={Array.isArray(brandFrequencyTrend) ? brandFrequencyTrend : []}
+              brandName={effectiveBrandName}
             />
           </div>
         );
