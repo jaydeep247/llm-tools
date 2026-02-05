@@ -12,6 +12,8 @@ export * from './module_A/serpApi';
 export * from './module_B/seoApi';
 export * from './module_C/aeoApi';
 export * from './module_C/entityExtractorApi';
+export * from './module_C/contentMetricsApi';
+export * from './module_C/answerCompletenessApi';
 export * from './module_E/sentimentApi';
 export * from './module_E/rankingApi';
 

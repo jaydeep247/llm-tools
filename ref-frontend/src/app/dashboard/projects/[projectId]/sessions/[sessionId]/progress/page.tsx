@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { Loader2, CheckCircle2, ArrowRight, Globe, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { useGetSessionQuery } from '@/store/api/projectApi'
 
 interface LogEntry {
   message: string
@@ -17,8 +18,11 @@ export default function SessionProgressPage() {
   const projectId = params.projectId as string
   const sessionId = params.sessionId as string
   
-  const [session, setSession] = useState<any>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  // Fetch session data using RTK Query
+  const { data: sessionData, isLoading: isLoadingSession } = useGetSessionQuery(parseInt(sessionId))
+  const session = sessionData?.session
+  const isLoading = isLoadingSession
+  
   const [crawlStatus, setCrawlStatus] = useState<'idle' | 'running' | 'auditing' | 'completed' | 'cancelled' | 'failed'>('idle')
   const [pageCount, setPageCount] = useState(0)
   const [discoveredPages, setDiscoveredPages] = useState<string[]>([])
@@ -171,56 +175,26 @@ export default function SessionProgressPage() {
     }
   }, [sessionId, router, projectId, estimatedTotal, pageCount])
 
+  // Initialize state from session data
   useEffect(() => {
-    const fetchSession = async () => {
-      try {
-        const sessionResponse = await fetch(`/api/sessions/${sessionId}`, {
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        })
-        
-        if (!sessionResponse.ok) {
-          throw new Error('Failed to fetch session')
-        }
-        
-        const sessionData = await sessionResponse.json()
-        const sessionInfo = sessionData.session || sessionData
-        setSession(sessionInfo)
-        
-        // Set initial state
-        if (sessionInfo.status === 'running' || sessionInfo.status === 'auditing') {
-          setCrawlStatus(sessionInfo.status)
-          setCrawlStartTime(new Date(sessionInfo.startedAt).getTime())
-        } else if (sessionInfo.status === 'completed') {
-          // If already completed, redirect to main page
-          // Commented out for testing
-          // router.push(`/dashboard/projects/${projectId}/sessions/${sessionId}`)
-          setCrawlStatus('completed')
-          setProgressPercentage(100)
-        } else {
-          setCrawlStatus(sessionInfo.status || 'idle')
-        }
-        
-        setPageCount(sessionInfo.totalPages || 0)
-        
-        // Estimate total pages (rough estimate based on average website)
-        setEstimatedTotal(100)
-        
-        setIsLoading(false)
-      } catch (err: any) {
-        setIsLoading(false)
-        // On error, redirect to main page
-        // Commented out for testing
-        // setTimeout(() => {
-        //   router.push(`/dashboard/projects/${projectId}/sessions/${sessionId}`)
-        // }, 1000)
+    if (session) {
+      // Set initial state
+      if (session.status === 'running' || session.status === 'auditing') {
+        setCrawlStatus(session.status)
+        setCrawlStartTime(new Date(session.startedAt).getTime())
+      } else if (session.status === 'completed') {
+        setCrawlStatus('completed')
+        setProgressPercentage(100)
+      } else {
+        setCrawlStatus((session.status || 'idle') as 'idle' | 'running' | 'auditing' | 'completed' | 'cancelled' | 'failed')
       }
+      
+      setPageCount(session.totalPages || 0)
+      
+      // Estimate total pages (rough estimate based on average website)
+      setEstimatedTotal(100)
     }
-
-    fetchSession()
-  }, [sessionId, projectId, router])
+  }, [session])
 
   // Calculate elapsed time
   const calculateElapsedTime = (): string => {

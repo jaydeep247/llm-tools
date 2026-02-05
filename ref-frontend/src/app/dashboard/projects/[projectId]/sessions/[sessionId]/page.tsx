@@ -7,8 +7,11 @@ import { Clock, Globe, CheckCircle, XCircle, Loader2, AlertCircle } from 'lucide
 import { Badge } from '@/components/ui/badge'
 import { CrawlLogger, DiscoveredPages, CrawlStatusHeader } from '@/components/crawl'
 import { SessionLayout } from '@/components/layout/SessionLayout'
-import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis } from '@/components/module_A'
-import { useGetDataListQuery } from '@/store/api/module_A/dataApi'
+import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable } from '@/components/module_A'
+import { AIIntelligenceModule, ContentMetricsModule, AnswerCompletenessModule } from '@/components/module_C'
+import { AICitationRanking, SentimentTracking } from '@/components/module_E'
+import { useGetDataListQuery, useCheckLinksMutation, useGetLinkStatsQuery, useLazyGetPageLinksQuery } from '@/store/api/module_A/dataApi'
+import { useGetSessionQuery, useGetProjectQuery } from '@/store/api/projectApi'
 
 interface LogEntry {
   message: string
@@ -22,11 +25,24 @@ export default function SessionDetailPage() {
   const projectId = params.projectId as string
   const sessionId = params.sessionId as string
   
-  const [session, setSession] = useState<any>(null)
-  const [project, setProject] = useState<any>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const activeSection = searchParams.get('tab') || 'crawler'
+  // Fetch session and project data using RTK Query
+  const { data: sessionData, isLoading: isLoadingSession, error: sessionError } = useGetSessionQuery(parseInt(sessionId))
+  const { data: projectData, isLoading: isLoadingProject } = useGetProjectQuery(projectId)
+  
+  const session = sessionData?.session
+  const project = projectData?.project
+  const isLoading = isLoadingSession || isLoadingProject
+  const error = sessionError ? 'Failed to load session' : null
+  
+  // Ensure URL always has tab parameter with default 'crawler'
+  const tab = searchParams.get('tab') || 'crawler'
+  if (!searchParams.get('tab')) {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('tab', 'crawler')
+    router.replace(`/dashboard/projects/${projectId}/sessions/${sessionId}?${params.toString()}`, { scroll: false })
+  }
+  
+  const activeSection = tab
   
   // Fetch crawled pages data when on crawled-data tab
   const { data: pagesData, isLoading: isLoadingPages, refetch: refetchPages } = useGetDataListQuery(
@@ -52,7 +68,19 @@ export default function SessionDetailPage() {
     { skip: activeSection !== 'wordcount' }
   )
   
-  // Live crawl state
+  // Fetch link analysis data when on link-analysis tab
+  const { data: linkStatsData, isLoading: isLoadingLinkStats, refetch: refetchLinkStats } = useGetLinkStatsQuery(
+    parseInt(sessionId),
+    { skip: activeSection !== 'link-analysis' }
+  )
+  
+  // Lazy query for fetching links for a specific page
+  const [getPageLinks] = useLazyGetPageLinksQuery()
+  
+  // Broken link checker mutation
+  const [checkLinks, { data: linkCheckData, isLoading: isCheckingLinks }] = useCheckLinksMutation()
+  
+  // Live crawl state - initialize from session data
   const [isCrawling, setIsCrawling] = useState(false)
   const [crawlStatus, setCrawlStatus] = useState<'idle' | 'running' | 'auditing' | 'completed' | 'cancelled'>('idle')
   const [pageCount, setPageCount] = useState(0)
@@ -65,6 +93,21 @@ export default function SessionDetailPage() {
     duration: number
     pagesPerSecond: number
   } | null>(null)
+
+  // Initialize crawl state from session data
+  useEffect(() => {
+    if (session) {
+      if (session.status === 'running' || session.status === 'auditing') {
+        setIsCrawling(true)
+        setCrawlStatus(session.status)
+        setCrawlStartTime(new Date(session.startedAt).getTime())
+      } else {
+        setIsCrawling(false)
+        setCrawlStatus((session.status || 'completed') as 'idle' | 'running' | 'auditing' | 'completed' | 'cancelled')
+      }
+      setPageCount(session.totalPages || 0)
+    }
+  }, [session])
 
   // Timer for elapsed time display
   useEffect(() => {
@@ -198,59 +241,31 @@ export default function SessionDetailPage() {
     }
   }, [sessionId])
 
-  useEffect(() => {
-    // Fetch session status and project info
-    const fetchData = async () => {
-      try {
-        // Fetch session
-        const sessionResponse = await fetch(`/api/sessions/${sessionId}`, {
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        })
-        
-        if (!sessionResponse.ok) {
-          throw new Error('Failed to fetch session')
-        }
-        
-        const sessionData = await sessionResponse.json()
-        const sessionInfo = sessionData.session || sessionData
-        setSession(sessionInfo)
-        
-        // Fetch project
-        const projectResponse = await fetch(`/api/projects/${projectId}`, {
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        })
-        
-        if (projectResponse.ok) {
-          const projectData = await projectResponse.json()
-          setProject(projectData.project || projectData)
-        }
-        
-        // Set initial crawl state
-        if (sessionInfo.status === 'running' || sessionInfo.status === 'auditing') {
-          setIsCrawling(true)
-          setCrawlStatus(sessionInfo.status)
-          setCrawlStartTime(new Date(sessionInfo.startedAt).getTime())
-        } else {
-          setIsCrawling(false)
-          setCrawlStatus(sessionInfo.status || 'completed')
-        }
-        
-        setPageCount(sessionInfo.totalPages || 0)
-        setIsLoading(false)
-      } catch (err: any) {
-        setError(err.message || 'Failed to load session')
-        setIsLoading(false)
-      }
+  // Handle broken link checking
+  const handleCheckLinks = async (sessionId: number) => {
+    try {
+      const result = await checkLinks(sessionId).unwrap()
+      return result.results
+    } catch (error) {
+      console.error('Error checking links:', error)
+      throw error
     }
+  }
 
-    fetchData()
-  }, [sessionId, projectId, session?.status])
+  // Handle page link selection for link analysis
+  const handlePageLinkSelect = async (pageId: number, linkType: 'out' | 'in') => {
+    try {
+      const result = await getPageLinks({
+        sessionId: parseInt(sessionId),
+        pageId,
+        type: linkType
+      }).unwrap()
+      return result.links
+    } catch (error) {
+      console.error('Error fetching page links:', error)
+      return []
+    }
+  }
 
   const handleSectionChange = (section: string) => {
     router.push(`/dashboard/projects/${projectId}/sessions/${sessionId}?tab=${section}`)
@@ -522,8 +537,89 @@ export default function SessionDetailPage() {
           </div>
         )}
 
+        {/* Show Broken Link Checker on broken-links tab */}
+        {activeSection === 'broken-links' && (
+          <div>
+            <BrokenLinkChecker 
+              sessionId={parseInt(sessionId)}
+              onCheck={handleCheckLinks}
+              checkResults={linkCheckData?.results || null}
+              isChecking={isCheckingLinks}
+            />
+          </div>
+        )}
+
+        {/* Show Link Analysis on link-analysis tab */}
+        {activeSection === 'link-analysis' && (
+          <div>
+            <LinkAnalysis 
+              pageStats={(linkStatsData?.pageStats as any) || []}
+              linkStats={linkStatsData?.stats || null}
+              isLoading={isLoadingLinkStats}
+              onPageSelect={handlePageLinkSelect}
+              onRefresh={() => refetchLinkStats()}
+            />
+          </div>
+        )}
+
+        {/* Show Performance Audits on performance tab */}
+        {activeSection === 'performance' && (
+          <div>
+            <PerformanceAuditsTable 
+              sessionId={parseInt(sessionId)}
+              sessionStatus={crawlStatus}
+            />
+          </div>
+        )}
+
+        {/* Show Schema Generator on schema-generator tab */}
+        {activeSection === 'schema-generator' && (
+          <div>
+            <SchemaGeneratorTable 
+              sessionId={parseInt(sessionId)}
+              sessionStatus={crawlStatus}
+            />
+          </div>
+        )}
+
+        {/* Show AI Intelligence Module on ai-intelligence tab */}
+        {activeSection === 'ai-intelligence' && (
+          <AIIntelligenceModule 
+            url={session?.startUrl || ''}
+            sessionId={parseInt(sessionId)}
+          />
+        )}
+
+        {/* Show Module E on module-e tab */}
+        {activeSection === 'module-e' && (
+          <div className="space-y-6">
+            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+              <AICitationRanking url={session?.startUrl || ''} />
+            </div>
+            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+              <SentimentTracking brandName={project?.name || 'not configured'} />
+            </div>
+          </div>
+        )}
+
+        {/* Show Content Metrics on content-metrics tab */}
+        {activeSection === 'content-metrics' && (
+          <ContentMetricsModule 
+            url={session?.startUrl || ''}
+            sessionId={parseInt(sessionId)}
+          />
+        )}
+
+        {/* Show Answer Completeness on answer-completeness tab */}
+        {activeSection === 'answer-completeness' && (
+          <AnswerCompletenessModule 
+            url={session?.startUrl || ''}
+            sessionId={parseInt(sessionId)}
+          />
+        )}
+
         {/* Placeholder for other tabs */}
-        {activeSection !== 'crawler' && activeSection !== 'crawled-data' && activeSection !== 'page-metrics' && activeSection !== 'text-quality' && activeSection !== 'wordcount' && (
+        {activeSection !== 'crawler' && activeSection !== 'crawled-data' && activeSection !== 'page-metrics' && activeSection !== 'text-quality' && activeSection !== 'wordcount' && activeSection !== 'broken-links' && activeSection !== 'link-analysis' && activeSection !== 'performance' && activeSection !== 'schema-generator' && activeSection !== 'ai-intelligence' && activeSection !== 'module-e' && activeSection !== 'content-metrics' && activeSection !== 'answer-completeness' && (
           <div className="rounded-lg p-8 border border-white/20 bg-white/10 backdrop-blur-xl text-center">
             <h2 className="text-xl font-bold text-white mb-2">
               {activeSection.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}

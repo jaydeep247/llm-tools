@@ -1,3 +1,14 @@
+export interface AnswerCompletenessData {
+  overall_score: number;
+  completeness_percentage: number;
+  key_aspects_covered: string[];
+  missing_aspects: string[];
+  depth_score?: number;
+  breadth_score?: number;
+  relevance_score?: number;
+  recommendations?: string[];
+}
+
 import { baseApi } from '../baseApi';
 
 export interface AnalyzeRequest {
@@ -47,11 +58,13 @@ export interface WebsiteScoreResponse {
 export interface GenerateSchemaRequest {
   url: string;
   content?: string;
+  schema_type?: string;
 }
 
 export interface GenerateSchemaResponse {
   success: boolean;
   schema?: any;
+  results?: any;
   error?: string;
 }
 
@@ -75,6 +88,25 @@ export const aeoApi = baseApi.injectEndpoints({
         body: data,
       }),
       invalidatesTags: ['AEO'],
+    }),
+    getAnswerCompleteness: builder.query<AnswerCompletenessData | null, number>({
+      query: (sessionId) => `/api/aeo/results/${sessionId}`,
+      transformResponse: (response: AnalyzeResponse) => {
+        // Extract answerCompletenessData from detailed_analysis
+        const completeness = response?.results?.detailed_analysis?.answer_completeness;
+        if (!completeness) return null;
+        return {
+          overall_score: Math.round(completeness.overall_score || 0),
+          completeness_percentage: Math.round(completeness.completeness_percentage || 0),
+          key_aspects_covered: completeness.key_aspects_covered || [],
+          missing_aspects: completeness.missing_aspects || [],
+          depth_score: Math.round(completeness.depth_score || 0),
+          breadth_score: Math.round(completeness.breadth_score || 0),
+          relevance_score: Math.round(completeness.relevance_score || 0),
+          recommendations: completeness.recommendations || []
+        };
+      },
+      providesTags: (result, error, sessionId) => [{ type: 'AEO', id: sessionId }],
     }),
     analyzeBulk: builder.mutation<AnalyzeBulkResponse, AnalyzeBulkRequest>({
       query: (data) => ({
@@ -129,6 +161,7 @@ export const {
   useLazyGetWebsiteScoreQuery,
   useGetAeoResultsQuery,
   useLazyGetAeoResultsQuery,
+  useGetAnswerCompletenessQuery,
   useGenerateSchemaMutation,
   useAnalyzeCompetitorMentionsMutation,
 } = aeoApi;

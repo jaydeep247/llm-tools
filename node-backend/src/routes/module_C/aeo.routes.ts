@@ -139,7 +139,8 @@ router.post('/analyze',
                         errors: result.errors,
                         warnings: result.warnings,
                         analysisTimestamp: result.analysis_timestamp || new Date().toISOString(),
-                        runId: result.run_id
+                        runId: result.run_id,
+                        metrics: result.metrics  // Save metrics for persistence
                     });
 
                     logger.info('AEO analysis results saved to database successfully', {
@@ -725,6 +726,89 @@ router.post('/simulate-answer',
         }
     }
 );
+
+// Retrieve content metrics from stored AEO analysis results by session ID
+router.get('/content-metrics/:sessionId',
+    authenticateUser,
+    async (req: express.Request, res: express.Response) => {
+        try {
+            const { sessionId } = req.params;
+            const db = await import('../../services/DatabaseService.js').then(m => m.getDatabase());
+
+            logger.info('Retrieving content metrics', { sessionId });
+
+            const aeoResult = await db.getAeoAnalysisResultBySessionId(parseInt(sessionId, 10));
+
+            if (!aeoResult) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'No AEO analysis found for this session',
+                    sessionId
+                });
+            }
+
+            // Parse aeoResult if it's a string (stored as JSON in DB)
+            let parsedResult = aeoResult;
+            if (typeof parsedResult === 'string') {
+                try {
+                    parsedResult = JSON.parse(parsedResult);
+                } catch (parseError) {
+                    logger.error('Failed to parse aeoResult JSON string:', parseError as Error);
+                    return res.status(500).json({
+                        success: false,
+                        error: 'Failed to parse stored AEO results'
+                    });
+                }
+            }
+
+            // Parse detailed_analysis if it's a string
+            let detailedAnalysis = parsedResult.detailed_analysis || parsedResult.detailedAnalysis;
+            if (detailedAnalysis && typeof detailedAnalysis === 'string') {
+                try {
+                    detailedAnalysis = JSON.parse(detailedAnalysis);
+                } catch (parseError) {
+                    logger.error('Failed to parse detailed_analysis JSON string:', parseError as Error);
+                }
+            }
+
+            // Extract content metrics and entity metrics from detailed_analysis
+            const contentMetrics = detailedAnalysis?.content_metrics || null;
+            const entityMetrics = detailedAnalysis?.entity_metrics || null;
+
+            if (!contentMetrics && !entityMetrics) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'No content metrics found for this session'
+                });
+            }
+
+            logger.info('Retrieved content metrics successfully', {
+                sessionId,
+                hasContentMetrics: !!contentMetrics,
+                hasEntityMetrics: !!entityMetrics
+            });
+
+            // Prevent caching to ensure fresh data
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+
+            res.json({
+                success: true,
+                data: {
+                    content_metrics: contentMetrics,
+                    entity_metrics: entityMetrics
+                }
+            });
+        } catch (error) {
+            logger.error('Error retrieving content metrics:', error as Error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to retrieve content metrics',
+                details: (error as Error).message
+            });
+        }
+    });
 
 
 

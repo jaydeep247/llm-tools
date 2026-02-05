@@ -27,10 +27,16 @@ export interface CrawlSession {
   totalPages: number;
   totalResources: number;
   duration: number;
+  userId?: number;
   _count?: {
     pages: number;
     resources: number;
   };
+}
+
+export interface SessionResponse {
+  success: boolean;
+  session: CrawlSession;
 }
 
 export interface CreateProjectRequest {
@@ -111,6 +117,12 @@ export const projectApi = baseApi.injectEndpoints({
         'Session',
       ],
     }),
+    
+    // Get a specific session
+    getSession: builder.query<SessionResponse, number>({
+      query: (sessionId) => `/api/sessions/${sessionId}`,
+      providesTags: (result, error, sessionId) => [{ type: 'Session', id: sessionId }],
+    }),
   }),
 });
 
@@ -123,4 +135,5 @@ export const {
   useGetProjectSessionsQuery,
   useLazyGetProjectQuery,
   useLazyGetProjectSessionsQuery,
+  useGetSessionQuery,
 } = projectApi;

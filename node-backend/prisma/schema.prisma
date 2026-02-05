@@ -773,6 +773,7 @@ model AeoAnalysisResult {
   recommendations   String?  @map("recommendations") @db.Text // JSON string
   errors            String?  @db.Text
   warnings          String?  @db.Text
+  metrics           String?  @db.Text // JSON string for metrics (entity_presence_ratio, structured_data_completeness, readability_score)
   analysisTimestamp DateTime @default(now()) @map("analysis_timestamp") @db.Timestamptz
   runId             String?  @map("run_id") @db.Text
 

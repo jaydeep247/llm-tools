@@ -35,6 +35,75 @@ export interface ExportParams {
   format?: 'csv' | 'json';
 }
 
+export interface BrokenLink {
+  url: string;
+  sourceUrl?: string;
+  statusCode: number;
+  errorType?: string;
+  error?: string;
+  missingType?: string;
+}
+
+export interface LinkCheckResults {
+  brokenInternalLinks: { count: number; links: BrokenLink[] };
+  brokenExternalLinks: { count: number; links: BrokenLink[] };
+  missingPages: { count: number; links: BrokenLink[] };
+  serverErrors: { count: number; links: BrokenLink[] };
+  timeoutUnreachable: { count: number; links: BrokenLink[] };
+  totalChecked?: number;
+  totalPageLinks?: number;
+}
+
+export interface CheckLinksResponse {
+  success: boolean;
+  results: LinkCheckResults;
+}
+
+export interface PageLinkData {
+  pageId: number;
+  url: string;
+  title: string;
+  outlinks: number;
+  inlinks: number;
+  uniqueInlinks: number;
+  uniqueJsInlinks: number;
+  percentOfTotal: number;
+  externalOutlinks: number;
+  internalOutlinks: number;
+  linkScore?: number;
+}
+
+export interface LinkData {
+  id: number;
+  sourceUrl: string;
+  targetUrl: string;
+  anchorText: string;
+  position: string;
+  isInternal: boolean;
+  rel: string;
+  nofollow: boolean;
+  xpath?: string;
+}
+
+export interface LinkStats {
+  totalLinks: number;
+  internalLinks: number;
+  externalLinks: number;
+  linksByPosition: Record<string, number>;
+}
+
+export interface LinkStatsResponse {
+  success: boolean;
+  stats: LinkStats;
+  pageStats: PageLinkData[];
+}
+
+export interface GetLinksParams {
+  sessionId: number;
+  pageId: number;
+  type: 'out' | 'in';
+}
+
 export const dataApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getDataList: builder.query<DataListResponse, DataListParams>({
@@ -72,6 +141,24 @@ export const dataApi = baseApi.injectEndpoints({
         };
       },
     }),
+    checkLinks: builder.mutation<CheckLinksResponse, number>({
+      query: (sessionId) => ({
+        url: `/api/links/check/${sessionId}`,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }),
+      invalidatesTags: ['Data'],
+    }),
+    getLinkStats: builder.query<LinkStatsResponse, number>({
+      query: (sessionId) => `/api/links/stats/${sessionId}`,
+      providesTags: ['Data'],
+    }),
+    getPageLinks: builder.query<{ success: boolean; links: LinkData[] }, GetLinksParams>({
+      query: ({ sessionId, pageId, type }) => `/api/links?sessionId=${sessionId}&pageId=${pageId}&type=${type}&limit=100`,
+      providesTags: ['Data'],
+    }),
   }),
 });
 
@@ -82,4 +169,7 @@ export const {
   useGetPagesQuery,
   useLazyGetPagesQuery,
   useLazyExportDataQuery,
+  useCheckLinksMutation,
+  useGetLinkStatsQuery,
+  useLazyGetPageLinksQuery,
 } = dataApi;

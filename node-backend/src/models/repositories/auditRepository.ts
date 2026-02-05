@@ -344,6 +344,7 @@ export class AuditRepository {
                 recommendations: data.recommendations ? JSON.stringify(data.recommendations) : null,
                 errors: data.errors ? JSON.stringify(data.errors) : null,
                 warnings: data.warnings ? JSON.stringify(data.warnings) : null,
+                metrics: data.metrics ? JSON.stringify(data.metrics) : null,
                 analysisTimestamp: data.analysisTimestamp ? new Date(data.analysisTimestamp) : new Date(),
                 runId: data.runId ?? null,
             },
@@ -426,6 +427,7 @@ export class AuditRepository {
             recommendations: result.recommendations ? JSON.parse(result.recommendations) : undefined,
             errors: result.errors ? JSON.parse(result.errors) : undefined,
             warnings: result.warnings ? JSON.parse(result.warnings) : undefined,
+            metrics: result.metrics ? JSON.parse(result.metrics) : undefined,
             analysisTimestamp: result.analysisTimestamp,
             runId: result.runId,
         };

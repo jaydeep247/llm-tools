@@ -890,4 +890,70 @@ router.post('/crawl',
         })();
     });
 
+/**
+ * Trigger audits on an existing completed session
+ * POST /api/crawl/:sessionId/run-audits
+ */
+router.post('/crawl/:sessionId/run-audits',
+    authenticateUser,
+    async (req: Request, res: Response) => {
+        const sessionId = parseInt(req.params.sessionId);
+        const { device } = req.body;
+        const userId = req.user!.userId;
+
+        if (isNaN(sessionId)) {
+            return res.status(400).json({ error: 'Invalid session ID' });
+        }
+
+        if (!device || !['mobile', 'desktop'].includes(device)) {
+            return res.status(400).json({ error: 'Device must be either "mobile" or "desktop"' });
+        }
+
+        try {
+            const db = getDatabase();
+            
+            // Verify session exists and user has access
+            const session = await db.getCrawlSession(sessionId);
+            if (!session) {
+                return res.status(404).json({ error: 'Session not found' });
+            }
+
+            // Check ownership (admins can trigger audits on any session)
+            if (session.userId !== userId && req.user!.role !== 'admin') {
+                return res.status(403).json({ error: 'Access denied' });
+            }
+
+            // Check if session is in a valid state for auditing
+            if (session.status !== 'completed' && session.status !== 'auditing') {
+                return res.status(400).json({ 
+                    error: 'Session must be completed before running audits',
+                    currentStatus: session.status 
+                });
+            }
+
+            // Check if audits already exist for this device
+            const hasAudits = await db.hasAuditsForSession(sessionId);
+            if (hasAudits && session.status === 'completed') {
+                logger.info('Audits already exist for session, re-running', { sessionId, device, userId });
+            }
+
+            // Trigger audits in background
+            logger.info('Triggering audits for session', { sessionId, device, userId });
+            
+            // Run audits asynchronously
+            void runAuditsOnExistingSession(sessionId, device as 'mobile' | 'desktop', userId);
+
+            res.status(200).json({ 
+                message: 'Audit started successfully',
+                sessionId,
+                device,
+                status: 'auditing'
+            });
+
+        } catch (error) {
+            logger.error('Failed to trigger audits', error as Error);
+            res.status(500).json({ error: 'Failed to start audits' });
+        }
+    });
+
 export default router;

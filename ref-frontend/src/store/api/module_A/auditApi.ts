@@ -96,6 +96,14 @@ export const auditApi = baseApi.injectEndpoints({
       },
       providesTags: ['Audit'],
     }),
+    startAudit: builder.mutation<void, { sessionId: number; device?: 'mobile' | 'desktop' }>({
+      query: ({ sessionId, device }) => ({
+        url: `/api/crawl/${sessionId}/run-audits`,
+        method: 'POST',
+        body: { device: device || 'desktop' },
+      }),
+      invalidatesTags: ['Audit'],
+    }),
   }),
 });
 
@@ -109,4 +117,5 @@ export const {
   useTriggerScheduleMutation,
   useGetAuditResultsQuery,
   useLazyGetAuditResultsQuery,
+  useStartAuditMutation,
 } = auditApi;
