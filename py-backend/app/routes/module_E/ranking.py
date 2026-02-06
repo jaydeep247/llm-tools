@@ -21,6 +21,7 @@ class RankingAnalysisRequest(BaseModel):
 
 @router.post("/api/aeo/ranking-analysis")
 async def ranking_analysis(request: RankingAnalysisRequest):
+    print(f"🚀 [PYTHON] Received ranking-analysis request for URL: {request.url}")
     """
     Analyze AI citation ranking: position per prompt, percentile rank, model-wise comparison.
     Uses DataForSEO LLM Responses API (ChatGPT, Claude, Gemini).

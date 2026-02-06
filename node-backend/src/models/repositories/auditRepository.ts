@@ -203,13 +203,13 @@ export class AuditRepository {
         if (updates.status !== undefined) updateData.status = updates.status;
         if (updates.progress !== undefined) updateData.progress = updates.progress;
         if (updates.metrics_json !== undefined) {
-            updateData.metricsJson = typeof updates.metrics_json === 'string' 
-                ? updates.metrics_json 
+            updateData.metricsJson = typeof updates.metrics_json === 'string'
+                ? updates.metrics_json
                 : JSON.stringify(updates.metrics_json);
         }
         if (updates.raw_json !== undefined) {
-            updateData.rawJson = typeof updates.raw_json === 'string' 
-                ? updates.raw_json 
+            updateData.rawJson = typeof updates.raw_json === 'string'
+                ? updates.raw_json
                 : JSON.stringify(updates.raw_json);
         }
 
@@ -340,7 +340,7 @@ export class AuditRepository {
         if (!result) return null;
 
         const r = result as any;
-        return {
+        const mapped = {
             ...result,
             openai: result.scoreOpenai,
             claude: result.scoreClaude,
@@ -349,6 +349,9 @@ export class AuditRepository {
             brand_metrics: result.brandMetrics,
             response_accuracy: r.responseAccuracy,
             citation_metrics: r.citationMetrics,
+            ranking_metrics: r.rankingMetrics,
+            visibility_metrics: r.visibilityMetrics,
+            share_of_voice: r.shareOfVoice,
             model_wise_performance: {
                 chatgpt: result.scoreOpenai,
                 claude: result.scoreClaude,
@@ -361,33 +364,40 @@ export class AuditRepository {
                 entities_missing: result.entitiesMissing,
             },
         };
+
+        // logger.debug(`[AuditRepository] Mapped AeoResult for sessionId=${sessionId}`, {
+        //     hasCitation: !!mapped.citation_metrics,
+        //     hasRanking: !!mapped.ranking_metrics
+        // });
+
+        return mapped;
     }
 
     async insertAeoResultsTable(data: any): Promise<number> {
-        const updateData: any = {
-            url: data.url,
-            consistency: data.consistency,
-            scoreEntityCoverage: data.score_entity_coverage,
-            entitiesExpected: data.entities_expected as any,
-            entitiesObserved: data.entities_observed as any,
-            entitiesMissing: data.entities_missing as any,
-            brandMetrics: data.brand_metrics as any,
-            responseAccuracy: data.response_accuracy as any,
-            citationMetrics: data.citation_metrics as any,
-            sentimentMetrics: data.sentiment_metrics as any,
-            visibilityMetrics: data.visibility_metrics as any,
-            shareOfVoice: data.share_of_voice as any,
-            rankingMetrics: data.ranking_metrics as any,
-            updatedAt: new Date(),
-        };
+        // Build update object with only provided fields to avoid overwriting existing data with undefined
+        const updateData: any = { updatedAt: new Date() };
+        if (data.url !== undefined) updateData.url = data.url;
+        if (data.consistency !== undefined) updateData.consistency = data.consistency;
+        if (data.score_entity_coverage !== undefined) updateData.scoreEntityCoverage = data.score_entity_coverage;
+        if (data.entities_expected !== undefined) updateData.entitiesExpected = data.entities_expected as any;
+        if (data.entities_observed !== undefined) updateData.entitiesObserved = data.entities_observed as any;
+        if (data.entities_missing !== undefined) updateData.entitiesMissing = data.entities_missing as any;
+        if (data.brand_metrics !== undefined) updateData.brandMetrics = data.brand_metrics as any;
+        if (data.response_accuracy !== undefined) updateData.responseAccuracy = data.response_accuracy as any;
+        if (data.citation_metrics !== undefined) updateData.citationMetrics = data.citation_metrics as any;
+        if (data.sentiment_metrics !== undefined) updateData.sentimentMetrics = data.sentiment_metrics as any;
+        if (data.visibility_metrics !== undefined) updateData.visibilityMetrics = data.visibility_metrics as any;
+        if (data.share_of_voice !== undefined) updateData.shareOfVoice = data.share_of_voice as any;
+        if (data.ranking_metrics !== undefined) updateData.rankingMetrics = data.ranking_metrics as any;
+
         const createData: any = {
             sessionId: data.session_id,
-            url: data.url,
-            consistency: data.consistency,
-            scoreEntityCoverage: data.score_entity_coverage,
-            entitiesExpected: data.entities_expected as any,
-            entitiesObserved: data.entities_observed as any,
-            entitiesMissing: data.entities_missing as any,
+            url: data.url || '',
+            consistency: data.consistency || 0,
+            scoreEntityCoverage: data.score_entity_coverage || 0,
+            entitiesExpected: (data.entities_expected || []) as any,
+            entitiesObserved: (data.entities_observed || []) as any,
+            entitiesMissing: (data.entities_missing || []) as any,
             brandMetrics: data.brand_metrics as any,
             responseAccuracy: data.response_accuracy as any,
             citationMetrics: data.citation_metrics as any,
@@ -396,12 +406,25 @@ export class AuditRepository {
             shareOfVoice: data.share_of_voice as any,
             rankingMetrics: data.ranking_metrics as any,
         };
-        const result = await prisma.aeoResult.upsert({
-            where: { sessionId: data.session_id },
-            update: updateData,
-            create: createData,
+
+        const existing = await prisma.aeoResult.findUnique({
+            where: { sessionId: data.session_id }
         });
-        return result.id;
+
+        if (existing) {
+            const result = await prisma.aeoResult.update({
+                where: { id: existing.id },
+                data: updateData,
+            });
+            return result.id;
+        } else {
+            // Include sessionId in createData for standard scalar assignment
+            // or use relation connect if needed. Scholar field usually works.
+            const result = await prisma.aeoResult.create({
+                data: createData,
+            });
+            return result.id;
+        }
     }
 
     async saveAeoAnalysisResult(data: any): Promise<number> {
@@ -410,16 +433,103 @@ export class AuditRepository {
 
     async updateCitationMetricsForSession(sessionId: number, citationMetrics: any): Promise<boolean> {
         const existing = await prisma.aeoResult.findUnique({ where: { sessionId } });
-        if (!existing) return false;
-        const updateData: any = { 
-            citationMetrics: citationMetrics.citation_metrics || citationMetrics,
-            rankingMetrics: citationMetrics.ranking_metrics || citationMetrics,
-            updatedAt: new Date() 
+
+        // If it doesn't exist, we create a skeleton record first
+        if (!existing) {
+            await this.insertAeoResultsTable({
+                session_id: sessionId,
+                url: citationMetrics.url || 'pending-ranking',
+                ranking_metrics: citationMetrics.ranking_metrics || citationMetrics
+            });
+            return true;
+        }
+
+        const updateData: any = {
+            updatedAt: new Date()
         };
-        await prisma.aeoResult.update({
-            where: { sessionId },
-            data: updateData,
-        });
+
+        // Extract ranking data correctly
+        if (citationMetrics.ranking_position_per_prompt) {
+            updateData.rankingMetrics = {
+                ranking_position_per_prompt: citationMetrics.ranking_position_per_prompt,
+                url: citationMetrics.url
+            };
+        } else if (citationMetrics.ranking_metrics) {
+            updateData.rankingMetrics = citationMetrics.ranking_metrics;
+        } else {
+            updateData.rankingMetrics = citationMetrics;
+        }
+
+        // Also update citationMetrics field if provided specifically
+        if (citationMetrics.citation_metrics) {
+            updateData.citationMetrics = citationMetrics.citation_metrics;
+        }
+        if (citationMetrics.visibility_metrics) {
+            updateData.visibilityMetrics = citationMetrics.visibility_metrics;
+        }
+        if (citationMetrics.share_of_voice) {
+            updateData.shareOfVoice = citationMetrics.share_of_voice;
+        }
+
+        try {
+            const res = await prisma.aeoResult.update({
+                where: { sessionId },
+                data: updateData,
+            });
+            return true;
+        } catch (err: any) {
+            // Some deployments may have an out-of-date generated Prisma client
+            // that doesn't expose `rankingMetrics` as a typed field. In that
+            // case, fall back to a raw SQL update using the mapped column names.
+            const msg = err && err.message ? String(err.message) : '';
+            if (msg.includes('Unknown argument `rankingMetrics`') || msg.includes('rankingMetrics')) {
+                // Build raw update parts for JSON columns we may have
+                const parts: string[] = [];
+                const params: any[] = [];
+                const pushJson = (colName: string, value: any) => {
+                    if (value === undefined) return;
+                    if (value === null) {
+                        parts.push(`${colName} = NULL`);
+                    } else {
+                        params.push(JSON.stringify(value));
+                        parts.push(`${colName} = $${params.length}`);
+                    }
+                };
+
+                // mapped column names from schema
+                pushJson('ranking_metrics', updateData.rankingMetrics ?? null);
+                pushJson('citation_metrics', updateData.citationMetrics ?? null);
+                pushJson('visibility_metrics', updateData.visibilityMetrics ?? null);
+                pushJson('share_of_voice', updateData.shareOfVoice ?? null);
+
+                // always update updated_at
+                params.push(new Date());
+                parts.push(`updated_at = $${params.length}`);
+
+                if (parts.length === 0) return true;
+
+                const setClause = parts.join(', ');
+                const sql = `UPDATE aeo_results SET ${setClause} WHERE session_id = $${params.length + 1}`;
+                params.push(sessionId);
+
+                try {
+                    await prisma.$executeRawUnsafe(sql, ...params);
+                    return true;
+                } catch (rawErr) {
+                    // rethrow original error for visibility if raw fallback fails
+                    throw err;
+                }
+            }
+
+            throw err;
+        }
+
+        // console.log(`[AuditRepository] updateCitationMetricsForSession res:`, {
+        //     sessionId,
+        //     hasRankingMetrics: !!res.rankingMetrics,
+        //     hasCitationMetrics: !!res.citationMetrics
+        // });
+
         return true;
     }
 

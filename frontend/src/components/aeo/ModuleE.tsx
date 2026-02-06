@@ -16,6 +16,7 @@ interface ModuleEProps {
   moduleEError: string | null;
   competitors: Competitor[];
   sessionId?: number | null;
+  onRunAnalysis?: () => void;
 }
 
 const ModuleE: React.FC<ModuleEProps> = ({
@@ -25,9 +26,17 @@ const ModuleE: React.FC<ModuleEProps> = ({
   moduleEError,
   competitors,
   sessionId,
+  onRunAnalysis,
 }) => {
   // Brand for sentiment/visibility: prefer configured brand, never pass literal "Not Configured"
   const rawBrandFromScores = moduleEScores?.brand_metrics?.data?.brand_name;
+
+  // ... (normalizedBrand, isConfiguredBrand, extractDomainFromUrl, websiteUrl logic stays same)
+
+  // ...
+
+  // In the rendering part:
+
 
   const normalizeBrand = (value?: string) => (value || '').trim();
   const isConfiguredBrand = (value?: string) => {
@@ -53,7 +62,7 @@ const ModuleE: React.FC<ModuleEProps> = ({
   // Fallback: extract domain from website URL when no brand is configured
   const websiteUrl = (url || moduleEScores?.url || '').trim();
   const domainFromUrl = websiteUrl ? extractDomainFromUrl(websiteUrl) : '';
-  
+
   const effectiveBrandName =
     (isConfiguredBrand(rawBrandFromScores) ? normalizeBrand(rawBrandFromScores) : '') ||
     (domainFromUrl ? domainFromUrl : '');
@@ -113,7 +122,8 @@ const ModuleE: React.FC<ModuleEProps> = ({
   return (
     <div className="p-4" style={{ minHeight: 'auto' }}>
       {/* New Summary Table (Replaces Multi-Model Cards) */}
-      {moduleEScores && (
+      {/* New Summary Table (Replaces Multi-Model Cards) */}
+      {moduleEScores && moduleEScores.consistency !== undefined ? (
         <div className="mb-8 overflow-hidden rounded-xl border border-gray-800 bg-black shadow-lg">
           <div className="border-b border-gray-800 bg-gray-900/50 px-6 py-4 flex items-center gap-2">
             <span className="text-xl">📊</span>
@@ -125,7 +135,7 @@ const ModuleE: React.FC<ModuleEProps> = ({
                 <tr>
                   <th className="px-6 py-4 border-b border-gray-800">Website Name</th>
                   <th className="px-6 py-4 border-b border-gray-800">Content Consistency</th>
-                  <th className="px-6 py-4 border-b border-gray-800">Entity Coverage</th>
+                  <th className="px-6 py-4 border-b border-gray-800">Website Entity Depth</th>
                   <th className="px-6 py-4 border-b border-gray-800">Model-wise Performance</th>
                   <th className="px-6 py-4 border-b border-gray-800">Accuracy of Responses</th>
                 </tr>
@@ -149,12 +159,17 @@ const ModuleE: React.FC<ModuleEProps> = ({
                     })()}
                   </td>
                   <td className="px-6 py-4 border-r border-gray-800/50">
-                    <span className={`inline-flex items-center rounded px-2.5 py-1 text-xs font-bold ${(moduleEScores.entity_coverage?.score || 0) >= 80 ? 'bg-green-900/40 text-green-400 border border-green-800' :
-                      (moduleEScores.entity_coverage?.score || 0) >= 50 ? 'bg-yellow-900/40 text-yellow-400 border border-yellow-800' :
-                        'bg-red-900/40 text-red-400 border border-red-800'
-                      }`}>
-                      {moduleEScores.entity_coverage?.score !== undefined ? `${moduleEScores.entity_coverage.score}%` : 'N/A'}
-                    </span>
+                    {(() => {
+                      const entityScore = moduleEScores?.entity_coverage?.score ?? moduleEScores?.score_entity_coverage;
+                      return (
+                        <span className={`inline-flex items-center rounded px-2.5 py-1 text-xs font-bold ${(entityScore || 0) >= 80 ? 'bg-green-900/40 text-green-400 border border-green-800' :
+                          (entityScore || 0) >= 50 ? 'bg-yellow-900/40 text-yellow-400 border border-yellow-800' :
+                            'bg-red-900/40 text-red-400 border border-red-800'
+                          }`}>
+                          {entityScore !== undefined ? `${entityScore}%` : 'N/A'}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="px-6 py-4 border-r border-gray-800/50">
                     {(() => {
@@ -213,6 +228,19 @@ const ModuleE: React.FC<ModuleEProps> = ({
             </table>
           </div>
         </div>
+      ) : (
+        <div className="mb-8 p-6 bg-gray-900/30 rounded-lg border border-gray-800 border-dashed text-center">
+          <h3 className="text-lg font-semibold text-gray-200 mb-2">Detailed Analysis Required</h3>
+          <p className="text-gray-400 mb-4">Run a detailed website analysis to see Content Consistency, Entity Coverage, and Brand Pulse metrics.</p>
+          {onRunAnalysis && !moduleELoading && (
+            <button
+              onClick={onRunAnalysis}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded transition-colors"
+            >
+              Run Website Analysis
+            </button>
+          )}
+        </div>
       )}
 
       {moduleELoading && (
@@ -229,16 +257,24 @@ const ModuleE: React.FC<ModuleEProps> = ({
       )}
 
       {/* AI Citation Ranking Section */}
+      {/* Merge citation_metrics and ranking_metrics so the UI can read coverage/quality fields
+          even when `ranking_metrics` exists but only contains ranking-specific keys. */}
       <AICitationRankingSection
         url={websiteUrl}
         sessionId={sessionId ?? undefined}
-        savedCitationMetrics={moduleEScores?.citation_metrics}
+        savedCitationMetrics={(() => {
+          if (!moduleEScores) return undefined;
+          const ranking = moduleEScores.ranking_metrics ?? null;
+          const citation = moduleEScores.citation_metrics ?? null;
+          if (!ranking && !citation) return undefined;
+          return { ...(citation || {}), ...(ranking || {}) } as any;
+        })()}
       />
 
       {/* Brand Pulse & Sentiment Section */}
       <div className="mt-8">
-        <SentimentTracking 
-          brandName={effectiveBrandName} 
+        <SentimentTracking
+          brandName={effectiveBrandName}
           initialSentimentData={moduleEScores?.sentiment_metrics}
           initialVisibilityData={moduleEScores?.visibility_metrics}
         />
@@ -253,12 +289,13 @@ const ModuleE: React.FC<ModuleEProps> = ({
                 ({effectiveBrandName || 'Configured Brand'})
               </span>
             </h4>
-            {!brandPulseData && !brandPulseLoading && (
+            {!brandPulseLoading && (
               <button
                 onClick={handleBrandPulseAnalysis}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded transition-colors"
+                disabled={brandPulseLoading}
               >
-                Run Analysis
+                {brandPulseData ? 'Re-run Analysis' : 'Run Analysis'}
               </button>
             )}
           </div>
@@ -455,9 +492,13 @@ const ModuleE: React.FC<ModuleEProps> = ({
               n.toLowerCase() !== 'not configured' &&
               n.toLowerCase() !== 'no competitors found'
           );
-        if (validCompetitorNames.length === 0) return null;
+
+        // ALWAYS render the section, let the component handle the empty state
+        // or render a specific empty state if the list is technically empty but we want to show the container
+
         const brandTotalMentions = brandPulseData?.total_mentions ?? 0;
         const brandFrequencyTrend = brandPulseData?.frequency_trend ?? [];
+
         return (
           <div className="mt-8">
             <CompetitorMentionsList
@@ -465,6 +506,10 @@ const ModuleE: React.FC<ModuleEProps> = ({
               brandTotalMentions={typeof brandTotalMentions === 'number' ? brandTotalMentions : 0}
               brandFrequencyTrend={Array.isArray(brandFrequencyTrend) ? brandFrequencyTrend : []}
               brandName={effectiveBrandName}
+              url={websiteUrl}
+              sessionId={sessionId}
+              savedData={moduleEScores?.visibility_metrics}
+              savedSov={moduleEScores?.share_of_voice}
             />
           </div>
         );

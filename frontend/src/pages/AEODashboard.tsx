@@ -29,7 +29,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
 }) => {
   const [activeView, setActiveView] = useState<ActiveView>(runCrawl ? 'crawler' : 'data');
   const [showRecommendations, setShowRecommendations] = useState<string | null>(null);
-  
+
   // Use custom hooks for better organization
   const { scores, aiPlatforms, competitors, strategyMetrics, getModuleRecommendations, contentMetrics, entityMetrics } = useAEOData(result);
   const {
@@ -68,7 +68,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
   // Track crawl start time when crawling begins
   useEffect(() => {
     const isActive = isCrawling || crawlStatus === 'running' || crawlStatus === 'auditing';
-    
+
     if (isActive && !crawlStartTime) {
       // Crawl just started - record start time
       setCrawlStartTime(Date.now());
@@ -81,7 +81,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
   // Update current time every 100ms when crawling for smooth millisecond display
   useEffect(() => {
     const isActive = isCrawling || crawlStatus === 'running' || crawlStatus === 'auditing';
-    
+
     if (isActive) {
       const timer = setInterval(() => {
         setCurrentTime(Date.now());
@@ -95,10 +95,10 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
-    
+
     // Format as watch time: HH:MM:SS or MM:SS
     const pad = (n: number) => n.toString().padStart(2, '0');
-    
+
     // For running sessions, show milliseconds (tenths of a second)
     if (isRunning && milliseconds > 0) {
       if (hours > 0) {
@@ -106,7 +106,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
       }
       return `${minutes}:${pad(secs)}.${milliseconds}`;
     }
-    
+
     // For completed sessions, standard format
     if (hours > 0) {
       return `${hours}:${pad(minutes)}:${pad(secs)}`;
@@ -117,7 +117,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
   // Calculate elapsed time for live timer with milliseconds
   const calculateElapsedTime = (): { seconds: number; milliseconds: number } => {
     const isActive = isCrawling || crawlStatus === 'running' || crawlStatus === 'auditing';
-    
+
     if (isActive && crawlStartTime) {
       // Calculate live elapsed time with milliseconds
       const elapsedMs = currentTime - crawlStartTime;
@@ -126,12 +126,12 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
         milliseconds: Math.floor((elapsedMs % 1000) / 100) // Get tenths of a second
       };
     }
-    
+
     // For completed sessions, use stored duration from crawlStats
     if (crawlStats?.duration) {
       return { seconds: Math.floor(crawlStats.duration), milliseconds: 0 };
     }
-    
+
     return { seconds: 0, milliseconds: 0 };
   };
 
@@ -190,8 +190,18 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
         (result as any)?.response_accuracy,
       citation_metrics:
         actualResult?.citation_metrics ?? (result as any)?.citation_metrics,
+      ranking_metrics:
+        actualResult?.ranking_metrics ?? (result as any)?.ranking_metrics,
+      visibility_metrics:
+        actualResult?.visibility_metrics ?? (result as any)?.visibility_metrics,
+      share_of_voice:
+        actualResult?.share_of_voice ?? (result as any)?.share_of_voice,
       url: actualResult?.url ?? result?.url
     };
+
+    if (fromResult.ranking_metrics) {
+      console.log('[AEODashboard] Loaded ranking_metrics from result:', fromResult.ranking_metrics);
+    }
 
     const hasAnyFromResult =
       fromResult.consistency !== undefined ||
@@ -199,7 +209,10 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
       fromResult.brand_metrics != null ||
       fromResult.model_wise_performance != null ||
       fromResult.response_accuracy != null ||
-      fromResult.citation_metrics != null;
+      fromResult.citation_metrics != null ||
+      fromResult.ranking_metrics != null ||
+      fromResult.visibility_metrics != null ||
+      fromResult.share_of_voice != null;
 
     if (!hasAnyFromResult) return;
 
@@ -211,6 +224,9 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
       if (fromResult.model_wise_performance != null) next.model_wise_performance = fromResult.model_wise_performance;
       if (fromResult.response_accuracy != null) next.response_accuracy = fromResult.response_accuracy;
       if (fromResult.citation_metrics != null) next.citation_metrics = fromResult.citation_metrics;
+      if (fromResult.ranking_metrics != null) next.ranking_metrics = fromResult.ranking_metrics;
+      if (fromResult.visibility_metrics != null) next.visibility_metrics = fromResult.visibility_metrics;
+      if (fromResult.share_of_voice != null) next.share_of_voice = fromResult.share_of_voice;
       if (fromResult.url != null && fromResult.url !== '') next.url = fromResult.url;
       return next;
     });
@@ -303,7 +319,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
 
   return (
     <div className="aeo-dashboard">
-      <OverallScoreSection 
+      <OverallScoreSection
         scores={scores}
         result={result}
       />
@@ -361,6 +377,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
         handleSimulation={handleSimulation}
         contentMetrics={contentMetrics}
         entityMetrics={entityMetrics}
+        onRunAnalysis={analyzeWebsiteScores}
       />
 
       <RecommendationsModal

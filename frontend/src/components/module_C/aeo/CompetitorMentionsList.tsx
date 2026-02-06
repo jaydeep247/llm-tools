@@ -13,6 +13,10 @@ interface CompetitorMentionsListProps {
     brandTotalMentions?: number;
     brandFrequencyTrend?: { date?: string; count?: number }[];
     brandName?: string;
+    url?: string;
+    sessionId?: number | null;
+    savedData?: any;
+    savedSov?: any;
 }
 
 interface ShareOfVoiceData {
@@ -33,6 +37,10 @@ const CompetitorMentionsList: React.FC<CompetitorMentionsListProps> = ({
     brandTotalMentions = 0,
     brandFrequencyTrend = [],
     brandName,
+    url,
+    sessionId,
+    savedData,
+    savedSov,
 }) => {
     const [mentionsData, setMentionsData] = useState<CompetitorMention[]>([]);
     const [sovData, setSovData] = useState<ShareOfVoiceData | null>(null);
@@ -41,18 +49,50 @@ const CompetitorMentionsList: React.FC<CompetitorMentionsListProps> = ({
     const [processedCount, setProcessedCount] = useState(0);
     const [error, setError] = useState<string | null>(null);
     const [hasRun, setHasRun] = useState(false);
+    const [analyzedCompetitorNames, setAnalyzedCompetitorNames] = useState<string[]>([]);
 
     useEffect(() => {
-        // Reset when competitors list changes drastically
-        setMentionsData([]);
-        setSovData(null);
-        setProcessedCount(0);
-        setError(null);
-        setHasRun(false);
+        // Initialize from saved data if available
+        if (savedData && mentionsData.length === 0 && !hasRun) {
+            console.log('[CompetitorMentionsList] Initializing from savedData', { dataLength: savedData.length });
+            setMentionsData(savedData);
+            setProcessedCount(savedData.length);
+            setHasRun(true);
+        }
+        if (savedSov && !sovData && !hasRun) {
+            console.log('[CompetitorMentionsList] Initializing from savedSov', { savedSov });
+            setSovData(savedSov);
+        }
+    }, [savedData, savedSov, hasRun, mentionsData.length, sovData]);
+
+    // Debug: Log whenever sovData changes
+    useEffect(() => {
+        console.log('[CompetitorMentionsList] sovData updated:', { 
+            hasSOV: !!sovData, 
+            overall: sovData?.overall, 
+            by_model_keys: sovData?.by_model ? Object.keys(sovData.by_model) : [],
+            fullData: sovData
+        });
+    }, [sovData]);
+
+    useEffect(() => {
+        // Reset when competitors list changes drastically, but not if we just have auto-discovered data
+        if (competitors.length > 0 && !hasRun) {
+            setMentionsData([]);
+            setSovData(null);
+            setProcessedCount(0);
+            setError(null);
+            setHasRun(false);
+            setAnalyzedCompetitorNames([]);
+        }
     }, [competitors, brandName]);
 
     const handleRunAnalysis = async () => {
-        if (competitors.length === 0) return;
+        // Allow run if competitors exist OR if we have a URL for auto-discovery
+        if (competitors.length === 0 && !url) {
+            setError("No competitors configured and no URL available for auto-discovery.");
+            return;
+        }
 
         setLoading(true);
         setSovLoading(brandName ? true : false); // Only show SOV loading if brand_name is provided
@@ -61,6 +101,7 @@ const CompetitorMentionsList: React.FC<CompetitorMentionsListProps> = ({
         setError(null);
         setMentionsData([]);
         setSovData(null);
+        setAnalyzedCompetitorNames([]);
 
         try {
             // Single API call: fetch both mentions data AND SOV if brand_name is provided
@@ -68,8 +109,10 @@ const CompetitorMentionsList: React.FC<CompetitorMentionsListProps> = ({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    competitors: competitors, // ALL competitors at once
-                    ...(brandName && { brand_name: brandName }) // Include brand_name only if available
+                    competitors: competitors, // Can be empty
+                    ...(brandName && { brand_name: brandName }), // Include brand_name only if available
+                    ...(url && { url: url }), // Pass URL for auto-discovery
+                    ...(sessionId && { sessionId: sessionId })
                 })
             });
 
@@ -78,16 +121,58 @@ const CompetitorMentionsList: React.FC<CompetitorMentionsListProps> = ({
             }
 
             const result = await response.json();
-            
-            if (result.success && result.data) {
-                // Set mentions data
-                setMentionsData(result.data);
-                setProcessedCount(competitors.length);
+            console.log('[CompetitorMentionsList] 📥 RAW API response received:', {
+                responseKeys: Object.keys(result),
+                success: result.success,
+                dataLength: result.data?.length || 0,
+                dataType: typeof result.data,
+                sovExists: 'share_of_voice' in result,
+                sovValue: result.share_of_voice,
+                sovType: typeof result.share_of_voice,
+                sovIsObject: result.share_of_voice && typeof result.share_of_voice === 'object',
+                sovOverall: result.share_of_voice?.overall,
+                analyzedCount: result.analyzed_competitors?.length || 0
+            });
+
+            if (result.success) {
+                // Always set mentionsData, even if empty array
+                if (Array.isArray(result.data)) {
+                    console.log('[CompetitorMentionsList] ✅ Setting mentionsData:', result.data.length, 'items');
+                    setMentionsData(result.data);
+                    // Use the returned analyzed competitors count or the requested count
+                    const actualCount = result.analyzed_competitors ? result.analyzed_competitors.length : competitors.length;
+                    setProcessedCount(actualCount);
+                    if (result.analyzed_competitors) {
+                        setAnalyzedCompetitorNames(result.analyzed_competitors);
+                    }
+                }
+            } else {
+                if (result.error) throw new Error(result.error);
             }
 
-            // Set SOV data if available
-            if (result.share_of_voice) {
+            // ✅ CRITICAL FIX: Only set sovData if it's a valid object with 'overall' property
+            console.log('[CompetitorMentionsList] 🔍 Checking share_of_voice validity:', {
+                condition1_isObject: result.share_of_voice && typeof result.share_of_voice === 'object',
+                condition2_hasOverall: result.share_of_voice?.overall !== undefined,
+                condition2_value: result.share_of_voice?.overall,
+                fullCondition: (result.share_of_voice && typeof result.share_of_voice === 'object' && result.share_of_voice.overall !== undefined)
+            });
+
+            if (result.share_of_voice && typeof result.share_of_voice === 'object' && result.share_of_voice.overall !== undefined) {
+                console.log('[CompetitorMentionsList] ✅✅ SETTING sovData from API response:', {
+                    overall: result.share_of_voice.overall,
+                    by_model_keys: Object.keys(result.share_of_voice.by_model || {}).length,
+                    fullSOV: result.share_of_voice
+                });
                 setSovData(result.share_of_voice);
+            } else {
+                console.warn('[CompetitorMentionsList] ⚠️⚠️ FAILED to set sovData - conditions not met', {
+                    share_of_voice: result.share_of_voice,
+                    isTruthy: !!result.share_of_voice,
+                    isObject: typeof result.share_of_voice === 'object',
+                    hasOverall: result.share_of_voice?.overall !== undefined,
+                    overallValue: result.share_of_voice?.overall
+                });
             }
 
         } catch (err: any) {
@@ -99,12 +184,8 @@ const CompetitorMentionsList: React.FC<CompetitorMentionsListProps> = ({
         }
     };
 
-    if (competitors.length === 0) return null;
-
-    // Share of Voice: brand / (brand + competitors) * 100
-    const competitorTotal = mentionsData.reduce((sum, c) => sum + (c.mentions || 0), 0);
-    const totalMentions = (brandTotalMentions || 0) + competitorTotal;
-    const shareOfVoice = totalMentions > 0 ? Math.round(((brandTotalMentions || 0) / totalMentions) * 100) : null;
+    // ✅ CRITICAL FIX: Only use API's share of voice, never the calculated value during loading
+    // This prevents showing 100% when button is clicked with empty data
 
     // SOV Trend: merge brand + competitor trends by date, compute SOV per month
     const sovTrendData = (() => {
@@ -131,6 +212,10 @@ const CompetitorMentionsList: React.FC<CompetitorMentionsListProps> = ({
         });
     })();
 
+    // Determine effective competitor list for UI state
+    const effectiveCompetitorCount = mentionsData.length > 0 ? mentionsData.length : competitors.length;
+    const isAutoDiscoveryMode = competitors.length === 0 && url;
+
     return (
         <div className="competitor-mentions-section overflow-hidden rounded-xl border border-gray-800 bg-black shadow-lg">
             <div className="border-b border-gray-800 bg-gray-900/50 px-6 py-4 flex items-center justify-between">
@@ -141,51 +226,97 @@ const CompetitorMentionsList: React.FC<CompetitorMentionsListProps> = ({
                 <div className="flex items-center gap-4">
                     {loading && (
                         <span className="text-xs text-gray-400">
-                            Processing {processedCount}/{competitors.length}...
+                            Processing {processedCount > 0 ? processedCount : '...'} competitors...
                         </span>
                     )}
-                    {!hasRun && !loading && (
+                    {!loading && (
                         <button
                             onClick={handleRunAnalysis}
                             className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded transition-colors"
                         >
-                            Run Analysis
+                            {hasRun ? 'Re-run Analysis' : 'Run Analysis'}
                         </button>
                     )}
                 </div>
             </div>
             <div className="p-6">
-                {!hasRun && !loading && (
+                {effectiveCompetitorCount === 0 && !isAutoDiscoveryMode && (
+                    <div className="text-center py-8 bg-gray-900/30 rounded-lg border border-gray-800 border-dashed">
+                        <div className="text-3xl mb-2 opacity-30">🚫</div>
+                        <p className="text-gray-400">
+                            No competitors configured. Please add competitors in the settings to analyze Share of Voice.
+                        </p>
+                    </div>
+                )}
+
+                {(effectiveCompetitorCount > 0 || isAutoDiscoveryMode) && !hasRun && !loading && (
                     <div className="text-center py-12 bg-gray-900/30 rounded-lg border border-gray-800 border-dashed">
                         <div className="text-4xl mb-3 opacity-30">📊</div>
                         <p className="text-gray-400">
-                            Click <span className="text-blue-400 font-medium">Run Analysis</span> to fetch competitor mentions and share of voice data.
+                            {competitors.length === 0 ? (
+                                <span>No competitors list. Click <span className="text-blue-400 font-medium">Run Analysis</span> to <b>auto-discover</b> competitors and fetch data.</span>
+                            ) : (
+                                <span>Click <span className="text-blue-400 font-medium">Run Analysis</span> to fetch competitor mentions and share of voice data.</span>
+                            )}
                         </p>
                     </div>
                 )}
 
                 {(hasRun || loading) && (
                     <>
-                        {/* Share of Voice (%) - Overall */}
-                        {shareOfVoice != null && (
-                            <div className="mb-6 p-4 bg-gray-900/50 rounded-lg border border-gray-700/50">
-                                <h5 className="text-sm font-bold text-gray-300 uppercase mb-2">Share of Voice (%) - Overall</h5>
-                                <p className="text-xs text-gray-400 mb-2">Your brand&apos;s share of total mentions vs. competitors (last 12 months)</p>
-                                <div className={`text-3xl font-bold ${shareOfVoice >= 50 ? 'text-green-400' : shareOfVoice >= 25 ? 'text-yellow-400' : 'text-red-400'}`}>
-                                    {shareOfVoice}%
-                                </div>
+                        {analyzedCompetitorNames.length > 0 && competitors.length === 0 && (
+                            <div className="mb-6 p-3 bg-blue-900/20 border border-blue-800/50 rounded-lg text-sm text-blue-300 flex items-center gap-2">
+                                <span>🤖</span>
+                                <span>
+                                    <strong>Auto-Discovered Competitors:</strong> We found and analyzed {analyzedCompetitorNames.join(', ')}.
+                                </span>
                             </div>
                         )}
+                        {(() => {
+                            // ✅ CRITICAL FIX: Only show SOV if API provided it (sovData is set)
+                            // Don't show calculated SOV during loading
+                            const sovValue = sovData?.overall;
+                            const shouldShow = sovValue !== null && sovValue !== undefined;
+                            
+                            console.log('[CompetitorMentionsList] 🎯 SOV Rendering Check:', {
+                                loading,
+                                sovData: sovData ? { overall: sovData.overall, by_model_keys: Object.keys(sovData.by_model || {}).length } : null,
+                                sovValue,
+                                shouldShow,
+                                renderingCondition: {
+                                    loadingAndNotShow: loading && !shouldShow,
+                                    shouldShowAndDone: !loading && shouldShow
+                                }
+                            });
+                            
+                            // Show loading message while waiting for API
+                            if (loading && !shouldShow) {
+                                console.log('[CompetitorMentionsList] 🔄 Rendering LOADING state');
+                                return (
+                                    <div className="mb-6 p-4 bg-gray-900/50 rounded-lg border border-gray-700/50">
+                                        <h5 className="text-sm font-bold text-gray-300 uppercase mb-2">Share of Voice (%) - Overall</h5>
+                                        <p className="text-xs text-gray-400 mb-2">Calculating share of voice...</p>
+                                        <div className="text-3xl font-bold text-gray-500">--</div>
+                                    </div>
+                                );
+                            }
+                            
+                            return shouldShow ? (() => {
+                                console.log('[CompetitorMentionsList] ✅ Rendering SOV display:', { sovValue });
+                                return (
+                                    <div className="mb-6 p-4 bg-gray-900/50 rounded-lg border border-gray-700/50">
+                                        <h5 className="text-sm font-bold text-gray-300 uppercase mb-2">Share of Voice (%) - Overall</h5>
+                                        <p className="text-xs text-gray-400 mb-2">Your brand&apos;s share of total mentions vs. competitors (last 12 months)</p>
+                                        <div className={`text-3xl font-bold ${sovValue >= 50 ? 'text-green-400' : sovValue >= 25 ? 'text-yellow-400' : 'text-red-400'}`}>
+                                            {sovValue}%
+                                        </div>
+                                    </div>
+                                );
+                            })() : null;
 
-                        {/* Model-wise Share of Voice Breakdown */}
                         {sovData && sovData.by_model && Object.keys(sovData.by_model).length > 0 && (
                             <div className="mb-6 p-4 bg-gray-900/50 rounded-lg border border-gray-700/50">
-                                <h5 className="text-sm font-bold text-gray-300 uppercase mb-3">
-                                    Share of Voice - Model-wise Breakdown
-                                </h5>
-                                <p className="text-xs text-gray-400 mb-3">
-                                    Your brand&apos;s share of mentions across AI models when answering discovery questions
-                                </p>
+                                <h5 className="text-sm font-bold text-gray-300 uppercase mb-3 text-white">Share of Voice - Model-wise Breakdown</h5>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     {Object.entries(sovData.by_model).map(([model, data]) => {
                                         const modelLabel = {
@@ -195,37 +326,21 @@ const CompetitorMentionsList: React.FC<CompetitorMentionsListProps> = ({
                                         }[model] || model;
 
                                         return (
-                                            <div
-                                                key={model}
-                                                className="p-4 bg-gray-800/50 rounded-lg border border-gray-700/50 hover:border-gray-600/50 transition-colors"
-                                            >
+                                            <div key={model} className="p-4 bg-gray-800/50 rounded-lg border border-gray-700/50">
                                                 <div className="flex items-center justify-between mb-2">
                                                     <div className="text-sm font-semibold text-gray-300">{modelLabel}</div>
-                                                    <div className={`text-xl font-bold ${data.sov >= 50
-                                                        ? 'text-green-400'
-                                                        : data.sov >= 25
-                                                            ? 'text-yellow-400'
-                                                            : 'text-red-400'
-                                                        }`}>
+                                                    <div className={`text-xl font-bold ${data.sov >= 50 ? 'text-green-400' : data.sov >= 25 ? 'text-yellow-400' : 'text-red-400'}`}>
                                                         {data.sov}%
                                                     </div>
                                                 </div>
-                                                <div className="space-y-1.5 mt-3 pt-3 border-t border-gray-700/50">
-                                                    <div className="flex justify-between text-xs">
-                                                        <span className="text-gray-400">Brand mentions:</span>
-                                                        <span className="text-gray-300 font-medium">{data.brand_mentions}</span>
+                                                <div className="space-y-1 mt-3 pt-3 border-t border-gray-700/50 text-[11px]">
+                                                    <div className="flex justify-between">
+                                                        <span className="text-gray-500">Brand:</span>
+                                                        <span className="text-gray-300">{data.brand_mentions}</span>
                                                     </div>
-                                                    <div className="flex justify-between text-xs">
-                                                        <span className="text-gray-400">Competitor mentions:</span>
-                                                        <span className="text-gray-300 font-medium">{data.competitor_mentions}</span>
-                                                    </div>
-                                                    <div className="flex justify-between text-xs">
-                                                        <span className="text-gray-400">Total mentions:</span>
-                                                        <span className="text-gray-300 font-medium">{data.total_mentions}</span>
-                                                    </div>
-                                                    <div className="flex justify-between text-xs pt-1 border-t border-gray-700/30">
-                                                        <span className="text-gray-500">Queries analyzed:</span>
-                                                        <span className="text-gray-500">{data.queries_analyzed}</span>
+                                                    <div className="flex justify-between">
+                                                        <span className="text-gray-500">Competitors:</span>
+                                                        <span className="text-gray-300">{data.competitor_mentions}</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -235,102 +350,51 @@ const CompetitorMentionsList: React.FC<CompetitorMentionsListProps> = ({
                             </div>
                         )}
 
-                        {/* Loading indicator for SOV */}
-                        {sovLoading && brandName && (
-                            <div className="mb-6 p-4 bg-gray-900/50 rounded-lg border border-gray-700/50">
-                                <div className="text-sm text-gray-400 flex items-center gap-2">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400"></div>
-                                    Calculating model-wise Share of Voice...
-                                </div>
-                            </div>
-                        )}
-
-                        {/* SOV Trend over time */}
                         {sovTrendData.length >= 2 && (
                             <div className="mb-6 p-4 bg-gray-900/50 rounded-lg border border-gray-700/50">
                                 <h5 className="text-sm font-bold text-gray-300 uppercase mb-2">Share of Voice - Trend Over Time</h5>
                                 <div className="h-24 flex items-end gap-0.5">
                                     {sovTrendData.map((d, i) => (
                                         <div
-                                            key={d.date}
+                                            key={i}
                                             className="flex-1 min-w-[4px] bg-blue-600 rounded-sm"
                                             style={{ height: `${Math.max(4, (d.sov / 100) * 80)}px` }}
                                             title={`${d.date.slice(0, 7)}: ${d.sov}%`}
                                         />
                                     ))}
                                 </div>
-                                <div className="flex justify-between mt-2 text-[10px] text-gray-500">
-                                    <span>{sovTrendData[0]?.date?.slice(0, 7) || ''}</span>
-                                    <span>{sovTrendData[sovTrendData.length - 1]?.date?.slice(0, 7) || ''}</span>
-                                </div>
-                            </div>
-                        )}
-
-                        <p className="text-sm text-gray-400 mb-4">
-                            Number of competitor mentions, frequency and context for your top competitors (last 12 months). Compare with your brand&apos;s Total Mentions in Brand Pulse above.
-                        </p>
-
-                        {error && (
-                            <div className="mb-4 p-4 bg-red-900/50 border border-red-500 text-red-200 rounded-lg text-sm">
-                                Error: {error}
-                            </div>
-                        )}
-
-                        {!loading && mentionsData.length === 0 && !error && (
-                            <div className="mb-4 p-4 bg-yellow-900/30 border border-yellow-700/50 text-yellow-200 rounded-lg text-sm">
-                                Analysis completed, but no mentions data found for the competitors.
                             </div>
                         )}
 
                         {mentionsData.length > 0 && (
-                            <div className="mentions-table-container overflow-x-auto">
+                            <div className="overflow-x-auto">
                                 <table className="w-full text-left text-sm border-collapse">
                                     <thead>
                                         <tr className="border-b border-gray-700">
                                             <th className="px-4 py-3 text-xs font-bold uppercase text-gray-400">Competitor</th>
-                                            <th className="px-4 py-3 text-xs font-bold uppercase text-gray-400">Mentions (12mo)</th>
+                                            <th className="px-4 py-3 text-xs font-bold uppercase text-gray-400">Mentions</th>
                                             <th className="px-4 py-3 text-xs font-bold uppercase text-gray-400">Sentiment</th>
-                                            <th className="px-4 py-3 text-xs font-bold uppercase text-gray-400">Frequency Trend</th>
+                                            <th className="px-4 py-3 text-xs font-bold uppercase text-gray-400">Trend</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {mentionsData.map((comp, idx) => (
                                             <tr key={idx} className="border-b border-gray-800 hover:bg-gray-900/50 transition-colors">
                                                 <td className="px-4 py-3 font-medium text-white">{comp.name}</td>
-                                                <td className="px-4 py-3 text-gray-400">{comp.mentions.toLocaleString()}</td>
+                                                <td className="px-4 py-3 text-gray-400">{comp.mentions}</td>
                                                 <td className="px-4 py-3">
-                                                    <span
-                                                        className={`inline-flex items-center rounded px-2.5 py-1 text-xs font-medium ${comp.sentiment === 'Positive'
-                                                            ? 'bg-green-900/40 text-green-400 border border-green-800'
-                                                            : comp.sentiment === 'Negative'
-                                                                ? 'bg-red-900/40 text-red-400 border border-red-800'
-                                                                : comp.sentiment === 'No Data'
-                                                                    ? 'bg-gray-800/50 text-gray-500 border border-gray-700'
-                                                                    : 'bg-gray-700/50 text-gray-300 border border-gray-600'
-                                                            }`}
-                                                    >
+                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${comp.sentiment === 'Positive' ? 'bg-green-900/40 text-green-400' : comp.sentiment === 'Negative' ? 'bg-red-900/40 text-red-400' : 'bg-gray-800 text-gray-400'}`}>
                                                         {comp.sentiment}
                                                     </span>
                                                 </td>
                                                 <td className="px-4 py-3">
-                                                    <div className="flex items-end h-6 gap-0.5">
-                                                        {comp.trend && comp.trend.length > 0 ? (
-                                                            comp.trend.map((t, i) => {
-                                                                const maxCount = Math.max(...comp.trend.map((x) => x.count), 1);
-                                                                const pct = (t.count / maxCount) * 100;
-                                                                const barHeight = Math.max(4, (pct / 100) * 24);
-                                                                return (
-                                                                    <div
-                                                                        key={i}
-                                                                        className="w-1 bg-blue-600 rounded-sm flex-shrink-0"
-                                                                        style={{ height: `${barHeight}px` }}
-                                                                        title={`${t.date}: ${t.count}`}
-                                                                    />
-                                                                );
-                                                            })
-                                                        ) : (
-                                                            <span className="text-xs text-gray-500">No trend data</span>
-                                                        )}
+                                                    <div className="flex items-end h-4 gap-0.5">
+                                                        {(comp.trend || []).slice(-12).map((t, i) => {
+                                                            const maxCount = Math.max(...comp.trend.map(x => x.count), 1);
+                                                            return (
+                                                                <div key={i} className="w-1 bg-blue-500 rounded-px" style={{ height: `${(t.count / maxCount) * 16}px` }} />
+                                                            );
+                                                        })}
                                                     </div>
                                                 </td>
                                             </tr>

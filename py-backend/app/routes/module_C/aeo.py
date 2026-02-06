@@ -462,38 +462,65 @@ async def analyze_brand(req: BrandAnalysisRequest):
     return {"success": True, "data": result}
 
 class AnalyzeCompetitorsMentionsRequest(BaseModel):
-    competitors: List[str]
+    competitors: List[str] = []
     brand_name: Optional[str] = None
+    target_url: Optional[str] = None  # Added for auto-discovery
+    url: Optional[str] = None  # Frontend sends this (backward compat)
 
 @router.post("/analyze-competitors-mentions")
 async def analyze_competitors_mentions(req: AnalyzeCompetitorsMentionsRequest):
     """
     Analyzes mentions for a batch of competitors.
     Now includes model-wise Share of Voice if brand_name is provided.
+    Performs auto-discovery if competitors list is empty but target_url is provided.
     """
-    logger.info(f"Analyzing mentions for {len(req.competitors)} competitors")
+    logger.info(f"🟡 [competitor-mentions] Python received request: {dict(req)}")
+    logger.info(f"🟡 [competitor-mentions] brand_name={req.brand_name}, has_brand={bool(req.brand_name)}")
+    
+    competitors_to_analyze = req.competitors
+    
+    # Auto-Discovery Logic: use target_url if provided, else fall back to url
+    url_for_discovery = req.target_url or req.url
+    if not competitors_to_analyze and url_for_discovery:
+        logger.info(f"No competitors provided. Attempting auto-discovery for {url_for_discovery}")
+        try:
+            competitors_to_analyze = competitor_mentions_service.auto_discover_competitors(url_for_discovery)
+            logger.info(f"Auto-discovered {len(competitors_to_analyze)} competitors")
+        except Exception as e:
+            logger.error(f"Auto-discovery failed: {e}")
+            
+    if not competitors_to_analyze:
+        return {
+            "success": False, 
+            "error": "No competitors provided and auto-discovery failed or no URL provided."
+        }
     
     # Existing DataForSEO-based mentions
-    results = competitor_mentions_service.analyze_mentions_batch(req.competitors)
+    results = competitor_mentions_service.analyze_mentions_batch(competitors_to_analyze)
     
     response_data = {
         "success": True,
         "data": results,
-        "share_of_voice": None
+        "share_of_voice": None,
+        "analyzed_competitors": competitors_to_analyze  # Return who we actually analyzed
     }
     
     # Calculate model-wise SOV if brand_name provided
     if req.brand_name:
         try:
-            logging.info(f"Calculating model-wise SOV for brand: {req.brand_name}")
+            logger.info(f"� [SOV] Has brand_name: {req.brand_name}, WILL calculate model-wise SOV")
+            logger.info(f"📊 [SOV] Calculating model-wise SOV for brand: {req.brand_name}, competitors: {len(competitors_to_analyze)}")
             sov_data = await competitor_mentions_service.analyze_mentions_by_ai_model(
                 brand_name=req.brand_name,
-                competitors=req.competitors
+                competitors=competitors_to_analyze
             )
             response_data["share_of_voice"] = sov_data
-            logging.info(f"Model-wise SOV calculated: {sov_data.get('overall', 0)}% overall")
+            logger.info(f"✅ [SOV] Model-wise SOV calculated: overall={sov_data.get('overall', 0)}%, by_model={list(sov_data.get('by_model', {}).keys())}")
+            logger.debug(f"[SOV] Full SOV data: {sov_data}")
         except Exception as e:
-            logging.warning(f"Failed to calculate model-wise SOV: {e}")
+            logger.warning(f"⚠️  [SOV] Failed to calculate model-wise SOV: {e}", exc_info=True)
+    else:
+        logger.warning(f" 🔴 [SOV] NO brand_name provided ({req.brand_name}), SKIPPING SOV calculation. Request: {dict(req)}")
     
     return response_data
 

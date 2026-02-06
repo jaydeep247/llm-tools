@@ -1,3 +1,4 @@
+
 import React from 'react';
 import {
   useRunRankingAnalysisMutation,
@@ -11,6 +12,8 @@ import {
 const MODELS = ['chat_gpt', 'claude', 'gemini'] as const;
 const MODEL_LABELS: Record<string, string> = {
   chat_gpt: 'ChatGPT',
+  chatgpt: 'ChatGPT',
+  openai: 'ChatGPT',
   claude: 'Claude',
   gemini: 'Gemini',
 };
@@ -18,7 +21,7 @@ const MODEL_LABELS: Record<string, string> = {
 interface AICitationRankingSectionProps {
   url: string;
   sessionId?: number;
-  savedCitationMetrics?: { ranking_position_per_prompt?: RankingPositionItem[] } | null;
+  savedCitationMetrics?: Partial<RankingAnalysisResponse> | null;
 }
 
 export const AICitationRankingSection: React.FC<AICitationRankingSectionProps> = ({
@@ -26,6 +29,11 @@ export const AICitationRankingSection: React.FC<AICitationRankingSectionProps> =
   sessionId,
   savedCitationMetrics,
 }) => {
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      console.log('[AICitationRankingSection] received savedCitationMetrics:', savedCitationMetrics);
+    }
+  }, [savedCitationMetrics]);
   const [runRankingAnalysis, { data, isLoading, error }] =
     useRunRankingAnalysisMutation();
   const [location, setLocation] = React.useState('');
@@ -46,19 +54,38 @@ export const AICitationRankingSection: React.FC<AICitationRankingSectionProps> =
   };
 
   const resp = data as RankingAnalysisResponse | undefined;
-  const hasFreshResults = resp?.success && (
-    (resp.ranking_position_per_prompt?.length ?? 0) > 0 ||
-    (resp.model_wise_comparison?.length ?? 0) > 0
+  const hasFreshResults = !!(
+    resp?.success && (
+      (resp.ranking_position_per_prompt?.length ?? 0) > 0 ||
+      (resp.model_wise_comparison?.length ?? 0) > 0 ||
+      (resp.percentile_by_prompt && Object.keys(resp.percentile_by_prompt).length > 0)
+    )
   );
-  const hasSavedResults =
-    !hasFreshResults &&
-    (savedCitationMetrics?.ranking_position_per_prompt?.length ?? 0) > 0;
+
+  // Consider saved metrics beyond ranking_position_per_prompt — model-wise comparison,
+  // percentile_by_prompt, content_quality and entity_coverage should allow the UI to render
+  const savedHasRankingRows = (savedCitationMetrics?.ranking_position_per_prompt?.length ?? 0) > 0;
+  const savedHasModelWise = (savedCitationMetrics?.model_wise_comparison?.length ?? 0) > 0;
+  const savedHasPercentile = !!(savedCitationMetrics?.percentile_by_prompt && Object.keys(savedCitationMetrics.percentile_by_prompt).length > 0);
+  const savedHasContentQuality = savedCitationMetrics?.content_quality?.overall_score !== undefined && savedCitationMetrics?.content_quality?.overall_score !== null;
+  const savedHasEntityCoverage = savedCitationMetrics?.entity_coverage?.score !== undefined && savedCitationMetrics?.entity_coverage?.score !== null;
+
+  const hasSavedResults = !!(
+    !hasFreshResults && (savedHasRankingRows || savedHasModelWise || savedHasPercentile || savedHasContentQuality || savedHasEntityCoverage)
+  );
+
   const hasResults = hasFreshResults || hasSavedResults;
 
   const displayRows =
     (hasFreshResults ? resp?.ranking_position_per_prompt : null) ??
     savedCitationMetrics?.ranking_position_per_prompt ??
     [];
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      console.log('[AICitationRankingSection] flags:', { hasFreshResults, savedHasRankingRows, savedHasModelWise, savedHasPercentile, savedHasContentQuality, savedHasEntityCoverage, hasSavedResults, hasResults });
+    }
+  }, [hasFreshResults, savedHasRankingRows, savedHasModelWise, savedHasPercentile, savedHasContentQuality, savedHasEntityCoverage, hasSavedResults, hasResults]);
 
   return (
     <div className="mt-8 overflow-hidden rounded-xl border border-gray-800 bg-black shadow-lg">
@@ -95,6 +122,7 @@ export const AICitationRankingSection: React.FC<AICitationRankingSectionProps> =
             </span>
           )}
         </div>
+
         {showAdvanced && (
           <div className="mt-3 flex flex-wrap gap-4">
             <label className="flex flex-col gap-1">
@@ -128,7 +156,7 @@ export const AICitationRankingSection: React.FC<AICitationRankingSectionProps> =
 
         {resp?.errors && resp.errors.length > 0 && (
           <div className="mt-4 p-3 bg-amber-900/30 border border-amber-700 text-amber-200 rounded-lg text-xs">
-            Some models failed: {resp?.errors.join('; ')}
+            Some models failed: {resp.errors.join('; ')}
           </div>
         )}
 
@@ -145,376 +173,236 @@ export const AICitationRankingSection: React.FC<AICitationRankingSectionProps> =
 
         {hasResults && (
           <div className="mt-8 space-y-8">
-            {/* 1. Ranking position per prompt (incl. Total Cited, Source Diversity, Credibility) */}
-            {displayRows.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-3">
-                    Ranking Position per Prompt
-                  </h4>
-                  {hasSavedResults && (
-                    <p className="text-xs text-gray-500 mb-2">Saved from previous analysis</p>
-                  )}
-                  <div className="overflow-x-auto rounded-lg border border-gray-800">
-                    <table className="w-full text-left text-sm">
-                      <thead className="bg-gray-900 text-xs uppercase text-gray-400 font-bold">
-                        <tr>
-                          <th className="px-4 py-3 border-b border-gray-800">
-                            Prompt
-                          </th>
-                          <th className="px-4 py-3 border-b border-gray-800">
-                            Model
-                          </th>
-                          <th className="px-4 py-3 border-b border-gray-800">
-                            Position
-                          </th>
-                          <th className="px-4 py-3 border-b border-gray-800">
-                            Total Cited
-                          </th>
-                          <th className="px-4 py-3 border-b border-gray-800">
-                            Source Diversity
-                          </th>
-                          <th className="px-4 py-3 border-b border-gray-800">
-                            Credibility
-                          </th>
-                          <th className="px-4 py-3 border-b border-gray-800">
-                            Percentile
-                          </th>
-                          <th className="px-4 py-3 border-b border-gray-800">
-                            Content Quality
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-800">
-                        {(displayRows as RankingPositionItem[]).map(
-                          (row, i) => (
-                            <tr key={i} className="hover:bg-gray-900/50">
-                              <td className="px-4 py-3 text-gray-300 max-w-xs truncate">
-                                {row.prompt}
-                              </td>
-                              <td className="px-4 py-3 text-gray-400">
-                                {MODEL_LABELS[row.model] ?? row.model}
-                              </td>
-                              <td className="px-4 py-3">
-                                {row.position != null ? (
-                                  <span className="font-medium text-white">
-                                    #{row.position}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-500">Not cited</span>
-                                )}
-                              </td>
-                              <td className="px-4 py-3 text-gray-400">
-                                {row.total_cited}
-                              </td>
-                              <td className="px-4 py-3 text-gray-400">
-                                {row.source_diversity != null
-                                  ? `${row.source_diversity}%`
-                                  : '—'}
-                              </td>
-                              <td className="px-4 py-3 text-gray-400">
-                                {row.credibility_score != null
-                                  ? String(row.credibility_score)
-                                  : '—'}
-                              </td>
-                              <td className="px-4 py-3">
-                                {row.percentile != null ? (
-                                  <span
-                                    className={`inline-flex rounded px-2 py-0.5 text-xs font-bold ${
-                                      row.percentile >= 80
-                                        ? 'bg-green-900/40 text-green-400'
-                                        : row.percentile >= 50
-                                        ? 'bg-yellow-900/40 text-yellow-400'
-                                        : 'bg-red-900/40 text-red-400'
-                                    }`}
-                                  >
-                                    {row.percentile}%
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-500">—</span>
-                                )}
-                              </td>
-                              <td className="px-4 py-3">
-                                {row.content_quality_score != null ? (
-                                  <span
-                                    className={`inline-flex rounded px-2 py-0.5 text-xs font-bold ${
-                                      row.content_quality_score >= 70
-                                        ? 'bg-green-900/40 text-green-400'
-                                        : row.content_quality_score >= 50
-                                        ? 'bg-yellow-900/40 text-yellow-400'
-                                        : 'bg-red-900/40 text-red-400'
-                                    }`}
-                                  >
-                                    {row.content_quality_score}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-500">—</span>
-                                )}
-                              </td>
-                            </tr>
-                          )
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-            {/* 2. Percentile rank summary (fresh run only) */}
-            {hasFreshResults && resp?.percentile_by_prompt &&
-              Object.keys(resp.percentile_by_prompt).length > 0 ? (
-                <div>
-                  <h4 className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-3">
-                    Percentile Rank by Model
-                  </h4>
-                  <div className="overflow-x-auto rounded-lg border border-gray-800">
-                    <table className="w-full text-left text-sm">
-                      <thead className="bg-gray-900 text-xs uppercase text-gray-400 font-bold">
-                        <tr>
-                          <th className="px-4 py-3 border-b border-gray-800">
-                            Prompt
-                          </th>
-                          {MODELS.map((m) => (
-                            <th
-                              key={m}
-                              className="px-4 py-3 border-b border-gray-800"
-                            >
-                              {MODEL_LABELS[m]}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-800">
-                        {Object.entries(resp?.percentile_by_prompt ?? {}).map(
-                          ([prompt, byModel]) => (
-                            <tr key={prompt} className="hover:bg-gray-900/50">
-                              <td className="px-4 py-3 text-gray-300 max-w-xs truncate">
-                                {prompt}
-                              </td>
-                              {MODELS.map((m) => {
-                                const pct = byModel[m];
-                                return (
-                                  <td key={m} className="px-4 py-3">
-                                    {pct != null ? (
-                                      <span
-                                        className={`inline-flex rounded px-2 py-0.5 text-xs font-bold ${
-                                          pct >= 80
-                                            ? 'bg-green-900/40 text-green-400'
-                                            : pct >= 50
-                                            ? 'bg-yellow-900/40 text-yellow-400'
-                                            : 'bg-red-900/40 text-red-400'
-                                        }`}
-                                      >
-                                        {pct}%
-                                      </span>
-                                    ) : (
-                                      <span className="text-gray-500">—</span>
-                                    )}
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          )
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ) : null}
-
-            {/* 3. Model-wise ranking comparison (fresh run only) */}
-            {hasFreshResults && resp?.model_wise_comparison &&
-              resp.model_wise_comparison.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-3">
-                    Model-wise Ranking Comparison
-                  </h4>
-                  <div className="overflow-x-auto rounded-lg border border-gray-800">
-                    <table className="w-full text-left text-sm">
-                      <thead className="bg-gray-900 text-xs uppercase text-gray-400 font-bold">
-                        <tr>
-                          <th className="px-4 py-3 border-b border-gray-800">
-                            Prompt
-                          </th>
-                          {MODELS.map((m) => (
-                            <th
-                              key={m}
-                              className="px-4 py-3 border-b border-gray-800"
-                            >
-                              {MODEL_LABELS[m]}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-800">
-                        {((resp?.model_wise_comparison) as ModelWiseRow[] | undefined)?.map(
-                          (row, i) => (
-                            <tr key={i} className="hover:bg-gray-900/50">
-                              <td className="px-4 py-3 text-gray-300 max-w-xs truncate">
-                                {row.prompt}
-                              </td>
-                              {MODELS.map((m) => {
-                                const pos = row[m as keyof ModelWiseRow];
-                                return (
-                                  <td key={m} className="px-4 py-3">
-                                    {pos != null ? (
-                                      <span className="font-medium text-white">
-                                        #{pos}
-                                      </span>
-                                    ) : (
-                                      <span className="text-gray-500">
-                                        Not cited
-                                      </span>
-                                    )}
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          )
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-            {/* 4. Content Quality / Completeness (fresh run only) */}
-            {hasFreshResults && resp?.content_quality && (
+            {/* 1. Ranking position per prompt */}
+            {Array.isArray(displayRows) && displayRows.length > 0 && (
               <div>
                 <h4 className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-3">
-                  Content Quality / Completeness
+                  Ranking Position per Prompt
                 </h4>
-                <div className="rounded-lg border border-gray-800 bg-gray-900/30 p-4">
-                  <div className="mb-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-400">Overall Score</span>
-                      <span
-                        className={`text-2xl font-bold ${
-                          resp.content_quality.overall_score >= 70
-                            ? 'text-green-400'
-                            : resp.content_quality.overall_score >= 50
-                            ? 'text-yellow-400'
-                            : 'text-red-400'
-                        }`}
-                      >
-                        {resp.content_quality.overall_score}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      Measures citation context quality, completeness, and relevance (0-100)
-                    </p>
+                {hasSavedResults && (
+                  <p className="text-xs text-gray-500 mb-2">Saved from previous analysis</p>
+                )}
+                <div className="overflow-x-auto rounded-lg border border-gray-800">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-gray-900 text-xs uppercase text-gray-400 font-bold">
+                      <tr>
+                        <th className="px-4 py-3 border-b border-gray-800">Prompt</th>
+                        <th className="px-4 py-3 border-b border-gray-800">Model</th>
+                        <th className="px-4 py-3 border-b border-gray-800">Position</th>
+                        <th className="px-4 py-3 border-b border-gray-800">Total Cited</th>
+                        <th className="px-4 py-3 border-b border-gray-800">Source Diversity</th>
+                        <th className="px-4 py-3 border-b border-gray-800">Credibility</th>
+                        <th className="px-4 py-3 border-b border-gray-800">Percentile</th>
+                        <th className="px-4 py-3 border-b border-gray-800">Content Quality</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-800">
+                      {displayRows.map((row, i) => (
+                        <tr key={i} className="hover:bg-gray-900/50">
+                          <td className="px-4 py-3 text-gray-300 max-w-xs truncate">{row.prompt}</td>
+                          <td className="px-4 py-3 text-gray-400">{MODEL_LABELS[row.model] ?? row.model}</td>
+                          <td className="px-4 py-3">
+                            {row.position != null ? (
+                              <span className="font-medium text-white">#{row.position}</span>
+                            ) : (
+                              <span className="text-gray-500">Not cited</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-gray-400">{row.total_cited}</td>
+                          <td className="px-4 py-3 text-gray-400">{row.source_diversity != null ? `${row.source_diversity}%` : '—'}</td>
+                          <td className="px-4 py-3 text-gray-400">{row.credibility_score != null ? String(row.credibility_score) : '—'}</td>
+                          <td className="px-4 py-3">
+                            {row.percentile != null ? (
+                              <span
+                                className={`inline-flex rounded px-2 py-0.5 text-xs font-bold ${row.percentile >= 80 ? 'bg-green-900/40 text-green-400' : row.percentile >= 50 ? 'bg-yellow-900/40 text-yellow-400' : 'bg-red-900/40 text-red-400'}`}
+                              >
+                                {row.percentile}%
+                              </span>
+                            ) : (<span className="text-gray-500">—</span>)}
+                          </td>
+                          <td className="px-4 py-3">
+                            {row.content_quality_score != null ? (
+                              <span
+                                className={`inline-flex rounded px-2 py-0.5 text-xs font-bold ${row.content_quality_score >= 70 ? 'bg-green-900/40 text-green-400' : row.content_quality_score >= 50 ? 'bg-yellow-900/40 text-yellow-400' : 'bg-red-900/40 text-red-400'}`}
+                              >
+                                {row.content_quality_score}
+                              </span>
+                            ) : (<span className="text-gray-500">—</span>)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* 2. Percentile rank summary */}
+            {(() => {
+              const percentileData = (hasFreshResults ? resp?.percentile_by_prompt : null) ?? savedCitationMetrics?.percentile_by_prompt;
+              if (!percentileData || Object.keys(percentileData).length === 0) return null;
+
+              return (
+                <div>
+                  <h4 className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-3">Percentile Rank by Model</h4>
+                  <div className="overflow-x-auto rounded-lg border border-gray-800">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-gray-900 text-xs uppercase text-gray-400 font-bold">
+                        <tr>
+                          <th className="px-4 py-3 border-b border-gray-800">Prompt</th>
+                          {MODELS.map((m) => (
+                            <th key={m} className="px-4 py-3 border-b border-gray-800">{MODEL_LABELS[m]}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-800">
+                        {Object.entries(percentileData).map(([prompt, byModel]: [string, any]) => (
+                          <tr key={prompt} className="hover:bg-gray-900/50">
+                            <td className="px-4 py-3 text-gray-300 max-w-xs truncate">{prompt}</td>
+                            {MODELS.map((m) => {
+                              const pct = (byModel as any)?.[m];
+                              return (
+                                <td key={m} className="px-4 py-3">
+                                  {pct != null ? (
+                                    <span className={`inline-flex rounded px-2 py-0.5 text-xs font-bold ${pct >= 80 ? 'bg-green-900/40 text-green-400' : pct >= 50 ? 'bg-yellow-900/40 text-yellow-400' : 'bg-red-900/40 text-red-400'}`}>
+                                      {pct}%
+                                    </span>
+                                  ) : (<span className="text-gray-500">—</span>)}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                  {Object.keys(resp.content_quality.by_prompt_model).length > 0 && (
-                    <div className="mt-4">
-                      <p className="text-xs text-gray-400 mb-2 font-medium">By Prompt & Model:</p>
-                      <div className="space-y-2">
-                        {Object.entries(resp.content_quality.by_prompt_model).map(
-                          ([prompt, modelScores]) => (
+                </div>
+              );
+            })()}
+
+            {/* 3. Model-wise ranking comparison */}
+            {(() => {
+              const modelWiseData = (hasFreshResults ? resp?.model_wise_comparison : null) ?? savedCitationMetrics?.model_wise_comparison;
+              if (!Array.isArray(modelWiseData) || modelWiseData.length === 0) return null;
+
+              return (
+                <div>
+                  <h4 className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-3">Model-wise Ranking Comparison</h4>
+                  <div className="overflow-x-auto rounded-lg border border-gray-800">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-gray-900 text-xs uppercase text-gray-400 font-bold">
+                        <tr>
+                          <th className="px-4 py-3 border-b border-gray-800">Prompt</th>
+                          {MODELS.map((m) => (
+                            <th key={m} className="px-4 py-3 border-b border-gray-800">{MODEL_LABELS[m]}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-800">
+                        {modelWiseData.map((row, i) => (
+                          <tr key={i} className="hover:bg-gray-900/50">
+                            <td className="px-4 py-3 text-gray-300 max-w-xs truncate">{row.prompt}</td>
+                            {MODELS.map((m) => {
+                              const pos = row[m as keyof ModelWiseRow];
+                              return (
+                                <td key={m} className="px-4 py-3">
+                                  {pos != null ? (<span className="font-medium text-white">#{pos}</span>) : (<span className="text-gray-500">Not cited</span>)}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* 4. Content Quality / Completeness */}
+            {(() => {
+              const qualityData = (hasFreshResults ? resp?.content_quality : null) ?? savedCitationMetrics?.content_quality;
+              if (!qualityData || qualityData.overall_score === undefined) return null;
+
+              return (
+                <div>
+                  <h4 className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-3">Content Quality / Completeness</h4>
+                  <div className="rounded-lg border border-gray-800 bg-gray-900/30 p-4">
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-gray-400">Overall Score</span>
+                        <span className={`text-2xl font-bold ${qualityData.overall_score >= 70 ? 'text-green-400' : qualityData.overall_score >= 50 ? 'text-yellow-400' : 'text-red-400'}`}>{qualityData.overall_score}</span>
+                      </div>
+                    </div>
+                    {qualityData.by_prompt_model && Object.keys(qualityData.by_prompt_model).length > 0 && (
+                      <div className="mt-4">
+                        <p className="text-xs text-gray-400 mb-2 font-medium">By Prompt & Model:</p>
+                        <div className="space-y-2">
+                          {Object.entries(qualityData.by_prompt_model).map(([prompt, modelScores]: [string, any]) => (
                             <div key={prompt} className="text-xs">
-                              <div className="text-gray-300 font-medium mb-1 truncate max-w-md">
-                                {prompt}
-                              </div>
+                              <div className="text-gray-300 font-medium mb-1 truncate max-w-md">{prompt}</div>
                               <div className="flex gap-4 ml-4">
-                                {Object.entries(modelScores).map(([model, score]) => (
+                                {Object.entries(modelScores).map(([model, score]: [string, any]) => (
                                   <div key={model} className="flex items-center gap-1">
-                                    <span className="text-gray-500">
-                                      {MODEL_LABELS[model] ?? model}:
-                                    </span>
-                                    <span
-                                      className={`font-medium ${
-                                        score >= 70
-                                          ? 'text-green-400'
-                                          : score >= 50
-                                          ? 'text-yellow-400'
-                                          : 'text-red-400'
-                                      }`}
-                                    >
-                                      {score}
-                                    </span>
+                                    <span className="text-gray-500">{MODEL_LABELS[model] ?? model}:</span>
+                                    <span className={`font-medium ${score >= 70 ? 'text-green-400' : score >= 50 ? 'text-yellow-400' : 'text-red-400'}`}>{score}</span>
                                   </div>
                                 ))}
                               </div>
                             </div>
-                          )
-                        )}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* 5. Entity Coverage (fresh run only) */}
-            {hasFreshResults && resp?.entity_coverage && (
-              <div>
-                <h4 className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-3">
-                  Entity Coverage
-                </h4>
-                <div className="rounded-lg border border-gray-800 bg-gray-900/30 p-4">
-                  <div className="mb-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-400">Coverage Score</span>
-                      <span
-                        className={`text-2xl font-bold ${
-                          resp.entity_coverage.score >= 70
-                            ? 'text-green-400'
-                            : resp.entity_coverage.score >= 50
-                            ? 'text-yellow-400'
-                            : 'text-red-400'
-                        }`}
-                      >
-                        {resp.entity_coverage.score}%
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      {resp.entity_coverage.found_entities?.length || 0} of{' '}
-                      {resp.entity_coverage.total_expected || 0} expected entities found in AI citations
-                    </p>
+                    )}
                   </div>
-                  
-                  {resp.entity_coverage.found_entities &&
-                    resp.entity_coverage.found_entities.length > 0 && (
-                      <div className="mt-4">
-                        <p className="text-xs text-gray-400 mb-2 font-medium">
-                          Found Entities ({resp.entity_coverage.found_entities.length}):
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {resp.entity_coverage.found_entities.map((entity, idx) => (
-                            <span
-                              key={idx}
-                              className="px-2 py-1 rounded bg-green-900/30 text-green-300 text-xs"
-                            >
-                              {entity}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                  {resp.entity_coverage.missing_entities &&
-                    resp.entity_coverage.missing_entities.length > 0 && (
-                      <div className="mt-4">
-                        <p className="text-xs text-gray-400 mb-2 font-medium">
-                          Missing Entities ({resp.entity_coverage.missing_entities.length}):
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {resp.entity_coverage.missing_entities.map((entity, idx) => (
-                            <span
-                              key={idx}
-                              className="px-2 py-1 rounded bg-red-900/30 text-red-300 text-xs"
-                            >
-                              {entity}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
+
+            {/* 5. AI Citation Coverage */}
+            {(() => {
+              const coverageData = (hasFreshResults ? resp?.entity_coverage : null) ?? savedCitationMetrics?.entity_coverage;
+              if (!coverageData || coverageData.score === undefined) return null;
+
+              return (
+                <div>
+                  <h4 className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-3">AI Citation Coverage</h4>
+                  <div className="rounded-lg border border-gray-800 bg-gray-900/30 p-4">
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-gray-400">Coverage Score</span>
+                        <span className={`text-2xl font-bold ${coverageData.score >= 70 ? 'text-green-400' : coverageData.score >= 50 ? 'text-yellow-400' : 'text-red-400'}`}>{coverageData.score}%</span>
+                      </div>
+                      <p className="text-xs text-gray-500">{(coverageData.found_entities?.length || 0)} of {(coverageData.total_expected || 0)} expected entities found</p>
+                    </div>
+                    {coverageData.found_entities && coverageData.found_entities.length > 0 && (
+                      <div className="mt-4">
+                        <p className="text-xs text-gray-400 mb-2 font-medium">Found Entities:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {coverageData.found_entities.map((entity: string, idx: number) => (
+                            <span key={idx} className="px-2 py-1 rounded bg-green-900/30 text-green-300 text-xs">{entity}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {coverageData.missing_entities && coverageData.missing_entities.length > 0 && (
+                      <div className="mt-4">
+                        <p className="text-xs text-gray-400 mb-2 font-medium">Missing Entities:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {coverageData.missing_entities.map((entity: string, idx: number) => (
+                            <span key={idx} className="px-2 py-1 rounded bg-red-900/30 text-red-300 text-xs">{entity}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
 
-        {resp?.success && !hasResults && (
+        {resp?.success && !hasResults && !isLoading && (
           <div className="mt-6 p-4 bg-gray-900/50 rounded-lg border border-gray-700 text-gray-400 text-sm">
             No citations found for the given prompts. Try different prompts or
             ensure your URL is cited by the models.

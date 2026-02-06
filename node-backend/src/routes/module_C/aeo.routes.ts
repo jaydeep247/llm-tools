@@ -428,6 +428,15 @@ router.get('/results/:sessionId',
                 if (multiModelResult.citation_metrics != null) {
                     finalResult.citation_metrics = multiModelResult.citation_metrics;
                 }
+                if (multiModelResult.ranking_metrics != null) {
+                    finalResult.ranking_metrics = multiModelResult.ranking_metrics;
+                }
+                if (multiModelResult.visibility_metrics != null) {
+                    finalResult.visibility_metrics = multiModelResult.visibility_metrics;
+                }
+                if (multiModelResult.share_of_voice != null) {
+                    finalResult.share_of_voice = multiModelResult.share_of_voice;
+                }
 
                 // Sync module_scores to moduleScores for frontend compatibility
                 // This ensures AppWithAuth (which prefers moduleScores) receives the updated data
@@ -460,272 +469,354 @@ router.get('/results/:sessionId',
     });
 
 // Website Score Endpoint (Content Consistency + Entity Coverage; does NOT use DataForSEO)
-router.post('/website-score', async (req: express.Request, res: express.Response) => {
-    try {
-        const { url, sessionId } = req.body;
-        console.log('[MODULE E DEBUG] /website-score called: url=' + url + ', sessionId=' + sessionId);
-
-        logger.info('=== MODULE E: /website-score endpoint called ===', {
-            url,
-            sessionId,
-            hasSessionId: !!sessionId,
-            sessionIdType: typeof sessionId
-        });
-
-        if (!url) {
-            return res.status(400).json({ success: false, error: 'URL is required' });
-        }
-
-        // Prefer LIVE FETCH first to get real HTML content (fixes topic extraction).
-        // Fall back to DB when fetch fails.
+router.post('/website-score',
+    authenticateUser,
+    checkUsageLimit('aeo_analysis' as any), // Use as any to prevent typing issues if enum is strict
+    async (req: express.Request, res: express.Response) => {
         try {
-            let text = '';
-            let statusCode = 200;
-            let actualWordCount: number | undefined;
-            let contentSource: 'live_fetch' | 'db_fallback' = 'live_fetch';
+            const { url } = req.body;
+            let { sessionId } = req.body;
+            const userId = req.user!.userId;
             const db = await import('../../services/DatabaseService.js').then(m => m.getDatabase());
 
-            /** Build content from DB pages: aggregate title, description, meta from top pages for better topic extraction */
-            const buildTextFromPages = (pages: any[]): { text: string; actualWordCount?: number } => {
-                if (!pages?.length) return { text: '' };
-                const parts: string[] = [];
-                let totalWords = 0;
-                const topPages = pages
-                    .filter((p: any) => (p.statusCode ?? p.status_code) === 200)
-                    .sort((a: any, b: any) => (b.wordCount || 0) - (a.wordCount || 0))
-                    .slice(0, 5);
-                for (const p of topPages) {
-                    if (p.title) parts.push(`Title: ${p.title}`);
-                    if (p.description) parts.push(`Description: ${p.description}`);
-                    if (p.metaDescription && p.metaDescription !== p.description) parts.push(`Meta: ${p.metaDescription}`);
-                    if (p.ogDescription) parts.push(`OG: ${p.ogDescription}`);
-                    if (p.headingTags) parts.push(`Headings: ${p.headingTags}`);
-                    totalWords += p.wordCount ?? 0;
-                }
-                const combined = parts.join('\n\n');
-                logger.info('MODULE E: buildTextFromPages', { pageCount: topPages.length, combinedLen: combined.length, totalWords });
-                return { text: combined, actualWordCount: totalWords || Math.ceil(combined.length / 5) };
-            };
-
-            // 1) Try live fetch FIRST to get real HTML (ensures good content for topic extraction)
-            try {
-                const controller = new AbortController();
-                const timeout = setTimeout(() => controller.abort(), 30000);
-                const response = await fetch(url, { signal: controller.signal });
-                clearTimeout(timeout);
-                if (response.ok) {
-                    text = await response.text();
-                    statusCode = response.status;
-                    contentSource = 'live_fetch';
-                    actualWordCount = Math.ceil(text.length / 5);
-                    logger.info('MODULE E: Using content from live fetch', { url, contentLength: text.length, statusCode });
-                } else {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-            } catch (fetchError) {
-                logger.warn('MODULE E: Live fetch failed, falling back to DB', {
-                    url,
-                    sessionId,
-                    error: (fetchError as Error).message,
-                });
-
-                // 2) Fall back to DB when fetch fails
-            if (sessionId) {
-                let pages = await db.getPages(sessionId, 10000, 0);
-                if (pages.length === 0) {
-                    await new Promise(r => setTimeout(r, 3000));
-                    pages = await db.getPages(sessionId, 10000, 0);
-                }
-                const fromDb = buildTextFromPages(pages);
-                if (fromDb.text) {
-                    text = fromDb.text;
-                    actualWordCount = fromDb.actualWordCount;
-                        contentSource = 'db_fallback';
-                        logger.info('MODULE E: Using content from DB fallback', { sessionId, contentLength: text.length });
+            // If no session ID provided (e.g. manual independent run), try to attach to latest session
+            if (!sessionId) {
+                try {
+                    const latestSession = await db.getLatestSessionByUrl(url, userId);
+                    if (latestSession) {
+                        sessionId = latestSession.id;
+                        logger.info('MODULE E: Found latest session for manual run', { sessionId });
                     }
+                } catch (err) {
+                    logger.warn('MODULE E: Failed to lookup latest session', { error: err });
                 }
+            }
+
+            console.log('[MODULE E DEBUG] /website-score called: url=' + url + ', sessionId=' + sessionId);
+
+            logger.info('=== MODULE E: /website-score endpoint called ===', {
+                url,
+                sessionId,
+                hasSessionId: !!sessionId,
+                sessionIdType: typeof sessionId
+            });
+
+            if (!url) {
+                return res.status(400).json({ success: false, error: 'URL is required' });
+            }
+
+            // Prefer LIVE FETCH first to get real HTML content (fixes topic extraction).
+            // Fall back to DB when fetch fails.
+            try {
+                let text = '';
+                let statusCode = 200;
+                let actualWordCount: number | undefined;
+                let contentSource: 'live_fetch' | 'db_fallback' = 'live_fetch';
+                const db = await import('../../services/DatabaseService.js').then(m => m.getDatabase());
+
+                /** Build content from DB pages: aggregate title, description, meta from top pages for better topic extraction */
+                const buildTextFromPages = (pages: any[]): { text: string; actualWordCount?: number } => {
+                    if (!pages?.length) return { text: '' };
+                    const parts: string[] = [];
+                    let totalWords = 0;
+                    const topPages = pages
+                        .filter((p: any) => (p.statusCode ?? p.status_code) === 200)
+                        .sort((a: any, b: any) => (b.wordCount || 0) - (a.wordCount || 0))
+                        .slice(0, 5);
+                    for (const p of topPages) {
+                        if (p.title) parts.push(`Title: ${p.title}`);
+                        if (p.description) parts.push(`Description: ${p.description}`);
+                        if (p.metaDescription && p.metaDescription !== p.description) parts.push(`Meta: ${p.metaDescription}`);
+                        if (p.ogDescription) parts.push(`OG: ${p.ogDescription}`);
+                        if (p.headingTags) parts.push(`Headings: ${p.headingTags}`);
+                        totalWords += p.wordCount ?? 0;
+                    }
+                    const combined = parts.join('\n\n');
+                    logger.info('MODULE E: buildTextFromPages', { pageCount: topPages.length, combinedLen: combined.length, totalWords });
+                    return { text: combined, actualWordCount: totalWords || Math.ceil(combined.length / 5) };
+                };
+
+                // 1) Try live fetch FIRST to get real HTML (ensures good content for topic extraction)
+                try {
+                    const controller = new AbortController();
+                    const timeout = setTimeout(() => controller.abort(), 30000);
+                    const response = await fetch(url, { signal: controller.signal });
+                    clearTimeout(timeout);
+                    if (response.ok) {
+                        text = await response.text();
+                        statusCode = response.status;
+                        contentSource = 'live_fetch';
+                        actualWordCount = Math.ceil(text.length / 5);
+                        logger.info('MODULE E: Using content from live fetch', { url, contentLength: text.length, statusCode });
+                    } else {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                } catch (fetchError) {
+                    logger.warn('MODULE E: Live fetch failed, falling back to DB', {
+                        url,
+                        sessionId,
+                        error: (fetchError as Error).message,
+                    });
+
+                    // 2) Fall back to DB when fetch fails
+                    if (sessionId) {
+                        let pages = await db.getPages(sessionId, 10000, 0);
+                        if (pages.length === 0) {
+                            await new Promise(r => setTimeout(r, 3000));
+                            pages = await db.getPages(sessionId, 10000, 0);
+                        }
+                        const fromDb = buildTextFromPages(pages);
+                        if (fromDb.text) {
+                            text = fromDb.text;
+                            actualWordCount = fromDb.actualWordCount;
+                            contentSource = 'db_fallback';
+                            logger.info('MODULE E: Using content from DB fallback', { sessionId, contentLength: text.length });
+                        }
+                    }
                     if (!sessionId) {
                         const pages = await db.getPages(undefined, 10000, 0);
                         const fromDb = buildTextFromPages(pages);
                         if (fromDb.text) {
                             text = fromDb.text;
                             actualWordCount = fromDb.actualWordCount;
-                        contentSource = 'db_fallback';
+                            contentSource = 'db_fallback';
+                        }
                     }
                 }
-            }
 
-            if (!text || text.trim().length === 0) {
-                logger.warn('MODULE E: No content available', { url, sessionId });
+                if (!text || text.trim().length === 0) {
+                    logger.warn('MODULE E: No content available', { url, sessionId });
+                    return res.status(400).json({
+                        success: false,
+                        error: 'Could not fetch URL for analysis',
+                        details: {
+                            message: 'No content available. The crawl may still be in progress.',
+                            suggestion: 'Wait for the crawl to complete and try again in a few seconds.'
+                        }
+                    });
+                }
+
+                const wordCount = actualWordCount !== undefined ? actualWordCount : Math.ceil(text.length / 5);
+                const pagesForScore = [{ url, content: text, title: 'Homepage', word_count: wordCount, status_code: statusCode }];
+                logger.info('MODULE E: Calling generateWebsiteScores', {
+                    url,
+                    sessionId,
+                    contentLength: text.length,
+                    wordCount,
+                    pagesCount: pagesForScore.length,
+                    contentSource: contentSource!,
+                });
+                console.log('[MODULE E DEBUG] generateWebsiteScores: contentSource=' + (contentSource ?? 'unknown') + ', contentLength=' + text.length + ', url=' + url);
+
+                let scores: any;
+                const runScoring = () => MultiModelScoringService.generateWebsiteScores(url, pagesForScore, sessionId);
+                try {
+                    scores = await runScoring();
+                } catch (genErr) {
+                    const errMsg = (genErr as Error)?.message || '';
+                    const isFetchFailed = /fetch failed|ECONNREFUSED|ECONNRESET|ETIMEDOUT/i.test(errMsg);
+                    if (isFetchFailed) {
+                        logger.warn('MODULE E: Scoring failed (likely Python unreachable), retrying once in 3s', { message: errMsg });
+                        await new Promise(r => setTimeout(r, 3000));
+                        try {
+                            scores = await runScoring();
+                        } catch (retryErr) {
+                            logger.error('MODULE E: generateWebsiteScores retry also failed', retryErr as Error);
+                            throw retryErr;
+                        }
+                    } else {
+                        logger.error('MODULE E: generateWebsiteScores threw', genErr as Error);
+                        console.error('[MODULE E DEBUG] generateWebsiteScores failed:', errMsg);
+                        throw genErr;
+                    }
+                }
+
+                logger.info('MODULE E: Scores generated', {
+                    hasScores: !!scores,
+                    consistency: scores?.consistency,
+                    hasEntityCoverage: !!scores?.entity_coverage,
+                    entityCoverageScore: scores?.entity_coverage?.score,
+                    hasBrandMetrics: !!scores?.brand_metrics,
+                    brandName: scores?.brand_metrics?.brand_name
+                });
+                console.log('[MODULE E DEBUG] Content Consistency score:', scores?.consistency, '(undefined = N/A)');
+                console.log('[MODULE E DEBUG] Entity Coverage score:', scores?.entity_coverage?.score, '(undefined = N/A)');
+
+                // Save Module E results to database for history view
+                if (sessionId && scores) {
+                    logger.info('MODULE E: Attempting to save to database', { sessionId, url });
+                    try {
+                        const db = await import('../../services/DatabaseService.js').then(m => m.getDatabase());
+
+                        const dataToSave = {
+                            session_id: sessionId,
+                            url: url,
+                            consistency: scores.consistency,
+                            score_entity_coverage: scores.entity_coverage?.score,
+                            entities_expected: scores.entity_coverage?.entities_expected,
+                            entities_observed: scores.entity_coverage?.entities_observed,
+                            entities_missing: scores.entity_coverage?.entities_missing,
+                            brand_metrics: scores.brand_metrics,
+                            response_accuracy: scores.response_accuracy
+                        };
+
+                        logger.info('MODULE E: Data prepared for save', {
+                            session_id: dataToSave.session_id,
+                            consistency: dataToSave.consistency,
+                            score_entity_coverage: dataToSave.score_entity_coverage,
+                            hasBrandMetrics: !!dataToSave.brand_metrics
+                        });
+
+                        const savedId = await db.insertAeoResultsTable(dataToSave);
+                        logger.info('✅ MODULE E: Successfully saved to database!', { sessionId, url, savedId });
+                    } catch (saveError) {
+                        logger.error('❌ MODULE E: Failed to save to database', saveError as Error, {
+                            sessionId,
+                            url
+                        });
+                        // Don't fail the request if save fails
+                    }
+                } else {
+                    logger.warn('MODULE E: Skipping database save', {
+                        hasSessionId: !!sessionId,
+                        hasScores: !!scores,
+                        sessionId,
+                        url
+                    });
+                }
+
+                res.json({ success: true, scores });
+            } catch (fetchError) {
+                logger.error('MODULE E: Error in scoring endpoint', fetchError as Error, {
+                    url: req.body.url,
+                    sessionId: req.body.sessionId
+                });
                 return res.status(400).json({
                     success: false,
                     error: 'Could not fetch URL for analysis',
                     details: {
-                        message: 'No content available. The crawl may still be in progress.',
-                        suggestion: 'Wait for the crawl to complete and try again in a few seconds.'
+                        message: (fetchError as Error).message,
+                        suggestion: 'The crawl may still be in progress. Please wait and try again.'
                     }
                 });
             }
 
-            const wordCount = actualWordCount !== undefined ? actualWordCount : Math.ceil(text.length / 5);
-            const pagesForScore = [{ url, content: text, title: 'Homepage', word_count: wordCount, status_code: statusCode }];
-            logger.info('MODULE E: Calling generateWebsiteScores', {
-                url,
-                sessionId,
-                contentLength: text.length,
-                wordCount,
-                pagesCount: pagesForScore.length,
-                contentSource: contentSource!,
-            });
-            console.log('[MODULE E DEBUG] generateWebsiteScores: contentSource=' + (contentSource ?? 'unknown') + ', contentLength=' + text.length + ', url=' + url);
-
-            let scores: any;
-            const runScoring = () => MultiModelScoringService.generateWebsiteScores(url, pagesForScore, sessionId);
-            try {
-                scores = await runScoring();
-            } catch (genErr) {
-                const errMsg = (genErr as Error)?.message || '';
-                const isFetchFailed = /fetch failed|ECONNREFUSED|ECONNRESET|ETIMEDOUT/i.test(errMsg);
-                if (isFetchFailed) {
-                    logger.warn('MODULE E: Scoring failed (likely Python unreachable), retrying once in 3s', { message: errMsg });
-                    await new Promise(r => setTimeout(r, 3000));
-                    try {
-                        scores = await runScoring();
-                    } catch (retryErr) {
-                        logger.error('MODULE E: generateWebsiteScores retry also failed', retryErr as Error);
-                        throw retryErr;
-                    }
-                } else {
-                    logger.error('MODULE E: generateWebsiteScores threw', genErr as Error);
-                    console.error('[MODULE E DEBUG] generateWebsiteScores failed:', errMsg);
-                    throw genErr;
-                }
-            }
-
-            logger.info('MODULE E: Scores generated', {
-                hasScores: !!scores,
-                consistency: scores?.consistency,
-                hasEntityCoverage: !!scores?.entity_coverage,
-                entityCoverageScore: scores?.entity_coverage?.score,
-                hasBrandMetrics: !!scores?.brand_metrics,
-                brandName: scores?.brand_metrics?.brand_name
-            });
-            console.log('[MODULE E DEBUG] Content Consistency score:', scores?.consistency, '(undefined = N/A)');
-            console.log('[MODULE E DEBUG] Entity Coverage score:', scores?.entity_coverage?.score, '(undefined = N/A)');
-
-            // Save Module E results to database for history view
-            if (sessionId && scores) {
-                logger.info('MODULE E: Attempting to save to database', { sessionId, url });
-                try {
-                    const db = await import('../../services/DatabaseService.js').then(m => m.getDatabase());
-
-                    const dataToSave = {
-                        session_id: sessionId,
-                        url: url,
-                        consistency: scores.consistency,
-                        score_entity_coverage: scores.entity_coverage?.score,
-                        entities_expected: scores.entity_coverage?.entities_expected,
-                        entities_observed: scores.entity_coverage?.entities_observed,
-                        entities_missing: scores.entity_coverage?.entities_missing,
-                        brand_metrics: scores.brand_metrics,
-                        response_accuracy: scores.response_accuracy
-                    };
-
-                    logger.info('MODULE E: Data prepared for save', {
-                        session_id: dataToSave.session_id,
-                        consistency: dataToSave.consistency,
-                        score_entity_coverage: dataToSave.score_entity_coverage,
-                        hasBrandMetrics: !!dataToSave.brand_metrics
-                    });
-
-                    const savedId = await db.insertAeoResultsTable(dataToSave);
-                    logger.info('✅ MODULE E: Successfully saved to database!', { sessionId, url, savedId });
-                } catch (saveError) {
-                    logger.error('❌ MODULE E: Failed to save to database', saveError as Error, {
-                        sessionId,
-                        url
-                    });
-                    // Don't fail the request if save fails
-                }
-            } else {
-                logger.warn('MODULE E: Skipping database save', {
-                    hasSessionId: !!sessionId,
-                    hasScores: !!scores,
-                    sessionId,
-                    url
-                });
-            }
-
-            res.json({ success: true, scores });
-        } catch (fetchError) {
-            logger.error('MODULE E: Error in scoring endpoint', fetchError as Error, {
-                url: req.body.url,
-                sessionId: req.body.sessionId
-            });
-            return res.status(400).json({
-                success: false,
-                error: 'Could not fetch URL for analysis',
-                details: {
-                    message: (fetchError as Error).message,
-                    suggestion: 'The crawl may still be in progress. Please wait and try again.'
-                }
-            });
+        } catch (error) {
+            logger.error('Error in website-score endpoint:', error as Error);
+            res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
         }
-
-    } catch (error) {
-        logger.error('Error in website-score endpoint:', error as Error);
-        res.status(500).json({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
-    }
-});
+    });
 
 // Proxy competitor mentions to FastAPI (DataForSEO phrase_trends)
 router.post('/analyze-competitors-mentions',
     authenticateUser,
     async (req: express.Request, res: express.Response) => {
         try {
-            const { competitors, brand_name } = req.body || {};
-            if (!Array.isArray(competitors) || competitors.length === 0) {
-                return res.status(400).json({ success: false, error: 'competitors array is required' });
+            const { competitors, brand_name, url } = req.body || {};
+
+            // Allow empty competitors if URL is provided (for auto-discovery)
+            if ((!Array.isArray(competitors) || competitors.length === 0) && !url) {
+                return res.status(400).json({ success: false, error: 'Either competitors array or url is required' });
             }
 
-            logger.info('Proxying competitor mentions request', {
-                competitorsCount: competitors.length,
-                hasBrandName: !!brand_name
+            logger.info('🔵 [competitor-mentions] Received request', {
+                competitorsCount: Array.isArray(competitors) ? competitors.length : 0,
+                brand_name: brand_name,
+                hasBrandName: !!brand_name,
+                hasUrl: !!url,
+                autoDiscovery: (!competitors || competitors.length === 0) && !!url,
+                bodyKeys: Object.keys(req.body || {})
             });
 
             const response = await fetch(`${AEO_API_BASE_URL}/api/aeo/analyze-competitors-mentions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ competitors, brand_name: brand_name || undefined })
+                body: JSON.stringify({
+                    competitors: competitors || [],
+                    ...(brand_name && { brand_name: brand_name }),  // Only send if it exists
+                    target_url: url || undefined // Pass URL for auto-discovery
+                })
             });
 
+            logger.info('🟢 [competitor-mentions] Sent request to Python API', {
+                sentBrandName: brand_name || 'NOT SENT',
+                wasBrandNameIncluded: !!brand_name,
+                competitors: (competitors || []).length
+            });
+
+            let data: any;
             if (!response.ok) {
                 const errorText = await response.text();
                 logger.warn(`Competitor mentions API failed: ${response.status} - ${errorText}`);
-                return res.status(response.status).json({
-                    success: false,
-                    error: errorText || 'Competitor mentions analysis failed'
-                });
+                // Coerce to safe empty response so frontend can show empty state instead of an error
+                data = {
+                    success: true,
+                    data: [],
+                    share_of_voice: null,
+                    analyzed_competitors: [] as string[],
+                    _error_from_upstream: `HTTP ${response.status}: ${errorText?.substring?.(0,200)}`
+                };
+            } else {
+                data = await response.json();
             }
 
-            const data = await response.json();
-            
-            // Save Share of Voice data if available
-            if (data.share_of_voice && req.body.sessionId) {
+            // Save Competitor Mentions and Share of Voice data to DB if sessionId present
+            // ALWAYS save (even empty data) so we have a record of the analysis run
+            if (req.body.sessionId) {
                 try {
                     const db = await import('../../services/DatabaseService.js').then(m => m.getDatabase());
+                    const sovToPersist = data.share_of_voice || null;
+                    const dataToPersist = Array.isArray(data.data) ? data.data : [];
+                    
+                    logger.info('[competitor-mentions] 📝 Preparing DB save:', {
+                        sessionId: req.body.sessionId,
+                        hasSOV: !!sovToPersist,
+                        sovOverall: sovToPersist?.overall,
+                        dataLength: dataToPersist.length,
+                        fullSOV: sovToPersist
+                    });
+                    
                     await db.insertAeoResultsTable({
                         session_id: req.body.sessionId,
                         url: req.body.url || 'competitor-mentions',
-                        share_of_voice: data.share_of_voice
+                        share_of_voice: sovToPersist,
+                        visibility_metrics: dataToPersist
                     });
-                    logger.info('Share of Voice data saved successfully');
+                    
+                    logger.info('[competitor-mentions] ✅ Successfully persisted to DB:', { 
+                        sessionId: req.body.sessionId, 
+                        hasData: dataToPersist.length, 
+                        hasSOV: !!sovToPersist,
+                        sovOverall: sovToPersist?.overall
+                    });
                 } catch (saveError) {
-                    logger.warn('Failed to save Share of Voice data', saveError as Error);
+                    logger.error('[competitor-mentions] ❌ Failed to save to DB', saveError as Error, {
+                        sessionId: req.body.sessionId,
+                        error: (saveError as Error).message
+                    });
                 }
             }
+
+            // Ensure response explicitly includes share_of_voice for frontend
+            const responseToSend = {
+                success: data.success ?? true,
+                data: data.data || [],
+                share_of_voice: data.share_of_voice || null,  // Explicitly include, even if null
+                analyzed_competitors: data.analyzed_competitors || [],
+                ...(data._error_from_upstream && { _error_from_upstream: data._error_from_upstream })
+            };
             
-            res.json(data);
+            logger.info('[competitor-mentions] � About to SEND response to frontend:', {
+                hasSoV: !!responseToSend.share_of_voice,
+                sovType: typeof responseToSend.share_of_voice,
+                sovValue: responseToSend.share_of_voice,
+                sovIsNull: responseToSend.share_of_voice === null,
+                sovOverall: responseToSend.share_of_voice?.overall,
+                dataLength: Array.isArray(responseToSend.data) ? responseToSend.data.length : 0,
+                fullResponse: JSON.stringify(responseToSend) // Log full response for inspection
+            });
+            
+            res.json(responseToSend);
         } catch (error) {
             logger.error('Competitor mentions proxy error:', error as Error);
             res.status(500).json({
@@ -770,7 +861,7 @@ router.post('/analyze-brand',
             }
 
             const data = await response.json();
-            
+
             // Log the response structure for debugging
             logger.info(`[BRAND PULSE] API response received`, {
                 hasSuccess: !!data.success,
@@ -779,7 +870,7 @@ router.post('/analyze-brand',
                 dataKeys: data.data ? Object.keys(data.data) : [],
                 fullResponse: JSON.stringify(data).substring(0, 500)
             });
-            
+
             // --- SAVE TO DATABASE FOR HISTORY ---
             if (data.success && data.data) {
                 try {
@@ -866,7 +957,7 @@ router.post('/analyze-brand',
                     response: JSON.stringify(data).substring(0, 300)
                 });
             }
-            
+
             res.json(data);
         } catch (error) {
             logger.error('Brand analysis proxy error:', error as Error);

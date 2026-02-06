@@ -25,9 +25,46 @@ class CompetitorMentionsService:
             self.api_available = False
             self.client = None
 
+    
+    def auto_discover_competitors(self, target_url: str, limit: int = 5) -> List[str]:
+        """
+        Auto-discover organic competitors for a given URL using DataForSEO.
+        """
+        if not self.api_available or not self.client:
+            logger.warning("DataForSEO not available for auto-discovery")
+            return []
+            
+        try:
+            # Extract domain from URL
+            parsed = urlparse(target_url if target_url.startswith('http') else f'http://{target_url}')
+            target_domain = parsed.netloc or parsed.path
+            target_domain = target_domain.replace("www.", "")
+            
+            logger.info(f"Auto-discovering competitors for domain: {target_domain}")
+            
+            response = self.client.get_domain_competitors(target_domain, limit)
+            
+            competitors = []
+            if response.get('status_code') == 20000 and response.get('tasks'):
+                task = response['tasks'][0]
+                if task.get('result'):
+                    items = task['result'][0].get('items', [])
+                    for item in items:
+                        domain = item.get('domain')
+                        if domain:
+                            competitors.append(domain)
+                            
+            logger.info(f"Auto-discovered {len(competitors)} competitors: {competitors}")
+            return competitors
+            
+        except Exception as e:
+            logger.error(f"Error auto-discovering competitors: {e}")
+            return []
+
     def analyze_mentions_batch(self, competitors: List[str]) -> List[Dict[str, Any]]:
         """
         Analyze mentions for a batch of competitors.
+
 
         Args:
             competitors: List of competitor domain names.
@@ -173,6 +210,7 @@ class CompetitorMentionsService:
                 }
             }
         """
+        logger.info(f"🔍 [SOV] Starting analyze_mentions_by_ai_model: brand={brand_name}, competitors={competitors}")
         try:
             from ..module_E.sentiment_tracking_service import SentimentTrackingService
             
@@ -183,12 +221,16 @@ class CompetitorMentionsService:
             if not visibility_queries:
                 visibility_queries = sentiment_service.VISIBILITY_QUERIES
             
+            logger.info(f"📋 [SOV] Generated {len(visibility_queries)} visibility queries for {brand_name}")
+            
             # Prepare search terms for brand and competitors
             brand_terms = self._visibility_search_terms(brand_name)
             competitor_terms_map = {
                 comp: self._visibility_search_terms(comp) 
                 for comp in competitors
             }
+            
+            logger.info(f"🔎 [SOV] Brand terms: {brand_terms}, Competitor terms: {list(competitor_terms_map.keys())}")
             
             # Track mentions per model
             model_results = {
@@ -203,6 +245,7 @@ class CompetitorMentionsService:
                 model_key = "chatgpt" if model_name == "openai" else model_name
                 
                 try:
+                    logger.info(f"🤖 [SOV] Querying {model_name}...")
                     # Use _audit_model_visibility which batches queries and handles JSON correctly
                     visibility_responses = await sentiment_service._audit_model_visibility(
                         brand_name=brand_name,
@@ -210,10 +253,13 @@ class CompetitorMentionsService:
                         visibility_queries=visibility_queries[:6]  # Limit to 6 queries
                     )
                     
+                    logger.info(f"📨 [SOV] {model_name} returned {len(visibility_responses)} responses")
+                    
                     # Process each response
                     for response_item in visibility_responses:
                         answer_text = (response_item.get("answer") or "").lower()
                         if not answer_text:
+                            logger.debug(f"[SOV] {model_name}: Empty answer, skipping")
                             continue
                         
                         model_results[model_key]["total_queries"] += 1
@@ -225,6 +271,7 @@ class CompetitorMentionsService:
                         )
                         if brand_mentioned:
                             model_results[model_key]["brand_count"] += 1
+                            logger.debug(f"[SOV] {model_name}: Brand '{brand_name}' mentioned")
                         
                         # Check for competitor mentions
                         for comp, comp_terms in competitor_terms_map.items():
@@ -234,14 +281,17 @@ class CompetitorMentionsService:
                             )
                             if comp_mentioned:
                                 model_results[model_key]["competitor_count"] += 1
+                                logger.debug(f"[SOV] {model_name}: Competitor '{comp}' mentioned")
                                 
                 except Exception as e:
-                    logger.warning(f"Error querying {model_name} for SOV: {e}")
+                    logger.warning(f"⚠️  [SOV] Error querying {model_name} for SOV: {e}", exc_info=True)
                     continue
             
             # Calculate SOV per model
             sov_by_model = {}
             all_sovs = []
+            
+            logger.info(f"📊 [SOV Calculation] Model results: {model_results}")
             
             for model_key, counts in model_results.items():
                 total_mentions = counts["brand_count"] + counts["competitor_count"]
@@ -256,16 +306,20 @@ class CompetitorMentionsService:
                         "queries_analyzed": counts["total_queries"]
                     }
                     all_sovs.append(sov)
+                    logger.info(f"✅ [SOV] {model_key}: {sov}% SOV (brand={counts['brand_count']}, competitors={counts['competitor_count']})")
+                else:
+                    logger.warning(f"⚠️  [SOV] {model_key}: No mentions found")
             
             # Calculate overall SOV
             overall_sov = round(sum(all_sovs) / len(all_sovs), 1) if all_sovs else 0.0
+            logger.info(f"✅ [SOV] Overall SOV: {overall_sov}% (based on {len(all_sovs)} models)")
             
             return {
                 "overall": overall_sov,
                 "by_model": sov_by_model
             }
         except Exception as e:
-            logger.error(f"Error calculating model-wise SOV: {e}")
+            logger.error(f"❌ [SOV] Error calculating model-wise SOV: {e}", exc_info=True)
             return {
                 "overall": 0.0,
                 "by_model": {}

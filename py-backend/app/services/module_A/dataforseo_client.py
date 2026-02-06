@@ -206,6 +206,21 @@ class DataForSEOClient:
         print(f"📥 [DATAFORSEO LLM] Received response for {platform}")
         return result
 
+    def get_domain_competitors(self, target: str, limit: int = 5) -> Dict[str, Any]:
+        """
+        Fetch organic competitors for a domain.
+        Endpoint: /v3/domain_analytics/competitors_domain/organic/live
+        """
+        path = '/v3/domain_analytics/competitors_domain/organic/live'
+        payload = [{
+            "target": target,
+            "language_code": "en",
+            "location_code": 2840, # US
+            "limit": limit
+        }]
+        print(f"🕵️ [DATAFORSEO] Fetching top {limit} competitors for {target}")
+        return self.post(path, payload)
+
     def get_all_backlinks(
         self,
         target: str,

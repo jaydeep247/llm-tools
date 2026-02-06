@@ -32,7 +32,7 @@ interface DashboardTabsProps {
   result?: any;
   url: string;
   sessionId?: number | null;
-  
+
   // Schema Generator props
   schemaData: any;
   schemaLoading: boolean;
@@ -44,7 +44,7 @@ interface DashboardTabsProps {
   setSelectedSchemaType: (type: string) => void;
   generateSchema: () => void;
   copySchemaToClipboard: () => void;
-  
+
   // Intelligence Module props
   auditMode: 'single' | 'bulk';
   setAuditMode: (mode: 'single' | 'bulk') => void;
@@ -53,23 +53,24 @@ interface DashboardTabsProps {
   bulkLoading: boolean;
   bulkResults: any;
   handleBulkAnalyze: () => void;
-  
+
   // Module E props
   moduleEScores: any;
   moduleELoading: boolean;
   moduleEError: string | null;
   competitors: Competitor[];
-  
+
   // AI Simulator props
   simulationQuery: string;
   setSimulationQuery: (query: string) => void;
   simulationResults: any;
   simulationLoading: boolean;
   handleSimulation: () => void;
-  
+
   // Content Metrics props
   contentMetrics?: any;
   entityMetrics?: any;
+  onRunAnalysis?: () => void;
 }
 
 const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
@@ -115,7 +116,8 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
     simulationLoading,
     handleSimulation,
     contentMetrics,
-    entityMetrics
+    entityMetrics,
+    onRunAnalysis
   } = props;
 
   // Helper function to extract session ID (prioritizing prop sessionId, then result object)
@@ -127,21 +129,21 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
       console.log('[DashboardTabs] Using sessionId from prop:', sessionId);
       return sessionId;
     }
-    
+
     // Fall back to result object if prop is not available
     if (result) {
       // Check multiple possible locations in result object
-      const resultSessionId = (result as any)?.sessionId 
-        || (result as any)?.session?.id 
-        || (result as any)?.data?.session?.id 
+      const resultSessionId = (result as any)?.sessionId
+        || (result as any)?.session?.id
+        || (result as any)?.data?.session?.id
         || (result as any)?.session_id;
-      
+
       if (resultSessionId) {
         console.log('[DashboardTabs] Using sessionId from result:', resultSessionId);
         return resultSessionId;
       }
     }
-    
+
     console.warn('[DashboardTabs] No sessionId found. sessionId prop:', sessionId, 'result:', result);
     return null;
   };
@@ -362,6 +364,7 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
             moduleEError={moduleEError}
             competitors={competitors}
             sessionId={sessionId}
+            onRunAnalysis={onRunAnalysis}
           />
         )}
 

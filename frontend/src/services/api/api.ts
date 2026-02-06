@@ -53,6 +53,13 @@ export interface AnalysisResult {
   errors?: string[];
   warnings?: string[];
   recommendations?: string[];
+  
+  // Module E (Competitor Mentions & Share of Voice)
+  visibility_metrics?: any[];
+  share_of_voice?: any;
+  entity_coverage?: any;
+  citation_metrics?: any;
+  ranking_metrics?: any;
 }
 
 class ApiService {

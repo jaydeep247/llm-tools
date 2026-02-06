@@ -174,6 +174,9 @@ const HistoryDetailPage: React.FC = () => {
               run_id: r.runId || r.run_id,
               entity_coverage: r.entity_coverage,
               citation_metrics: r.citation_metrics,
+              ranking_metrics: r.ranking_metrics,
+              visibility_metrics: r.visibility_metrics,
+              share_of_voice: r.share_of_voice,
             } as AnalysisResult;
           }
         }
