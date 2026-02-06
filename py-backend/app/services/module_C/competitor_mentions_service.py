@@ -42,9 +42,9 @@ class CompetitorMentionsService:
             ]
         results = []
         
-        # Calculate date range (last 12 months)
-        today = datetime.utcnow().replace(day=1)
-        start_date = (today - relativedelta(months=11)).strftime("%Y-%m-%d")
+        # Calculate date range: exactly 1 year ago from today
+        today = datetime.utcnow()
+        start_date = (today - relativedelta(years=1)).strftime("%Y-%m-%d")
         
         for competitor in competitors:
             payload = {

@@ -63,6 +63,18 @@ const ModuleE: React.FC<ModuleEProps> = ({
   const [brandPulseLoading, setBrandPulseLoading] = React.useState(false);
   const [brandPulseError, setBrandPulseError] = React.useState<string | null>(null);
 
+  // Initialize brandPulseData from moduleEScores.brand_metrics when available
+  React.useEffect(() => {
+    if (moduleEScores?.brand_metrics && !brandPulseData) {
+      // Handle both structures: brand_metrics.data or brand_metrics directly
+      const brandData = moduleEScores.brand_metrics.data || moduleEScores.brand_metrics;
+      if (brandData && (brandData.total_mentions !== undefined || brandData.sentiment)) {
+        console.log('[ModuleE] Initializing brandPulseData from moduleEScores.brand_metrics', brandData);
+        setBrandPulseData(brandData);
+      }
+    }
+  }, [moduleEScores?.brand_metrics, brandPulseData]);
+
   const handleBrandPulseAnalysis = async () => {
     if (!effectiveBrandName) {
       setBrandPulseError('No brand name configured');
@@ -225,7 +237,11 @@ const ModuleE: React.FC<ModuleEProps> = ({
 
       {/* Brand Pulse & Sentiment Section */}
       <div className="mt-8">
-        <SentimentTracking brandName={effectiveBrandName} />
+        <SentimentTracking 
+          brandName={effectiveBrandName} 
+          initialSentimentData={moduleEScores?.sentiment_metrics}
+          initialVisibilityData={moduleEScores?.visibility_metrics}
+        />
       </div>
 
       {moduleEScores && (
@@ -337,19 +353,34 @@ const ModuleE: React.FC<ModuleEProps> = ({
                       );
                     }
 
-                    const yMax = Math.max(...data.map((d: any) => d.value), 5);
+                    const yMax = Math.max(...data.map((d: any) => Number(d.value) || 0), 5);
                     const width = 100;
                     const height = 100;
                     const padding = 5;
-                    const getY = (val: number) => height - padding - ((val / yMax) * (height - (padding * 2)));
-                    const getX = (i: number) => (i / (data.length - 1)) * width;
+                    const getY = (val: number) => {
+                      const numVal = Number(val) || 0;
+                      if (isNaN(numVal) || !isFinite(numVal)) return height - padding;
+                      if (yMax === 0) return height - padding;
+                      const y = height - padding - ((numVal / yMax) * (height - (padding * 2)));
+                      return isNaN(y) ? height - padding : y;
+                    };
+                    const getX = (i: number) => {
+                      if (data.length <= 1) return i === 0 ? padding : width - padding;
+                      const x = (i / Math.max(data.length - 1, 1)) * (width - (padding * 2)) + padding;
+                      return isNaN(x) || !isFinite(x) ? padding : x;
+                    };
 
                     let areaPath = `M 0,${height}`;
                     let linePath = ``;
 
                     data.forEach((d: any, i: number) => {
+                      const value = Number(d.value) || 0;
                       const x = getX(i);
-                      const y = getY(d.value);
+                      const y = getY(value);
+                      // Ensure x and y are valid numbers
+                      if (isNaN(x) || !isFinite(x) || isNaN(y) || !isFinite(y)) {
+                        return; // Skip invalid points
+                      }
                       if (i === 0) {
                         linePath += `M ${x},${y}`;
                         areaPath += ` L ${x},${y}`;
@@ -374,11 +405,20 @@ const ModuleE: React.FC<ModuleEProps> = ({
                           ))}
                           <path d={areaPath} fill="url(#freqGradient)" />
                           <path d={linePath} fill="none" stroke="#3B82F6" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
-                          {data.map((d: any, i: number) => (
-                            <circle key={i} cx={getX(i)} cy={getY(d.value)} r={1.5} fill="#fff" stroke="#2563EB" strokeWidth="1" className="hover:r-4 transition-all">
-                              <title>{d.value} mentions in {d.date.toLocaleString('default', { month: 'short' })}</title>
-                            </circle>
-                          ))}
+                          {data.map((d: any, i: number) => {
+                            const value = Number(d.value) || 0;
+                            const x = getX(i);
+                            const y = getY(value);
+                            // Skip rendering if coordinates are invalid
+                            if (isNaN(x) || !isFinite(x) || isNaN(y) || !isFinite(y)) {
+                              return null;
+                            }
+                            return (
+                              <circle key={i} cx={x} cy={y} r={1.5} fill="#fff" stroke="#2563EB" strokeWidth="1" className="hover:r-4 transition-all">
+                                <title>{value} mentions in {d.date.toLocaleString('default', { month: 'short' })}</title>
+                              </circle>
+                            );
+                          })}
                         </svg>
                         <div className="absolute bottom-0 left-0 right-0 flex justify-between px-1 text-[9px] text-gray-500 transform translate-y-full pt-1">
                           {data.filter((_: any, i: number) => i % 2 === 0).map((d: any, i: number) => (

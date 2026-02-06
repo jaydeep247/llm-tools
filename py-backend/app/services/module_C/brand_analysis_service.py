@@ -10,8 +10,18 @@ class BrandAnalysisService:
         if not brand_name:
             return {"error": "Brand name is required"}
 
+        # ---- Calculate date range: exactly 1 year ago from today ----
+        today = datetime.utcnow()
+        start_date = today - relativedelta(years=1)
+        start_date_str = start_date.strftime("%Y-%m-%d")
+
         service = CompetitorAnalysisService()
-        response = service.get_content_phrase_trends(keyword=brand_name)
+        # Pass date_from parameter to API to request data from exactly 1 year ago
+        response = service.get_content_phrase_trends(
+            keyword=brand_name,
+            date_from=start_date_str,
+            date_group="month"
+        )
 
         if not response.get("success"):
             return {
@@ -26,10 +36,7 @@ class BrandAnalysisService:
         if not items:
             return BrandAnalysisService._empty_result(brand_name)
 
-        # ---- Date window: last 12 calendar months ----
-        today = datetime.utcnow().replace(day=1)
-        start_date = today - relativedelta(months=11)
-
+        # ---- Additional client-side filtering for safety (in case API returns extra data) ----
         scoped_items = []
         for item in items:
             try:

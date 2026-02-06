@@ -3,6 +3,8 @@ import { useTrackSentimentMutation, useGetSentimentHistoryQuery } from '../../st
 
 interface SentimentTrackingProps {
     brandName: string;
+    initialSentimentData?: any;
+    initialVisibilityData?: any;
 }
 
 interface ModelData {
@@ -43,7 +45,7 @@ interface SentimentResult {
 
 const NOT_CONFIGURED = 'not configured';
 
-export const SentimentTracking: React.FC<SentimentTrackingProps> = ({ brandName }) => {
+export const SentimentTracking: React.FC<SentimentTrackingProps> = ({ brandName, initialSentimentData, initialVisibilityData }) => {
     const normalizedBrand = (brandName || '').trim();
     const isBrandConfigured = normalizedBrand.length > 0 && normalizedBrand.toLowerCase() !== NOT_CONFIGURED;
 
@@ -62,16 +64,34 @@ export const SentimentTracking: React.FC<SentimentTrackingProps> = ({ brandName 
         skip: !isBrandConfigured,
     });
 
+    // Initialize from moduleEScores if available (before history loads)
+    useEffect(() => {
+        if ((initialSentimentData || initialVisibilityData) && !data) {
+            console.log('[SentimentTracking] Initializing from moduleEScores', { initialSentimentData, initialVisibilityData });
+            // Merge sentiment and visibility data into the expected format
+            const mergedData: SentimentResult = {
+                brand_name: normalizedBrand,
+                overall_score: initialSentimentData?.overall_score || 0,
+                distribution: initialSentimentData?.distribution || { Positive: 0, Neutral: 0, Negative: 0 },
+                models: initialSentimentData?.models || {},
+                visibility: initialVisibilityData || undefined
+            };
+            if (mergedData.overall_score > 0 || mergedData.visibility) {
+                setData(mergedData);
+            }
+        }
+    }, [initialSentimentData, initialVisibilityData, normalizedBrand, data]);
+
     // Load history when data changes
     useEffect(() => {
         if (historyData?.success) {
             setHistory(historyData.history || []);
-            // Hydrate the dashboard with the latest saved run
-            if (historyData.latestResult) {
+            // Hydrate the dashboard with the latest saved run (only if we don't already have data from moduleEScores)
+            if (historyData.latestResult && !data) {
                 setData(historyData.latestResult);
             }
         }
-    }, [historyData]);
+    }, [historyData, data]);
 
     // Manual Analysis Trigger — do not call API when brand is not configured
     const runAnalysis = async () => {
