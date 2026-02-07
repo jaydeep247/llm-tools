@@ -50,24 +50,37 @@ const CompetitorMentionsList: React.FC<CompetitorMentionsListProps> = ({
     const [error, setError] = useState<string | null>(null);
     const [hasRun, setHasRun] = useState(false);
     const [analyzedCompetitorNames, setAnalyzedCompetitorNames] = useState<string[]>([]);
+    // Track API call timestamp to prevent race conditions
+    const [lastApiCallTime, setLastApiCallTime] = useState<number>(0);
+    const [initializedFromSaved, setInitializedFromSaved] = useState(false);
 
+    // ✅ SAFE INITIALIZATION: Only on component mount, never reinitialize if user has already run analysis
     useEffect(() => {
-        // Initialize from saved data if available
-        if (savedData && mentionsData.length === 0 && !hasRun) {
-            console.log('[CompetitorMentionsList] Initializing from savedData', { dataLength: savedData.length });
-            setMentionsData(savedData);
-            setProcessedCount(savedData.length);
-            setHasRun(true);
+        console.log('[CompetitorMentionsList] Mount effect (runs once)', { 
+            savedDataLength: savedData?.length || 0,
+            hasSavedSov: !!savedSov,
+            initializedFromSaved
+        });
+        
+        // Only initialize from saved data once at mount AND only if user hasn't manually run analysis yet
+        if (!initializedFromSaved && !hasRun) {
+            if (savedData && Array.isArray(savedData) && savedData.length > 0) {
+                console.log('[CompetitorMentionsList] ✅ Initializing mentionsData from savedData at mount:', { dataLength: savedData.length });
+                setMentionsData(savedData);
+                setProcessedCount(savedData.length);
+                setHasRun(true);
+            }
+            if (savedSov && typeof savedSov === 'object' && savedSov.overall !== undefined) {
+                console.log('[CompetitorMentionsList] ✅ Initializing sovData from savedSov at mount:', { overall: savedSov.overall });
+                setSovData(savedSov);
+            }
+            setInitializedFromSaved(true);
         }
-        if (savedSov && !sovData && !hasRun) {
-            console.log('[CompetitorMentionsList] Initializing from savedSov', { savedSov });
-            setSovData(savedSov);
-        }
-    }, [savedData, savedSov, hasRun, mentionsData.length, sovData]);
+    }, []); // Empty dependency array - run ONLY ONCE on mount
 
     // Debug: Log whenever sovData changes
     useEffect(() => {
-        console.log('[CompetitorMentionsList] sovData updated:', { 
+        console.log('[CompetitorMentionsList] 📊 sovData changed:', { 
             hasSOV: !!sovData, 
             overall: sovData?.overall, 
             by_model_keys: sovData?.by_model ? Object.keys(sovData.by_model) : [],
@@ -75,17 +88,47 @@ const CompetitorMentionsList: React.FC<CompetitorMentionsListProps> = ({
         });
     }, [sovData]);
 
+    // Reset when URL/brand/competitors significantly change (but not for user-initiated analysis)
     useEffect(() => {
-        // Reset when competitors list changes drastically, but not if we just have auto-discovered data
-        if (competitors.length > 0 && !hasRun) {
+        // Only reset if we haven't initialized from saved data yet AND the user hasn't manually run analysis
+        if (!initializedFromSaved && competitors.length > 0 && !hasRun) {
+            console.log('[CompetitorMentionsList] 🔄 Resetting state due to prop change:', { competitors: competitors.length, brandName });
             setMentionsData([]);
             setSovData(null);
             setProcessedCount(0);
             setError(null);
-            setHasRun(false);
             setAnalyzedCompetitorNames([]);
         }
-    }, [competitors, brandName]);
+    }, [competitors, brandName, initializedFromSaved]);
+
+    // ✅ DYNAMIC DATA LOADING: If savedData becomes available after mount (e.g., parent refetches), load it
+    // This fixes the issue where data doesn't appear when returning to Module E tab
+    useEffect(() => {
+        // Condition: savedData is available AND we haven't run analysis manually AND we haven't already initialized
+        if (
+            savedData && 
+            Array.isArray(savedData) && 
+            savedData.length > 0 && 
+            !hasRun && 
+            mentionsData.length === 0  // No data currently displayed
+        ) {
+            console.log('[CompetitorMentionsList] 📥 DYNAMIC LOAD: Loading savedData from props (likely parent refetch):', { dataLength: savedData.length });
+            setMentionsData(savedData);
+            setProcessedCount(savedData.length);
+            setHasRun(true);
+        }
+
+        // If savedSov becomes available
+        if (
+            savedSov && 
+            typeof savedSov === 'object' && 
+            savedSov.overall !== undefined && 
+            !sovData  // No SOV data currently displayed
+        ) {
+            console.log('[CompetitorMentionsList] 📥 DYNAMIC LOAD: Loading savedSov from props:', { overall: savedSov.overall });
+            setSovData(savedSov);
+        }
+    }, [savedData, savedSov, hasRun, mentionsData.length, sovData]);
 
     const handleRunAnalysis = async () => {
         // Allow run if competitors exist OR if we have a URL for auto-discovery
@@ -94,8 +137,20 @@ const CompetitorMentionsList: React.FC<CompetitorMentionsListProps> = ({
             return;
         }
 
+        // Generate timestamp to track this API call
+        const callTime = Date.now();
+        setLastApiCallTime(callTime);
+
+        console.log('[CompetitorMentionsList] 🚀 STARTING ANALYSIS:', {
+            timestamp: callTime,
+            competitors: competitors.length,
+            brandName: brandName,
+            url: url,
+            sessionId: sessionId
+        });
+
         setLoading(true);
-        setSovLoading(brandName ? true : false); // Only show SOV loading if brand_name is provided
+        setSovLoading(brandName ? true : false);
         setHasRun(true);
         setProcessedCount(0);
         setError(null);
@@ -104,16 +159,19 @@ const CompetitorMentionsList: React.FC<CompetitorMentionsListProps> = ({
         setAnalyzedCompetitorNames([]);
 
         try {
-            // Single API call: fetch both mentions data AND SOV if brand_name is provided
+            const requestPayload = {
+                competitors: competitors,
+                ...(brandName && { brand_name: brandName }),
+                ...(url && { url: url }),
+                ...(sessionId && { sessionId: sessionId })
+            };
+
+            console.log('[CompetitorMentionsList] 📤 API Request:', requestPayload);
+
             const response = await fetch('/api/aeo/analyze-competitors-mentions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    competitors: competitors, // Can be empty
-                    ...(brandName && { brand_name: brandName }), // Include brand_name only if available
-                    ...(url && { url: url }), // Pass URL for auto-discovery
-                    ...(sessionId && { sessionId: sessionId })
-                })
+                body: JSON.stringify(requestPayload)
             });
 
             if (!response.ok) {
@@ -121,64 +179,92 @@ const CompetitorMentionsList: React.FC<CompetitorMentionsListProps> = ({
             }
 
             const result = await response.json();
-            console.log('[CompetitorMentionsList] 📥 RAW API response received:', {
-                responseKeys: Object.keys(result),
+
+            // ⚠️ IMPORTANT: Only process this response if it's the latest API call
+            if (callTime < lastApiCallTime) {
+                console.warn('[CompetitorMentionsList] ⚠️ Ignoring response from outdated API call', { 
+                    callTime, 
+                    lastApiCallTime,
+                    message: 'A newer API call was made' 
+                });
+                return;
+            }
+
+            console.log('[CompetitorMentionsList] 📥 RAW API RESPONSE RECEIVED:', {
+                timestamp: callTime,
                 success: result.success,
                 dataLength: result.data?.length || 0,
-                dataType: typeof result.data,
-                sovExists: 'share_of_voice' in result,
-                sovValue: result.share_of_voice,
-                sovType: typeof result.share_of_voice,
-                sovIsObject: result.share_of_voice && typeof result.share_of_voice === 'object',
-                sovOverall: result.share_of_voice?.overall,
-                analyzedCount: result.analyzed_competitors?.length || 0
+                dataArray: Array.isArray(result.data),
+                hasShareOfVoice: 'share_of_voice' in result,
+                shareOfVoiceValue: result.share_of_voice,
+                shareOfVoiceType: typeof result.share_of_voice,
+                analyzedCompetitors: result.analyzed_competitors || [],
+                allKeys: Object.keys(result)
             });
 
             if (result.success) {
-                // Always set mentionsData, even if empty array
+                // Set mentions data (can be empty array)
                 if (Array.isArray(result.data)) {
-                    console.log('[CompetitorMentionsList] ✅ Setting mentionsData:', result.data.length, 'items');
+                    console.log('[CompetitorMentionsList] ✅ SETTING mentionsData from API:', {
+                        itemCount: result.data.length,
+                        items: result.data.map(d => ({ name: d.name, mentions: d.mentions }))
+                    });
                     setMentionsData(result.data);
-                    // Use the returned analyzed competitors count or the requested count
+                    
                     const actualCount = result.analyzed_competitors ? result.analyzed_competitors.length : competitors.length;
                     setProcessedCount(actualCount);
-                    if (result.analyzed_competitors) {
+                    
+                    if (result.analyzed_competitors && Array.isArray(result.analyzed_competitors)) {
+                        console.log('[CompetitorMentionsList] ✅ SETTING analyzedCompetitorNames:', result.analyzed_competitors);
                         setAnalyzedCompetitorNames(result.analyzed_competitors);
                     }
+                } else {
+                    console.warn('[CompetitorMentionsList] ⚠️ result.data is not an array:', typeof result.data);
                 }
             } else {
-                if (result.error) throw new Error(result.error);
+                throw new Error(result.error || 'Analysis failed');
             }
 
-            // ✅ CRITICAL FIX: Only set sovData if it's a valid object with 'overall' property
-            console.log('[CompetitorMentionsList] 🔍 Checking share_of_voice validity:', {
-                condition1_isObject: result.share_of_voice && typeof result.share_of_voice === 'object',
-                condition2_hasOverall: result.share_of_voice?.overall !== undefined,
-                condition2_value: result.share_of_voice?.overall,
-                fullCondition: (result.share_of_voice && typeof result.share_of_voice === 'object' && result.share_of_voice.overall !== undefined)
+            // Set SOV data with comprehensive validation
+            console.log('[CompetitorMentionsList] 🔍 VALIDATING share_of_voice:', {
+                exists: !!result.share_of_voice,
+                isObject: typeof result.share_of_voice === 'object',
+                hasOverallProperty: result.share_of_voice?.overall !== undefined,
+                overallValue: result.share_of_voice?.overall,
+                overallType: typeof result.share_of_voice?.overall,
+                by_modelKeys: result.share_of_voice?.by_model ? Object.keys(result.share_of_voice.by_model).length : 0,
+                fullObject: JSON.stringify(result.share_of_voice).substring(0, 200)
             });
 
-            if (result.share_of_voice && typeof result.share_of_voice === 'object' && result.share_of_voice.overall !== undefined) {
-                console.log('[CompetitorMentionsList] ✅✅ SETTING sovData from API response:', {
+            if (result.share_of_voice && typeof result.share_of_voice === 'object') {
+                console.log('[CompetitorMentionsList] ✅ SETTING sovData from API:', {
                     overall: result.share_of_voice.overall,
-                    by_model_keys: Object.keys(result.share_of_voice.by_model || {}).length,
-                    fullSOV: result.share_of_voice
+                    hasModels: !!result.share_of_voice.by_model,
+                    modelCount: Object.keys(result.share_of_voice.by_model || {}).length,
+                    fullData: result.share_of_voice
                 });
                 setSovData(result.share_of_voice);
             } else {
-                console.warn('[CompetitorMentionsList] ⚠️⚠️ FAILED to set sovData - conditions not met', {
-                    share_of_voice: result.share_of_voice,
-                    isTruthy: !!result.share_of_voice,
-                    isObject: typeof result.share_of_voice === 'object',
-                    hasOverall: result.share_of_voice?.overall !== undefined,
-                    overallValue: result.share_of_voice?.overall
+                console.warn('[CompetitorMentionsList] ⚠️ share_of_voice validation FAILED:', {
+                    received: result.share_of_voice,
+                    expectedType: 'object'
                 });
             }
 
         } catch (err: any) {
-            console.error("Error fetching competitor mentions:", err);
-            setError(err.message);
+            console.error('[CompetitorMentionsList] ❌ ERROR during analysis:', {
+                message: err.message,
+                stack: err.stack
+            });
+            setError(err.message || 'Failed to analyze competitors');
+            setMentionsData([]);
+            setSovData(null);
         } finally {
+            console.log('[CompetitorMentionsList] ✅ ANALYSIS COMPLETE (finally block):', {
+                timestamp: callTime,
+                hasData: mentionsData.length > 0,
+                hasSov: !!sovData
+            });
             setLoading(false);
             setSovLoading(false);
         }
@@ -314,6 +400,8 @@ const CompetitorMentionsList: React.FC<CompetitorMentionsListProps> = ({
                                 );
                             })() : null;
 
+                        })()}
+
                         {sovData && sovData.by_model && Object.keys(sovData.by_model).length > 0 && (
                             <div className="mb-6 p-4 bg-gray-900/50 rounded-lg border border-gray-700/50">
                                 <h5 className="text-sm font-bold text-gray-300 uppercase mb-3 text-white">Share of Voice - Model-wise Breakdown</h5>
@@ -350,7 +438,8 @@ const CompetitorMentionsList: React.FC<CompetitorMentionsListProps> = ({
                             </div>
                         )}
 
-                        {sovTrendData.length >= 2 && (
+                        {/* ONLY show trend chart AFTER API call completes AND we have SOV data AND enough trend points */}
+                        {!loading && sovData && sovTrendData.length >= 2 && (
                             <div className="mb-6 p-4 bg-gray-900/50 rounded-lg border border-gray-700/50">
                                 <h5 className="text-sm font-bold text-gray-300 uppercase mb-2">Share of Voice - Trend Over Time</h5>
                                 <div className="h-24 flex items-end gap-0.5">
@@ -390,7 +479,7 @@ const CompetitorMentionsList: React.FC<CompetitorMentionsListProps> = ({
                                                 <td className="px-4 py-3">
                                                     <div className="flex items-end h-4 gap-0.5">
                                                         {(comp.trend || []).slice(-12).map((t, i) => {
-                                                            const maxCount = Math.max(...comp.trend.map(x => x.count), 1);
+                                                            const maxCount = Math.max(...(comp.trend || []).map(x => x.count), 1);
                                                             return (
                                                                 <div key={i} className="w-1 bg-blue-500 rounded-px" style={{ height: `${(t.count / maxCount) * 16}px` }} />
                                                             );

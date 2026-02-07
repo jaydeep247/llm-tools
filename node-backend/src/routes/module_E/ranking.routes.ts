@@ -30,7 +30,9 @@ router.post('/ranking-analysis',
             logger.debug('[ranking] Forwarding payload to Python:', forwardPayload);
 
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 300000); // 5 minute timeout for AI ranking
+            // 🔧 FIX: Increase timeout from 5min to 10min to accommodate slow Python backend
+            // Python processes 5 prompts × 3 LLM models = 15 API calls to DataForSEO
+            const timeout = setTimeout(() => controller.abort(), 600000); // 10 minute timeout
 
             const response = await fetch(fullUrl, {
                 method: 'POST',

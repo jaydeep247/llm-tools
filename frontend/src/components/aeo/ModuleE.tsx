@@ -28,6 +28,9 @@ const ModuleE: React.FC<ModuleEProps> = ({
   sessionId,
   onRunAnalysis,
 }) => {
+  // Track if we're attempting to fetch data to prevent duplicate requests
+  const [isAttemptingFetch, setIsAttemptingFetch] = React.useState(false);
+  
   // Brand for sentiment/visibility: prefer configured brand, never pass literal "Not Configured"
   const rawBrandFromScores = moduleEScores?.brand_metrics?.data?.brand_name;
 
@@ -178,21 +181,27 @@ const ModuleE: React.FC<ModuleEProps> = ({
                         claude: moduleEScores?.claude,
                         gemini: moduleEScores?.gemini,
                       };
-                      const chatgpt = mwp?.chatgpt ?? mwp?.openai ?? moduleEScores?.openai;
-                      const claude = mwp?.claude ?? moduleEScores?.claude;
-                      const gemini = mwp?.gemini ?? moduleEScores?.gemini;
+                      let chatgpt = mwp?.chatgpt ?? mwp?.openai ?? moduleEScores?.openai;
+                      let claude = mwp?.claude ?? moduleEScores?.claude;
+                      let gemini = mwp?.gemini ?? moduleEScores?.gemini;
                       const hasAny = chatgpt != null || claude != null || gemini != null;
                       if (!hasAny) return <span className="text-gray-500">N/A</span>;
-                      const fmt = (v: number | null) =>
-                        v == null ? <span className="text-gray-500">-</span> : (
+                      
+                      // 🔧 FIX: Handle 0% scores - indicate if API call failed
+                      const fmt = (v: number | null, model?: string) => {
+                        if (v === 0 && (model === 'claude' || model === 'chatgpt')) {
+                          return <span className="text-amber-400 font-medium" title="API call may be processing or unavailable">⏳ 0%</span>;
+                        }
+                        return v == null ? <span className="text-gray-500">-</span> : (
                           <span className={v >= 80 ? 'text-green-400' : v >= 50 ? 'text-yellow-400' : 'text-red-400'}>
                             {v}%
                           </span>
                         );
+                      };
                       return (
                         <div className="flex flex-col gap-0.5 text-xs">
-                          <span>ChatGPT: {fmt(chatgpt ?? null)}</span>
-                          <span>Claude: {fmt(claude ?? null)}</span>
+                          <span>ChatGPT: {fmt(chatgpt ?? null, 'chatgpt')}</span>
+                          <span>Claude: {fmt(claude ?? null, 'claude')}</span>
                           <span>Gemini: {fmt(gemini ?? null)}</span>
                         </div>
                       );
@@ -201,23 +210,29 @@ const ModuleE: React.FC<ModuleEProps> = ({
                   <td className="px-6 py-4">
                     {(() => {
                       const acc = moduleEScores?.response_accuracy;
-                      const overall = acc?.overall ?? null;
-                      const chatgpt = acc?.chatgpt ?? null;
-                      const claude = acc?.claude ?? null;
-                      const gemini = acc?.gemini ?? null;
+                      let overall = acc?.overall ?? null;
+                      let chatgpt = acc?.chatgpt ?? null;
+                      let claude = acc?.claude ?? null;
+                      let gemini = acc?.gemini ?? null;
                       const hasAny = overall != null || chatgpt != null || claude != null || gemini != null;
                       if (!hasAny) return <span className="text-gray-500">N/A</span>;
-                      const fmt = (v: number | null) =>
-                        v == null ? <span className="text-gray-500">-</span> : (
+                      
+                      // 🔧 FIX: Handle 0% accuracy - indicate if API call may have failed
+                      const fmt = (v: number | null, model?: string) => {
+                        if (v === 0 && (model === 'chatgpt' || model === 'claude')) {
+                          return <span className="text-amber-400 font-medium" title="Model API may be processing or unavailable">⏳ 0%</span>;
+                        }
+                        return v == null ? <span className="text-gray-500">-</span> : (
                           <span className={v >= 80 ? 'text-green-400' : v >= 50 ? 'text-yellow-400' : 'text-red-400'}>
                             {v}%
                           </span>
                         );
+                      };
                       return (
                         <div className="flex flex-col gap-0.5 text-xs">
                           {overall != null && <span className="font-medium">Overall: {fmt(overall)}</span>}
-                          <span>ChatGPT: {fmt(chatgpt ?? null)}</span>
-                          <span>Claude: {fmt(claude ?? null)}</span>
+                          <span>ChatGPT: {fmt(chatgpt ?? null, 'chatgpt')}</span>
+                          <span>Claude: {fmt(claude ?? null, 'claude')}</span>
                           <span>Gemini: {fmt(gemini ?? null)}</span>
                         </div>
                       );
@@ -257,8 +272,8 @@ const ModuleE: React.FC<ModuleEProps> = ({
       )}
 
       {/* AI Citation Ranking Section */}
-      {/* Merge citation_metrics and ranking_metrics so the UI can read coverage/quality fields
-          even when `ranking_metrics` exists but only contains ranking-specific keys. */}
+      {/* Merge citation_metrics and ranking_metrics with entity_coverage so the UI can read all fields.
+          entity_coverage is NOT nested inside ranking/citation_metrics, it's a sibling field in moduleEScores */}
       <AICitationRankingSection
         url={websiteUrl}
         sessionId={sessionId ?? undefined}
@@ -266,8 +281,26 @@ const ModuleE: React.FC<ModuleEProps> = ({
           if (!moduleEScores) return undefined;
           const ranking = moduleEScores.ranking_metrics ?? null;
           const citation = moduleEScores.citation_metrics ?? null;
-          if (!ranking && !citation) return undefined;
-          return { ...(citation || {}), ...(ranking || {}) } as any;
+          const entityCoverage = moduleEScores.entity_coverage ?? null;
+          
+          // If we have any of these metrics, merge them all together
+          if (!ranking && !citation && !entityCoverage) return undefined;
+          
+          const merged = {
+            ...(citation || {}),
+            ...(ranking || {}),
+            ...(entityCoverage ? { entity_coverage: entityCoverage } : {})
+          };
+          
+          console.log('[ModuleE] Passing to AICitationRankingSection:', {
+            hasRanking: !!ranking,
+            hasCitation: !!citation,
+            hasEntityCoverage: !!entityCoverage,
+            mergedKeys: Object.keys(merged),
+            entityCoverageScore: entityCoverage?.score
+          });
+          
+          return merged as any;
         })()}
       />
 

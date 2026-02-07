@@ -768,12 +768,15 @@ router.post('/analyze-competitors-mentions',
                     const sovToPersist = data.share_of_voice || null;
                     const dataToPersist = Array.isArray(data.data) ? data.data : [];
                     
-                    logger.info('[competitor-mentions] 📝 Preparing DB save:', {
+                    logger.info('[competitor-mentions] 📝 PREPARING DB SAVE:', {
                         sessionId: req.body.sessionId,
+                        url: req.body.url,
                         hasSOV: !!sovToPersist,
                         sovOverall: sovToPersist?.overall,
+                        sovByModelKeys: sovToPersist?.by_model ? Object.keys(sovToPersist.by_model) : [],
                         dataLength: dataToPersist.length,
-                        fullSOV: sovToPersist
+                        fullSOV: JSON.stringify(sovToPersist).substring(0, 300),
+                        sampleData: dataToPersist.slice(0, 2).map(d => ({ name: d.name, mentions: d.mentions }))
                     });
                     
                     await db.insertAeoResultsTable({
@@ -783,18 +786,25 @@ router.post('/analyze-competitors-mentions',
                         visibility_metrics: dataToPersist
                     });
                     
-                    logger.info('[competitor-mentions] ✅ Successfully persisted to DB:', { 
+                    logger.info('[competitor-mentions] ✅ SUCCESSFULLY PERSISTED TO DB:', { 
                         sessionId: req.body.sessionId, 
-                        hasData: dataToPersist.length, 
+                        hasData: dataToPersist.length > 0,
+                        dataCount: dataToPersist.length,
                         hasSOV: !!sovToPersist,
-                        sovOverall: sovToPersist?.overall
+                        sovOverall: sovToPersist?.overall,
+                        companyNames: dataToPersist.map(d => d.name).join(', ').substring(0, 100)
                     });
                 } catch (saveError) {
-                    logger.error('[competitor-mentions] ❌ Failed to save to DB', saveError as Error, {
+                    logger.error('[competitor-mentions] ❌ FAILED TO SAVE TO DB', saveError as Error, {
                         sessionId: req.body.sessionId,
-                        error: (saveError as Error).message
+                        errorMessage: (saveError as Error).message,
+                        errorStack: (saveError as Error).stack?.substring(0, 500)
                     });
                 }
+            } else {
+                logger.warn('[competitor-mentions] ⚠️ NO SESSION ID PROVIDED - SKIPPING DB SAVE', {
+                    bodyKeys: Object.keys(req.body || {})
+                });
             }
 
             // Ensure response explicitly includes share_of_voice for frontend

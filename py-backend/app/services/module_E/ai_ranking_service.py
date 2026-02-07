@@ -441,81 +441,143 @@ class AIRankingService:
         logger.info("[ranking] analyze_ranking: url=%s, prompts=%s, platforms=%s", url, prompts, platforms)
         print(f"🔍 [AI RANKING] Starting analysis for URL: {url}")
         print(f"📝 [AI RANKING] Analyzing {len(prompts)} prompts across {len(platforms)} platforms")
+        
+        # Initialize percentile and content quality tracking
         for prompt in prompts:
             percentile_by_prompt[prompt] = {}
             content_quality_by_prompt_model[prompt] = {}
-            row: Dict[str, Any] = {"prompt": prompt}
-            model_wise_rows.append(row)
+        
+        # 🔧 BATCH API FIX: Send all prompts to each platform in one request (3 calls instead of 15)
+        for platform in platforms:
+            if platform not in SUPPORTED_PLATFORMS:
+                continue
+                
+            model_name = DEFAULT_MODELS.get(platform, platform)
+            
+            # Build batch payload with all prompts
+            batch_payload = [
+                {
+                    "user_prompt": prompt[:500],
+                    "model_name": model_name,
+                    "web_search": True,
+                    "force_web_search": True,
+                    "max_output_tokens": 2048,
+                }
+                for prompt in prompts
+            ]
+            
+            print(f"🚀 [AI RANKING] Querying {platform} with {len(batch_payload)} prompts (BATCH MODE)")
+            try:
+                batch_response = self.client.post_llm_responses(platform, batch_payload)
+                response_tasks = batch_response.get("tasks", [])
+                print(f"📥 [AI RANKING] Received batch response from {platform} ({len(response_tasks)} results)")
+            except Exception as e:
+                err_msg = f"{platform}: {str(e)}"
+                errors.append(err_msg)
+                logger.warning("LLM batch request failed for %s: %s", platform, e)
+                # Mark all prompts as failed for this platform
+                for prompt in prompts:
+                    if not any(row.get("prompt") == prompt for row in model_wise_rows):
+                        row: Dict[str, Any] = {"prompt": prompt}
+                        model_wise_rows.append(row)
+                    # Find and update the row
+                    for row in model_wise_rows:
+                        if row.get("prompt") == prompt:
+                            row[platform] = None
+                            break
+                continue
 
-            for platform in platforms:
-                if platform not in SUPPORTED_PLATFORMS:
-                    continue
-                model_name = DEFAULT_MODELS.get(platform, platform)
-                payload = [
-                    {
-                        "user_prompt": prompt[:500],
-                        "model_name": model_name,
-                        "web_search": True,
-                        "force_web_search": True,
-                        "max_output_tokens": 2048,
-                    }
-                ]
+            if batch_response.get("status_code") != 20000:
+                err_msg = f"{platform}: {batch_response.get('status_message', 'API error')}"
+                errors.append(err_msg)
+                logger.warning("LLM batch response error for %s: %s", platform, err_msg)
+                for prompt in prompts:
+                    if not any(row.get("prompt") == prompt for row in model_wise_rows):
+                        row: Dict[str, Any] = {"prompt": prompt}
+                        model_wise_rows.append(row)
+                    for row in model_wise_rows:
+                        if row.get("prompt") == prompt:
+                            row[platform] = None
+                            break
+                continue
 
-                print(f"🚀 [AI RANKING] Querying {platform} for prompt: '{prompt[:60]}...'")
+            # Process batch response for each prompt
+            # DataForSEO returns response array matching request array order
+            response_tasks = batch_response.get("tasks", [])
+            
+            for prompt_idx, prompt in enumerate(prompts):
                 try:
-                    response = self.client.post_llm_responses(platform, payload)
-                    print(f"📥 [AI RANKING] Received response from {platform}")
+                    # Ensure row exists for this prompt
+                    existing_row = next((r for r in model_wise_rows if r.get("prompt") == prompt), None)
+                    if not existing_row:
+                        existing_row = {"prompt": prompt}
+                        model_wise_rows.append(existing_row)
+                    
+                    # Get result for this prompt from batch response
+                    if prompt_idx < len(response_tasks):
+                        task = response_tasks[prompt_idx]
+                        # Extract annotations from this task's result
+                        annotations = []
+                        for res in task.get("result") or []:
+                            for item in res.get("items") or []:
+                                for section in item.get("sections") or []:
+                                    section_ann = section.get("annotations")
+                                    if section_ann:
+                                        annotations.extend(section_ann)
+                    else:
+                        annotations = []
+                    
+                    position, percentile = _find_position_and_percentile(
+                        annotations, target_normalized
+                    )
+                    
+                    citations_count = len(annotations)
+                    source_diversity = _compute_source_diversity(annotations)
+                    credibility_score = _compute_credibility_score(annotations)
+                    
+                    # Extract citation contexts for content quality
+                    # Build response structure for this specific task result
+                    task_response = {
+                        "status_code": batch_response.get("status_code"),
+                        "tasks": [response_tasks[prompt_idx]] if prompt_idx < len(response_tasks) else []
+                    }
+                    
+                    citation_contexts = _extract_citation_contexts(task_response, target_normalized)
+                    content_quality_score = _compute_content_quality_score(citation_contexts, prompt)
+                    
+                    # Aggregate contexts for entity coverage
+                    all_citation_contexts.extend(citation_contexts)
+                    content_quality_by_prompt_model[prompt][platform] = content_quality_score
+                    
+                    print(f"📊 [AI RANKING] {platform} batch result [{prompt_idx+1}/{len(prompts)}]: position={position}, percentile={percentile}, citations={citations_count}")
+
+                    logger.debug(
+                        "[ranking] prompt=%r platform=%s citations=%d diversity=%.1f credibility=%.1f quality=%.1f",
+                        prompt[:50], platform, citations_count, source_diversity, credibility_score, content_quality_score,
+                    )
+
+                    ranking_position_per_prompt.append({
+                        "prompt": prompt,
+                        "model": platform,
+                        "position": position,
+                        "total_cited": citations_count,
+                        "percentile": percentile,
+                        "source_diversity": source_diversity,
+                        "credibility_score": credibility_score,
+                        "content_quality_score": content_quality_score,
+                    })
+                    percentile_by_prompt[prompt][platform] = percentile
+                    existing_row[platform] = position
+                    
                 except Exception as e:
-                    err_msg = f"{platform}: {str(e)}"
-                    errors.append(err_msg)
-                    logger.warning("LLM response failed for %s: %s", platform, e)
-                    row[platform] = None
-                    continue
+                    logger.error(
+                        "[ranking] Error processing batch result for prompt=%r platform=%s: %s",
+                        prompt[:50], platform, str(e), exc_info=True
+                    )
+                    print(f"❌ [AI RANKING] Error processing {platform} result for prompt [{prompt_idx+1}/{len(prompts)}]: {str(e)}")
+                    existing_row[platform] = None
 
-                if response.get("status_code") != 20000:
-                    err_msg = f"{platform}: {response.get('status_message', 'API error')}"
-                    errors.append(err_msg)
-                    row[platform] = None
-                    continue
-
-                annotations = _extract_annotations_in_order(response)
-                position, percentile = _find_position_and_percentile(
-                    annotations, target_normalized
-                )
-                
-                print(f"📊 [AI RANKING] {platform} results: position={position}, percentile={percentile}, citations={len(annotations)}")
-
-                citations_count = len(annotations)
-                source_diversity = _compute_source_diversity(annotations)
-                credibility_score = _compute_credibility_score(annotations)
-                
-                # Extract citation contexts for content quality
-                citation_contexts = _extract_citation_contexts(response, target_normalized)
-                content_quality_score = _compute_content_quality_score(citation_contexts, prompt)
-                
-                # Aggregate contexts for entity coverage
-                all_citation_contexts.extend(citation_contexts)
-                content_quality_by_prompt_model[prompt][platform] = content_quality_score
-
-                logger.debug(
-                    "[ranking] prompt=%r platform=%s citations=%d diversity=%.1f credibility=%.1f quality=%.1f",
-                    prompt[:50], platform, citations_count, source_diversity, credibility_score, content_quality_score,
-                )
-
-                ranking_position_per_prompt.append({
-                    "prompt": prompt,
-                    "model": platform,
-                    "position": position,
-                    "total_cited": citations_count,
-                    "percentile": percentile,
-                    "source_diversity": source_diversity,
-                    "credibility_score": credibility_score,
-                    "content_quality_score": content_quality_score,
-                })
-                percentile_by_prompt[prompt][platform] = percentile
-                row[platform] = position
-
-                time.sleep(0.5)  # Rate limit cushion
+            time.sleep(0.5)  # Rate limit cushion after batch
 
         # Analyze entity coverage across all citations
         entity_coverage_result = await self._analyze_entity_coverage_in_citations(

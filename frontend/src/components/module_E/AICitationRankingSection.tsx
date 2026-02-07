@@ -54,11 +54,20 @@ export const AICitationRankingSection: React.FC<AICitationRankingSectionProps> =
   };
 
   const resp = data as RankingAnalysisResponse | undefined;
+  
+  // 🔧 FIX: Only consider fresh results valid if they have meaningful data
+  const freshHasValidEntityCoverage = resp?.entity_coverage && (
+    (resp.entity_coverage.score ?? 0) > 0 || 
+    (resp.entity_coverage.found_entities?.length ?? 0) > 0 ||
+    (resp.entity_coverage.entities_observed?.length ?? 0) > 0
+  );
+  
   const hasFreshResults = !!(
     resp?.success && (
       (resp.ranking_position_per_prompt?.length ?? 0) > 0 ||
       (resp.model_wise_comparison?.length ?? 0) > 0 ||
-      (resp.percentile_by_prompt && Object.keys(resp.percentile_by_prompt).length > 0)
+      (resp.percentile_by_prompt && Object.keys(resp.percentile_by_prompt).length > 0) ||
+      freshHasValidEntityCoverage  // 🔧 FIX: Only if entity_coverage has real data
     )
   );
 
@@ -361,8 +370,37 @@ export const AICitationRankingSection: React.FC<AICitationRankingSectionProps> =
 
             {/* 5. AI Citation Coverage */}
             {(() => {
-              const coverageData = (hasFreshResults ? resp?.entity_coverage : null) ?? savedCitationMetrics?.entity_coverage;
+              // 🔧 FIX: Only use fresh results if they have meaningful data (score > 0 or found entities > 0)
+              // Otherwise stick with saved metrics to prevent showing 0% after showing real data
+              const freshHasValidData = resp?.entity_coverage && (
+                (resp.entity_coverage.score ?? 0) > 0 || 
+                (resp.entity_coverage.found_entities?.length ?? 0) > 0 ||
+                (resp.entity_coverage.entities_observed?.length ?? 0) > 0
+              );
+              
+              const coverageData = (hasFreshResults && freshHasValidData) 
+                ? resp?.entity_coverage 
+                : (savedCitationMetrics?.entity_coverage || null);
               if (!coverageData || coverageData.score === undefined) return null;
+
+              // Support both field name formats from API
+              let foundEntities = coverageData.found_entities || coverageData.entities_observed || [];
+              const missingEntities = coverageData.missing_entities || coverageData.entities_missing || [];
+              const expectedEntities = coverageData.entities_expected || [];
+              const totalExpected = coverageData.total_expected || expectedEntities.length || 0;
+              
+              // 🔧 FIX: Deduplicate found entities to prevent "26 of 25" bug
+              foundEntities = Array.isArray(foundEntities) ? [...new Set(foundEntities)] : [];
+
+              if (typeof window !== 'undefined') {
+                console.log('[AICitationRankingSection] Entity Coverage Data:', {
+                  score: coverageData.score,
+                  foundCount: foundEntities?.length,
+                  missingCount: missingEntities?.length,
+                  totalExpected,
+                  coverageData
+                });
+              }
 
               return (
                 <div>
@@ -373,24 +411,23 @@ export const AICitationRankingSection: React.FC<AICitationRankingSectionProps> =
                         <span className="text-sm text-gray-400">Coverage Score</span>
                         <span className={`text-2xl font-bold ${coverageData.score >= 70 ? 'text-green-400' : coverageData.score >= 50 ? 'text-yellow-400' : 'text-red-400'}`}>{coverageData.score}%</span>
                       </div>
-                      <p className="text-xs text-gray-500">{(coverageData.found_entities?.length || 0)} of {(coverageData.total_expected || 0)} expected entities found</p>
                     </div>
-                    {coverageData.found_entities && coverageData.found_entities.length > 0 && (
+                    {foundEntities && foundEntities.length > 0 && (
                       <div className="mt-4">
-                        <p className="text-xs text-gray-400 mb-2 font-medium">Found Entities:</p>
+                        <p className="text-xs text-gray-400 mb-2 font-medium">✅ Found Entities ({foundEntities.length}):</p>
                         <div className="flex flex-wrap gap-2">
-                          {coverageData.found_entities.map((entity: string, idx: number) => (
-                            <span key={idx} className="px-2 py-1 rounded bg-green-900/30 text-green-300 text-xs">{entity}</span>
+                          {foundEntities.map((entity: string, idx: number) => (
+                            <span key={idx} className="px-2 py-1 rounded bg-green-900/30 text-green-300 text-xs border border-green-800">{entity}</span>
                           ))}
                         </div>
                       </div>
                     )}
-                    {coverageData.missing_entities && coverageData.missing_entities.length > 0 && (
+                    {missingEntities && missingEntities.length > 0 && (
                       <div className="mt-4">
-                        <p className="text-xs text-gray-400 mb-2 font-medium">Missing Entities:</p>
+                        <p className="text-xs text-gray-400 mb-2 font-medium">❌ Missing Entities ({missingEntities.length}):</p>
                         <div className="flex flex-wrap gap-2">
-                          {coverageData.missing_entities.map((entity: string, idx: number) => (
-                            <span key={idx} className="px-2 py-1 rounded bg-red-900/30 text-red-300 text-xs">{entity}</span>
+                          {missingEntities.map((entity: string, idx: number) => (
+                            <span key={idx} className="px-2 py-1 rounded bg-red-900/30 text-red-300 text-xs border border-red-800">{entity}</span>
                           ))}
                         </div>
                       </div>
