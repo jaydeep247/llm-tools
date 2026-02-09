@@ -64,18 +64,15 @@ export async function executePostProcessing(
 export async function finalizeSession(
     sessionId: number,
     runAudits: boolean,
-    events: CrawlEvents
+    events: CrawlEvents,
+    duration?: number
 ): Promise<void> {
     const db = getDatabase();
-    const endTime = Date.now();
+    // Use provided duration (calculated at exact crawl completion) or fallback to 0
+    const finalDuration = duration ?? 0;
 
     const totalPages = await db.getPageCount(sessionId);
     const totalResources = await db.getResourceCount(sessionId);
-    
-    const sessionInfo = await db.getCrawlSession(sessionId) as any;
-    const startedAtIso: string | null = sessionInfo?.startedAt ?? sessionInfo?.started_at ?? null;
-    const startTime = startedAtIso ? new Date(startedAtIso).getTime() : Date.now();
-    const duration = Math.max(0, Math.floor((endTime - startTime) / 1000));
 
     // Get current status from database - runAuditProcessing already set it correctly
     // If audits ran, it set status to 'auditing' if URLs exist, or 'completed' if no URLs
@@ -103,7 +100,7 @@ export async function finalizeSession(
         completedAt: new Date().toISOString(),
         totalPages,
         totalResources,
-        duration,
+        duration: finalDuration,
         status: finalStatus
     });
 

@@ -12,6 +12,7 @@ import {
     executePostProcessing, 
     finalizeSession 
 } from './crawlers/core/index.js';
+import { getDatabase } from './services/DatabaseService.js';
 
 // Import handler factories
 import { 
@@ -138,9 +139,10 @@ export async function runCrawl(
                 return;
             }
 
+            // Duration will be provided by frontend timer (via /api/crawl/session/:sessionId/duration endpoint)
             // Post-processing and finalization
             await executePostProcessing(sessionId, captureLinkDetails, runAudits, auditDevice, events, crawledPagesWithHtml);
-            await finalizeSession(sessionId, runAudits, events);
+            await finalizeSession(sessionId, runAudits, events, 0); // Duration provided by frontend
         } finally {
             // Always unregister the crawler
             cancellationManager.unregisterCrawl(sessionId);

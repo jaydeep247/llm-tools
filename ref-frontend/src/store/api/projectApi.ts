@@ -39,6 +39,23 @@ export interface SessionResponse {
   session: CrawlSession;
 }
 
+export interface AeoAnalyzeRequest {
+  sessionId: number;
+  url: string;
+}
+
+export interface AeoAnalyzeResponse {
+  success: boolean;
+  message: string;
+  sessionId: number;
+}
+
+export interface AeoResultsResponse {
+  success: boolean;
+  results: any;
+  sessionId: number;
+}
+
 export interface CreateProjectRequest {
   name: string;
   description?: string;
@@ -123,6 +140,22 @@ export const projectApi = baseApi.injectEndpoints({
       query: (sessionId) => `/api/sessions/${sessionId}`,
       providesTags: (result, error, sessionId) => [{ type: 'Session', id: sessionId }],
     }),
+
+    // Start AEO analysis
+    startAeoAnalysis: builder.mutation<AeoAnalyzeResponse, AeoAnalyzeRequest>({
+      query: (data) => ({
+        url: `/api/aeo/analyze`,
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: (result, error, { sessionId }) => [{ type: 'Session', id: sessionId }],
+    }),
+
+    // Get AEO results
+    getAeoResults: builder.query<AeoResultsResponse, number>({
+      query: (sessionId) => `/api/aeo/results/${sessionId}`,
+      providesTags: (result, error, sessionId) => [{ type: 'Session', id: sessionId }],
+    }),
   }),
 });
 
@@ -136,4 +169,6 @@ export const {
   useLazyGetProjectQuery,
   useLazyGetProjectSessionsQuery,
   useGetSessionQuery,
+  useStartAeoAnalysisMutation,
+  useLazyGetAeoResultsQuery,
 } = projectApi;

@@ -12,6 +12,7 @@ import { AIIntelligenceModule, ContentMetricsModule, AnswerCompletenessModule } 
 import { AICitationRanking, SentimentTracking } from '@/components/module_E'
 import { useGetDataListQuery, useCheckLinksMutation, useGetLinkStatsQuery, useLazyGetPageLinksQuery } from '@/store/api/module_A/dataApi'
 import { useGetSessionQuery, useGetProjectQuery } from '@/store/api/projectApi'
+import { formatDurationHHMMSSMS, formatDurationReadable } from '@/utils/formatDuration'
 
 interface LogEntry {
   message: string
@@ -321,34 +322,37 @@ export default function SessionDetailPage() {
     return `${minutes}:${pad(secs)}`
   }
 
-  // Calculate elapsed time
-  const calculateElapsedTime = (): { seconds: number; milliseconds: number } => {
+  // Calculate elapsed time in milliseconds
+  const calculateElapsedTimeMs = (): number => {
     const isActive = isCrawling || crawlStatus === 'running' || crawlStatus === 'auditing'
     
     if (isActive && crawlStartTime) {
-      const elapsedMs = currentTime - crawlStartTime
-      return {
-        seconds: Math.floor(elapsedMs / 1000),
-        milliseconds: Math.floor((elapsedMs % 1000) / 100)
-      }
+      return currentTime - crawlStartTime
     }
     
     if (crawlStats?.duration) {
-      return { seconds: Math.floor(crawlStats.duration / 1000), milliseconds: 0 }
+      // crawlStats.duration is in milliseconds
+      return crawlStats.duration
     }
     
     if (session?.duration) {
-      return { seconds: Math.floor(session.duration / 1000), milliseconds: 0 }
+      // session.duration is stored in milliseconds from the database
+      return session.duration
     }
     
-    return { seconds: 0, milliseconds: 0 }
+    return 0
+  }
+
+  // Get formatted duration string in HH:MM:SS:MS format
+  const getFormattedDuration = (): string => {
+    return formatDurationHHMMSSMS(calculateElapsedTimeMs())
   }
 
   // Calculate items per second
   const calculateItemsPerSecond = (): string => {
     const isActive = isCrawling || crawlStatus === 'running' || crawlStatus === 'auditing'
-    const elapsed = calculateElapsedTime()
-    const elapsedSec = elapsed.seconds + elapsed.milliseconds / 10
+    const elapsedMs = calculateElapsedTimeMs()
+    const elapsedSec = elapsedMs / 1000
     
     if (isActive && pageCount >= 0 && elapsedSec > 0) {
       return (pageCount / elapsedSec).toFixed(1)
@@ -428,11 +432,7 @@ export default function SessionDetailPage() {
               crawlStatus={crawlStatus}
               isCrawling={isCrawling}
               pageCount={pageCount}
-              duration={(() => {
-                const elapsed = calculateElapsedTime()
-                const isActive = isCrawling || crawlStatus === 'running' || crawlStatus === 'auditing'
-                return formatDuration(elapsed.seconds, elapsed.milliseconds, isActive)
-              })()}
+              duration={getFormattedDuration()}
               itemsPerSecond={calculateItemsPerSecond()}
             />
 

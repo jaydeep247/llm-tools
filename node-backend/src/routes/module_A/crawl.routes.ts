@@ -652,6 +652,7 @@ router.post('/crawl',
                         logger.debug('Page discovered', { url: urlFound }, requestId);
                     },
                     onDone: async (count) => {
+                        // Calculate duration for this event only (frontend will send exact duration via separate endpoint)
                         const duration = Date.now() - startTime;
                         const durationSeconds = Math.max(1, Math.floor(duration / 1000));
                         const pagesPerSecond = parseFloat((count / (duration / 1000)).toFixed(2));
@@ -671,17 +672,15 @@ router.post('/crawl',
                             count: count,
                             duration: durationSeconds,
                             pagesPerSecond: pagesPerSecond,
-                            status: nextStatus // Include status in done event
+                            status: nextStatus
                         };
 
-                        console.log('Sending done event:', eventData);
-                        console.log('Duration calculation:', { startTime, currentTime: Date.now(), duration, durationSeconds, pagesPerSecond });
                         sendEvent(eventData, 'done', userId);
 
                         logger.info('Crawl completed', {
                             userId,
                             totalPages: count,
-                            duration: `${duration}ms`,
+                            duration: `${durationSeconds}s`,
                             pagesPerSecond: pagesPerSecond,
                             nextStatus
                         }, requestId);
@@ -955,5 +954,34 @@ router.post('/crawl/:sessionId/run-audits',
             res.status(500).json({ error: 'Failed to start audits' });
         }
     });
+
+// Update session duration from frontend timer
+router.post('/crawl/session/:sessionId/duration', async (req, res) => {
+    try {
+        const sessionId = parseInt(req.params.sessionId);
+        const { duration } = req.body; // duration in milliseconds from frontend timer
+        
+        if (!duration || duration < 0) {
+            return res.status(400).json({ error: 'Invalid duration' });
+        }
+        
+        const db = getDatabase();
+        
+        // Update the session with the exact duration from the frontend timer
+        await db.updateCrawlSession(sessionId, {
+            duration: Math.max(0, Math.floor(duration))
+        });
+        
+        logger.info('Session duration updated from frontend', {
+            sessionId,
+            duration: `${Math.floor(duration)}ms`
+        });
+        
+        res.json({ success: true, duration });
+    } catch (error) {
+        logger.error('Failed to update session duration', error as Error);
+        res.status(500).json({ error: 'Failed to update duration' });
+    }
+});
 
 export default router;
