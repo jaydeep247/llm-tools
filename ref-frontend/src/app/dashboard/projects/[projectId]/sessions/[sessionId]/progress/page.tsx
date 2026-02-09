@@ -397,6 +397,18 @@ export default function SessionProgressPage() {
     }
   }, [pageCount, estimatedTotal])
 
+  // Auto-redirect when crawl is completed
+  useEffect(() => {
+    if (crawlStatus === 'completed') {
+      // Wait 2 seconds before redirecting to let user see completion
+      const redirectTimer = setTimeout(() => {
+        router.push(`/dashboard/projects/${projectId}/sessions/${sessionId}`)
+      }, 2000)
+      
+      return () => clearTimeout(redirectTimer)
+    }
+  }, [crawlStatus, router, projectId, sessionId])
+
   // Combine logs and discovered pages in chronological order
   const combinedItems = useMemo(() => [
     ...logs.map((log, idx) => ({ type: 'log' as const, data: log as LogEntry, idx })),
@@ -654,18 +666,7 @@ export default function SessionProgressPage() {
         </div>
       </div>
 
-      {/* Manual Navigation Option - Floating at Bottom */}
-      {crawlStatus === 'completed' && (
-        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 animate-fade-in-hero">
-          <Button
-            onClick={() => router.push(`/dashboard/projects/${projectId}/sessions/${sessionId}`)}
-            className="bg-white text-black hover:bg-slate-100 rounded-xl px-6 py-3 text-sm font-semibold shadow-lg"
-          >
-            View Results
-            <ArrowRight className="h-4 w-4 ml-2" />
-          </Button>
-        </div>
-      )}
+
     </div>
   )
 }
