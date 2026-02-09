@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { useState, useEffect } from 'react'
@@ -83,8 +84,14 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
           {/* Logo Section */}
           <div className="flex items-center justify-between px-4 sm:px-5 md:px-6 h-12 sm:h-14 md:h-16 border-b border-white/20 shrink-0">
             <div className="flex items-center gap-2 sm:gap-3">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 bg-white rounded-lg flex items-center justify-center">
-                <LayoutDashboard className="h-4 w-4 sm:h-5 sm:w-5 text-slate-900" />
+              <div className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center">
+                <Image 
+                  src="/images/attrock_logo.png" 
+                  alt="Attrock" 
+                  width={32}
+                  height={32}
+                  className="w-full h-full object-contain"
+                />
               </div>
               <h1 className="text-base sm:text-lg font-bold text-white">Contentlytics</h1>
             </div>
