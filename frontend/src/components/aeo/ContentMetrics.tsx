@@ -1,5 +1,5 @@
 import React from 'react';
-import { ContentMetrics as ContentMetricsType } from './types';
+import { ContentMetrics as ContentMetricsType } from '../../../../types';
 import '../../pages/AEODashboard.css';
 
 interface EntityMetrics {

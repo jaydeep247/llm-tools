@@ -48,7 +48,7 @@ export function analyzeLinkDetails(
     const linksToInsert: LinkData[] = [];
     const processedLinks = new Set<string>(); // For deduplication
     
-    $('a[href]').each((_i, el) => {
+    $('a[href]').each((_i: number, el: any) => {
         try {
             const href = $(el).attr('href');
             if (!href) return;
@@ -91,7 +91,7 @@ export function analyzeLinkDetails(
     });
     
     // Also check for JavaScript-based navigation (elements with onClick, data-href, etc.)
-    $('[onclick], [data-href], [data-url], [data-link]').each((_i, el) => {
+    $('[onclick], [data-href], [data-url], [data-link]').each((_i: number, el: any) => {
         try {
             const $el = $(el);
             

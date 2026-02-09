@@ -5,7 +5,7 @@ import { Navbar } from '../components/ui/navbar/Navbar';
 import { Footer } from '../components/ui/footer/Footer';
 import AEODashboard from './AEODashboard';
 import { AnalysisResult } from '../services/api/api';
-import { useLazyGetDataListQuery, useLazyGetAeoResultsQuery } from '../store/api';
+import { useGetAeoResultsQuery } from '../store/api';
 import { ErrorDisplay } from '../components/ui/app/ErrorDisplay/ErrorDisplay';
 import { getApiErrorMessage } from '../utils';
 
@@ -13,9 +13,8 @@ const HistoryDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, isAuthenticated, logout, refreshUser, accessToken } = useAuth();
-  const [getDataList] = useLazyGetDataListQuery();
-  const [getAeoResults] = useLazyGetAeoResultsQuery();
-  
+  const { data: aeoResults, refetch: getAeoResults } = useGetAeoResultsQuery(id ? parseInt(id, 10) : 0, { skip: !id });
+  useGetAeoResultsQuery
   const [url, setUrl] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [result, setResult] = useState<AnalysisResult | null>(null);
@@ -60,9 +59,7 @@ const HistoryDetailPage: React.FC = () => {
       setError(null);
 
       // Fetch session data
-      const sessionData = await getDataList({
-        sessionId,
-      }).unwrap();
+      const sessionData = await getAeoResults().unwrap();
 
       // Check if session is cancelled
       const sessionStatus = sessionData.session?.status || sessionData.statistics?.status || 'unknown';
@@ -85,9 +82,11 @@ const HistoryDetailPage: React.FC = () => {
 
       // Extract pages from session data first
       const pagesArray = sessionData.data || [];
-      const sessionPages = pagesArray
-        .filter((item: any) => item.resourceType === 'page')
-        .map((page: any) => page.url);
+      const sessionPages = Array.isArray(pagesArray) 
+        ? pagesArray
+          .filter((item: any) => item.resourceType === 'page')
+          .map((page: any) => page.url)
+        : [];
 
       // Extract URL from session - try multiple sources
       let crawlUrl = sessionData.session?.start_url 
@@ -109,7 +108,7 @@ const HistoryDetailPage: React.FC = () => {
       setPageCount(totalPages);
 
       // Restore logs
-      if (sessionData.logs && sessionData.logs.length > 0) {
+      if (sessionData.logs && Array.isArray(sessionData.logs) && sessionData.logs.length > 0) {
         const logMessages = sessionData.logs.map((log: any) => ({
           message: log.message || log,
           timestamp: log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString()
@@ -160,7 +159,7 @@ const HistoryDetailPage: React.FC = () => {
       let restoredResult: AnalysisResult | null = null;
 
       try {
-        const fetchedAeo = await getAeoResults(sessionId).unwrap();
+        const fetchedAeo = await getAeoResults().unwrap();
         if (fetchedAeo) {
           if (fetchedAeo && fetchedAeo.results) {
             const r = fetchedAeo.results;
@@ -172,19 +171,19 @@ const HistoryDetailPage: React.FC = () => {
             restoredResult = {
               success: true,
               url: resultUrl || crawlUrl,
-              grade: r.grade || 'N/A',
-              grade_color: r.gradeColor || r.grade_color || '#666666',
-              overall_score: r.overallScore || r.overall_score || 0,
-              module_scores: r.moduleScores || r.module_scores,
-              module_weights: r.moduleWeights || r.module_weights,
-              detailed_analysis: r.detailedAnalysis || r.detailed_analysis,
-              structured_data: r.structuredData || r.structured_data,
-              all_recommendations: r.recommendations || r.all_recommendations,
-              errors: r.errors,
-              warnings: r.warnings,
-              analysis_timestamp: r.analysisTimestamp || r.analysis_timestamp,
-              run_id: r.runId || r.run_id,
-              entity_coverage: r.entity_coverage
+              grade: (r as any).grade || 'N/A',
+              grade_color: (r as any).gradeColor || (r as any).grade_color || '#666666',
+              overall_score: (r as any).overallScore || (r as any).overall_score || 0,
+              module_scores: (r as any).moduleScores || (r as any).module_scores,
+              module_weights: (r as any).moduleWeights || (r as any).module_weights,
+              detailed_analysis: (r as any).detailedAnalysis || (r as any).detailed_analysis,
+              structured_data: (r as any).structuredData || (r as any).structured_data,
+              all_recommendations: (r as any).recommendations || (r as any).all_recommendations,
+              errors: (r as any).error,
+              warnings: (r as any).warnings,
+              analysis_timestamp: (r as any).analysisTimestamp || (r as any).analysis_timestamp,
+              run_id: (r as any).runId || (r as any).run_id,
+              entity_coverage: (r as any).entity_coverage
             } as AnalysisResult;
           }
         }

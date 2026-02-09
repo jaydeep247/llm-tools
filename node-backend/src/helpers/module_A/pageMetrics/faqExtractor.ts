@@ -1,4 +1,4 @@
-import type { CheerioAPI, Element } from 'cheerio';
+import type { CheerioAPI } from 'cheerio';
 import type { FaqData, FaqInfo } from './types.js';
 
 /**

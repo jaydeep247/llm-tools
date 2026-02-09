@@ -7,10 +7,11 @@ import express from 'express';
 import { monitoringRoutes } from '../routes/module_D/index.js';
 import { auditsRoutes, linksRoutes, linkScoreRoutes, auditRoutes, crawlerRoutes, auditActionsRoutes, crawlRoutes, auditCheckerRoutes, serpRoutes, pageContentRoutes } from '../routes/module_A/index.js';
 import { seoRoutes } from '../routes/module_B/index.js';
-import { aeoRoutes, entityExtractorRoutes } from '../routes/module_C/index.js';
+import { aeoRoutes, entityExtractorRoutes, llmAnswerSimulatorRoutes, entityCoverageAuditRoutes } from '../routes/module_C/index.js';
 import { sentimentRoutes, rankingRoutes } from '../routes/module_E/index.js';
 import { schedulerRoutes } from '../routes/module_D/index.js';
 import { answerCompletenessRoutes } from '../routes/module_C/answerCompleteness.routes.js';
+import actionableInsightsRoutes from '../routes/module_C/actionableInsights.routes.js';
 import sseRoutes from '../routes/sse.routes.js';
 import authRoutes from '../routes/auth.routes.js';
 
@@ -40,6 +41,15 @@ export function registerRoutes(app: express.Application): void {
 
     // Entity Extractor
     app.use('/api/entity-extractor', entityExtractorRoutes);
+
+    // Entity Coverage Audit
+    app.use('/api/aeo', entityCoverageAuditRoutes);
+
+    // LLM Answer Simulator
+    app.use('/api/llm-answer-simulator', llmAnswerSimulatorRoutes);
+
+    // Actionable Insights
+    app.use('/api/actionable-insights', actionableInsightsRoutes);
 
     // Answer Completeness Analysis
     app.use('/api/answer-completeness', answerCompletenessRoutes);

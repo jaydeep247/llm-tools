@@ -33,7 +33,7 @@ export function isValidHttpLink(href: string): boolean {
 export function extractLinks($: CheerioAPI, baseUrl: string): ExtractedLink[] {
     const links: ExtractedLink[] = [];
     
-    $('a[href]').each((_i, el) => {
+    $('a[href]').each((_i: number, el: Element) => {
         const href = $(el).attr('href');
         if (!href) return;
         
@@ -75,7 +75,7 @@ export function extractLinksForCrawling(
     const toEnqueue: string[] = [];
     
     $('a[href]')
-        .map((_i, el) => $(el).attr('href'))
+        .map((_i: number, el: any) => $(el).attr('href'))
         .get()
         .forEach((href: string) => {
             if (!href) return;
@@ -114,7 +114,7 @@ export function categorizeLinks(
     const internalLinks: string[] = [];
     const externalLinks: string[] = [];
     
-    $('a[href]').each((_i, el) => {
+    $('a[href]').each((_i: number, el: any) => {
         const href = $(el).attr('href');
         if (!href) return;
         
@@ -155,7 +155,7 @@ export function countLinks($: CheerioAPI, baseUrl: string): {
     
     const baseHostname = new URL(baseUrl).hostname;
     
-    $('a[href]').each((_i, el) => {
+    $('a[href]').each((_i: number, el: Element) => {
         const href = $(el).attr('href');
         if (!href) return;
         

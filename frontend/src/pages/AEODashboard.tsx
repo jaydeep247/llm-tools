@@ -7,10 +7,26 @@ import {
   DashboardTabs,
   RecommendationsModal,
   useAEOData,
-  useSchemaGenerator,
-  AEODashboardProps,
-  ActiveView
+  useSchemaGenerator
 } from '../components/aeo';
+
+// Define types locally since they're not exported from aeo module
+type ActiveView = 'data' | 'crawler' | 'schema' | 'bulk' | 'moduleE';
+
+interface AEODashboardProps {
+  url?: string;
+  result?: any;
+  onAnalyze?: () => void;
+  runCrawl?: boolean;
+  isCrawling?: boolean;
+  crawlStatus?: string;
+  pageCount?: number;
+  crawlStats?: any;
+  logs?: any[];
+  discoveredPages?: any[];
+  sessionId?: string;
+  crawlStartTime?: number | null;
+}
 import { getApiErrorMessage } from '../utils';
 
 
@@ -34,7 +50,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
   
   // Use custom hooks for better organization
   const aeoData = useAEOData(result);
-  const { scores, aiPlatforms, competitors, strategyMetrics, getModuleRecommendations, contentMetrics, entityMetrics, answerCompletenessData, entityData } = aeoData ?? {
+  const { scores, aiPlatforms, competitors, strategyMetrics, getModuleRecommendations, contentMetrics, entityMetrics, answerCompletenessData, entityData, simulatorData } = aeoData ?? {
     scores: undefined,
     aiPlatforms: undefined,
     competitors: undefined,
@@ -43,7 +59,9 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
     contentMetrics: undefined,
     entityMetrics: undefined,
     answerCompletenessData: undefined,
-    entityData: undefined
+    entityData: undefined,
+    simulatorData: undefined,
+    actionableInsightsData: undefined
   };
   const {
     schemaData,
@@ -334,6 +352,7 @@ const AEODashboard: React.FC<AEODashboardProps> = ({
         entityMetrics={entityMetrics}
         answerCompletenessData={answerCompletenessData}
         entityData={entityData}
+        simulatorData={simulatorData}
       />
 
       <RecommendationsModal

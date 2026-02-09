@@ -6,6 +6,11 @@ export interface AnalyzeRequest {
 }
 
 export interface AnalyzeResponse {
+  session: any;
+  statistics: any;
+  data: never[];
+  totalPages: any;
+  logs: boolean;
   success: boolean;
   results?: any;
   error?: string;

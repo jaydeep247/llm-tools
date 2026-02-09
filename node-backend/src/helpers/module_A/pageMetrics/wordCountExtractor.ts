@@ -35,7 +35,7 @@ function extractVisibleText($: CheerioAPI): string {
     $clone('noscript').remove();
     
     // Remove elements with display:none, visibility:hidden, or aria-hidden="true"
-    $clone('*').each((_i, el) => {
+    $clone('*').each((_i: number, el: Element) => {
         const $el = $clone(el);
         const style = $el.attr('style') || '';
         const ariaHidden = $el.attr('aria-hidden');
@@ -186,7 +186,7 @@ function extractParagraphCount($: CheerioAPI): number {
     
     // Remove hidden elements first
     $clone('script, style, noscript').remove();
-    $clone('*').each((_i, el) => {
+    $clone('*').each((_i: number, el: Element) => {
         const $el = $clone(el);
         const style = $el.attr('style') || '';
         const ariaHidden = $el.attr('aria-hidden');
@@ -200,7 +200,7 @@ function extractParagraphCount($: CheerioAPI): number {
     
     // Count <p> tags with non-empty text
     let paragraphCount = 0;
-    $clone('p').each((_i, el) => {
+    $clone('p').each((_i: number, el: Element) => {
         const text = $clone(el).text().trim();
         if (text.length > 0) {
             paragraphCount++;
@@ -209,7 +209,7 @@ function extractParagraphCount($: CheerioAPI): number {
     
     // If no <p> tags, count <div> blocks with substantial text (optional)
     if (paragraphCount === 0) {
-        $clone('div').each((_i, el) => {
+        $clone('div').each((_i: number, el: Element) => {
             const text = $clone(el).text().trim();
             const wordCount = tokenizeWords(text).length;
             // Consider divs with at least 20 words as paragraphs
@@ -403,7 +403,7 @@ function extractSectionWordCountMapping($: CheerioAPI): Record<string, number> {
     
     // Remove hidden elements
     $clone('script, style, noscript').remove();
-    $clone('*').each((_i, el) => {
+    $clone('*').each((_i: number, el: Element) => {
         const $el = $clone(el);
         const style = $el.attr('style') || '';
         const ariaHidden = $el.attr('aria-hidden');
@@ -511,7 +511,7 @@ function extractHeadingWordCountMapping($: CheerioAPI): Record<string, number> {
     
     // Remove hidden elements
     $clone('script, style, noscript').remove();
-    $clone('*').each((_i, el) => {
+    $clone('*').each((_i: number, el: Element) => {
         const $el = $clone(el);
         const style = $el.attr('style') || '';
         const ariaHidden = $el.attr('aria-hidden');

@@ -1,4 +1,4 @@
-import type { CheerioAPI, Element } from 'cheerio';
+import type { CheerioAPI } from 'cheerio';
 import type { MixedContentData, MixedContentResource } from './types.js';
 
 /**
@@ -148,8 +148,8 @@ function extractImageResources($: CheerioAPI, baseUrl: string, resources: MixedC
         const srcset = $(element).attr('srcset');
         if (srcset) {
             // Parse srcset (format: "url1 1x, url2 2x")
-            const sources = srcset.split(',').map(s => s.trim().split(/\s+/)[0]);
-            sources.forEach(src => {
+            const sources = srcset.split(',').map((s: string) => s.trim().split(/\s+/)[0]);
+            sources.forEach((src: string) => {
                 const absoluteUrl = resolveUrl(src, baseUrl);
                 if (absoluteUrl) {
                     resources.push({
@@ -248,8 +248,8 @@ function extractMediaResources($: CheerioAPI, baseUrl: string, resources: MixedC
     $('source[srcset]').each((_: number, element: Element) => {
         const srcset = $(element).attr('srcset');
         if (srcset) {
-            const sources = srcset.split(',').map(s => s.trim().split(/\s+/)[0]);
-            sources.forEach(src => {
+            const sources = srcset.split(',').map((s: string) => s.trim().split(/\s+/)[0]);
+            sources.forEach((src: string) => {
                 const absoluteUrl = resolveUrl(src, baseUrl);
                 if (absoluteUrl) {
                     const parentTag = $(element).parent().prop('tagName')?.toLowerCase() || 'source';

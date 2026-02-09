@@ -1,12 +1,12 @@
-import { Element } from 'cheerio';
+// Note: Cheerio doesn't export Element in newer versions, use any type for elements
 
 /**
- * Generate XPath for a DOM element
+ * Generate XPath for a Cheerio element
  * Capped at depth ~10 to avoid overly long paths
  */
-export function generateXPath(element: Element): string {
+export function generateXPath(element: any): string {
     const path: string[] = [];
-    let current: Element | null = element;
+    let current: any = element;
     let depth = 0;
     const maxDepth = 10;
 
@@ -16,19 +16,19 @@ export function generateXPath(element: Element): string {
 
         // Get index among siblings with same tag
         let index = 1;
-        let sibling = current.prev;
+        let sibling = current.previousSibling;
         while (sibling) {
             if ('tagName' in sibling && sibling.tagName?.toLowerCase() === tagName) {
                 index++;
             }
-            sibling = sibling.prev;
+            sibling = sibling.previousSibling;
         }
 
         // Build path segment
         let segment = tagName;
         
         // Add index if there are multiple siblings with same tag
-        const nextSibling = current.next;
+        const nextSibling = current.nextSibling;
         const hasMultipleSiblings = nextSibling && 'tagName' in nextSibling && nextSibling.tagName?.toLowerCase() === tagName;
         if (hasMultipleSiblings || index > 1) {
             segment += `[${index}]`;
@@ -46,7 +46,7 @@ export function generateXPath(element: Element): string {
         }
 
         path.unshift(segment);
-        current = current.parent as Element | null;
+        current = current.parent;
         depth++;
     }
 
@@ -56,7 +56,7 @@ export function generateXPath(element: Element): string {
 /**
  * Determine link position based on DOM hierarchy
  */
-export function getLinkPosition(element: Element, $: any): string {
+export function getLinkPosition(element: any, $: any): string {
     // Check for specific semantic elements first
     
     // Header detection

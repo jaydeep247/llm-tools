@@ -176,7 +176,7 @@ export function extractSectionWordCounts($: CheerioAPI): Array<{
     const sections: Array<{ heading: string; level: number; wordCount: number }> = [];
     
     // Find all headings
-    $('h1, h2, h3, h4, h5, h6').each((_i, el) => {
+    $('h1, h2, h3, h4, h5, h6').each((_i: number, el: any) => {
         const $heading = $(el);
         const headingText = $heading.text().trim();
         const level = parseInt(el.tagName.substring(1));

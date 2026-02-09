@@ -1,4 +1,5 @@
 
+import { CheerioAPI, load } from 'cheerio';
 import { prisma } from '../../config/prismaClient.js';
 import * as cheerio from 'cheerio';
 
@@ -99,20 +100,18 @@ ${page.content.substring(0, 3000)} ...[truncated]
         return aggregatedContext;
     }
 
-    // ...
-
     /**
      * Robustly strips HTML, Scripts, Styles, and JSON-LD to return only visible text.
      */
     private static sanitizeContent(html: string): string {
         try {
-            const $ = cheerio.load(html);
+            const $: CheerioAPI = load(html);
 
             // 1. Remove non-content structural/technical tags
             $('script, style, head, noscript, iframe, svg, link, meta, json-ld').remove();
 
             // 2. Extract text and clean up whitespace
-            let text = $('body').text() || $.text(); // Fallback to root text if body is missing
+            let text = $('body').text() || $.root().text(); // Fallback to root text if body is missing
             return text.replace(/\s+/g, ' ').trim();
         } catch (e) {
             console.warn('Cheerio sanitization failed, falling back to basic regex', e);
@@ -447,7 +446,6 @@ ${page.content.substring(0, 3000)} ...[truncated]
             });
             if (!compareRes.ok) {
                 console.error(`❌ Compare API failed: ${compareRes.status} ${compareRes.statusText}`);
-                const errorText = await compareRes.text();
                 throw new Error(`Compare API failed: ${compareRes.statusText}`);
             }
 

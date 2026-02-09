@@ -58,6 +58,7 @@ function generateContentHash(text: string): string {
 
 export function createRequestHandler(context: RequestHandlerContext): CheerioCrawlerOptions['requestHandler'] {
     return async ({ request, $, enqueueLinks, log: reqLog, response }) => {
+        const $typed = $ as any;
         const { 
             sessionId, allowedHost, allowSubdomains, denyParamPrefixes,
             captureLinkDetails, events, metricsCollector, requestStartTimes,
@@ -117,13 +118,13 @@ export function createRequestHandler(context: RequestHandlerContext): CheerioCra
         const startTime = requestStartTimes.get(url) || Date.now();
         const responseTime = Date.now() - startTime;
         const enhancedResponse = { ...response, url: response?.url || request.loadedUrl || url };
-        const pageMetrics = await extractPageMetrics(request.url, $, enhancedResponse, responseTime);
-        const contentMetrics = extractContentMetrics($);
+        const pageMetrics = await extractPageMetrics(request.url, $typed, enhancedResponse, responseTime);
+        const contentMetrics = extractContentMetrics($typed);
         
         // Extract visible text for content hashing
-        const $clone = load($.html());
+        const $clone: CheerioAPI = load($.html());
         $clone('script, style, noscript, meta, link, head').remove();
-        const visibleText = $clone('body').text().trim();
+        const visibleText = $clone('body').text()?.trim() || '';
         
         const crawlDepth = getCrawlDepthFromRequest(request);
         const folderDepth = calculateFolderDepth(url);
@@ -389,7 +390,7 @@ export function createRequestHandler(context: RequestHandlerContext): CheerioCra
 
         // Create fingerprint
         try {
-            const fingerprint = createFingerprint($, pageId, sessionId, url, false);
+            const fingerprint = createFingerprint($typed, pageId, sessionId, url, false);
             await db.upsertContentFingerprint(fingerprint);
         } catch (error) {
             logger.error(`Failed to create content fingerprint for ${url}`, error as Error);
@@ -414,7 +415,7 @@ export function createRequestHandler(context: RequestHandlerContext): CheerioCra
         logger.debug('Page processed', { url, responseTime });
 
         // Extract and enqueue links
-        const toEnqueue = extractLinksForCrawling($, {
+        const toEnqueue = extractLinksForCrawling($typed, {
             baseUrl: url,
             allowedHost,
             allowSubdomains,
@@ -440,7 +441,7 @@ export function createRequestHandler(context: RequestHandlerContext): CheerioCra
         }
 
         // Collect resources
-        const resources = collectPageResources($, {
+        const resources = collectPageResources($typed, {
             sessionId, pageId,
             baseUrl: url,
             allowedHost,
@@ -455,7 +456,7 @@ export function createRequestHandler(context: RequestHandlerContext): CheerioCra
         // Optional: detailed link analysis
         if (captureLinkDetails) {
             const linkAnalysisStart = Date.now();
-            const linksToInsert = analyzeLinkDetails($, {
+            const linksToInsert = analyzeLinkDetails($typed, {
                 sessionId, sourcePageId: pageId, sourceUrl: url,
                 allowedHost, allowSubdomains
             }, isValidHttpLink, isSameSite, extractLinkMetadata);

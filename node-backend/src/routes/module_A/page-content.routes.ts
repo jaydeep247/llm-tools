@@ -2,7 +2,7 @@ import express from 'express';
 import { getDatabase } from '../../services/DatabaseService.js';
 import { authenticateUser } from '../../middleware/authMiddleware.js';
 import { Logger } from '../../helpers/logging/Logger.js';
-import * as cheerio from 'cheerio';
+import { load, CheerioAPI, Element } from 'cheerio';
 
 const logger = Logger.getInstance();
 const router = express.Router();
@@ -74,17 +74,17 @@ router.get('/pages/:pageId/content', authenticateUser, async (req: express.Reque
         }
 
         // Parse HTML and extract content
-        const $ = cheerio.load(htmlContent);
+        const $: CheerioAPI = load(htmlContent);
         
         // Remove non-content elements
         $('script, style, noscript, meta, link, iframe, svg').remove();
 
         // Extract paragraphs with their text
         const paragraphs: Array<{ text: string; wordCount: number; element: string }> = [];
-        $('p').each((i, elem) => {
+        $('p').each((_: number, elem: Element) => {
             const text = $(elem).text().trim();
             if (text.length > 0) {
-                const wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
+                const wordCount = text.split(/\s+/).filter((w: string) => w.length > 0).length;
                 paragraphs.push({
                     text,
                     wordCount,
@@ -95,7 +95,7 @@ router.get('/pages/:pageId/content', authenticateUser, async (req: express.Reque
 
         // Extract headings with their content
         const headings: Array<{ level: number; text: string; content: string; wordCount: number }> = [];
-        $('h1, h2, h3, h4, h5, h6').each((i, elem) => {
+        $('h1, h2, h3, h4, h5, h6').each((_: number, elem: Element) => {
             const level = parseInt(elem.tagName.substring(1));
             const text = $(elem).text().trim();
             
@@ -109,7 +109,7 @@ router.get('/pages/:pageId/content', authenticateUser, async (req: express.Reque
                 nextElem = nextElem.next();
             }
             
-            const wordCount = content.split(/\s+/).filter(w => w.length > 0).length;
+            const wordCount = content.split(/\s+/).filter((w: string) => w.length > 0).length;
             
             headings.push({
                 level,
@@ -120,24 +120,24 @@ router.get('/pages/:pageId/content', authenticateUser, async (req: express.Reque
         });
 
         // Extract all visible text
-        const visibleText = $('body').text().trim();
+        const visibleText = $('body').text()?.trim() || '';
         
         // Split into sentences
         const sentences = visibleText
             .split(/[.!?]+/)
-            .map(s => s.trim())
-            .filter(s => s.length > 0)
-            .map(s => ({
+            .map((s: string) => s.trim())
+            .filter((s: string) => s.length > 0)
+            .map((s: string) => ({
                 text: s,
-                wordCount: s.split(/\s+/).filter(w => w.length > 0).length
+                wordCount: s.split(/\s+/).filter((w: string) => w.length > 0).length
             }));
 
         // Extract list items
         const listItems: Array<{ text: string; wordCount: number; listType: 'ul' | 'ol' }> = [];
-        $('li').each((i, elem) => {
+        $('li').each((_: number, elem: Element) => {
             const text = $(elem).text().trim();
-            if (text.length > 0) {
-                const wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
+            if (text.length > 5) {
+                const wordCount = text.split(/\s+/).filter((w: string) => w.length > 0).length;
                 const listType = $(elem).parent().is('ul') ? 'ul' : 'ol';
                 listItems.push({
                     text,
@@ -151,13 +151,13 @@ router.get('/pages/:pageId/content', authenticateUser, async (req: express.Reque
         const words = visibleText
             .toLowerCase()
             .split(/\s+/)
-            .filter(w => w.length > 2) // Only words longer than 2 chars
-            .map(w => w.replace(/[^a-z0-9]/g, ''))
-            .filter(w => w.length > 0);
+            .filter((w: string) => w.length > 2) // Only words longer than 2 chars
+            .map((w: string) => w.replace(/[^a-z0-9]/g, ''))
+            .filter((w: string) => w.length > 0);
 
         // Count word frequency
         const wordFrequency: Record<string, number> = {};
-        words.forEach(word => {
+        words.forEach((word: string) => {
             wordFrequency[word] = (wordFrequency[word] || 0) + 1;
         });
 

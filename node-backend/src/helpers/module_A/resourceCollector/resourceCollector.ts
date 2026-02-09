@@ -12,7 +12,7 @@ export function collectCssFiles(
     emittedCss: Set<string>
 ): ResourceData[] {
     const cssResources: ResourceData[] = [];
-    const cssLinks = $('link[rel="stylesheet"][href]').map((_i, el) => $(el).attr('href')).get();
+    const cssLinks = $('link[rel="stylesheet"][href]').map((_i: number, el: Element) => $(el).attr('href')).get();
     
     for (const href of cssLinks) {
         if (!href) continue;
@@ -55,7 +55,7 @@ export function collectJsFiles(
     emittedJs: Set<string>
 ): ResourceData[] {
     const jsResources: ResourceData[] = [];
-    const jsLinks = $('script[src]').map((_i, el) => $(el).attr('src')).get();
+    const jsLinks = $('script[src]').map((_i: number, el: Element) => $(el).attr('src')).get();
     
     for (const src of jsLinks) {
         if (!src) continue;
@@ -98,7 +98,7 @@ export function collectImages(
     emittedImg: Set<string>
 ): ResourceData[] {
     const imageResources: ResourceData[] = [];
-    const imgElems = $('img[src]').map((_i, el) => ({
+    const imgElems = $('img[src]').map((_i: number, el: Element) => ({
         src: $(el).attr('src'),
         alt: $(el).attr('alt')
     })).get();
@@ -148,7 +148,7 @@ export function collectExternalLinks(
     isSameSite: (url: string, host: string, allowSubdomains: boolean) => boolean
 ): ResourceData[] {
     const externalResources: ResourceData[] = [];
-    const links = $('a[href]').map((_i, el) => $(el).attr('href')).get();
+    const links = $('a[href]').map((_i: number, el: any) => $(el).attr('href')).get();
     
     for (const href of links) {
         if (!href) continue;

@@ -10,8 +10,11 @@ import SchemaGenerator from './SchemaGenerator';
 import IntelligenceModule from './IntelligenceModule';
 import ModuleE from './ModuleE';
 import ContentMetrics from './ContentMetrics';
+import VisibilityEngine from './VisibilityEngine';
 import AnswerCompletenessScore from './AnswerCompletenessScore';
 import EntityExtractor from './EntityExtractor';
+import LLMAnswerSimulator from './LLMAnswerSimulator';
+import ActionableInsights from './ActionableInsights';
 
 
 interface Competitor {
@@ -71,6 +74,9 @@ interface DashboardTabsProps {
   
   // Entity Extractor props
   entityData?: any;
+  
+  // LLM Answer Simulator props
+  simulatorData?: any;
 }
 
 const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
@@ -113,8 +119,8 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
     contentMetrics,
     entityMetrics,
     answerCompletenessData,
-    entityData
-  } = props;
+    entityData,
+    simulatorData  } = props;
 
   // Helper function to extract session ID (prioritizing prop sessionId, then result object)
   // This ensures that when a new crawl completes, it automatically uses the generated session ID
@@ -242,16 +248,10 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
           📄 Content Metrics
         </button>
         <button
-          onClick={() => setActiveView('answer_completeness')}
-          className={`tab-button ${activeView === 'answer_completeness' ? 'active' : ''}`}
+          onClick={() => setActiveView('visibility_engine')}
+          className={`tab-button ${activeView === 'visibility_engine' ? 'active' : ''}`}
         >
-          ✅ Answer Completeness
-        </button>
-        <button
-          onClick={() => setActiveView('entity_extractor')}
-          className={`tab-button ${activeView === 'entity_extractor' ? 'active' : ''}`}
-        >
-          🏷️ Entity Extractor
+          👁️ Visibility Engine
         </button>
       </div>
 
@@ -387,15 +387,15 @@ const DashboardTabs: React.FC<DashboardTabsProps> = (props) => {
           </div>
         )}
 
-        {activeView === 'answer_completeness' && (
+        {activeView === 'visibility_engine' && (
           <div className="content-metrics-content-embedded">
-            <AnswerCompletenessScore completenessData={answerCompletenessData} />
-          </div>
-        )}
-
-        {activeView === 'entity_extractor' && (
-          <div className="content-metrics-content-embedded">
-            <EntityExtractor entityData={entityData} />
+            <VisibilityEngine
+              answerCompletenessData={answerCompletenessData}
+              entityData={entityData}
+              simulatorData={simulatorData}
+              url={url}
+              sessionId={sessionId}
+            />
           </div>
         )}
       </div>

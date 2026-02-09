@@ -6,15 +6,15 @@ import type { HeadersData, HeaderStructure } from './types.js';
  */
 export function extractHeaders($: CheerioAPI): HeadersData {
     // Extract H1 tags
-    const h1Tags = $('h1').map((_i, el) => $(el).text().trim()).get();
+    const h1Tags = $('h1').map((_i: number, el: any) => $(el).text().trim()).get();
     const hasMultipleH1 = h1Tags.length > 1;
     
     // Extract H2-H6 tags
-    const h2Tags = $('h2').map((_i, el) => $(el).text().trim()).get();
-    const h3Tags = $('h3').map((_i, el) => $(el).text().trim()).get();
-    const h4Tags = $('h4').map((_i, el) => $(el).text().trim()).get();
-    const h5Tags = $('h5').map((_i, el) => $(el).text().trim()).get();
-    const h6Tags = $('h6').map((_i, el) => $(el).text().trim()).get();
+    const h2Tags = $('h2').map((_i: number, el: any) => $(el).text().trim()).get();
+    const h3Tags = $('h3').map((_i: number, el: any) => $(el).text().trim()).get();
+    const h4Tags = $('h4').map((_i: number, el: any) => $(el).text().trim()).get();
+    const h5Tags = $('h5').map((_i: number, el: any) => $(el).text().trim()).get();
+    const h6Tags = $('h6').map((_i: number, el: any) => $(el).text().trim()).get();
     
     // Build header structure
     const headerStructure = buildHeaderStructure($);
@@ -38,7 +38,7 @@ export function buildHeaderStructure($: CheerioAPI): HeaderStructure[] {
     const structure: HeaderStructure[] = [];
     
     // Find all heading tags in document order
-    $('h1, h2, h3, h4, h5, h6').each((i, el) => {
+    $('h1, h2, h3, h4, h5, h6').each((i: number, el: any) => {
         const tagName = el.tagName.toLowerCase();
         const level = parseInt(tagName.substring(1));
         const text = $(el).text().trim();

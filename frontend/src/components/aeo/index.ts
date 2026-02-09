@@ -8,10 +8,8 @@ export { default as ModuleE } from './ModuleE';
 export { default as RecommendationsModal } from './RecommendationsModal';
 export { default as AISimulator } from './AISimulator';
 export { default as EntityExtractor } from './EntityExtractor';
+export { default as EntityCoverageAudit } from './EntityCoverageAudit';
 
 // Hooks
 export { useAEOData } from './useAEOData';
 export { useSchemaGenerator } from './useSchemaGenerator';
-
-// Types
-export * from './types';

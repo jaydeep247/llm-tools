@@ -90,4 +90,4 @@ export interface AEODashboardProps {
   crawlStartTime?: number | null;
 }
 
-export type ActiveView = 'crawler' | 'data' | 'links' | 'tree' | 'audits' | 'schema' | 'intelligence' | 'simulator' | 'page_metrics' | 'wordcount_analysis' | 'broken_links' | 'module_e' | 'content_metrics';
+export type ActiveView = 'crawler' | 'data' | 'links' | 'tree' | 'audits' | 'schema' | 'intelligence' | 'simulator' | 'page_metrics' | 'wordcount_analysis' | 'broken_links' | 'module_e' | 'content_metrics' | 'visibility_engine';

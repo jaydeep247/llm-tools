@@ -63,6 +63,7 @@ export const baseApi = createApi({
     'Schedule',
     'Cron',
     'Sentiment',
+    'EntityCoverage',
   ],
   endpoints: () => ({}),
 });

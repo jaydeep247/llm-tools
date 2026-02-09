@@ -11,6 +11,6 @@
     "jsx": "react-jsx",
     "lib": ["ES2022", "DOM", "DOM.Iterable"]
   },
-  "include": ["**/*.ts", "**/*.tsx", "vite-env.d.ts"],
+  "include": ["**/*.ts", "**/*.tsx", "vite-env.d.ts", "../types.ts"],
   "exclude": ["node_modules", "dist"]
 }

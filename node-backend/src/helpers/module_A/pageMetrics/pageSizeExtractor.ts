@@ -48,7 +48,7 @@ function extractResourceUrls($: CheerioAPI): {
     };
 
     // CSS files
-    $('link[rel="stylesheet"]').each((_, el) => {
+    $('link[rel="stylesheet"]').each((_: number, el: Element) => {
         const href = $(el).attr('href');
         if (href && href.startsWith('http')) {
             resources.css.push(href);
@@ -56,7 +56,7 @@ function extractResourceUrls($: CheerioAPI): {
     });
 
     // JavaScript files
-    $('script[src]').each((_, el) => {
+    $('script[src]').each((_: number, el: Element) => {
         const src = $(el).attr('src');
         if (src && src.startsWith('http')) {
             resources.js.push(src);
@@ -64,7 +64,7 @@ function extractResourceUrls($: CheerioAPI): {
     });
 
     // Images
-    $('img[src]').each((_, el) => {
+    $('img[src]').each((_: number, el: Element) => {
         const src = $(el).attr('src');
         if (src && src.startsWith('http')) {
             resources.images.push(src);
@@ -72,11 +72,11 @@ function extractResourceUrls($: CheerioAPI): {
     });
 
     // Additional images from srcset
-    $('img[srcset]').each((_, el) => {
+    $('img[srcset]').each((_: number, el: Element) => {
         const srcset = $(el).attr('srcset');
         if (srcset) {
             // Parse srcset and extract URLs
-            const urls = srcset.split(',').map(s => s.trim().split(' ')[0]);
+            const urls: string[] = srcset.split(',').map((s: string): string => s.trim().split(' ')[0]);
             urls.forEach(url => {
                 if (url && url.startsWith('http')) {
                     resources.images.push(url);
@@ -86,7 +86,7 @@ function extractResourceUrls($: CheerioAPI): {
     });
 
     // Fonts (from CSS @import or link with font types)
-    $('link[rel="preload"][as="font"]').each((_, el) => {
+    $('link[rel="preload"][as="font"]').each((_: number, el: Element) => {
         const href = $(el).attr('href');
         if (href && href.startsWith('http')) {
             resources.fonts.push(href);
@@ -94,7 +94,7 @@ function extractResourceUrls($: CheerioAPI): {
     });
 
     // Media files (video, audio)
-    $('video source[src], audio source[src], video[src], audio[src]').each((_, el) => {
+    $('video source[src], audio source[src], video[src], audio[src]').each((_: number, el: Element) => {
         const src = $(el).attr('src');
         if (src && src.startsWith('http')) {
             resources.media.push(src);
@@ -102,7 +102,7 @@ function extractResourceUrls($: CheerioAPI): {
     });
 
     // Other resources (iframes, objects, etc.)
-    $('iframe[src], object[data], embed[src]').each((_, el) => {
+    $('iframe[src], object[data], embed[src]').each((_: number, el: Element) => {
         const src = $(el).attr('src') || $(el).attr('data');
         if (src && src.startsWith('http')) {
             resources.other.push(src);

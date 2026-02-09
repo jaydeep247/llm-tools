@@ -1,11 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import { apiService } from '../../services/api/api';
-import { AEOScore, AIPlatform, Competitor, StrategyMetric } from './types';
+import { AEOScore, AIPlatform, Competitor, StrategyMetric } from '../../../../types';
 
 export const useAEOData = (result: any) => {
   // Add state for historical entity data fetching
   const [historicalEntityData, setHistoricalEntityData] = useState<any>(null);
   const [fetchingHistoricalData, setFetchingHistoricalData] = useState(false);
+
+  // Add state for simulator data
+  const [simulatorData, setSimulatorData] = useState<any>(null);
+  const [fetchingSimulatorData, setFetchingSimulatorData] = useState(false);
 
   // Fetch entity data for historical results that don't have entity_extraction
   useEffect(() => {
@@ -44,6 +48,58 @@ export const useAEOData = (result: any) => {
 
     fetchHistoricalEntityData();
   }, [result?.url, result?.entity_extraction]);
+
+  // Fetch simulator data for results
+  useEffect(() => {
+    const fetchSimulatorData = async () => {
+      // Only fetch if we have a result with URL and content
+      if (!result || !result.url || fetchingSimulatorData) return;
+      
+      try {
+        setFetchingSimulatorData(true);
+        
+        // Extract content from result for analysis
+        const content = result.page_content || result.text_content || result.content || '';
+        if (!content) {
+          console.log('No content available for simulator analysis');
+          return;
+        }
+        
+        const response = await fetch('/api/llm-answer-simulator/analyze', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+          },
+          body: JSON.stringify({
+            content: content.substring(0, 1000000), // Limit content size
+            queries: [
+              "What is this company's main service?",
+              "Who are the key people in this organization?", 
+              "Where is this business located?",
+              "What products do they offer?",
+              "How can I contact them?"
+            ]
+          })
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data) {
+            setSimulatorData(data.data);
+          }
+        } else {
+          console.error('Failed to fetch simulator data:', response.statusText);
+        }
+      } catch (error) {
+        console.error('Error fetching simulator data:', error);
+      } finally {
+        setFetchingSimulatorData(false);
+      }
+    };
+
+    fetchSimulatorData();
+  }, [result?.url, result?.page_content, result?.text_content, result?.content]);
 
 
   const getAIPlatforms = (): AIPlatform[] => {
@@ -618,6 +674,7 @@ export const useAEOData = (result: any) => {
     contentMetrics: getContentMetrics(),
     entityMetrics: getEntityMetrics(),
     answerCompletenessData: getAnswerCompletenessData(),
-    entityData: getEntityData
+    entityData: getEntityData,
+    simulatorData: simulatorData
   };
 };

@@ -97,7 +97,7 @@ export function extractStructuredData($: CheerioAPI): StructuredDataItem[] {
     const structuredDataItems: StructuredDataItem[] = [];
     
     // Extract JSON-LD
-    $('script[type="application/ld+json"]').each((_i, el) => {
+    $('script[type="application/ld+json"]').each((_i: number, el: any) => {
         try {
             const content = $(el).html();
             if (content) {
