@@ -86,7 +86,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
               <div className="w-7 h-7 sm:w-8 sm:h-8 bg-white rounded-lg flex items-center justify-center">
                 <LayoutDashboard className="h-4 w-4 sm:h-5 sm:w-5 text-slate-900" />
               </div>
-              <h1 className="text-base sm:text-lg font-bold text-white">AEO Checker</h1>
+              <h1 className="text-base sm:text-lg font-bold text-white">Contentlytics</h1>
             </div>
             <Button
               variant="ghost"

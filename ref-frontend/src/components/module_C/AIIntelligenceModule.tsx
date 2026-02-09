@@ -167,7 +167,7 @@ export default function AIIntelligenceModule({ url, sessionId }: AIIntelligenceM
                 : 'hover:bg-muted'
             )}
           >
-            AEO Checker
+            Contentlytics
           </Button>
           <Button
             onClick={() => handleAuditModeChange('bulk')}
