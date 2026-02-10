@@ -7,4 +7,9 @@ export const rateLimitMiddleware = rateLimit({
   message: 'Too many requests from this IP, please try again later',
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => {
+    // Skip rate limiting for authenticated workers
+    const workerKey = req.headers['x-worker-key'];
+    return workerKey === env.WORKER_API_KEY;
+  },
 });

@@ -106,8 +106,9 @@ export class JobService {
   }
 
   /**
-   * Update job status with state machine validation
-   * This is called by external workers (Python) to update job state
+   * Update job status (User flow)
+   * Users can only Cancel jobs (TODO: Implement proper cancel logic)
+   * For now, keeping this generic but arguably users shouldn't manually set RUNNING/COMPLETED
    */
   async updateJobStatus(
     jobId: string,
@@ -127,6 +128,37 @@ export class JobService {
       throw new Error('Job not found or access denied');
     }
 
+    // Delegate to shared update logic
+    return this._updateJobStatusLogic(job, newStatus, failureReason);
+  }
+
+  /**
+   * Update job status (Worker flow)
+   * Workers bypass ownership checks but still enforce state machine
+   */
+  async updateJobStatusByWorker(
+    jobId: string,
+    newStatus: JobStatus,
+    failureReason?: string
+  ): Promise<JobResponse> {
+    const job = await this.jobRepository.findByIdWithSession(jobId);
+    
+    if (!job) {
+      throw new Error('Job not found');
+    }
+
+    // Delegate to shared update logic
+    return this._updateJobStatusLogic(job, newStatus, failureReason);
+  }
+
+  /**
+   * Shared status update logic with state machine validation and limit checks
+   */
+  private async _updateJobStatusLogic(
+    job: JobWithSession,
+    newStatus: JobStatus,
+    failureReason?: string
+  ): Promise<JobResponse> {
     // Validate state transition
     const allowedTransitions = VALID_JOB_TRANSITIONS[job.status];
     if (!allowedTransitions.includes(newStatus)) {
@@ -138,6 +170,10 @@ export class JobService {
     // Additional validation for RUNNING state
     if (newStatus === 'RUNNING') {
       // Re-check limits before starting
+      // We need the owner ID to check limits
+      const userId = job.session?.project?.userId;
+      if (!userId) throw new Error('System integrity error: Job has no owner');
+
       const limits = await this.limitsService.getAccountLimits(userId);
       const concurrentJobsInSession = await this.jobRepository.countRunningJobsBySessionId(job.sessionId);
       const concurrentJobsForUser = await this.jobRepository.countRunningJobsByUserId(userId);
@@ -162,7 +198,7 @@ export class JobService {
     }
 
     // Update job status
-    return this.jobRepository.updateStatus(jobId, newStatus, failureReason);
+    return this.jobRepository.updateStatus(job.id, newStatus, failureReason);
   }
 
   /**

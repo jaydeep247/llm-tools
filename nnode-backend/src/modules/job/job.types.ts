@@ -5,6 +5,7 @@ export type JobResponse = Job;
 export interface CreateJobDto {
   jobType: JobType;
   priority?: number;
+  config?: any;
 }
 
 export interface UpdateJobStatusDto {

@@ -5,6 +5,7 @@ export const createJobSchema = z.object({
     errorMap: () => ({ message: 'Invalid job type' }),
   }),
   priority: z.number().int().min(0).max(100).optional().default(0),
+  config: z.record(z.any()).optional(),
 });
 
 export const updateJobStatusSchema = z.object({

@@ -80,8 +80,37 @@ export class JobController {
   };
 
   /**
-   * Update job status
-   * Called by external workers (Python) to update job state
+   * Update job status (Worker)
+   * Authenticated via API Key
+   */
+  updateJobStatusByWorker = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const { id } = jobIdSchema.parse(req.params);
+      const { status, failureReason } = updateJobStatusSchema.parse(req.body);
+      
+      const job = await this.jobService.updateJobStatusByWorker(id, status, failureReason);
+      return ResponseUtil.success(res, 'Job status updated successfully', job);
+    } catch (error: any) {
+      logger.error('Error updating job by worker:', error);
+      if (error.message.includes('not found')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      if (error.message.includes('Invalid state transition')) {
+        return ResponseUtil.error(res, error.message, undefined, 400);
+      }
+      if (error.message.includes('Limit exceeded')) {
+        return ResponseUtil.error(res, error.message, undefined, 403);
+      }
+      if (error.name === 'ZodError') {
+        return ResponseUtil.error(res, 'Validation failed', error.errors);
+      }
+      return ResponseUtil.serverError(res, 'Failed to update job');
+    }
+  };
+
+  /**
+   * Update job status (User)
+   * Users can only interact with their own jobs
    */
   updateJobStatus = async (req: Request, res: Response): Promise<Response> => {
     try {
@@ -99,9 +128,7 @@ export class JobController {
       if (error.message.includes('Invalid state transition')) {
         return ResponseUtil.error(res, error.message, undefined, 400);
       }
-      if (error.message.includes('Limit exceeded')) {
-        return ResponseUtil.error(res, error.message, undefined, 403);
-      }
+      // ... same error handling
       if (error.name === 'ZodError') {
         return ResponseUtil.error(res, 'Validation failed', error.errors);
       }

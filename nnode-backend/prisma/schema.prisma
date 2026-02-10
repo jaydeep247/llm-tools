@@ -93,6 +93,7 @@ model Job {
   jobType       JobType
   status        JobStatus @default(PENDING)
   priority      Int       @default(0)
+  config        Json?
   createdAt     DateTime  @default(now())
   startedAt     DateTime?
   completedAt   DateTime?

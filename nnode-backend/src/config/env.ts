@@ -23,11 +23,14 @@ const envSchema = z.object({
   COOKIE_MAX_AGE: z.string().transform(Number).pipe(z.number().positive()).default('604800000'),
 
   // CORS
-  CORS_ORIGIN: z.string().url(),
+  CORS_ORIGIN: z.string().url().default('http://localhost:3000'),
 
   // Rate Limiting
   RATE_LIMIT_WINDOW_MS: z.string().transform(Number).pipe(z.number().positive()).default('900000'),
   RATE_LIMIT_MAX_REQUESTS: z.string().transform(Number).pipe(z.number().positive()).default('100'),
+
+  // Worker
+  WORKER_API_KEY: z.string().default('default-insecure-worker-key-change-me'),
 });
 
 // Validate and export environment variables

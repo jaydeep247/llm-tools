@@ -12,6 +12,7 @@ export class JobRepository {
         sessionId,
         jobType: data.jobType,
         priority: data.priority || 0,
+        config: data.config ?? undefined,
         status: 'PENDING',
       },
     });

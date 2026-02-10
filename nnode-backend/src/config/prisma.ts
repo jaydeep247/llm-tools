@@ -17,13 +17,15 @@ class PrismaService {
         ],
       });
 
-      // Log queries in development
+// Log queries in development
+      /*
       if (process.env.NODE_ENV === 'development') {
         PrismaService.instance.$on('query' as never, (e: any) => {
           logger.debug(`Query: ${e.query}`);
           logger.debug(`Duration: ${e.duration}ms`);
         });
       }
+      */
 
       // Handle graceful shutdown
       process.on('beforeExit', async () => {
