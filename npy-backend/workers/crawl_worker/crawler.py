@@ -1,62 +1,123 @@
-import httpx
+"""
+Crawl Worker
+Executes website crawling using Scrapy spider via subprocess
+"""
+
 from typing import Dict, Any
 from workers.base_worker import BaseWorker
 from utils.logger import logger
+import uuid
+import os
+import subprocess
+import json
+
 
 class CrawlWorker(BaseWorker):
     async def execute(self, job: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Execute a CRAWL job.
-        For now, this is a simple HTTP fetcher using httpx.
-        Real implementation would use Scrapy or more complex logic.
-        """
-        # In a real scenario, job['data'] or similar would hold the URL.
-        # But our Job model is metadata only. 
-        # Wait, the Job model doesn't store the URL in Postgres.
-        # The prompt says: "Job Definition: A Job represents one logical unit of work... Crawl a website"
-        # Since Postgres doesn't store URLs (according to rules "No URL-level data in Postgres"), 
-        # WHERE does the URL come from?
-        # Ah, "No page-level or URL-level data in Postgres".
-        # But the Job *definition* (what to crawl) must exist somewhere.
-        # Usually 'job' table has a 'config' or 'payload' column, but the schema I built has no such column.
-        # Checking schema...
-        # The Job model has: id, sessionId, jobType, status, priority, etc.
-        # It does NOT have a config/payload column.
-        # However, the user request said: "Prisma MAY store: ... userId / projectId / sessionId".
-        # It did NOT explicitly forbid a 'config' JSON column for the *job definition* (e.g. root URL).
-        # It forbade "HTML, URLs (plural/large lists), Pages".
-        # Storing the *seed* URL in a job config is essential.
-        # I might need to add a 'config' Json field to the Job model in Node later.
-        # For now, I'll assume for this prototype that the 'sessionId' implies a context 
-        # or I will hack it by adding a dummy URL if missing.
-        #
-        # ACTUALLY, I should add `config Json?` to the Job model in Node. 
-        # The user said "Prisma MAY store: ... failureReason, retryCount".
-        # User also said "No page-level or URL-level data".
-        # This usually means "don't store the crawl queue or results in Postgres".
-        # The *seed* URL is metadata.
-        # I will UPDATE the Node schema to include `config` JSON column for this purpose.
+        Execute a CRAWL job using Scrapy spider.
         
-        # For now, let's pretend strictly. If I can't store it in Job, maybe it's in Project?
-        # "A Project... Acts as a container for sessions".
-        # Let's assume for this step that I'll read a URL from a hypothetical 'config' 
-        # passed in 'job' (which I will add to the schema in a moment).
-        
-        url = job.get("config", {}).get("url", "https://example.com") 
-        # Fallback for testing if schema isn't updated yet.
-        
-        logger.info(f"Crawling URL: {url}")
-        
-        async with httpx.AsyncClient(follow_redirects=True) as client:
-            response = await client.get(url, timeout=30.0)
-            response.raise_for_status()
+        Args:
+            job: Job dictionary containing crawl configuration
             
-            content = response.text
-            path = await self.storage.save_crawl_data(
-                job["id"], 
-                url, 
-                content, 
-                {"status": response.status_code, "headers": dict(response.headers)}
+        Returns:
+            Dictionary with crawl results and storage paths
+        """
+        # Extract configuration
+        config = job.get("config", {})
+        url = config.get("url", "https://example.com")
+        allow_subdomains = config.get("allow_subdomains", True)
+        max_concurrency = config.get("max_concurrency", 5)
+        
+        # Generate session ID
+        session_id = job.get("id", str(uuid.uuid4()))
+        
+        logger.info(f"Starting Scrapy crawl for: {url}")
+        logger.info(f"Session ID: {session_id}")
+        logger.info(f"Allow subdomains: {allow_subdomains}")
+        logger.info(f"Max concurrency: {max_concurrency}")
+        
+        try:
+            # Create a Python script to run the spider
+            script_content = f"""
+import sys
+from scrapy.crawler import CrawlerProcess
+from scrapy.utils.log import configure_logging
+
+# Add parent directory to path
+sys.path.insert(0, '{os.getcwd()}')
+
+from workers.crawl_worker.spiders.website_spider import WebsiteSpider
+
+configure_logging({{'LOG_LEVEL': 'INFO'}})
+
+settings = {{
+    'CONCURRENT_REQUESTS': {max_concurrency},
+    'ROBOTSTXT_OBEY': True,
+    'USER_AGENT': 'Mozilla/5.0 (compatible; WebCrawler/1.0)',
+    'DOWNLOAD_DELAY': 0.5,
+    'COOKIES_ENABLED': False,
+    'ITEM_PIPELINES': {{
+        'workers.crawl_worker.spiders.pipelines.JsonStoragePipeline': 300,
+    }},
+    'LOG_LEVEL': 'INFO',
+    'REQUEST_FINGERPRINTER_IMPLEMENTATION': '2.7',
+    'FEED_EXPORT_ENCODING': 'utf-8',
+}}
+
+process = CrawlerProcess(settings)
+process.crawl(
+    WebsiteSpider,
+    start_url='{url}',
+    session_id='{session_id}',
+    allow_subdomains={allow_subdomains},
+    max_concurrency={max_concurrency},
+)
+process.start()
+"""
+            
+            # Write script to temp file
+            script_path = f"/tmp/scrapy_crawl_{session_id}.py"
+            with open(script_path, 'w') as f:
+                f.write(script_content)
+            
+            # Run the script as a subprocess
+            logger.info("Running Scrapy spider in subprocess...")
+            result = subprocess.run(
+                [f"{os.getcwd()}/venv/bin/python", script_path],
+                capture_output=True,
+                text=True,
+                timeout=300,  # 5 minute timeout
             )
             
-            return {"storage_path": path, "url": url, "status": response.status_code}
+            # Clean up script file
+            os.remove(script_path)
+            
+            if result.returncode != 0:
+                logger.error(f"Scrapy process failed: {result.stderr}")
+                raise Exception(f"Scrapy crawl failed: {result.stderr}")
+            
+            # Get storage path
+            storage_path = os.path.join("./data", session_id)
+            
+            logger.info(f"Crawl completed for session: {session_id}")
+            logger.info(f"Data stored in: {storage_path}")
+            
+            return {
+                "session_id": session_id,
+                "storage_path": storage_path,
+                "url": url,
+                "status": "completed",
+            }
+        
+        except subprocess.TimeoutExpired:
+            error_msg = "Crawl timed out after 5 minutes"
+            logger.error(error_msg)
+            raise Exception(error_msg)
+        except Exception as e:
+            error_msg = f"Crawl failed: {str(e)}"
+            logger.error(error_msg)
+            raise Exception(error_msg)
+
+
+
