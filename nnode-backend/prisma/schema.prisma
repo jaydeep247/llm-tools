@@ -15,14 +15,58 @@ enum Role {
   ADMIN
 }
 
+enum ProjectStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum SessionStatus {
+  CREATED
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
+  id        String    @id @default(uuid())
+  email     String    @unique
   password  String
   name      String
-  role      Role     @default(USER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  role      Role      @default(USER)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  
+  projects  Project[]
 
   @@map("users")
+}
+
+model Project {
+  id        String        @id @default(uuid())
+  userId    String
+  name      String
+  status    ProjectStatus @default(ACTIVE)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessions  Session[]
+  
+  @@index([userId])
+  @@index([status])
+  @@map("projects")
+}
+
+model Session {
+  id        String        @id @default(uuid())
+  projectId String
+  status    SessionStatus @default(CREATED)
+  createdAt DateTime      @default(now())
+  endedAt   DateTime?
+  
+  project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  @@index([projectId])
+  @@index([status])
+  @@map("sessions")
 }
