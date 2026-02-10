@@ -13,6 +13,11 @@ WORKDIR /app
 
 # Copy node_modules from deps
 COPY --from=deps /app/node_modules ./node_modules
+
+# Copy tsconfig.json first to ensure path aliases work
+COPY tsconfig.json ./
+
+# Copy the rest of the application
 COPY . .
 
 # Build arguments for Next.js
