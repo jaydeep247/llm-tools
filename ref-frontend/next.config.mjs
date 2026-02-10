@@ -13,7 +13,6 @@ const nextConfig = {
     unoptimized: true,
   },
   output: 'standalone',
-  outputFileTracingRoot: path.join(__dirname, '../'),
 }
 
 export default nextConfig
