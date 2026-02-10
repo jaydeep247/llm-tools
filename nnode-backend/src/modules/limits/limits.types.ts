@@ -8,6 +8,11 @@ export interface AccountLimits {
   maxActiveSessions: number;
   maxConcurrentSessions: number;
   maxTotalSessions: number;
+  
+  // Job limits
+  maxConcurrentJobs: number;
+  maxConcurrentJobsPerSession: number;
+  maxTotalJobsPerSession: number;
 }
 
 /**
@@ -20,4 +25,9 @@ export const DEFAULT_ACCOUNT_LIMITS: AccountLimits = {
   maxActiveSessions: 5,
   maxConcurrentSessions: 3,
   maxTotalSessions: 1000,
+  
+  // Job limits
+  maxConcurrentJobs: 10,
+  maxConcurrentJobsPerSession: 5,
+  maxTotalJobsPerSession: 1000,
 };

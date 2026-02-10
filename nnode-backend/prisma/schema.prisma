@@ -27,6 +27,21 @@ enum SessionStatus {
   FAILED
 }
 
+enum JobType {
+  CRAWL
+  SEO_ANALYSIS
+  AEO_ANALYSIS
+  SERP_FETCH
+  ENTITY_ANALYSIS
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
 model User {
   id        String    @id @default(uuid())
   email     String    @unique
@@ -65,8 +80,31 @@ model Session {
   endedAt   DateTime?
   
   project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  jobs      Job[]
   
   @@index([projectId])
   @@index([status])
   @@map("sessions")
+}
+
+model Job {
+  id            String    @id @default(uuid())
+  sessionId     String
+  jobType       JobType
+  status        JobStatus @default(PENDING)
+  priority      Int       @default(0)
+  createdAt     DateTime  @default(now())
+  startedAt     DateTime?
+  completedAt   DateTime?
+  failureReason String?
+  retryCount    Int       @default(0)
+  lastTriedAt   DateTime?
+  
+  session       Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  @@index([sessionId])
+  @@index([status])
+  @@index([jobType])
+  @@index([createdAt])
+  @@map("jobs")
 }

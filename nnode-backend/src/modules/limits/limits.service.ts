@@ -42,6 +42,27 @@ export class LimitsService {
   }
 
   /**
+   * Check if user can create a new job
+   */
+  canCreateJob(
+    totalJobsInSession: number,
+    concurrentJobsInSession: number,
+    concurrentJobsForUser: number,
+    limits: AccountLimits
+  ): boolean {
+    if (totalJobsInSession >= limits.maxTotalJobsPerSession) {
+      return false;
+    }
+    if (concurrentJobsInSession >= limits.maxConcurrentJobsPerSession) {
+      return false;
+    }
+    if (concurrentJobsForUser >= limits.maxConcurrentJobs) {
+      return false;
+    }
+    return true;
+  }
+
+  /**
    * Get limit violation message
    */
   getLimitViolationMessage(limitType: string, limit: number): string {

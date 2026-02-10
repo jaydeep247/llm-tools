@@ -4,6 +4,7 @@ import authRoutes from './modules/auth/auth.routes';
 import userRoutes from './modules/user/user.routes';
 import projectRoutes from './modules/project/project.routes';
 import sessionRoutes from './modules/session/session.routes';
+import jobRoutes from './modules/job/job.routes';
 
 const router = Router();
 
@@ -21,5 +22,6 @@ router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
 router.use('/projects', projectRoutes);
 router.use('/', sessionRoutes); // Session routes are nested under projects
+router.use('/', jobRoutes); // Job routes are nested under sessions
 
 export default router;
