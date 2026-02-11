@@ -1,20 +1,20 @@
 import httpx
-import os
 from typing import Optional, Dict, List, Any
 from utils.logger import logger
 from tenacity import retry, stop_after_attempt, wait_exponential
+from utils.config import config
 
 class NodeApiClient:
     def __init__(self, base_url: str = None):
-        self.base_url = base_url or os.getenv("NODE_API_URL", "http://localhost:4000/api/v1")
-        self.worker_id = os.getenv("WORKER_ID", "python-worker-1")
-        # Use API Key authentication for workers
-        self.worker_key = os.getenv("WORKER_API_KEY", "default-insecure-worker-key-change-me")
+        self.base_url = base_url or config.API_BASE_URL
+        self.worker_id = config.WORKER_ID
+        self.worker_key = config.WORKER_API_KEY
         
         self.headers = {
             "Content-Type": "application/json",
             "User-Agent": f"npy-worker/{self.worker_id}",
-            "x-worker-key": self.worker_key
+            "x-worker-key": self.worker_key,
+            "x-worker-id": self.worker_id
         }
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
@@ -72,14 +72,18 @@ class NodeApiClient:
                 raise
 
     @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=2, max=10))
-    async def complete_job(self, job_id: str) -> bool:
+    async def complete_job(self, job_id: str, payload: Optional[Dict[str, Any]] = None) -> bool:
         """Mark a job as COMPLETED."""
         async with httpx.AsyncClient() as client:
             try:
                 logger.info(f"Marking job {job_id} as COMPLETED")
+                data = {"status": "COMPLETED"}
+                if payload:
+                    data.update(payload)
+                
                 response = await client.put(
                     f"{self.base_url}/jobs/{job_id}",
-                    json={"status": "COMPLETED"},
+                    json=data,
                     headers=self.headers,
                     timeout=5.0
                 )
@@ -87,22 +91,24 @@ class NodeApiClient:
                 return True
             except Exception as e:
                 logger.error(f"Error completing job {job_id}: {str(e)}")
-                # If we fail to acknowledge completion, the job might remain RUNNING in Node.
-                # Node doesn't have a timeout yet, but operationally this is bad.
                 raise
 
     @retry(stop=stop_after_attempt(5), wait=wait_exponential(multiplier=1, min=2, max=10))
-    async def fail_job(self, job_id: str, reason: str) -> bool:
+    async def fail_job(self, job_id: str, reason: str, payload: Optional[Dict[str, Any]] = None) -> bool:
         """Mark a job as FAILED with a reason."""
         async with httpx.AsyncClient() as client:
             try:
                 logger.warning(f"Marking job {job_id} as FAILED: {reason}")
+                data = {
+                    "status": "FAILED",
+                    "failureReason": reason
+                }
+                if payload:
+                    data.update(payload)
+
                 response = await client.put(
                     f"{self.base_url}/jobs/{job_id}",
-                    json={
-                        "status": "FAILED",
-                        "failureReason": reason
-                    },
+                    json=data,
                     headers=self.headers,
                     timeout=5.0
                 )

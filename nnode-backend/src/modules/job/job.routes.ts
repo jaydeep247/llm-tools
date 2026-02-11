@@ -35,6 +35,9 @@ router.get('/sessions/:sessionId/jobs/stats', jobController.getSessionJobStats);
 // Get job by ID
 router.get('/jobs/:id', jobController.getJobById);
 
+// Get crawl results for a job
+router.get('/jobs/:id/results', jobController.getJobResults);
+
 // Update job status (User override - e.g. CANCEL)
 // Note: Workers should use the Worker route above
 router.patch('/jobs/:id', jobController.updateJobStatus);

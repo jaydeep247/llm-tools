@@ -1,8 +1,9 @@
 import { JobRepository } from './job.repository';
-import { CreateJobDto, JobResponse, JobWithSession, VALID_JOB_TRANSITIONS } from './job.types';
+import { CreateJobDto, JobResponse, JobWithSession, VALID_JOB_TRANSITIONS, CrawlResultsResponse } from './job.types';
 import { SessionService } from '../session/session.service';
 import { LimitsService } from '../limits/limits.service';
 import { JobStatus } from '@prisma/client';
+import { connectToMongo } from '../../config/mongo';
 
 export class JobService {
   private jobRepository: JobRepository;
@@ -139,7 +140,8 @@ export class JobService {
   async updateJobStatusByWorker(
     jobId: string,
     newStatus: JobStatus,
-    failureReason?: string
+    failureReason?: string,
+    workerId?: string
   ): Promise<JobResponse> {
     const job = await this.jobRepository.findByIdWithSession(jobId);
     
@@ -148,7 +150,7 @@ export class JobService {
     }
 
     // Delegate to shared update logic
-    return this._updateJobStatusLogic(job, newStatus, failureReason);
+    return this._updateJobStatusLogic(job, newStatus, failureReason, workerId);
   }
 
   /**
@@ -157,7 +159,8 @@ export class JobService {
   private async _updateJobStatusLogic(
     job: JobWithSession,
     newStatus: JobStatus,
-    failureReason?: string
+    failureReason?: string,
+    workerId?: string
   ): Promise<JobResponse> {
     // Validate state transition
     const allowedTransitions = VALID_JOB_TRANSITIONS[job.status];
@@ -198,7 +201,7 @@ export class JobService {
     }
 
     // Update job status
-    return this.jobRepository.updateStatus(job.id, newStatus, failureReason);
+    return this.jobRepository.updateStatus(job.id, newStatus, failureReason, workerId);
   }
 
   /**
@@ -245,5 +248,99 @@ export class JobService {
     await this.sessionService.getSessionById(sessionId, userId);
 
     return this.jobRepository.getSessionJobStats(sessionId);
+  }
+
+  /**
+   * Get aggregated crawl results for a job
+   */
+  async getJobResults(
+    jobId: string,
+    userId: string,
+    page: number = 1,
+    limit: number = 100
+  ): Promise<CrawlResultsResponse> {
+    // 1. Validate job exists and user owns it
+    // getJobById already does both
+    const job = await this.getJobById(jobId, userId);
+
+    // 2. Connect to MongoDB
+    const db = await connectToMongo();
+
+    // 3. Fetch data from MongoDB
+    const skip = (page - 1) * limit;
+
+    // A. Check for aggregated result first (Legacy or specific format support)
+    const aggregatedResult = await db.collection('pages').findOne({ jobId, type: 'job_result' });
+    
+    if (aggregatedResult && (aggregatedResult as any).data) {
+      const data = (aggregatedResult as any).data;
+      const mongoSession = data.session || {};
+      
+      return {
+        session: {
+          ...job,
+          allow_subdomains: mongoSession.allow_subdomains,
+          max_concurrency: mongoSession.max_concurrency,
+          total_pages: mongoSession.total_pages,
+          total_links: mongoSession.total_links,
+        },
+        pages: data.pages ? data.pages.slice(skip, skip + limit) : [],
+        links: data.links || {},
+        sitemaps: data.sitemaps || [],
+      };
+    }
+
+    // B. Fetch individual items (New crawler format)
+    
+    // Fetch counts and config
+    const [totalPages, totalLinks] = await Promise.all([
+      db.collection('pages').countDocuments({ jobId, type: { $ne: 'job_result' } }),
+      db.collection('links').countDocuments({ jobId }),
+    ]);
+
+    const jobConfig = job.config as any || {};
+
+    // Fetch pages with pagination
+    const pages = await db
+      .collection('pages')
+      .find({ jobId, type: { $ne: 'job_result' } })
+      .skip(skip)
+      .limit(limit)
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    // Fetch sitemaps
+    const sitemaps = await db
+      .collection('sitemaps')
+      .find({ jobId })
+      .toArray();
+
+    // Fetch links and group them as before
+    const linksArray = await db
+      .collection('links')
+      .find({ jobId })
+      .toArray();
+
+    const links: Record<string, any[]> = {};
+    for (const link of linksArray) {
+      const sourceUrl = link.source_url || 'unknown';
+      if (!links[sourceUrl]) {
+        links[sourceUrl] = [];
+      }
+      links[sourceUrl].push(link);
+    }
+
+    return {
+      session: {
+        ...job,
+        allow_subdomains: jobConfig.allowSubdomains || jobConfig.allow_subdomains,
+        max_concurrency: jobConfig.maxConcurrency || jobConfig.max_concurrency,
+        total_pages: totalPages,
+        total_links: totalLinks,
+      },
+      pages,
+      links,
+      sitemaps,
+    };
   }
 }

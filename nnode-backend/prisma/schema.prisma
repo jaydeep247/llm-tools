@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,6 +5,71 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  password  String
+  name      String
+  role      Role      @default(USER)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  projects  Project[]
+
+  @@map("users")
+}
+
+model Project {
+  id        String        @id @default(uuid())
+  userId    String
+  name      String
+  status    ProjectStatus @default(ACTIVE)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessions  Session[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("projects")
+}
+
+model Session {
+  id        String        @id @default(uuid())
+  projectId String
+  status    SessionStatus @default(CREATED)
+  createdAt DateTime      @default(now())
+  endedAt   DateTime?
+  jobs      Job[]
+  project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([status])
+  @@map("sessions")
+}
+
+model Job {
+  id            String    @id @default(uuid())
+  sessionId     String
+  jobType       JobType
+  status        JobStatus @default(PENDING)
+  priority      Int       @default(0)
+  createdAt     DateTime  @default(now())
+  startedAt     DateTime?
+  completedAt   DateTime?
+  failureReason String?
+  retryCount    Int       @default(0)
+  lastTriedAt   DateTime?
+  config        Json?
+  workerId      String?
+  session       Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([status])
+  @@index([jobType])
+  @@index([createdAt])
+  @@map("jobs")
 }
 
 enum Role {
@@ -40,72 +102,4 @@ enum JobStatus {
   RUNNING
   COMPLETED
   FAILED
-}
-
-model User {
-  id        String    @id @default(uuid())
-  email     String    @unique
-  password  String
-  name      String
-  role      Role      @default(USER)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  
-  projects  Project[]
-
-  @@map("users")
-}
-
-model Project {
-  id        String        @id @default(uuid())
-  userId    String
-  name      String
-  status    ProjectStatus @default(ACTIVE)
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-  
-  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sessions  Session[]
-  
-  @@index([userId])
-  @@index([status])
-  @@map("projects")
-}
-
-model Session {
-  id        String        @id @default(uuid())
-  projectId String
-  status    SessionStatus @default(CREATED)
-  createdAt DateTime      @default(now())
-  endedAt   DateTime?
-  
-  project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  jobs      Job[]
-  
-  @@index([projectId])
-  @@index([status])
-  @@map("sessions")
-}
-
-model Job {
-  id            String    @id @default(uuid())
-  sessionId     String
-  jobType       JobType
-  status        JobStatus @default(PENDING)
-  priority      Int       @default(0)
-  config        Json?
-  createdAt     DateTime  @default(now())
-  startedAt     DateTime?
-  completedAt   DateTime?
-  failureReason String?
-  retryCount    Int       @default(0)
-  lastTriedAt   DateTime?
-  
-  session       Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  
-  @@index([sessionId])
-  @@index([status])
-  @@index([jobType])
-  @@index([createdAt])
-  @@map("jobs")
 }

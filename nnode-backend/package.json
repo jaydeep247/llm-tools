@@ -15,7 +15,13 @@
     "lint": "eslint src --ext .ts",
     "format": "prettier --write \"src/**/*.ts\""
   },
-  "keywords": ["nodejs", "typescript", "express", "prisma", "postgresql"],
+  "keywords": [
+    "nodejs",
+    "typescript",
+    "express",
+    "prisma",
+    "postgresql"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
@@ -28,6 +34,7 @@
     "express-rate-limit": "^7.5.0",
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
+    "mongodb": "^7.1.0",
     "winston": "^3.17.0",
     "zod": "^3.24.1"
   },

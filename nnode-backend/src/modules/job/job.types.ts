@@ -40,3 +40,15 @@ export const VALID_JOB_TRANSITIONS: Record<JobStatus, JobStatus[]> = {
   COMPLETED: [], // Immutable
   FAILED: [], // Immutable
 };
+
+export interface CrawlResultsResponse {
+  session: Job & {
+    allow_subdomains?: boolean;
+    max_concurrency?: number;
+    total_pages?: number;
+    total_links?: number;
+  };
+  pages: any[];
+  links: Record<string, any[]>;
+  sitemaps: any[];
+}

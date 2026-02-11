@@ -87,8 +87,9 @@ export class JobController {
     try {
       const { id } = jobIdSchema.parse(req.params);
       const { status, failureReason } = updateJobStatusSchema.parse(req.body);
+      const workerId = req.workerId;
       
-      const job = await this.jobService.updateJobStatusByWorker(id, status, failureReason);
+      const job = await this.jobService.updateJobStatusByWorker(id, status, failureReason, workerId);
       return ResponseUtil.success(res, 'Job status updated successfully', job);
     } catch (error: any) {
       logger.error('Error updating job by worker:', error);
@@ -190,6 +191,30 @@ export class JobController {
         return ResponseUtil.notFound(res, error.message);
       }
       return ResponseUtil.serverError(res, 'Failed to retrieve job statistics');
+    }
+  };
+
+  /**
+   * Get aggregated crawl results for a job
+   */
+  getJobResults = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = jobIdSchema.parse(req.params);
+      const page = req.query.page ? parseInt(req.query.page as string) : 1;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
+      
+      const results = await this.jobService.getJobResults(id, userId, page, limit);
+      return res.status(200).json(results);
+    } catch (error: any) {
+      logger.error('Error getting crawl results:', error);
+      if (error.message.includes('not found') || error.message.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      if (error.name === 'ZodError') {
+        return ResponseUtil.error(res, 'Validation failed', error.errors);
+      }
+      return ResponseUtil.serverError(res, 'Failed to retrieve crawl results');
     }
   };
 }

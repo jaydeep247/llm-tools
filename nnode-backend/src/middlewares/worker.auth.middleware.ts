@@ -15,5 +15,8 @@ export const workerAuthMiddleware = (req: Request, res: Response, next: NextFunc
     return;
   }
 
+  // Attach worker ID for tracking (if provided)
+  req.workerId = req.headers['x-worker-id'] as string || 'unknown-worker';
+
   next();
 };

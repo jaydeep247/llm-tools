@@ -31,6 +31,10 @@ const envSchema = z.object({
 
   // Worker
   WORKER_API_KEY: z.string().default('default-insecure-worker-key-change-me'),
+
+  // MongoDB
+  MONGO_URI: z.string().url().default('mongodb://localhost:27017'),
+  MONGO_DB_NAME: z.string().default('seo_crawler'),
 });
 
 // Validate and export environment variables

@@ -140,9 +140,13 @@ export class JobRepository {
   async updateStatus(
     id: string,
     status: JobStatus,
-    failureReason?: string
+    failureReason?: string,
+    workerId?: string
   ): Promise<Job> {
-    const updateData: any = { status };
+    const updateData: any = { 
+      status,
+      ...(workerId && { workerId })
+    };
 
     if (status === 'RUNNING') {
       updateData.startedAt = new Date();
