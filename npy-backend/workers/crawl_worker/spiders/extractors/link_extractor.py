@@ -59,7 +59,17 @@ class LinkExtractor:
         parsed = urlparse(url)
         url_host = parsed.netloc
         
+        # Normalize hosts by removing www prefix for comparison
+        def normalize_host(h):
+            return h.replace('www.', '', 1) if h.startswith('www.') else h
+        
+        normalized_url_host = normalize_host(url_host)
+        normalized_allowed_host = normalize_host(allowed_host)
+        
         if allow_subdomains:
-            return url_host.endswith(allowed_host) or url_host == allowed_host
+            # Allow exact match or subdomain (with normalization)
+            return (normalized_url_host == normalized_allowed_host or 
+                    normalized_url_host.endswith(f'.{normalized_allowed_host}'))
         else:
-            return url_host == allowed_host
+            # Exact match (with normalization)
+            return normalized_url_host == normalized_allowed_host

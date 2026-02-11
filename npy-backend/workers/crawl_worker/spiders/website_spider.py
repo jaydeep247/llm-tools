@@ -10,15 +10,15 @@ from datetime import datetime
 from urllib.parse import urlparse
 import asyncio
 
-from .items import PageItem, ResourceItem, LinkItem, SitemapUrlItem
+from .items import PageItem, LinkItem, SitemapUrlItem
 from .sitemap_discovery import SitemapDiscovery
 from .extractors import (
     BasicExtractor,
     SeoExtractor,
     ContentExtractor,
     HeadingExtractor,
-    ResourceExtractor,
     LinkExtractor,
+    AdvancedExtractor,
 )
 from utils.logger import logger
 
@@ -45,6 +45,8 @@ class WebsiteSpider(scrapy.Spider):
         session_id: str,
         allow_subdomains: bool = True,
         max_concurrency: int = 5,
+        max_pages: int = 0,
+        timeout: int = 0,
         *args,
         **kwargs
     ):
@@ -54,6 +56,8 @@ class WebsiteSpider(scrapy.Spider):
         self.session_id = session_id
         self.allow_subdomains = allow_subdomains
         self.max_concurrency = max_concurrency
+        self.max_pages = max_pages  # 0 = unlimited
+        self.timeout = timeout  # 0 = unlimited (seconds)
         
         # Parse allowed host
         parsed = urlparse(start_url)
@@ -73,13 +77,15 @@ class WebsiteSpider(scrapy.Spider):
         
         # Crawl metadata
         self.crawl_started_at = None
+        self.crawl_started_timestamp = None
         self.pages_crawled = 0
-        self.resources_collected = 0
         self.links_collected = 0
+        self.should_stop = False
     
     def start_requests(self):
         """Initialize crawl with sitemap discovery"""
         self.crawl_started_at = datetime.now().isoformat()
+        self.crawl_started_timestamp = datetime.now().timestamp()
         
         # Discover sitemaps
         logger.info(f"Starting crawl for {self.start_url}")
@@ -149,6 +155,7 @@ class WebsiteSpider(scrapy.Spider):
         seo_fields = SeoExtractor.extract(response)
         content_fields = ContentExtractor.extract(response)
         heading_fields = HeadingExtractor.extract(response)
+        advanced_fields = AdvancedExtractor.extract(response)
         
         # Create page item
         page_item = PageItem()
@@ -156,19 +163,26 @@ class WebsiteSpider(scrapy.Spider):
         page_item.update(seo_fields)
         page_item.update(content_fields)
         page_item.update(heading_fields)
+        page_item.update(advanced_fields)
         page_item['crawl_depth'] = crawl_depth
         page_item['folder_depth'] = folder_depth
+        
         
         yield page_item
         self.pages_crawled += 1
         
-        # Extract resources
-        resources = ResourceExtractor.extract(response, self.allowed_host, self.allow_subdomains)
-        for resource_data in resources:
-            resource_item = ResourceItem()
-            resource_item.update(resource_data)
-            yield resource_item
-            self.resources_collected += 1
+        # Check if we should stop crawling
+        if self.max_pages > 0 and self.pages_crawled >= self.max_pages:
+            logger.info(f"Reached max pages limit: {self.max_pages}")
+            self.should_stop = True
+            return
+        
+        if self.timeout > 0:
+            elapsed = datetime.now().timestamp() - self.crawl_started_timestamp
+            if elapsed >= self.timeout:
+                logger.info(f"Reached timeout limit: {self.timeout} seconds")
+                self.should_stop = True
+                return
         
         # Extract links
         links = LinkExtractor.extract(response, self.allowed_host, self.allow_subdomains)
@@ -179,15 +193,16 @@ class WebsiteSpider(scrapy.Spider):
             self.links_collected += 1
         
         # Follow internal links
-        for link_data in links:
-            if link_data['is_internal'] and not link_data['nofollow']:
-                target_url = link_data['target_url']
-                yield scrapy.Request(
-                    url=target_url,
-                    callback=self.parse,
-                    meta={'depth': crawl_depth + 1},
-                    errback=self.handle_error,
-                )
+        if not self.should_stop:
+            for link_data in links:
+                if link_data['is_internal'] and not link_data['nofollow']:
+                    target_url = link_data['target_url']
+                    yield scrapy.Request(
+                        url=target_url,
+                        callback=self.parse,
+                        meta={'depth': crawl_depth + 1},
+                        errback=self.handle_error,
+                    )
     
     def handle_error(self, failure):
         """Handle request errors"""
@@ -197,5 +212,4 @@ class WebsiteSpider(scrapy.Spider):
         """Called when spider closes"""
         logger.info(f"Spider closed: {reason}")
         logger.info(f"Pages crawled: {self.pages_crawled}")
-        logger.info(f"Resources collected: {self.resources_collected}")
         logger.info(f"Links collected: {self.links_collected}")

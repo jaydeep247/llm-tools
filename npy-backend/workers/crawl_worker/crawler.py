@@ -28,6 +28,8 @@ class CrawlWorker(BaseWorker):
         url = config.get("url", "https://example.com")
         allow_subdomains = config.get("allow_subdomains", True)
         max_concurrency = config.get("max_concurrency", 5)
+        max_pages = config.get("max_pages", 100)  # Default: 100 pages
+        timeout = config.get("timeout", 300)  # Default: 5 minutes
         
         # Generate session ID
         session_id = job.get("id", str(uuid.uuid4()))
@@ -36,6 +38,8 @@ class CrawlWorker(BaseWorker):
         logger.info(f"Session ID: {session_id}")
         logger.info(f"Allow subdomains: {allow_subdomains}")
         logger.info(f"Max concurrency: {max_concurrency}")
+        logger.info(f"Max pages: {max_pages if max_pages > 0 else 'unlimited'}")
+        logger.info(f"Timeout: {timeout if timeout > 0 else 'unlimited'} seconds")
         
         try:
             # Create a Python script to run the spider
@@ -72,6 +76,8 @@ process.crawl(
     session_id='{session_id}',
     allow_subdomains={allow_subdomains},
     max_concurrency={max_concurrency},
+    max_pages={max_pages},
+    timeout={timeout},
 )
 process.start()
 """
@@ -83,19 +89,22 @@ process.start()
             
             # Run the script as a subprocess
             logger.info("Running Scrapy spider in subprocess...")
+            
+            # Use timeout + 60 seconds buffer for subprocess
+            subprocess_timeout = (timeout + 60) if timeout > 0 else None
+            
+            # Stream output directly to terminal (stdout/stderr)
             result = subprocess.run(
                 [f"{os.getcwd()}/venv/bin/python", script_path],
-                capture_output=True,
-                text=True,
-                timeout=300,  # 5 minute timeout
+                timeout=subprocess_timeout,
             )
             
             # Clean up script file
             os.remove(script_path)
             
             if result.returncode != 0:
-                logger.error(f"Scrapy process failed: {result.stderr}")
-                raise Exception(f"Scrapy crawl failed: {result.stderr}")
+                logger.error(f"Scrapy process failed with exit code {result.returncode}")
+                raise Exception(f"Scrapy crawl failed with exit code {result.returncode}")
             
             # Get storage path
             storage_path = os.path.join("./data", session_id)

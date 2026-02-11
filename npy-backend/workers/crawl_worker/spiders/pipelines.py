@@ -17,7 +17,6 @@ class JsonStoragePipeline:
         self.base_path = "./data"
         self.session_data = {}
         self.pages = []
-        self.resources = []
         self.links = []
         self.sitemap_urls = []
     
@@ -44,7 +43,6 @@ class JsonStoragePipeline:
         # Update session metadata
         self.session_data['completed_at'] = datetime.now().isoformat()
         self.session_data['total_pages'] = len(self.pages)
-        self.session_data['total_resources'] = len(self.resources)
         self.session_data['total_links'] = len(self.links)
         self.session_data['status'] = 'completed'
         
@@ -57,11 +55,6 @@ class JsonStoragePipeline:
         pages_file = os.path.join(self.session_path, 'pages.json')
         with open(pages_file, 'w', encoding='utf-8') as f:
             json.dump(self.pages, f, indent=2, ensure_ascii=False)
-        
-        # Save resources
-        resources_file = os.path.join(self.session_path, 'resources.json')
-        with open(resources_file, 'w', encoding='utf-8') as f:
-            json.dump(self.resources, f, indent=2, ensure_ascii=False)
         
         # Save links
         links_file = os.path.join(self.session_path, 'links.json')
@@ -79,18 +72,15 @@ class JsonStoragePipeline:
         
         logger.info(f"Saved crawl data to {self.session_path}")
         logger.info(f"  - Pages: {len(self.pages)}")
-        logger.info(f"  - Resources: {len(self.resources)}")
         logger.info(f"  - Links: {len(self.links)}")
         logger.info(f"  - Sitemap URLs: {len(self.sitemap_urls)}")
     
     def process_item(self, item, spider):
         """Process each item"""
-        from .items import PageItem, ResourceItem, LinkItem, SitemapUrlItem
+        from .items import PageItem, LinkItem, SitemapUrlItem
         
         if isinstance(item, PageItem):
             self.pages.append(dict(item))
-        elif isinstance(item, ResourceItem):
-            self.resources.append(dict(item))
         elif isinstance(item, LinkItem):
             self.links.append(dict(item))
         elif isinstance(item, SitemapUrlItem):

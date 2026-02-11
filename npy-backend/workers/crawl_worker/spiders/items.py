@@ -54,15 +54,50 @@ class PageItem(scrapy.Item):
     
     # Language
     language = scrapy.Field()
-
-
-class ResourceItem(scrapy.Item):
-    """Resource data item (CSS, JS, images, external)"""
     
-    page_url = scrapy.Field()
-    resource_url = scrapy.Field()
-    resource_type = scrapy.Field()  # 'css', 'js', 'image', 'external'
-    status_code = scrapy.Field()
+    # New directly crawlable fields
+    # Meta tags
+    meta_keywords = scrapy.Field()
+    meta_keywords_length = scrapy.Field()
+    meta_refresh = scrapy.Field()
+    viewport = scrapy.Field()
+    
+    # HTTP Headers
+    x_robots_tag = scrapy.Field()
+    http_rel_next = scrapy.Field()
+    http_rel_prev = scrapy.Field()
+    last_modified = scrapy.Field()
+    cookies = scrapy.Field()
+    http_version = scrapy.Field()
+    
+    # Links
+    amphtml_link = scrapy.Field()
+    mobile_alternate_link = scrapy.Field()
+    
+    # Structured data
+    has_structured_data = scrapy.Field()
+    structured_data_types = scrapy.Field()
+    structured_data_count = scrapy.Field()
+    
+    # Content elements
+    table_count = scrapy.Field()
+    has_faq = scrapy.Field()
+    faq_count = scrapy.Field()
+    
+    # AMP
+    is_amp = scrapy.Field()
+    
+    # Security
+    has_mixed_content = scrapy.Field()
+    mixed_content_urls = scrapy.Field()
+    
+    # Redirects
+    redirect_url = scrapy.Field()
+    redirect_type = scrapy.Field()
+    
+    # Size
+    page_size_bytes = scrapy.Field()
+    html_size_bytes = scrapy.Field()
 
 
 class LinkItem(scrapy.Item):
