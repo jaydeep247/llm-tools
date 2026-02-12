@@ -33,6 +33,7 @@ from module_A.WebsiteCrawler.metrics import (
     link_analysis,
     similarity
 )
+from module_A.pagematrix.manager import extract_page_metrics
 
 
 class WebsiteSpider(scrapy.Spider):
@@ -402,51 +403,63 @@ class WebsiteSpider(scrapy.Spider):
             # Status
             'status': 'OK' if response.status == 200 else str(response.status),
             
-            # Pixel Widths
-            'title_pixel_width': title_pixel_width,
-            'meta_description_pixel_width': meta_desc_pixel_width,
+            'website_crawler': {
+                # Pixel Widths
+                'title_pixel_width': title_pixel_width,
+                'meta_description_pixel_width': meta_desc_pixel_width,
+                
+                # Carbon
+                'transferred_bytes': total_bytes, # Wire size roughly
+                'total_transferred_bytes': total_bytes, # Placeholder for total resource size (needs HEAD requests to be accurate, using page size for now)
+                'co2_mg': carbon_data['co2_mg'],
+                'carbon_rating': carbon_data['rating'],
+                
+                # Readability & Content
+                'average_words_per_sentence': quality_data['average_words_per_sentence'],
+                'flesch_reading_ease_score': quality_data['flesch_reading_ease_score'],
+                'readability': quality_data['readability'],
+                
+                # Link Output
+                'link_score': 0, # Placeholder (calculated post-crawl or needs inlink data)
+                'inlinks': 0, # Placeholder
+                'unique_inlinks': 0, # Placeholder
+                'unique_js_inlinks': 0, # Placeholder
+                'percent_of_total': 0, # Placeholder
+                
+                'outlinks': outlink_stats['outlinks'],
+                'unique_outlinks': outlink_stats['unique_outlinks'],
+                'unique_js_outlinks': outlink_stats['unique_js_outlinks'],
+                'external_outlinks': outlink_stats['external_outlinks'],
+                'unique_external_outlinks': outlink_stats['unique_external_outlinks'],
+                'unique_external_js_outlinks': outlink_stats['unique_external_js_outlinks'],
+                
+                # Duplicates & Similarity
+                'closest_near_duplicate_match': None, # Placeholder (post-crawl)
+                'no_near_duplicates': 0, # Placeholder
+                'simhash': simhash, # Store for later comparison
+                
+                # Quality / Errors
+                'spelling_errors': quality_data['spelling_errors'],
+                'grammar_errors': quality_data['grammar_errors'],
+                'hash': page_item.get('content_hash', ''),
+                
+                # Semantic
+                'closest_semantically_similar_address': None, # Placeholder
+                'semantic_similarity_score': 0, # Placeholder
+                'no_semantically_similar': 0, # Placeholder
+                'semantic_relevance_score': 0, # Placeholder
+                'url_encoded_address': response.url, # As requested
+            },
             
-            # Carbon
-            'transferred_bytes': total_bytes, # Wire size roughly
-            'total_transferred_bytes': total_bytes, # Placeholder for total resource size (needs HEAD requests to be accurate, using page size for now)
-            'co2_mg': carbon_data['co2_mg'],
-            'carbon_rating': carbon_data['rating'],
-            
-            # Readability & Content
-            'average_words_per_sentence': quality_data['average_words_per_sentence'],
-            'flesch_reading_ease_score': quality_data['flesch_reading_ease_score'],
-            'readability': quality_data['readability'],
-            
-            # Link Output
-            'link_score': 0, # Placeholder (calculated post-crawl or needs inlink data)
-            'inlinks': 0, # Placeholder
-            'unique_inlinks': 0, # Placeholder
-            'unique_js_inlinks': 0, # Placeholder
-            'percent_of_total': 0, # Placeholder
-            
-            'outlinks': outlink_stats['outlinks'],
-            'unique_outlinks': outlink_stats['unique_outlinks'],
-            'unique_js_outlinks': outlink_stats['unique_js_outlinks'],
-            'external_outlinks': outlink_stats['external_outlinks'],
-            'unique_external_outlinks': outlink_stats['unique_external_outlinks'],
-            'unique_external_js_outlinks': outlink_stats['unique_external_js_outlinks'],
-            
-            # Duplicates & Similarity
-            'closest_near_duplicate_match': None, # Placeholder (post-crawl)
-            'no_near_duplicates': 0, # Placeholder
-            'simhash': simhash, # Store for later comparison
-            
-            # Quality / Errors
-            'spelling_errors': quality_data['spelling_errors'],
-            'grammar_errors': quality_data['grammar_errors'],
-            'hash': page_item.get('content_hash', ''),
-            
-            # Semantic
-            'closest_semantically_similar_address': None, # Placeholder
-            'semantic_similarity_score': 0, # Placeholder
-            'no_semantically_similar': 0, # Placeholder
-            'semantic_relevance_score': 0, # Placeholder
-            'url_encoded_address': response.url, # As requested
+            # Module A: Page Matrix Metrics (Ported from Node.js)
+            'page_matrix': extract_page_metrics(
+                url=response.url,
+                html_content=response.text,
+                response_status=response.status,
+                response_headers={k.decode('utf-8'): v[0].decode('utf-8') for k, v in response.headers.items()},
+                response_time_ms=(datetime.now().timestamp() - start_time) * 1000,
+                final_url=response.url
+            )
         }
         
         
