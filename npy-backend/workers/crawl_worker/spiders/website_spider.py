@@ -39,6 +39,7 @@ from module_A.pagematrix.manager import extract_page_metrics
 from module_A.Wordcount_analysis import wordcount_extractor
 from module_A.Broken_links_checker import broken_link_checker
 from module_A.Redirects_audit import redirect_audit
+from module_A.Text_Quality_Analyzer import text_quality_analyzer
 
 
 class WebsiteSpider(scrapy.Spider):
@@ -387,6 +388,18 @@ class WebsiteSpider(scrapy.Spider):
         links_data = LinkExtractor.extract(response, self.allowed_host, self.allow_subdomains)
         outlink_stats = link_analysis.analyze_outlinks(links_data)
         simhash_legacy = similarity.generate_simhash(visible_text_legacy)
+        
+        # New Consolidated Text Quality Analysis
+        tq_results = text_quality_analyzer.analyze(
+            html_content=response.text,
+            url=response.url,
+            title=page_item.get('title', ''),
+            word_count=page_item.get('word_count', 0),
+            sentence_count=page_item.get('sentence_count', 0),
+            paragraph_count=page_item.get('paragraph_count', 0),
+            heading_count=len(page_item.get('h1s', [])) + len(page_item.get('h2s', [])),
+            target_keyword=None 
+        )
 
         # 2. New SEO Modules (Integrated)
         wordcount_analysis = wordcount_extractor.extract_wordcount_analysis(
@@ -429,18 +442,12 @@ class WebsiteSpider(scrapy.Spider):
                 'co2_mg': carbon_data['co2_mg'],
                 'carbon_rating': carbon_data['rating'],
                 
-                # Readability & Content
+                # Readability & Content (Legacy)
                 'average_words_per_sentence': quality_data['average_words_per_sentence'],
                 'flesch_reading_ease_score': quality_data['flesch_reading_ease_score'],
                 'readability': quality_data['readability'],
                 
-                # Link Output
-                'link_score': 0, 
-                'inlinks': 0, 
-                'unique_inlinks': 0, 
-                'unique_js_inlinks': 0, 
-                'percent_of_total': 0, 
-                
+                # Outlinks (Remaining from legacy)
                 'outlinks': outlink_stats['outlinks'],
                 'unique_outlinks': outlink_stats['unique_outlinks'],
                 'unique_js_outlinks': outlink_stats['unique_js_outlinks'],
@@ -448,22 +455,17 @@ class WebsiteSpider(scrapy.Spider):
                 'unique_external_outlinks': outlink_stats['unique_external_outlinks'],
                 'unique_external_js_outlinks': outlink_stats['unique_external_js_outlinks'],
                 
-                # Duplicates & Similarity
+                # Duplicates & Similarity (Legacy)
                 'closest_near_duplicate_match': None, 
                 'no_near_duplicates': 0, 
                 'simhash': simhash_legacy, 
                 
-                # Quality / Errors
+                # Quality / Errors (Legacy)
                 'spelling_errors': quality_data['spelling_errors'],
                 'grammar_errors': quality_data['grammar_errors'],
                 'hash': page_item.get('content_hash', ''),
                 
-                # Semantic
-                'closest_semantically_similar_address': None, 
-                'semantic_similarity_score': 0, 
-                'no_semantically_similar': 0, 
-                'semantic_relevance_score': 0, 
-                'url_encoded_address': response.url, 
+                'url_encoded_address': response.url,
             },
             
             # Module A: Page Matrix Metrics
@@ -475,6 +477,9 @@ class WebsiteSpider(scrapy.Spider):
                 response_time_ms=(datetime.now().timestamp() - start_time) * 1000,
                 final_url=response.url
             ),
+            
+            # Text Quality Analyzer (New Consolidated Module)
+            'Text Quality Analyzer': tq_results,
             
             # New SEO Fields
             'Wordcount_analysis': wordcount_analysis,
