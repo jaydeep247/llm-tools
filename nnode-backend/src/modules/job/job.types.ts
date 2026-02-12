@@ -51,4 +51,5 @@ export interface CrawlResultsResponse {
   pages: any[];
   links: Record<string, any[]>;
   sitemaps: any[];
+  fields: any[];
 }

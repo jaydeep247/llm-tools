@@ -57,6 +57,7 @@ class MongoManager:
             # 4. Links and Sitemaps indexes
             self._db.links.create_index("jobId")
             self._db.sitemaps.create_index("jobId")
+            self._db.fields.create_index("jobId")
             self._db.job_summaries.create_index("jobId")
             
             logger.info("MongoDB indexes verified")
@@ -82,6 +83,10 @@ class MongoManager:
     @property
     def job_summaries(self) -> Collection:
         return self.db.job_summaries
+
+    @property
+    def fields(self) -> Collection:
+        return self.db.fields
 
     def close(self):
         if self._client:

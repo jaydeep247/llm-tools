@@ -99,6 +99,9 @@ class PageItem(scrapy.Item):
     page_size_bytes = scrapy.Field()
     html_size_bytes = scrapy.Field()
 
+    # New computed fields (module_A metrics)
+    fields = scrapy.Field()
+
 
 class LinkItem(scrapy.Item):
     """Link relationship data item"""

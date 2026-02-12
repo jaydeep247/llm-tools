@@ -287,6 +287,7 @@ export class JobService {
         pages: data.pages ? data.pages.slice(skip, skip + limit) : [],
         links: data.links || {},
         sitemaps: data.sitemaps || [],
+        fields: data.fields || [],
       };
     }
 
@@ -321,6 +322,12 @@ export class JobService {
       .find({ jobId })
       .toArray();
 
+    // Fetch fields
+    const fields = await db
+      .collection('fields')
+      .find({ jobId })
+      .toArray();
+
     const links: Record<string, any[]> = {};
     for (const link of linksArray) {
       const sourceUrl = link.source_url || 'unknown';
@@ -341,6 +348,7 @@ export class JobService {
       pages,
       links,
       sitemaps,
+      fields,
     };
   }
 }

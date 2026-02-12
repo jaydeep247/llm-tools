@@ -25,6 +25,15 @@ from .extractors import (
 )
 from utils.logger import logger
 
+# Import Module A Metrics
+from module_A.WebsiteCrawler.metrics import (
+    pixel_width,
+    carbon,
+    content_quality,
+    link_analysis,
+    similarity
+)
+
 
 class WebsiteSpider(scrapy.Spider):
     """
@@ -348,6 +357,98 @@ class WebsiteSpider(scrapy.Spider):
         page_item['crawl_depth'] = crawl_depth
         page_item['folder_depth'] = folder_depth
         
+        # ==================================================================
+        # Module A: Advanced Metrics Calculation
+        # ==================================================================
+        
+        # 1. Pixel Widths
+        title_pixel_width = pixel_width.calculate_pixel_width(page_item.get('title', ''))
+        # Meta description is in seo_fields or basic_fields? usually basic or seo. 
+        # Check Items: meta_description is in Basic fields in items.py (line 17)
+        meta_desc_pixel_width = pixel_width.calculate_pixel_width(page_item.get('meta_description', ''))
+        
+        # 2. Carbon Footprint
+        # Use page_size_bytes if available, otherwise len(response.body)
+        total_bytes = page_item.get('page_size_bytes', len(response.body))
+        carbon_data = carbon.calculate_carbon(total_bytes)
+        
+        # 3. Content Quality (Readability, Spelling, Grammar)
+        # Extract plain text content from body for analysis
+        # We can reuse extraction logic or do it here
+        body_text_list = response.css('body ::text').getall()
+        visible_text = ' '.join([t.strip() for t in body_text_list if t.strip()])
+        word_count = page_item.get('word_count', 0)
+        sentence_count = page_item.get('sentence_count', 0)
+        
+        quality_data = content_quality.analyze_content_quality(
+            visible_text,
+            sentence_count,
+            word_count
+        )
+        
+        # 4. Link Analysis (Outlinks stats)
+        # We need the list of links extracted earlier
+        # Extract links again or move extraction up?
+        # The extraction happens LATER in the original code (lines 368-375)
+        # We need to extract them NOW to usage them for metrics
+        links_data = LinkExtractor.extract(response, self.allowed_host, self.allow_subdomains)
+        outlink_stats = link_analysis.analyze_outlinks(links_data)
+        
+        # 5. Similarity (SimHash)
+        simhash = similarity.generate_simhash(visible_text)
+        
+        # Construct 'fields' dictionary
+        page_item['fields'] = {
+            # Status
+            'status': 'OK' if response.status == 200 else str(response.status),
+            
+            # Pixel Widths
+            'title_pixel_width': title_pixel_width,
+            'meta_description_pixel_width': meta_desc_pixel_width,
+            
+            # Carbon
+            'transferred_bytes': total_bytes, # Wire size roughly
+            'total_transferred_bytes': total_bytes, # Placeholder for total resource size (needs HEAD requests to be accurate, using page size for now)
+            'co2_mg': carbon_data['co2_mg'],
+            'carbon_rating': carbon_data['rating'],
+            
+            # Readability & Content
+            'average_words_per_sentence': quality_data['average_words_per_sentence'],
+            'flesch_reading_ease_score': quality_data['flesch_reading_ease_score'],
+            'readability': quality_data['readability'],
+            
+            # Link Output
+            'link_score': 0, # Placeholder (calculated post-crawl or needs inlink data)
+            'inlinks': 0, # Placeholder
+            'unique_inlinks': 0, # Placeholder
+            'unique_js_inlinks': 0, # Placeholder
+            'percent_of_total': 0, # Placeholder
+            
+            'outlinks': outlink_stats['outlinks'],
+            'unique_outlinks': outlink_stats['unique_outlinks'],
+            'unique_js_outlinks': outlink_stats['unique_js_outlinks'],
+            'external_outlinks': outlink_stats['external_outlinks'],
+            'unique_external_outlinks': outlink_stats['unique_external_outlinks'],
+            'unique_external_js_outlinks': outlink_stats['unique_external_js_outlinks'],
+            
+            # Duplicates & Similarity
+            'closest_near_duplicate_match': None, # Placeholder (post-crawl)
+            'no_near_duplicates': 0, # Placeholder
+            'simhash': simhash, # Store for later comparison
+            
+            # Quality / Errors
+            'spelling_errors': quality_data['spelling_errors'],
+            'grammar_errors': quality_data['grammar_errors'],
+            'hash': page_item.get('content_hash', ''),
+            
+            # Semantic
+            'closest_semantically_similar_address': None, # Placeholder
+            'semantic_similarity_score': 0, # Placeholder
+            'no_semantically_similar': 0, # Placeholder
+            'semantic_relevance_score': 0, # Placeholder
+            'url_encoded_address': response.url, # As requested
+        }
+        
         
         yield page_item
         self.pages_crawled += 1
@@ -366,8 +467,9 @@ class WebsiteSpider(scrapy.Spider):
                 return
         
         # Extract links
-        links = LinkExtractor.extract(response, self.allowed_host, self.allow_subdomains)
-        for link_data in links:
+        # Optimization: We already extracted links_data above for metrics
+        # links = LinkExtractor.extract(response, self.allowed_host, self.allow_subdomains)
+        for link_data in links_data:
             link_item = LinkItem()
             link_item.update(link_data)
             yield link_item
@@ -375,7 +477,7 @@ class WebsiteSpider(scrapy.Spider):
         
         # Follow internal links
         if not self.should_stop:
-            for link_data in links:
+            for link_data in links_data:
                 if link_data['is_internal'] and not link_data['nofollow']:
                     target_url = link_data['target_url']
                     

@@ -14,14 +14,16 @@ class MongoPipeline:
         self.buffers = {
             'pages': [],
             'links': [],
-            'sitemaps': []
+            'sitemaps': [],
+            'fields': []
         }
         
         # Counters for summary
         self.total_counts = {
             'pages': 0,
             'links': 0,
-            'sitemaps': 0
+            'sitemaps': 0,
+            'fields': 0
         }
         
         self.job_id = None
@@ -69,7 +71,8 @@ class MongoPipeline:
                     'completed_at': datetime.now().isoformat(),
                     'total_pages': self.total_counts['pages'],
                     'total_links': self.total_counts['links'],
-                    'total_sitemaps': self.total_counts['sitemaps']
+                    'total_sitemaps': self.total_counts['sitemaps'],
+                    'total_fields': self.total_counts['fields']
                 }
             }
             
@@ -95,6 +98,26 @@ class MongoPipeline:
         
         if isinstance(item, PageItem):
             if not item_dict.get('url'): return item
+            
+            # Extract fields for separate collection
+            if 'fields' in item_dict:
+                fields_data = item_dict.pop('fields') # Remove from page document
+                
+                # Create separate fields document
+                fields_doc = {
+                    'jobId': self.job_id,
+                    'url': item_dict['url'],
+                    'data': fields_data, # The 30+ metrics
+                    'createdAt': datetime.utcnow()
+                }
+                
+                # Buffer fields
+                self.buffers['fields'].append(fields_doc)
+                self.total_counts['fields'] += 1
+                
+                if len(self.buffers['fields']) >= self.batch_size:
+                    self._flush_buffer('fields')
+            
             target_buffer = 'pages'
         elif isinstance(item, LinkItem):
             target_buffer = 'links'
