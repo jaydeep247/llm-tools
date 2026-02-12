@@ -107,8 +107,8 @@ class MongoPipeline:
                 fields_doc = {
                     'jobId': self.job_id,
                     'url': item_dict['url'],
-                    'data': fields_data, # The 30+ metrics
-                    'createdAt': datetime.utcnow()
+                    'createdAt': datetime.utcnow(),
+                    **fields_data # Flatten: status, website_crawler, Wordcount_analysis, etc.
                 }
                 
                 # Buffer fields

@@ -35,6 +35,11 @@ from module_A.WebsiteCrawler.metrics import (
 )
 from module_A.pagematrix.manager import extract_page_metrics
 
+# Import New SEO Modules
+from module_A.Wordcount_analysis import wordcount_extractor
+from module_A.Broken_links_checker import broken_link_checker
+from module_A.Redirects_audit import redirect_audit
+
 
 class WebsiteSpider(scrapy.Spider):
     """
@@ -359,45 +364,55 @@ class WebsiteSpider(scrapy.Spider):
         page_item['folder_depth'] = folder_depth
         
         # ==================================================================
-        # Module A: Advanced Metrics Calculation
+        # Module A: Metrics Calculation (Legacy + New SEO)
         # ==================================================================
         
-        # 1. Pixel Widths
+        # 1. Legacy Metrics (Restored)
         title_pixel_width = pixel_width.calculate_pixel_width(page_item.get('title', ''))
-        # Meta description is in seo_fields or basic_fields? usually basic or seo. 
-        # Check Items: meta_description is in Basic fields in items.py (line 17)
         meta_desc_pixel_width = pixel_width.calculate_pixel_width(page_item.get('meta_description', ''))
-        
-        # 2. Carbon Footprint
-        # Use page_size_bytes if available, otherwise len(response.body)
         total_bytes = page_item.get('page_size_bytes', len(response.body))
         carbon_data = carbon.calculate_carbon(total_bytes)
         
-        # 3. Content Quality (Readability, Spelling, Grammar)
-        # Extract plain text content from body for analysis
-        # We can reuse extraction logic or do it here
         body_text_list = response.css('body ::text').getall()
-        visible_text = ' '.join([t.strip() for t in body_text_list if t.strip()])
+        visible_text_legacy = ' '.join([t.strip() for t in body_text_list if t.strip()])
         word_count = page_item.get('word_count', 0)
         sentence_count = page_item.get('sentence_count', 0)
         
         quality_data = content_quality.analyze_content_quality(
-            visible_text,
+            visible_text_legacy,
             sentence_count,
             word_count
         )
         
-        # 4. Link Analysis (Outlinks stats)
-        # We need the list of links extracted earlier
-        # Extract links again or move extraction up?
-        # The extraction happens LATER in the original code (lines 368-375)
-        # We need to extract them NOW to usage them for metrics
         links_data = LinkExtractor.extract(response, self.allowed_host, self.allow_subdomains)
         outlink_stats = link_analysis.analyze_outlinks(links_data)
+        simhash_legacy = similarity.generate_simhash(visible_text_legacy)
+
+        # 2. New SEO Modules (Integrated)
+        wordcount_analysis = wordcount_extractor.extract_wordcount_analysis(
+            html_content=response.text,
+            url=response.url,
+            target_keyword=None 
+        )
         
-        # 5. Similarity (SimHash)
-        simhash = similarity.generate_simhash(visible_text)
+        broken_links_report = broken_link_checker.analyze_broken_links(links_data)
         
+        redirect_urls = response.request.meta.get('redirect_urls', [])
+        redirect_reasons = response.request.meta.get('redirect_reasons', [])
+        hops = []
+        for i, url in enumerate(redirect_urls):
+            hops.append({
+                'url': url,
+                'status_code': redirect_reasons[i] if i < len(redirect_reasons) else 302,
+                'headers': {}
+            })
+        hops.append({
+            'url': response.url,
+            'status_code': response.status,
+            'headers': {k.decode('utf-8'): v[0].decode('utf-8') for k, v in response.headers.items()}
+        })
+        redirect_audit_report = redirect_audit.analyze_redirects(hops, page_item.get('canonical_url'))
+
         # Construct 'fields' dictionary
         page_item['fields'] = {
             # Status
@@ -409,8 +424,8 @@ class WebsiteSpider(scrapy.Spider):
                 'meta_description_pixel_width': meta_desc_pixel_width,
                 
                 # Carbon
-                'transferred_bytes': total_bytes, # Wire size roughly
-                'total_transferred_bytes': total_bytes, # Placeholder for total resource size (needs HEAD requests to be accurate, using page size for now)
+                'transferred_bytes': total_bytes, 
+                'total_transferred_bytes': total_bytes, 
                 'co2_mg': carbon_data['co2_mg'],
                 'carbon_rating': carbon_data['rating'],
                 
@@ -420,11 +435,11 @@ class WebsiteSpider(scrapy.Spider):
                 'readability': quality_data['readability'],
                 
                 # Link Output
-                'link_score': 0, # Placeholder (calculated post-crawl or needs inlink data)
-                'inlinks': 0, # Placeholder
-                'unique_inlinks': 0, # Placeholder
-                'unique_js_inlinks': 0, # Placeholder
-                'percent_of_total': 0, # Placeholder
+                'link_score': 0, 
+                'inlinks': 0, 
+                'unique_inlinks': 0, 
+                'unique_js_inlinks': 0, 
+                'percent_of_total': 0, 
                 
                 'outlinks': outlink_stats['outlinks'],
                 'unique_outlinks': outlink_stats['unique_outlinks'],
@@ -434,9 +449,9 @@ class WebsiteSpider(scrapy.Spider):
                 'unique_external_js_outlinks': outlink_stats['unique_external_js_outlinks'],
                 
                 # Duplicates & Similarity
-                'closest_near_duplicate_match': None, # Placeholder (post-crawl)
-                'no_near_duplicates': 0, # Placeholder
-                'simhash': simhash, # Store for later comparison
+                'closest_near_duplicate_match': None, 
+                'no_near_duplicates': 0, 
+                'simhash': simhash_legacy, 
                 
                 # Quality / Errors
                 'spelling_errors': quality_data['spelling_errors'],
@@ -444,14 +459,14 @@ class WebsiteSpider(scrapy.Spider):
                 'hash': page_item.get('content_hash', ''),
                 
                 # Semantic
-                'closest_semantically_similar_address': None, # Placeholder
-                'semantic_similarity_score': 0, # Placeholder
-                'no_semantically_similar': 0, # Placeholder
-                'semantic_relevance_score': 0, # Placeholder
-                'url_encoded_address': response.url, # As requested
+                'closest_semantically_similar_address': None, 
+                'semantic_similarity_score': 0, 
+                'no_semantically_similar': 0, 
+                'semantic_relevance_score': 0, 
+                'url_encoded_address': response.url, 
             },
             
-            # Module A: Page Matrix Metrics (Ported from Node.js)
+            # Module A: Page Matrix Metrics
             'page_matrix': extract_page_metrics(
                 url=response.url,
                 html_content=response.text,
@@ -459,7 +474,12 @@ class WebsiteSpider(scrapy.Spider):
                 response_headers={k.decode('utf-8'): v[0].decode('utf-8') for k, v in response.headers.items()},
                 response_time_ms=(datetime.now().timestamp() - start_time) * 1000,
                 final_url=response.url
-            )
+            ),
+            
+            # New SEO Fields
+            'Wordcount_analysis': wordcount_analysis,
+            'Broken_links_checker': broken_links_report,
+            'Redirects_audit': redirect_audit_report
         }
         
         
