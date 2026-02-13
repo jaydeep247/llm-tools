@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Dict
+from typing import Dict, List
 from .ai_presence import AIPresenceModule
 from .answerability import AnswerabilityModule
 from .knowledge_base import KnowledgeBaseModule
@@ -19,24 +19,32 @@ class ModuleCRunner:
         self.knowledge_base = KnowledgeBaseModule()
         self.competitor = CompetitorAnalysisModule()
 
-    async def run(self, job_id: str, url: str, html_content: str = None) -> Dict:
+    async def run(self, job_id: str, url: str, html_content: str = None, skip_save: bool = False) -> Dict:
         """
         Runs complete Module C analysis.
         1. Validates/Saves HTML.
         2. Runs parallel sub-modules.
         3. Aggregates scores.
+        
+        Args:
+            job_id: Job ID
+            url: URL being analyzed
+            html_content: HTML content (optional, will load from disk if not provided)
+            skip_save: If True, don't save HTML to disk (useful for bulk audit)
         """
         logger.info(f"Starting Module C for job {job_id} / {url}")
         
         # 1. Data Handling
         if html_content:
-            await save_raw_html(job_id, html_content)
+            if not skip_save:
+                await save_raw_html(job_id, html_content)
         else:
             # Try loading if not provided (assume fetched by earlier step)
             html_content = await load_raw_html(job_id)
             
         if not html_content:
             return {"error": "HTML content missing", "job_id": job_id}
+
             
         # 2. Robots extraction (Basic mechanism, in real env this comes from crawler)
         robots_txt = "" # Pass empty or implement robots fetcher if strict validity needed
@@ -78,9 +86,63 @@ class ModuleCRunner:
                 "competitor_analysis": comp_res
             }
         }
+    
+    async def run_bulk_audit(self, urls: List[str], job_id: str = "bulk_audit") -> Dict:
+        """
+        Run bulk AEO audit across multiple URLs.
+        
+        Args:
+            urls: List of URLs to analyze
+            job_id: Base job ID for tracking
+            
+        Returns:
+            Aggregated bulk audit results with summary and details
+        """
+        from .bulk_audit_service import run_bulk_audit
+        return await run_bulk_audit(urls, job_id)
 
 # Singleton entry point
 runner = ModuleCRunner()
 
 async def run_module_c(job_id: str, url: str, html_content: str = None):
-    return await runner.run(job_id, url, html_content)
+    """
+    Run Module C analysis for a job.
+    - Runs single-page analysis on the main URL
+    - If multiple pages were crawled, runs bulk audit on all pages
+    """
+    # Run single-page analysis
+    single_page_result = await runner.run(job_id, url, html_content)
+    
+    # Check if this is a post-crawl job with multiple pages
+    try:
+        from utils.mongo import mongo_manager
+        
+        pages_count = mongo_manager.pages.count_documents({"jobId": job_id})
+        
+        if pages_count > 1:
+            # Run bulk audit on all crawled pages
+            logger.info(f"Found {pages_count} crawled pages for job {job_id}. Running bulk audit...")
+            from .bulk_audit_service import bulk_audit_service
+            
+            bulk_result = await bulk_audit_service.run_bulk_audit_from_crawl(job_id)
+            
+            # Add bulk audit results to the response
+            if 'modules' in single_page_result:
+                single_page_result['modules']['bulk_audit'] = bulk_result
+            else:
+                single_page_result['bulk_audit'] = bulk_result
+                
+            logger.info(f"Bulk audit completed for job {job_id}")
+        else:
+            logger.info(f"Only {pages_count} page(s) found for job {job_id}. Skipping bulk audit.")
+            
+    except Exception as e:
+        logger.error(f"Failed to run bulk audit for job {job_id}: {str(e)}")
+        # Don't fail the entire job if bulk audit fails
+        if 'modules' in single_page_result:
+            single_page_result['modules']['bulk_audit'] = {"error": str(e)}
+        else:
+            single_page_result['bulk_audit'] = {"error": str(e)}
+    
+    return single_page_result
+
