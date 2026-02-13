@@ -2,8 +2,21 @@ import re
 import json
 import logging
 from typing import Dict, List
+from enum import Enum
 from bs4 import BeautifulSoup
 from orchestrator.checkpoint.executor import execute_task
+
+# Entity Type Enum for strict validation
+class EntityType(str, Enum):
+    PERSON = "Person"
+    PRODUCT = "Product"
+    LOCATION = "Location"
+    CONCEPT = "Concept"
+    EVENT = "Event"
+    ORGANIZATION = "Organization"
+    UNKNOWN = "Unknown"
+
+VALID_ENTITY_TYPES = {e.value for e in EntityType}
 
 class KnowledgeBaseModule:
     """
@@ -11,6 +24,42 @@ class KnowledgeBaseModule:
     """
     def __init__(self):
         pass
+
+    def _validate_and_normalize_entity_type(self, entity_type: str) -> str:
+        """
+        Validate and normalize entity type to match predefined categories.
+        Returns normalized type or 'Unknown' if invalid.
+        """
+        # Normalize to title case
+        normalized = entity_type.strip().title()
+        
+        # Check if valid
+        if normalized in VALID_ENTITY_TYPES:
+            return normalized
+        
+        # Try fuzzy matching for common variations
+        type_mapping = {
+            "person": EntityType.PERSON.value,
+            "people": EntityType.PERSON.value,
+            "individual": EntityType.PERSON.value,
+            "product": EntityType.PRODUCT.value,
+            "service": EntityType.PRODUCT.value,
+            "tool": EntityType.PRODUCT.value,
+            "app": EntityType.PRODUCT.value,
+            "application": EntityType.PRODUCT.value,
+            "location": EntityType.LOCATION.value,
+            "place": EntityType.LOCATION.value,
+            "concept": EntityType.CONCEPT.value,
+            "idea": EntityType.CONCEPT.value,
+            "technology": EntityType.CONCEPT.value,
+            "event": EntityType.EVENT.value,
+            "organization": EntityType.ORGANIZATION.value,
+            "company": EntityType.ORGANIZATION.value,
+            "org": EntityType.ORGANIZATION.value,
+            "business": EntityType.ORGANIZATION.value,
+        }
+        
+        return type_mapping.get(entity_type.lower(), EntityType.UNKNOWN.value)
 
     async def _analyze_entity_coverage(self, text: str, url: str) -> Dict:
         """Use AI to find missing entities and classify them"""
@@ -66,7 +115,20 @@ class KnowledgeBaseModule:
                 if "```json" in content: content = content.split("```json")[1].split("```")[0]
                 elif "```" in content: content = content.split("```")[1].split("```")[0]
                 
-                return json.loads(content)
+                data = json.loads(content)
+                
+                # VALIDATE AND NORMALIZE ENTITY TYPES
+                if 'entites_analysis' in data:
+                    for entity in data['entites_analysis']:
+                        if 'type' in entity:
+                            original_type = entity['type']
+                            entity['type'] = self._validate_and_normalize_entity_type(original_type)
+                            
+                            # Log if type was changed for debugging
+                            if entity['type'] != original_type:
+                                logging.debug(f"Normalized entity type: '{original_type}' -> '{entity['type']}'")
+                
+                return data
             except Exception as e:
                 logging.error(f"Failed to parse entity analysis: {e}")
                 return {}

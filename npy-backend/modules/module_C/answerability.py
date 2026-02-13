@@ -16,13 +16,26 @@ class AnswerabilityModule:
         ]
 
     def _extract_questions_answers(self, text: str) -> Dict:
-        """Basic regex extraction (Simplified for speed)"""
+        """Extract questions using question words OR question marks"""
         sentences = re.split(r'[.!?]+', text)
         questions = []
+        
         for s in sentences:
             s = s.strip()
-            if '?' in s and len(s) > 10:
+            if len(s) < 10:
+                continue
+            
+            # Check for question words (what, how, why, etc.)
+            has_question_word = any(
+                re.search(pattern, s, re.IGNORECASE) 
+                for pattern in self.question_patterns
+            )
+            has_question_mark = '?' in s
+            
+            # Accept if either condition is met
+            if has_question_word or has_question_mark:
                 questions.append(s[:200])
+        
         return {"questions": questions[:20], "count": len(questions)}
     
     def _extract_answers(self, text: str) -> Dict:
