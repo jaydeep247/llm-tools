@@ -110,7 +110,6 @@ export function AITeamSection() {
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          console.log("[v0] AI Team Section is now visible")
           setIsVisible(true)
         }
       },
@@ -288,7 +287,7 @@ export function AITeamSection() {
                         <div className="bg-slate-900 px-6 py-4 text-white">
                           <div className="flex items-center gap-3">
                             <img
-                              src="/images/michael-ai-agent.jpg"
+                                src="https://placehold.co/400x400/1e293b/ffffff?text=AI+Agent"
                               alt="Contentlytics Assistant"
                               className="w-8 h-8 rounded-full object-cover mr-2 mt-1 shrink-0"
                             />
@@ -316,7 +315,7 @@ export function AITeamSection() {
                             >
                               {message.sender === "ai" && (
                                 <img
-                                  src="/images/michael-ai-agent.jpg"
+                                    src="https://placehold.co/400x400/1e293b/ffffff?text=AI+Agent"
                                   alt="Michael"
                                   className="w-6 h-6 rounded-full object-cover mr-2 mt-1 shrink-0"
                                 />
@@ -328,7 +327,7 @@ export function AITeamSection() {
                                     : "bg-white text-slate-800 shadow-sm border border-slate-200 rounded-bl-md"
                                 }`}
                               >
-                                {message.text.split("\n").map((line, i) => (
+                                {message.text.split("\n").map((line: string, i: number) => (
                                   <div key={i}>{line}</div>
                                 ))}
                               </div>
@@ -344,7 +343,7 @@ export function AITeamSection() {
                           {isTyping && (
                             <div className="flex justify-start items-start">
                               <img
-                                src="/images/michael-ai-agent.jpg"
+                                  src="https://placehold.co/400x400/1e293b/ffffff?text=AI+Agent"
                                 alt="Michael"
                                 className="w-6 h-6 rounded-full object-cover mr-2 mt-1 shrink-0"
                               />

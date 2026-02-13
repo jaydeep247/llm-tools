@@ -21,16 +21,13 @@ export function NavigationTransition() {
 
         // Only intercept internal navigation to different pages
         if (url.pathname !== pathname && !url.hash) {
-          console.log("[v0] Intercepting navigation to:", url.pathname)
           e.preventDefault()
 
           // Start fade out
           setIsTransitioning(true)
-          console.log("[v0] Transition state set to true")
 
           // Navigate after fade out
           setTimeout(() => {
-            console.log("[v0] Navigating to:", url.pathname)
             router.push(url.pathname)
           }, 300)
         }
@@ -47,11 +44,9 @@ export function NavigationTransition() {
   useEffect(() => {
     // Check if pathname actually changed
     if (pathname !== previousPathname.current) {
-      console.log("[v0] Pathname changed from", previousPathname.current, "to", pathname)
-      console.log("[v0] isTransitioning state:", isTransitioning)
 
       if (isTransitioning) {
-        console.log("[v0] Page loaded, fading in")
+        // Page loaded, fading in
       }
 
       // Always fade in after navigation, even if state wasn't set

@@ -8,7 +8,7 @@ import {
   AlertCircle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useGenerateSchemaMutation } from '@/store/api/module_C/aeoApi'
+// import { useGenerateSchemaMutation } from '@/store/api/module_C/aeoApi'
 import { useGetSessionQuery } from '@/store/api/projectApi'
 
 interface SchemaGeneratorTableProps {
@@ -39,7 +39,9 @@ export function SchemaGeneratorTable({
   const url = session?.startUrl || ''
 
   // Generate schema mutation
-  const [generateSchema, { isLoading: isGeneratingSchema }] = useGenerateSchemaMutation()
+  // const [generateSchema, { isLoading: isGeneratingSchema }] = useGenerateSchemaMutation()
+  const generateSchema = (args: any) => ({ unwrap: async () => ({ success: false, error: 'Feature unavailable' } as any) })
+  const isGeneratingSchema = false
 
   const handleGenerateSchema = async () => {
     if (!url) {

@@ -413,7 +413,6 @@ export function FeaturesSection() {
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          console.log("[v0] Features Section is now visible") // Added debug log
           setIsVisible(true)
         }
       },

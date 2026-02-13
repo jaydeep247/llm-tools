@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { X, Loader2 } from "lucide-react"
-import { useLoginMutation, useRegisterMutation } from "@/store/api/authApi"
+import { useLoginMutation, useSignupMutation } from "@/store/api/authApi"
 import { useRouter } from "next/navigation"
+import { UserRole } from "@/types/auth"
 
 interface AuthModalProps {
   isOpen: boolean
@@ -20,11 +21,12 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
     name: "",
     email: "",
     password: "",
+    role: UserRole.ANALYST, // Default role
   })
   const [error, setError] = useState<string>("")
 
   const [login, { isLoading: isLoginLoading }] = useLoginMutation()
-  const [register, { isLoading: isRegisterLoading }] = useRegisterMutation()
+  const [signup, { isLoading: isSignupLoading }] = useSignupMutation()
 
   useEffect(() => {
     if (isOpen) {
@@ -74,7 +76,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
 
     try {
       if (isLogin) {
-        // Login (token stored in httpOnly cookie by backend)
+        // Login (token stored in localStorage by authApi)
         await login({
           email: formData.email,
           password: formData.password,
@@ -90,11 +92,12 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
           router.push('/dashboard')
         }
       } else {
-        // Register (token stored in httpOnly cookie by backend)
-        await register({
+        // Signup
+        await signup({
           email: formData.email,
           password: formData.password,
-          name: formData.name || undefined,
+          name: formData.name || "User",
+          role: formData.role,
         }).unwrap()
 
         // Close modal
@@ -115,7 +118,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
     }
   }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
@@ -191,6 +194,37 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
               </div>
             )}
 
+            {!isLogin && (
+              <div className={`transition-all duration-300 ${
+                isTransitioning ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"
+              }`}>
+                <label htmlFor="role" className="block text-sm font-medium text-slate-700 mb-2">
+                  Role
+                </label>
+                <div className="relative">
+                  <select
+                    id="role"
+                    name="role"
+                    value={formData.role}
+                    onChange={handleChange}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:border-transparent transition-all appearance-none cursor-pointer"
+                    required={!isLogin}
+                  >
+                    <option value={UserRole.CXO}>CXO</option>
+                    <option value={UserRole.CMO}>CMO</option>
+                    <option value={UserRole.SEO_MANAGER}>SEO Manager</option>
+                    <option value={UserRole.CONTENT_MANAGER}>Content Manager</option>
+                    <option value={UserRole.ANALYST}>Analyst</option>
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none">
+                    <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className={`transition-all duration-300 ${
               isTransitioning ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"
             }`}>
@@ -249,12 +283,12 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
 
             <button
               type="submit"
-              disabled={isLoginLoading || isRegisterLoading}
+              disabled={isLoginLoading || isSignupLoading}
               className={`w-full py-3 bg-slate-900 text-white rounded-full font-semibold hover:bg-slate-800 transition-all duration-300 hover:scale-105 shadow-lg cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2 ${
                 isTransitioning ? "opacity-50" : "opacity-100"
               }`}
             >
-              {(isLoginLoading || isRegisterLoading) && (
+              {(isLoginLoading || isSignupLoading) && (
                 <Loader2 className="w-5 h-5 animate-spin" />
               )}
               {isLogin ? "Sign In" : "Create Account"}

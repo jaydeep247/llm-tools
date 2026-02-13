@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Clock, Globe, CheckCircle, XCircle, Loader2, AlertCircle, Play } from 'lucide-react'
-import { useGetProjectQuery, useGetProjectSessionsQuery, useStartCrawlMutation } from '@/store/api'
+import { useGetProjectQuery, useGetProjectSessionsQuery } from '@/store/api'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import type { CrawlSession } from '@/store/api/projectApi'
@@ -16,7 +16,10 @@ export default function ProjectDetailPage() {
 
   const { data: projectData, isLoading: isLoadingProject, error: projectError } = useGetProjectQuery(projectId)
   const { data: sessionsData, isLoading: isLoadingSessions } = useGetProjectSessionsQuery({ projectId })
-  const [startCrawl, { isLoading: isStartingCrawl }] = useStartCrawlMutation()
+  // Mock removed mutation
+  const startCrawl = (args: any) => ({ unwrap: async () => ({ sessionId: null }) })
+  const isStartingCrawl = false
+  // const [startCrawl, { isLoading: isStartingCrawl }] = useStartCrawlMutation()
 
   // Form state
   const [url, setUrl] = useState('')

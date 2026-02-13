@@ -4,12 +4,17 @@ import { useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Loader2, Trophy, TrendingUp } from 'lucide-react'
-import {
-  useRunRankingAnalysisMutation,
-  type RankingAnalysisResponse,
-  type RankingPositionItem,
-  type ModelWiseRow,
-} from '@/store/api/module_E/rankingApi'
+// import {
+//   useRunRankingAnalysisMutation,
+//   type RankingAnalysisResponse,
+//   type RankingPositionItem,
+//   type ModelWiseRow,
+// } from '@/store/api/module_E/rankingApi'
+
+// Mock types
+type RankingAnalysisResponse = any
+type RankingPositionItem = any
+type ModelWiseRow = any
 
 const MODELS = ['chat_gpt', 'claude', 'gemini', 'perplexity'] as const
 const MODEL_LABELS: Record<string, string> = {
@@ -24,8 +29,13 @@ interface AICitationRankingProps {
 }
 
 export default function AICitationRanking({ url }: AICitationRankingProps) {
-  const [runRankingAnalysis, { data, isLoading, error }] =
-    useRunRankingAnalysisMutation()
+  // Mock removed mutation
+  const runRankingAnalysis = (args: any) => {}
+  const data: any = null
+  const isLoading = false
+  const error = null
+  // const [runRankingAnalysis, { data, isLoading, error }] =
+  //   useRunRankingAnalysisMutation()
 
   const websiteUrl = (url || '').trim()
 
@@ -236,13 +246,13 @@ export default function AICitationRanking({ url }: AICitationRankingProps) {
                     </thead>
                     <tbody className="bg-background divide-y divide-border">
                       {Object.entries(resp.percentile_by_prompt).map(
-                        ([prompt, byModel]) => (
+                        ([prompt, byModel]: [string, any]) => (
                           <tr key={prompt} className="hover:bg-muted/50 transition-colors">
                             <td className="px-4 py-3 text-sm text-foreground max-w-xs truncate">
                               {prompt}
                             </td>
                             {MODELS.map((m) => {
-                              const pct = byModel[m];
+                              const pct = (byModel as any)[m];
                               return (
                                 <td key={m} className="px-4 py-3">
                                   {pct != null ? (

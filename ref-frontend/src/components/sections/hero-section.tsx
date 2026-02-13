@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import RotatingText from "../animations/RotatingText"
 import { AuthModal } from '@/components/auth/auth-modal'
 import { ProjectSelectorDialog } from '@/components/dashboard/ProjectSelectorDialog'
-import { useStartCrawlMutation } from '@/store/api/module_A/crawlApi'
+// import { useStartCrawlMutation } from '@/store/api/module_A/crawlApi'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/hooks/useAuth'
 
@@ -41,7 +41,10 @@ export function HeroSection() {
   const router = useRouter()
   const { toast } = useToast()
   const { isAuthenticated } = useAuth()
-  const [startCrawl, { isLoading: isCrawling }] = useStartCrawlMutation()
+  // Mock removed mutation
+  const startCrawl = (args: any) => ({ unwrap: async () => ({ sessionId: null }) })
+  const isCrawling = false
+  // const [startCrawl, { isLoading: isCrawling }] = useStartCrawlMutation()
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
   const [isProjectSelectorOpen, setIsProjectSelectorOpen] = useState(false)
   const [url, setUrl] = useState('')
@@ -51,18 +54,14 @@ export function HeroSection() {
     e.preventDefault()
     if (!url.trim()) return
 
-    console.log('[HeroSection] Analyze clicked, isAuthenticated:', isAuthenticated)
-
     // Check if user is authenticated
     if (!isAuthenticated) {
-      console.log('[HeroSection] User not authenticated, showing auth modal')
       setPendingUrl(url)
       setIsAuthModalOpen(true)
       return
     }
 
     // Show project selector dialog
-    console.log('[HeroSection] User authenticated, showing project selector')
     setPendingUrl(url)
     setIsProjectSelectorOpen(true)
   }

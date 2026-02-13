@@ -11,6 +11,9 @@ router.use(authMiddleware);
 // Create session in a project
 router.post('/projects/:projectId/sessions', sessionController.createSession);
 
+// Start a crawl session (create session + job)
+router.post('/projects/:projectId/crawl', sessionController.startCrawl);
+
 // Get all sessions for a project
 router.get('/projects/:projectId/sessions', sessionController.getProjectSessions);
 

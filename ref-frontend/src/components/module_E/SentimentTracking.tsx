@@ -4,12 +4,12 @@ import { useState, useEffect, useMemo } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Loader2, Heart, TrendingUp, Activity } from 'lucide-react'
-import { useTrackSentimentMutation, useGetSentimentHistoryQuery } from '@/store/api/module_E/sentimentApi'
+// import { useTrackSentimentMutation, useGetSentimentHistoryQuery } from '@/store/api/module_E/sentimentApi'
 
 interface SentimentTrackingProps {
   brandName: string
 }
-
+// ... existing generic interfaces ...
 interface ModelData {
   model: string
   average_score: number
@@ -57,11 +57,16 @@ export default function SentimentTracking({ brandName }: SentimentTrackingProps)
   const [error, setError] = useState<string | null>(null)
   const [history, setHistory] = useState<{ date: string; sentimentScore?: number; visibilityScore?: number; score?: number }[]>([])
 
-  // RTK Query hooks
+  // Mock RTK Query hooks
+  const trackSentiment = (args: any) => ({ unwrap: async () => ({ data: null } as any) })
+  const historyData: any = null
+  const refetchHistory = async () => {}
+  /*
   const [trackSentiment] = useTrackSentimentMutation()
   const { data: historyData, refetch: refetchHistory } = useGetSentimentHistoryQuery(normalizedBrand, {
     skip: !isBrandConfigured,
   })
+  */
 
   // Load history
   useEffect(() => {

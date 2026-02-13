@@ -1,15 +1,58 @@
 import { Request, Response } from 'express';
 import { SessionService } from './session.service';
 import { ResponseUtil } from '../../utils/response';
-import { sessionIdSchema, projectIdParamSchema, updateSessionStatusSchema } from './session.validator';
+import { sessionIdSchema, projectIdParamSchema, updateSessionStatusSchema, startCrawlSchema } from './session.validator';
 import { logger } from '../../shared/logger/logger';
+import { JobService } from '../job/job.service';
 
 export class SessionController {
   private sessionService: SessionService;
+  private jobService: JobService;
 
   constructor() {
     this.sessionService = new SessionService();
+    this.jobService = new JobService();
   }
+
+  /**
+   * Start a new crawl session (creates session + crawl job)
+   */
+  startCrawl = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { projectId } = projectIdParamSchema.parse(req.params);
+      const { url, allowSubdomains, runAudits, auditDevice, captureLinkDetails } = startCrawlSchema.parse(req.body);
+      
+      // Create session
+      const session = await this.sessionService.createSession(projectId, userId);
+
+      // Create crawl job
+      await this.jobService.createJob(session.id, userId, {
+        jobType: 'CRAWL',
+        config: {
+          url,
+          allowSubdomains,
+          runAudits,
+          auditDevice,
+          captureLinkDetails
+        }
+      });
+
+      return ResponseUtil.created(res, 'Crawl session started successfully', session);
+    } catch (error: any) {
+      logger.error('Error starting crawl:', error);
+      if (error.message.includes('Limit exceeded')) {
+        return ResponseUtil.error(res, error.message, undefined, 403);
+      }
+      if (error.message.includes('not found') || error.message.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      if (error.name === 'ZodError') {
+        return ResponseUtil.error(res, 'Validation failed', error.errors);
+      }
+      return ResponseUtil.serverError(res, 'Failed to start crawl session');
+    }
+  };
 
   /**
    * Create a new session in a project

@@ -77,10 +77,18 @@ export class AuthController {
   /**
    * Get current user
    */
+  /**
+   * Get current user
+   */
   getCurrentUser = async (req: Request, res: Response): Promise<Response> => {
     try {
-      // User is already attached to request by auth middleware
-      return ResponseUtil.success(res, 'User retrieved successfully', req.user);
+      const userId = req.user?.userId;
+      if (!userId) {
+        return ResponseUtil.unauthorized(res);
+      }
+
+      const user = await this.authService.getUserProfile(userId);
+      return ResponseUtil.success(res, 'User retrieved successfully', user);
     } catch (error) {
       logger.error('Get current user error:', error);
       return ResponseUtil.serverError(res, 'Failed to retrieve user');

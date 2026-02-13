@@ -10,6 +10,15 @@ export const updateSessionStatusSchema = z.object({
   }),
 });
 
+export const startCrawlSchema = z.object({
+  url: z.string().url('Invalid URL'),
+  projectId: z.string().optional(), // In body it might be redundant if in params but harmless
+  allowSubdomains: z.boolean().optional(),
+  runAudits: z.boolean().optional(),
+  auditDevice: z.enum(['mobile', 'desktop']).optional(),
+  captureLinkDetails: z.boolean().optional(),
+});
+
 export const sessionIdSchema = z.object({
   id: z.string().uuid('Invalid session ID'),
 });

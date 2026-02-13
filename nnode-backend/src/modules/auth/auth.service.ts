@@ -2,6 +2,7 @@ import { UserRepository } from '../user/user.repository';
 import { SignupDto, LoginDto, AuthResponse } from './auth.types';
 import { PasswordUtil } from '../../utils/password';
 import { JwtUtil } from '../../utils/jwt';
+import { UserRole } from '../../shared/constants/roles';
 
 export class AuthService {
   private userRepository: UserRepository;
@@ -47,7 +48,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.role,
+        role: user.role as unknown as UserRole,
       },
       token,
     };
@@ -81,19 +82,17 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.role,
+        role: user.role as unknown as UserRole,
       },
       token,
     };
   }
 
   /**
-   * Verify token and get user
+   * Get user profile by ID
    */
-  async verifyToken(token: string): Promise<AuthResponse['user']> {
-    const payload = JwtUtil.verify(token);
-    const user = await this.userRepository.findById(payload.userId);
-
+  async getUserProfile(userId: string): Promise<AuthResponse['user']> {
+    const user = await this.userRepository.findById(userId);
     if (!user) {
       throw new Error('User not found');
     }
@@ -102,7 +101,15 @@ export class AuthService {
       id: user.id,
       email: user.email,
       name: user.name,
-      role: user.role,
+      role: user.role as unknown as UserRole,
     };
+  }
+
+  /**
+   * Verify token and get user
+   */
+  async verifyToken(token: string): Promise<AuthResponse['user']> {
+    const payload = JwtUtil.verify(token);
+    return this.getUserProfile(payload.userId);
   }
 }

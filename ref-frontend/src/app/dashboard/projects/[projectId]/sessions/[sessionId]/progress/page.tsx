@@ -399,15 +399,10 @@ export default function SessionProgressPage() {
 
   // Auto-redirect when crawl is completed
   useEffect(() => {
-    if (crawlStatus === 'completed') {
-      // Wait 2 seconds before redirecting to let user see completion
-      const redirectTimer = setTimeout(() => {
-        router.push(`/dashboard/projects/${projectId}/sessions/${sessionId}`)
-      }, 2000)
-      
-      return () => clearTimeout(redirectTimer)
+    if (session?.status === 'completed') {
+      router.push(`/dashboard/projects/${params.projectId}/sessions/${params.sessionId}`)
     }
-  }, [crawlStatus, router, projectId, sessionId])
+  }, [session, params.projectId, params.sessionId, router])
 
   // Combine logs and discovered pages in chronological order
   const combinedItems = useMemo(() => [

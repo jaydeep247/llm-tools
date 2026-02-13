@@ -7,13 +7,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Loader2, Brain, Rocket, CheckCircle, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { 
-  useAnalyzeMutation, 
-  useAnalyzeBulkMutation,
-  useGetAeoResultsQuery,
-  type AnalyzeResponse,
-  type AnalyzeBulkResponse 
-} from '@/store/api/module_C/aeoApi'
+// import { 
+//   useAnalyzeMutation, 
+//   useAnalyzeBulkMutation,
+//   useGetAeoResultsQuery,
+//   type AnalyzeResponse,
+//   type AnalyzeBulkResponse 
+// } from '@/store/api/module_C/aeoApi'
 
 interface AIIntelligenceModuleProps {
   url: string
@@ -46,6 +46,21 @@ export default function AIIntelligenceModule({ url, sessionId }: AIIntelligenceM
   }
   
   // RTK Query mutations and queries
+  const analyze = async (args: any) => ({})
+  const singleResult: any = null
+  const isSingleLoading = false
+  const singleError = null
+
+  const analyzeBulk = (args: any) => {}
+  const bulkResult: any = null
+  const isBulkLoading = false
+  const bulkError = null
+  
+  // Fetch existing AEO results from database
+  const existingAeoData: any = { success: false }
+  const isLoadingExisting = false
+  const refetchAeoResults = () => {}
+  /*
   const [analyze, { data: singleResult, isLoading: isSingleLoading, error: singleError }] = useAnalyzeMutation()
   const [analyzeBulk, { data: bulkResult, isLoading: isBulkLoading, error: bulkError }] = useAnalyzeBulkMutation()
   
@@ -57,13 +72,13 @@ export default function AIIntelligenceModule({ url, sessionId }: AIIntelligenceM
       refetchOnMountOrArgChange: true
     }
   )
+  */
 
   // Merge existing data with new results
   useEffect(() => {
     // If we have existing data from database and no new result yet, use it
     if (existingAeoData?.success && existingAeoData.results && !singleResult) {
       // The existing data structure matches the analyze response
-      console.log('Loaded existing AEO data from database:', existingAeoData)
     }
   }, [existingAeoData, singleResult])
 

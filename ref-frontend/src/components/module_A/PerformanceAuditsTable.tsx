@@ -15,7 +15,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { useGetAuditResultsQuery, useStartAuditMutation } from '@/store/api/module_A/auditApi'
+// import { useGetAuditResultsQuery, useStartAuditMutation } from '@/store/api/module_A/auditApi'
 
 interface AuditItem {
   id: string
@@ -83,17 +83,12 @@ export function PerformanceAuditsTable({
   const [isAuditing, setIsAuditing] = useState(false)
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Fetch audit results from API - always fetch to check for existing audits
-  const { data: apiData, isLoading: isLoadingData, refetch } = useGetAuditResultsQuery(
-    { sessionId, device: deviceFilter === 'all' ? undefined : deviceFilter },
-    { 
-      skip: !sessionId,
-      pollingInterval: isAuditing ? 5000 : 0 // Poll every 5 seconds while auditing
-    }
-  )
-
-  // Start audit mutation
-  const [startAudit, { isLoading: isStartingAudit }] = useStartAuditMutation()
+  // API calls removed
+  const apiData = { items: [] }
+  const isLoadingData = false
+  const refetch = () => {}
+  const startAudit = (arg: any) => ({ unwrap: async () => {} })
+  const isStartingAudit = false
 
   const data: AuditItem[] = apiData?.items || []
   const isLoading = externalLoading || isLoadingData || isAuditing

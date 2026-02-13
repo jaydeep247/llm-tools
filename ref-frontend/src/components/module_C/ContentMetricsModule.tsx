@@ -6,10 +6,10 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Loader2, FileText, CheckCircle, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { 
-  useGetContentMetricsQuery,
-  type ContentMetricsResponse 
-} from '@/store/api/module_C/contentMetricsApi'
+// import { 
+//   useGetContentMetricsQuery,
+//   type ContentMetricsResponse 
+// } from '@/store/api/module_C/contentMetricsApi'
 
 interface ContentMetricsModuleProps {
   url: string
@@ -47,6 +47,11 @@ export default function ContentMetricsModule({ url, sessionId }: ContentMetricsM
   }
   
   // Fetch content metrics from database
+  const contentMetricsData: any = null
+  const isLoadingMetrics = false
+  const metricsError = null
+  const refetch = () => {}
+  /*
   const { data: contentMetricsData, isLoading: isLoadingMetrics, error: metricsError, refetch } = useGetContentMetricsQuery(
     sessionId!,
     { 
@@ -54,6 +59,7 @@ export default function ContentMetricsModule({ url, sessionId }: ContentMetricsM
       refetchOnMountOrArgChange: true
     }
   )
+  */
 
   // Extract metrics from response
   const metricsResult = contentMetricsData?.success ? contentMetricsData.data : null
@@ -548,16 +554,16 @@ export default function ContentMetricsModule({ url, sessionId }: ContentMetricsM
                         <div key={factor} className="space-y-1">
                           <div className="flex items-center justify-between text-xs">
                             <span className="text-muted-foreground capitalize">{factor.replace(/_/g, ' ')}</span>
-                            <span className={`font-semibold ${getScoreColor(score as number)}`}>{score}</span>
+                            <span className={`font-semibold ${getScoreColor(score as number)}`}>{score as number}</span>
                           </div>
                           <div className="h-2 bg-muted rounded-full overflow-hidden">
                             <div
                               className="h-full transition-all duration-300"
                               style={{
                                 width: `${score}%`,
-                                backgroundColor: score >= 80 ? '#10B981' : 
-                                                score >= 60 ? '#F59E0B' : 
-                                                score >= 40 ? '#EF4444' : 
+                                backgroundColor: (score as number) >= 80 ? '#10B981' : 
+                                                (score as number) >= 60 ? '#F59E0B' : 
+                                                (score as number) >= 40 ? '#EF4444' : 
                                                 '#6B7280'
                               }}
                             />

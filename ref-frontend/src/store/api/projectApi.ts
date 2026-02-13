@@ -73,6 +73,15 @@ export interface GetProjectSessionsParams {
   offset?: number;
 }
 
+export interface StartCrawlRequest {
+  url: string;
+  projectId: string;
+  allowSubdomains?: boolean;
+  runAudits?: boolean;
+  auditDevice?: 'mobile' | 'desktop';
+  captureLinkDetails?: boolean;
+}
+
 export const projectApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     // Get all projects for the current user
@@ -141,6 +150,19 @@ export const projectApi = baseApi.injectEndpoints({
       providesTags: (result, error, sessionId) => [{ type: 'Session', id: sessionId }],
     }),
 
+    // Start a new crawl
+    startCrawl: builder.mutation<SessionResponse, StartCrawlRequest>({
+      query: (data) => ({
+        url: `/api/projects/${data.projectId}/crawl`,
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: (result, error, { projectId }) => [
+        { type: 'Project', id: projectId },
+        'Session',
+      ],
+    }),
+
     // Start AEO analysis
     startAeoAnalysis: builder.mutation<AeoAnalyzeResponse, AeoAnalyzeRequest>({
       query: (data) => ({
@@ -171,4 +193,5 @@ export const {
   useGetSessionQuery,
   useStartAeoAnalysisMutation,
   useLazyGetAeoResultsQuery,
+  useStartCrawlMutation,
 } = projectApi;

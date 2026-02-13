@@ -53,22 +53,17 @@ export function GlassmorphismNav() {
       if (typeof window !== "undefined") {
         const currentScrollY = window.scrollY
 
-        console.log("[v0] Scroll event - currentScrollY:", currentScrollY, "lastScrollY:", lastScrollY.current)
-
         // Only hide/show after scrolling past 50px to avoid flickering at top
         if (currentScrollY > 50) {
           if (currentScrollY > lastScrollY.current && currentScrollY - lastScrollY.current > 5) {
             // Scrolling down - hide navbar
-            console.log("[v0] Hiding navbar - scrolling down")
             setIsVisible(false)
           } else if (lastScrollY.current - currentScrollY > 5) {
             // Scrolling up - show navbar
-            console.log("[v0] Showing navbar - scrolling up")
             setIsVisible(true)
           }
         } else {
           // Always show navbar when near top
-          console.log("[v0] Showing navbar - near top")
           setIsVisible(true)
         }
 
@@ -78,12 +73,10 @@ export function GlassmorphismNav() {
 
     if (typeof window !== "undefined") {
       window.addEventListener("scroll", controlNavbar, { passive: true })
-      console.log("[v0] Scroll listener added")
 
       return () => {
         window.removeEventListener("scroll", controlNavbar)
         clearTimeout(timer)
-        console.log("[v0] Scroll listener removed")
       }
     }
 
@@ -91,7 +84,6 @@ export function GlassmorphismNav() {
   }, []) // Removed lastScrollY dependency to prevent infinite re-renders
 
   const scrollToTop = () => {
-    console.log("[v0] Scrolling to top")
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
 
@@ -118,10 +110,8 @@ export function GlassmorphismNav() {
       return
     }
 
-    console.log("[v0] Attempting to scroll to:", href)
     const element = document.querySelector(href)
     if (element) {
-      console.log("[v0] Found element:", element)
 
       const rect = element.getBoundingClientRect()
       const currentScrollY = window.pageYOffset || document.documentElement.scrollTop
@@ -129,17 +119,10 @@ export function GlassmorphismNav() {
       const navbarHeight = 100
       const targetPosition = Math.max(0, elementAbsoluteTop - navbarHeight)
 
-      console.log("[v0] Element rect.top:", rect.top)
-      console.log("[v0] Current scroll position:", currentScrollY)
-      console.log("[v0] Element absolute top:", elementAbsoluteTop)
-      console.log("[v0] Target scroll position:", targetPosition)
-
       window.scrollTo({
         top: targetPosition,
         behavior: "smooth",
       })
-    } else {
-      console.log("[v0] Element not found for:", href)
     }
     setIsOpen(false)
   }

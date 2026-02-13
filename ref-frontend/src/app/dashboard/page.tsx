@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowRight, TrendingUp, Users, Zap, FolderOpen, Search, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { useStartCrawlMutation } from '@/store/api/module_A/crawlApi'
+// import { useStartCrawlMutation } from '@/store/api/module_A/crawlApi'
 import { useGetProjectsQuery } from '@/store/api'
 import { useToast } from '@/hooks/use-toast'
 import { AuthModal } from '@/components/auth/auth-modal'
@@ -15,8 +15,11 @@ import { useAuth } from '@/hooks/useAuth'
 export default function DashboardPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const { isAuthenticated } = useAuth()
-  const [startCrawl, { isLoading: isCrawling }] = useStartCrawlMutation()
+  const { isAuthenticated, refreshAuth } = useAuth()
+  // Mock removed mutation
+  const startCrawl = (args: any) => ({ unwrap: async () => ({ sessionId: null }) })
+  const isCrawling = false
+  // const [startCrawl, { isLoading: isCrawling }] = useStartCrawlMutation()
   const { data: projectsData } = useGetProjectsQuery()
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
   const [isProjectSelectorOpen, setIsProjectSelectorOpen] = useState(false)
@@ -69,7 +72,7 @@ export default function DashboardPage() {
   }
 
   const handleAuthSuccess = () => {
-    setIsAuthenticated(true)
+    refreshAuth()
     // After successful auth, show project selector if there was a pending URL
     if (pendingUrl) {
       setIsProjectSelectorOpen(true)

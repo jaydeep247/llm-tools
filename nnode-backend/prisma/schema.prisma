@@ -12,7 +12,7 @@ model User {
   email     String    @unique
   password  String
   name      String
-  role      Role      @default(USER)
+  role      Role      @default(ANALYST)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   projects  Project[]
@@ -73,7 +73,11 @@ model Job {
 }
 
 enum Role {
-  USER
+  CXO
+  CMO
+  SEO_MANAGER
+  CONTENT_MANAGER
+  ANALYST
   ADMIN
 }
 

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { UserRole } from '../../shared/constants/roles';
 
 export const signupSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -9,6 +10,7 @@ export const signupSchema = z.object({
     .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
     .regex(/[0-9]/, 'Password must contain at least one number'),
   name: z.string().min(2, 'Name must be at least 2 characters'),
+  role: z.enum([UserRole.CXO, UserRole.CMO, UserRole.SEO_MANAGER, UserRole.CONTENT_MANAGER, UserRole.ANALYST]), // REQUIRED for signup
 });
 
 export const loginSchema = z.object({

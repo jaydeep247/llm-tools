@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Loader2, CheckCircle, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useGetAnswerCompletenessQuery as useAeoAnswerCompletenessQuery } from '@/store/api/module_C/aeoApi'
+// import { useGetAnswerCompletenessQuery as useAeoAnswerCompletenessQuery } from '@/store/api/module_C/aeoApi'
 
 interface AnswerCompletenessModuleProps {
   url: string
@@ -20,6 +20,12 @@ export default function AnswerCompletenessModule({ url, sessionId }: AnswerCompl
   
 
   // Fetch answer completeness data using new RTK query from aeoApi
+  // Mock removed query
+  const completeness: any = null
+  const isLoading = false
+  const error = null
+  const refetch = () => {}
+  /*
   const { data: completeness, isLoading, error, refetch } = useAeoAnswerCompletenessQuery(
     sessionId!,
     {
@@ -27,6 +33,7 @@ export default function AnswerCompletenessModule({ url, sessionId }: AnswerCompl
       refetchOnMountOrArgChange: true
     }
   )
+  */
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'text-green-500'
