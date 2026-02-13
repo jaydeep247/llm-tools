@@ -247,6 +247,17 @@ class AIPresenceModule:
                 "multi_model_consensus": consensus_data,
                 "recommendations": self._generate_recommendations(robots_checks, content_checks)
             }
+        except Exception as e:
+            # Return error state if analysis fails
+            return {
+                "score": 0,
+                "error": str(e),
+                "robots_checks": {},
+                "content_checks": {},
+                "ai_understanding": {},
+                "multi_model_consensus": {},
+                "recommendations": []
+            }
 
     def _calculate_model_consensus(self, scores: Dict[str, float]) -> Dict:
         """Calculate consistency across different AI models"""
@@ -276,11 +287,7 @@ class AIPresenceModule:
             "variance": round(variance, 2),
             "model_agreement": f"{rating} Agreement (Deviation: {round(std_dev, 1)})"
         }
-            
-        except Exception as e:
-            logging.error(f"AI Presence Module Error: {e}")
-            return {"score": 0, "error": str(e)}
-
+        
     def _generate_recommendations(self, robots: Dict, content: Dict) -> List[Dict]:
         recs = []
         if not robots.get('sitemap_present'):
