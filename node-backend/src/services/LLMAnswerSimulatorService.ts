@@ -59,7 +59,7 @@ export class LLMAnswerSimulatorService {
     if (apiKey) {
       this.genAI = new GoogleGenerativeAI(apiKey);
       this.model = this.genAI.getGenerativeModel({
-        model: "gemini-1.5-flash",
+        model: "gemini-2.5-flash",
         generationConfig: {
           temperature: 0.4, // Lower temperature for more factual answers
           maxOutputTokens: 250,

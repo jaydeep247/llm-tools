@@ -4,6 +4,8 @@ import EntityExtractor from './EntityExtractor';
 import LLMAnswerSimulator from './LLMAnswerSimulator';
 import ActionableInsights from './ActionableInsights';
 import EntityCoverageAudit from './EntityCoverageAudit';
+import MissingInfoAnalysis from './MissingInfoAnalysis';
+import MultiModelComparison from './MultiModelComparison';
 import '../../pages/AEODashboard.css';
 
 
@@ -26,7 +28,7 @@ interface VisibilityEngineProps {
   setActiveView?: (view: string) => void;
 }
 
-type VisibilityEngineView = 'answer_completeness' | 'entity_extractor' | 'llm_answer_simulator' | 'actionable_insights' | 'entity_coverage_audit';
+type VisibilityEngineView = 'answer_completeness' | 'entity_extractor' | 'llm_answer_simulator' | 'actionable_insights' | 'entity_coverage_audit' | 'missing_info_analysis' | 'multi_model_comparison';
 
 const VisibilityEngine: React.FC<VisibilityEngineProps> = (props) => {
 
@@ -89,6 +91,22 @@ const VisibilityEngine: React.FC<VisibilityEngineProps> = (props) => {
         >
           🏷️ Entity Coverage
         </button>
+
+        {/* Missing Information Analysis Tab */}
+        <button
+          onClick={() => setInternalActiveView('missing_info_analysis')}
+          className={`tab-button ${internalActiveView === 'missing_info_analysis' ? 'active' : ''}`}
+        >
+          🔍 Missing Information
+        </button>
+
+        {/* Multi-Model Comparison Tab */}
+        <button
+          onClick={() => setInternalActiveView('multi_model_comparison')}
+          className={`tab-button ${internalActiveView === 'multi_model_comparison' ? 'active' : ''}`}
+        >
+          🤝 Multi-Model Insights
+        </button>
       </div>
       {/* Tab Content */}
       <div>
@@ -129,6 +147,21 @@ const VisibilityEngine: React.FC<VisibilityEngineProps> = (props) => {
               url={url}
               sessionId={sessionId || undefined}
             />
+          </div>
+        )}
+
+        {internalActiveView === 'missing_info_analysis' && (
+          <div className="content-metrics-content-embedded">
+            <MissingInfoAnalysis
+              url={url}
+              sessionId={sessionId || undefined}
+            />
+          </div>
+        )}
+
+        {internalActiveView === 'multi_model_comparison' && (
+          <div className="content-metrics-content-embedded">
+            <MultiModelComparison url={url} />
           </div>
         )}
       </div>

@@ -9,6 +9,7 @@ export { default as RecommendationsModal } from './RecommendationsModal';
 export { default as AISimulator } from './AISimulator';
 export { default as EntityExtractor } from './EntityExtractor';
 export { default as EntityCoverageAudit } from './EntityCoverageAudit';
+export { default as MissingInfoAnalysis } from './MissingInfoAnalysis';
 
 // Hooks
 export { useAEOData } from './useAEOData';

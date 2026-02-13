@@ -7,13 +7,14 @@ import express from 'express';
 import { monitoringRoutes } from '../routes/module_D/index.js';
 import { auditsRoutes, linksRoutes, linkScoreRoutes, auditRoutes, crawlerRoutes, auditActionsRoutes, crawlRoutes, auditCheckerRoutes, serpRoutes, pageContentRoutes } from '../routes/module_A/index.js';
 import { seoRoutes } from '../routes/module_B/index.js';
-import { aeoRoutes, entityExtractorRoutes, llmAnswerSimulatorRoutes, entityCoverageAuditRoutes } from '../routes/module_C/index.js';
+import { aeoRoutes, entityExtractorRoutes, llmAnswerSimulatorRoutes, entityCoverageAuditRoutes, missingInfoAnalysisRoutes } from '../routes/module_C/index.js';
 import { sentimentRoutes, rankingRoutes } from '../routes/module_E/index.js';
 import { schedulerRoutes } from '../routes/module_D/index.js';
 import { answerCompletenessRoutes } from '../routes/module_C/answerCompleteness.routes.js';
 import actionableInsightsRoutes from '../routes/module_C/actionableInsights.routes.js';
 import sseRoutes from '../routes/sse.routes.js';
 import authRoutes from '../routes/auth.routes.js';
+import compareRoutes from '../routes/module_C/compare.routes.js';
 
 /**
  * Register all application routes
@@ -45,6 +46,9 @@ export function registerRoutes(app: express.Application): void {
     // Entity Coverage Audit
     app.use('/api/aeo', entityCoverageAuditRoutes);
 
+    // Missing Information Analysis
+    app.use('/api/analysis', missingInfoAnalysisRoutes);
+
     // LLM Answer Simulator
     app.use('/api/llm-answer-simulator', llmAnswerSimulatorRoutes);
 
@@ -68,4 +72,7 @@ export function registerRoutes(app: express.Application): void {
 
     // Auth routes
     app.use('/api/auth', authRoutes);
+
+    // Multi-Model LLM Comparison
+    app.use('/api/compare', compareRoutes);
 }

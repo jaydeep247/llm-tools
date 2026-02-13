@@ -261,7 +261,7 @@ const LLMAnswerSimulator: React.FC<LLMAnswerSimulatorProps> = ({
           <div style={{ textAlign: 'center' }}>
             {urlFetching ? (
               <>
-                <div style={{ fontSize: '24px', animation: 'spin 1s linear infinite', marginBottom: '12px' }}><img src="https://loading.io/spinner/earth/-earth-globe-map-rotate" alt="🌐" /></div>
+                <div style={{ fontSize: '24px', animation: 'spin 1s linear infinite', marginBottom: '12px' }}>🌎</div>
                 <p style={{ fontSize: '16px', marginBottom: '16px' }}>Fetching content from URL...</p>
               </>
             ) : analysisLoading ? (
