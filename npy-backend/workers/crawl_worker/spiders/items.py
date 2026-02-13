@@ -1,6 +1,4 @@
-"""
-Scrapy Items for Website Crawler
-Defines data structures for scraped items matching Node.js crawler output
+"""Scrapy Items from modules.module_A.WebsiteCrawler.metrics import pixel_widthructures for scraped items matching Node.js crawler output
 """
 
 import scrapy

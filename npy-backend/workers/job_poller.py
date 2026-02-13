@@ -15,6 +15,7 @@ MAX_CONCURRENT_JOBS = config.MAX_CONCURRENT_JOBS
 class JobPoller:
     def __init__(self):
         self.active_jobs = {}
+        self.active_jobs_data = {}
         self.api_client = NodeApiClient()
 
     async def poll_for_job(self):
@@ -77,6 +78,7 @@ class JobPoller:
             )
             
             self.active_jobs[job_id] = process
+            self.active_jobs_data[job_id] = job # Store full job data
             logger.info(f"Spawned crawler process (PID {process.pid}) for Job {job_id}")
             
         except Exception as e:
@@ -98,6 +100,29 @@ class JobPoller:
                 if return_code == 0:
                     logger.info(f"Job {job_id} completed successfully")
                     # Note: crawler.py handles the 'complete' notification with stats
+                    
+                    # TRIGGER ORCHESTRATOR FOR POST-CRAWL MODULES
+                    # We assume modules are in job['config']['modules'] or default to []
+                    # For now, we manually default to module_c if not present (as per user request "make this functionality")
+                    # but typically this comes from the frontend job config.
+                    
+                    # Fetch fresh job data to get config? Or use what we have.
+                    job_config = self.active_jobs_data.get(job_id, {}).get('config', {})
+                    modules = job_config.get('modules', [])
+                    
+                    # If valid modules exist (or force module_c for testing/demo as user requested)
+                    # "not all modules but onlt which is selected"
+                    
+                    if modules:
+                        logger.info(f"Triggering Post-Crawl Modules for {job_id}: {modules}")
+                        from orchestrator.job_runner import execute_job
+                        # We pass html_content=None so it loads from disk
+                        asyncio.create_task(execute_job(
+                            job_id=job_id,
+                            url=job_config.get('url'),
+                            html_content=None,
+                            modules=modules
+                        ))
                 else:
                     logger.error(f"Job {job_id} failed with code {return_code}")
                     logger.error(f"Stderr: {stderr}")
@@ -109,6 +134,8 @@ class JobPoller:
         # Cleanup
         for job_id in completed_jobs:
             del self.active_jobs[job_id]
+            if job_id in self.active_jobs_data:
+                del self.active_jobs_data[job_id]
 
     async def run(self):
         """Main polling loop"""

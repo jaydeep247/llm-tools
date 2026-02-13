@@ -26,20 +26,21 @@ from .extractors import (
 from utils.logger import logger
 
 # Import Module A Metrics
-from module_A.WebsiteCrawler.metrics import (
+# Import Module A Metrics
+from modules.module_A.WebsiteCrawler.metrics import (
     pixel_width,
     carbon,
     content_quality,
     link_analysis,
     similarity
 )
-from module_A.pagematrix.manager import extract_page_metrics
+from modules.module_A.pagematrix.manager import extract_page_metrics
 
 # Import New SEO Modules
-from module_A.Wordcount_analysis import wordcount_extractor
-from module_A.Broken_links_checker import broken_link_checker
-from module_A.Redirects_audit import redirect_audit
-from module_A.Text_Quality_Analyzer import text_quality_analyzer
+from modules.module_A.Wordcount_analysis import wordcount_extractor
+from modules.module_A.Broken_links_checker import broken_link_checker
+from modules.module_A.Redirects_audit import redirect_audit
+from modules.module_A.Text_Quality_Analyzer import text_quality_analyzer
 
 
 class WebsiteSpider(scrapy.Spider):
@@ -347,6 +348,18 @@ class WebsiteSpider(scrapy.Spider):
         if not isinstance(response, HtmlResponse):
             logger.warning(f"Response is not HtmlResponse (type: {type(response)}), skipping extraction: {response.url}")
             return
+            
+        # ==================================================================
+        # SAVE RAW HTML (For Post-Crawl Moudles)
+        # ==================================================================
+        # Only save for the homepage/start_url or if explicitly marked
+        if response.url == self.start_url or response.url.rstrip('/') == self.start_url.rstrip('/'):
+            try:
+                from utils.storage import save_raw_html_sync
+                save_raw_html_sync(self.job_id, response.text)
+                logger.info(f"Saved raw HTML for job {self.job_id} from {response.url}")
+            except Exception as e:
+                logger.error(f"Failed to save raw HTML: {e}")
             
         basic_fields = BasicExtractor.extract(response, start_time)
         seo_fields = SeoExtractor.extract(response)
