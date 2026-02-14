@@ -1,4 +1,5 @@
 import { baseApi } from './baseApi';
+import { CrawlSession } from './sessionApi';
 
 export interface Project {
   id: string;
@@ -10,50 +11,11 @@ export interface Project {
   isActive: boolean;
   _count?: {
     crawlSessions: number;
-  };
+ };
 }
 
 export interface ProjectWithSessions extends Project {
   crawlSessions: CrawlSession[];
-}
-
-export interface CrawlSession {
-  id: number;
-  projectId: string;
-  startUrl: string;
-  status: string;
-  startedAt: string;
-  completedAt: string | null;
-  totalPages: number;
-  totalResources: number;
-  duration: number;
-  userId?: number;
-  _count?: {
-    pages: number;
-    resources: number;
-  };
-}
-
-export interface SessionResponse {
-  success: boolean;
-  session: CrawlSession;
-}
-
-export interface AeoAnalyzeRequest {
-  sessionId: number;
-  url: string;
-}
-
-export interface AeoAnalyzeResponse {
-  success: boolean;
-  message: string;
-  sessionId: number;
-}
-
-export interface AeoResultsResponse {
-  success: boolean;
-  results: any;
-  sessionId: number;
 }
 
 export interface CreateProjectRequest {
@@ -67,41 +29,38 @@ export interface UpdateProjectRequest {
   isActive?: boolean;
 }
 
-export interface GetProjectSessionsParams {
-  projectId: string;
-  limit?: number;
-  offset?: number;
-}
-
-export interface StartCrawlRequest {
-  url: string;
-  projectId: string;
-  allowSubdomains?: boolean;
-  runAudits?: boolean;
-  auditDevice?: 'mobile' | 'desktop';
-  captureLinkDetails?: boolean;
-}
-
 export const projectApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     // Get all projects for the current user
     getProjects: builder.query<{ success: boolean; projects: Project[] }, void>({
-      query: () => '/api/projects',
+      query: () => '/projects',
+      transformResponse: (response: { success: boolean; data: Project[] }) => ({
+        success: response.success,
+        projects: response.data,
+      }),
       providesTags: ['Project'],
     }),
     
     // Get a specific project with its sessions
     getProject: builder.query<{ success: boolean; project: ProjectWithSessions }, string>({
-      query: (projectId) => `/api/projects/${projectId}`,
+      query: (projectId) => `/projects/${projectId}`,
+      transformResponse: (response: { success: boolean; data: ProjectWithSessions }) => ({
+        success: response.success,
+        project: response.data,
+      }),
       providesTags: (result, error, projectId) => [{ type: 'Project', id: projectId }],
     }),
     
     // Create a new project
     createProject: builder.mutation<{ success: boolean; project: Project }, CreateProjectRequest>({
       query: (data) => ({
-        url: '/api/projects',
+        url: '/projects',
         method: 'POST',
         body: data,
+      }),
+      transformResponse: (response: { success: boolean; data: Project }) => ({
+        success: response.success,
+        project: response.data,
       }),
       invalidatesTags: ['Project'],
     }),
@@ -112,9 +71,13 @@ export const projectApi = baseApi.injectEndpoints({
       { projectId: string; data: UpdateProjectRequest }
     >({
       query: ({ projectId, data }) => ({
-        url: `/api/projects/${projectId}`,
+        url: `/projects/${projectId}`,
         method: 'PUT',
         body: data,
+      }),
+      transformResponse: (response: { success: boolean; data: Project }) => ({
+        success: response.success,
+        project: response.data,
       }),
       invalidatesTags: (result, error, { projectId }) => [
         { type: 'Project', id: projectId },
@@ -125,58 +88,10 @@ export const projectApi = baseApi.injectEndpoints({
     // Delete a project
     deleteProject: builder.mutation<{ success: boolean; message: string }, string>({
       query: (projectId) => ({
-        url: `/api/projects/${projectId}`,
+        url: `/projects/${projectId}`,
         method: 'DELETE',
       }),
       invalidatesTags: ['Project'],
-    }),
-    
-    // Get sessions for a project
-    getProjectSessions: builder.query<
-      { success: boolean; sessions: CrawlSession[]; pagination: any },
-      GetProjectSessionsParams
-    >({
-      query: ({ projectId, limit = 50, offset = 0 }) =>
-        `/api/projects/${projectId}/sessions?limit=${limit}&offset=${offset}`,
-      providesTags: (result, error, { projectId }) => [
-        { type: 'Project', id: projectId },
-        'Session',
-      ],
-    }),
-    
-    // Get a specific session
-    getSession: builder.query<SessionResponse, number>({
-      query: (sessionId) => `/api/sessions/${sessionId}`,
-      providesTags: (result, error, sessionId) => [{ type: 'Session', id: sessionId }],
-    }),
-
-    // Start a new crawl
-    startCrawl: builder.mutation<SessionResponse, StartCrawlRequest>({
-      query: (data) => ({
-        url: `/api/projects/${data.projectId}/crawl`,
-        method: 'POST',
-        body: data,
-      }),
-      invalidatesTags: (result, error, { projectId }) => [
-        { type: 'Project', id: projectId },
-        'Session',
-      ],
-    }),
-
-    // Start AEO analysis
-    startAeoAnalysis: builder.mutation<AeoAnalyzeResponse, AeoAnalyzeRequest>({
-      query: (data) => ({
-        url: `/api/aeo/analyze`,
-        method: 'POST',
-        body: data,
-      }),
-      invalidatesTags: (result, error, { sessionId }) => [{ type: 'Session', id: sessionId }],
-    }),
-
-    // Get AEO results
-    getAeoResults: builder.query<AeoResultsResponse, number>({
-      query: (sessionId) => `/api/aeo/results/${sessionId}`,
-      providesTags: (result, error, sessionId) => [{ type: 'Session', id: sessionId }],
     }),
   }),
 });
@@ -187,11 +102,5 @@ export const {
   useCreateProjectMutation,
   useUpdateProjectMutation,
   useDeleteProjectMutation,
-  useGetProjectSessionsQuery,
   useLazyGetProjectQuery,
-  useLazyGetProjectSessionsQuery,
-  useGetSessionQuery,
-  useStartAeoAnalysisMutation,
-  useLazyGetAeoResultsQuery,
-  useStartCrawlMutation,
 } = projectApi;

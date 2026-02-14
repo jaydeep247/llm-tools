@@ -6,7 +6,7 @@ import { Loader2, ArrowRight } from 'lucide-react'
 import { motion, AnimatePresence, easeOut, easeIn } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import Aurora from '@/components/animations/Aurora'
-import { useGetSessionQuery, useStartAeoAnalysisMutation, useLazyGetAeoResultsQuery } from '@/store/api/projectApi'
+import { useGetSessionQuery } from '@/store/api/sessionApi'
 import { formatDurationHHMMSSMS } from '@/utils/formatDuration'
 
 interface LogEntry {
@@ -21,14 +21,10 @@ export default function SessionProgressPage() {
   const sessionId = params.sessionId as string
   
   // Fetch session data using RTK Query
-  const { data: sessionData, isLoading: isLoadingSession } = useGetSessionQuery(parseInt(sessionId))
+  const { data: sessionData, isLoading: isLoadingSession } = useGetSessionQuery(sessionId)
   const session = sessionData?.session
   const isLoading = isLoadingSession
-  
-  // API mutations and queries
-  const [startAeoAnalysis] = useStartAeoAnalysisMutation()
-  const [triggerGetAeoResults] = useLazyGetAeoResultsQuery()
-  
+
   const [crawlStatus, setCrawlStatus] = useState<'idle' | 'running' | 'auditing' | 'completed' | 'cancelled' | 'failed'>('idle')
   const [pageCount, setPageCount] = useState(0)
   const [discoveredPages, setDiscoveredPages] = useState<string[]>([])
@@ -38,78 +34,6 @@ export default function SessionProgressPage() {
   const [estimatedTotal, setEstimatedTotal] = useState<number | null>(null)
   const [progressPercentage, setProgressPercentage] = useState(0)
   
-  // AEO analysis tracking
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [analyzeAttempts, setAnalyzeAttempts] = useState(0)
-  const [aeoResultsReceived, setAeoResultsReceived] = useState(false)
-
-  // Function to poll for AEO results
-  const pollForAeoResults = async () => {
-    let attempts = 0
-    const maxAttempts = 120 // 2 minutes with 1 second intervals
-    
-    const poll = async () => {
-      attempts++
-      
-      try {
-        const result = await triggerGetAeoResults(parseInt(sessionId)).unwrap()
-        
-        if (result?.success && result?.results) {
-          setAeoResultsReceived(true)
-          setLogs(prev => [...prev.slice(-99), {
-            message: `✅ AEO analysis results received!`,
-            timestamp: new Date().toLocaleTimeString()
-          }])
-          
-          setCrawlStatus('completed')
-          setProgressPercentage(100)
-          setIsAnalyzing(false)
-          setCrawlStartTime(null)
-          
-          return true // Success, stop polling
-        } else if (attempts < maxAttempts) {
-          setAnalyzeAttempts(attempts)
-          // Log every 10 seconds
-          if (attempts === 1) {
-            setLogs(prev => [...prev.slice(-99), {
-              message: `⏳ Waiting for AEO analysis results... (attempt ${attempts}/${maxAttempts})`,
-              timestamp: new Date().toLocaleTimeString()
-            }])
-          } else if (attempts % 10 === 0) {
-            setLogs(prev => [...prev.slice(-99), {
-              message: `⏳ Still processing AEO analysis... (${attempts}/${maxAttempts})`,
-              timestamp: new Date().toLocaleTimeString()
-            }])
-          }
-          return false // Continue polling
-        } else {
-          throw new Error('Timeout waiting for AEO results')
-        }
-      } catch (error: any) {
-        if (attempts === maxAttempts) {
-          setLogs(prev => [...prev.slice(-99), {
-            message: `❌ AEO analysis timeout after ${attempts} attempts. Proceeding without results.`,
-            timestamp: new Date().toLocaleTimeString()
-          }])
-          setCrawlStatus('completed')
-          setProgressPercentage(100)
-          setIsAnalyzing(false)
-          setCrawlStartTime(null)
-          return true
-        }
-        
-        return false // Continue polling
-      }
-    }
-    
-    // Poll every second
-    const pollInterval = setInterval(async () => {
-      const shouldStop = await poll()
-      if (shouldStop) {
-        clearInterval(pollInterval)
-      }
-    }, 1000)
-  }
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(Date.now())
@@ -130,7 +54,7 @@ export default function SessionProgressPage() {
 
     eventSource.addEventListener('log', (e) => {
       const data = JSON.parse(e.data)
-      if (data.sessionId && data.sessionId !== parseInt(sessionId)) return
+      if (data.sessionId && data.sessionId.toString() !== sessionId) return
       
       setLogs(prev => [...prev.slice(-99), {
         message: data.message,
@@ -140,7 +64,7 @@ export default function SessionProgressPage() {
 
     eventSource.addEventListener('page', (e) => {
       const data = JSON.parse(e.data)
-      if (data.sessionId && data.sessionId !== parseInt(sessionId)) return
+      if (data.sessionId && data.sessionId.toString() !== sessionId) return
       
       setDiscoveredPages(prev => [...prev.slice(-49), data.url])
       setPageCount(prev => prev + 1)
@@ -154,7 +78,7 @@ export default function SessionProgressPage() {
 
     eventSource.addEventListener('done', (e) => {
       const data = JSON.parse(e.data)
-      if (data.sessionId && data.sessionId !== parseInt(sessionId)) return
+      if (data.sessionId && data.sessionId.toString() !== sessionId) return
       
       const nextStatus = data.status || 'completed'
       
@@ -205,51 +129,20 @@ export default function SessionProgressPage() {
         })
       }
       
-      // If crawl is completed, start AEO analysis instead of marking as complete
-      if (nextStatus === 'completed' && !isAnalyzing && session?.startUrl) {
-        setIsAnalyzing(true)
-        setCrawlStatus('auditing')
+      // If crawl is completed, mark as complete
+      if (nextStatus === 'completed') {
+        setCrawlStatus('completed')
+        setProgressPercentage(100)
+        setCrawlStartTime(null)
         setLogs(prev => [...prev, {
-          message: `✅ Crawl completed! Total URLs: ${data.count}. Starting AEO analysis...`,
+          message: `✅ Crawl completed! Total URLs: ${data.count}.`,
           timestamp: new Date().toLocaleTimeString()
         }])
-        
-        // Call the analyze API
-        startAeoAnalysis({ sessionId: parseInt(sessionId), url: session.startUrl })
-          .then((result: any) => {
-            if (result.data?.success) {
-              setLogs(prev => [...prev.slice(-99), {
-                message: `📊 AEO analysis initiated for ${data.count} pages. Processing...`,
-                timestamp: new Date().toLocaleTimeString()
-              }])
-              
-              // Start polling for results
-              pollForAeoResults()
-            } else {
-              setLogs(prev => [...prev.slice(-99), {
-                message: `❌ Failed to start AEO analysis: ${result.data?.message || 'Unknown error'}`,
-                timestamp: new Date().toLocaleTimeString()
-              }])
-              setCrawlStatus('completed')
-              setProgressPercentage(100)
-              setIsAnalyzing(false)
-            }
-          })
-          .catch((error: any) => {
-            setLogs(prev => [...prev.slice(-99), {
-              message: `❌ Error starting AEO analysis: ${error?.message || 'Unknown error'}`,
-              timestamp: new Date().toLocaleTimeString()
-            }])
-            setCrawlStatus('completed')
-            setProgressPercentage(100)
-            setIsAnalyzing(false)
-          })
       } else if (nextStatus !== 'completed') {
         setCrawlStatus(nextStatus)
         if (nextStatus === 'cancelled' || nextStatus === 'failed') {
           setCrawlStartTime(null)
           setProgressPercentage(100)
-          setIsAnalyzing(false)
         }
         
         setLogs(prev => [...prev, {
@@ -280,7 +173,6 @@ export default function SessionProgressPage() {
           } else if (data.status === 'failed' || data.status === 'cancelled') {
             setCrawlStatus(data.status)
             setCrawlStartTime(null)
-            setIsAnalyzing(false)
           }
           // Note: 'completed' status is handled in the 'done' event listener
         }
@@ -318,7 +210,9 @@ export default function SessionProgressPage() {
             timestamp: new Date().toLocaleTimeString()
           }])
         }
-      } catch {}
+      } catch (error) {
+        console.error('Error processing audit event:', error)
+      }
     })
 
     eventSource.onerror = (error) => {
@@ -328,7 +222,7 @@ export default function SessionProgressPage() {
     return () => {
       eventSource.close()
     }
-  }, [sessionId, router, projectId, estimatedTotal, pageCount, startAeoAnalysis, triggerGetAeoResults, session])
+  }, [sessionId, router, projectId, estimatedTotal, pageCount, session])
 
   // Initialize state from session data
   useEffect(() => {
@@ -360,7 +254,7 @@ export default function SessionProgressPage() {
 
   // Calculate elapsed time
   const calculateElapsedTime = (): string => {
-    if (crawlStartTime && (crawlStatus === 'running' || crawlStatus === 'auditing' || isAnalyzing)) {
+    if (crawlStartTime && (crawlStatus === 'running' || crawlStatus === 'auditing')) {
       const elapsedMs = currentTime - crawlStartTime
       return formatDurationHHMMSSMS(elapsedMs)
     }

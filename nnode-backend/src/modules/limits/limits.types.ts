@@ -22,7 +22,7 @@ export interface AccountLimits {
 export const DEFAULT_ACCOUNT_LIMITS: AccountLimits = {
   maxProjects: 10,
   maxSessionsPerProject: 100,
-  maxActiveSessions: 5,
+  maxActiveSessions: 1000,
   maxConcurrentSessions: 3,
   maxTotalSessions: 1000,
   

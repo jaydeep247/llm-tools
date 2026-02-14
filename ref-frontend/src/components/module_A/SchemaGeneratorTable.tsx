@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 // import { useGenerateSchemaMutation } from '@/store/api/module_C/aeoApi'
-import { useGetSessionQuery } from '@/store/api/projectApi'
+import { useGetSessionQuery } from '@/store/api/sessionApi'
 
 interface SchemaGeneratorTableProps {
   sessionId: number

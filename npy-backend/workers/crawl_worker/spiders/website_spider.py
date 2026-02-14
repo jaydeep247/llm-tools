@@ -352,8 +352,8 @@ class WebsiteSpider(scrapy.Spider):
         # ==================================================================
         # SAVE RAW HTML (For Post-Crawl Moudles)
         # ==================================================================
-        # Only save for the homepage/start_url or if explicitly marked
-        if response.url == self.start_url or response.url.rstrip('/') == self.start_url.rstrip('/'):
+        # Only save for the homepage/start_url (depth 0) to handle redirects
+        if crawl_depth == 0:
             try:
                 from utils.storage import save_raw_html_sync
                 save_raw_html_sync(self.job_id, response.text)

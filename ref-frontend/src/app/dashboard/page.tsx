@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation'
 import { ArrowRight, TrendingUp, Users, Zap, FolderOpen, Search, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-// import { useStartCrawlMutation } from '@/store/api/module_A/crawlApi'
 import { useGetProjectsQuery } from '@/store/api/projectApi'
+import { useStartCrawlMutation } from '@/store/api/sessionApi'
 import { useToast } from '@/hooks/use-toast'
 import { AuthModal } from '@/components/auth/auth-modal'
 import { ProjectSelectorDialog } from '@/components/dashboard/ProjectSelectorDialog'
@@ -16,10 +16,7 @@ export default function DashboardPage() {
   const router = useRouter()
   const { toast } = useToast()
   const { isAuthenticated, refreshAuth } = useAuth()
-  // Mock removed mutation
-  const startCrawl = (args: any) => ({ unwrap: async () => ({ sessionId: null }) })
-  const isCrawling = false
-  // const [startCrawl, { isLoading: isCrawling }] = useStartCrawlMutation()
+  const [startCrawl, { isLoading: isCrawling }] = useStartCrawlMutation()
   const { data: projectsData } = useGetProjectsQuery()
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
   const [isProjectSelectorOpen, setIsProjectSelectorOpen] = useState(false)
@@ -59,8 +56,8 @@ export default function DashboardPage() {
       })
 
       // Navigate to the session progress page if sessionId is returned
-      if (result.sessionId) {
-        router.push(`/dashboard/projects/${projectId}/sessions/${result.sessionId}/progress`)
+      if (result.session?.id) {
+        router.push(`/dashboard/projects/${projectId}/sessions/${result.session.id}/progress`)
       }
     } catch (error: any) {
       toast({

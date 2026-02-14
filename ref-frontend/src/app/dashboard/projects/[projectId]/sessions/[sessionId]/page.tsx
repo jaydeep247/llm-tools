@@ -11,7 +11,9 @@ import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis
 import { AIIntelligenceModule, ContentMetricsModule, AnswerCompletenessModule } from '@/components/module_C'
 import { AICitationRanking, SentimentTracking } from '@/components/module_E'
 // import { useGetDataListQuery, useCheckLinksMutation, useGetLinkStatsQuery, useLazyGetPageLinksQuery } from '@/store/api/module_A/dataApi'
-import { useGetSessionQuery, useGetProjectQuery } from '@/store/api/projectApi'
+import { useGetProjectQuery } from '@/store/api/projectApi'
+import { useGetSessionQuery } from '@/store/api/sessionApi'
+import { useGetSessionJobsQuery, useGetJobResultsQuery } from '@/store/api/jobApi'
 import { formatDurationHHMMSSMS, formatDurationReadable } from '@/utils/formatDuration'
 
 interface LogEntry {
@@ -27,56 +29,211 @@ export default function SessionDetailPage() {
   const sessionId = params.sessionId as string
   
   // Fetch session and project data using RTK Query
-  // const { data: sessionData, isLoading: isLoadingSession, error: sessionError } = useGetSessionQuery(parseInt(sessionId))
+  const { data: sessionData, isLoading: isLoadingSession, error: sessionError } = useGetSessionQuery(sessionId)
   const { data: projectData, isLoading: isLoadingProject } = useGetProjectQuery(projectId)
   
   const session = sessionData?.session
   const project = projectData?.project
-  const isLoading = isLoadingSession || isLoadingProject
+
+  // Fetch jobs for this session to get the latest job ID
+  const { data: jobsData, isLoading: isLoadingJobs } = useGetSessionJobsQuery(sessionId, {
+    skip: !sessionId
+  })
+
+  // Get the latest job (assuming sorted by creation or just taking the last one for now)
+  // The backend might return them in a specific order, but let's be safe.
+  // Actually, let's just take the last created job for now.
+  const jobs = jobsData?.data || []
+  const latestJob = jobs.length > 0 ? jobs[0] : null // Assuming API returns newest first or we sort
+  const jobId = latestJob?.id
+
+  // Fetch results for the job
+  const { data: jobResults, isLoading: isLoadingResults, refetch: refetchJobResults } = useGetJobResultsQuery(jobId!, {
+    skip: !jobId
+  })
+
+  const isLoading = isLoadingSession || isLoadingProject || isLoadingJobs || (!!jobId && isLoadingResults)
   const error = sessionError ? 'Failed to load session' : null
   
   // Ensure URL always has tab parameter with default 'crawler'
+  // Ensure URL always has tab parameter with default 'crawler'
+  useEffect(() => {
+    if (!searchParams.get('tab')) {
+      const params = new URLSearchParams(searchParams.toString())
+      params.set('tab', 'crawler')
+      router.replace(`/dashboard/projects/${projectId}/sessions/${sessionId}?${params.toString()}`, { scroll: false })
+    }
+  }, [searchParams, projectId, sessionId, router])
+
   const tab = searchParams.get('tab') || 'crawler'
-  if (!searchParams.get('tab')) {
-    const params = new URLSearchParams(searchParams.toString())
-    params.set('tab', 'crawler')
-    router.replace(`/dashboard/projects/${projectId}/sessions/${sessionId}?${params.toString()}`, { scroll: false })
-  }
   
   const activeSection = tab
   
-  // Extraneous API calls removed
-  const pagesData = { data: [] }
-  const isLoadingPages = false
-  const refetchPages = () => {}
+  // Unified data transformation
+  const transformedPages = jobResults?.pages?.map((page: any) => ({
+    ...page,
+    id: page._id || page.id || Math.random(),
+    // CrawledDataTable props
+    wordCount: page.word_count || page.wordCount || 0,
+    titleLength: page.title_length || page.titleLength || 0,
+    descriptionLength: page.description_length || page.descriptionLength || 0,
+    statusCode: page.status_code || page.statusCode || 0,
+    responseTime: page.response_time || page.responseTime || 0,
+    contentType: page.content_type || page.contentType || '',
+    sentenceCount: page.sentence_count || page.sentenceCount || 0,
+    paragraphCount: page.paragraph_count || page.paragraphCount || 0,
+    textToHtmlRatio: page.text_to_html_ratio || page.textToHtmlRatio || 0,
+    metaKeywordsLength: page.meta_keywords_length || page.metaKeywordsLength || 0,
+    crawlDepth: page.crawl_depth || page.crawlDepth || 0,
+    folderDepth: page.folder_depth || page.folderDepth || 0,
+    uniqueOutlinks: page.unique_outlinks || page.uniqueOutlinks || 0,
+    uniqueJsOutlinks: page.unique_js_outlinks || page.uniqueJsOutlinks || 0,
+    uniqueExternalOutlinks: page.unique_external_outlinks || page.uniqueExternalOutlinks || 0,
+    uniqueExternalJsOutlinks: page.unique_external_js_outlinks || page.uniqueExternalJsOutlinks || 0,
+    metaDescription: page.meta_description || page.metaDescription || '',
+    canonicalUrl: page.canonical_url || page.canonicalUrl || '',
+    httpRelNext: page.http_rel_next || page.httpRelNext || '',
+    httpRelPrev: page.http_rel_prev || page.httpRelPrev || '',
+    metaRobots: page.meta_robots || page.metaRobots || '',
+    xRobotsTag: page.x_robots_tag || page.xRobotsTag || '',
+    metaRefresh: page.meta_refresh || page.metaRefresh || '',
+    lastModified: page.last_modified || page.lastModified || '',
+    httpVersion: page.http_version || page.httpVersion || '',
+    redirectUrl: page.redirect_url || page.redirectUrl || '',
+    redirectType: page.redirect_type || page.redirectType || '',
+    
+    // PageMetrics / TextQuality / WordCount props
+    totalWordCount: page.word_count || page.wordCount || 0,
+    visibleWordCount: page.visible_word_count || page.visibleWordCount || (page.word_count || 0), // Fallback
+    uniqueWordCount: page.unique_word_count || page.uniqueWordCount || 0,
+    averageSentenceLength: page.average_sentence_length || page.averageSentenceLength || 0,
+    averageParagraphLength: page.average_paragraph_length || page.averageParagraphLength || 0,
+    keywordDensity: page.keyword_density || page.keywordDensity || 0,
+    thinContent: page.thin_content || page.thinContent || false,
+    duplicateContent: page.duplicate_content || page.duplicateContent || false,
+    
+    // Ensure timestamp matches
+    timestamp: page.timestamp || new Date().toISOString(),
+  })) || []
 
-  const pageMetricsData = { data: [] }
-  const isLoadingMetrics = false
-  const refetchMetrics = () => {}
+  // Transform data for Crawled Data Table
+  const pagesData = { 
+    data: transformedPages
+  }
+  const isLoadingPages = isLoadingResults
+  const refetchPages = refetchJobResults
 
-  const textQualityData = { data: [] }
-  const isLoadingTextQuality = false
-  const refetchTextQuality = () => {}
+  const pageMetricsData = { data: transformedPages }
+  const isLoadingMetrics = isLoadingResults
+  const refetchMetrics = refetchJobResults
 
-  const wordCountData = { data: [] }
-  const isLoadingWordCount = false
-  const refetchWordCount = () => {}
+  // Transform data for Text Quality Table
+  const textQualityData = {
+    data: transformedPages
+  }
+  const isLoadingTextQuality = isLoadingResults
+  const refetchTextQuality = refetchJobResults
 
-  const linkStatsData = { pageStats: [], stats: null }
-  const isLoadingLinkStats = false
-  const refetchLinkStats = () => {}
+  // Transform data for Word Count Analysis
+  const wordCountData = {
+    data: transformedPages
+  }
+  const isLoadingWordCount = isLoadingResults
+  const refetchWordCount = refetchJobResults
+
+  // Transform data for Link Analysis
+  const linkStatsData = { 
+    pageStats: jobResults?.pages?.map(page => {
+        // Calculate link stats using snake_case fields from backend
+        // backend links are in jobResults.links[source_url]
+        const pageLinks = jobResults?.links?.[page.url] || [];
+        const internalOut = pageLinks.filter((l: any) => l.is_internal).length;
+        const externalOut = pageLinks.filter((l: any) => !l.is_internal).length;
+        
+        return {
+            pageId: page._id || page.id,
+            url: page.url,
+            title: page.title,
+            outlinks: pageLinks.length,
+            inlinks: 0, 
+            uniqueInlinks: 0,
+            uniqueJsInlinks: 0,
+            percentOfTotal: 0,
+            externalOutlinks: externalOut,
+            internalOutlinks: internalOut,
+            linkScore: page.linkScore // If available
+        };
+    }) || [], 
+    stats: {
+      totalLinks: jobResults?.session?.total_links || 0,
+      internalLinks: 0, // Placeholder
+      externalLinks: 0, // Placeholder
+      brokenLinks: 0, // Placeholder
+      linksByPosition: { header: 0, footer: 0, sidebar: 0, content: 0 }
+    } 
+  }
+  const isLoadingLinkStats = isLoadingResults
+  const refetchLinkStats = refetchJobResults
 
   // Mock hooks to satisfy TS and runtime usage (returning object with unwrap)
-  const getPageLinks = (arg: any) => ({ unwrap: async () => ({ links: [] }) })
+  const getPageLinks = (arg: any) => ({ unwrap: async () => ({ links: jobResults?.links?.[arg.pageId] || [] }) })
   
-  const checkLinks = (arg: any) => ({ unwrap: async () => ({ results: {
-    brokenInternalLinks: [],
-    brokenExternalLinks: [],
-    missingPages: [],
-    serverErrors: [],
-    timeoutUnreachable: []
-  } }) } as any)
-  const linkCheckData = { results: null }
+  // Calculate Broken Links
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const derivedBrokenLinks: any = {
+    brokenInternalLinks: { count: 0, links: [] },
+    brokenExternalLinks: { count: 0, links: [] },
+    missingPages: { count: 0, links: [] },
+    serverErrors: { count: 0, links: [] },
+    timeoutUnreachable: { count: 0, links: [] }
+  }
+
+  if (jobResults?.links) {
+    Object.entries(jobResults.links).forEach(([sourceUrl, links]) => {
+        links.forEach((link: any) => {
+            // Check for status_code (snake_case) or statusCode (camelCase)
+            const sc = link.status_code || link.statusCode;
+            if (sc >= 400) {
+                const brokenLink = {
+                    url: link.target_url || link.targetUrl,
+                    sourceUrl: link.source_url || link.sourceUrl || sourceUrl,
+                    statusCode: sc,
+                    errorType: link.status_text || link.statusText || 'Error',
+                    error: link.error_message || link.errorMessage
+                };
+
+                const isInternal = link.is_internal !== undefined ? link.is_internal : link.isInternal;
+
+                if (sc === 404) {
+                    if (isInternal) {
+                        derivedBrokenLinks.missingPages.count++;
+                        derivedBrokenLinks.missingPages.links.push(brokenLink);
+                    } else {
+                         derivedBrokenLinks.brokenExternalLinks.count++;
+                         derivedBrokenLinks.brokenExternalLinks.links.push(brokenLink);
+                    }
+                } else if (sc >= 500) {
+                     derivedBrokenLinks.serverErrors.count++;
+                     derivedBrokenLinks.serverErrors.links.push(brokenLink);
+                } else if (sc === 0 || sc === 408) {
+                     derivedBrokenLinks.timeoutUnreachable.count++;
+                     derivedBrokenLinks.timeoutUnreachable.links.push(brokenLink);
+                } else {
+                    if (isInternal) {
+                        derivedBrokenLinks.brokenInternalLinks.count++;
+                        derivedBrokenLinks.brokenInternalLinks.links.push(brokenLink);
+                    } else {
+                        derivedBrokenLinks.brokenExternalLinks.count++;
+                        derivedBrokenLinks.brokenExternalLinks.links.push(brokenLink);
+                    }
+                }
+            }
+        });
+    });
+  }
+
+  const checkLinks = (arg: any) => ({ unwrap: async () => ({ results: derivedBrokenLinks }) })
+  const linkCheckData = { results: derivedBrokenLinks }
   const isCheckingLinks = false
   
   // Live crawl state - initialize from session data
@@ -117,128 +274,6 @@ export default function SessionDetailPage() {
     return () => clearInterval(timer)
   }, [])
 
-  // Server-Sent Events for live updates
-  useEffect(() => {
-    const eventSource = new EventSource('/events', {
-      withCredentials: true
-    })
-
-    eventSource.addEventListener('connected', (e) => {
-      console.log('SSE connected:', JSON.parse(e.data))
-    })
-
-    eventSource.addEventListener('log', (e) => {
-      const data = JSON.parse(e.data)
-      if (data.sessionId && data.sessionId !== parseInt(sessionId)) return
-      
-      setLogs(prev => [...prev.slice(-99), {
-        message: data.message,
-        timestamp: new Date().toLocaleTimeString()
-      }])
-    })
-
-    eventSource.addEventListener('page', (e) => {
-      const data = JSON.parse(e.data)
-      if (data.sessionId && data.sessionId !== parseInt(sessionId)) return
-      
-      setDiscoveredPages(prev => [...prev.slice(-199), data.url])
-      setPageCount(prev => prev + 1)
-    })
-
-    eventSource.addEventListener('done', (e) => {
-      const data = JSON.parse(e.data)
-      if (data.sessionId && data.sessionId !== parseInt(sessionId)) return
-      
-      setCrawlStats({
-        count: data.count,
-        duration: data.duration || 0,
-        pagesPerSecond: data.pagesPerSecond || 0
-      })
-      
-      const nextStatus = data.status || 'completed'
-      setIsCrawling(nextStatus === 'auditing')
-      setCrawlStatus(nextStatus)
-      if (nextStatus === 'completed' || nextStatus === 'cancelled') {
-        setCrawlStartTime(null)
-      }
-      
-      setLogs(prev => [...prev, {
-        message: nextStatus === 'auditing' 
-          ? `✅ Crawl completed! Starting audits... Total URLs: ${data.count}`
-          : `✅ Crawl completed! Total URLs: ${data.count}`,
-        timestamp: new Date().toLocaleTimeString()
-      }])
-    })
-
-    eventSource.addEventListener('session-status-update', (e) => {
-      try {
-        const data = JSON.parse(e.data)
-        if (data?.sessionId && data.sessionId !== parseInt(sessionId)) return
-        
-        const message = data?.message || `Session ${data?.status || ''}`.trim()
-        if (message) {
-          setLogs(prev => [...prev.slice(-99), {
-            message,
-            timestamp: new Date().toLocaleTimeString()
-          }])
-        }
-        
-        if (data?.status) {
-          if (data.status === 'running' || data.status === 'auditing') {
-            setIsCrawling(true)
-            setCrawlStatus(data.status)
-          } else if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled') {
-            setIsCrawling(false)
-            setCrawlStatus(data.status)
-            setCrawlStartTime(null)
-          }
-        }
-      } catch {}
-    })
-
-    eventSource.addEventListener('audit', (e) => {
-      try {
-        const data = JSON.parse(e.data)
-        if (data.sessionId && data.sessionId !== parseInt(sessionId)) return
-        
-        let message = ''
-        if (data?.type === 'audit-start') {
-          message = `🔍 Audit started: ${data.url}`
-          setIsCrawling(true)
-          setCrawlStatus('auditing')
-        } else if (data?.type === 'audit-complete') {
-          if (data.success) {
-            const parts: string[] = []
-            if (data.performanceScore !== undefined) parts.push(`Score ${data.performanceScore.toFixed(2)}`)
-            if (data.lcp !== undefined) parts.push(`LCP ${data.lcp.toFixed(2)}ms`)
-            if (data.tbt !== undefined) parts.push(`TBT ${data.tbt.toFixed(2)}ms`)
-            if (data.cls !== undefined) parts.push(`CLS ${data.cls.toFixed(2)}`)
-            message = `✅ Audit: ${data.url} ${parts.length ? `(${parts.join(', ')})` : ''}`.trim()
-          } else {
-            message = `❌ Audit failed: ${data.url}${data.error ? ` - ${data.error}` : ''}`
-          }
-        } else if (data?.type === 'audit-progress') {
-          const progress = data.progress?.toFixed(2) || ''
-          message = `⏳ Audits progress: ${data.completed}/${data.total} ${progress ? `${progress}%` : ''}`.trim()
-        }
-        
-        if (message) {
-          setLogs(prev => [...prev.slice(-99), {
-            message,
-            timestamp: new Date().toLocaleTimeString()
-          }])
-        }
-      } catch {}
-    })
-
-    eventSource.onerror = (error) => {
-      console.error('SSE connection error:', error)
-    }
-
-    return () => {
-      eventSource.close()
-    }
-  }, [sessionId])
 
   // Handle broken link checking
   const handleCheckLinks = async (sessionId: number) => {
@@ -254,12 +289,47 @@ export default function SessionDetailPage() {
   // Handle page link selection for link analysis
   const handlePageLinkSelect = async (pageId: number, linkType: 'out' | 'in') => {
     try {
-      const result = await getPageLinks({
-        sessionId: parseInt(sessionId),
-        pageId,
-        type: linkType
-      }).unwrap()
-      return result.links
+      // Find the page URL using pageId
+      const page = jobResults?.pages?.find(p => (p._id || p.id) === pageId);
+      if (!page) return [];
+
+      const mapLink = (link: any, sourceUrl?: string) => ({
+          ...link,
+          // Map snake_case to camelCase
+          sourceUrl: link.source_url || link.sourceUrl || sourceUrl,
+          targetUrl: link.target_url || link.targetUrl,
+          isInternal: link.is_internal !== undefined ? link.is_internal : link.isInternal,
+          anchorText: link.anchor_text || link.anchorText,
+          // Include other potential fields
+          nofollow: link.nofollow,
+          rel: link.rel,
+          position: link.position || 'Main', // Default position if missing
+          id: Math.random() // Temp ID for list key
+      });
+
+      // If outlinks, we can look up in our links map
+      if (linkType === 'out') {
+          const rawLinks = jobResults?.links?.[page.url] || [];
+          return rawLinks.map((l: any) => mapLink(l, page.url));
+      }
+      
+      // If inlinks, we would need to search all links for this targetUrl
+      if (linkType === 'in') {
+          const inlinks: any[] = [];
+          if (jobResults?.links) {
+              Object.entries(jobResults.links).forEach(([sourceUrl, links]) => {
+                  links.forEach((link: any) => {
+                      if ((link.target_url || link.targetUrl) === page.url) {
+                          inlinks.push(mapLink(link, sourceUrl));
+                      }
+                  });
+              });
+          }
+          return inlinks;
+      }
+      
+      return []
+
     } catch (error) {
       console.error('Error fetching page links:', error)
       return []
