@@ -4,7 +4,7 @@ import { Menu, ChevronRight, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { usePathname, useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useGetProjectQuery } from '@/store/api'
+import { useGetProjectQuery } from '@/store/api/projectApi'
 
 interface NavbarProps {
   onMenuToggle?: () => void

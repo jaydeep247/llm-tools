@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 
-interface BrokenLink {
+export interface BrokenLink {
   url: string
   sourceUrl?: string
   statusCode: number
@@ -28,7 +28,7 @@ interface BrokenLink {
   missingType?: string
 }
 
-interface LinkCheckResults {
+export interface LinkCheckResults {
   brokenInternalLinks: { count: number; links: BrokenLink[] }
   brokenExternalLinks: { count: number; links: BrokenLink[] }
   missingPages: { count: number; links: BrokenLink[] }

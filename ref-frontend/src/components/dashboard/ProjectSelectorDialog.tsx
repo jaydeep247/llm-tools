@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { X, Loader2, FolderOpen, Plus } from 'lucide-react'
-import { useGetProjectsQuery } from '@/store/api'
+import { useGetProjectsQuery } from '@/store/api/projectApi'
 import { useRouter } from 'next/navigation'
 
 interface ProjectSelectorDialogProps {

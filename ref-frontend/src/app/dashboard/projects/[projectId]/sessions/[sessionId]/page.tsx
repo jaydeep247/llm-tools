@@ -27,7 +27,7 @@ export default function SessionDetailPage() {
   const sessionId = params.sessionId as string
   
   // Fetch session and project data using RTK Query
-  const { data: sessionData, isLoading: isLoadingSession, error: sessionError } = useGetSessionQuery(parseInt(sessionId))
+  // const { data: sessionData, isLoading: isLoadingSession, error: sessionError } = useGetSessionQuery(parseInt(sessionId))
   const { data: projectData, isLoading: isLoadingProject } = useGetProjectQuery(projectId)
   
   const session = sessionData?.session

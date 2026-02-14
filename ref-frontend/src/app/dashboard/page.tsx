@@ -6,7 +6,7 @@ import { ArrowRight, TrendingUp, Users, Zap, FolderOpen, Search, Loader2 } from 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 // import { useStartCrawlMutation } from '@/store/api/module_A/crawlApi'
-import { useGetProjectsQuery } from '@/store/api'
+import { useGetProjectsQuery } from '@/store/api/projectApi'
 import { useToast } from '@/hooks/use-toast'
 import { AuthModal } from '@/components/auth/auth-modal'
 import { ProjectSelectorDialog } from '@/components/dashboard/ProjectSelectorDialog'
