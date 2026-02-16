@@ -1,0 +1,6 @@
+# Data directory (cache, raw, results)
+data/
+__pycache__/
+*.pyc
+.env
+venv/
