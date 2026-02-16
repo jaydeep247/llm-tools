@@ -7,6 +7,7 @@ from bs4 import BeautifulSoup
 from utils.mongo import mongo_manager
 from utils.storage import load_raw_html
 from .unified_analyzer import UnifiedModuleEAnalyzer
+from .brand_analyzer import BrandAnalyzer
 
 logger = logging.getLogger("module_e")
 
@@ -110,33 +111,55 @@ async def run_module_e(job_id: str, url: str, html_content: str = None) -> Dict[
         }
     )
 
+    # Brand Analysis (if brand name available)
+    brand_analysis = None
+    brand_name = consistency_result.get("mandate", {}).get("brand_name")
+    if brand_name:
+        logger.info(
+            "Module E brand analysis starting",
+            extra={"job_id": job_id, "brand_name": brand_name}
+        )
+        brand_analysis = await BrandAnalyzer.analyze_brand(brand_name)
+        logger.info(
+            "Module E brand analysis complete",
+            extra={
+                "job_id": job_id,
+                "brand_name": brand_name,
+                "total_mentions": brand_analysis.get("total_mentions", 0),
+                "sentiment_label": brand_analysis.get("sentiment", {}).get("label", "N/A")
+            }
+        )
+
     result = {
         "job_id": job_id,
         "url": url,
         "content_consistency": consistency_result,
         "entity_coverage": entity_coverage_result,
+        "brand_analysis": brand_analysis,
         "created_at": datetime.utcnow().isoformat(),
     }
 
-    # Persist to Mongo for API retrieval
+    # Persist to Mongo module_e collection for API retrieval
     try:
-        mongo_manager.job_summaries.update_one(
-            {"jobId": job_id, "type": "module_e"},
+        mongo_manager.module_e.update_one(
+            {"jobId": job_id},
             {
                 "$set": {
                     "jobId": job_id,
-                    "type": "module_e",
-                    "url": url,
-                    "createdAt": datetime.utcnow(),
                     "content_consistency": consistency_result,
                     "entity_coverage": entity_coverage_result,
-                }
+                    "brand_analysis": brand_analysis,
+                    "updatedAt": datetime.utcnow(),
+                },
+                "$setOnInsert": {
+                    "createdAt": datetime.utcnow(),
+                },
             },
             upsert=True,
         )
         logger.info(
-            "Module E persisted",
-            extra={"job_id": job_id, "url": url}
+            "Module E persisted to module_e collection",
+            extra={"job_id": job_id}
         )
     except Exception as exc:
         logger.warning("Failed to persist module E result: %s", exc)

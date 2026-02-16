@@ -59,6 +59,7 @@ class MongoManager:
             self._db.sitemaps.create_index("jobId")
             self._db.fields.create_index("jobId")
             self._db.job_summaries.create_index("jobId")
+            self._db.module_e.create_index("jobId", unique=True)
             
             logger.info("MongoDB indexes verified")
 
@@ -87,6 +88,10 @@ class MongoManager:
     @property
     def fields(self) -> Collection:
         return self.db.fields
+
+    @property
+    def module_e(self) -> Collection:
+        return self.db.module_e
 
     def close(self):
         if self._client:

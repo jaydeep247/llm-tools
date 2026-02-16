@@ -29,6 +29,7 @@ class TaskRegistry:
         "module_e_expected_entities": ["openai", "gemini", "claude"],
         "module_e_observed_entities": ["openai", "gemini", "claude"],
         "module_e_unified_analysis": ["openai", "gemini", "claude"],
+        "module_e_brand_analysis": ["dataforseo"],
     }
 
     @classmethod

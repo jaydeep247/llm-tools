@@ -1,13 +1,12 @@
 export interface ModuleEResult {
   jobId: string;
-  url: string;
   content_consistency?: {
     score?: number;
     mandate?: {
       topic?: string;
       audience?: string;
       tone?: string;
-      brand_name?: string;
+        url?: string;
       location?: string;
     };
     batch_scores?: number[];
@@ -19,6 +18,25 @@ export interface ModuleEResult {
     missing?: string[];
     found?: string[];
     total_expected?: number;
+  };
+  brand_analysis?: {
+    brand_name?: string;
+    total_mentions?: number;
+    sentiment?: {
+      counts?: {
+        positive?: number;
+        negative?: number;
+        neutral?: number;
+      };
+      label?: string;
+    };
+    frequency_trend?: Array<{
+      date?: string;
+      count?: number;
+    }>;
+    top_sources?: Array<{
+      domain?: string;
+    }>;
   };
   createdAt?: string;
 }
