@@ -217,4 +217,84 @@ export class JobController {
       return ResponseUtil.serverError(res, 'Failed to retrieve crawl results');
     }
   };
+
+  /**
+   * Get job pages
+   */
+  getJobPages = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = jobIdSchema.parse(req.params);
+      const page = req.query.page ? parseInt(req.query.page as string) : 1;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
+      
+      const results = await this.jobService.getJobPages(id, userId, page, limit);
+      return res.status(200).json(results);
+    } catch (error: any) {
+      logger.error('Error getting job pages:', error);
+      if (error.message.includes('not found') || error.message.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      return ResponseUtil.serverError(res, 'Failed to retrieve job pages');
+    }
+  };
+
+  /**
+   * Get job links
+   */
+  getJobLinks = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = jobIdSchema.parse(req.params);
+      const page = req.query.page ? parseInt(req.query.page as string) : 1;
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
+      
+      const results = await this.jobService.getJobLinks(id, userId, page, limit);
+      return res.status(200).json(results);
+    } catch (error: any) {
+      logger.error('Error getting job links:', error);
+      if (error.message.includes('not found') || error.message.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      return ResponseUtil.serverError(res, 'Failed to retrieve job links');
+    }
+  };
+
+  /**
+   * Get job sitemaps
+   */
+  getJobSitemaps = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = jobIdSchema.parse(req.params);
+      
+      const results = await this.jobService.getJobSitemaps(id, userId);
+      return res.status(200).json(results);
+    } catch (error: any) {
+      logger.error('Error getting job sitemaps:', error);
+      if (error.message.includes('not found') || error.message.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      return ResponseUtil.serverError(res, 'Failed to retrieve job sitemaps');
+    }
+  };
+
+  /**
+   * Get job fields
+   */
+  getJobFields = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = jobIdSchema.parse(req.params);
+      
+      const results = await this.jobService.getJobFields(id, userId);
+      return res.status(200).json(results);
+    } catch (error: any) {
+      logger.error('Error getting job fields:', error);
+      if (error.message.includes('not found') || error.message.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      return ResponseUtil.serverError(res, 'Failed to retrieve job fields');
+    }
+  };
 }

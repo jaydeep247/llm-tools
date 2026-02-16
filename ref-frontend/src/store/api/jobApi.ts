@@ -45,6 +45,27 @@ export const jobApi = baseApi.injectEndpoints({
       query: (jobId) => `/jobs/${jobId}/results`,
       providesTags: (result, error, jobId) => [{ type: 'Job', id: jobId }],
     }),
+
+    // Granular endpoints
+    getJobPages: builder.query<{ data: any[], pagination: any }, { jobId: string, page?: number, limit?: number }>({
+      query: ({ jobId, page = 1, limit = 100 }) => `/jobs/${jobId}/results/pages?page=${page}&limit=${limit}`,
+      providesTags: (result, error, { jobId }) => [{ type: 'Job', id: jobId }],
+    }),
+
+    getJobLinks: builder.query<{ data: any[], pagination: any }, { jobId: string, page?: number, limit?: number }>({
+      query: ({ jobId, page = 1, limit = 100 }) => `/jobs/${jobId}/results/links?page=${page}&limit=${limit}`,
+      providesTags: (result, error, { jobId }) => [{ type: 'Job', id: jobId }],
+    }),
+
+    getJobSitemaps: builder.query<{ data: any[] }, string>({
+      query: (jobId) => `/jobs/${jobId}/results/sitemaps`,
+      providesTags: (result, error, jobId) => [{ type: 'Job', id: jobId }],
+    }),
+
+    getJobFields: builder.query<{ data: any[] }, string>({
+      query: (jobId) => `/jobs/${jobId}/results/fields`,
+      providesTags: (result, error, jobId) => [{ type: 'Job', id: jobId }],
+    }),
   }),
 });
 
@@ -52,4 +73,8 @@ export const {
   useGetSessionJobsQuery,
   useGetJobResultsQuery,
   useLazyGetJobResultsQuery,
+  useGetJobPagesQuery,
+  useGetJobLinksQuery,
+  useGetJobSitemapsQuery,
+  useGetJobFieldsQuery,
 } = jobApi;

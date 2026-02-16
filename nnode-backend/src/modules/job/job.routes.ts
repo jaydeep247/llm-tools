@@ -38,6 +38,12 @@ router.get('/jobs/:id', jobController.getJobById);
 // Get crawl results for a job
 router.get('/jobs/:id/results', jobController.getJobResults);
 
+// Get granular crawl results
+router.get('/jobs/:id/results/pages', jobController.getJobPages);
+router.get('/jobs/:id/results/links', jobController.getJobLinks);
+router.get('/jobs/:id/results/sitemaps', jobController.getJobSitemaps);
+router.get('/jobs/:id/results/fields', jobController.getJobFields);
+
 // Update job status (User override - e.g. CANCEL)
 // Note: Workers should use the Worker route above
 router.patch('/jobs/:id', jobController.updateJobStatus);

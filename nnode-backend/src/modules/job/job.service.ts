@@ -351,4 +351,95 @@ export class JobService {
       fields,
     };
   }
+
+  /**
+   * Get paginated pages for a job
+   */
+  async getJobPages(
+    jobId: string,
+    userId: string,
+    page: number = 1,
+    limit: number = 100
+  ): Promise<any> { // TODO: Define proper return type
+    await this.getJobById(jobId, userId);
+    const db = await connectToMongo();
+    const skip = (page - 1) * limit;
+
+    const [pages, total] = await Promise.all([
+      db.collection('pages')
+        .find({ jobId, type: { $ne: 'job_result' } })
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 })
+        .toArray(),
+      db.collection('pages').countDocuments({ jobId, type: { $ne: 'job_result' } })
+    ]);
+
+    return {
+      data: pages,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    };
+  }
+
+  /**
+   * Get links for a job
+   */
+  async getJobLinks(
+    jobId: string,
+    userId: string,
+    page: number = 1,
+    limit: number = 100
+  ): Promise<any> {
+    await this.getJobById(jobId, userId);
+    const db = await connectToMongo();
+    const skip = (page - 1) * limit;
+
+    const [links, total] = await Promise.all([
+      db.collection('links')
+        .find({ jobId })
+        .skip(skip)
+        .limit(limit)
+        .toArray(),
+      db.collection('links').countDocuments({ jobId })
+    ]);
+
+    return {
+      data: links,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    };
+  }
+
+  /**
+   * Get sitemaps for a job
+   */
+  async getJobSitemaps(jobId: string, userId: string): Promise<any> {
+    await this.getJobById(jobId, userId);
+    const db = await connectToMongo();
+
+    const sitemaps = await db.collection('sitemaps').find({ jobId }).toArray();
+
+    return { data: sitemaps };
+  }
+
+  /**
+   * Get fields for a job
+   */
+  async getJobFields(jobId: string, userId: string): Promise<any> {
+    await this.getJobById(jobId, userId);
+    const db = await connectToMongo();
+
+    const fields = await db.collection('fields').find({ jobId }).toArray();
+
+    return { data: fields };
+  }
 }
