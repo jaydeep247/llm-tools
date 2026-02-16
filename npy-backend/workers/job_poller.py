@@ -70,16 +70,23 @@ class JobPoller:
             
             # 3. Spawn Subprocess
             # Note: subprocess.Popen is sync, but we can poll it in our loop
-            process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
+            # On Windows, we can't use PIPE as it causes blocking. Write to log file instead.
+            log_file_path = f"logs/crawler_{job_id}.log"
+            os.makedirs("logs", exist_ok=True)
+            
+            with open(log_file_path, 'w') as log_file:
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=log_file,
+                    stderr=subprocess.STDOUT,
+                    text=True
+                )
             
             self.active_jobs[job_id] = process
             self.active_jobs_data[job_id] = job # Store full job data
             logger.info(f"Spawned crawler process (PID {process.pid}) for Job {job_id}")
+            logger.info(f"Crawler command: {' '.join(cmd)}")
+            logger.info(f"Crawler logs: {log_file_path}")
             
         except Exception as e:
             logger.error(f"Failed to start job {job_id}: {e}")
@@ -94,11 +101,20 @@ class JobPoller:
             return_code = process.poll()
             
             if return_code is not None:
-                # Process finished
-                stdout, stderr = process.communicate()
+                # Process finished - read from log file
+                log_file_path = f"logs/crawler_{job_id}.log"
+                crawler_output = ""
+                
+                try:
+                    if os.path.exists(log_file_path):
+                        with open(log_file_path, 'r') as f:
+                            crawler_output = f.read()
+                        logger.info(f"Crawler output for job {job_id}:\n{crawler_output}")
+                except Exception as e:
+                    logger.error(f"Failed to read crawler log: {e}")
                 
                 if return_code == 0:
-                    logger.info(f"Job {job_id} completed successfully")
+                    logger.info(f"Job {job_id} completed successfully (exit code 0)")
                     # Note: crawler.py handles the 'complete' notification with stats
                     
                     # TRIGGER ORCHESTRATOR FOR POST-CRAWL MODULES
@@ -124,8 +140,9 @@ class JobPoller:
                             modules=modules
                         ))
                 else:
-                    logger.error(f"Job {job_id} failed with code {return_code}")
-                    logger.error(f"Stderr: {stderr}")
+                    logger.error(f"Job {job_id} failed with exit code {return_code}")
+                    if crawler_output:
+                        logger.error(f"Crawler output:\n{crawler_output}")
                     # Notify failure
                     await self.api_client.fail_job(job_id, f"Crawler subprocess failed with code {return_code}")
                 

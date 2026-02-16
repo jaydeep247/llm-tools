@@ -7,7 +7,7 @@ services:
     container_name: contentlytics-db
     env_file: .env
     environment:
-      POSTGRES_DB: contentlytics
+      POSTGRES_DB: nnode_backend_dev
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:

@@ -60,6 +60,7 @@ google-generativeai==0.4.1
 # Storage (Object Storage / S3-compatible)
 # =========================
 boto3==1.34.45
+pymongo==4.6.2
 
 # =========================
 # Observability & Logging
