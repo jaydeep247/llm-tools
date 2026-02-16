@@ -128,6 +128,33 @@ class KnowledgeBaseModule:
                             if entity['type'] != original_type:
                                 logging.debug(f"Normalized entity type: '{original_type}' -> '{entity['type']}'")
                 
+                # Calculate expected entities (Union of found + missing)
+                found = data.get('found_entities', [])
+                missing = data.get('missing_entities', [])
+                # Use set to avoid duplicates if any overlap
+                expected = list(set(found + missing))
+                data['expected_entities'] = expected
+
+                # Calculate Critical vs Minor counts
+                critical_count = 0
+                minor_count = 0
+                if 'entites_analysis' in data:
+                    for entity in data['entites_analysis']:
+                        importance = entity.get('importance', 'Minor')
+                        if importance == 'Critical':
+                            critical_count += 1
+                        else:
+                            minor_count += 1
+                
+                data['critical_entities_count'] = critical_count
+                data['minor_entities_count'] = minor_count
+
+                # Calculate Gap Percentage
+                total_expected = len(expected)
+                missing_count = len(missing)
+                gap_percentage = (missing_count / total_expected * 100) if total_expected > 0 else 0
+                data['gap_percentage'] = round(gap_percentage, 1)
+                
                 return data
             except Exception as e:
                 logging.error(f"Failed to parse entity analysis: {e}")

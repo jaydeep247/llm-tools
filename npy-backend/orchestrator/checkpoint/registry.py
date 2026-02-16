@@ -22,6 +22,11 @@ class TaskRegistry:
         "aeo_content_metrics": ["openai", "gemini", "claude"],
         "aeo_entity_relevance": ["openai", "gemini", "claude"],
         "aeo_content_understanding": ["openai", "gemini", "claude"], # Multi-AI check
+        
+        # LLM Simulator Tasks
+        "aeo_simulate_answer_generation": ["openai", "gemini", "claude"],
+        "aeo_evaluate_answer_quality": ["openai", "gemini", "claude"],
+        "aeo_calculate_answer_consistency": ["openai", "gemini", "claude"],
     }
 
     @classmethod

@@ -1,0 +1,206 @@
+services:
+  # PostgreSQL Database (LOCAL DOCKER)
+  # NOTE: This service is included by default for local development
+  # When using cloud database (Neon DB), use: docker-compose -f docker-compose.cloud.yml up
+  postgres:
+    image: postgres:16-alpine
+    container_name: contentlytics-db
+    env_file: .env
+    environment:
+      # Database config is fixed here; application uses only DATABASE_URL
+      POSTGRES_DB: contentlytics
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - contentlytics-network
+    profiles:
+      - local
+      - ""  # Empty profile means it runs by default
+
+  # Redis for Queue Management
+  redis:
+    image: redis:7-alpine
+    user: "999:999"
+    container_name: contentlytics-redis
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD}
+      --dir /data
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - contentlytics-network
+
+  # Python AEO API
+  aeo-api:
+    build:
+      context: ./py-backend
+      dockerfile: Dockerfile
+    container_name: contentlytics-aeo-api
+    env_file: .env
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      CLAUDE_API_KEY: ${CLAUDE_API_KEY}
+      DATAFORSEO_USERNAME_ENC: ${DATAFORSEO_USERNAME_ENC}
+      DATAFORSEO_PASSWORD_ENC: ${DATAFORSEO_PASSWORD_ENC}
+      DATAFORSEO_MASTER_KEY: ${DATAFORSEO_MASTER_KEY}
+    expose:
+      - "8000"
+    volumes:
+      - ./py-backend/config:/app/config
+    depends_on:
+      - redis
+    networks:
+      - contentlytics-network
+    restart: unless-stopped
+
+  # Node.js Backend Server
+  backend:
+    build:
+      context: ./node-backend
+      dockerfile: Dockerfile
+      args:
+        DATABASE_URL: ${DATABASE_URL}
+    container_name: contentlytics-backend
+    env_file: .env
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      # Application talks to DB only via DATABASE_URL
+      DATABASE_URL: ${DATABASE_URL}
+      DB_ENVIRONMENT: ${DB_ENVIRONMENT}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      MAIL_FROM: ${MAIL_FROM}
+      MAIL_TO: ${MAIL_TO}
+      PSI_API_KEY: ${PSI_API_KEY}
+      AEO_API_BASE_URL: ${AEO_API_BASE_URL}
+      PY_API_BASE: ${PY_API_BASE}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      PORT: ${PORT}
+      COOKIE_SECURE: ${COOKIE_SECURE}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    expose:
+      - "3004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      aeo-api:
+        condition: service_started
+    networks:
+      - contentlytics-network
+    restart: unless-stopped
+
+  # Frontend (Next.js)
+  frontend:
+    build:
+      context: ./ref-frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ""
+    container_name: contentlytics-frontend
+    env_file: .env
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ""
+      PORT: 3000
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - contentlytics-network
+    restart: unless-stopped
+
+  # SEO Worker (Redis-based)
+  seo-worker:
+    build:
+      context: ./node-backend
+      dockerfile: Dockerfile.seo-worker
+      args:
+        DATABASE_URL: ${DATABASE_URL}
+    container_name: contentlytics-seo-worker
+    env_file: .env
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      DATABASE_URL: ${DATABASE_URL}
+      DB_ENVIRONMENT: ${DB_ENVIRONMENT}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      PY_API_BASE: ${PY_API_BASE}
+    command: ["node", "dist/redis/seo/seo-worker.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      aeo-api:
+        condition: service_started
+    networks:
+      - contentlytics-network
+    restart: unless-stopped
+
+  # Audit Worker (Redis-based)
+  audit-worker:
+    build:
+      context: ./node-backend
+      dockerfile: Dockerfile.audit-worker
+      args:
+        DATABASE_URL: ${DATABASE_URL}
+    container_name: contentlytics-audit-worker
+    env_file: .env
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      DATABASE_URL: ${DATABASE_URL}
+      DB_ENVIRONMENT: ${DB_ENVIRONMENT}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      PSI_API_KEY: ${PSI_API_KEY}
+      AUDIT_CONCURRENCY: ${AUDIT_CONCURRENCY:-100}
+    command: ["node", "dist/audit/audit-worker.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - contentlytics-network
+    restart: unless-stopped
+
+networks:
+  contentlytics-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:

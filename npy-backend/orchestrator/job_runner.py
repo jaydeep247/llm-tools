@@ -28,7 +28,7 @@ class JobOrchestrator:
             # "module_b": run_module_b
         }
 
-    async def run_job(self, job_id: str, url: str, html_content: str, modules: List[str]) -> Dict[str, Any]:
+    async def run_job(self, job_id: str, url: str, html_content: str, modules: List[str], query: str = None) -> Dict[str, Any]:
         """
         Executes a job.
         
@@ -37,6 +37,7 @@ class JobOrchestrator:
             url: Target URL
             html_content: Raw HTML content
             modules: List of module names to run (e.g. ['module_c'])
+            query: Optional query for AI analysis
         """
         logger.info(f"Starting Job {job_id} for {url} with modules: {modules}")
         
@@ -68,7 +69,7 @@ class JobOrchestrator:
                     runner_func = self.module_registry[key]
                     # Create async task
                     # Note: We pass html_content directly to avoid re-reading file immediately
-                    tasks.append(runner_func(job_id, url, html_content))
+                    tasks.append(runner_func(job_id, url, html_content, query=query))
                     task_names.append(key)
                 else:
                     logger.warning(f"Module '{mod_name}' not found in registry.")
@@ -97,5 +98,5 @@ class JobOrchestrator:
 # Singleton
 orchestrator = JobOrchestrator()
 
-async def execute_job(job_id: str, url: str, html_content: str, modules: List[str]):
-    return await orchestrator.run_job(job_id, url, html_content, modules)
+async def execute_job(job_id: str, url: str, html_content: str, modules: List[str], query: str = None):
+    return await orchestrator.run_job(job_id, url, html_content, modules, query=query)

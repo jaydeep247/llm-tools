@@ -116,12 +116,15 @@ class JobPoller:
                     if modules:
                         logger.info(f"Triggering Post-Crawl Modules for {job_id}: {modules}")
                         from orchestrator.job_runner import execute_job
+                        # Pass query if it exists in config
+                        query = job_config.get('query')
                         # We pass html_content=None so it loads from disk
                         asyncio.create_task(execute_job(
                             job_id=job_id,
                             url=job_config.get('url'),
                             html_content=None,
-                            modules=modules
+                            modules=modules,
+                            query=query
                         ))
                 else:
                     logger.error(f"Job {job_id} failed with code {return_code}")
