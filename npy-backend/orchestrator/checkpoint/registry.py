@@ -22,6 +22,13 @@ class TaskRegistry:
         "aeo_content_metrics": ["openai", "gemini", "claude"],
         "aeo_entity_relevance": ["openai", "gemini", "claude"],
         "aeo_content_understanding": ["openai", "gemini", "claude"], # Multi-AI check
+
+        # Module E Tasks
+        "module_e_content_mandate": ["openai", "gemini", "claude"],
+        "module_e_consistency_score": ["openai", "gemini", "claude"],
+        "module_e_expected_entities": ["openai", "gemini", "claude"],
+        "module_e_observed_entities": ["openai", "gemini", "claude"],
+        "module_e_unified_analysis": ["openai", "gemini", "claude"],
     }
 
     @classmethod

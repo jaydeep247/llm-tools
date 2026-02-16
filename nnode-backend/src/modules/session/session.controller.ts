@@ -21,12 +21,14 @@ export class SessionController {
     try {
       const userId = req.user!.userId;
       const { projectId } = projectIdParamSchema.parse(req.params);
-      const { url, allowSubdomains, runAudits, auditDevice, captureLinkDetails } = startCrawlSchema.parse(req.body);
+      const { url, allowSubdomains, runAudits, auditDevice, captureLinkDetails, modules } = startCrawlSchema.parse(req.body);
       
       // Create session
       const session = await this.sessionService.createSession(projectId, userId);
 
       // Create crawl job
+      const resolvedModules = modules && modules.length > 0 ? modules : ['module_e'];
+
       await this.jobService.createJob(session.id, userId, {
         jobType: 'CRAWL',
         config: {
@@ -34,7 +36,8 @@ export class SessionController {
           allowSubdomains,
           runAudits,
           auditDevice,
-          captureLinkDetails
+          captureLinkDetails,
+          modules: resolvedModules,
         }
       });
 

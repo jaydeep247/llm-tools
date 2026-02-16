@@ -9,7 +9,7 @@ import { CrawlLogger, DiscoveredPages, CrawlStatusHeader } from '@/components/cr
 import { SessionLayout } from '@/components/layout/SessionLayout'
 import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable } from '@/components/module_A'
 import { AIIntelligenceModule, ContentMetricsModule, AnswerCompletenessModule } from '@/components/module_C'
-import { AICitationRanking, SentimentTracking } from '@/components/module_E'
+import { AICitationRanking, SentimentTracking, ContentConsistencyEntityCoverage } from '@/components/module_E'
 // import { useGetDataListQuery, useCheckLinksMutation, useGetLinkStatsQuery, useLazyGetPageLinksQuery } from '@/store/api/module_A/dataApi'
 import { useGetProjectQuery } from '@/store/api/projectApi'
 import { useGetSessionQuery } from '@/store/api/sessionApi'
@@ -792,6 +792,9 @@ export default function SessionDetailPage() {
         {/* Show Module E on module-e tab */}
         {activeSection === 'module-e' && (
           <div className="space-y-6">
+            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+              <ContentConsistencyEntityCoverage jobId={jobId} />
+            </div>
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
               <AICitationRanking url={session?.startUrl || ''} />
             </div>

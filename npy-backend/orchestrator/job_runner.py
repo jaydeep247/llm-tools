@@ -6,6 +6,7 @@ from utils.storage import save_raw_html, save_job_response
 # Import Module Runners
 # We use absolute imports assuming we run from project root
 from modules.module_C.runner import run_module_c
+from modules.module_E.runner import run_module_e
 
 logger = logging.getLogger("job_runner")
 
@@ -24,6 +25,7 @@ class JobOrchestrator:
         self.module_registry = {
             "module_c": run_module_c,
             "aeo": run_module_c, # Alias
+            "module_e": run_module_e,
             # Future modules:
             # "module_b": run_module_b
         }

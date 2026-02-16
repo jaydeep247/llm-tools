@@ -112,7 +112,7 @@ export default function ProjectDetailPage() {
           jobType: 'CRAWL',
           config: {
             url: url.trim().startsWith('http') ? url.trim() : `https://${url.trim()}`,
-            modules: ['module_c'],
+            modules: ['module_c', 'module_e'],
             allowSubdomains,
             runAudits,
             auditDevice,

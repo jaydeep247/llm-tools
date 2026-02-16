@@ -1,0 +1,163 @@
+import json
+import logging
+import re
+from typing import Dict, Any, List
+from orchestrator.checkpoint.executor import execute_task
+
+logger = logging.getLogger("module_e_entity_coverage")
+
+
+def _safe_parse_json(raw: str) -> Dict[str, Any]:
+    if not raw:
+        return {}
+    if isinstance(raw, dict):
+        return raw
+    try:
+        return json.loads(raw)
+    except Exception:
+        start = raw.find("{")
+        end = raw.rfind("}")
+        if start >= 0 and end > start:
+            try:
+                return json.loads(raw[start : end + 1])
+            except Exception:
+                return {}
+        return {}
+
+
+class EntityCoverageModule:
+    """
+    Extracts expected entities from core content and compares with observed
+    entities in broader content to compute coverage.
+    """
+
+    async def generate_expected_entities(self, context: str) -> List[str]:
+        if not context or len(context.strip()) < 100:
+            return []
+
+        prompt = f"""
+Extract the key entities a user expects this website to cover.
+Return JSON only: {{"entities": ["..."]}}
+Rules:
+- Focus on products, services, brands, and core topics.
+- No generic words (e.g. "website", "service", "company").
+
+CONTENT:
+{context[:5000]}
+"""
+
+        logger.info("Expected entities request", extra={"context_len": len(context)})
+
+        resp = await execute_task(
+            task_name="module_e_expected_entities",
+            input_data={"messages": [{"role": "user", "content": prompt}]},
+            provider="openai",
+            options={
+                "model": "gpt-4o-mini",
+                "temperature": 0.2,
+                "response_format": {"type": "json_object"},
+            },
+        )
+
+        if not resp.success:
+            logger.warning("Expected entities LLM failed: %s", resp.error)
+            return []
+
+        try:
+            data = _safe_parse_json(resp.data)
+            entities = data.get("entities", []) if isinstance(data, dict) else []
+            normalized = self._normalize_entities(entities)
+            logger.info("Expected entities response", extra={"count": len(normalized)})
+            return normalized
+        except Exception as exc:
+            logger.warning("Failed to parse expected entities: %s", exc)
+            return []
+
+    async def extract_observed_entities(self, content: str) -> List[str]:
+        if not content or len(content.strip()) < 100:
+            return []
+
+        prompt = f"""
+From the content below, extract notable entities (products, services, brands, topics).
+Return JSON only: {{"entities": ["..."]}}
+
+CONTENT:
+{content[:8000]}
+"""
+
+        logger.info("Observed entities request", extra={"content_len": len(content)})
+
+        resp = await execute_task(
+            task_name="module_e_observed_entities",
+            input_data={"messages": [{"role": "user", "content": prompt}]},
+            provider="openai",
+            options={
+                "model": "gpt-4o-mini",
+                "temperature": 0.2,
+                "response_format": {"type": "json_object"},
+            },
+        )
+
+        if not resp.success:
+            logger.warning("Observed entities LLM failed: %s", resp.error)
+            return []
+
+        try:
+            data = _safe_parse_json(resp.data)
+            entities = data.get("entities", []) if isinstance(data, dict) else []
+            normalized = self._normalize_entities(entities)
+            logger.info("Observed entities response", extra={"count": len(normalized)})
+            return normalized
+        except Exception as exc:
+            logger.warning("Failed to parse observed entities: %s", exc)
+            return []
+
+    def compare(self, expected: List[str], observed: List[str]) -> Dict[str, Any]:
+        expected_set = {e.lower() for e in expected if e}
+        observed_set = {o.lower() for o in observed if o}
+
+        found = [e for e in expected if e.lower() in observed_set]
+        missing = [e for e in expected if e.lower() not in observed_set]
+
+        score = int(round((len(found) / len(expected_set)) * 100)) if expected_set else 0
+
+        result = {
+            "score": score,
+            "expected": expected,
+            "observed": observed,
+            "missing": missing,
+            "found": found,
+            "total_expected": len(expected_set),
+        }
+        logger.info(
+            "Entity coverage comparison",
+            extra={
+                "score": score,
+                "expected": len(expected),
+                "observed": len(observed),
+                "missing": len(missing),
+            },
+        )
+        return result
+
+    def _normalize_entities(self, entities: List[str]) -> List[str]:
+        cleaned: List[str] = []
+        for ent in entities or []:
+            if not isinstance(ent, str):
+                continue
+            val = ent.strip()
+            if not val or len(val) < 2:
+                continue
+            if re.search(r"\b(website|company|service|services|business)\b", val, re.I):
+                continue
+            cleaned.append(val)
+        # De-dupe while preserving order
+        seen = set()
+        result = []
+        for item in cleaned:
+            key = item.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            result.append(item)
+        return result
