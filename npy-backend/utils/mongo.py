@@ -58,6 +58,7 @@ class MongoManager:
             self._db.links.create_index("jobId")
             self._db.sitemaps.create_index("jobId")
             self._db.fields.create_index("jobId")
+            self._db.fields.create_index([("jobId", 1), ("url", 1)])
             self._db.job_summaries.create_index("jobId")
             
             logger.info("MongoDB indexes verified")
