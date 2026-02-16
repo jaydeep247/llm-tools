@@ -1,11 +1,14 @@
 import asyncio
 import logging
 from typing import Dict, List
+from bs4 import BeautifulSoup
 from .ai_presence import AIPresenceModule
 from .answerability import AnswerabilityModule
 from .knowledge_base import KnowledgeBaseModule
 from .competitor_analysis import CompetitorAnalysisModule
 from .llm_simulator import LlmSimulatorModule
+from .multi_model_insights import MultiModelInsights
+from .actionable_insights import ActionableInsightsModule
 from utils.storage import save_raw_html, load_raw_html
 
 logger = logging.getLogger("module_c")
@@ -20,6 +23,8 @@ class ModuleCRunner:
         self.knowledge_base = KnowledgeBaseModule()
         self.competitor = CompetitorAnalysisModule()
         self.llm_simulator = LlmSimulatorModule()
+        self.multi_model_insights = MultiModelInsights()
+        self.actionable_insights = ActionableInsightsModule()
 
     async def run(self, job_id: str, url: str, html_content: str = None, skip_save: bool = False, query: str = None) -> Dict:
         """
@@ -61,10 +66,11 @@ class ModuleCRunner:
             self.knowledge_base.run_analysis(html_content, url),
             self.competitor.analyze_competitors(url),
             self.llm_simulator.simulate_answer(query, html_content),
+            self.actionable_insights.run_analysis(html_content, url),
             return_exceptions=True
         )
         
-        ai_res, ans_res, kb_res, comp_res, sim_res = results
+        ai_res, ans_res, kb_res, comp_res, sim_res, actionable_insights_res = results
 
         # Handle exceptions in results
         ai_res = ai_res if isinstance(ai_res, dict) else {"score": 0, "error": str(ai_res)}
@@ -73,7 +79,23 @@ class ModuleCRunner:
         comp_res = comp_res if isinstance(comp_res, dict) else {"score": 0, "error": str(comp_res)}
         sim_res = sim_res if isinstance(sim_res, dict) else {"error": str(sim_res)}
 
-        # 4. Final Aggregation
+        # 4. Multi-Model Insights (Comparison analysis)
+        multi_model_insights_res = {}
+        if "simulations" in sim_res:
+            # Extract raw answers for comparison
+            responses = {}
+            for provider, data in sim_res["simulations"].items():
+                if isinstance(data, dict) and "answer" in data:
+                    responses[provider] = data["answer"]
+            
+            if responses:
+                multi_model_insights_res = self.multi_model_insights.perform_analysis(responses)
+
+        # Handle exceptions for actionable insights
+        actionable_insights_res = actionable_insights_res if isinstance(actionable_insights_res, dict) else {"error": str(actionable_insights_res)}
+        multi_model_insights_res = multi_model_insights_res if isinstance(multi_model_insights_res, dict) else {"error": str(multi_model_insights_res)}
+
+        # 5. Final Aggregation
         overall_score = (
             (ai_res.get('score', 0) * 0.25) +
             (ans_res.get('score', 0) * 0.25) +
@@ -91,7 +113,9 @@ class ModuleCRunner:
                 "answerability": ans_res,
                 "knowledge_base": kb_res,
                 "competitor_analysis": comp_res,
-                "llm_simulator": sim_res
+                "llm_simulator": sim_res,
+                "multi_model_insights": multi_model_insights_res,
+                "actionable_insights": actionable_insights_res
             }
         }
     

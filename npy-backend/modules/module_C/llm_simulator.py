@@ -3,6 +3,7 @@ import logging
 import asyncio
 from typing import Dict, List, Any
 from orchestrator.checkpoint.executor import execute_task
+from .multi_model_insights import MultiModelInsights
 
 class LlmSimulatorModule:
     """
@@ -16,6 +17,7 @@ class LlmSimulatorModule:
             'gemini': 'gemini-2.0-flash',
             'claude': 'claude-3-5-sonnet-20241022'
         }
+        self.insights = MultiModelInsights()
 
     async def simulate_answer(self, query: str, content: str) -> Dict[str, Any]:
         """
@@ -31,18 +33,19 @@ class LlmSimulatorModule:
         # 2. Evaluate Accuracy and Completeness for each answer
         evaluations = await self._evaluate_accuracy_completeness(query, content, answers)
         
-        # 3. Calculate Cross-Model Consistency
-        consistency = await self._calculate_cross_model_consistency(query, answers)
+        # 3. Perform detailed multi-model insights analysis (Variation, Gaps, Scores)
+        insights_res = self.insights.perform_analysis(answers)
         
         # 4. Construct Final Response
         results = {
             "query": query,
             "simulations": {},
             "cross_model_metrics": {
-                "consistency_score": consistency.get("consistency_score", 0),
-                "consensus_summary": consistency.get("summary", ""),
-                "agreements": consistency.get("agreements", []),
-                "disagreements": consistency.get("disagreements", [])
+                "consistency_score": insights_res.get("agreement", {}).get("outcome_level", {}).get("score", 0) * 100,
+                "variation_analysis": insights_res.get("agreement", {}),
+                "coverage_gaps": insights_res.get("coverage_gaps", []),
+                "claim_matrix": insights_res.get("claim_matrix", []),
+                "model_scores": insights_res.get("scores", {})
             }
         }
         
@@ -148,43 +151,3 @@ class LlmSimulatorModule:
                     evaluations[name] = {"accuracy_score": 0, "completeness_score": 0, "explanation": "Failed to parse evaluation"}
         
         return evaluations
-
-    async def _calculate_cross_model_consistency(self, query: str, answers: Dict[str, str]) -> Dict[str, Any]:
-        """Compares answers across models to measure consistency and consensus."""
-        valid_answers = {p: a for p, a in answers.items() if "Error:" not in a}
-        if len(valid_answers) < 2:
-            return {"consistency_score": 100, "summary": "Insufficient data for comparison", "agreements": [], "disagreements": []}
-
-        compare_prompt = f"""
-        Compare these 3 AI-generated answers for the query: "{query}".
-        Identify what they agree on (consensus) and where they disagree.
-        Rate their overall consistency.
-        
-        Answers:
-        1. OpenAI: {valid_answers.get('openai', 'N/A')}
-        2. Gemini: {valid_answers.get('gemini', 'N/A')}
-        3. Claude: {valid_answers.get('claude', 'N/A')}
-        
-        Return JSON ONLY:
-        {{
-            "consistency_score": 0-100,
-            "summary": "Short overview of consistency",
-            "agreements": ["list of facts they all agree on"],
-            "disagreements": ["list of areas where they differ"]
-        }}
-        """
-
-        resp = await execute_task(
-            task_name="aeo_calculate_answer_consistency",
-            input_data={"messages": [{"role": "user", "content": compare_prompt}]},
-            provider="openai",
-            options={"model": "gpt-4o-mini", "response_format": {"type": "json_object"}}
-        )
-
-        if resp.success:
-            try:
-                return json.loads(resp.data)
-            except:
-                pass
-        
-        return {"consistency_score": 0, "summary": "Consistency analysis failed", "agreements": [], "disagreements": []}
