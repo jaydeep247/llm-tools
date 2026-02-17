@@ -36,6 +36,7 @@ class JobPoller:
         url = config_data.get('url')
         session_data = job.get('session', {})
         project_id = session_data.get('projectId')
+        job_type = job.get('jobType') or job.get('job_type')
 
         if not url:
             logger.error(f"Job {job_id} is missing 'url' in config. Cannot start.")
@@ -51,7 +52,36 @@ class JobPoller:
                 logger.warning(f"Could not claim job {job_id} (already taken or error)")
                 return
 
-            # 2. Prepare Crawler Command
+            # 2. Handle analysis-only jobs (skip crawler)
+            if job_type and job_type != 'CRAWL':
+                modules = config_data.get('modules', [])
+                source_job_id = config_data.get('sourceJobId') or job_id
+
+                if not modules:
+                    await self.api_client.fail_job(job_id, "No modules provided for analysis job")
+                    return
+
+                logger.info(
+                    f"Running analysis job {job_id} for source job {source_job_id} with modules: {modules}"
+                )
+
+                try:
+                    from orchestrator.job_runner import execute_job
+                    result = await execute_job(
+                        job_id=source_job_id,
+                        url=url,
+                        html_content=None,
+                        modules=modules
+                    )
+                    if not result or not result.get("success", True):
+                        await self.api_client.fail_job(job_id, result.get("error", "Analysis failed"))
+                        return
+                    await self.api_client.complete_job(job_id)
+                except Exception as e:
+                    await self.api_client.fail_job(job_id, str(e))
+                return
+
+            # 3. Prepare Crawler Command
             cmd = [
                 sys.executable,
                 "workers/crawl_worker/crawler.py",

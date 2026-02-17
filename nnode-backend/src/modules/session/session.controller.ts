@@ -27,7 +27,7 @@ export class SessionController {
       const session = await this.sessionService.createSession(projectId, userId);
 
       // Create crawl job
-      const resolvedModules = modules && modules.length > 0 ? modules : ['module_e'];
+      const resolvedModules = modules && modules.length > 0 ? modules : [];
 
       await this.jobService.createJob(session.id, userId, {
         jobType: 'CRAWL',

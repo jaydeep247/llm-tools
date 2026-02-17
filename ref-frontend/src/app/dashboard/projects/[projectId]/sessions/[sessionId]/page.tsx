@@ -44,8 +44,13 @@ export default function SessionDetailPage() {
   // The backend might return them in a specific order, but let's be safe.
   // Actually, let's just take the last created job for now.
   const jobs = jobsData?.data || []
-  const latestJob = jobs.length > 0 ? jobs[0] : null // Assuming API returns newest first or we sort
-  const jobId = latestJob?.id
+  const sortedJobs = [...jobs].sort((a, b) => {
+    const aTime = new Date(a.createdAt).getTime()
+    const bTime = new Date(b.createdAt).getTime()
+    return bTime - aTime
+  })
+  const latestCrawlJob = sortedJobs.find((job) => job.jobType === 'CRAWL') || null
+  const jobId = latestCrawlJob?.id
 
   // Fetch results for the job using granular endpoints
   // We can use the same limit/page logic or default to fetch all (or a large page) for now 

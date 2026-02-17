@@ -19,6 +19,11 @@ pydantic==2.6.1
 pydantic-settings==2.2.1
 
 # =========================
+# Development - Auto Reload
+# =========================
+watchfiles==0.21.0
+
+# =========================
 # Job Orchestration Utilities
 # =========================
 tenacity==8.2.3

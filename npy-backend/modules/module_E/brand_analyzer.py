@@ -62,7 +62,7 @@ class BrandAnalyzer:
             response = await execute_task(
                 task_name="module_e_brand_analysis",
                 input_data={
-                    "endpoint": "/content/phrase_trend/live",
+                    "endpoint": "/content_analysis/phrase_trends/live",
                     "payload": payload
                 },
                 provider="dataforseo"
@@ -75,28 +75,78 @@ class BrandAnalyzer:
                 )
                 return BrandAnalyzer._empty_result(brand_name)
 
-            # Process response
+            # Process response - ADD DETAILED DEBUGGING
             data = response.data
-            if not data or 'tasks' not in data or not data['tasks']:
-                logger.warning(
-                    "Brand analysis no data from DataForSEO",
-                    extra={"brand_name": brand_name}
-                )
+            
+            # Log the full response structure for debugging
+            print("\n" + "="*80)
+            print("🔍 DATAFORSEO FULL RESPONSE DEBUG")
+            print("="*80)
+            print(f"Brand: {brand_name}")
+            print(f"Response Type: {type(data).__name__}")
+            print(f"Response Keys: {list(data.keys()) if isinstance(data, dict) else 'NOT_A_DICT'}")
+            print(f"Full Response:")
+            import json
+            print(json.dumps(data, indent=2, default=str))
+            print("="*80 + "\n")
+            
+            if not data:
+                logger.warning("❌ DataForSEO response.data is None or empty")
                 return BrandAnalyzer._empty_result(brand_name)
+            
+            if 'tasks' not in data:
+                print(f"❌ DataForSEO response missing 'tasks' key. Available keys: {list(data.keys())}")
+                return BrandAnalyzer._empty_result(brand_name)
+            
+            if not data['tasks']:
+                print(f"❌ DataForSEO 'tasks' array is empty. Full data: {data}")
+                return BrandAnalyzer._empty_result(brand_name)
+            
+            # Log the tasks structure
+            logger.info(
+                "✅ DataForSEO tasks found",
+                extra={
+                    "brand_name": brand_name,
+                    "tasks_count": len(data['tasks']),
+                    "first_task_keys": list(data['tasks'][0].keys()) if data['tasks'] else [],
+                    "first_task": data['tasks'][0] if data['tasks'] else None
+                }
+            )
 
             try:
                 items = data['tasks'][0].get('result', [])
+                
+                logger.info(
+                    "🔍 DataForSEO result extraction",
+                    extra={
+                        "brand_name": brand_name,
+                        "result_type": type(items).__name__,
+                        "result_length": len(items) if isinstance(items, list) else "NOT_A_LIST",
+                        "result_preview": items[:2] if isinstance(items, list) and items else items
+                    }
+                )
+                
                 if not items:
                     logger.warning(
-                        "Brand analysis no items in result",
-                        extra={"brand_name": brand_name}
+                        "❌ Brand analysis - 'result' array is empty",
+                        extra={
+                            "brand_name": brand_name,
+                            "task_content": data['tasks'][0]
+                        }
                     )
                     return BrandAnalyzer._empty_result(brand_name)
 
                 return BrandAnalyzer._aggregate_brand_data(brand_name, items, start_date)
 
             except Exception as e:
-                logger.exception("Error processing brand analysis result: %s", e)
+                logger.exception(
+                    "❌ Error processing brand analysis result",
+                    extra={
+                        "brand_name": brand_name,
+                        "error": str(e),
+                        "error_type": type(e).__name__
+                    }
+                )
                 return BrandAnalyzer._empty_result(brand_name)
 
         except Exception as e:
@@ -108,6 +158,17 @@ class BrandAnalyzer:
         """
         Aggregate monthly data into brand metrics.
         """
+        logger.info(
+            "🔍 Starting brand data aggregation",
+            extra={
+                "brand_name": brand_name,
+                "items_count": len(items),
+                "start_date": start_date.strftime("%Y-%m-%d"),
+                "first_item_keys": list(items[0].keys()) if items else [],
+                "first_item_sample": items[0] if items else None
+            }
+        )
+        
         total_mentions = 0
         history = []
         sentiment_counts = {"positive": 0, "negative": 0, "neutral": 0}
@@ -125,8 +186,8 @@ class BrandAnalyzer:
                     except:
                         pass
 
-                # Total mentions
-                count = item.get("search_volume", 0)
+                # Total mentions (DataForSEO Content Analysis uses 'total_count')
+                count = item.get("total_count", 0)
                 total_mentions += count
 
                 # Frequency trend
@@ -179,6 +240,14 @@ class BrandAnalyzer:
             "frequency_trend": sorted(history, key=lambda x: x.get("date", "")),
             "top_sources": [{"domain": d} for d in list(domain_set)[:5]]
         }
+
+        # Debug output
+        print("\n" + "="*80)
+        print("✅ BRAND ANALYSIS AGGREGATION COMPLETE")
+        print("="*80)
+        import json
+        print(json.dumps(result, indent=2))
+        print("="*80 + "\n")
 
         logger.info(
             "Brand analysis aggregation complete",
