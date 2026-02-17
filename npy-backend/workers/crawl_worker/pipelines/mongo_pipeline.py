@@ -81,10 +81,16 @@ class MongoPipeline:
                 {'$set': summary_doc},
                 upsert=True
             )
-            logger.info(f"Job {self.job_id} complete. Summary: {self.total_counts['pages']} pages, {self.total_counts['links']} links.")
+            logger.info(
+                f"Job {self.job_id} complete. Pages: {self.total_counts['pages']}, "
+                f"Links: {self.total_counts['links']}, "
+                f"Sitemaps: {self.total_counts['sitemaps']}, "
+                f"Fields: {self.total_counts['fields']}"
+            )
             
         except Exception as e:
-            logger.error(f"Error finalizing job {self.job_id} in MongoDB: {e}")
+            error_type = type(e).__name__
+            logger.error(f"Error finalizing job {self.job_id} in MongoDB ({error_type})")
         finally:
             mongo_manager.close()
 
@@ -145,5 +151,6 @@ class MongoPipeline:
             collection.insert_many(buffer, ordered=False)
             self.buffers[item_type] = []
         except Exception as e:
-            logger.error(f"Failed to flush {item_type} buffer for Job {self.job_id}: {e}")
+            error_type = type(e).__name__
+            logger.error(f"Failed to flush {item_type} buffer for Job {self.job_id} ({error_type})")
             self.buffers[item_type] = [] # Clear even on error to prevent memory bloat

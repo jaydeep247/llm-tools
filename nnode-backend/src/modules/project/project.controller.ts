@@ -22,7 +22,7 @@ export class ProjectController {
       const project = await this.projectService.createProject(userId, data);
       return ResponseUtil.created(res, 'Project created successfully', project);
     } catch (error: any) {
-      logger.error('Error creating project:', error);
+      logger.error(`Error creating project: ${error.message}`);
       if (error.message.includes('Limit exceeded')) {
         return ResponseUtil.error(res, error.message, undefined, 403);
       }
@@ -58,7 +58,7 @@ export class ProjectController {
       const project = await this.projectService.getProjectById(id, userId);
       return ResponseUtil.success(res, 'Project retrieved successfully', project);
     } catch (error: any) {
-      logger.error('Error getting project:', error);
+      logger.error(`Error getting projects: ${error.message}`);
       if (error.message.includes('not found') || error.message.includes('access denied')) {
         return ResponseUtil.notFound(res, error.message);
       }
@@ -78,7 +78,7 @@ export class ProjectController {
       const project = await this.projectService.updateProject(id, userId, data);
       return ResponseUtil.success(res, 'Project updated successfully', project);
     } catch (error: any) {
-      logger.error('Error updating project:', error);
+      logger.error(`Error updating project: ${error.message}`);
       if (error.message.includes('not found') || error.message.includes('access denied')) {
         return ResponseUtil.notFound(res, error.message);
       }
@@ -100,7 +100,7 @@ export class ProjectController {
       const project = await this.projectService.archiveProject(id, userId);
       return ResponseUtil.success(res, 'Project archived successfully', project);
     } catch (error: any) {
-      logger.error('Error archiving project:', error);
+      logger.error(`Error archiving project: ${error.message}`);
       if (error.message.includes('not found') || error.message.includes('access denied')) {
         return ResponseUtil.notFound(res, error.message);
       }

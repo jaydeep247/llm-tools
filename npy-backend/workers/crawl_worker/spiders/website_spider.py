@@ -64,7 +64,7 @@ class WebsiteSpider(scrapy.Spider):
         'AUTOTHROTTLE_MAX_DELAY': 5,
         'AUTOTHROTTLE_TARGET_CONCURRENCY': 20, # Increased from 16
         'REACTOR_THREADPOOL_MAXSIZE': 32,
-        'LOG_LEVEL': 'INFO',
+        'LOG_LEVEL': 'WARNING',
         'RETRY_ENABLED': True,
         'RETRY_TIMES': 1,            # 1 retry only
         'ITEM_PIPELINES': {
@@ -327,9 +327,6 @@ class WebsiteSpider(scrapy.Spider):
         request_id = id(response.request)
         start_time = self.request_start_times.get(request_id, datetime.now().timestamp())
         
-        # Log progress
-        logger.info(f"Crawling {self.pages_crawled + 1} / {self.links_collected} (approx): {response.url}")
-        
         # Calculate crawl depth
         crawl_depth = response.meta.get('depth', 0)
         
@@ -503,6 +500,7 @@ class WebsiteSpider(scrapy.Spider):
         
         yield page_item
         self.pages_crawled += 1
+        logger.info(f"Completed page {self.pages_crawled} (approx total discovered: {self.links_collected}) - {response.url}")
         
         # Check if we should stop crawling
         if self.max_pages > 0 and self.pages_crawled >= self.max_pages:
@@ -596,6 +594,7 @@ class WebsiteSpider(scrapy.Spider):
     
     def closed(self, reason):
         """Called when spider closes"""
-        logger.info(f"Spider closed: {reason}")
-        logger.info(f"Pages crawled: {self.pages_crawled}")
-        logger.info(f"Links collected: {self.links_collected}")
+        logger.info(
+            f"Crawl finished for {self.start_url} - reason: {reason}. "
+            f"Pages crawled: {self.pages_crawled}, links discovered: {self.links_collected}"
+        )

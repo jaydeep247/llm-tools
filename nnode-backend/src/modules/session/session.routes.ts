@@ -8,17 +8,16 @@ const sessionController = new SessionController();
 // All session routes require authentication
 router.use(authMiddleware);
 
-// Create session in a project
 router.post('/projects/:projectId/sessions', sessionController.createSession);
-
-// Start a crawl session (create session + job)
-router.post('/projects/:projectId/crawl', sessionController.startCrawl);
 
 // Get all sessions for a project
 router.get('/projects/:projectId/sessions', sessionController.getProjectSessions);
 
 // Get session by ID
 router.get('/sessions/:id', sessionController.getSessionById);
+
+// Get session runtime status
+router.get('/sessions/:id/status', sessionController.getSessionRuntimeStatus);
 
 // Update session status
 router.put('/sessions/:id', sessionController.updateSessionStatus);

@@ -25,8 +25,8 @@ export const connectToMongo = async (): Promise<Db> => {
     db = client.db(env.MONGO_DB_NAME);
     logger.info('✅ Connected to MongoDB');
     return db;
-  } catch (error) {
-    logger.error('❌ MongoDB connection error:', error);
+  } catch (error: any) {
+    logger.error(`❌ MongoDB connection error: ${error?.message || String(error)}`);
     throw error;
   }
 };

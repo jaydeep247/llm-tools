@@ -85,7 +85,8 @@ async def save_job_response(job_id: str, data: dict) -> str:
         
     except Exception as e:
         from utils.logger import logger
-        logger.error(f"Failed to save to MongoDB: {str(e)}")
+        error_type = type(e).__name__
+        logger.error(f"Failed to save to MongoDB ({error_type})")
         raise e
 
 def get_raw_html_path(job_id: str) -> str:

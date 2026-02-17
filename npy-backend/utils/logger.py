@@ -18,11 +18,14 @@ def configure_logger():
         cache_logger_on_first_use=False,
     )
     
-    # Configure standard logging to intercept standard library logs
     logging.basicConfig(
         format="%(message)s",
         stream=sys.stdout,
         level=logging.INFO,
     )
+    
+    logging.getLogger("scrapy.core.scraper").setLevel(logging.CRITICAL)
+    logging.getLogger("scrapy").setLevel(logging.CRITICAL)
+    logging.getLogger("pymongo").setLevel(logging.CRITICAL)
 
 logger = structlog.get_logger()

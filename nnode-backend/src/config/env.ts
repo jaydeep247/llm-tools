@@ -32,6 +32,10 @@ const envSchema = z.object({
   // MongoDB
   MONGO_URI: z.string().url().default('mongodb://localhost:27017'),
   MONGO_DB_NAME: z.string().default('seo_crawler'),
+
+  // Messaging
+  RABBITMQ_URL: z.string().default('amqp://admin:admin@localhost:5672'),
+  REDIS_URL: z.string().default('redis://localhost:6379'),
 });
 
 // Validate and export environment variables

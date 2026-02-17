@@ -38,7 +38,8 @@ class MongoManager:
                 # Ensure indexes on startup
                 self._ensure_indexes()
             except Exception as e:
-                logger.error(f"Failed to connect to MongoDB: {e}")
+                error_type = type(e).__name__
+                logger.error(f"Failed to connect to MongoDB ({error_type})")
                 raise e
     
     def _ensure_indexes(self):
@@ -93,6 +94,7 @@ class MongoManager:
         if self._client:
             self._client.close()
             self._client = None
+            self._db = None
             logger.info("MongoDB connection closed")
 
 # Global instance

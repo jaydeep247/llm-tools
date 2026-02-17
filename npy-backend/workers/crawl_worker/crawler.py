@@ -4,8 +4,8 @@ import argparse
 import asyncio
 import time
 from datetime import datetime
+import logging
 
-# Add project root to Python path to allow imports from workers.*
 sys.path.append(os.getcwd())
 
 from scrapy.crawler import CrawlerProcess
@@ -26,13 +26,13 @@ def main():
 
     args = parser.parse_args()
 
-    # Configure logging
     configure_logging()
     logger.info(f"Starting crawl job {args.job_id} for {args.url}")
 
     # Initialize CrawlerProcess
     process = CrawlerProcess(settings={
-        'LOG_LEVEL': 'WARNING',
+        'LOG_ENABLED': False,
+        'LOG_LEVEL': 'ERROR',
         'LOG_FORMAT': '%(asctime)s [%(name)s] %(levelname)s: %(message)s',
         'MONGO_URI': config.MONGO_URI,
         'MONGO_DATABASE': config.MONGO_DB_NAME,
@@ -71,7 +71,8 @@ def main():
         )
 
     except Exception as e:
-        logger.error(f"Crawl failed with exception: {e}")
+        error_type = type(e).__name__
+        logger.error(f"Crawl failed with exception ({error_type})")
         sys.exit(1)
 
 if __name__ == "__main__":

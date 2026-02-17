@@ -67,23 +67,6 @@ export const sessionApi = baseApi.injectEndpoints({
       providesTags: (result, error, sessionId) => [{ type: 'Session', id: sessionId }],
     }),
 
-    // Start a new crawl
-    startCrawl: builder.mutation<SessionResponse, StartCrawlRequest>({
-      query: (data) => ({
-        url: `/projects/${data.projectId}/crawl`,
-        method: 'POST',
-        body: data,
-      }),
-      transformResponse: (response: { success: boolean; data: CrawlSession }) => ({
-        success: response.success,
-        session: response.data,
-      }),
-      invalidatesTags: (result, error, { projectId }) => [
-        { type: 'Project', id: projectId },
-        'Session',
-      ],
-    }),
-
     // Create a new session (Step 1)
     createSession: builder.mutation<SessionResponse, string>({
       query: (projectId) => ({
@@ -121,7 +104,6 @@ export const {
   useGetProjectSessionsQuery,
   useLazyGetProjectSessionsQuery,
   useGetSessionQuery,
-  useStartCrawlMutation,
   useCreateSessionMutation,
   useCreateJobMutation,
 } = sessionApi;

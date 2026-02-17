@@ -34,6 +34,7 @@ export const jobApi = baseApi.injectEndpoints({
       string
     >({
       query: (sessionId) => `/sessions/${sessionId}/jobs`,
+      transformResponse: (response: { success: boolean; data: Job[] }) => response,
       providesTags: (result, error, sessionId) => [
         { type: 'Session', id: sessionId },
         'Job',
@@ -43,27 +44,37 @@ export const jobApi = baseApi.injectEndpoints({
     // Get crawl results for a job
     getJobResults: builder.query<CrawlResult, string>({
       query: (jobId) => `/jobs/${jobId}/results`,
+      transformResponse: (response: { success: boolean; data: CrawlResult }) =>
+        response.data,
       providesTags: (result, error, jobId) => [{ type: 'Job', id: jobId }],
     }),
 
     // Granular endpoints
     getJobPages: builder.query<{ data: any[], pagination: any }, { jobId: string, page?: number, limit?: number }>({
       query: ({ jobId, page = 1, limit = 100 }) => `/jobs/${jobId}/results/pages?page=${page}&limit=${limit}`,
+      transformResponse: (response: { success: boolean; data: { data: any[]; pagination: any } }) =>
+        response.data,
       providesTags: (result, error, { jobId }) => [{ type: 'Job', id: jobId }],
     }),
 
     getJobLinks: builder.query<{ data: any[], pagination: any }, { jobId: string, page?: number, limit?: number }>({
       query: ({ jobId, page = 1, limit = 100 }) => `/jobs/${jobId}/results/links?page=${page}&limit=${limit}`,
+      transformResponse: (response: { success: boolean; data: { data: any[]; pagination: any } }) =>
+        response.data,
       providesTags: (result, error, { jobId }) => [{ type: 'Job', id: jobId }],
     }),
 
     getJobSitemaps: builder.query<{ data: any[] }, string>({
       query: (jobId) => `/jobs/${jobId}/results/sitemaps`,
+      transformResponse: (response: { success: boolean; data: { data: any[] } }) =>
+        response.data,
       providesTags: (result, error, jobId) => [{ type: 'Job', id: jobId }],
     }),
 
     getJobFields: builder.query<{ data: any[] }, string>({
       query: (jobId) => `/jobs/${jobId}/results/fields`,
+      transformResponse: (response: { success: boolean; data: { data: any[] } }) =>
+        response.data,
       providesTags: (result, error, jobId) => [{ type: 'Job', id: jobId }],
     }),
   }),

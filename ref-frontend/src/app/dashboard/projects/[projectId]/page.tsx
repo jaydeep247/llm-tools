@@ -59,6 +59,12 @@ export default function ProjectDetailPage() {
   const project = projectData.project
   const sessions = sessionsData?.sessions || []
 
+  const normalizeUrl = (value: string) => {
+    const trimmed = value.trim()
+    if (!trimmed) return trimmed
+    return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+  }
+
   const getStatusColor = (status: string) => {
     const s = status.toLowerCase()
     switch (s) {
@@ -105,19 +111,17 @@ export default function ProjectDetailPage() {
       const sessionResult = await createSession(projectId).unwrap()
       const sessionId = sessionResult.session.id
 
+       const normalizedUrl = normalizeUrl(url)
+
       // Step 2: Create job
       await createJob({
         sessionId,
         data: {
-          jobType: 'CRAWL',
-          config: {
-            url: url.trim().startsWith('http') ? url.trim() : `https://${url.trim()}`,
-            modules: ['module_c'],
-            allowSubdomains,
-            runAudits,
-            auditDevice,
-            captureLinkDetails,
-          }
+          url: normalizedUrl,
+          allowSubdomains,
+          runAudits,
+          auditDevice,
+          captureLinkDetails,
         }
       }).unwrap()
 

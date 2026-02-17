@@ -33,7 +33,7 @@ export class UserController {
       const user = await this.userService.getUserById(id);
       return ResponseUtil.success(res, 'User retrieved successfully', user);
     } catch (error: any) {
-      logger.error('Error getting user:', error);
+      logger.error(`Error getting users: ${error.message}`);
       if (error.message === 'User not found') {
         return ResponseUtil.notFound(res, error.message);
       }
@@ -51,7 +51,7 @@ export class UserController {
       const user = await this.userService.updateUser(id, data);
       return ResponseUtil.success(res, 'User updated successfully', user);
     } catch (error: any) {
-      logger.error('Error updating user:', error);
+      logger.error(`Error updating user: ${error.message}`);
       if (error.message === 'User not found') {
         return ResponseUtil.notFound(res, error.message);
       }
@@ -71,7 +71,7 @@ export class UserController {
       const user = await this.userService.deleteUser(id);
       return ResponseUtil.success(res, 'User deleted successfully', user);
     } catch (error: any) {
-      logger.error('Error deleting user:', error);
+      logger.error(`Error deleting user: ${error.message}`);
       if (error.message === 'User not found') {
         return ResponseUtil.notFound(res, error.message);
       }

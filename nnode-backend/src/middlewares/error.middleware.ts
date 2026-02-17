@@ -9,7 +9,7 @@ export const errorMiddleware = (
   res: Response,
   _next: NextFunction
 ): void => {
-  logger.error('Error:', error);
+  logger.error(`Error: ${error.message}`);
 
   // Zod validation errors
   if (error instanceof ZodError) {

@@ -25,7 +25,7 @@ export class AuthController {
 
       return ResponseUtil.created(res, 'User registered successfully', result);
     } catch (error: any) {
-      logger.error('Signup error:', error);
+      logger.error(`Signup error: ${error.message}`);
       if (error.message === 'User with this email already exists') {
         return ResponseUtil.error(res, error.message, undefined, 409);
       }
@@ -49,7 +49,7 @@ export class AuthController {
 
       return ResponseUtil.success(res, 'Login successful', result);
     } catch (error: any) {
-      logger.error('Login error:', error);
+      logger.error(`Login error: ${error.message}`);
       if (error.message === 'Invalid credentials') {
         return ResponseUtil.unauthorized(res, error.message);
       }
@@ -77,9 +77,6 @@ export class AuthController {
   /**
    * Get current user
    */
-  /**
-   * Get current user
-   */
   getCurrentUser = async (req: Request, res: Response): Promise<Response> => {
     try {
       const userId = req.user?.userId;
@@ -89,8 +86,12 @@ export class AuthController {
 
       const user = await this.authService.getUserProfile(userId);
       return ResponseUtil.success(res, 'User retrieved successfully', user);
-    } catch (error) {
-      logger.error('Get current user error:', error);
+    } catch (error: any) {
+      logger.error(`Get current user error: ${error.message}`);
+      if (error instanceof Error && error.message === 'User not found') {
+        res.clearCookie(COOKIE_NAME);
+        return ResponseUtil.unauthorized(res, 'User not found');
+      }
       return ResponseUtil.serverError(res, 'Failed to retrieve user');
     }
   };

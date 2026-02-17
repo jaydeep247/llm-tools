@@ -6,7 +6,7 @@ import { ArrowRight, TrendingUp, Users, Zap, FolderOpen, Search, Loader2 } from 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useGetProjectsQuery } from '@/store/api/projectApi'
-import { useStartCrawlMutation } from '@/store/api/sessionApi'
+import { useCreateSessionMutation, useCreateJobMutation } from '@/store/api/sessionApi'
 import { useToast } from '@/hooks/use-toast'
 import { AuthModal } from '@/components/auth/auth-modal'
 import { ProjectSelectorDialog } from '@/components/dashboard/ProjectSelectorDialog'
@@ -16,7 +16,8 @@ export default function DashboardPage() {
   const router = useRouter()
   const { toast } = useToast()
   const { isAuthenticated, refreshAuth } = useAuth()
-  const [startCrawl, { isLoading: isCrawling }] = useStartCrawlMutation()
+  const [createSession, { isLoading: isCreatingSession }] = useCreateSessionMutation()
+  const [createJob, { isLoading: isCreatingJob }] = useCreateJobMutation()
   const { data: projectsData } = useGetProjectsQuery()
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
   const [isProjectSelectorOpen, setIsProjectSelectorOpen] = useState(false)
@@ -41,13 +42,18 @@ export default function DashboardPage() {
 
   const handleProjectSelect = async (projectId: string) => {
     try {
-      const result = await startCrawl({
-        projectId: projectId,
-        url: pendingUrl,
-        allowSubdomains: true,
-        runAudits: false,
-        auditDevice: 'desktop',
-        captureLinkDetails: true,
+      const sessionResult = await createSession(projectId).unwrap()
+      const sessionId = sessionResult.session.id
+
+      await createJob({
+        sessionId,
+        data: {
+          url: pendingUrl,
+          allowSubdomains: true,
+          runAudits: false,
+          auditDevice: 'desktop',
+          captureLinkDetails: true,
+        },
       }).unwrap()
 
       toast({
@@ -55,10 +61,7 @@ export default function DashboardPage() {
         description: `Successfully started crawling ${pendingUrl}`,
       })
 
-      // Navigate to the session progress page if sessionId is returned
-      if (result.session?.id) {
-        router.push(`/dashboard/projects/${projectId}/sessions/${result.session.id}/progress`)
-      }
+      router.push(`/dashboard/projects/${projectId}/sessions/${sessionId}/progress`)
     } catch (error: any) {
       toast({
         title: 'Failed to Start Crawl',
@@ -77,6 +80,7 @@ export default function DashboardPage() {
   }
 
   const totalProjects = projectsData?.projects?.length || 0
+  const isCrawling = isCreatingSession || isCreatingJob
 
   return (
     <div className="space-y-4 sm:space-y-6 md:space-y-8 animate-fade-in-hero">
