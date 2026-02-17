@@ -27,6 +27,8 @@ def main():
     args = parser.parse_args()
 
     configure_logging()
+    logging.getLogger("scrapy.core.scraper").disabled = True
+    logging.getLogger("scrapy").disabled = True
     logger.info(f"Starting crawl job {args.job_id} for {args.url}")
 
     # Initialize CrawlerProcess

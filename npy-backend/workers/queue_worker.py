@@ -16,6 +16,8 @@ from workers.crawl_worker.spiders.website_spider import WebsiteSpider
 
 def run_crawl_job(url: str, session_id: str, job_id: str, project_id: str) -> None:
     configure_logging()
+    logging.getLogger("scrapy.core.scraper").disabled = True
+    logging.getLogger("scrapy").disabled = True
     logger.info(f"Starting crawl job {job_id} for {url}")
 
     process = CrawlerProcess(
