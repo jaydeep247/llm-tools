@@ -4,7 +4,6 @@ import authRoutes from './modules/auth/auth.routes';
 import userRoutes from './modules/user/user.routes';
 import projectRoutes from './modules/project/project.routes';
 import sessionRoutes from './modules/session/session.routes';
-import jobRoutes from './modules/job/job.routes';
 
 const router = Router();
 
@@ -21,7 +20,6 @@ router.get('/health', (_req, res) => {
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
 router.use('/projects', projectRoutes);
-router.use('/', jobRoutes); // Job routes (Must be before session routes to avoid auth conflict)
 router.use('/', sessionRoutes); // Session routes are nested under projects
 
 export default router;

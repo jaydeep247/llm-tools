@@ -1,4 +1,16 @@
-import { Project, ProjectStatus } from '@prisma/client';
+export enum ProjectStatus {
+  ACTIVE = 'ACTIVE',
+  ARCHIVED = 'ARCHIVED',
+}
+
+export interface Project {
+  id: string;
+  userId: string;
+  name: string;
+  status: ProjectStatus;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export type ProjectResponse = Project;
 
@@ -8,7 +20,7 @@ export interface CreateProjectDto {
 
 export interface UpdateProjectDto {
   name?: string;
-  status?: ProjectStatus;
+  status?: 'ACTIVE' | 'ARCHIVED';
 }
 
 export interface ProjectFilters {

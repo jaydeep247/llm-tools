@@ -1,7 +1,16 @@
-import { User } from '@prisma/client';
 import { UserRole } from '../../shared/constants/roles';
 
-export type UserResponse = Omit<User, 'password'>;
+export interface UserEntity {
+  id: string;
+  email: string;
+  password: string;
+  name: string;
+  role: UserRole;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type UserResponse = Omit<UserEntity, 'password'>;
 
 export interface CreateUserDto {
   email: string;

@@ -1,5 +1,5 @@
 import { ProjectRepository } from './project.repository';
-import { CreateProjectDto, UpdateProjectDto, ProjectResponse, ProjectWithSessionCount } from './project.types';
+import { CreateProjectDto, UpdateProjectDto, ProjectResponse, ProjectWithSessionCount, ProjectStatus } from './project.types';
 import { LimitsService } from '../limits/limits.service';
 
 export class ProjectService {
@@ -18,8 +18,7 @@ export class ProjectService {
     // Get account limits
     const limits = await this.limitsService.getAccountLimits(userId);
 
-    // Count current active projects
-    const currentProjectCount = await this.projectRepository.countByUserId(userId, 'ACTIVE');
+    const currentProjectCount = await this.projectRepository.countByUserId(userId, ProjectStatus.ACTIVE);
 
     // Check if user can create a new project
     if (!this.limitsService.canCreateProject(currentProjectCount, limits)) {

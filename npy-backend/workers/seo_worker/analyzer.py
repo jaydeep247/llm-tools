@@ -1,9 +1,9 @@
 from typing import Dict, Any
-from workers.base_worker import BaseWorker
 from utils.logger import logger
 import asyncio
 
-class SeoWorker(BaseWorker):
+
+class SeoWorker:
     async def execute(self, job: Dict[str, Any]) -> Dict[str, Any]:
         """
         Execute an SEO Analysis job.

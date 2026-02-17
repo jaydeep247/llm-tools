@@ -13,23 +13,6 @@ from scrapy.utils.log import configure_logging
 from workers.crawl_worker.spiders.website_spider import WebsiteSpider
 from utils.logger import logger
 from utils.config import config
-from clients.node_api_client import NodeApiClient
-
-async def notify_completion(job_id, payload):
-    client = NodeApiClient()
-    try:
-        await client.complete_job(job_id, payload)
-        logger.info(f"Job {job_id} notification sent: COMPLETED.")
-    except Exception as e:
-        logger.error(f"Failed to notify backend of completion: {e}")
-
-async def notify_failure(job_id, reason):
-    client = NodeApiClient()
-    try:
-        await client.fail_job(job_id, reason)
-        logger.info(f"Job {job_id} notification sent: FAILED.")
-    except Exception as e:
-        logger.error(f"Failed to notify backend of failure: {e}")
 
 def main():
     parser = argparse.ArgumentParser(description='Run Scrapy Crawler for a specific job')
@@ -83,20 +66,12 @@ def main():
         duration = (time.time() - start_time)
         error_count = stats.get('log_count/ERROR', 0)
         
-        payload = {
-            'stats': {
-                'pagesCrawled': pages_crawled,
-                'duration': duration, # Seconds
-                'errors': error_count
-            }
-        }
-        
-        logger.info(f"Crawl finished. Stats: {payload['stats']}")
-        asyncio.run(notify_completion(args.job_id, payload))
+        logger.info(
+            f"Crawl finished. Stats: pages={pages_crawled}, duration={duration}, errors={error_count}"
+        )
 
     except Exception as e:
         logger.error(f"Crawl failed with exception: {e}")
-        asyncio.run(notify_failure(args.job_id, str(e)))
         sys.exit(1)
 
 if __name__ == "__main__":

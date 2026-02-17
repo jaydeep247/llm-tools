@@ -1,12 +1,11 @@
 import { createApp } from './app';
 import { env } from './config/env';
-import { connectDatabase } from './config/prisma';
+import { connectToMongo } from './config/mongo';
 import { logger } from './shared/logger/logger';
 
 const startServer = async () => {
   try {
-    // Connect to database
-    await connectDatabase();
+    await connectToMongo();
 
     // Create Express app
     const app = createApp();

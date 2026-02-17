@@ -3,15 +3,13 @@ import { SessionService } from './session.service';
 import { ResponseUtil } from '../../utils/response';
 import { sessionIdSchema, projectIdParamSchema, updateSessionStatusSchema, startCrawlSchema } from './session.validator';
 import { logger } from '../../shared/logger/logger';
-import { JobService } from '../job/job.service';
+import { SessionStatus } from './session.types';
 
 export class SessionController {
   private sessionService: SessionService;
-  private jobService: JobService;
 
   constructor() {
     this.sessionService = new SessionService();
-    this.jobService = new JobService();
   }
 
   /**
@@ -21,23 +19,8 @@ export class SessionController {
     try {
       const userId = req.user!.userId;
       const { projectId } = projectIdParamSchema.parse(req.params);
-      const { url, allowSubdomains, runAudits, auditDevice, captureLinkDetails } = startCrawlSchema.parse(req.body);
-      
-      // Create session
+      startCrawlSchema.parse(req.body);
       const session = await this.sessionService.createSession(projectId, userId);
-
-      // Create crawl job
-      await this.jobService.createJob(session.id, userId, {
-        jobType: 'CRAWL',
-        config: {
-          url,
-          allowSubdomains,
-          runAudits,
-          auditDevice,
-          captureLinkDetails
-        }
-      });
-
       return ResponseUtil.created(res, 'Crawl session started successfully', session);
     } catch (error: any) {
       logger.error('Error starting crawl:', error);
@@ -125,8 +108,11 @@ export class SessionController {
       const userId = req.user!.userId;
       const { id } = sessionIdSchema.parse(req.params);
       const { status } = updateSessionStatusSchema.parse(req.body);
-      
-      const session = await this.sessionService.updateSessionStatus(id, userId, status);
+      const session = await this.sessionService.updateSessionStatus(
+        id,
+        userId,
+        status as SessionStatus
+      );
       return ResponseUtil.success(res, 'Session status updated successfully', session);
     } catch (error: any) {
       logger.error('Error updating session:', error);
