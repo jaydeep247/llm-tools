@@ -6,7 +6,7 @@ export interface ModuleEResult {
       topic?: string;
       audience?: string;
       tone?: string;
-        url?: string;
+      url?: string;
       location?: string;
     };
     batch_scores?: number[];
@@ -37,6 +37,45 @@ export interface ModuleEResult {
     top_sources?: Array<{
       domain?: string;
     }>;
+  };
+  sentiment_tracking?: {
+    brand_name: string;
+    industry: string;
+    service_type: string;
+    sentiment: {
+      overall_score: number;
+      distribution: {
+        Positive: number;
+        Neutral: number;
+        Negative: number;
+      };
+      by_model: Record<
+        string,
+        {
+          score: number;
+          distribution: {
+            Positive: number;
+            Neutral: number;
+            Negative: number;
+          };
+        }
+      >;
+    };
+    visibility: {
+      overall_visibility_score: number;
+      overall_appearance_rate: number;
+      by_model: Record<
+        string,
+        {
+          visibility_score: number;
+          appearance_rate: number;
+          appearances: number;
+          total_prompts: number;
+          avg_position_weight?: number;
+        }
+      >;
+    };
+    timestamp: string;
   };
   createdAt?: string;
 }

@@ -9,7 +9,8 @@ import { CrawlLogger, DiscoveredPages, CrawlStatusHeader } from '@/components/cr
 import { SessionLayout } from '@/components/layout/SessionLayout'
 import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable } from '@/components/module_A'
 import { AIIntelligenceModule, ContentMetricsModule, AnswerCompletenessModule } from '@/components/module_C'
-import { AICitationRanking, SentimentTracking, ContentConsistencyEntityCoverage, BrandAnalysisSection } from '@/components/module_E'
+import { AICitationRanking, SentimentTracking, ContentConsistencyEntityCoverage, BrandAnalysisSection, SentimentTrackingSection } from '@/components/module_E'
+import { useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
 // import { useGetDataListQuery, useCheckLinksMutation, useGetLinkStatsQuery, useLazyGetPageLinksQuery } from '@/store/api/module_A/dataApi'
 import { useGetProjectQuery } from '@/store/api/projectApi'
 import { useGetSessionQuery } from '@/store/api/sessionApi'
@@ -51,6 +52,10 @@ export default function SessionDetailPage() {
   })
   const latestCrawlJob = sortedJobs.find((job) => job.jobType === 'CRAWL') || null
   const jobId = latestCrawlJob?.id
+
+  const { data: moduleEQueryData } = useGetModuleEResultQuery(jobId || '', {
+    skip: !jobId,
+  })
 
   // Fetch results for the job using granular endpoints
   // We can use the same limit/page logic or default to fetch all (or a large page) for now 
@@ -802,6 +807,9 @@ export default function SessionDetailPage() {
             </div>
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
               <BrandAnalysisSection jobId={jobId} />
+            </div>
+            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+              <SentimentTrackingSection sentimentData={moduleEQueryData?.data?.sentiment_tracking} />
             </div>
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
               <AICitationRanking url={session?.startUrl || ''} />

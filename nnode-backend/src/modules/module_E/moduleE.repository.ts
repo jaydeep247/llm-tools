@@ -8,6 +8,7 @@ type ModuleEDocument = WithId<Document> & {
   content_consistency?: ModuleEResult['content_consistency'];
   entity_coverage?: ModuleEResult['entity_coverage'];
   brand_analysis?: ModuleEResult['brand_analysis'];
+  sentiment_tracking?: ModuleEResult['sentiment_tracking'];
   createdAt?: Date;
   updatedAt?: Date;
 };
@@ -24,6 +25,7 @@ export class ModuleERepository {
       content_consistency: doc.content_consistency,
       entity_coverage: doc.entity_coverage,
       brand_analysis: doc.brand_analysis,
+      sentiment_tracking: doc.sentiment_tracking,
       createdAt: doc.createdAt ? doc.createdAt.toISOString() : undefined,
     };
   }
@@ -44,6 +46,7 @@ export class ModuleERepository {
             content_consistency: data.content_consistency ?? null,
             entity_coverage: data.entity_coverage ?? null,
             brand_analysis: data.brand_analysis ?? null,
+            sentiment_tracking: data.sentiment_tracking ?? null,
             updatedAt: now,
           },
           $setOnInsert: {
@@ -58,6 +61,7 @@ export class ModuleERepository {
         hasContentConsistency: !!data.content_consistency,
         hasEntityCoverage: !!data.entity_coverage,
         hasBrandAnalysis: !!data.brand_analysis,
+        hasSentimentTracking: !!data.sentiment_tracking,
       });
 
       return result.value ? this.toModuleEResult(result.value) : null;
@@ -169,6 +173,9 @@ export class ModuleERepository {
       }
       if (fields.brand_analysis !== undefined) {
         updateData.brand_analysis = fields.brand_analysis;
+      }
+      if (fields.sentiment_tracking !== undefined) {
+        updateData.sentiment_tracking = fields.sentiment_tracking;
       }
 
       const collection = await this.getCollection();

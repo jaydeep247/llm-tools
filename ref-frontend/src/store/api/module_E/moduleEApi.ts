@@ -40,6 +40,39 @@ export interface ModuleEResult {
       domain?: string
     }>
   }
+  sentiment_tracking?: {
+    brand_name: string
+    industry: string
+    service_type: string
+    sentiment: {
+      overall_score: number
+      distribution: {
+        Positive: number
+        Neutral: number
+        Negative: number
+      }
+      by_model: Record<string, {
+        score: number
+        distribution: {
+          Positive: number
+          Neutral: number
+          Negative: number
+        }
+      }>
+    }
+    visibility: {
+      overall_visibility_score: number
+      overall_appearance_rate: number
+      by_model: Record<string, {
+        visibility_score: number
+        appearance_rate: number
+        appearances: number
+        total_prompts: number
+        avg_position_weight?: number
+      }>
+    }
+    timestamp: string
+  }
   createdAt?: string
 }
 

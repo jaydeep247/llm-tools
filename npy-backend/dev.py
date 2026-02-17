@@ -7,21 +7,28 @@ import subprocess
 from pathlib import Path
 from watchfiles import run_process
 
+
+def run_server():
+    subprocess.run([sys.executable, "main.py"])
+
+
+def watch_filter(change, path):
+    return path.endswith(".py")
+
+
 def main():
-    """Run the application with auto-reload on file changes."""
     print("🔄 Starting npy-backend with auto-reload...")
     print("📁 Watching: *.py files")
     print("🛑 Press Ctrl+C to stop\n")
-    
-    # Watch all Python files in the project
+
     watch_path = Path(__file__).parent
-    
-    # Run main.py and reload on any .py file change
+
     run_process(
         watch_path,
-        target=lambda: subprocess.run([sys.executable, "main.py"]),
-        watch_filter=lambda change, path: path.endswith('.py')
+        target=run_server,
+        watch_filter=watch_filter,
     )
+
 
 if __name__ == "__main__":
     main()

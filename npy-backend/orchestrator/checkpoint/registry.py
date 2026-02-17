@@ -30,6 +30,13 @@ class TaskRegistry:
         "module_e_observed_entities": ["openai", "gemini", "claude"],
         "module_e_unified_analysis": ["openai", "gemini", "claude"],
         "module_e_brand_analysis": ["dataforseo"],
+        "module_e_industry_inference": ["openai", "gemini", "claude"],
+        "module_e_sentiment_openai": ["openai"],
+        "module_e_sentiment_gemini": ["gemini"],
+        "module_e_sentiment_claude": ["claude"],
+        "module_e_visibility_openai": ["openai"],
+        "module_e_visibility_gemini": ["gemini"],
+        "module_e_visibility_claude": ["claude"],
     }
 
     @classmethod

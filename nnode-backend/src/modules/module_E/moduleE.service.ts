@@ -37,6 +37,7 @@ export class ModuleEService {
       hasContentConsistency: !!data.content_consistency,
       hasEntityCoverage: !!data.entity_coverage,
       hasBrandAnalysis: !!data.brand_analysis,
+      hasSentimentTracking: !!data.sentiment_tracking,
     });
 
     return await moduleERepository.upsertModuleEResult(jobId, data);

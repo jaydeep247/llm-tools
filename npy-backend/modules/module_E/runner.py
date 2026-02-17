@@ -8,6 +8,7 @@ from utils.mongo import mongo_manager
 from utils.storage import load_raw_html
 from .unified_analyzer import UnifiedModuleEAnalyzer
 from .brand_analyzer import BrandAnalyzer
+from .sentiment_tracker import SentimentVisibilityTracker
 
 logger = logging.getLogger("module_e")
 
@@ -113,7 +114,9 @@ async def run_module_e(job_id: str, url: str, html_content: str = None) -> Dict[
 
     # Brand Analysis (if brand name available)
     brand_analysis = None
+    sentiment_tracking = None
     brand_name = consistency_result.get("mandate", {}).get("brand_name")
+    
     if brand_name:
         logger.info(
             "Module E brand analysis starting",
@@ -129,6 +132,28 @@ async def run_module_e(job_id: str, url: str, html_content: str = None) -> Dict[
                 "sentiment_label": brand_analysis.get("sentiment", {}).get("label", "N/A")
             }
         )
+        
+        # Sentiment & Visibility Tracking
+        logger.info(
+            "Module E sentiment & visibility tracking starting",
+            extra={"job_id": job_id, "brand_name": brand_name}
+        )
+        try:
+            sentiment_tracking = await SentimentVisibilityTracker.analyze_sentiment_and_visibility(
+                brand_name=brand_name
+            )
+            logger.info(
+                "Module E sentiment & visibility tracking complete",
+                extra={
+                    "job_id": job_id,
+                    "brand_name": brand_name,
+                    "sentiment_score": sentiment_tracking.get("sentiment", {}).get("overall_score", 0),
+                    "visibility_score": sentiment_tracking.get("visibility", {}).get("overall_visibility_score", 0)
+                }
+            )
+        except Exception as e:
+            logger.error(f"Sentiment tracking failed: {e}", exc_info=True)
+            sentiment_tracking = None
 
     result = {
         "job_id": job_id,
@@ -136,6 +161,7 @@ async def run_module_e(job_id: str, url: str, html_content: str = None) -> Dict[
         "content_consistency": consistency_result,
         "entity_coverage": entity_coverage_result,
         "brand_analysis": brand_analysis,
+        "sentiment_tracking": sentiment_tracking,
         "created_at": datetime.utcnow().isoformat(),
     }
 
@@ -149,6 +175,7 @@ async def run_module_e(job_id: str, url: str, html_content: str = None) -> Dict[
                     "content_consistency": consistency_result,
                     "entity_coverage": entity_coverage_result,
                     "brand_analysis": brand_analysis,
+                    "sentiment_tracking": sentiment_tracking,
                     "updatedAt": datetime.utcnow(),
                 },
                 "$setOnInsert": {
