@@ -513,67 +513,93 @@ export default function SentimentTrackingSection({ jobId, sentimentData: initial
               const visData = visibility.by_model?.[model]
               const modelScore = data?.score ?? 0
               const modelDistribution = data?.distribution ?? { Positive: 0, Neutral: 0, Negative: 0 }
+              const isFailed = data?.failed
+              const errorMessage = data?.error
+
               return (
                 <div key={model} className="bg-background/50 rounded-lg p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold uppercase tracking-wider text-foreground">
                       {model}
                     </span>
-                    <Badge variant="outline" className="text-[10px]">AI Model</Badge>
+                    {isFailed ? (
+                      <Badge variant="destructive" className="text-[10px]">Failed</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px]">AI Model</Badge>
+                    )}
                   </div>
 
-                  <div>
-                    <div className="text-xs text-muted-foreground mb-1">Sentiment</div>
-                    <div className="flex items-end gap-1">
-                      <span className={cn('text-3xl font-bold', getSentimentColor(modelScore))}>
-                        {modelScore}
-                      </span>
-                      <span className="text-xs text-muted-foreground mb-1">/100</span>
+                  {isFailed ? (
+                    <div className="py-4 space-y-2">
+                      <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+                        <AlertCircle className="w-3 h-3 text-destructive" />
+                        Service Unavailable
+                      </div>
+                      {errorMessage && (
+                        <div className="text-[10px] text-muted-foreground/70 leading-tight">
+                          {errorMessage.length > 60 ? errorMessage.substring(0, 60) + '...' : errorMessage}
+                        </div>
+                      )}
                     </div>
-                  </div>
+                  ) : (
+                    <>
+                      <div>
+                        <div className="text-xs text-muted-foreground mb-1">Sentiment</div>
+                        <div className="flex items-end gap-1">
+                          <span className={cn('text-3xl font-bold', getSentimentColor(modelScore))}>
+                            {modelScore}
+                          </span>
+                          <span className="text-xs text-muted-foreground mb-1">/100</span>
+                        </div>
+                      </div>
 
-                  <div>
-                    <div className="text-xs text-muted-foreground mb-1">Visibility</div>
-                    <div className="flex items-end gap-1">
-                      <span className={cn('text-3xl font-bold', getVisibilityColor(visData?.visibility_score ?? 0))}>
-                        {visData?.visibility_score ?? 0}
-                      </span>
-                      <span className="text-xs text-muted-foreground mb-1">%</span>
-                    </div>
-                    <div className="text-[10px] text-muted-foreground mt-1">
-                      {(visData?.appearances ?? 0)}/{(visData?.total_prompts ?? 0)} mentions
-                    </div>
-                  </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground mb-1">Visibility</div>
+                        <div className="flex items-end gap-1">
+                          <span className={cn('text-3xl font-bold', getVisibilityColor(visData?.visibility_score ?? 0))}>
+                            {visData?.visibility_score ?? 0}
+                          </span>
+                          <span className="text-xs text-muted-foreground mb-1">%</span>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground mt-1">
+                          {(visData?.appearances ?? 0)}/{(visData?.total_prompts ?? 0)} mentions
+                        </div>
+                      </div>
 
-                  <div className="pt-2 border-t border-border/50">
-                    <div className="text-[10px] text-muted-foreground mb-1">Sentiment Mix</div>
-                    <div className="flex gap-1">
-                      <div
-                        className="h-1.5 bg-emerald-400 rounded-full"
-                        style={{ width: `${((modelDistribution.Positive ?? 0) / 5) * 100}%` }}
-                        title={`Positive: ${modelDistribution.Positive ?? 0}`}
-                      />
-                      <div
-                        className="h-1.5 bg-rose-400 rounded-full"
-                        style={{ width: `${((modelDistribution.Negative ?? 0) / 5) * 100}%` }}
-                        title={`Negative: ${modelDistribution.Negative ?? 0}`}
-                      />
-                      <div
-                        className="h-1.5 bg-amber-400 rounded-full"
-                        style={{ width: `${((modelDistribution.Neutral ?? 0) / 5) * 100}%` }}
-                        title={`Neutral: ${modelDistribution.Neutral ?? 0}`}
-                      />
-                    </div>
-                  </div>
+
+
+                      <div className="pt-2 border-t border-border/50">
+                        <div className="text-[10px] text-muted-foreground mb-1">Sentiment Mix</div>
+                        <div className="flex gap-1">
+                          <div
+                            className="h-1.5 bg-emerald-400 rounded-full"
+                            style={{ width: `${((modelDistribution.Positive ?? 0) / 5) * 100}%` }}
+                            title={`Positive: ${modelDistribution.Positive ?? 0}`}
+                          />
+                          <div
+                            className="h-1.5 bg-rose-400 rounded-full"
+                            style={{ width: `${((modelDistribution.Negative ?? 0) / 5) * 100}%` }}
+                            title={`Negative: ${modelDistribution.Negative ?? 0}`}
+                          />
+                          <div
+                            className="h-1.5 bg-amber-400 rounded-full"
+                            style={{ width: `${((modelDistribution.Neutral ?? 0) / 5) * 100}%` }}
+                            title={`Neutral: ${modelDistribution.Neutral ?? 0}`}
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )
+                  }
                 </div>
               )
             })}
           </div>
         </div>
-      </Card>
+      </Card >
 
       {/* Insights Panel */}
-      <Card className="rounded-xl border p-6 bg-gradient-to-br from-purple-500/5 to-blue-500/5">
+      < Card className="rounded-xl border p-6 bg-gradient-to-br from-purple-500/5 to-blue-500/5" >
         <div className="space-y-2">
           <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-purple-400" />
@@ -600,7 +626,7 @@ export default function SentimentTrackingSection({ jobId, sentimentData: initial
             </li>
           </ul>
         </div>
-      </Card>
-    </div>
+      </Card >
+    </div >
   )
 }

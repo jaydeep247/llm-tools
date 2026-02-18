@@ -237,6 +237,7 @@ Return ONLY valid JSON (no markdown):
         """
         results = []
         prompt = SentimentVisibilityTracker._build_sentiment_batch_prompt(brand_name)
+        run_date = datetime.utcnow().isoformat()  # Cache busts every run
 
         for model_idx, model in enumerate(["openai", "gemini", "claude"], 1):
             print(f"\n{'─' * 100}")
@@ -250,7 +251,7 @@ Return ONLY valid JSON (no markdown):
             try:
                 response = await execute_task(
                     task_name=f"module_e_sentiment_batch_{model}",
-                    input_data={"prompt": prompt},
+                    input_data={"prompt": prompt, "run_date": run_date},
                     provider=model,
                     options=opts
                 )
@@ -297,6 +298,15 @@ Return ONLY valid JSON (no markdown):
             except Exception as e:
                 logger.error(f"Sentiment batch failed for {model}: {e}")
                 print(f"  ❌ Error: {e}")
+                # Add failed entry so it still shows in the UI breakdown
+                results.append({
+                    "model": model,
+                    "average_score": 0,
+                    "distribution": {"Positive": 0, "Neutral": 0, "Negative": 0},
+                    "details": [],
+                    "failed": True,
+                    "error": str(e)[:120],
+                })
                 # Skip this model — don't inject fake neutral scores into the average
                 continue
 
@@ -310,6 +320,7 @@ Return ONLY valid JSON (no markdown):
         """
         results = []
         prompt = SentimentVisibilityTracker._build_visibility_batch_prompt(brand_name, industry, service_type)
+        run_date = datetime.utcnow().isoformat()  # Cache busts every run
 
         visibility_questions = [
             q.format(industry=industry, service_type=service_type)
@@ -331,7 +342,7 @@ Return ONLY valid JSON (no markdown):
             try:
                 response = await execute_task(
                     task_name=f"module_e_visibility_batch_{model}",
-                    input_data={"prompt": prompt},
+                    input_data={"prompt": prompt, "run_date": run_date},
                     provider=model,
                     options={"temperature": 0.4}
                 )
@@ -378,6 +389,13 @@ Return ONLY valid JSON (no markdown):
             except Exception as e:
                 logger.error(f"Visibility batch failed for {model}: {e}")
                 print(f"  ❌ Error: {e}")
+                # Add failed entry so it still shows in the UI breakdown
+                results.append({
+                    "model": model,
+                    "answers": [],
+                    "failed": True,
+                    "error": str(e)[:120],
+                })
                 # Skip this model — don't count it as 0 mentions in the average
                 continue
 
@@ -390,16 +408,19 @@ Return ONLY valid JSON (no markdown):
         print("📊 AGGREGATING SENTIMENT RESULTS")
         print("=" * 100)
 
-        all_scores = [r["average_score"] for r in results if r.get("average_score") is not None]
+        # Only average scores from models that didn't fail
+        all_scores = [r["average_score"] for r in results if not r.get("failed") and r.get("average_score") is not None]
         total_dist = {"Positive": 0, "Neutral": 0, "Negative": 0}
 
         for r in results:
+            if r.get("failed"):
+                continue
             for label, count in r["distribution"].items():
                 total_dist[label] = total_dist.get(label, 0) + count
 
         overall_score = int(sum(all_scores) / len(all_scores)) if all_scores else 0
 
-        print(f"  Model Scores: {[r['average_score'] for r in results]}")
+        print(f"  Model Scores (non-failed): {all_scores}")
         print(f"  Overall Score: {overall_score}/100")
         print(f"  Total Distribution: {total_dist}")
         print("=" * 100 + "\n")
@@ -410,7 +431,8 @@ Return ONLY valid JSON (no markdown):
             "by_model": {
                 r["model"]: {
                     "score": r["average_score"],
-                    "distribution": r["distribution"]
+                    "distribution": r["distribution"],
+                    **(({"failed": True, "error": r.get("error", "")}) if r.get("failed") else {})
                 } for r in results
             }
         }

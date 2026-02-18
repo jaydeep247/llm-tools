@@ -58,6 +58,8 @@ export interface ModuleEResult {
           Neutral: number
           Negative: number
         }
+        failed?: boolean
+        error?: string
       }>
     }
     visibility: {
