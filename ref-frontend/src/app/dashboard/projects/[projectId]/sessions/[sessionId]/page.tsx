@@ -228,6 +228,11 @@ export default function SessionDetailPage() {
     fields: fieldData
   }})
 
+  const totalPagesCount =
+    pagesResult?.pagination?.total ??
+    session?.totalPages ??
+    transformedPages.length
+
   // Transform data for Crawled Data Table
   const pagesData = { 
     data: transformedPages
@@ -660,7 +665,7 @@ export default function SessionDetailPage() {
                 </div>
                 <div className="space-y-0.5 sm:space-y-1">
                   <p className="text-[10px] sm:text-xs text-white/60">Total Pages</p>
-                  <p className="text-xs sm:text-sm text-white font-medium">{session.totalPages || 0}</p>
+                  <p className="text-xs sm:text-sm text-white font-medium">{totalPagesCount}</p>
                 </div>
                 <div className="space-y-0.5 sm:space-y-1">
                   <p className="text-[10px] sm:text-xs text-white/60">Total Resources</p>
