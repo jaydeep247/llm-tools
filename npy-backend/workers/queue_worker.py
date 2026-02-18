@@ -19,6 +19,7 @@ from utils.logger import configure_logger, logger
 from utils.config import config
 from workers.crawl_worker.spiders.website_spider import WebsiteSpider
 from workers.crawl_worker.spiders.sitemap_discovery import SitemapDiscovery
+from workers.crawl_worker.preflight import preflight_discover_all_urls
 
 
 POOL_SIZE = min(os.cpu_count() or 1, 4)
@@ -74,15 +75,22 @@ def run_crawl_job(url: str, session_id: str, job_id: str, project_id: str) -> No
     configure_logger()
     logger.info(f"Starting crawl job {job_id} for {url}")
 
+    urls = preflight_discover_all_urls(url)
+    total_urls = len(urls)
+    logger.info(f"Preflight discovered {total_urls} unique URLs for {url}")
+
     process = CrawlerProcess(settings=SCRAPY_SETTINGS)
 
     process.crawl(
         WebsiteSpider,
         start_url=url,
+        start_urls=list(urls),
         session_id=session_id,
         job_id=job_id,
         project_id=project_id,
         max_pages=3000,
+        allow_discovery=False,
+        planned_total=total_urls,
     )
 
     process.start()

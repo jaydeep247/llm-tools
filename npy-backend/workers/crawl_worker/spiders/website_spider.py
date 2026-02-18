@@ -5,7 +5,7 @@ Main Scrapy spider for crawling websites with sitemap discovery
 
 import scrapy
 from scrapy.http import Response, HtmlResponse
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from datetime import datetime
 from urllib.parse import urlparse, urlunparse
 import asyncio
@@ -66,6 +66,9 @@ class WebsiteSpider(scrapy.Spider):
         max_concurrency: int = 20,
         max_pages: int = 0,
         timeout: int = 0,
+        allow_discovery: bool = True,
+        start_urls: Optional[List[str]] = None,
+        planned_total: Optional[int] = None,
         *args,
         **kwargs
     ):
@@ -80,6 +83,8 @@ class WebsiteSpider(scrapy.Spider):
         self.max_concurrency = min(max_concurrency, 4)
         self.max_pages = max_pages
         self.timeout = timeout
+        self.allow_discovery = allow_discovery
+        self.planned_total = planned_total
         
         parsed = urlparse(start_url)
         self.allowed_host = parsed.netloc
@@ -103,6 +108,11 @@ class WebsiteSpider(scrapy.Spider):
         self.links_collected = 0
         self.should_stop = False
         self.seen_urls = set()
+
+        if start_urls is not None:
+            self.start_urls = start_urls
+        else:
+            self.start_urls = [start_url]
         
         # Constants
         self.MAX_PAGINATION_DEPTH = 5  # Strict limit: max 5 pages deep
@@ -177,12 +187,23 @@ class WebsiteSpider(scrapy.Spider):
         self.crawl_started_at = datetime.now().isoformat()
         self.crawl_started_timestamp = datetime.now().timestamp()
         
+        if not self.allow_discovery:
+            logger.info(f"Starting fixed URL crawl for {self.start_url}")
+            for url in self.start_urls:
+                yield scrapy.Request(
+                    url=url,
+                    callback=self.parse,
+                    priority=100,
+                    meta={'depth': 0},
+                    errback=self.handle_error,
+                )
+            return
+        
         logger.info(f"Starting optimized SEO crawl for {self.start_url}")
         
         root_normalized = self.normalize_url(self.start_url)
         self.seen_urls.add(root_normalized)
         
-        # 1. Start crawling homepage IMMEDIATELY (High Priority)
         yield scrapy.Request(
             url=self.start_url,
             callback=self.parse,
@@ -191,7 +212,6 @@ class WebsiteSpider(scrapy.Spider):
             errback=self.handle_error,
         )
         
-        # 2. Start sitemap discovery via robots.txt (Background)
         parsed = urlparse(self.start_url)
         base_url = f"{parsed.scheme}://{parsed.netloc}"
         robots_url = f"{base_url}/robots.txt"
@@ -204,7 +224,6 @@ class WebsiteSpider(scrapy.Spider):
             meta={'dont_cache': True}
         )
         
-        # 3. Try common sitemap locations as fallback
         common_sitemaps = [
             f"{base_url}/sitemap.xml",
             f"{base_url}/sitemap_index.xml",
@@ -254,18 +273,18 @@ class WebsiteSpider(scrapy.Spider):
                 logger.warning(f"Invalid XML in sitemap: {response.url}")
                 return
 
-            # Check for sitemap index
             if 'sitemapindex' in root.tag.lower():
                 namespace = {'ns': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
                 for sitemap in root.findall('.//ns:sitemap', namespace):
                     loc = sitemap.find('ns:loc', namespace)
                     if loc is not None and loc.text:
-                        yield scrapy.Request(
-                            url=loc.text,
-                            callback=self.parse_sitemap,
-                            priority=85,
-                            errback=self.handle_sitemap_error
-                        )
+                        if self.allow_discovery:
+                            yield scrapy.Request(
+                                url=loc.text,
+                                callback=self.parse_sitemap,
+                                priority=85,
+                                errback=self.handle_sitemap_error
+                            )
             # Check for urlset
             elif 'urlset' in root.tag.lower():
                 namespace = {'ns': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
@@ -293,17 +312,18 @@ class WebsiteSpider(scrapy.Spider):
                         
                         yield item
                         
-                        normalized = self.normalize_url(url)
-                        if normalized in self.seen_urls:
-                            continue
-                        self.seen_urls.add(normalized)
-                        
-                        yield scrapy.Request(
-                            url=url,
-                            callback=self.parse,
-                            priority=50,
-                            meta={'from_sitemap': True}
-                        )
+                        if self.allow_discovery:
+                            normalized = self.normalize_url(url)
+                            if normalized in self.seen_urls:
+                                continue
+                            self.seen_urls.add(normalized)
+                            
+                            yield scrapy.Request(
+                                url=url,
+                                callback=self.parse,
+                                priority=50,
+                                meta={'from_sitemap': True}
+                            )
                 
                 self.links_collected += urls_found
                 logger.info(f"Parsed {urls_found} URLs from sitemap: {response.url}. Total known: {self.links_collected}")
@@ -470,6 +490,14 @@ class WebsiteSpider(scrapy.Spider):
             yield page_item
             self.pages_crawled += 1
 
+            if self.planned_total:
+                remaining = max(self.planned_total - self.pages_crawled, 0)
+                logger.info(
+                    f"Crawl progress for {self.start_url}: "
+                    f"{self.pages_crawled}/{self.planned_total} pages done, "
+                    f"{remaining} remaining (current={response.url})"
+                )
+
             if self.max_pages > 0 and self.pages_crawled >= self.max_pages:
                 self.should_stop = True
                 return
@@ -486,7 +514,7 @@ class WebsiteSpider(scrapy.Spider):
                 yield link_item
                 self.links_collected += 1
 
-            if not self.should_stop:
+            if self.allow_discovery and not self.should_stop:
                 for link_data in links_data:
                     if not link_data['is_internal'] or link_data['nofollow']:
                         continue
