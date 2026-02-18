@@ -77,7 +77,12 @@ async def run_sentiment_only(job_id: str, url: str, html_content: str = None) ->
             "error": str(e),
         }
 
-    # 4. Upsert only sentiment_tracking field in module_e collection
+    # 4. Upsert sentiment_tracking + append to score_history (keep last 50)
+    history_entry = {
+        "date": sentiment_tracking.get("timestamp", datetime.utcnow().isoformat()),
+        "sentimentScore": sentiment_tracking.get("sentiment", {}).get("overall_score", 0),
+        "visibilityScore": sentiment_tracking.get("visibility", {}).get("overall_visibility_score", 0),
+    }
     try:
         mongo_manager.module_e.update_one(
             {"jobId": job_id},
@@ -89,6 +94,12 @@ async def run_sentiment_only(job_id: str, url: str, html_content: str = None) ->
                 },
                 "$setOnInsert": {
                     "createdAt": datetime.utcnow(),
+                },
+                "$push": {
+                    "score_history": {
+                        "$each": [history_entry],
+                        "$slice": -50,  # Keep only the last 50 entries
+                    }
                 },
             },
             upsert=True,

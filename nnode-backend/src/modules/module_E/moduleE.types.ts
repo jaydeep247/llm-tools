@@ -77,5 +77,10 @@ export interface ModuleEResult {
     };
     timestamp: string;
   };
+  score_history?: Array<{
+    date: string;
+    sentimentScore: number;
+    visibilityScore: number;
+  }>;
   createdAt?: string;
 }

@@ -9,6 +9,7 @@ type ModuleEDocument = WithId<Document> & {
   entity_coverage?: ModuleEResult['entity_coverage'];
   brand_analysis?: ModuleEResult['brand_analysis'];
   sentiment_tracking?: ModuleEResult['sentiment_tracking'];
+  score_history?: ModuleEResult['score_history'];
   createdAt?: Date;
   updatedAt?: Date;
 };
@@ -26,6 +27,7 @@ export class ModuleERepository {
       entity_coverage: doc.entity_coverage,
       brand_analysis: doc.brand_analysis,
       sentiment_tracking: doc.sentiment_tracking,
+      score_history: doc.score_history,
       createdAt: doc.createdAt ? doc.createdAt.toISOString() : undefined,
     };
   }

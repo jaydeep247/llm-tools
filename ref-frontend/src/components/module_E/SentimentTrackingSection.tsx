@@ -56,6 +56,9 @@ export default function SentimentTrackingSection({ jobId, sentimentData: initial
   // The sentiment data to display: prefer live polled data if available, else initial prop
   const sentimentData = polledData?.data?.sentiment_tracking ?? initialSentimentData
 
+  // Score history for trend charts — always use latest from polledData
+  const scoreHistory = polledData?.data?.score_history ?? []
+
   // Stop polling when a NEW timestamp appears (meaning backend wrote fresh results)
   useEffect(() => {
     if (!isPolling) return
@@ -127,6 +130,91 @@ export default function SentimentTrackingSection({ jobId, sentimentData: initial
   }
 
   const isRunning = isTriggering || isPolling
+
+  // ─── SVG Trend Chart Helpers ──────────────────────────────────────────────
+  type HistoryEntry = { date: string; sentimentScore: number; visibilityScore: number }
+
+  const renderTrendChart = (
+    history: HistoryEntry[],
+    key: 'sentimentScore' | 'visibilityScore',
+    color: string,
+    gradientId: string
+  ) => {
+    const recent = history.slice(-12)
+    if (recent.length < 2) {
+      return (
+        <div className="flex items-center justify-center h-32 border border-dashed border-border rounded-lg">
+          <p className="text-xs text-muted-foreground text-center px-4">
+            {recent.length === 1
+              ? '1 run saved — run again to see a trend line'
+              : 'No history yet — run analysis to track scores over time'}
+          </p>
+        </div>
+      )
+    }
+
+    const W = 600, H = 130, PL = 32, PR = 16, PB = 24, PT = 12
+    const startT = new Date(recent[0].date).getTime()
+    const endT = new Date(recent[recent.length - 1].date).getTime()
+    const tRange = endT - startT || 1
+
+    const coord = (h: HistoryEntry) => ({
+      x: PL + ((new Date(h.date).getTime() - startT) / tRange) * (W - PL - PR),
+      y: H - PB - (h[key] / 100) * (H - PB - PT),
+    })
+
+    const pts = recent.map(coord)
+    const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
+    const area = `${line} L ${pts[pts.length - 1].x} ${H - PB} L ${pts[0].x} ${H - PB} Z`
+
+    const yLabels = [100, 50, 0]
+
+    return (
+      <div className="relative w-full">
+        {/* Y-axis labels */}
+        <div
+          className="absolute left-0 top-0 flex flex-col justify-between text-[9px] text-muted-foreground font-mono pointer-events-none"
+          style={{ height: H, paddingTop: PT, paddingBottom: PB }}
+        >
+          {yLabels.map(v => <span key={v}>{v}</span>)}
+        </div>
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: H }} preserveAspectRatio="none">
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity="0.4" />
+              <stop offset="100%" stopColor={color} stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          {/* Grid lines */}
+          {[PT, (H - PB - PT) / 2 + PT, H - PB].map((y, i) => (
+            <line key={i} x1={PL} y1={y} x2={W - PR} y2={y}
+              stroke="currentColor" strokeOpacity="0.1" strokeWidth="0.5"
+              strokeDasharray={i === 2 ? undefined : '4 4'} />
+          ))}
+          {/* Area fill */}
+          <path d={area} fill={`url(#${gradientId})`} />
+          {/* Line */}
+          <path d={line} fill="none" stroke={color} strokeWidth="2"
+            style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.3))' }} />
+          {/* Dots */}
+          {pts.map((p, i) => (
+            <circle key={i} cx={p.x} cy={p.y} r="3.5"
+              fill="#1e1e2e" stroke={color} strokeWidth="2">
+              <title>{`${new Date(recent[i].date).toLocaleDateString()}: ${recent[i][key]}`}</title>
+            </circle>
+          ))}
+        </svg>
+        {/* X-axis date labels */}
+        <div className="flex justify-between text-[9px] text-muted-foreground font-mono mt-1 px-8">
+          <span>{new Date(recent[0].date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+          {recent.length > 2 && (
+            <span>{new Date(recent[Math.floor(recent.length / 2)].date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+          )}
+          <span>{new Date(recent[recent.length - 1].date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+        </div>
+      </div>
+    )
+  }
 
   // Run Analysis Button — always visible
   const RunButton = (
@@ -380,6 +468,33 @@ export default function SentimentTrackingSection({ jobId, sentimentData: initial
               </div>
             </div>
           </div>
+        </Card>
+      </div>
+
+      {/* Trend Charts */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Sentiment Trend */}
+        <Card className="rounded-xl border p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <TrendingUp className="w-4 h-4 text-emerald-400" />
+            <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground">Sentiment Trend</h4>
+            {scoreHistory.length > 0 && (
+              <Badge variant="outline" className="text-[10px] ml-auto">{scoreHistory.length} runs</Badge>
+            )}
+          </div>
+          {renderTrendChart(scoreHistory, 'sentimentScore', '#34d399', 'sentimentGrad')}
+        </Card>
+
+        {/* Visibility Trend */}
+        <Card className="rounded-xl border p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Eye className="w-4 h-4 text-blue-400" />
+            <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground">Visibility Trend</h4>
+            {scoreHistory.length > 0 && (
+              <Badge variant="outline" className="text-[10px] ml-auto">{scoreHistory.length} runs</Badge>
+            )}
+          </div>
+          {renderTrendChart(scoreHistory, 'visibilityScore', '#60a5fa', 'visibilityGrad')}
         </Card>
       </div>
 

@@ -297,16 +297,8 @@ Return ONLY valid JSON (no markdown):
             except Exception as e:
                 logger.error(f"Sentiment batch failed for {model}: {e}")
                 print(f"  ❌ Error: {e}")
-                # Fallback: neutral scores for all 5 questions
-                results.append({
-                    "model": model,
-                    "average_score": 50,
-                    "distribution": {"Positive": 0, "Neutral": 5, "Negative": 0},
-                    "details": [
-                        {"question": q.format(brand_name=brand_name), "answer": "", "score": 50, "label": "Neutral"}
-                        for q in SentimentVisibilityTracker.SENTIMENT_PROBES
-                    ]
-                })
+                # Skip this model — don't inject fake neutral scores into the average
+                continue
 
         return results
 
@@ -386,13 +378,8 @@ Return ONLY valid JSON (no markdown):
             except Exception as e:
                 logger.error(f"Visibility batch failed for {model}: {e}")
                 print(f"  ❌ Error: {e}")
-                results.append({
-                    "model": model,
-                    "answers": [
-                        {"question": q, "answer": "", "brand_mentioned": False, "mention_position": -1}
-                        for q in visibility_questions
-                    ]
-                })
+                # Skip this model — don't count it as 0 mentions in the average
+                continue
 
         return results
 
