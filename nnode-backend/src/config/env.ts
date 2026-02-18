@@ -33,7 +33,7 @@ const envSchema = z.object({
   WORKER_API_KEY: z.string().default('default-insecure-worker-key-change-me'),
 
   // MongoDB
-  MONGO_URI: z.string().url().default('mongodb://localhost:27017'),
+  MONGO_URI: z.string().default('mongodb://localhost:27017'),
   MONGO_DB_NAME: z.string().default('seo_crawler'),
 });
 

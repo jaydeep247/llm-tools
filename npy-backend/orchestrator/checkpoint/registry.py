@@ -37,6 +37,13 @@ class TaskRegistry:
         "module_e_visibility_openai": ["openai"],
         "module_e_visibility_gemini": ["gemini"],
         "module_e_visibility_claude": ["claude"],
+        # Batched versions (1 call per model)
+        "module_e_sentiment_batch_openai": ["openai"],
+        "module_e_sentiment_batch_gemini": ["gemini"],
+        "module_e_sentiment_batch_claude": ["claude"],
+        "module_e_visibility_batch_openai": ["openai"],
+        "module_e_visibility_batch_gemini": ["gemini"],
+        "module_e_visibility_batch_claude": ["claude"],
     }
 
     @classmethod

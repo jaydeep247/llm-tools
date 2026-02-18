@@ -9,7 +9,7 @@ import { CrawlLogger, DiscoveredPages, CrawlStatusHeader } from '@/components/cr
 import { SessionLayout } from '@/components/layout/SessionLayout'
 import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable } from '@/components/module_A'
 import { AIIntelligenceModule, ContentMetricsModule, AnswerCompletenessModule } from '@/components/module_C'
-import { AICitationRanking, SentimentTracking, ContentConsistencyEntityCoverage, BrandAnalysisSection, SentimentTrackingSection } from '@/components/module_E'
+import { AICitationRanking, ContentConsistencyEntityCoverage, BrandAnalysisSection, SentimentTrackingSection } from '@/components/module_E'
 import { useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
 // import { useGetDataListQuery, useCheckLinksMutation, useGetLinkStatsQuery, useLazyGetPageLinksQuery } from '@/store/api/module_A/dataApi'
 import { useGetProjectQuery } from '@/store/api/projectApi'
@@ -28,11 +28,11 @@ export default function SessionDetailPage() {
   const searchParams = useSearchParams()
   const projectId = params.projectId as string
   const sessionId = params.sessionId as string
-  
+
   // Fetch session and project data using RTK Query
   const { data: sessionData, isLoading: isLoadingSession, error: sessionError } = useGetSessionQuery(sessionId)
   const { data: projectData, isLoading: isLoadingProject } = useGetProjectQuery(projectId)
-  
+
   const session = sessionData?.session
   const project = projectData?.project
 
@@ -76,7 +76,7 @@ export default function SessionDetailPage() {
 
   const isLoading = isLoadingSession || isLoadingProject || isLoadingJobs || (!!jobId && isLoadingResults)
   const error = sessionError ? 'Failed to load session' : null
-  
+
   // Ensure URL always has tab parameter with default 'crawler'
   // Ensure URL always has tab parameter with default 'crawler'
   useEffect(() => {
@@ -88,21 +88,21 @@ export default function SessionDetailPage() {
   }, [searchParams, projectId, sessionId, router])
 
   const tab = searchParams.get('tab') || 'crawler'
-  
+
   const activeSection = tab
-  
+
   // Unified data transformation
   const rawPages = pagesResult?.data || []
   const rawFields = fieldsResult?.data || []
-  
+
   // Create a map of fields by URL for efficient lookup
   const fieldsMap = new Map();
   rawFields.forEach((field: any) => {
     if (field.url) {
-        fieldsMap.set(field.url, field);
+      fieldsMap.set(field.url, field);
     }
   });
-  
+
   const transformedPages = rawPages.map((page: any) => {
     // Find associated fields data
     const fieldData = fieldsMap.get(page.url) || {};
@@ -113,133 +113,134 @@ export default function SessionDetailPage() {
     const pageMatrix = fieldData.page_matrix || {};
 
     return {
-    ...page,
-    id: page._id || page.id || page.url || Math.random(),
-    // CrawledDataTable props
-    wordCount: page.word_count || page.wordCount || 0,
-    titleLength: page.title_length || page.titleLength || 0,
-    titlePixelWidth: page.title_pixel_width || crawlerData.title_pixel_width || 0,
-    description: page.description || page.meta_description || page.metaDescription || '',
-    descriptionLength: page.description_length || page.descriptionLength || 0,
-    descriptionPixelWidth: page.meta_description_pixel_width || crawlerData.meta_description_pixel_width || 0,
-    statusCode: page.status_code || page.statusCode || 0,
-    responseTime: page.response_time || page.responseTime || 0,
-    contentType: page.content_type || page.contentType || '',
-    sentenceCount: page.sentence_count || page.sentenceCount || 0,
-    paragraphCount: page.paragraph_count || page.paragraphCount || 0,
-    textToHtmlRatio: page.text_to_html_ratio || page.textToHtmlRatio || 0,
-    metaKeywords: Array.isArray(page.meta_keywords) ? page.meta_keywords.join(', ') : (page.meta_keywords || ''),
-    metaKeywordsLength: page.meta_keywords_length || page.metaKeywordsLength || 0,
-    crawlDepth: page.crawl_depth || page.crawlDepth || 0,
-    folderDepth: page.folder_depth || page.folderDepth || 0,
-    uniqueOutlinks: page.unique_outlinks || page.uniqueOutlinks || crawlerData.unique_outlinks || 0,
-    uniqueJsOutlinks: page.unique_js_outlinks || page.uniqueJsOutlinks || crawlerData.unique_js_outlinks || 0,
-    uniqueExternalOutlinks: page.unique_external_outlinks || page.uniqueExternalOutlinks || crawlerData.unique_external_outlinks || 0,
-    uniqueExternalJsOutlinks: page.unique_external_js_outlinks || page.uniqueExternalJsOutlinks || crawlerData.unique_external_js_outlinks || 0,
-    metaDescription: page.meta_description || page.metaDescription || '',
-    canonicalUrl: page.canonical_url || page.canonicalUrl || '',
-    httpRelNext: page.http_rel_next || page.httpRelNext || crawlerData.http_rel_next || '',
-    httpRelPrev: page.http_rel_prev || page.httpRelPrev || crawlerData.http_rel_prev || '',
-    relNext: page.rel_next || page.relNext || crawlerData.rel_next || '',
-    relPrev: page.rel_prev || page.relPrev || crawlerData.rel_prev || '',
-    metaRobots: page.meta_robots || page.metaRobots || '',
-    xRobotsTag: page.x_robots_tag || page.xRobotsTag || '',
-    metaRefresh: page.meta_refresh || page.metaRefresh || '',
-    lastModified: page.last_modified || page.lastModified || pageMatrix.last_modified || '',
-    httpVersion: page.http_version || page.httpVersion || '',
-    
-    // Redirects (Check both page and fields as backup)
-    redirectUrl: page.redirect_url || page.redirectUrl || crawlerData.redirect_url || '',
-    redirectType: page.redirect_type || page.redirectType || crawlerData.redirect_type || '',
-    
-    // Error Message
-    errorMessage: page.error_message || page.errorMessage || crawlerData.error_message || '',
+      ...page,
+      id: page._id || page.id || page.url || Math.random(),
+      // CrawledDataTable props
+      wordCount: page.word_count || page.wordCount || 0,
+      titleLength: page.title_length || page.titleLength || 0,
+      titlePixelWidth: page.title_pixel_width || crawlerData.title_pixel_width || 0,
+      description: page.description || page.meta_description || page.metaDescription || '',
+      descriptionLength: page.description_length || page.descriptionLength || 0,
+      descriptionPixelWidth: page.meta_description_pixel_width || crawlerData.meta_description_pixel_width || 0,
+      statusCode: page.status_code || page.statusCode || 0,
+      responseTime: page.response_time || page.responseTime || 0,
+      contentType: page.content_type || page.contentType || '',
+      sentenceCount: page.sentence_count || page.sentenceCount || 0,
+      paragraphCount: page.paragraph_count || page.paragraphCount || 0,
+      textToHtmlRatio: page.text_to_html_ratio || page.textToHtmlRatio || 0,
+      metaKeywords: Array.isArray(page.meta_keywords) ? page.meta_keywords.join(', ') : (page.meta_keywords || ''),
+      metaKeywordsLength: page.meta_keywords_length || page.metaKeywordsLength || 0,
+      crawlDepth: page.crawl_depth || page.crawlDepth || 0,
+      folderDepth: page.folder_depth || page.folderDepth || 0,
+      uniqueOutlinks: page.unique_outlinks || page.uniqueOutlinks || crawlerData.unique_outlinks || 0,
+      uniqueJsOutlinks: page.unique_js_outlinks || page.uniqueJsOutlinks || crawlerData.unique_js_outlinks || 0,
+      uniqueExternalOutlinks: page.unique_external_outlinks || page.uniqueExternalOutlinks || crawlerData.unique_external_outlinks || 0,
+      uniqueExternalJsOutlinks: page.unique_external_js_outlinks || page.uniqueExternalJsOutlinks || crawlerData.unique_external_js_outlinks || 0,
+      metaDescription: page.meta_description || page.metaDescription || '',
+      canonicalUrl: page.canonical_url || page.canonicalUrl || '',
+      httpRelNext: page.http_rel_next || page.httpRelNext || crawlerData.http_rel_next || '',
+      httpRelPrev: page.http_rel_prev || page.httpRelPrev || crawlerData.http_rel_prev || '',
+      relNext: page.rel_next || page.relNext || crawlerData.rel_next || '',
+      relPrev: page.rel_prev || page.relPrev || crawlerData.rel_prev || '',
+      metaRobots: page.meta_robots || page.metaRobots || '',
+      xRobotsTag: page.x_robots_tag || page.xRobotsTag || '',
+      metaRefresh: page.meta_refresh || page.metaRefresh || '',
+      lastModified: page.last_modified || page.lastModified || pageMatrix.last_modified || '',
+      httpVersion: page.http_version || page.httpVersion || '',
 
-    // Size / Carbon Attributes
-    sizeBytes: page.page_size_bytes || crawlerData.transferred_bytes || 0,
-    transferredBytes: crawlerData.transferred_bytes || 0,
-    totalTransferredBytes: crawlerData.total_transferred_bytes || crawlerData.transferred_bytes || 0,
-    co2Mg: crawlerData.co2_mg || 0,
-    carbonRating: crawlerData.carbon_rating || 'Unknown',
+      // Redirects (Check both page and fields as backup)
+      redirectUrl: page.redirect_url || page.redirectUrl || crawlerData.redirect_url || '',
+      redirectType: page.redirect_type || page.redirectType || crawlerData.redirect_type || '',
 
-    // Hashes / Duplicates
-    contentHash: page.content_hash || crawlerData.hash || '',
-    nearDuplicateCount: crawlerData.no_near_duplicates || 0,
-    closestDuplicateSimilarity: crawlerData.closest_near_duplicate_match || 0,
-    closestDuplicateUrl: crawlerData.closest_duplicate_url || '',
+      // Error Message
+      errorMessage: page.error_message || page.errorMessage || crawlerData.error_message || '',
 
-    // Scores
-    linkScore: page.link_score || page.linkScore || pageMatrix.link_score || 0,
-    semanticSimilarityScore: page.semantic_similarity_score || page.semanticSimilarityScore || pageMatrix.semantic_similarity_score || 0,
-    semanticRelevanceScore: page.semantic_relevance_score || page.semanticRelevanceScore || pageMatrix.semantic_relevance_score || 0,
-    
-    // Page Matrix Fields (Mapped from page_matrix in fields)
-    resourceType: pageMatrix.resource_type || 'HTML',
+      // Size / Carbon Attributes
+      sizeBytes: page.page_size_bytes || crawlerData.transferred_bytes || 0,
+      transferredBytes: crawlerData.transferred_bytes || 0,
+      totalTransferredBytes: crawlerData.total_transferred_bytes || crawlerData.transferred_bytes || 0,
+      co2Mg: crawlerData.co2_mg || 0,
+      carbonRating: crawlerData.carbon_rating || 'Unknown',
 
-    
-    // Tables
-    hasTables: pageMatrix.has_tables || false,
-    tableCount: pageMatrix.table_count || 0,
-    tableData: pageMatrix.table_data || '',
-    
-    // FAQs
-    hasFaqs: pageMatrix.has_faqs || false,
-    faqCount: pageMatrix.faq_count || 0,
-    faqScore: pageMatrix.faq_score || 0,
-    faqDetectionMethod: pageMatrix.faq_detection_method || '',
-    faqSchemaPresent: pageMatrix.faq_schema_present || false,
-    faqData: pageMatrix.faq_data || '',
+      // Hashes / Duplicates
+      contentHash: page.content_hash || crawlerData.hash || '',
+      nearDuplicateCount: crawlerData.no_near_duplicates || 0,
+      closestDuplicateSimilarity: crawlerData.closest_near_duplicate_match || 0,
+      closestDuplicateUrl: crawlerData.closest_duplicate_url || '',
 
-    // Mixed Content
-    hasMixedContent: pageMatrix.has_mixed_content || false,
-    mixedContentSeverity: pageMatrix.mixed_content_severity || 'none',
-    activeMixedContentCount: pageMatrix.active_mixed_content_count || 0,
-    passiveMixedContentCount: pageMatrix.passive_mixed_content_count || 0,
-    totalInsecureResources: pageMatrix.total_insecure_resources || 0,
-    mixedContentData: pageMatrix.mixed_content_data || '',
-    
-    // Duplicate Content specifics
-    duplicateTitleCount: pageMatrix.duplicate_title_count || 0,
+      // Scores
+      linkScore: page.link_score || page.linkScore || pageMatrix.link_score || 0,
+      semanticSimilarityScore: page.semantic_similarity_score || page.semanticSimilarityScore || pageMatrix.semantic_similarity_score || 0,
+      semanticRelevanceScore: page.semantic_relevance_score || page.semanticRelevanceScore || pageMatrix.semantic_relevance_score || 0,
 
-    // PageMetrics / TextQuality / WordCount props
-    // Map from crawlerData or other field modules if not in page
-    totalWordCount: page.word_count || page.wordCount || 0,
-    visibleWordCount: page.visible_word_count || page.visibleWordCount || (page.word_count || 0), 
-    uniqueWordCount: page.unique_word_count || page.uniqueWordCount || 0,
-    averageSentenceLength: page.average_sentence_length || page.averageSentenceLength || crawlerData.average_words_per_sentence || 0,
-    averageParagraphLength: page.average_paragraph_length || page.averageParagraphLength || 0, 
-    keywordDensity: page.keyword_density || page.keywordDensity || 0, 
-    
-    // Fields from website_crawler -> Map to CrawledDataTable expected keys
-    fleschReadingEase: crawlerData.flesch_reading_ease_score || 0,
-    readabilityLevel: crawlerData.readability || 'Unknown',
-    averageWordsPerSentence: crawlerData.average_words_per_sentence || 0,
-    
-    // Indexability Status (derived)
-    indexabilityStatus: (page.meta_robots?.includes('noindex') || page.x_robots_tag?.includes('noindex')) ? 'Non-Indexable' : 'Indexable',
-    indexable: !(page.meta_robots?.includes('noindex') || page.x_robots_tag?.includes('noindex')),
+      // Page Matrix Fields (Mapped from page_matrix in fields)
+      resourceType: pageMatrix.resource_type || 'HTML',
 
-    // PageMetrics Specific Statuses (derived)
-    titleStatus: (page.title_length === 0) ? 'Missing' : 'OK', // Simple derivation
-    metaDescriptionStatus: (page.description_length === 0) ? 'Missing' : 'OK',
-    
-    // Text Quality Fields
-    grammarErrors: crawlerData.grammar_errors || 0,
-    spellingErrors: crawlerData.spelling_errors || 0,
-    
-    // Other status
-    thinContent: page.thin_content || page.thinContent || false,
-    duplicateContent: page.duplicate_content || page.duplicateContent || false,
-    
-    // Ensure timestamp matches
-    timestamp: page.timestamp || new Date().toISOString(),
-    
-    // Attach full field data for components that might dig deeper
-    fields: fieldData
-  }})
+
+      // Tables
+      hasTables: pageMatrix.has_tables || false,
+      tableCount: pageMatrix.table_count || 0,
+      tableData: pageMatrix.table_data || '',
+
+      // FAQs
+      hasFaqs: pageMatrix.has_faqs || false,
+      faqCount: pageMatrix.faq_count || 0,
+      faqScore: pageMatrix.faq_score || 0,
+      faqDetectionMethod: pageMatrix.faq_detection_method || '',
+      faqSchemaPresent: pageMatrix.faq_schema_present || false,
+      faqData: pageMatrix.faq_data || '',
+
+      // Mixed Content
+      hasMixedContent: pageMatrix.has_mixed_content || false,
+      mixedContentSeverity: pageMatrix.mixed_content_severity || 'none',
+      activeMixedContentCount: pageMatrix.active_mixed_content_count || 0,
+      passiveMixedContentCount: pageMatrix.passive_mixed_content_count || 0,
+      totalInsecureResources: pageMatrix.total_insecure_resources || 0,
+      mixedContentData: pageMatrix.mixed_content_data || '',
+
+      // Duplicate Content specifics
+      duplicateTitleCount: pageMatrix.duplicate_title_count || 0,
+
+      // PageMetrics / TextQuality / WordCount props
+      // Map from crawlerData or other field modules if not in page
+      totalWordCount: page.word_count || page.wordCount || 0,
+      visibleWordCount: page.visible_word_count || page.visibleWordCount || (page.word_count || 0),
+      uniqueWordCount: page.unique_word_count || page.uniqueWordCount || 0,
+      averageSentenceLength: page.average_sentence_length || page.averageSentenceLength || crawlerData.average_words_per_sentence || 0,
+      averageParagraphLength: page.average_paragraph_length || page.averageParagraphLength || 0,
+      keywordDensity: page.keyword_density || page.keywordDensity || 0,
+
+      // Fields from website_crawler -> Map to CrawledDataTable expected keys
+      fleschReadingEase: crawlerData.flesch_reading_ease_score || 0,
+      readabilityLevel: crawlerData.readability || 'Unknown',
+      averageWordsPerSentence: crawlerData.average_words_per_sentence || 0,
+
+      // Indexability Status (derived)
+      indexabilityStatus: (page.meta_robots?.includes('noindex') || page.x_robots_tag?.includes('noindex')) ? 'Non-Indexable' : 'Indexable',
+      indexable: !(page.meta_robots?.includes('noindex') || page.x_robots_tag?.includes('noindex')),
+
+      // PageMetrics Specific Statuses (derived)
+      titleStatus: (page.title_length === 0) ? 'Missing' : 'OK', // Simple derivation
+      metaDescriptionStatus: (page.description_length === 0) ? 'Missing' : 'OK',
+
+      // Text Quality Fields
+      grammarErrors: crawlerData.grammar_errors || 0,
+      spellingErrors: crawlerData.spelling_errors || 0,
+
+      // Other status
+      thinContent: page.thin_content || page.thinContent || false,
+      duplicateContent: page.duplicate_content || page.duplicateContent || false,
+
+      // Ensure timestamp matches
+      timestamp: page.timestamp || new Date().toISOString(),
+
+      // Attach full field data for components that might dig deeper
+      fields: fieldData
+    }
+  })
 
   // Transform data for Crawled Data Table
-  const pagesData = { 
+  const pagesData = {
     data: transformedPages
   }
   const isLoadingPages = isLoadingResults
@@ -270,7 +271,7 @@ export default function SessionDetailPage() {
   rawLinks.forEach((link: any) => {
     const sourceUrl = link.source_url || 'unknown'
     if (!linksMap[sourceUrl]) {
-        linksMap[sourceUrl] = []
+      linksMap[sourceUrl] = []
     }
     linksMap[sourceUrl].push(link)
   })
@@ -279,46 +280,46 @@ export default function SessionDetailPage() {
   // With granular API, we get pagination info which has total.
   const totalLinksCount = linksResult?.pagination?.total || 0
 
-  const linkStatsData = { 
+  const linkStatsData = {
     pageStats: transformedPages.map((page: any) => {
-        // Calculate link stats using snake_case fields from backend
-        // Use linksMap if available, otherwise try to use fields data
-        const pageLinks = linksMap[page.url] || [];
-        
-        // Fallback to fields data if linksMap is empty (e.g. if links weren't fetched/mapped yet)
-        // But links are separate now.
-        
-        const internalOut = pageLinks.filter((l: any) => l.is_internal).length;
-        const externalOut = pageLinks.filter((l: any) => !l.is_internal).length;
-        
-        return {
-            pageId: page.id,
-            url: page.url,
-            title: page.title,
-            outlinks: pageLinks.length,
-            inlinks: 0, 
-            uniqueInlinks: 0,
-            uniqueJsInlinks: 0,
-            percentOfTotal: 0,
-            externalOutlinks: externalOut,
-            internalOutlinks: internalOut,
-            linkScore: page.linkScore // If available
-        };
-    }), 
+      // Calculate link stats using snake_case fields from backend
+      // Use linksMap if available, otherwise try to use fields data
+      const pageLinks = linksMap[page.url] || [];
+
+      // Fallback to fields data if linksMap is empty (e.g. if links weren't fetched/mapped yet)
+      // But links are separate now.
+
+      const internalOut = pageLinks.filter((l: any) => l.is_internal).length;
+      const externalOut = pageLinks.filter((l: any) => !l.is_internal).length;
+
+      return {
+        pageId: page.id,
+        url: page.url,
+        title: page.title,
+        outlinks: pageLinks.length,
+        inlinks: 0,
+        uniqueInlinks: 0,
+        uniqueJsInlinks: 0,
+        percentOfTotal: 0,
+        externalOutlinks: externalOut,
+        internalOutlinks: internalOut,
+        linkScore: page.linkScore // If available
+      };
+    }),
     stats: {
       totalLinks: totalLinksCount,
       internalLinks: 0, // Placeholder
       externalLinks: 0, // Placeholder
       brokenLinks: 0, // Placeholder
       linksByPosition: { header: 0, footer: 0, sidebar: 0, content: 0 }
-    } 
+    }
   }
   const isLoadingLinkStats = isLoadingResults
   const refetchLinkStats = refetchJobResults
 
   // Mock hooks to satisfy TS and runtime usage (returning object with unwrap)
   const getPageLinks = (arg: any) => ({ unwrap: async () => ({ links: linksMap[arg.pageId] || [] }) })
-  
+
   // Calculate Broken Links
   /* eslint-disable @typescript-eslint/no-explicit-any */
   const derivedBrokenLinks: any = {
@@ -331,52 +332,52 @@ export default function SessionDetailPage() {
 
   if (Object.keys(linksMap).length > 0) {
     Object.entries(linksMap).forEach(([sourceUrl, links]) => {
-        links.forEach((link: any) => {
-            // Check for status_code (snake_case) or statusCode (camelCase)
-            const sc = link.status_code || link.statusCode;
-            if (sc >= 400) {
-                const brokenLink = {
-                    url: link.target_url || link.targetUrl,
-                    sourceUrl: link.source_url || link.sourceUrl || sourceUrl,
-                    statusCode: sc,
-                    errorType: link.status_text || link.statusText || 'Error',
-                    error: link.error_message || link.errorMessage
-                };
+      links.forEach((link: any) => {
+        // Check for status_code (snake_case) or statusCode (camelCase)
+        const sc = link.status_code || link.statusCode;
+        if (sc >= 400) {
+          const brokenLink = {
+            url: link.target_url || link.targetUrl,
+            sourceUrl: link.source_url || link.sourceUrl || sourceUrl,
+            statusCode: sc,
+            errorType: link.status_text || link.statusText || 'Error',
+            error: link.error_message || link.errorMessage
+          };
 
-                const isInternal = link.is_internal !== undefined ? link.is_internal : link.isInternal;
+          const isInternal = link.is_internal !== undefined ? link.is_internal : link.isInternal;
 
-                if (sc === 404) {
-                    if (isInternal) {
-                        derivedBrokenLinks.missingPages.count++;
-                        derivedBrokenLinks.missingPages.links.push(brokenLink);
-                    } else {
-                         derivedBrokenLinks.brokenExternalLinks.count++;
-                         derivedBrokenLinks.brokenExternalLinks.links.push(brokenLink);
-                    }
-                } else if (sc >= 500) {
-                     derivedBrokenLinks.serverErrors.count++;
-                     derivedBrokenLinks.serverErrors.links.push(brokenLink);
-                } else if (sc === 0 || sc === 408) {
-                     derivedBrokenLinks.timeoutUnreachable.count++;
-                     derivedBrokenLinks.timeoutUnreachable.links.push(brokenLink);
-                } else {
-                    if (isInternal) {
-                        derivedBrokenLinks.brokenInternalLinks.count++;
-                        derivedBrokenLinks.brokenInternalLinks.links.push(brokenLink);
-                    } else {
-                        derivedBrokenLinks.brokenExternalLinks.count++;
-                        derivedBrokenLinks.brokenExternalLinks.links.push(brokenLink);
-                    }
-                }
+          if (sc === 404) {
+            if (isInternal) {
+              derivedBrokenLinks.missingPages.count++;
+              derivedBrokenLinks.missingPages.links.push(brokenLink);
+            } else {
+              derivedBrokenLinks.brokenExternalLinks.count++;
+              derivedBrokenLinks.brokenExternalLinks.links.push(brokenLink);
             }
-        });
+          } else if (sc >= 500) {
+            derivedBrokenLinks.serverErrors.count++;
+            derivedBrokenLinks.serverErrors.links.push(brokenLink);
+          } else if (sc === 0 || sc === 408) {
+            derivedBrokenLinks.timeoutUnreachable.count++;
+            derivedBrokenLinks.timeoutUnreachable.links.push(brokenLink);
+          } else {
+            if (isInternal) {
+              derivedBrokenLinks.brokenInternalLinks.count++;
+              derivedBrokenLinks.brokenInternalLinks.links.push(brokenLink);
+            } else {
+              derivedBrokenLinks.brokenExternalLinks.count++;
+              derivedBrokenLinks.brokenExternalLinks.links.push(brokenLink);
+            }
+          }
+        }
+      });
     });
   }
 
   const checkLinks = (arg: any) => ({ unwrap: async () => ({ results: derivedBrokenLinks }) })
   const linkCheckData = { results: derivedBrokenLinks }
   const isCheckingLinks = false
-  
+
   // Live crawl state - initialize from session data
   const [isCrawling, setIsCrawling] = useState(false)
   const [crawlStatus, setCrawlStatus] = useState<'idle' | 'running' | 'auditing' | 'completed' | 'cancelled'>('idle')
@@ -411,7 +412,7 @@ export default function SessionDetailPage() {
     const timer = setInterval(() => {
       setCurrentTime(Date.now())
     }, 100) // Update every 100ms for smooth display
-    
+
     return () => clearInterval(timer)
   }, [])
 
@@ -435,40 +436,40 @@ export default function SessionDetailPage() {
       if (!page) return [];
 
       const mapLink = (link: any, sourceUrl?: string) => ({
-          ...link,
-          // Map snake_case to camelCase
-          sourceUrl: link.source_url || link.sourceUrl || sourceUrl,
-          targetUrl: link.target_url || link.targetUrl,
-          isInternal: link.is_internal !== undefined ? link.is_internal : link.isInternal,
-          anchorText: link.anchor_text || link.anchorText,
-          // Include other potential fields
-          nofollow: link.nofollow,
-          rel: link.rel,
-          position: link.position || 'Main', // Default position if missing
-          id: Math.random() // Temp ID for list key
+        ...link,
+        // Map snake_case to camelCase
+        sourceUrl: link.source_url || link.sourceUrl || sourceUrl,
+        targetUrl: link.target_url || link.targetUrl,
+        isInternal: link.is_internal !== undefined ? link.is_internal : link.isInternal,
+        anchorText: link.anchor_text || link.anchorText,
+        // Include other potential fields
+        nofollow: link.nofollow,
+        rel: link.rel,
+        position: link.position || 'Main', // Default position if missing
+        id: Math.random() // Temp ID for list key
       });
 
       // If outlinks, we can look up in our links map
       if (linkType === 'out') {
-          const rawLinks = linksMap[page.url] || [];
-          return rawLinks.map((l: any) => mapLink(l, page.url));
+        const rawLinks = linksMap[page.url] || [];
+        return rawLinks.map((l: any) => mapLink(l, page.url));
       }
-      
+
       // If inlinks, we would need to search all links for this targetUrl
       if (linkType === 'in') {
-          const inlinks: any[] = [];
-          if (Object.keys(linksMap).length > 0) {
-              Object.entries(linksMap).forEach(([sourceUrl, links]) => {
-                  links.forEach((link: any) => {
-                      if ((link.target_url || link.targetUrl) === page.url) {
-                          inlinks.push(mapLink(link, sourceUrl));
-                      }
-                  });
-              });
-          }
-          return inlinks;
+        const inlinks: any[] = [];
+        if (Object.keys(linksMap).length > 0) {
+          Object.entries(linksMap).forEach(([sourceUrl, links]) => {
+            links.forEach((link: any) => {
+              if ((link.target_url || link.targetUrl) === page.url) {
+                inlinks.push(mapLink(link, sourceUrl));
+              }
+            });
+          });
+        }
+        return inlinks;
       }
-      
+
       return []
 
     } catch (error) {
@@ -515,16 +516,16 @@ export default function SessionDetailPage() {
     const hours = Math.floor(seconds / 3600)
     const minutes = Math.floor((seconds % 3600) / 60)
     const secs = seconds % 60
-    
+
     const pad = (n: number) => n.toString().padStart(2, '0')
-    
+
     if (isRunning && milliseconds > 0) {
       if (hours > 0) {
         return `${hours}:${pad(minutes)}:${pad(secs)}`
       }
       return `${minutes}:${pad(secs)}`
     }
-    
+
     if (hours > 0) {
       return `${hours}:${pad(minutes)}:${pad(secs)}`
     }
@@ -534,21 +535,21 @@ export default function SessionDetailPage() {
   // Calculate elapsed time in milliseconds
   const calculateElapsedTimeMs = (): number => {
     const isActive = isCrawling || crawlStatus === 'running' || crawlStatus === 'auditing'
-    
+
     if (isActive && crawlStartTime) {
       return currentTime - crawlStartTime
     }
-    
+
     if (crawlStats?.duration) {
       // crawlStats.duration is in milliseconds
       return crawlStats.duration
     }
-    
+
     if (session?.duration) {
       // session.duration is stored in milliseconds from the database
       return session.duration
     }
-    
+
     return 0
   }
 
@@ -562,7 +563,7 @@ export default function SessionDetailPage() {
     const isActive = isCrawling || crawlStatus === 'running' || crawlStatus === 'auditing'
     const elapsedMs = calculateElapsedTimeMs()
     const elapsedSec = elapsedMs / 1000
-    
+
     if (isActive && pageCount >= 0 && elapsedSec > 0) {
       return (pageCount / elapsedSec).toFixed(1)
     }
@@ -612,8 +613,8 @@ export default function SessionDetailPage() {
             <AlertCircle className="h-16 w-16 text-red-400 mb-4" />
             <h2 className="text-2xl font-bold text-white mb-2">Session not found</h2>
             <p className="text-white/60 mb-4">{error || 'The session you\'re looking for doesn\'t exist'}</p>
-            <Button 
-              onClick={() => router.push(`/dashboard/projects/${projectId}`)} 
+            <Button
+              onClick={() => router.push(`/dashboard/projects/${projectId}`)}
               className="bg-white text-black hover:bg-slate-100 cursor-pointer"
             >
               Back to Project
@@ -705,7 +706,7 @@ export default function SessionDetailPage() {
         {activeSection === 'crawled-data' && (
           <div>
 
-            <CrawledDataTable 
+            <CrawledDataTable
               data={pagesData?.data || []}
               isLoading={isLoadingPages}
               onRefresh={() => refetchPages()}
@@ -716,7 +717,7 @@ export default function SessionDetailPage() {
         {/* Show Page Metrics Table on page-metrics tab */}
         {activeSection === 'page-metrics' && (
           <div>
-            <PageMetricsTable 
+            <PageMetricsTable
               data={pageMetricsData?.data || []}
               isLoading={isLoadingMetrics}
               onRefresh={() => refetchMetrics()}
@@ -727,7 +728,7 @@ export default function SessionDetailPage() {
         {/* Show Text Quality Table on text-quality tab */}
         {activeSection === 'text-quality' && (
           <div>
-            <TextQualityTable 
+            <TextQualityTable
               data={textQualityData?.data || []}
               isLoading={isLoadingTextQuality}
               onRefresh={() => refetchTextQuality()}
@@ -738,7 +739,7 @@ export default function SessionDetailPage() {
         {/* Show Word Count Analysis on wordcount tab */}
         {activeSection === 'wordcount' && (
           <div>
-            <WordCountAnalysis 
+            <WordCountAnalysis
               data={wordCountData?.data || []}
               isLoading={isLoadingWordCount}
               onRefresh={() => refetchWordCount()}
@@ -749,7 +750,7 @@ export default function SessionDetailPage() {
         {/* Show Broken Link Checker on broken-links tab */}
         {activeSection === 'broken-links' && (
           <div>
-            <BrokenLinkChecker 
+            <BrokenLinkChecker
               sessionId={parseInt(sessionId)}
               onCheck={handleCheckLinks}
               checkResults={linkCheckData?.results || null}
@@ -761,7 +762,7 @@ export default function SessionDetailPage() {
         {/* Show Link Analysis on link-analysis tab */}
         {activeSection === 'link-analysis' && (
           <div>
-            <LinkAnalysis 
+            <LinkAnalysis
               pageStats={(linkStatsData?.pageStats as any) || []}
               linkStats={linkStatsData?.stats || null}
               isLoading={isLoadingLinkStats}
@@ -774,7 +775,7 @@ export default function SessionDetailPage() {
         {/* Show Performance Audits on performance tab */}
         {activeSection === 'performance' && (
           <div>
-            <PerformanceAuditsTable 
+            <PerformanceAuditsTable
               sessionId={parseInt(sessionId)}
               sessionStatus={crawlStatus}
             />
@@ -784,7 +785,7 @@ export default function SessionDetailPage() {
         {/* Show Schema Generator on schema-generator tab */}
         {activeSection === 'schema-generator' && (
           <div>
-            <SchemaGeneratorTable 
+            <SchemaGeneratorTable
               sessionId={parseInt(sessionId)}
               sessionStatus={crawlStatus}
             />
@@ -793,7 +794,7 @@ export default function SessionDetailPage() {
 
         {/* Show AI Intelligence Module on ai-intelligence tab */}
         {activeSection === 'ai-intelligence' && (
-          <AIIntelligenceModule 
+          <AIIntelligenceModule
             url={session?.startUrl || ''}
             sessionId={parseInt(sessionId)}
           />
@@ -809,20 +810,21 @@ export default function SessionDetailPage() {
               <BrandAnalysisSection jobId={jobId} />
             </div>
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
-              <SentimentTrackingSection sentimentData={moduleEQueryData?.data?.sentiment_tracking} />
+              <SentimentTrackingSection
+                jobId={jobId}
+                sentimentData={moduleEQueryData?.data?.sentiment_tracking}
+              />
             </div>
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
               <AICitationRanking url={session?.startUrl || ''} />
             </div>
-            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
-              <SentimentTracking brandName={project?.name || 'not configured'} />
-            </div>
           </div>
         )}
 
+
         {/* Show Content Metrics on content-metrics tab */}
         {activeSection === 'content-metrics' && (
-          <ContentMetricsModule 
+          <ContentMetricsModule
             url={session?.startUrl || ''}
             sessionId={parseInt(sessionId)}
           />
@@ -830,7 +832,7 @@ export default function SessionDetailPage() {
 
         {/* Show Answer Completeness on answer-completeness tab */}
         {activeSection === 'answer-completeness' && (
-          <AnswerCompletenessModule 
+          <AnswerCompletenessModule
             url={session?.startUrl || ''}
             sessionId={parseInt(sessionId)}
           />

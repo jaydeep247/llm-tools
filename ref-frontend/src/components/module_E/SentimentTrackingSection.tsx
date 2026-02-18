@@ -1,12 +1,15 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect, useCallback } from 'react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { TrendingUp, Eye, Brain, AlertCircle } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { TrendingUp, Eye, Brain, AlertCircle, Play, Loader2, RefreshCw, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useRunSentimentAnalysisMutation, useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
 
 interface SentimentTrackingProps {
+  jobId?: string
   sentimentData?: {
     brand_name?: string
     industry?: string
@@ -19,7 +22,7 @@ interface SentimentTrackingProps {
     visibility?: {
       overall_visibility_score?: number
       overall_appearance_rate?: number
-      by_model?: Record<string, { 
+      by_model?: Record<string, {
         visibility_score?: number
         appearance_rate?: number
         appearances?: number
@@ -30,23 +33,174 @@ interface SentimentTrackingProps {
   }
 }
 
-export default function SentimentTrackingSection({ sentimentData }: SentimentTrackingProps) {
+export default function SentimentTrackingSection({ jobId, sentimentData: initialSentimentData }: SentimentTrackingProps) {
+  const [isPolling, setIsPolling] = useState(false)
+  const [pollCount, setPollCount] = useState(0)
+  const [justCompleted, setJustCompleted] = useState(false)
+
+  // RTK Query: run sentiment analysis mutation
+  const [runSentimentAnalysis, { isLoading: isTriggering }] = useRunSentimentAnalysisMutation()
+
+  // Track the timestamp of the last known result so we can detect when new data arrives
+  const [lastTimestamp, setLastTimestamp] = useState<string | undefined>(
+    initialSentimentData?.timestamp
+  )
+
+  // RTK Query: always active (not skipped) so tag invalidation from mutation triggers refetch
+  const { data: polledData } = useGetModuleEResultQuery(jobId ?? '', {
+    skip: !jobId,
+    pollingInterval: isPolling ? 5000 : 0,
+    refetchOnMountOrArgChange: true,
+  })
+
+  // The sentiment data to display: prefer live polled data if available, else initial prop
+  const sentimentData = polledData?.data?.sentiment_tracking ?? initialSentimentData
+
+  // Stop polling when a NEW timestamp appears (meaning backend wrote fresh results)
+  useEffect(() => {
+    if (!isPolling) return
+    const newTs = polledData?.data?.sentiment_tracking?.timestamp
+    if (newTs && newTs !== lastTimestamp) {
+      setIsPolling(false)
+      setPollCount(0)
+      setLastTimestamp(newTs)
+      setJustCompleted(true)
+      setTimeout(() => setJustCompleted(false), 4000)
+    }
+  }, [isPolling, polledData, lastTimestamp])
+
+  // Safety: stop polling after 3 minutes (36 × 5s)
+  useEffect(() => {
+    if (isPolling && pollCount > 36) {
+      setIsPolling(false)
+      setPollCount(0)
+    }
+  }, [isPolling, pollCount])
+
+  // Increment poll count on each refetch
+  useEffect(() => {
+    if (isPolling) {
+      const id = setInterval(() => setPollCount(c => c + 1), 5000)
+      return () => clearInterval(id)
+    }
+  }, [isPolling])
+
+  const handleRunAnalysis = useCallback(async () => {
+    if (!jobId) return
+    try {
+      // Snapshot current timestamp before triggering so we can detect new data
+      const currentTs = polledData?.data?.sentiment_tracking?.timestamp ?? initialSentimentData?.timestamp
+      setLastTimestamp(currentTs)
+      await runSentimentAnalysis(jobId).unwrap()
+      // Start polling for results
+      setIsPolling(true)
+      setPollCount(0)
+      setJustCompleted(false)
+    } catch (err) {
+      console.error('Failed to trigger sentiment analysis:', err)
+    }
+  }, [jobId, runSentimentAnalysis, polledData, initialSentimentData])
+
+  // Color coding helpers
+  const getSentimentColor = (score: number) => {
+    if (score >= 80) return 'text-emerald-400'
+    if (score >= 60) return 'text-yellow-400'
+    return 'text-rose-400'
+  }
+
+  const getSentimentBg = (score: number) => {
+    if (score >= 80) return 'bg-emerald-500/10 border-emerald-500/30'
+    if (score >= 60) return 'bg-yellow-500/10 border-yellow-500/30'
+    return 'bg-rose-500/10 border-rose-500/30'
+  }
+
+  const getVisibilityColor = (score: number) => {
+    if (score >= 50) return 'text-blue-400'
+    if (score >= 25) return 'text-cyan-400'
+    return 'text-gray-400'
+  }
+
+  const getVisibilityBg = (score: number) => {
+    if (score >= 50) return 'bg-blue-500/10 border-blue-500/30'
+    if (score >= 25) return 'bg-cyan-500/10 border-cyan-500/30'
+    return 'bg-gray-500/10 border-gray-500/30'
+  }
+
+  const isRunning = isTriggering || isPolling
+
+  // Run Analysis Button — always visible
+  const RunButton = (
+    <Button
+      size="sm"
+      onClick={handleRunAnalysis}
+      disabled={isRunning}
+      className={cn(
+        'gap-2 font-semibold transition-all',
+        justCompleted
+          ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+          : 'bg-primary hover:bg-primary/90 text-primary-foreground'
+      )}
+    >
+      {isTriggering ? (
+        <><Loader2 className="w-4 h-4 animate-spin" /> Queuing…</>
+      ) : isPolling ? (
+        <><Loader2 className="w-4 h-4 animate-spin" /> Analysing…</>
+      ) : justCompleted ? (
+        <><CheckCircle2 className="w-4 h-4" /> Done!</>
+      ) : sentimentData ? (
+        <><RefreshCw className="w-4 h-4" /> Re-run Analysis</>
+      ) : (
+        <><Play className="w-4 h-4" /> Run Analysis</>
+      )}
+    </Button>
+  )
+
+  // Empty state — no data yet
   if (!sentimentData) {
     return (
-      <Card className="rounded-xl border p-6">
-        <div className="flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-muted-foreground" />
+      <div className="space-y-4">
+        {/* Header */}
+        <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-semibold text-foreground">AI Sentiment & Visibility Tracking</h3>
+            <h3 className="text-lg font-semibold text-foreground">AI Sentiment &amp; Visibility Tracking</h3>
             <p className="text-xs text-muted-foreground">
-              No sentiment tracking data yet. Run Module E analysis to generate AI perception insights.
+              Measure how AI models perceive and recommend your brand
             </p>
           </div>
+          {RunButton}
         </div>
-      </Card>
+
+        {/* Empty state card */}
+        <Card className="rounded-xl border p-8 text-center">
+          {isRunning ? (
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="w-8 h-8 text-primary animate-spin" />
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  {isTriggering ? 'Queuing analysis…' : 'Analysing your brand across AI models…'}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  This may take 30–90 seconds. Querying OpenAI, Gemini &amp; Claude.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-3">
+              <AlertCircle className="w-8 h-8 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-semibold text-foreground">No sentiment data yet</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Click <strong>Run Analysis</strong> to query OpenAI, Gemini &amp; Claude about your brand.
+                </p>
+              </div>
+            </div>
+          )}
+        </Card>
+      </div>
     )
   }
 
+  // Data available — render full UI
   const sentiment = sentimentData.sentiment ?? {
     overall_score: 0,
     distribution: { Positive: 0, Neutral: 0, Negative: 0 },
@@ -60,73 +214,66 @@ export default function SentimentTrackingSection({ sentimentData }: SentimentTra
   const brand_name = sentimentData.brand_name ?? 'Unknown'
   const industry = sentimentData.industry ?? 'Unknown'
   const service_type = sentimentData.service_type ?? 'Unknown'
-  
-  // Color coding for sentiment scores
-  const getSentimentColor = (score: number) => {
-    if (score >= 80) return 'text-emerald-400'
-    if (score >= 60) return 'text-yellow-400'
-    return 'text-rose-400'
-  }
-  
-  const getSentimentBg = (score: number) => {
-    if (score >= 80) return 'bg-emerald-500/10 border-emerald-500/30'
-    if (score >= 60) return 'bg-yellow-500/10 border-yellow-500/30'
-    return 'bg-rose-500/10 border-rose-500/30'
-  }
-  
-  // Color coding for visibility scores
-  const getVisibilityColor = (score: number) => {
-    if (score >= 50) return 'text-blue-400'
-    if (score >= 25) return 'text-cyan-400'
-    return 'text-gray-400'
-  }
-  
-  const getVisibilityBg = (score: number) => {
-    if (score >= 50) return 'bg-blue-500/10 border-blue-500/30'
-    if (score >= 25) return 'bg-cyan-500/10 border-cyan-500/30'
-    return 'bg-gray-500/10 border-gray-500/30'
-  }
 
-  // Sentiment label
-  const sentimentLabel = useMemo(() => {
+  const sentimentLabel = (() => {
     const score = sentiment.overall_score ?? 0
     if (score >= 80) return 'Highly Positive'
     if (score >= 60) return 'Positive'
     if (score >= 40) return 'Neutral'
     if (score >= 20) return 'Negative'
     return 'Highly Negative'
-  }, [sentiment.overall_score])
+  })()
 
-  // Visibility label
-  const visibilityLabel = useMemo(() => {
+  const visibilityLabel = (() => {
     const score = visibility.overall_visibility_score ?? 0
     if (score >= 70) return 'Excellent'
     if (score >= 50) return 'Strong'
     if (score >= 30) return 'Moderate'
     if (score >= 10) return 'Weak'
     return 'Very Low'
-  }, [visibility.overall_visibility_score])
+  })()
 
   const sentimentDistribution = sentiment.distribution ?? { Positive: 0, Neutral: 0, Negative: 0 }
-  const totalResponses = (sentimentDistribution.Positive ?? 0) + (sentimentDistribution.Neutral ?? 0) + (sentimentDistribution.Negative ?? 0)
-  const totalQuestions = (Object.values(visibility.by_model ?? {})[0]?.total_prompts ?? 0) * 3 || 18
+  const totalResponses =
+    (sentimentDistribution.Positive ?? 0) +
+    (sentimentDistribution.Neutral ?? 0) +
+    (sentimentDistribution.Negative ?? 0)
+  const totalQuestions =
+    (Object.values(visibility.by_model ?? {})[0]?.total_prompts ?? 0) * 3 || 18
   const appearanceRate = visibility.overall_appearance_rate ?? 0
-  const timestampLabel = sentimentData.timestamp ? new Date(sentimentData.timestamp).toLocaleString() : 'Unknown'
+  const timestampLabel = sentimentData.timestamp
+    ? new Date(sentimentData.timestamp).toLocaleString()
+    : 'Unknown'
 
   return (
     <div className="space-y-4">
       {/* Section Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-foreground">AI Sentiment & Visibility Tracking</h3>
+          <h3 className="text-lg font-semibold text-foreground">AI Sentiment &amp; Visibility Tracking</h3>
           <p className="text-xs text-muted-foreground">
             Brand: {brand_name} • Industry: {industry} • Service: {service_type}
           </p>
         </div>
-        <Badge variant="outline" className="text-xs">
-          {timestampLabel}
-        </Badge>
+        <div className="flex items-center gap-3">
+          <Badge variant="outline" className="text-xs hidden sm:flex">
+            {timestampLabel}
+          </Badge>
+          {RunButton}
+        </div>
       </div>
+
+      {/* Running overlay hint */}
+      {isRunning && (
+        <div className="flex items-center gap-2 text-xs text-primary bg-primary/10 border border-primary/20 rounded-lg px-4 py-2">
+          <Loader2 className="w-3 h-3 animate-spin" />
+          <span>
+            {isTriggering
+              ? 'Queuing sentiment analysis…'
+              : 'Querying OpenAI, Gemini & Claude — results will appear automatically…'}
+          </span>
+        </div>
+      )}
 
       {/* Main Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -143,7 +290,6 @@ export default function SentimentTrackingSection({ sentimentData }: SentimentTra
               </div>
             </div>
 
-            {/* Score Display */}
             <div className="flex items-end gap-2">
               <div className={cn('text-6xl font-bold', getSentimentColor(sentiment.overall_score ?? 0))}>
                 {sentiment.overall_score ?? 0}
@@ -162,60 +308,29 @@ export default function SentimentTrackingSection({ sentimentData }: SentimentTra
               <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Distribution ({totalResponses} responses)
               </div>
-              
-              {/* Positive */}
-              <div className="flex items-center gap-2">
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-emerald-400 font-semibold">Positive</span>
-                    <span className="text-xs text-muted-foreground">
-                      {totalResponses ? Math.round(((sentimentDistribution.Positive ?? 0) / totalResponses) * 100) : 0}%
-                    </span>
-                  </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-emerald-400 transition-all"
-                      style={{ width: `${totalResponses ? ((sentimentDistribution.Positive ?? 0) / totalResponses) * 100 : 0}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
 
-              {/* Negative */}
-              <div className="flex items-center gap-2">
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-rose-400 font-semibold">Negative</span>
-                    <span className="text-xs text-muted-foreground">
-                      {totalResponses ? Math.round(((sentimentDistribution.Negative ?? 0) / totalResponses) * 100) : 0}%
-                    </span>
-                  </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-rose-400 transition-all"
-                      style={{ width: `${totalResponses ? ((sentimentDistribution.Negative ?? 0) / totalResponses) * 100 : 0}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Neutral */}
-              <div className="flex items-center gap-2">
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-amber-400 font-semibold">Neutral</span>
-                    <span className="text-xs text-muted-foreground">
-                      {totalResponses ? Math.round(((sentimentDistribution.Neutral ?? 0) / totalResponses) * 100) : 0}%
-                    </span>
-                  </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-amber-400 transition-all"
-                      style={{ width: `${totalResponses ? ((sentimentDistribution.Neutral ?? 0) / totalResponses) * 100 : 0}%` }}
-                    />
+              {[
+                { label: 'Positive', value: sentimentDistribution.Positive ?? 0, color: 'bg-emerald-400', textColor: 'text-emerald-400' },
+                { label: 'Negative', value: sentimentDistribution.Negative ?? 0, color: 'bg-rose-400', textColor: 'text-rose-400' },
+                { label: 'Neutral', value: sentimentDistribution.Neutral ?? 0, color: 'bg-amber-400', textColor: 'text-amber-400' },
+              ].map(({ label, value, color, textColor }) => (
+                <div key={label} className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className={cn('text-xs font-semibold', textColor)}>{label}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {totalResponses ? Math.round((value / totalResponses) * 100) : 0}%
+                      </span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={cn('h-full transition-all', color)}
+                        style={{ width: `${totalResponses ? (value / totalResponses) * 100 : 0}%` }}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
+              ))}
             </div>
           </div>
         </Card>
@@ -233,7 +348,6 @@ export default function SentimentTrackingSection({ sentimentData }: SentimentTra
               </div>
             </div>
 
-            {/* Score Display */}
             <div className="flex items-end gap-2">
               <div className={cn('text-6xl font-bold', getVisibilityColor(visibility.overall_visibility_score ?? 0))}>
                 {visibility.overall_visibility_score ?? 0}
@@ -247,7 +361,6 @@ export default function SentimentTrackingSection({ sentimentData }: SentimentTra
               {visibilityLabel} Visibility
             </Badge>
 
-            {/* Visibility Metrics */}
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">Appearance Rate</span>
@@ -255,12 +368,10 @@ export default function SentimentTrackingSection({ sentimentData }: SentimentTra
                   {Math.round(appearanceRate * 100)}%
                 </span>
               </div>
-              
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">Total Discovery Questions</span>
                 <span className="text-sm font-semibold text-foreground">{totalQuestions}</span>
               </div>
-
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">Brand Mentioned</span>
                 <span className="text-sm font-semibold text-foreground">
@@ -289,7 +400,6 @@ export default function SentimentTrackingSection({ sentimentData }: SentimentTra
               const modelDistribution = data?.distribution ?? { Positive: 0, Neutral: 0, Negative: 0 }
               return (
                 <div key={model} className="bg-background/50 rounded-lg p-4 space-y-3">
-                  {/* Model Name */}
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold uppercase tracking-wider text-foreground">
                       {model}
@@ -297,7 +407,6 @@ export default function SentimentTrackingSection({ sentimentData }: SentimentTra
                     <Badge variant="outline" className="text-[10px]">AI Model</Badge>
                   </div>
 
-                  {/* Sentiment Score */}
                   <div>
                     <div className="text-xs text-muted-foreground mb-1">Sentiment</div>
                     <div className="flex items-end gap-1">
@@ -308,7 +417,6 @@ export default function SentimentTrackingSection({ sentimentData }: SentimentTra
                     </div>
                   </div>
 
-                  {/* Visibility Score */}
                   <div>
                     <div className="text-xs text-muted-foreground mb-1">Visibility</div>
                     <div className="flex items-end gap-1">
@@ -322,21 +430,20 @@ export default function SentimentTrackingSection({ sentimentData }: SentimentTra
                     </div>
                   </div>
 
-                  {/* Distribution */}
                   <div className="pt-2 border-t border-border/50">
                     <div className="text-[10px] text-muted-foreground mb-1">Sentiment Mix</div>
                     <div className="flex gap-1">
-                      <div 
+                      <div
                         className="h-1.5 bg-emerald-400 rounded-full"
                         style={{ width: `${((modelDistribution.Positive ?? 0) / 5) * 100}%` }}
                         title={`Positive: ${modelDistribution.Positive ?? 0}`}
                       />
-                      <div 
+                      <div
                         className="h-1.5 bg-rose-400 rounded-full"
                         style={{ width: `${((modelDistribution.Negative ?? 0) / 5) * 100}%` }}
                         title={`Negative: ${modelDistribution.Negative ?? 0}`}
                       />
-                      <div 
+                      <div
                         className="h-1.5 bg-amber-400 rounded-full"
                         style={{ width: `${((modelDistribution.Neutral ?? 0) / 5) * 100}%` }}
                         title={`Neutral: ${modelDistribution.Neutral ?? 0}`}
@@ -361,13 +468,13 @@ export default function SentimentTrackingSection({ sentimentData }: SentimentTra
             <li className="flex items-start gap-2">
               <span className="text-emerald-400 mt-0.5">•</span>
               <span>
-                <strong>Sentiment Score:</strong> How positively AI models perceive your brand when asked directly (0-100)
+                <strong>Sentiment Score:</strong> How positively AI models perceive your brand when asked directly (0–100)
               </span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-blue-400 mt-0.5">•</span>
               <span>
-                <strong>Visibility Score:</strong> How often AI recommends your brand organically without being prompted (0-100%)
+                <strong>Visibility Score:</strong> How often AI recommends your brand organically without being prompted (0–100%)
               </span>
             </li>
             <li className="flex items-start gap-2">

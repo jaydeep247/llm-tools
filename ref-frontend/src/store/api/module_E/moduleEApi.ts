@@ -96,7 +96,18 @@ export const moduleEApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: (_result, _error, jobId) => [{ type: 'ModuleE' as const, id: jobId }],
     }),
+    runSentimentAnalysis: builder.mutation<ModuleEResultResponse, string>({
+      query: (jobId) => ({
+        url: `/module-e/jobs/${jobId}/run-sentiment`,
+        method: 'POST',
+      }),
+      invalidatesTags: (_result, _error, jobId) => [{ type: 'ModuleE' as const, id: jobId }],
+    }),
   }),
 })
 
-export const { useGetModuleEResultQuery, useRunModuleEAnalysisMutation } = moduleEApi
+export const {
+  useGetModuleEResultQuery,
+  useRunModuleEAnalysisMutation,
+  useRunSentimentAnalysisMutation,
+} = moduleEApi
