@@ -7,7 +7,7 @@ import scrapy
 from scrapy.http import Response, HtmlResponse
 from typing import Dict, Any, Optional
 from datetime import datetime
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 import asyncio
 import re
 import xml.etree.ElementTree as ET
@@ -102,26 +102,36 @@ class WebsiteSpider(scrapy.Spider):
         self.pages_crawled = 0
         self.links_collected = 0
         self.should_stop = False
+        self.seen_urls = set()
         
         # Constants
         self.MAX_PAGINATION_DEPTH = 5  # Strict limit: max 5 pages deep
         self.MAX_PAGINATION_FAILURES = 1 # Strict limit: stop on FIRST failure
 
     def normalize_url(self, url: str) -> str:
-        """Normalize URL to reduce redirects"""
-        # 1. Scheme normalization (HTTP -> HTTPS if base is HTTPS)
-        if self.base_scheme == 'https' and url.startswith('http://'):
-            url = url.replace('http://', 'https://', 1)
-            
-        # 2. Trailing slash normalization (skip files)
-        path = urlparse(url).path
-        if '.' not in path.split('/')[-1]:
-            if self.force_trailing_slash and not url.endswith('/'):
-                 url += '/'
-            elif not self.force_trailing_slash and url.endswith('/'):
-                 url = url[:-1]
-        
-        return url
+        parsed = urlparse(url)
+        scheme = parsed.scheme.lower()
+        netloc = parsed.netloc.lower()
+        path = parsed.path or '/'
+
+        lower_path = path.lower()
+        if lower_path.endswith('/index.html'):
+            base_path = path[: -len('/index.html')]
+            path = base_path or '/'
+        elif lower_path.endswith('/index.htm'):
+            base_path = path[: -len('/index.htm')]
+            path = base_path or '/'
+
+        path = path.rstrip('/') or '/'
+        path = path.lower()
+
+        if self.base_scheme == 'https':
+            scheme = 'https'
+
+        if not path.startswith('/'):
+            path = '/' + path
+
+        return urlunparse((scheme, netloc, path, '', '', ''))
 
     def is_pagination_url(self, url: str) -> tuple[bool, int, str]:
         """
@@ -168,6 +178,9 @@ class WebsiteSpider(scrapy.Spider):
         self.crawl_started_timestamp = datetime.now().timestamp()
         
         logger.info(f"Starting optimized SEO crawl for {self.start_url}")
+        
+        root_normalized = self.normalize_url(self.start_url)
+        self.seen_urls.add(root_normalized)
         
         # 1. Start crawling homepage IMMEDIATELY (High Priority)
         yield scrapy.Request(
@@ -280,7 +293,11 @@ class WebsiteSpider(scrapy.Spider):
                         
                         yield item
                         
-                        # Yield Crawl Request (Priority lower than sitemap discovery but higher than default)
+                        normalized = self.normalize_url(url)
+                        if normalized in self.seen_urls:
+                            continue
+                        self.seen_urls.add(normalized)
+                        
                         yield scrapy.Request(
                             url=url,
                             callback=self.parse,
@@ -299,6 +316,11 @@ class WebsiteSpider(scrapy.Spider):
         pass
     
     def parse(self, response: Response):
+        normalized_response_url = self.normalize_url(response.url)
+        if normalized_response_url in self.seen_urls:
+            return
+        self.seen_urls.add(normalized_response_url)
+
         self.pages_seen += 1
 
         if self.job_id and self.pages_seen % 50 == 0:
@@ -474,14 +496,17 @@ class WebsiteSpider(scrapy.Spider):
                     if any(p in target_url for p in ['/cart', '/checkout', '/account']):
                         continue
 
-                    target_url = self.normalize_url(target_url)
-
                     is_pag, page_num, _ = self.is_pagination_url(target_url)
                     if is_pag:
                         if page_num > self.MAX_PAGINATION_DEPTH:
                             continue
                         if not self.should_follow_pagination(target_url):
                             continue
+
+                    normalized_target = self.normalize_url(target_url)
+                    if normalized_target in self.seen_urls:
+                        continue
+                    self.seen_urls.add(normalized_target)
 
                     priority = self.get_url_priority(target_url)
 
