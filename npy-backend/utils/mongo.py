@@ -28,7 +28,7 @@ class MongoManager:
         if self._client is None:
             try:
                 logger.info(f"Connecting to MongoDB at {self.mongo_uri}...")
-                self._client = MongoClient(self.mongo_uri)
+                self._client = MongoClient(self.mongo_uri, serverSelectionTimeoutMS=5000)
                 self._db = self._client[self.db_name]
                 
                 # Check connection

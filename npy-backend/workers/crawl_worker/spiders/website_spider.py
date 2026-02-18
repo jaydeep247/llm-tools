@@ -14,6 +14,8 @@ import xml.etree.ElementTree as ET
 import gzip
 from io import BytesIO
 
+import redis
+
 from .items import PageItem, LinkItem, SitemapUrlItem
 from .extractors import (
     BasicExtractor,
@@ -24,6 +26,7 @@ from .extractors import (
     AdvancedExtractor,
 )
 from utils.logger import logger
+from utils.config import config
 
 # Import Module A Metrics
 # Import Module A Metrics
@@ -51,26 +54,7 @@ class WebsiteSpider(scrapy.Spider):
     
     name = 'website_spider'
     
-    custom_settings = {
-        'CONCURRENT_REQUESTS': 20,   # Increased from 16
-        'DOWNLOAD_DELAY': 0,
-        'ROBOTSTXT_OBEY': False,
-        'DOWNLOAD_TIMEOUT': 15,      # Reduced from 30s
-        'USER_AGENT': 'Mozilla/5.0 (compatible; WebCrawler/1.0)',
-        'DEPTH_LIMIT': 8,
-        'COOKIES_ENABLED': False,
-        'AUTOTHROTTLE_ENABLED': True,
-        'AUTOTHROTTLE_START_DELAY': 0.1,
-        'AUTOTHROTTLE_MAX_DELAY': 5,
-        'AUTOTHROTTLE_TARGET_CONCURRENCY': 20, # Increased from 16
-        'REACTOR_THREADPOOL_MAXSIZE': 32,
-        'LOG_LEVEL': 'WARNING',
-        'RETRY_ENABLED': True,
-        'RETRY_TIMES': 1,            # 1 retry only
-        'ITEM_PIPELINES': {
-            'workers.crawl_worker.pipelines.mongo_pipeline.MongoPipeline': 300,
-        },
-    }
+    custom_settings = {}
     
     def __init__(
         self,
@@ -93,29 +77,22 @@ class WebsiteSpider(scrapy.Spider):
         self.project_id = project_id
         
         self.allow_subdomains = allow_subdomains
-        self.max_concurrency = max_concurrency
+        self.max_concurrency = min(max_concurrency, 4)
         self.max_pages = max_pages
         self.timeout = timeout
         
-        # Parse allowed host
         parsed = urlparse(start_url)
         self.allowed_host = parsed.netloc
         self.base_scheme = parsed.scheme
         
-        # Determine trailing slash preference from start_url
         self.force_trailing_slash = start_url.endswith('/')
         
-        # Update settings
-        self.custom_settings['CONCURRENT_REQUESTS'] = max_concurrency
-        self.custom_settings['AUTOTHROTTLE_TARGET_CONCURRENCY'] = max_concurrency
-        
-        # Storage for sitemap data
         self.sitemap_data = {
             'sitemap_urls': [],
             'discovered_urls': [],
         }
-        
-        # Track request start times & pagination
+        self.pages_seen = 0
+
         self.request_start_times = {}
         self.pagination_failures = {} # Track failed patterns
         
@@ -322,232 +299,192 @@ class WebsiteSpider(scrapy.Spider):
         pass
     
     def parse(self, response: Response):
-        """Main parsing logic for each page"""
-        # Track start time
-        request_id = id(response.request)
-        start_time = self.request_start_times.get(request_id, datetime.now().timestamp())
-        
-        # Calculate crawl depth
-        crawl_depth = response.meta.get('depth', 0)
-        
-        # Validate content type
-        content_type = response.headers.get('Content-Type', b'').decode('utf-8').lower()
-        if 'text/html' not in content_type and 'application/xhtml+xml' not in content_type:
-            logger.debug(f"Skipping non-HTML content: {response.url} ({content_type})")
-            return
-            
-        # Calculate folder depth
-        parsed_url = urlparse(response.url)
-        folder_depth = len([p for p in parsed_url.path.split('/') if p])
-        
-        # Extract all fields using extractors
-        # Robust check: Ensure response is actually HTML before using CSS selectors
-        if not isinstance(response, HtmlResponse):
-            logger.warning(f"Response is not HtmlResponse (type: {type(response)}), skipping extraction: {response.url}")
-            return
-            
-        # ==================================================================
-        # SAVE RAW HTML (For Post-Crawl Moudles)
-        # ==================================================================
-        # Only save for the homepage/start_url (depth 0) to handle redirects
-        if crawl_depth == 0:
+        self.pages_seen += 1
+
+        if self.job_id and self.pages_seen % 50 == 0:
             try:
-                from utils.storage import save_raw_html_sync
-                save_raw_html_sync(self.job_id, response.text)
-                logger.info(f"Saved raw HTML for job {self.job_id} from {response.url}")
-            except Exception as e:
-                logger.error(f"Failed to save raw HTML: {e}")
-            
-        basic_fields = BasicExtractor.extract(response, start_time)
-        seo_fields = SeoExtractor.extract(response)
-        content_fields = ContentExtractor.extract(response)
-        heading_fields = HeadingExtractor.extract(response)
-        advanced_fields = AdvancedExtractor.extract(response)
-        
-        # Create page item
-        page_item = PageItem()
-        page_item.update(basic_fields)
-        page_item.update(seo_fields)
-        page_item.update(content_fields)
-        page_item.update(heading_fields)
-        page_item.update(advanced_fields)
-        page_item['crawl_depth'] = crawl_depth
-        page_item['folder_depth'] = folder_depth
-        
-        # ==================================================================
-        # Module A: Metrics Calculation (Legacy + New SEO)
-        # ==================================================================
-        
-        # 1. Legacy Metrics (Restored)
-        title_pixel_width = pixel_width.calculate_pixel_width(page_item.get('title', ''))
-        meta_desc_pixel_width = pixel_width.calculate_pixel_width(page_item.get('meta_description', ''))
-        total_bytes = page_item.get('page_size_bytes', len(response.body))
-        carbon_data = carbon.calculate_carbon(total_bytes)
-        
-        body_text_list = response.css('body ::text').getall()
-        visible_text_legacy = ' '.join([t.strip() for t in body_text_list if t.strip()])
-        word_count = page_item.get('word_count', 0)
-        sentence_count = page_item.get('sentence_count', 0)
-        
-        quality_data = content_quality.analyze_content_quality(
-            visible_text_legacy,
-            sentence_count,
-            word_count
-        )
-        
-        links_data = LinkExtractor.extract(response, self.allowed_host, self.allow_subdomains)
-        outlink_stats = link_analysis.analyze_outlinks(links_data)
-        simhash_legacy = similarity.generate_simhash(visible_text_legacy)
-        
-        # New Consolidated Text Quality Analysis
-        tq_results = text_quality_analyzer.analyze(
-            html_content=response.text,
-            url=response.url,
-            title=page_item.get('title', ''),
-            word_count=page_item.get('word_count', 0),
-            sentence_count=page_item.get('sentence_count', 0),
-            paragraph_count=page_item.get('paragraph_count', 0),
-            heading_count=len(page_item.get('h1s', [])) + len(page_item.get('h2s', [])),
-            target_keyword=None 
-        )
+                r = redis.from_url(config.REDIS_URL)
+                r.hset(f"job:{self.job_id}", "pagesCrawled", self.pages_seen)
+            except Exception:
+                pass
 
-        # 2. New SEO Modules (Integrated)
-        wordcount_analysis = wordcount_extractor.extract_wordcount_analysis(
-            html_content=response.text,
-            url=response.url,
-            target_keyword=None 
-        )
-        
-        broken_links_report = broken_link_checker.analyze_broken_links(links_data)
-        
-        redirect_urls = response.request.meta.get('redirect_urls', [])
-        redirect_reasons = response.request.meta.get('redirect_reasons', [])
-        hops = []
-        for i, url in enumerate(redirect_urls):
-            hops.append({
-                'url': url,
-                'status_code': redirect_reasons[i] if i < len(redirect_reasons) else 302,
-                'headers': {}
-            })
-        hops.append({
-            'url': response.url,
-            'status_code': response.status,
-            'headers': {k.decode('utf-8'): v[0].decode('utf-8') for k, v in response.headers.items()}
-        })
-        redirect_audit_report = redirect_audit.analyze_redirects(hops, page_item.get('canonical_url'))
+        try:
+            request_id = id(response.request)
+            start_time = self.request_start_times.get(request_id, datetime.now().timestamp())
 
-        # Construct 'fields' dictionary
-        page_item['fields'] = {
-            # Status
-            'status': 'OK' if response.status == 200 else str(response.status),
-            
-            'website_crawler': {
-                # Pixel Widths
-                'title_pixel_width': title_pixel_width,
-                'meta_description_pixel_width': meta_desc_pixel_width,
-                
-                # Carbon
-                'transferred_bytes': total_bytes, 
-                'total_transferred_bytes': total_bytes, 
-                'co2_mg': carbon_data['co2_mg'],
-                'carbon_rating': carbon_data['rating'],
-                
-                # Readability & Content (Legacy)
-                'average_words_per_sentence': quality_data['average_words_per_sentence'],
-                'flesch_reading_ease_score': quality_data['flesch_reading_ease_score'],
-                'readability': quality_data['readability'],
-                
-                # Outlinks (Remaining from legacy)
-                'outlinks': outlink_stats['outlinks'],
-                'unique_outlinks': outlink_stats['unique_outlinks'],
-                'unique_js_outlinks': outlink_stats['unique_js_outlinks'],
-                'external_outlinks': outlink_stats['external_outlinks'],
-                'unique_external_outlinks': outlink_stats['unique_external_outlinks'],
-                'unique_external_js_outlinks': outlink_stats['unique_external_js_outlinks'],
-                
-                # Duplicates & Similarity (Legacy)
-                'closest_near_duplicate_match': None, 
-                'no_near_duplicates': 0, 
-                'simhash': simhash_legacy, 
-                
-                # Quality / Errors (Legacy)
-                'spelling_errors': quality_data['spelling_errors'],
-                'grammar_errors': quality_data['grammar_errors'],
-                'hash': page_item.get('content_hash', ''),
-                
-                'url_encoded_address': response.url,
-            },
-            
-            # Module A: Page Matrix Metrics
-            'page_matrix': extract_page_metrics(
-                url=response.url,
+            crawl_depth = response.meta.get('depth', 0)
+
+            content_type = response.headers.get('Content-Type', b'').decode('utf-8').lower()
+            if 'text/html' not in content_type and 'application/xhtml+xml' not in content_type:
+                return
+
+            parsed_url = urlparse(response.url)
+            folder_depth = len([p for p in parsed_url.path.split('/') if p])
+
+            if not isinstance(response, HtmlResponse):
+                return
+
+            if crawl_depth == 0:
+                try:
+                    from utils.storage import save_raw_html_sync
+                    save_raw_html_sync(self.job_id, response.text)
+                except Exception:
+                    pass
+
+            basic_fields = BasicExtractor.extract(response, start_time)
+            seo_fields = SeoExtractor.extract(response)
+            content_fields = ContentExtractor.extract(response)
+            heading_fields = HeadingExtractor.extract(response)
+            advanced_fields = AdvancedExtractor.extract(response)
+
+            page_item = PageItem()
+            page_item.update(basic_fields)
+            page_item.update(seo_fields)
+            page_item.update(content_fields)
+            page_item.update(heading_fields)
+            page_item.update(advanced_fields)
+            page_item['crawl_depth'] = crawl_depth
+            page_item['folder_depth'] = folder_depth
+
+            title_pixel_width = pixel_width.calculate_pixel_width(page_item.get('title', ''))
+            meta_desc_pixel_width = pixel_width.calculate_pixel_width(page_item.get('meta_description', ''))
+            total_bytes = page_item.get('page_size_bytes', len(response.body))
+            carbon_data = carbon.calculate_carbon(total_bytes)
+
+            body_text_list = response.css('body ::text').getall()
+            visible_text_legacy = ' '.join([t.strip() for t in body_text_list if t.strip()])
+            word_count = page_item.get('word_count', 0)
+            sentence_count = page_item.get('sentence_count', 0)
+
+            quality_data = content_quality.analyze_content_quality(
+                visible_text_legacy,
+                sentence_count,
+                word_count,
+            )
+
+            links_data = LinkExtractor.extract(response, self.allowed_host, self.allow_subdomains)
+            outlink_stats = link_analysis.analyze_outlinks(links_data)
+            simhash_legacy = similarity.generate_simhash(visible_text_legacy)
+
+            tq_results = text_quality_analyzer.analyze(
                 html_content=response.text,
-                response_status=response.status,
-                response_headers={k.decode('utf-8'): v[0].decode('utf-8') for k, v in response.headers.items()},
-                response_time_ms=(datetime.now().timestamp() - start_time) * 1000,
-                final_url=response.url
-            ),
-            
-            # Text Quality Analyzer (New Consolidated Module)
-            'Text Quality Analyzer': tq_results,
-            
-            # New SEO Fields
-            'Wordcount_analysis': wordcount_analysis,
-            'Broken_links_checker': broken_links_report,
-            'Redirects_audit': redirect_audit_report
-        }
-        
-        
-        yield page_item
-        self.pages_crawled += 1
-        logger.info(f"Completed page {self.pages_crawled} (approx total discovered: {self.links_collected}) - {response.url}")
-        
-        # Check if we should stop crawling
-        if self.max_pages > 0 and self.pages_crawled >= self.max_pages:
-            logger.info(f"Reached max pages limit: {self.max_pages}")
-            self.should_stop = True
-            return
-        
-        if self.timeout > 0:
-            elapsed = datetime.now().timestamp() - self.crawl_started_timestamp
-            if elapsed >= self.timeout:
-                logger.info(f"Reached timeout limit: {self.timeout} seconds")
+                url=response.url,
+                title=page_item.get('title', ''),
+                word_count=page_item.get('word_count', 0),
+                sentence_count=page_item.get('sentence_count', 0),
+                paragraph_count=page_item.get('paragraph_count', 0),
+                heading_count=len(page_item.get('h1s', [])) + len(page_item.get('h2s', [])),
+                target_keyword=None,
+            )
+
+            wordcount_analysis = wordcount_extractor.extract_wordcount_analysis(
+                html_content=response.text,
+                url=response.url,
+                target_keyword=None,
+            )
+
+            broken_links_report = broken_link_checker.analyze_broken_links(links_data)
+
+            redirect_urls = response.request.meta.get('redirect_urls', [])
+            redirect_reasons = response.request.meta.get('redirect_reasons', [])
+            hops = []
+            for i, url in enumerate(redirect_urls):
+                hops.append(
+                    {
+                        'url': url,
+                        'status_code': redirect_reasons[i] if i < len(redirect_reasons) else 302,
+                        'headers': {},
+                    }
+                )
+            hops.append(
+                {
+                    'url': response.url,
+                    'status_code': response.status,
+                    'headers': {k.decode('utf-8'): v[0].decode('utf-8') for k, v in response.headers.items()},
+                }
+            )
+            redirect_audit_report = redirect_audit.analyze_redirects(hops, page_item.get('canonical_url'))
+
+            page_item['fields'] = {
+                'status': 'OK' if response.status == 200 else str(response.status),
+                'website_crawler': {
+                    'title_pixel_width': title_pixel_width,
+                    'meta_description_pixel_width': meta_desc_pixel_width,
+                    'transferred_bytes': total_bytes,
+                    'total_transferred_bytes': total_bytes,
+                    'co2_mg': carbon_data['co2_mg'],
+                    'carbon_rating': carbon_data['rating'],
+                    'average_words_per_sentence': quality_data['average_words_per_sentence'],
+                    'flesch_reading_ease_score': quality_data['flesch_reading_ease_score'],
+                    'readability': quality_data['readability'],
+                    'outlinks': outlink_stats['outlinks'],
+                    'unique_outlinks': outlink_stats['unique_outlinks'],
+                    'unique_js_outlinks': outlink_stats['unique_js_outlinks'],
+                    'external_outlinks': outlink_stats['external_outlinks'],
+                    'unique_external_outlinks': outlink_stats['unique_external_outlinks'],
+                    'unique_external_js_outlinks': outlink_stats['unique_external_js_outlinks'],
+                    'closest_near_duplicate_match': None,
+                    'no_near_duplicates': 0,
+                    'simhash': simhash_legacy,
+                    'spelling_errors': quality_data['spelling_errors'],
+                    'grammar_errors': quality_data['grammar_errors'],
+                    'hash': page_item.get('content_hash', ''),
+                    'url_encoded_address': response.url,
+                },
+                'page_matrix': extract_page_metrics(
+                    url=response.url,
+                    html_content=response.text,
+                    response_status=response.status,
+                    response_headers={k.decode('utf-8'): v[0].decode('utf-8') for k, v in response.headers.items()},
+                    response_time_ms=(datetime.now().timestamp() - start_time) * 1000,
+                    final_url=response.url,
+                ),
+                'Text Quality Analyzer': tq_results,
+                'Wordcount_analysis': wordcount_analysis,
+                'Broken_links_checker': broken_links_report,
+                'Redirects_audit': redirect_audit_report,
+            }
+
+            yield page_item
+            self.pages_crawled += 1
+
+            if self.max_pages > 0 and self.pages_crawled >= self.max_pages:
                 self.should_stop = True
                 return
-        
-        # Extract links
-        # Optimization: We already extracted links_data above for metrics
-        # links = LinkExtractor.extract(response, self.allowed_host, self.allow_subdomains)
-        for link_data in links_data:
-            link_item = LinkItem()
-            link_item.update(link_data)
-            yield link_item
-            self.links_collected += 1
-        
-        # Follow internal links
-        if not self.should_stop:
+
+            if self.timeout > 0:
+                elapsed = datetime.now().timestamp() - self.crawl_started_timestamp
+                if elapsed >= self.timeout:
+                    self.should_stop = True
+                    return
+
             for link_data in links_data:
-                if link_data['is_internal'] and not link_data['nofollow']:
+                link_item = LinkItem()
+                link_item.update(link_data)
+                yield link_item
+                self.links_collected += 1
+
+            if not self.should_stop:
+                for link_data in links_data:
+                    if not link_data['is_internal'] or link_data['nofollow']:
+                        continue
+
                     target_url = link_data['target_url']
-                    
-                    # Normalize URL to reduce redirects
+
+                    if any(p in target_url for p in ['/cart', '/checkout', '/account']):
+                        continue
+
                     target_url = self.normalize_url(target_url)
-                    
-                    # Check pagination depth & loops
+
                     is_pag, page_num, _ = self.is_pagination_url(target_url)
                     if is_pag:
                         if page_num > self.MAX_PAGINATION_DEPTH:
-                            logger.debug(f"Skipping deep pagination: {target_url} (Page {page_num})")
                             continue
-                            
-                        # Check if we should follow this pagination pattern
                         if not self.should_follow_pagination(target_url):
-                            # logger.debug(f"Skipping pagination loop/failure pattern: {target_url}")
                             continue
-                    
-                    # Calculate priority
+
                     priority = self.get_url_priority(target_url)
-                    
+
                     if not self.should_stop:
                         yield scrapy.Request(
                             url=target_url,
@@ -556,6 +493,8 @@ class WebsiteSpider(scrapy.Spider):
                             priority=priority,
                             errback=self.handle_error,
                         )
+        except Exception:
+            return
     
     
     def handle_error(self, failure):

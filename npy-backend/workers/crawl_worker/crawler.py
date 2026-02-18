@@ -9,9 +9,8 @@ import logging
 sys.path.append(os.getcwd())
 
 from scrapy.crawler import CrawlerProcess
-from scrapy.utils.log import configure_logging
 from workers.crawl_worker.spiders.website_spider import WebsiteSpider
-from utils.logger import logger
+from utils.logger import configure_logger, logger
 from utils.config import config
 
 def main():
@@ -26,9 +25,7 @@ def main():
 
     args = parser.parse_args()
 
-    configure_logging()
-    logging.getLogger("scrapy.core.scraper").disabled = True
-    logging.getLogger("scrapy").disabled = True
+    configure_logger()
     logger.info(f"Starting crawl job {args.job_id} for {args.url}")
 
     # Initialize CrawlerProcess

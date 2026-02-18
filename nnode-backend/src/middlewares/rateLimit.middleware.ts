@@ -8,8 +8,22 @@ export const rateLimitMiddleware = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
-    // Skip rate limiting for authenticated workers
     const workerKey = req.headers['x-worker-key'];
-    return workerKey === env.WORKER_API_KEY;
+    if (workerKey === env.WORKER_API_KEY) {
+      return true;
+    }
+
+    const path = req.path;
+
+    // Allow crawl-related endpoints to be called in parallel without hitting the global IP rate limit
+    if (
+      req.method === 'POST' &&
+      path.startsWith(`${env.API_PREFIX}/sessions/`) &&
+      path.endsWith('/jobs')
+    ) {
+      return true;
+    }
+
+    return false;
   },
 });
