@@ -9,6 +9,7 @@ import queue as thread_queue
 
 import pika
 from pika.adapters.blocking_connection import BlockingConnection
+from pika.exceptions import AMQPConnectionError
 import redis
 from pymongo import MongoClient
 from pymongo.errors import ServerSelectionTimeoutError, AutoReconnect, ConnectionFailure
@@ -17,9 +18,14 @@ from scrapy.crawler import CrawlerProcess
 
 from utils.logger import configure_logger, logger
 from utils.config import config
+from utils.mongo import mongo_manager
+from utils.storage import load_raw_html_sync
 from workers.crawl_worker.spiders.website_spider import WebsiteSpider
 from workers.crawl_worker.spiders.sitemap_discovery import SitemapDiscovery
 from workers.crawl_worker.preflight import preflight_discover_all_urls
+from modules.module_B.schema_generator import SchemaGenerator
+from modules.module_C.knowledge_base import KnowledgeBaseModule
+from modules.module_D.contentAnylsisMatrix import OpenAIService
 
 
 POOL_SIZE = min(os.cpu_count() or 1, 4)
@@ -216,34 +222,134 @@ def drain_results(connection: BlockingConnection) -> None:
         connection.add_callback_threadsafe(do_ack)
 
 
+def run_schema_job(url: str, session_id: str, job_id: str, project_id: str, schema_type: str | None = None) -> None:
+    logger.info(f"Starting schema generation job {job_id} for {url}")
+
+    try:
+        html_content = load_raw_html_sync(job_id)
+        if not html_content:
+            logger.warning(f"No raw HTML found for job {job_id}, schema generation skipped")
+            result = {
+                "success": False,
+                "error": "RAW_HTML_NOT_FOUND",
+                "message": "No raw HTML found for this job. Run a crawl first.",
+                "schema": None,
+            }
+        else:
+            generator = SchemaGenerator()
+            result = generator.generate_schema(html_content, url, schema_type or "auto")
+
+        mongo_manager.connect()
+        doc = {
+            "jobId": job_id,
+            "sessionId": session_id,
+            "projectId": project_id,
+            "url": url,
+            "createdAt": datetime.utcnow(),
+            **result,
+        }
+        mongo_manager.schemas.update_one(
+            {"jobId": job_id, "url": url},
+            {"$set": doc},
+            upsert=True,
+        )
+        logger.info(f"Stored schema generation result for job {job_id}")
+    except Exception as e:  # noqa: BLE001
+        error_type = type(e).__name__
+        logger.error(f"Schema generation failed for job {job_id} ({error_type})")
+
+
+def run_content_metrics_job(url: str, session_id: str, job_id: str, project_id: str) -> None:
+    logger.info(f"Starting content metrics job {job_id} for {url}")
+
+    try:
+        html_content = load_raw_html_sync(job_id)
+        if not html_content:
+            logger.warning(f"No raw HTML found for job {job_id}, content metrics analysis skipped")
+            result = {
+                "success": False,
+                "error": "RAW_HTML_NOT_FOUND",
+                "message": "No raw HTML found for this job. Run a crawl first.",
+                "content_metrics": None,
+                "entity_metrics": None,
+            }
+        else:
+            kb_module = KnowledgeBaseModule()
+            kb_result = asyncio.run(kb_module.run_analysis(html_content, url))
+            entity_coverage = kb_result.get("entity_coverage") or {}
+
+            found_entities = entity_coverage.get("found_entities") or []
+            expected_entities = entity_coverage.get("expected_entities") or []
+
+            ai_service = OpenAIService()
+            content_metrics = ai_service.analyze_content_metrics(html_content, url)
+            entity_relevance = ai_service.analyze_entity_relevance(
+                html_content,
+                url,
+                found_entities,
+                expected_entities,
+            )
+
+            entities_detected_count = len(found_entities)
+            entity_coverage_score = entity_coverage.get("coverage_score", 0)
+
+            entity_metrics = {
+                "entities_detected_count": entities_detected_count,
+                "entity_coverage_score": entity_coverage_score,
+                "entity_relevance_score": entity_relevance.get("entity_relevance_score", 50),
+                "entity_relevance_details": {
+                    "relevant_entities": entity_relevance.get("relevant_entities", []),
+                    "irrelevant_entities": entity_relevance.get("irrelevant_entities", []),
+                },
+            }
+
+            result = {
+                "success": True,
+                "content_metrics": content_metrics,
+                "entity_metrics": entity_metrics,
+                "raw": {
+                    "entity_coverage": entity_coverage,
+                    "entity_relevance": entity_relevance,
+                },
+            }
+
+        mongo_manager.connect()
+        doc = {
+            "jobId": job_id,
+            "sessionId": session_id,
+            "projectId": project_id,
+            "url": url,
+            "createdAt": datetime.utcnow(),
+            **result,
+        }
+        mongo_manager.content_metrics.update_one(
+            {"jobId": job_id, "url": url},
+            {"$set": doc},
+            upsert=True,
+        )
+        logger.info(f"Stored content metrics result for job {job_id}")
+    except Exception as e:  # noqa: BLE001
+        error_type = type(e).__name__
+        logger.error(f"Content metrics analysis failed for job {job_id} ({error_type})")
+
+
 def start_queue_worker() -> None:
     while True:
-        connection = None
+        connection: BlockingConnection | None = None
         try:
             params = pika.URLParameters(config.RABBITMQ_URL)
             connection = BlockingConnection(params)
             channel = connection.channel()
             runtime_redis = redis.from_url(config.REDIS_URL)
 
-            channel.exchange_declare(
-                exchange="crawl.exchange",
-                exchange_type="direct",
-                durable=True,
-            )
-            channel.exchange_declare(
-                exchange="crawl.dlx",
-                exchange_type="direct",
-                durable=True,
-            )
+            channel.exchange_declare(exchange="crawl.exchange", exchange_type="direct", durable=True)
+            channel.exchange_declare(exchange="crawl.dlx", exchange_type="direct", durable=True)
             channel.queue_declare(
                 queue="crawl.queue",
                 durable=True,
                 arguments={"x-dead-letter-exchange": "crawl.dlx"},
             )
-            channel.queue_declare(
-                queue="crawl.dlq",
-                durable=True,
-            )
+            channel.queue_declare(queue="crawl.dlq", durable=True)
             channel.queue_bind(
                 exchange="crawl.exchange",
                 queue="crawl.queue",
@@ -286,6 +392,8 @@ def start_queue_worker() -> None:
                 project_id = payload["projectId"]
                 url = payload["url"]
                 job_id = payload.get("jobId") or f"job_{session_id}"
+                job_type = payload.get("jobType", "CRAWL").upper()
+                schema_type = payload.get("schemaType")
 
                 session_key = f"session:{session_id}"
                 job_key = f"job:{job_id}"
@@ -309,7 +417,26 @@ def start_queue_worker() -> None:
                     },
                 )
 
-                future = executor.submit(execute_job, payload)
+                def run_job() -> None:
+                    if job_type == "SCHEMA":
+                        run_schema_job(
+                            url=url,
+                            session_id=session_id,
+                            job_id=job_id,
+                            project_id=project_id,
+                            schema_type=schema_type,
+                        )
+                    elif job_type == "CONTENT_METRICS":
+                        run_content_metrics_job(
+                            url=url,
+                            session_id=session_id,
+                            job_id=job_id,
+                            project_id=project_id,
+                        )
+                    else:
+                        execute_job(payload)
+
+                future = executor.submit(run_job)
 
                 def when_done(f) -> None:
                     try:

@@ -35,6 +35,91 @@ export class JobController {
     }
   };
 
+  generateSchemaForJob = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+      const schemaType = (req.body && typeof req.body.schemaType === 'string') ? req.body.schemaType : undefined;
+
+      const job = await this.jobService.startSchemaGeneration(userId, id, schemaType);
+
+      return ResponseUtil.success(res, 'Schema generation job enqueued successfully', job);
+    } catch (error: any) {
+      logger.error(`Error starting schema generation: ${error.message}`);
+      if (error.message.includes('not found') || error.message.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      return ResponseUtil.serverError(res, 'Failed to start schema generation');
+    }
+  };
+
+  startContentMetricsForJob = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+
+      const job = await this.jobService.startContentMetrics(userId, id);
+
+      return ResponseUtil.success(res, 'Content metrics job enqueued successfully', job);
+    } catch (error: any) {
+      logger.error(`Error starting content metrics analysis: ${error.message}`);
+      if (error.message.includes('not found') || error.message.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      return ResponseUtil.serverError(res, 'Failed to start content metrics analysis');
+    }
+  };
+
+  getJobSchema = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+      await this.jobService.getJobById(userId, id);
+
+      const db = await connectToMongo();
+      const collection = db.collection('schemas');
+      const docs = await collection
+        .find({ jobId: id })
+        .sort({ createdAt: 1 })
+        .toArray();
+
+      const latest = docs.length > 0 ? docs[docs.length - 1] : null;
+
+      return ResponseUtil.success(res, 'Job schema retrieved successfully', latest);
+    } catch (error: any) {
+      logger.error(`Error getting job schema: ${error.message}`);
+      if (error.message.includes('not found') || error.message.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      return ResponseUtil.serverError(res, 'Failed to retrieve job schema');
+    }
+  };
+
+  getJobContentMetrics = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+      await this.jobService.getJobById(userId, id);
+
+      const db = await connectToMongo();
+      const collection = db.collection('content_metrics');
+      const docs = await collection
+        .find({ jobId: id })
+        .sort({ createdAt: 1 })
+        .toArray();
+
+      const latest = docs.length > 0 ? docs[docs.length - 1] : null;
+
+      return ResponseUtil.success(res, 'Job content metrics retrieved successfully', latest);
+    } catch (error: any) {
+      logger.error(`Error getting job content metrics: ${error.message}`);
+      if (error.message.includes('not found') || error.message.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      return ResponseUtil.serverError(res, 'Failed to retrieve job content metrics');
+    }
+  };
+
   getSessionJobs = async (req: Request, res: Response): Promise<Response> => {
     try {
       const userId = req.user!.userId;
@@ -200,6 +285,36 @@ export class JobController {
         return ResponseUtil.notFound(res, error.message);
       }
       return ResponseUtil.serverError(res, 'Failed to retrieve job fields');
+    }
+  };
+
+  getJobSiteStructure = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+      const job = await this.jobService.getJobById(userId, id);
+
+      const db = await connectToMongo();
+      const pagesCollection = db.collection('pages');
+      const pages = await pagesCollection
+        .find({ jobId: id })
+        .project({ url: 1, _id: 0 })
+        .sort({ createdAt: 1 })
+        .toArray();
+
+      return ResponseUtil.success(res, 'Job site structure retrieved successfully', {
+        jobId: id,
+        sessionId: job.sessionId,
+        projectId: job.projectId,
+        startUrl: job.url,
+        pages,
+      });
+    } catch (error: any) {
+      logger.error(`Error getting job site structure: ${error.message}`);
+      if (error.message.includes('not found') || error.message.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      return ResponseUtil.serverError(res, 'Failed to retrieve job site structure');
     }
   };
 }
