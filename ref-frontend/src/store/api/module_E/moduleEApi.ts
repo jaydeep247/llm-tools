@@ -80,7 +80,43 @@ export interface ModuleEResult {
     sentimentScore: number
     visibilityScore: number
   }>
+  competitor_landscape?: {
+    score: number
+    total_referring_domains: number
+    total_backlinks: number
+    domain_quality: number
+    diversity_score: number
+    spam_score: number
+    top_referring_domains: Array<{ name: string; count: number }>
+    recommendations: string[]
+  }
+  competitor_mentions?: {
+    overall_sov: number
+    data: Array<{
+      name: string
+      mentions: number
+      sentiment: string
+      trend: number[]
+    }>
+  }
+  ai_share_of_voice?: {
+    overall_sov: number
+    by_model: Record<
+      string,
+      {
+        sov: number
+        brand_mentions: number
+        competitor_mentions: number
+      }
+    >
+  }
+  ai_sov_history?: Array<{
+    date: string
+    overall_sov: number
+    by_model: Record<string, { sov: number; brand_mentions: number; competitor_mentions: number }>
+  }>
   createdAt?: string
+  updatedAt?: string
 }
 
 export interface ModuleEResultResponse {
@@ -110,6 +146,20 @@ export const moduleEApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: (_result, _error, jobId) => [{ type: 'ModuleE' as const, id: jobId }],
     }),
+    runCompetitorAnalysis: builder.mutation<ModuleEResultResponse, string>({
+      query: (jobId) => ({
+        url: `/module-e/jobs/${jobId}/run-competitors`,
+        method: 'POST',
+      }),
+      invalidatesTags: (_result, _error, jobId) => [{ type: 'ModuleE' as const, id: jobId }],
+    }),
+    runAiSovAnalysis: builder.mutation<ModuleEResultResponse, string>({
+      query: (jobId) => ({
+        url: `/module-e/jobs/${jobId}/run-ai-sov`,
+        method: 'POST',
+      }),
+      invalidatesTags: (_result, _error, jobId) => [{ type: 'ModuleE' as const, id: jobId }],
+    }),
   }),
 })
 
@@ -117,4 +167,6 @@ export const {
   useGetModuleEResultQuery,
   useRunModuleEAnalysisMutation,
   useRunSentimentAnalysisMutation,
+  useRunCompetitorAnalysisMutation,
+  useRunAiSovAnalysisMutation,
 } = moduleEApi

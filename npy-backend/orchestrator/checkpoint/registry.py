@@ -44,6 +44,15 @@ class TaskRegistry:
         "module_e_visibility_batch_openai": ["openai"],
         "module_e_visibility_batch_gemini": ["gemini"],
         "module_e_visibility_batch_claude": ["claude"],
+        "module_e_competitor_landscape": ["dataforseo"],
+        "module_e_competitor_discovery": ["dataforseo"],
+        "module_e_competitor_mentions_trend": ["dataforseo"],
+        # New tasks added by rewritten competitor_analyzer.py
+        "module_e_ai_competitor_discovery": ["openai"],
+        "module_e_mentions_trend": ["dataforseo"],
+        "module_e_ai_sov_openai": ["openai"],
+        "module_e_ai_sov_gemini": ["gemini"],
+        "module_e_ai_sov_claude": ["claude"],
     }
 
     @classmethod

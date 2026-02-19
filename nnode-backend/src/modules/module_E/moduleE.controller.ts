@@ -127,4 +127,86 @@ export class ModuleEController {
       return ResponseUtil.serverError(res, 'Failed to start sentiment analysis');
     }
   };
+
+  runCompetitorAnalysis = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { jobId } = jobIdParamSchema.parse(req.params);
+
+      const job = await this.jobService.getJobById(jobId, userId);
+      const jobConfig = (job.config ?? {}) as Record<string, any>;
+      const url = jobConfig.url as string | undefined;
+
+      if (!url) {
+        return ResponseUtil.error(res, 'Job is missing URL in config', undefined, 400);
+      }
+
+      const competitorJob = await this.jobService.createJob(job.sessionId, userId, {
+        jobType: JobType.AEO_ANALYSIS,
+        config: {
+          url,
+          modules: ['module_e_competitors'],
+          sourceJobId: jobId,
+        },
+      });
+
+      logger.info('Competitor analysis job created', {
+        jobId,
+        competitorJobId: competitorJob.id,
+        sessionId: job.sessionId,
+      });
+
+      return ResponseUtil.created(res, 'Competitor analysis queued', competitorJob);
+    } catch (error: any) {
+      logger.error('Error starting competitor analysis:', error);
+      if (error.message?.includes('not found') || error.message?.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      if (error.name === 'ZodError') {
+        return ResponseUtil.error(res, 'Validation failed', error.errors);
+      }
+      return ResponseUtil.serverError(res, 'Failed to start competitor analysis');
+    }
+  };
+
+  runAiSovAnalysis = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { jobId } = jobIdParamSchema.parse(req.params);
+
+      const job = await this.jobService.getJobById(jobId, userId);
+      const jobConfig = (job.config ?? {}) as Record<string, any>;
+      const url = jobConfig.url as string | undefined;
+
+      if (!url) {
+        return ResponseUtil.error(res, 'Job is missing URL in config', undefined, 400);
+      }
+
+      const aiSovJob = await this.jobService.createJob(job.sessionId, userId, {
+        jobType: JobType.AEO_ANALYSIS,
+        config: {
+          url,
+          modules: ['module_e_ai_sov'],
+          sourceJobId: jobId,
+        },
+      });
+
+      logger.info('AI SOV analysis job created', {
+        jobId,
+        aiSovJobId: aiSovJob.id,
+        sessionId: job.sessionId,
+      });
+
+      return ResponseUtil.created(res, 'AI SOV analysis queued', aiSovJob);
+    } catch (error: any) {
+      logger.error('Error starting AI SOV analysis:', error);
+      if (error.message?.includes('not found') || error.message?.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      if (error.name === 'ZodError') {
+        return ResponseUtil.error(res, 'Validation failed', error.errors);
+      }
+      return ResponseUtil.serverError(res, 'Failed to start AI SOV analysis');
+    }
+  };
 }

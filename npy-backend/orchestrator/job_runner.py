@@ -8,6 +8,8 @@ from utils.storage import save_raw_html, save_job_response
 from modules.module_C.runner import run_module_c
 from modules.module_E.runner import run_module_e
 from modules.module_E.sentiment_runner import run_sentiment_only
+from modules.module_E.competitor_runner import run_competitor_analysis
+from modules.module_E.ai_sov_runner import run_ai_sov_analysis
 
 logger = logging.getLogger("job_runner")
 
@@ -28,6 +30,8 @@ class JobOrchestrator:
             "aeo": run_module_c,          # Alias
             "module_e": run_module_e,
             "module_e_sentiment": run_sentiment_only,  # Sentiment-only (no crawl needed)
+            "module_e_competitors": run_competitor_analysis, # Competitor Analysis module
+            "module_e_ai_sov": run_ai_sov_analysis,  # AI SOV-only re-run (no DataForSEO)
             # Future modules:
             # "module_b": run_module_b
         }
@@ -53,7 +57,7 @@ class JobOrchestrator:
         
         try:
             # Modules that do NOT require HTML content (pure AI/API calls)
-            HTML_FREE_MODULES = {"module_e_sentiment"}
+            HTML_FREE_MODULES = {"module_e_sentiment", "module_e_competitors", "module_e_ai_sov"}
 
             # 1. Save or Load Raw HTML — skip if all requested modules are HTML-free
             needs_html = any(m.lower() not in HTML_FREE_MODULES for m in modules)

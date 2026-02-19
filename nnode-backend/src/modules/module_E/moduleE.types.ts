@@ -82,5 +82,39 @@ export interface ModuleEResult {
     sentimentScore: number;
     visibilityScore: number;
   }>;
+
+  competitor_mentions?: {
+    overall_sov: number;
+    data: Array<{
+      name: string;
+      mentions: number;
+      sentiment: string;
+      trend: number[];
+    }>;
+  };
+  ai_share_of_voice?: {
+    overall_sov: number;
+    by_model: Record<
+      string,
+      {
+        sov: number;
+        brand_mentions: number;
+        competitor_mentions: number;
+      }
+    >;
+  };
+  ai_sov_history?: Array<{
+    date: string;
+    overall_sov: number;
+    by_model: Record<
+      string,
+      {
+        sov: number;
+        brand_mentions: number;
+        competitor_mentions: number;
+      }
+    >;
+  }>;
   createdAt?: string;
+  updatedAt?: string;
 }

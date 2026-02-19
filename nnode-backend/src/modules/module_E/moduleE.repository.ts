@@ -9,6 +9,9 @@ type ModuleEDocument = WithId<Document> & {
   entity_coverage?: ModuleEResult['entity_coverage'];
   brand_analysis?: ModuleEResult['brand_analysis'];
   sentiment_tracking?: ModuleEResult['sentiment_tracking'];
+  competitor_mentions?: ModuleEResult['competitor_mentions'];
+  ai_share_of_voice?: ModuleEResult['ai_share_of_voice'];
+  ai_sov_history?: ModuleEResult['ai_sov_history'];
   score_history?: ModuleEResult['score_history'];
   createdAt?: Date;
   updatedAt?: Date;
@@ -27,8 +30,12 @@ export class ModuleERepository {
       entity_coverage: doc.entity_coverage,
       brand_analysis: doc.brand_analysis,
       sentiment_tracking: doc.sentiment_tracking,
+      competitor_mentions: doc.competitor_mentions,
+      ai_share_of_voice: doc.ai_share_of_voice,
+      ai_sov_history: doc.ai_sov_history,
       score_history: doc.score_history,
       createdAt: doc.createdAt ? doc.createdAt.toISOString() : undefined,
+      updatedAt: doc.updatedAt ? doc.updatedAt.toISOString() : undefined,
     };
   }
 
@@ -45,10 +52,12 @@ export class ModuleERepository {
         {
           $set: {
             jobId,
-            content_consistency: data.content_consistency ?? null,
-            entity_coverage: data.entity_coverage ?? null,
-            brand_analysis: data.brand_analysis ?? null,
-            sentiment_tracking: data.sentiment_tracking ?? null,
+            content_consistency: data.content_consistency ?? undefined,
+            entity_coverage: data.entity_coverage ?? undefined,
+            brand_analysis: data.brand_analysis ?? undefined,
+            sentiment_tracking: data.sentiment_tracking ?? undefined,
+            competitor_mentions: data.competitor_mentions ?? undefined,
+            ai_share_of_voice: data.ai_share_of_voice ?? undefined,
             updatedAt: now,
           },
           $setOnInsert: {
@@ -66,7 +75,8 @@ export class ModuleERepository {
         hasSentimentTracking: !!data.sentiment_tracking,
       });
 
-      return result.value ? this.toModuleEResult(result.value) : null;
+      const doc = (result as any)?.value || result;
+      return doc ? this.toModuleEResult(doc as ModuleEDocument) : null;
     } catch (error) {
       logger.error('Failed to upsert Module E result', {
         jobId,
@@ -180,6 +190,13 @@ export class ModuleERepository {
         updateData.sentiment_tracking = fields.sentiment_tracking;
       }
 
+      if (fields.competitor_mentions !== undefined) {
+        updateData.competitor_mentions = fields.competitor_mentions;
+      }
+      if (fields.ai_share_of_voice !== undefined) {
+        updateData.ai_share_of_voice = fields.ai_share_of_voice;
+      }
+
       const collection = await this.getCollection();
       const result = await collection.findOneAndUpdate(
         { jobId },
@@ -192,7 +209,8 @@ export class ModuleERepository {
         updatedFields: Object.keys(updateData),
       });
 
-      return result.value ? this.toModuleEResult(result.value) : null;
+      const doc = (result as any)?.value || result;
+      return doc ? this.toModuleEResult(doc as ModuleEDocument) : null;
     } catch (error) {
       logger.error('Failed to update Module E fields', {
         jobId,

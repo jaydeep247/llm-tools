@@ -19,7 +19,7 @@ export default function SessionProgressPage() {
   const router = useRouter()
   const projectId = params.projectId as string
   const sessionId = params.sessionId as string
-  
+
   // Fetch session data using RTK Query
   const { data: sessionData, isLoading: isLoadingSession } = useGetSessionQuery(sessionId)
   const session = sessionData?.session
@@ -33,12 +33,12 @@ export default function SessionProgressPage() {
   const [currentTime, setCurrentTime] = useState(Date.now())
   const [estimatedTotal, setEstimatedTotal] = useState<number | null>(null)
   const [progressPercentage, setProgressPercentage] = useState(0)
-  
+
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(Date.now())
     }, 100)
-    
+
     return () => clearInterval(timer)
   }, [])
 
@@ -55,7 +55,7 @@ export default function SessionProgressPage() {
     eventSource.addEventListener('log', (e) => {
       const data = JSON.parse(e.data)
       if (data.sessionId && data.sessionId.toString() !== sessionId) return
-      
+
       setLogs(prev => [...prev.slice(-99), {
         message: data.message,
         timestamp: new Date().toLocaleTimeString()
@@ -65,10 +65,10 @@ export default function SessionProgressPage() {
     eventSource.addEventListener('page', (e) => {
       const data = JSON.parse(e.data)
       if (data.sessionId && data.sessionId.toString() !== sessionId) return
-      
+
       setDiscoveredPages(prev => [...prev.slice(-49), data.url])
       setPageCount(prev => prev + 1)
-      
+
       // Update progress percentage
       if (estimatedTotal && estimatedTotal > 0) {
         const newPercentage = Math.min((pageCount / estimatedTotal) * 100, 95)
@@ -79,21 +79,21 @@ export default function SessionProgressPage() {
     eventSource.addEventListener('done', (e) => {
       const data = JSON.parse(e.data)
       if (data.sessionId && data.sessionId.toString() !== sessionId) return
-      
+
       const nextStatus = data.status || 'completed'
-      
+
       // Capture the exact timer duration at crawl completion
       // Use session.startedAt directly to avoid race condition with state updates
       let exactDuration = 0
       const now = Date.now() // Get current time when done event fires
-      
+
       console.log('Done event fired:', {
         sessionAvailable: !!session,
         sessionStartedAt: session?.startedAt,
         currentTime: now,
         message: data.message
       })
-      
+
       if (session?.startedAt) {
         const startTime = new Date(session.startedAt).getTime()
         exactDuration = now - startTime
@@ -104,12 +104,12 @@ export default function SessionProgressPage() {
           startedAtRaw: session.startedAt
         })
       } else {
-        console.log('Session or startedAt missing', { 
+        console.log('Session or startedAt missing', {
           session: session ? JSON.stringify(session) : 'null',
-          startedAt: session?.startedAt 
+          startedAt: session?.startedAt
         })
       }
-      
+
       // Send the exact duration to backend to store in database
       if (session?.startedAt && exactDuration > 0) {
         console.log('Sending duration to backend:', { sessionId, exactDuration })
@@ -128,7 +128,7 @@ export default function SessionProgressPage() {
           exactDuration
         })
       }
-      
+
       // If crawl is completed, mark as complete
       if (nextStatus === 'completed') {
         setCrawlStatus('completed')
@@ -144,9 +144,9 @@ export default function SessionProgressPage() {
           setCrawlStartTime(null)
           setProgressPercentage(100)
         }
-        
+
         setLogs(prev => [...prev, {
-          message: nextStatus === 'cancelled' 
+          message: nextStatus === 'cancelled'
             ? `⚠️ Crawl cancelled`
             : `❌ Crawl failed`,
           timestamp: new Date().toLocaleTimeString()
@@ -157,8 +157,8 @@ export default function SessionProgressPage() {
     eventSource.addEventListener('session-status-update', (e) => {
       try {
         const data = JSON.parse(e.data)
-        if (data?.sessionId && data.sessionId !== parseInt(sessionId)) return
-        
+        if (data?.sessionId && data.sessionId !== sessionId) return
+
         const message = data?.message || `Session ${data?.status || ''}`.trim()
         if (message) {
           setLogs(prev => [...prev.slice(-99), {
@@ -166,7 +166,7 @@ export default function SessionProgressPage() {
             timestamp: new Date().toLocaleTimeString()
           }])
         }
-        
+
         if (data?.status) {
           if (data.status === 'running' || data.status === 'auditing') {
             setCrawlStatus(data.status)
@@ -176,14 +176,14 @@ export default function SessionProgressPage() {
           }
           // Note: 'completed' status is handled in the 'done' event listener
         }
-      } catch {}
+      } catch { }
     })
 
     eventSource.addEventListener('audit', (e) => {
       try {
         const data = JSON.parse(e.data)
-        if (data.sessionId && data.sessionId !== parseInt(sessionId)) return
-        
+        if (data.sessionId && data.sessionId !== sessionId) return
+
         let message = ''
         if (data?.type === 'audit-start') {
           message = `🔍 Audit started: ${data.url}`
@@ -203,7 +203,7 @@ export default function SessionProgressPage() {
           const progress = data.progress?.toFixed(2) || ''
           message = `⏳ Audits progress: ${data.completed}/${data.total} ${progress ? `${progress}%` : ''}`.trim()
         }
-        
+
         if (message) {
           setLogs(prev => [...prev.slice(-99), {
             message,
@@ -233,7 +233,7 @@ export default function SessionProgressPage() {
         status: session.status,
         totalPages: session.totalPages
       })
-      
+
       // Set initial state
       if (session.status === 'running' || session.status === 'auditing') {
         setCrawlStatus(session.status)
@@ -244,9 +244,9 @@ export default function SessionProgressPage() {
       } else {
         setCrawlStatus((session.status || 'idle') as 'idle' | 'running' | 'auditing' | 'completed' | 'cancelled' | 'failed')
       }
-      
+
       setPageCount(session.totalPages || 0)
-      
+
       // Estimate total pages (rough estimate based on average website)
       setEstimatedTotal(100)
     }
@@ -264,19 +264,19 @@ export default function SessionProgressPage() {
   // Calculate estimated time remaining
   const calculateEstimatedTime = (): string => {
     if (!crawlStartTime || pageCount === 0 || !estimatedTotal) return 'Calculating...'
-    
+
     const elapsedMs = currentTime - crawlStartTime
     const elapsedSeconds = elapsedMs / 1000
     const rate = pageCount / elapsedSeconds
-    
+
     if (rate === 0) return 'Calculating...'
-    
+
     const remainingPages = Math.max(0, estimatedTotal - pageCount)
     const remainingSeconds = remainingPages / rate
-    
+
     const minutes = Math.floor(remainingSeconds / 60)
     const seconds = Math.floor(remainingSeconds % 60)
-    
+
     if (minutes > 0) {
       return `~${minutes}m ${seconds}s`
     }
@@ -350,7 +350,7 @@ export default function SessionProgressPage() {
     )
   }
 
-  
+
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-6 relative overflow-hidden">
@@ -360,14 +360,14 @@ export default function SessionProgressPage() {
       </div>
 
       {/* Dotted Background Pattern */}
-      <div 
+      <div
         className="absolute inset-0 opacity-20"
         style={{
           backgroundImage: 'radial-gradient(circle, rgba(255, 255, 255, 0.15) 1px, transparent 1px)',
           backgroundSize: '40px 40px'
         }}
       ></div>
-      
+
       <div className="w-full flex flex-col items-center gap-0 animate-fade-in-hero relative z-20">
         {/* Concentric Rings Loading Animation */}
         <div className="flex items-center justify-center pt-4 pb-0 relative">
@@ -378,21 +378,21 @@ export default function SessionProgressPage() {
                 {pageCount}
               </div>
             </div>
-            
+
             {/* Ring 1 - Inner with dot */}
             <div className="absolute inset-0 flex items-center justify-center animate-spin-slow">
               <div className="relative w-40 h-40 rounded-full border border-white/70">
                 <div className="absolute w-2.5 h-2.5 rounded-full bg-purple-400 -top-1.5 left-1/2 transform -translate-x-1/2"></div>
               </div>
             </div>
-            
+
             {/* Ring 2 - Middle with dot */}
             <div className="absolute inset-0 flex items-center justify-center animate-spin-medium">
               <div className="relative w-64 h-64 rounded-full border border-white/45">
                 <div className="absolute w-2.5 h-2.5 rounded-full bg-blue-400 -top-1.5 left-1/2 transform -translate-x-1/2"></div>
               </div>
             </div>
-            
+
             {/* Ring 3 - Expanding and fading out from Ring 2 */}
             <motion.div
               className="absolute inset-0 flex items-center justify-center"
@@ -488,38 +488,33 @@ export default function SessionProgressPage() {
                           initial="enter"
                           animate="center"
                           exit="exit"
-                          className={`flex items-center justify-center gap-3 p-3 rounded-md transition-all ${
-                            isCenter ? 'bg-white/5 shadow-lg shadow-white/10' : 'bg-transparent'
-                          }`}
+                          className={`flex items-center justify-center gap-3 p-3 rounded-md transition-all ${isCenter ? 'bg-white/5 shadow-lg shadow-white/10' : 'bg-transparent'
+                            }`}
                           style={{ pointerEvents: 'none', minHeight: '56px' }}
                         >
                           {item.type === 'log' ? (
                             <>
-                              <span className={`${
-                                isCenter ? 'text-white/70' : 'text-white/30'
-                              } font-mono shrink-0 text-xs whitespace-nowrap`}>
+                              <span className={`${isCenter ? 'text-white/70' : 'text-white/30'
+                                } font-mono shrink-0 text-xs whitespace-nowrap`}>
                                 {(item.data as LogEntry).timestamp}
                               </span>
-                              <span className={`${
-                                isCenter
+                              <span className={`${isCenter
                                   ? 'text-white font-bold text-base'
                                   : 'text-white/60 text-sm'
-                              } break-all`}>
+                                } break-all`}>
                                 {(item.data as LogEntry).message}
                               </span>
                             </>
                           ) : (
                             <>
-                              <span className={`${
-                                isCenter ? 'text-green-400' : 'text-green-500/50'
-                              } shrink-0 text-base`}>
+                              <span className={`${isCenter ? 'text-green-400' : 'text-green-500/50'
+                                } shrink-0 text-base`}>
                                 ✅
                               </span>
-                              <span className={`${
-                                isCenter
+                              <span className={`${isCenter
                                   ? 'text-white font-bold text-base'
                                   : 'text-white/60 text-sm'
-                              } break-all`}>
+                                } break-all`}>
                                 {item.data as string}
                               </span>
                             </>

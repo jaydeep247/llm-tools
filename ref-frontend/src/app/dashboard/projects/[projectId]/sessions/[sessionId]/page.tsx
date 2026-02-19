@@ -9,7 +9,7 @@ import { CrawlLogger, DiscoveredPages, CrawlStatusHeader } from '@/components/cr
 import { SessionLayout } from '@/components/layout/SessionLayout'
 import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable } from '@/components/module_A'
 import { AIIntelligenceModule, ContentMetricsModule, AnswerCompletenessModule } from '@/components/module_C'
-import { AICitationRanking, ContentConsistencyEntityCoverage, BrandAnalysisSection, SentimentTrackingSection } from '@/components/module_E'
+import { AICitationRanking, ContentConsistencyEntityCoverage, BrandAnalysisSection, SentimentTrackingSection, CompetitorMentionsSection } from '@/components/module_E'
 import { useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
 // import { useGetDataListQuery, useCheckLinksMutation, useGetLinkStatsQuery, useLazyGetPageLinksQuery } from '@/store/api/module_A/dataApi'
 import { useGetProjectQuery } from '@/store/api/projectApi'
@@ -751,7 +751,7 @@ export default function SessionDetailPage() {
         {activeSection === 'broken-links' && (
           <div>
             <BrokenLinkChecker
-              sessionId={parseInt(sessionId)}
+              sessionId={sessionId}
               onCheck={handleCheckLinks}
               checkResults={linkCheckData?.results || null}
               isChecking={isCheckingLinks}
@@ -776,7 +776,7 @@ export default function SessionDetailPage() {
         {activeSection === 'performance' && (
           <div>
             <PerformanceAuditsTable
-              sessionId={parseInt(sessionId)}
+              sessionId={sessionId}
               sessionStatus={crawlStatus}
             />
           </div>
@@ -786,7 +786,7 @@ export default function SessionDetailPage() {
         {activeSection === 'schema-generator' && (
           <div>
             <SchemaGeneratorTable
-              sessionId={parseInt(sessionId)}
+              sessionId={sessionId}
               sessionStatus={crawlStatus}
             />
           </div>
@@ -796,7 +796,7 @@ export default function SessionDetailPage() {
         {activeSection === 'ai-intelligence' && (
           <AIIntelligenceModule
             url={session?.startUrl || ''}
-            sessionId={parseInt(sessionId)}
+            sessionId={sessionId}
           />
         )}
 
@@ -816,6 +816,14 @@ export default function SessionDetailPage() {
               />
             </div>
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+              <CompetitorMentionsSection
+                jobId={jobId}
+                mentionsData={moduleEQueryData?.data?.competitor_mentions}
+                aiSovData={moduleEQueryData?.data?.ai_share_of_voice}
+                aiSovHistory={moduleEQueryData?.data?.ai_sov_history}
+              />
+            </div>
+            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
               <AICitationRanking url={session?.startUrl || ''} />
             </div>
           </div>
@@ -826,7 +834,7 @@ export default function SessionDetailPage() {
         {activeSection === 'content-metrics' && (
           <ContentMetricsModule
             url={session?.startUrl || ''}
-            sessionId={parseInt(sessionId)}
+            sessionId={sessionId}
           />
         )}
 
@@ -834,7 +842,7 @@ export default function SessionDetailPage() {
         {activeSection === 'answer-completeness' && (
           <AnswerCompletenessModule
             url={session?.startUrl || ''}
-            sessionId={parseInt(sessionId)}
+            sessionId={sessionId}
           />
         )}
 
