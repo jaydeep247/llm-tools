@@ -20,7 +20,7 @@ router.get('/:id', projectController.getProjectById);
 // Update project
 router.put('/:id', projectController.updateProject);
 
-// Archive project (soft delete)
+// Delete project (hard delete)
 router.delete('/:id', projectController.archiveProject);
 
 export default router;

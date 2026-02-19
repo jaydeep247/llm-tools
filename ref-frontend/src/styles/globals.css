@@ -4,6 +4,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  /* Default light theme variables (can be adjusted if needed, but user focused on Dark) */
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -40,38 +41,49 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  /* User / Admin Dashboard – Dark Theme Palette */
+  --background: #0E0E0F; /* Main Background */
+  --foreground: #FDFFFD; /* Primary Text */
+  
+  --card: #2E343A; /* Surface (Cards / Panels) */
+  --card-foreground: #FDFFFD;
+  
+  --popover: #2E343A; /* Surface */
+  --popover-foreground: #FDFFFD;
+  
+  --primary: #34D399; /* CTA / Accent - Green */
+  --primary-foreground: #0E0E0F;
+  
+  --secondary: #1B1D21; /* Secondary Background */
+  --secondary-foreground: #FDFFFD;
+  
+  --muted: #1B1D21; /* Secondary Background as muted area? Or lighter? */
+  --muted-foreground: #9F9395; /* Muted Text */
+  
+  --accent: #F28256; /* CTA / Accent - Orange */
+  --accent-foreground: #0E0E0F;
+  
   --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.439 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.269 0 0);
-  --sidebar-ring: oklch(0.439 0 0);
+  --destructive-foreground: #FDFFFD;
+  
+  --border: #54595B; /* Border */
+  --input: #54595B;
+  --ring: #34D399; /* Match primary */
+  
+  --chart-1: #34D399; /* Green */
+  --chart-2: #F28256; /* Orange */
+  --chart-3: #CCD1D5; /* Light Text color for chart? */
+  --chart-4: #0EE00F; /* Hero Highlight? */
+  --chart-5: #2E343A;
+  
+  --sidebar: #1B1D21; /* Secondary Background */
+  --sidebar-foreground: #FDFFFD; /* Primary Text */
+  --sidebar-primary: #34D399; /* Green */
+  --sidebar-primary-foreground: #0E0E0F;
+  --sidebar-accent: #2E343A; /* Surface */
+  --sidebar-accent-foreground: #FDFFFD;
+  --sidebar-border: #54595B; /* Border */
+  --sidebar-ring: #34D399;
 }
 
 @theme inline {
@@ -98,13 +110,6 @@
   --color-ring: var(--ring);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -113,13 +118,4 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-}
-
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
 }

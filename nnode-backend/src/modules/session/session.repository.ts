@@ -1,8 +1,15 @@
 import { randomUUID } from 'crypto';
 import { connectToMongo } from '../../config/mongo';
 import { SessionFilters, SessionWithProject, Session, SessionStatus } from './session.types';
+import { JobRepository } from '../job/job.repository';
 
 export class SessionRepository {
+  private jobRepository: JobRepository;
+
+  constructor() {
+    this.jobRepository = new JobRepository();
+  }
+
   /**
    * Create a new session
    */
@@ -33,16 +40,47 @@ export class SessionRepository {
    */
   async findByIdWithProject(id: string): Promise<SessionWithProject | null> {
     const db = await connectToMongo();
-    const session = await db.collection<Session>('sessions').findOne({ id });
+    
+    const sessions = await db
+      .collection<Session>('sessions')
+      .aggregate([
+        { $match: { id } },
+        {
+          $lookup: {
+            from: 'jobs',
+            localField: 'id',
+            foreignField: 'sessionId',
+            as: 'jobs'
+          }
+        },
+        {
+          $addFields: {
+            startUrl: { $arrayElemAt: ['$jobs.url', 0] },
+            totalPages: 0,
+            totalResources: 0
+          }
+        },
+        {
+          $project: {
+            jobs: 0
+          }
+        }
+      ])
+      .toArray();
+
+    const session = sessions[0] as Session | undefined;
+
     if (!session) {
       return null;
     }
+    
     const project = await db
       .collection('projects')
       .findOne(
         { id: session.projectId },
         { projection: { id: 1, name: 1, userId: 1 } }
       );
+      
     return {
       ...session,
       project: project
@@ -64,11 +102,92 @@ export class SessionRepository {
     if (filters?.status) {
       query.status = filters.status;
     }
+    
     return db
       .collection<Session>('sessions')
-      .find(query)
-      .sort({ createdAt: -1 })
-      .toArray();
+      .aggregate([
+        { $match: query },
+        { $sort: { createdAt: -1 } },
+        {
+          $lookup: {
+            from: 'jobs',
+            localField: 'id',
+            foreignField: 'sessionId',
+            as: 'jobs'
+          }
+        },
+        {
+          $addFields: {
+            job: { $arrayElemAt: ['$jobs', 0] }
+          }
+        },
+        // Count pages
+        {
+          $lookup: {
+            from: 'pages',
+            let: { jobId: '$job.id' },
+            pipeline: [
+              { $match: { $expr: { $eq: ['$jobId', '$$jobId'] } } },
+              { $count: 'count' }
+            ],
+            as: 'pagesCount'
+          }
+        },
+        // Count links
+        {
+          $lookup: {
+            from: 'links',
+            let: { jobId: '$job.id' },
+            pipeline: [
+              { $match: { $expr: { $eq: ['$jobId', '$$jobId'] } } },
+              { $count: 'count' }
+            ],
+            as: 'linksCount'
+          }
+        },
+        // Count sitemaps
+        {
+          $lookup: {
+            from: 'sitemaps',
+            let: { jobId: '$job.id' },
+            pipeline: [
+              { $match: { $expr: { $eq: ['$jobId', '$$jobId'] } } },
+              { $count: 'count' }
+            ],
+            as: 'sitemapsCount'
+          }
+        },
+        {
+          $addFields: {
+            startUrl: '$job.url',
+            status: {
+              $cond: {
+                if: { $eq: ['$job.status', 'PENDING'] },
+                then: 'CREATED',
+                else: { $ifNull: ['$job.status', '$status'] }
+              }
+            },
+            allowSubdomains: '$job.allowSubdomains',
+            startedAt: '$job.startedAt',
+            completedAt: '$job.completedAt',
+            maxConcurrency: 4, // Default for now
+            totalPages: { $ifNull: [{ $arrayElemAt: ['$pagesCount.count', 0] }, 0] },
+            totalLinks: { $ifNull: [{ $arrayElemAt: ['$linksCount.count', 0] }, 0] },
+            totalSitemaps: { $ifNull: [{ $arrayElemAt: ['$sitemapsCount.count', 0] }, 0] },
+            totalResources: { $ifNull: [{ $arrayElemAt: ['$pagesCount.count', 0] }, 0] } // Legacy
+          }
+        },
+        {
+          $project: {
+            jobs: 0,
+            job: 0,
+            pagesCount: 0,
+            linksCount: 0,
+            sitemapsCount: 0
+          }
+        }
+      ])
+      .toArray() as Promise<Session[]>;
   }
 
   /**
@@ -138,9 +257,21 @@ export class SessionRepository {
     if (!session) {
       throw new Error('Session not found');
     }
+
+    // Delete related jobs and data
+    await this.jobRepository.deleteBySessionId(id);
+
     await db
       .collection<Session>('sessions')
       .deleteOne({ id });
     return session;
+  }
+
+  /**
+   * Delete sessions by project ID
+   */
+  async deleteByProjectId(projectId: string): Promise<void> {
+    const db = await connectToMongo();
+    await db.collection<Session>('sessions').deleteMany({ projectId });
   }
 }

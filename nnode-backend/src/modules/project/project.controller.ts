@@ -90,21 +90,21 @@ export class ProjectController {
   };
 
   /**
-   * Archive project (soft delete)
+   * Delete project (hard delete)
    */
   archiveProject = async (req: Request, res: Response): Promise<Response> => {
     try {
       const userId = req.user!.userId;
       const { id } = projectIdSchema.parse(req.params);
       
-      const project = await this.projectService.archiveProject(id, userId);
-      return ResponseUtil.success(res, 'Project archived successfully', project);
+      await this.projectService.deleteProject(id, userId);
+      return ResponseUtil.success(res, 'Project deleted successfully', { id });
     } catch (error: any) {
-      logger.error(`Error archiving project: ${error.message}`);
+      logger.error(`Error deleting project: ${error.message}`);
       if (error.message.includes('not found') || error.message.includes('access denied')) {
         return ResponseUtil.notFound(res, error.message);
       }
-      return ResponseUtil.serverError(res, 'Failed to archive project');
+      return ResponseUtil.serverError(res, 'Failed to delete project');
     }
   };
 }

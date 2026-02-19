@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Plus, MoreVertical, ExternalLink, Trash2, FolderOpen, Clock, AlertCircle } from 'lucide-react'
+import { Plus, MoreVertical, ExternalLink, Trash2, FolderOpen, Clock, AlertCircle, Pencil } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,17 +23,37 @@ import { Textarea } from '@/components/ui/textarea'
 import { useGetProjectsQuery, useCreateProjectMutation, useDeleteProjectMutation, type Project } from '@/store/api/projectApi'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { ProjectEditDialog } from '@/components/dashboard/ProjectEditDialog'
+import { useGlobalDialog } from '@/components/providers/GlobalDialogProvider'
 
 export default function ProjectsPage() {
   const router = useRouter()
-  const { data, isLoading, error } = useGetProjectsQuery()
+  const { confirm } = useGlobalDialog()
+  const { data, isLoading, error } = useGetProjectsQuery(undefined, { refetchOnMountOrArgChange: true })
   const [createProject, { isLoading: isCreating }] = useCreateProjectMutation()
-  const [deleteProject, { isLoading: isDeleting }] = useDeleteProjectMutation()
+  const [deleteProject] = useDeleteProjectMutation()
   
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
+  const [projectToEdit, setProjectToEdit] = useState<Project | null>(null)
   const [formData, setFormData] = useState({ name: '', description: '' })
+
+  const handleDeleteProject = async (project: Project) => {
+    const isConfirmed = await confirm({
+      title: 'Delete Project',
+      description: `Are you sure you want to delete "${project.name}"? This action cannot be undone and will permanently delete all associated crawl sessions.`,
+      confirmText: 'Delete Project',
+      variant: 'destructive',
+    })
+
+    if (isConfirmed) {
+      try {
+        await deleteProject(project.id).unwrap()
+        toast.success('Project deleted successfully')
+      } catch (error: any) {
+        toast.error(error?.data?.message || 'Failed to delete project')
+      }
+    }
+  }
 
   const handleCreateProject = async () => {
     if (!formData.name.trim()) {
@@ -52,19 +72,6 @@ export default function ProjectsPage() {
       setFormData({ name: '', description: '' })
     } catch (error: any) {
       toast.error(error?.data?.error || 'Failed to create project')
-    }
-  }
-
-  const handleDeleteProject = async () => {
-    if (!projectToDelete) return
-
-    try {
-      await deleteProject(projectToDelete.id).unwrap()
-      toast.success('Project deleted successfully')
-      setIsDeleteDialogOpen(false)
-      setProjectToDelete(null)
-    } catch (error: any) {
-      toast.error(error?.data?.error || 'Failed to delete project')
     }
   }
 
@@ -188,8 +195,16 @@ export default function ProjectsPage() {
                         <DropdownMenuItem 
                           onClick={(e) => {
                             e.stopPropagation()
-                            setProjectToDelete(project)
-                            setIsDeleteDialogOpen(true)
+                            setProjectToEdit(project)
+                          }}
+                          className="cursor-pointer text-white hover:bg-white/10"
+                        >
+                          <Pencil className="mr-2 h-4 w-4" /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteProject(project)
                           }}
                           className="text-red-400 cursor-pointer hover:bg-red-500/10"
                         >
@@ -204,18 +219,18 @@ export default function ProjectsPage() {
                     <div className="flex items-center justify-between text-[10px] sm:text-xs">
                       <span className="text-white/60">Crawl Sessions</span>
                       <span className="text-white font-semibold">
-                        {project._count?.crawlSessions || 0}
+                        {project._count?.sessions || 0}
                       </span>
                     </div>
                     
                     <div className="flex items-center justify-between text-[10px] sm:text-xs">
                       <span className="text-white/60">Status</span>
                       <span className={`font-medium px-2 py-0.5 rounded text-[9px] sm:text-[10px] ${
-                        project.isActive 
+                        project.status === 'ACTIVE' 
                           ? 'bg-green-500/20 text-green-300' 
                           : 'bg-gray-500/20 text-gray-300'
                       }`}>
-                        {project.isActive ? 'Active' : 'Inactive'}
+                        {project.status === 'ACTIVE' ? 'Active' : 'Inactive'}
                       </span>
                     </div>
                     
@@ -281,36 +296,12 @@ export default function ProjectsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent className="bg-zinc-900 border-white/20">
-          <DialogHeader>
-            <DialogTitle className="text-white">Delete Project</DialogTitle>
-            <DialogDescription className="text-white/60">
-              Are you sure you want to delete &quot;{projectToDelete?.name}&quot;? This will also delete all associated crawl sessions. This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setIsDeleteDialogOpen(false)
-                setProjectToDelete(null)
-              }}
-              className="border-white/20 text-white hover:bg-white/10 cursor-pointer"
-            >
-              Cancel
-            </Button>
-            <Button 
-              onClick={handleDeleteProject}
-              disabled={isDeleting}
-              className="bg-red-500 text-white hover:bg-red-600 cursor-pointer disabled:cursor-not-allowed"
-            >
-              {isDeleting ? 'Deleting...' : 'Delete Project'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Edit Project Dialog */}
+      <ProjectEditDialog
+        project={projectToEdit}
+        open={!!projectToEdit}
+        onOpenChange={(open) => !open && setProjectToEdit(null)}
+      />
     </>
   )
 }

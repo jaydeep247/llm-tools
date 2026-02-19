@@ -11,6 +11,15 @@ export interface Session {
   status: SessionStatus;
   createdAt: Date;
   endedAt?: Date | null;
+  startedAt?: Date | null;
+  completedAt?: Date | null;
+  startUrl?: string;
+  allowSubdomains?: boolean;
+  maxConcurrency?: number;
+  totalPages?: number;
+  totalLinks?: number;
+  totalSitemaps?: number;
+  totalResources?: number;
 }
 
 export type SessionResponse = Session;

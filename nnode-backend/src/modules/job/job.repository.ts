@@ -66,5 +66,29 @@ export class JobRepository {
     }
     return job;
   }
+
+  /**
+   * Delete jobs by session ID and all related data (pages, links, sitemaps, fields)
+   */
+  async deleteBySessionId(sessionId: string): Promise<void> {
+    const db = await connectToMongo();
+    
+    // Find all jobs for this session
+    const jobs = await this.findBySessionId(sessionId);
+    const jobIds = jobs.map(job => job.id);
+
+    if (jobIds.length > 0) {
+      // Delete related data
+      await Promise.all([
+        db.collection('pages').deleteMany({ jobId: { $in: jobIds } }),
+        db.collection('links').deleteMany({ jobId: { $in: jobIds } }),
+        db.collection('sitemaps').deleteMany({ jobId: { $in: jobIds } }),
+        db.collection('fields').deleteMany({ jobId: { $in: jobIds } }),
+      ]);
+
+      // Delete jobs
+      await db.collection<Job>('jobs').deleteMany({ sessionId });
+    }
+  }
 }
 

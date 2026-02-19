@@ -13,6 +13,7 @@ export class ProjectRepository {
       id: randomUUID(),
       userId,
       name: data.name,
+      description: data.description || null,
       status: ProjectStatus.ACTIVE,
       createdAt: now,
       updatedAt: now,
@@ -50,19 +51,42 @@ export class ProjectRepository {
   }
 
   /**
-   * Find all projects for a user
+   * Find all projects for a user with session count
    */
-  async findByUserId(userId: string, filters?: ProjectFilters): Promise<Project[]> {
+  async findByUserId(userId: string, filters?: ProjectFilters): Promise<ProjectWithSessionCount[]> {
     const db = await connectToMongo();
     const query: any = { userId };
     if (filters?.status) {
       query.status = filters.status;
     }
-    return db
+
+    const projects = await db
       .collection<Project>('projects')
-      .find(query)
-      .sort({ createdAt: -1 })
+      .aggregate([
+        { $match: query },
+        { $sort: { createdAt: -1 } },
+        {
+          $lookup: {
+            from: 'sessions',
+            localField: 'id',
+            foreignField: 'projectId',
+            as: 'sessions'
+          }
+        },
+        {
+          $addFields: {
+            '_count.sessions': { $size: '$sessions' }
+          }
+        },
+        {
+          $project: {
+            sessions: 0
+          }
+        }
+      ])
       .toArray();
+
+    return projects as ProjectWithSessionCount[];
   }
 
   /**
@@ -89,6 +113,9 @@ export class ProjectRepository {
     };
     if (data.name !== undefined) {
       update.name = data.name;
+    }
+    if (data.description !== undefined) {
+      update.description = data.description;
     }
     if (data.status !== undefined) {
       update.status = data.status as ProjectStatus;
