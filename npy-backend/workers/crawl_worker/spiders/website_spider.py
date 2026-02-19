@@ -25,22 +25,19 @@ from .extractors import (
 )
 from utils.logger import logger
 
-# Import Module A Metrics
-# Import Module A Metrics
 from modules.module_A.WebsiteCrawler.metrics import (
     pixel_width,
     carbon,
     content_quality,
     link_analysis,
-    similarity
+    similarity,
 )
 from modules.module_A.pagematrix.manager import extract_page_metrics
-
-# Import New SEO Modules
 from modules.module_A.Wordcount_analysis import wordcount_extractor
 from modules.module_A.Broken_links_checker import broken_link_checker
 from modules.module_A.Redirects_audit import redirect_audit
 from modules.module_A.Text_Quality_Analyzer import text_quality_analyzer
+from modules.module_B.keywords import Keyword, extract_keywords_from_html
 
 
 class WebsiteSpider(scrapy.Spider):
@@ -91,6 +88,7 @@ class WebsiteSpider(scrapy.Spider):
         self.session_id = session_id
         self.job_id = job_id
         self.project_id = project_id
+        self.raw_html_saved = False
         
         self.allow_subdomains = allow_subdomains
         self.max_concurrency = max_concurrency
@@ -346,14 +344,11 @@ class WebsiteSpider(scrapy.Spider):
             logger.warning(f"Response is not HtmlResponse (type: {type(response)}), skipping extraction: {response.url}")
             return
             
-        # ==================================================================
-        # SAVE RAW HTML (For Post-Crawl Moudles)
-        # ==================================================================
-        # Only save for the homepage/start_url (depth 0) to handle redirects
-        if crawl_depth == 0:
+        if not self.raw_html_saved:
             try:
                 from utils.storage import save_raw_html_sync
                 save_raw_html_sync(self.job_id, response.text)
+                self.raw_html_saved = True
                 logger.info(f"Saved raw HTML for job {self.job_id} from {response.url}")
             except Exception as e:
                 logger.error(f"Failed to save raw HTML: {e}")
@@ -436,7 +431,19 @@ class WebsiteSpider(scrapy.Spider):
         })
         redirect_audit_report = redirect_audit.analyze_redirects(hops, page_item.get('canonical_url'))
 
-        # Construct 'fields' dictionary
+        keyword_result = extract_keywords_from_html(
+            html=response.text,
+            url=response.url,
+            final_url=response.url,
+            lang_guess=page_item.get('language', ''),
+        )
+        parent_kw = keyword_result.get('parent')
+        if isinstance(parent_kw, Keyword):
+            parent_kw = parent_kw.model_dump()
+        keywords_list = keyword_result.get('keywords', [])
+        if keywords_list and isinstance(keywords_list[0], Keyword):
+            keywords_list = [k.model_dump() for k in keywords_list]
+
         page_item['fields'] = {
             # Status
             'status': 'OK' if response.status == 200 else str(response.status),
@@ -494,7 +501,14 @@ class WebsiteSpider(scrapy.Spider):
             # New SEO Fields
             'Wordcount_analysis': wordcount_analysis,
             'Broken_links_checker': broken_links_report,
-            'Redirects_audit': redirect_audit_report
+            'Redirects_audit': redirect_audit_report,
+            'Keyword_analysis': {
+                'url': keyword_result.get('url', response.url),
+                'language': keyword_result.get('language', page_item.get('language')),
+                'parent': parent_kw,
+                'keywords': keywords_list,
+                'debug': keyword_result.get('debug', {}),
+            },
         }
         
         

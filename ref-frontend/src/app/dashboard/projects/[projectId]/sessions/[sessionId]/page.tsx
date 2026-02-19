@@ -9,11 +9,12 @@ import { CrawlLogger, DiscoveredPages, CrawlStatusHeader } from '@/components/cr
 import { SessionLayout } from '@/components/layout/SessionLayout'
 import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable } from '@/components/module_A'
 import { AIIntelligenceModule, ContentMetricsModule, AnswerCompletenessModule } from '@/components/module_C'
+import { SiteStructure } from '@/components/module_D/site-structure'
 import { AICitationRanking, SentimentTracking } from '@/components/module_E'
 // import { useGetDataListQuery, useCheckLinksMutation, useGetLinkStatsQuery, useLazyGetPageLinksQuery } from '@/store/api/module_A/dataApi'
 import { useGetProjectQuery } from '@/store/api/projectApi'
 import { useGetSessionQuery } from '@/store/api/sessionApi'
-import { useGetSessionJobsQuery, useGetJobPagesQuery, useGetJobLinksQuery, useGetJobSitemapsQuery, useGetJobFieldsQuery } from '@/store/api/jobApi'
+import { useGetSessionJobsQuery, useGetJobPagesQuery, useGetJobLinksQuery, useGetJobSitemapsQuery, useGetJobFieldsQuery, useGetJobSiteStructureQuery } from '@/store/api/jobApi'
 import { formatDurationHHMMSSMS, formatDurationReadable } from '@/utils/formatDuration'
 
 interface LogEntry {
@@ -56,6 +57,8 @@ export default function SessionDetailPage() {
   const { data: fieldsResult, isLoading: isLoadingFieldsRaw, refetch: refetchFieldsRaw } = useGetJobFieldsQuery(jobId!, { skip: !jobId })
   const { data: sitemapsResult, isLoading: isLoadingSitemapsRaw, refetch: refetchSitemapsRaw } = useGetJobSitemapsQuery(jobId!, { skip: !jobId })
 
+  const { data: siteStructureResult } = useGetJobSiteStructureQuery(jobId!, { skip: !jobId })
+
   const isLoadingResults = isLoadingPagesRaw || isLoadingLinksRaw || isLoadingFieldsRaw || isLoadingSitemapsRaw
   const refetchJobResults = () => {
     refetchPagesRaw()
@@ -84,6 +87,9 @@ export default function SessionDetailPage() {
   // Unified data transformation
   const rawPages = pagesResult?.data || []
   const rawFields = fieldsResult?.data || []
+  
+  const siteStructurePages = siteStructureResult?.pages ?? []
+  const siteStructureStartUrl = siteStructureResult?.startUrl ?? null
   
   // Create a map of fields by URL for efficient lookup
   const fieldsMap = new Map();
@@ -761,6 +767,18 @@ export default function SessionDetailPage() {
           </div>
         )}
 
+        {/* Show Site Structure on site-structure tab */}
+        {activeSection === 'site-structure' && (
+          <div className="rounded-lg p-4 sm:p-6 border border-white/20 bg-white/10 backdrop-blur-xl h-[600px]">
+            <SiteStructure
+              sessionId={sessionId}
+              pages={siteStructurePages}
+              startUrl={siteStructureStartUrl}
+              jobId={jobId || null}
+            />
+          </div>
+        )}
+
         {/* Show Performance Audits on performance tab */}
         {activeSection === 'performance' && (
           <div>
@@ -775,7 +793,8 @@ export default function SessionDetailPage() {
         {activeSection === 'schema-generator' && (
           <div>
             <SchemaGeneratorTable 
-              sessionId={parseInt(sessionId)}
+              sessionId={sessionId}
+              jobId={jobId || null}
               sessionStatus={crawlStatus}
             />
           </div>
@@ -805,7 +824,7 @@ export default function SessionDetailPage() {
         {activeSection === 'content-metrics' && (
           <ContentMetricsModule 
             url={session?.startUrl || ''}
-            sessionId={parseInt(sessionId)}
+            sessionId={sessionId}
           />
         )}
 
@@ -817,15 +836,6 @@ export default function SessionDetailPage() {
           />
         )}
 
-        {/* Placeholder for other tabs */}
-        {activeSection !== 'crawler' && activeSection !== 'crawled-data' && activeSection !== 'page-metrics' && activeSection !== 'text-quality' && activeSection !== 'wordcount' && activeSection !== 'broken-links' && activeSection !== 'link-analysis' && activeSection !== 'performance' && activeSection !== 'schema-generator' && activeSection !== 'ai-intelligence' && activeSection !== 'module-e' && activeSection !== 'content-metrics' && activeSection !== 'answer-completeness' && (
-          <div className="rounded-lg p-8 border border-white/20 bg-white/10 backdrop-blur-xl text-center">
-            <h2 className="text-xl font-bold text-white mb-2">
-              {activeSection.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-            </h2>
-            <p className="text-white/60">This section is under development.</p>
-          </div>
-        )}
       </div>
     </SessionLayout>
   )

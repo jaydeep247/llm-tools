@@ -46,21 +46,16 @@ class MongoManager:
         """Create mandatory indexes at startup"""
         if self._db is not None:
             pages = self._db.pages
-            # 1. Job ID index (Critical for cleanup and retrieval)
             pages.create_index("jobId")
-            
-            # 2. URL index (For uniqueness and lookups)
             pages.create_index("url")
-            
-            # 3. Compound index (Optional but good for job-scoped lookups)
             pages.create_index([("jobId", 1), ("url", 1)])
 
-            # 4. Links and Sitemaps indexes
             self._db.links.create_index("jobId")
             self._db.sitemaps.create_index("jobId")
             self._db.fields.create_index("jobId")
             self._db.fields.create_index([("jobId", 1), ("url", 1)])
             self._db.job_summaries.create_index("jobId")
+            self._db.schemas.create_index("jobId")
             
             logger.info("MongoDB indexes verified")
 
@@ -89,6 +84,14 @@ class MongoManager:
     @property
     def fields(self) -> Collection:
         return self.db.fields
+
+    @property
+    def schemas(self) -> Collection:
+        return self.db.schemas
+
+    @property
+    def content_metrics(self) -> Collection:
+        return self.db.content_metrics
 
     def close(self):
         if self._client:

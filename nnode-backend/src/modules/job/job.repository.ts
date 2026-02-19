@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { connectToMongo } from '../../config/mongo';
-import { Job, JobStatus, CreateJobDto } from './job.types';
+import { Job, JobStatus, JobType, CreateJobDto } from './job.types';
 
 export class JobRepository {
   async create(sessionId: string, projectId: string, data: CreateJobDto): Promise<Job> {
@@ -15,6 +15,8 @@ export class JobRepository {
       runAudits: data.runAudits,
       auditDevice: data.auditDevice,
       captureLinkDetails: data.captureLinkDetails,
+      type: data.type ?? JobType.CRAWL,
+      schemaType: data.schemaType ?? null,
       status: JobStatus.PENDING,
       createdAt: now,
       startedAt: null,
@@ -67,4 +69,3 @@ export class JobRepository {
     return job;
   }
 }
-

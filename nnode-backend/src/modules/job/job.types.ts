@@ -5,6 +5,12 @@ export enum JobStatus {
   FAILED = 'FAILED',
 }
 
+export enum JobType {
+  CRAWL = 'CRAWL',
+  SCHEMA = 'SCHEMA',
+  CONTENT_METRICS = 'CONTENT_METRICS',
+}
+
 export interface Job {
   id: string;
   sessionId: string;
@@ -14,6 +20,8 @@ export interface Job {
   runAudits?: boolean;
   auditDevice?: string;
   captureLinkDetails?: boolean;
+  type: JobType;
+  schemaType?: string | null;
   status: JobStatus;
   createdAt: Date;
   startedAt?: Date | null;
@@ -27,5 +35,6 @@ export interface CreateJobDto {
   runAudits?: boolean;
   auditDevice?: string;
   captureLinkDetails?: boolean;
+  type?: JobType;
+  schemaType?: string;
 }
-
