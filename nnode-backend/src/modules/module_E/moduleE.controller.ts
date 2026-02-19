@@ -209,4 +209,44 @@ export class ModuleEController {
       return ResponseUtil.serverError(res, 'Failed to start AI SOV analysis');
     }
   };
+
+  runRankingAnalysis = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { jobId } = jobIdParamSchema.parse(req.params);
+
+      const job = await this.jobService.getJobById(jobId, userId);
+      const jobConfig = (job.config ?? {}) as Record<string, any>;
+      const url = jobConfig.url as string | undefined;
+
+      if (!url) {
+        return ResponseUtil.error(res, 'Job is missing URL in config', undefined, 400);
+      }
+
+      const rankingJob = await this.jobService.createJob(job.sessionId, userId, {
+        jobType: JobType.AEO_ANALYSIS,
+        config: {
+          url,
+          modules: ['module_e_ranking'],
+          sourceJobId: jobId,
+        },
+      });
+
+      logger.info('Module E: Ranking analysis job created', {
+        rankingJobId: rankingJob.id,
+        sourceJobId: jobId,
+      });
+
+      return ResponseUtil.created(res, 'Ranking analysis queued', rankingJob);
+    } catch (error: any) {
+      logger.error('Error starting ranking analysis:', error);
+      if (error.message?.includes('not found') || error.message?.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      if (error.name === 'ZodError') {
+        return ResponseUtil.error(res, 'Validation failed', error.errors);
+      }
+      return ResponseUtil.serverError(res, 'Failed to start ranking analysis');
+    }
+  };
 }

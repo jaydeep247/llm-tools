@@ -11,6 +11,7 @@ type ModuleEDocument = WithId<Document> & {
   sentiment_tracking?: ModuleEResult['sentiment_tracking'];
   competitor_mentions?: ModuleEResult['competitor_mentions'];
   ai_share_of_voice?: ModuleEResult['ai_share_of_voice'];
+  ranking_analysis?: ModuleEResult['ranking_analysis'];
   ai_sov_history?: ModuleEResult['ai_sov_history'];
   score_history?: ModuleEResult['score_history'];
   createdAt?: Date;
@@ -32,6 +33,7 @@ export class ModuleERepository {
       sentiment_tracking: doc.sentiment_tracking,
       competitor_mentions: doc.competitor_mentions,
       ai_share_of_voice: doc.ai_share_of_voice,
+      ranking_analysis: doc.ranking_analysis,
       ai_sov_history: doc.ai_sov_history,
       score_history: doc.score_history,
       createdAt: doc.createdAt ? doc.createdAt.toISOString() : undefined,
@@ -58,6 +60,7 @@ export class ModuleERepository {
             sentiment_tracking: data.sentiment_tracking ?? undefined,
             competitor_mentions: data.competitor_mentions ?? undefined,
             ai_share_of_voice: data.ai_share_of_voice ?? undefined,
+            ranking_analysis: data.ranking_analysis ?? undefined,
             updatedAt: now,
           },
           $setOnInsert: {
@@ -195,6 +198,9 @@ export class ModuleERepository {
       }
       if (fields.ai_share_of_voice !== undefined) {
         updateData.ai_share_of_voice = fields.ai_share_of_voice;
+      }
+      if (fields.ranking_analysis !== undefined) {
+        updateData.ranking_analysis = fields.ranking_analysis;
       }
 
       const collection = await this.getCollection();

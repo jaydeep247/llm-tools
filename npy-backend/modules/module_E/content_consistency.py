@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, List
 from bs4 import BeautifulSoup
 from orchestrator.checkpoint.executor import execute_task
 
@@ -104,6 +104,68 @@ CONTENT:
                 "brand_name": "",
                 "location": "",
             }
+
+    async def generate_ranking_prompts(
+        self,
+        topic: str,
+        audience: str,
+        brand_name: str,
+        location: str,
+        use_gemini: bool = False,
+    ) -> List[str]:
+        """
+        Generate 5 distinct search prompts a user might use to find this content.
+        """
+        prompt = f"""
+        You are an SEO Strategist. Generate 5 distinct Google search prompts a user would strictly use to find a website with this mandate.
+        Target High Intent keywords.
+        
+        MANDATE:
+        - Topic: {topic}
+        - Audience: {audience}
+        - Brand: {brand_name}
+        - Location: {location}
+        
+        Return JSON only: {{"prompts": ["prompt1", "prompt2", "prompt3", "prompt4", "prompt5"]}}
+        """
+
+        logger.info(
+            "Ranking prompts generation request",
+            extra={
+                "topic": topic,
+                "audience": audience,
+                "brand": brand_name,
+                "location": location,
+            },
+        )
+
+        resp = await execute_task(
+            task_name="module_e_ranking_prompts",
+            input_data={"messages": [{"role": "user", "content": prompt}]},
+            provider="openai",
+            options={
+                "model": "gpt-4o-mini",
+                "temperature": 0.4,
+                "response_format": {"type": "json_object"},
+            },
+        )
+
+        if not resp.success:
+            logger.warning("Ranking prompts LLM failed: %s", resp.error)
+            return []
+
+        try:
+            data = _safe_parse_json(resp.data)
+            prompts = data.get("prompts", [])
+            if isinstance(prompts, list):
+                # Clean prompts
+                cleaned = [p.strip() for p in prompts if isinstance(p, str) and len(p.strip()) > 5]
+                logger.info("Ranking prompts generated", extra={"count": len(cleaned), "prompts": cleaned})
+                return cleaned
+            return []
+        except Exception as exc:
+            logger.warning("Failed to parse ranking prompts: %s", exc)
+            return []
 
     async def score_batch(self, topic: str, audience: str, tone: str, batch_content: str) -> int:
         if not batch_content or len(batch_content.strip()) < 100:

@@ -53,6 +53,12 @@ class TaskRegistry:
         "module_e_ai_sov_openai": ["openai"],
         "module_e_ai_sov_gemini": ["gemini"],
         "module_e_ai_sov_claude": ["claude"],
+        "module_e_ranking": ["dataforseo"], # Uses DataForSEO for live ranking
+        "module_e_ranking_prompts": ["openai", "gemini", "claude"], # Prompts generation
+        # Platform-specific ranking tasks (dynamically called in runner)
+        "module_e_ranking_chat_gpt": ["dataforseo"],
+        "module_e_ranking_claude": ["dataforseo"],
+        "module_e_ranking_gemini": ["dataforseo"],
     }
 
     @classmethod

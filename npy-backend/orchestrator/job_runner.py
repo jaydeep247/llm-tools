@@ -6,6 +6,7 @@ from utils.storage import save_raw_html, save_job_response
 # Import Module Runners
 # We use absolute imports assuming we run from project root
 from modules.module_C.runner import run_module_c
+from modules.module_E.ranking_runner import run_ranking_analysis
 from modules.module_E.runner import run_module_e
 from modules.module_E.sentiment_runner import run_sentiment_only
 from modules.module_E.competitor_runner import run_competitor_analysis
@@ -32,6 +33,7 @@ class JobOrchestrator:
             "module_e_sentiment": run_sentiment_only,  # Sentiment-only (no crawl needed)
             "module_e_competitors": run_competitor_analysis, # Competitor Analysis module
             "module_e_ai_sov": run_ai_sov_analysis,  # AI SOV-only re-run (no DataForSEO)
+            "module_e_ranking": run_ranking_analysis, # Ranking Analysis
             # Future modules:
             # "module_b": run_module_b
         }
@@ -83,7 +85,7 @@ class JobOrchestrator:
                     tasks.append(runner_func(job_id, url, html_content))
                     task_names.append(key)
                 else:
-                    logger.warning(f"Module '{mod_name}' not found in registry.")
+                    logger.warning(f"Module '{mod_name}' not found in registry. Available: {list(self.module_registry.keys())}")
                     results["modules"][mod_name] = {"error": "Module not supported"}
 
             # 3. Parallel Execution

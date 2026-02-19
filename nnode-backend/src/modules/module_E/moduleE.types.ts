@@ -115,6 +115,33 @@ export interface ModuleEResult {
       }
     >;
   }>;
+  ranking_analysis?: RankingAnalysisResult;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface RankingAnalysisResult {
+  ranking_position_per_prompt: Array<{
+    prompt: string;
+    model: string;
+    position: number | null;
+    total_cited: number;
+    source_diversity: number;
+    credibility_score: number;
+    percentile: number;
+    content_quality_score: number;
+  }>;
+  percentile_by_prompt: Record<string, Record<string, number>>;
+  model_wise_comparison: Array<{ prompt: string;[model: string]: number | string | null }>;
+  content_quality: {
+    overall_score: number;
+    by_prompt_model: Record<string, Record<string, number>>;
+  };
+  entity_coverage: {
+    score: number;
+    found_entities: string[];
+    missing_entities: string[];
+    total_expected: number;
+  };
+  generated_prompts: string[];
 }

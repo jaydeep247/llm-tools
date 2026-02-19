@@ -824,7 +824,11 @@ export default function SessionDetailPage() {
               />
             </div>
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
-              <AICitationRanking url={session?.startUrl || ''} />
+              <AICitationRanking
+                jobId={jobId}
+                url={session?.startUrl || ''}
+                rankingData={moduleEQueryData?.data?.ranking_analysis}
+              />
             </div>
           </div>
         )}
