@@ -1,38 +1,32 @@
 import { Request, Response } from 'express';
 import { JobService } from './job.service';
 import { ResponseUtil } from '../../utils/response';
-import { createJobSchema, updateJobStatusSchema, jobIdSchema, sessionIdParamSchema } from './job.validator';
+import { createJobSchema } from './job.validator';
+import { sessionIdSchema } from '../session/session.validator';
 import { logger } from '../../shared/logger/logger';
+import { getRedisClient } from '../../config/redis';
+import { connectToMongo } from '../../config/mongo';
 
 export class JobController {
   private jobService: JobService;
+  private redis = getRedisClient();
 
   constructor() {
     this.jobService = new JobService();
   }
 
-  /**
-   * Create a new job in a session
-   * CONTROL PLANE ONLY - no execution happens here
-   */
   createJob = async (req: Request, res: Response): Promise<Response> => {
     try {
       const userId = req.user!.userId;
-      const { sessionId } = sessionIdParamSchema.parse(req.params);
+      const { id } = sessionIdSchema.parse({ id: req.params.sessionId });
       const data = createJobSchema.parse(req.body);
-      
-      const job = await this.jobService.createJob(sessionId, userId, data);
-      return ResponseUtil.created(res, 'Job created successfully', job);
+
+      const job = await this.jobService.createJob(userId, id, data);
+      return ResponseUtil.created(res, 'Job created and enqueued successfully', job);
     } catch (error: any) {
-      logger.error('Error creating job:', error);
-      if (error.message.includes('Limit exceeded')) {
-        return ResponseUtil.error(res, error.message, undefined, 403);
-      }
+      logger.error(`Error creating job: ${error.message}`);
       if (error.message.includes('not found') || error.message.includes('access denied')) {
         return ResponseUtil.notFound(res, error.message);
-      }
-      if (error.message.includes('must be')) {
-        return ResponseUtil.error(res, error.message, undefined, 400);
       }
       if (error.name === 'ZodError') {
         return ResponseUtil.error(res, 'Validation failed', error.errors);
@@ -41,18 +35,15 @@ export class JobController {
     }
   };
 
-  /**
-   * Get all jobs for a session
-   */
   getSessionJobs = async (req: Request, res: Response): Promise<Response> => {
     try {
       const userId = req.user!.userId;
-      const { sessionId } = sessionIdParamSchema.parse(req.params);
-      
-      const jobs = await this.jobService.getSessionJobs(sessionId, userId);
+      const { id } = sessionIdSchema.parse({ id: req.params.sessionId });
+
+      const jobs = await this.jobService.getJobsForSession(userId, id);
       return ResponseUtil.success(res, 'Jobs retrieved successfully', jobs);
     } catch (error: any) {
-      logger.error('Error getting jobs:', error);
+      logger.error(`Error getting jobs: ${error.message}`);
       if (error.message.includes('not found') || error.message.includes('access denied')) {
         return ResponseUtil.notFound(res, error.message);
       }
@@ -60,18 +51,15 @@ export class JobController {
     }
   };
 
-  /**
-   * Get job by ID
-   */
   getJobById = async (req: Request, res: Response): Promise<Response> => {
     try {
       const userId = req.user!.userId;
-      const { id } = jobIdSchema.parse(req.params);
-      
-      const job = await this.jobService.getJobById(id, userId);
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+
+      const job = await this.jobService.getJobById(userId, id);
       return ResponseUtil.success(res, 'Job retrieved successfully', job);
     } catch (error: any) {
-      logger.error('Error getting job:', error);
+      logger.error(`Error getting job: ${error.message}`);
       if (error.message.includes('not found') || error.message.includes('access denied')) {
         return ResponseUtil.notFound(res, error.message);
       }
@@ -79,159 +67,55 @@ export class JobController {
     }
   };
 
-  /**
-   * Update job status (Worker)
-   * Authenticated via API Key
-   */
-  updateJobStatusByWorker = async (req: Request, res: Response): Promise<Response> => {
-    try {
-      const { id } = jobIdSchema.parse(req.params);
-      const { status, failureReason } = updateJobStatusSchema.parse(req.body);
-      const workerId = req.workerId;
-      
-      const job = await this.jobService.updateJobStatusByWorker(id, status, failureReason, workerId);
-      return ResponseUtil.success(res, 'Job status updated successfully', job);
-    } catch (error: any) {
-      logger.error('Error updating job by worker:', error);
-      if (error.message.includes('not found')) {
-        return ResponseUtil.notFound(res, error.message);
-      }
-      if (error.message.includes('Invalid state transition')) {
-        return ResponseUtil.error(res, error.message, undefined, 400);
-      }
-      if (error.message.includes('Limit exceeded')) {
-        return ResponseUtil.error(res, error.message, undefined, 403);
-      }
-      if (error.name === 'ZodError') {
-        return ResponseUtil.error(res, 'Validation failed', error.errors);
-      }
-      return ResponseUtil.serverError(res, 'Failed to update job');
-    }
-  };
-
-  /**
-   * Update job status (User)
-   * Users can only interact with their own jobs
-   */
-  updateJobStatus = async (req: Request, res: Response): Promise<Response> => {
+  getJobRuntimeStatus = async (req: Request, res: Response): Promise<Response> => {
     try {
       const userId = req.user!.userId;
-      const { id } = jobIdSchema.parse(req.params);
-      const { status, failureReason } = updateJobStatusSchema.parse(req.body);
-      
-      const job = await this.jobService.updateJobStatus(id, userId, status, failureReason);
-      return ResponseUtil.success(res, 'Job status updated successfully', job);
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+      const job = await this.jobService.getJobById(userId, id);
+
+      const key = `job:${id}`;
+      const runtime = await this.redis.hgetall(key);
+
+      return ResponseUtil.success(res, 'Job runtime status retrieved', {
+        job,
+        runtime: Object.keys(runtime).length > 0 ? runtime : null,
+      });
     } catch (error: any) {
-      logger.error('Error updating job:', error);
+      logger.error(`Error getting job runtime status: ${error.message}`);
       if (error.message.includes('not found') || error.message.includes('access denied')) {
         return ResponseUtil.notFound(res, error.message);
       }
-      if (error.message.includes('Invalid state transition')) {
-        return ResponseUtil.error(res, error.message, undefined, 400);
-      }
-      // ... same error handling
-      if (error.name === 'ZodError') {
-        return ResponseUtil.error(res, 'Validation failed', error.errors);
-      }
-      return ResponseUtil.serverError(res, 'Failed to update job');
+      return ResponseUtil.serverError(res, 'Failed to retrieve job runtime status');
     }
   };
 
-  /**
-   * Delete job
-   */
-  deleteJob = async (req: Request, res: Response): Promise<Response> => {
-    try {
-      const userId = req.user!.userId;
-      const { id } = jobIdSchema.parse(req.params);
-      
-      const job = await this.jobService.deleteJob(id, userId);
-      return ResponseUtil.success(res, 'Job deleted successfully', job);
-    } catch (error: any) {
-      logger.error('Error deleting job:', error);
-      if (error.message.includes('not found') || error.message.includes('access denied')) {
-        return ResponseUtil.notFound(res, error.message);
-      }
-      if (error.message.includes('Cannot delete')) {
-        return ResponseUtil.error(res, error.message, undefined, 400);
-      }
-      return ResponseUtil.serverError(res, 'Failed to delete job');
-    }
-  };
-
-  /**
-   * Get pending jobs (for external workers)
-   * This is how Python workers discover work to execute
-   */
-  getPendingJobs = async (req: Request, res: Response): Promise<Response> => {
-    try {
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
-      
-      const jobs = await this.jobService.getPendingJobs(limit);
-      return ResponseUtil.success(res, 'Pending jobs retrieved successfully', jobs);
-    } catch (error: any) {
-      logger.error('Error getting pending jobs:', error);
-      return ResponseUtil.serverError(res, 'Failed to retrieve pending jobs');
-    }
-  };
-
-  /**
-   * Get job statistics for a session
-   */
-  getSessionJobStats = async (req: Request, res: Response): Promise<Response> => {
-    try {
-      const userId = req.user!.userId;
-      const { sessionId } = sessionIdParamSchema.parse(req.params);
-      
-      const stats = await this.jobService.getSessionJobStats(sessionId, userId);
-      return ResponseUtil.success(res, 'Job statistics retrieved successfully', stats);
-    } catch (error: any) {
-      logger.error('Error getting job stats:', error);
-      if (error.message.includes('not found') || error.message.includes('access denied')) {
-        return ResponseUtil.notFound(res, error.message);
-      }
-      return ResponseUtil.serverError(res, 'Failed to retrieve job statistics');
-    }
-  };
-
-  /**
-   * Get aggregated crawl results for a job
-   */
-  getJobResults = async (req: Request, res: Response): Promise<Response> => {
-    try {
-      const userId = req.user!.userId;
-      const { id } = jobIdSchema.parse(req.params);
-      const page = req.query.page ? parseInt(req.query.page as string) : 1;
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
-      
-      const results = await this.jobService.getJobResults(id, userId, page, limit);
-      return res.status(200).json(results);
-    } catch (error: any) {
-      logger.error('Error getting crawl results:', error);
-      if (error.message.includes('not found') || error.message.includes('access denied')) {
-        return ResponseUtil.notFound(res, error.message);
-      }
-      if (error.name === 'ZodError') {
-        return ResponseUtil.error(res, 'Validation failed', error.errors);
-      }
-      return ResponseUtil.serverError(res, 'Failed to retrieve crawl results');
-    }
-  };
-
-  /**
-   * Get job pages
-   */
   getJobPages = async (req: Request, res: Response): Promise<Response> => {
     try {
       const userId = req.user!.userId;
-      const { id } = jobIdSchema.parse(req.params);
-      const page = req.query.page ? parseInt(req.query.page as string) : 1;
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
-      
-      const results = await this.jobService.getJobPages(id, userId, page, limit);
-      return res.status(200).json(results);
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+      await this.jobService.getJobById(userId, id);
+
+      const page = req.query.page ? parseInt(String(req.query.page), 10) || 1 : 1;
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) || 100 : 100;
+
+      const db = await connectToMongo();
+      const collection = db.collection('pages');
+      const filter = { jobId: id };
+      const total = await collection.countDocuments(filter);
+      const skip = (page - 1) * limit;
+      const data = await collection
+        .find(filter)
+        .sort({ createdAt: 1 })
+        .skip(skip)
+        .limit(limit)
+        .toArray();
+
+      return ResponseUtil.success(res, 'Job pages retrieved successfully', {
+        data,
+        pagination: { page, limit, total },
+      });
     } catch (error: any) {
-      logger.error('Error getting job pages:', error);
+      logger.error(`Error getting job pages: ${error.message}`);
       if (error.message.includes('not found') || error.message.includes('access denied')) {
         return ResponseUtil.notFound(res, error.message);
       }
@@ -239,20 +123,33 @@ export class JobController {
     }
   };
 
-  /**
-   * Get job links
-   */
   getJobLinks = async (req: Request, res: Response): Promise<Response> => {
     try {
       const userId = req.user!.userId;
-      const { id } = jobIdSchema.parse(req.params);
-      const page = req.query.page ? parseInt(req.query.page as string) : 1;
-      const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
-      
-      const results = await this.jobService.getJobLinks(id, userId, page, limit);
-      return res.status(200).json(results);
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+      await this.jobService.getJobById(userId, id);
+
+      const page = req.query.page ? parseInt(String(req.query.page), 10) || 1 : 1;
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) || 100 : 100;
+
+      const db = await connectToMongo();
+      const collection = db.collection('links');
+      const filter = { jobId: id };
+      const total = await collection.countDocuments(filter);
+      const skip = (page - 1) * limit;
+      const data = await collection
+        .find(filter)
+        .sort({ createdAt: 1 })
+        .skip(skip)
+        .limit(limit)
+        .toArray();
+
+      return ResponseUtil.success(res, 'Job links retrieved successfully', {
+        data,
+        pagination: { page, limit, total },
+      });
     } catch (error: any) {
-      logger.error('Error getting job links:', error);
+      logger.error(`Error getting job links: ${error.message}`);
       if (error.message.includes('not found') || error.message.includes('access denied')) {
         return ResponseUtil.notFound(res, error.message);
       }
@@ -260,18 +157,22 @@ export class JobController {
     }
   };
 
-  /**
-   * Get job sitemaps
-   */
   getJobSitemaps = async (req: Request, res: Response): Promise<Response> => {
     try {
       const userId = req.user!.userId;
-      const { id } = jobIdSchema.parse(req.params);
-      
-      const results = await this.jobService.getJobSitemaps(id, userId);
-      return res.status(200).json(results);
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+      await this.jobService.getJobById(userId, id);
+
+      const db = await connectToMongo();
+      const collection = db.collection('sitemaps');
+      const data = await collection
+        .find({ jobId: id })
+        .sort({ createdAt: 1 })
+        .toArray();
+
+      return ResponseUtil.success(res, 'Job sitemaps retrieved successfully', { data });
     } catch (error: any) {
-      logger.error('Error getting job sitemaps:', error);
+      logger.error(`Error getting job sitemaps: ${error.message}`);
       if (error.message.includes('not found') || error.message.includes('access denied')) {
         return ResponseUtil.notFound(res, error.message);
       }
@@ -279,18 +180,22 @@ export class JobController {
     }
   };
 
-  /**
-   * Get job fields
-   */
   getJobFields = async (req: Request, res: Response): Promise<Response> => {
     try {
       const userId = req.user!.userId;
-      const { id } = jobIdSchema.parse(req.params);
-      
-      const results = await this.jobService.getJobFields(id, userId);
-      return res.status(200).json(results);
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+      await this.jobService.getJobById(userId, id);
+
+      const db = await connectToMongo();
+      const collection = db.collection('fields');
+      const data = await collection
+        .find({ jobId: id })
+        .sort({ createdAt: 1 })
+        .toArray();
+
+      return ResponseUtil.success(res, 'Job fields retrieved successfully', { data });
     } catch (error: any) {
-      logger.error('Error getting job fields:', error);
+      logger.error(`Error getting job fields: ${error.message}`);
       if (error.message.includes('not found') || error.message.includes('access denied')) {
         return ResponseUtil.notFound(res, error.message);
       }

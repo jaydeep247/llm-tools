@@ -4,32 +4,14 @@ import argparse
 import asyncio
 import time
 from datetime import datetime
+import logging
 
-# Add project root to Python path to allow imports from workers.*
 sys.path.append(os.getcwd())
 
 from scrapy.crawler import CrawlerProcess
-from scrapy.utils.log import configure_logging
 from workers.crawl_worker.spiders.website_spider import WebsiteSpider
-from utils.logger import logger
+from utils.logger import configure_logger, logger
 from utils.config import config
-from clients.node_api_client import NodeApiClient
-
-async def notify_completion(job_id, payload):
-    client = NodeApiClient()
-    try:
-        await client.complete_job(job_id, payload)
-        logger.info(f"Job {job_id} notification sent: COMPLETED.")
-    except Exception as e:
-        logger.error(f"Failed to notify backend of completion: {e}")
-
-async def notify_failure(job_id, reason):
-    client = NodeApiClient()
-    try:
-        await client.fail_job(job_id, reason)
-        logger.info(f"Job {job_id} notification sent: FAILED.")
-    except Exception as e:
-        logger.error(f"Failed to notify backend of failure: {e}")
 
 def main():
     parser = argparse.ArgumentParser(description='Run Scrapy Crawler for a specific job')
@@ -43,13 +25,13 @@ def main():
 
     args = parser.parse_args()
 
-    # Configure logging
-    configure_logging()
+    configure_logger()
     logger.info(f"Starting crawl job {args.job_id} for {args.url}")
 
     # Initialize CrawlerProcess
     process = CrawlerProcess(settings={
-        'LOG_LEVEL': 'WARNING',
+        'LOG_ENABLED': False,
+        'LOG_LEVEL': 'ERROR',
         'LOG_FORMAT': '%(asctime)s [%(name)s] %(levelname)s: %(message)s',
         'MONGO_URI': config.MONGO_URI,
         'MONGO_DATABASE': config.MONGO_DB_NAME,
@@ -83,20 +65,13 @@ def main():
         duration = (time.time() - start_time)
         error_count = stats.get('log_count/ERROR', 0)
         
-        payload = {
-            'stats': {
-                'pagesCrawled': pages_crawled,
-                'duration': duration, # Seconds
-                'errors': error_count
-            }
-        }
-        
-        logger.info(f"Crawl finished. Stats: {payload['stats']}")
-        asyncio.run(notify_completion(args.job_id, payload))
+        logger.info(
+            f"Crawl finished. Stats: pages={pages_crawled}, duration={duration}, errors={error_count}"
+        )
 
     except Exception as e:
-        logger.error(f"Crawl failed with exception: {e}")
-        asyncio.run(notify_failure(args.job_id, str(e)))
+        error_type = type(e).__name__
+        logger.error(f"Crawl failed with exception ({error_type})")
         sys.exit(1)
 
 if __name__ == "__main__":

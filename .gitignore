@@ -15,6 +15,10 @@ out/
 .next/
 .nuxt/
 
+node-backend/
+py-backend/
+
+
 # TypeScript
 *.tsbuildinfo
 

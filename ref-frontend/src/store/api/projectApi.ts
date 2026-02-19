@@ -5,17 +5,17 @@ export interface Project {
   id: string;
   name: string;
   description: string | null;
-  userId: number;
+  userId: string;
   createdAt: string;
   updatedAt: string;
-  isActive: boolean;
+  status: 'ACTIVE' | 'ARCHIVED';
   _count?: {
-    crawlSessions: number;
- };
+    sessions: number;
+  };
 }
 
 export interface ProjectWithSessions extends Project {
-  crawlSessions: CrawlSession[];
+  sessions: CrawlSession[];
 }
 
 export interface CreateProjectRequest {
@@ -26,7 +26,7 @@ export interface CreateProjectRequest {
 export interface UpdateProjectRequest {
   name?: string;
   description?: string;
-  isActive?: boolean;
+  status?: 'ACTIVE' | 'ARCHIVED';
 }
 
 export const projectApi = baseApi.injectEndpoints({

@@ -1,200 +1,94 @@
-import { Job, JobStatus } from '@prisma/client';
-import { prisma } from '../../config/prisma';
-import { CreateJobDto, JobFilters, JobWithSession } from './job.types';
+import { randomUUID } from 'crypto';
+import { connectToMongo } from '../../config/mongo';
+import { Job, JobStatus, CreateJobDto } from './job.types';
 
 export class JobRepository {
-  /**
-   * Create a new job
-   */
-  async create(sessionId: string, data: CreateJobDto): Promise<Job> {
-    return prisma.job.create({
-      data: {
-        sessionId,
-        jobType: data.jobType,
-        priority: data.priority || 0,
-        config: data.config ?? undefined,
-        status: 'PENDING',
-      },
-    });
+  async create(sessionId: string, projectId: string, data: CreateJobDto): Promise<Job> {
+    const db = await connectToMongo();
+    const now = new Date();
+    const job: Job = {
+      id: randomUUID(),
+      sessionId,
+      projectId,
+      url: data.url,
+      allowSubdomains: data.allowSubdomains,
+      runAudits: data.runAudits,
+      auditDevice: data.auditDevice,
+      captureLinkDetails: data.captureLinkDetails,
+      status: JobStatus.PENDING,
+      createdAt: now,
+      startedAt: null,
+      completedAt: null,
+      errorMessage: null,
+    };
+    await db.collection<Job>('jobs').insertOne(job);
+    return job;
   }
 
-  /**
-   * Find job by ID
-   */
   async findById(id: string): Promise<Job | null> {
-    return prisma.job.findUnique({
-      where: { id },
-    });
+    const db = await connectToMongo();
+    return db.collection<Job>('jobs').findOne({ id });
   }
 
-  /**
-   * Find job by ID with session and project info
-   */
-  async findByIdWithSession(id: string): Promise<JobWithSession | null> {
-    return prisma.job.findUnique({
-      where: { id },
-      include: {
-        session: {
-          select: {
-            id: true,
-            projectId: true,
-            project: {
-              select: {
-                userId: true,
-              },
-            },
-          },
-        },
-      },
-    });
+  async findBySessionId(sessionId: string): Promise<Job[]> {
+    const db = await connectToMongo();
+    return db
+      .collection<Job>('jobs')
+      .find({ sessionId })
+      .sort({ createdAt: -1 })
+      .toArray();
   }
 
-  /**
-   * Find all jobs for a session
-   */
-  async findBySessionId(sessionId: string, filters?: JobFilters): Promise<Job[]> {
-    return prisma.job.findMany({
-      where: {
-        sessionId,
-        ...filters,
-      },
-      orderBy: [
-        { priority: 'desc' },
-        { createdAt: 'asc' },
-      ],
-    });
-  }
-
-  /**
-   * Find pending jobs (for external workers to pull)
-   */
-  async findPendingJobs(limit: number = 10): Promise<JobWithSession[]> {
-    return prisma.job.findMany({
-      where: {
-        status: 'PENDING',
-      },
-      include: {
-        session: {
-          select: {
-            id: true,
-            projectId: true,
-            project: {
-              select: {
-                userId: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: [
-        { priority: 'desc' },
-        { createdAt: 'asc' },
-      ],
-      take: limit,
-    });
-  }
-
-  /**
-   * Count jobs in a session
-   */
-  async countBySessionId(sessionId: string, status?: JobStatus): Promise<number> {
-    return prisma.job.count({
-      where: {
-        sessionId,
-        ...(status && { status }),
-      },
-    });
-  }
-
-  /**
-   * Count running jobs for a session
-   */
-  async countRunningJobsBySessionId(sessionId: string): Promise<number> {
-    return prisma.job.count({
-      where: {
-        sessionId,
-        status: 'RUNNING',
-      },
-    });
-  }
-
-  /**
-   * Count running jobs across all sessions for a user
-   */
-  async countRunningJobsByUserId(userId: string): Promise<number> {
-    return prisma.job.count({
-      where: {
-        session: {
-          project: {
-            userId,
-          },
-        },
-        status: 'RUNNING',
-      },
-    });
-  }
-
-  /**
-   * Update job status
-   */
   async updateStatus(
     id: string,
     status: JobStatus,
-    failureReason?: string,
-    workerId?: string
+    startedAt?: Date | null,
+    completedAt?: Date | null,
+    errorMessage?: string | null
   ): Promise<Job> {
-    const updateData: any = { 
-      status,
-      ...(workerId && { workerId })
-    };
-
-    if (status === 'RUNNING') {
-      updateData.startedAt = new Date();
-      updateData.lastTriedAt = new Date();
+    const db = await connectToMongo();
+    const update: Partial<Job> = { status };
+    if (startedAt !== undefined) {
+      update.startedAt = startedAt;
     }
-
-    if (status === 'COMPLETED' || status === 'FAILED') {
-      updateData.completedAt = new Date();
+    if (completedAt !== undefined) {
+      update.completedAt = completedAt;
     }
-
-    if (status === 'FAILED' && failureReason) {
-      updateData.failureReason = failureReason;
-      updateData.retryCount = { increment: 1 };
+    if (errorMessage !== undefined) {
+      update.errorMessage = errorMessage;
     }
-
-    return prisma.job.update({
-      where: { id },
-      data: updateData,
-    });
+    await db
+      .collection<Job>('jobs')
+      .updateOne({ id }, { $set: update });
+    const job = await this.findById(id);
+    if (!job) {
+      throw new Error('Job not found');
+    }
+    return job;
   }
 
   /**
-   * Delete job
+   * Delete jobs by session ID and all related data (pages, links, sitemaps, fields)
    */
-  async delete(id: string): Promise<Job> {
-    return prisma.job.delete({
-      where: { id },
-    });
-  }
+  async deleteBySessionId(sessionId: string): Promise<void> {
+    const db = await connectToMongo();
+    
+    // Find all jobs for this session
+    const jobs = await this.findBySessionId(sessionId);
+    const jobIds = jobs.map(job => job.id);
 
-  /**
-   * Get job statistics for a session
-   */
-  async getSessionJobStats(sessionId: string) {
-    const [total, pending, running, completed, failed] = await Promise.all([
-      this.countBySessionId(sessionId),
-      this.countBySessionId(sessionId, 'PENDING'),
-      this.countBySessionId(sessionId, 'RUNNING'),
-      this.countBySessionId(sessionId, 'COMPLETED'),
-      this.countBySessionId(sessionId, 'FAILED'),
-    ]);
+    if (jobIds.length > 0) {
+      // Delete related data
+      await Promise.all([
+        db.collection('pages').deleteMany({ jobId: { $in: jobIds } }),
+        db.collection('links').deleteMany({ jobId: { $in: jobIds } }),
+        db.collection('sitemaps').deleteMany({ jobId: { $in: jobIds } }),
+        db.collection('fields').deleteMany({ jobId: { $in: jobIds } }),
+      ]);
 
-    return {
-      total,
-      pending,
-      running,
-      completed,
-      failed,
-    };
+      // Delete jobs
+      await db.collection<Job>('jobs').deleteMany({ sessionId });
+    }
   }
 }
+

@@ -70,6 +70,31 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
     }, 150)
   }
 
+  const getErrorMessage = (err: any): string => {
+    const raw =
+      err?.data?.message ||
+      err?.error ||
+      err?.message ||
+      (typeof err === "string" ? err : "")
+
+    if (!raw) {
+      return "An error occurred. Please try again."
+    }
+
+    if (
+      typeof raw === "string" &&
+      raw.includes("Unexpected token") &&
+      raw.toLowerCase().includes("json")
+    ) {
+      if (raw.toLowerCase().includes("too many")) {
+        return "Too many requests. Please try again later."
+      }
+      return "The server returned an invalid response. Please try again."
+    }
+
+    return raw
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
@@ -111,10 +136,13 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
         }
       }
     } catch (err: any) {
-      // Handle error
-      const errorMessage = err?.data?.message || err?.message || 'An error occurred. Please try again.'
+      const errorMessage = getErrorMessage(err)
+
       setError(errorMessage)
-      console.error('Auth error:', err)
+
+      if (process.env.NODE_ENV === "development") {
+        console.warn("Auth warning:", errorMessage)
+      }
     }
   }
 

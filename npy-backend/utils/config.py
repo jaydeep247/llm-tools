@@ -12,13 +12,10 @@ class Config:
             
         load_dotenv(env_path)
         
-        self.API_BASE_URL = self._get_required('API_BASE_URL')
         self.MONGO_URI = self._get_required('MONGO_URI')
         self.MONGO_DB_NAME = self._get_required('MONGO_DB_NAME')
-        self.POLL_INTERVAL = int(self._get_required('POLL_INTERVAL'))
-        self.MAX_CONCURRENT_JOBS = int(self._get_required('MAX_CONCURRENT_JOBS'))
-        self.WORKER_ID = self._get_required('WORKER_ID')
-        self.WORKER_API_KEY = self._get_required('WORKER_API_KEY')
+        self.RABBITMQ_URL = self._get_required('RABBITMQ_URL')
+        self.REDIS_URL = self._get_required('REDIS_URL')
         self.LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO') 
 
     def _get_required(self, key):

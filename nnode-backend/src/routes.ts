@@ -22,8 +22,8 @@ router.get('/health', (_req, res) => {
 router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
 router.use('/projects', projectRoutes);
-router.use('/', jobRoutes); // Job routes (Must be before session routes to avoid auth conflict)
 router.use('/', sessionRoutes); // Session routes are nested under projects
+router.use('/', jobRoutes);
 router.use('/', moduleERoutes);
 
 export default router;

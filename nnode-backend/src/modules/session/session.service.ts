@@ -1,5 +1,5 @@
 import { SessionRepository } from './session.repository';
-import { SessionResponse, SessionWithProject } from './session.types';
+import { SessionResponse, SessionWithProject, SessionStatus } from './session.types';
 import { ProjectService } from '../project/project.service';
 import { LimitsService } from '../limits/limits.service';
 
@@ -88,7 +88,7 @@ export class SessionService {
   async updateSessionStatus(
     sessionId: string,
     userId: string,
-    status: 'RUNNING' | 'COMPLETED' | 'FAILED'
+    status: SessionStatus
   ): Promise<SessionResponse> {
     // Get session with project info
     const session = await this.sessionRepository.findByIdWithProject(sessionId);
@@ -102,8 +102,10 @@ export class SessionService {
       throw new Error('Session not found or access denied');
     }
 
-    // Set endedAt if session is completing or failing
-    const endedAt = (status === 'COMPLETED' || status === 'FAILED') ? new Date() : undefined;
+    const endedAt =
+      status === SessionStatus.COMPLETED || status === SessionStatus.FAILED
+        ? new Date()
+        : undefined;
 
     return this.sessionRepository.updateStatus(sessionId, status, endedAt);
   }

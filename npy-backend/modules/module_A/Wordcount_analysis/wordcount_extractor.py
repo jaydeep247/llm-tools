@@ -2,39 +2,35 @@ import re
 import hashlib
 from typing import Dict, List, Any, Optional, Set
 from bs4 import BeautifulSoup, Comment
+from bs4.element import Tag
 from urllib.parse import urlparse
 
 def extract_visible_text(soup: BeautifulSoup) -> str:
-    """
-    Extract visible text from BeautifulSoup object, ignoring hidden elements, scripts, styles.
-    """
-    # Create a copy to avoid mutating original
-    temp_soup = BeautifulSoup(str(soup), 'html.parser')
-    
-    # Remove script, style, noscript, etc.
-    for element in temp_soup(["script", "style", "noscript", "header", "footer", "nav", "aside"]):
-        element.decompose()
-        
-    # Remove elements with hidden styles in style attribute
-    for element in temp_soup.find_all(style=True):
-        style = element.get('style', '').lower()
-        if 'display:none' in style or 'display: none' in style or \
-           'visibility:hidden' in style or 'visibility: hidden' in style:
-            element.decompose()
-            
-    # Remove elements with aria-hidden="true"
-    for element in temp_soup.find_all(attrs={"aria-hidden": "true"}):
-        element.decompose()
+    texts = []
 
-    # Get text
-    text = temp_soup.get_text(separator=' ')
-    
-    # Clean whitespace
-    lines = (line.strip() for line in text.splitlines())
-    chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-    text = ' '.join(chunk for chunk in chunks if chunk)
-    
-    return text
+    for element in soup.descendants:
+        if not isinstance(element, Tag):
+            continue
+
+        attrs = element.attrs or {}
+
+        style = attrs.get("style", "")
+        if isinstance(style, str):
+            style = style.lower()
+        else:
+            style = ""
+
+        if "display:none" in style or "visibility:hidden" in style:
+            continue
+
+        if element.name in ("script", "style", "noscript", "svg", "header", "footer", "nav", "aside"):
+            continue
+
+        text = element.get_text(strip=True)
+        if text:
+            texts.append(text)
+
+    return " ".join(texts)
 
 def normalize_text(text: str) -> str:
     """
@@ -196,90 +192,101 @@ def detect_intent(visible_text: str, url: str) -> str:
     return "general"
 
 def extract_wordcount_analysis(html_content: str, url: str, target_keyword: Optional[str] = None) -> Dict[str, Any]:
-    """
-    Comprehensive wordcount analysis.
-    """
-    soup = BeautifulSoup(html_content, 'html.parser')
-    
-    # Total Word Count (all text except script/style/noscript)
-    temp_soup = BeautifulSoup(html_content, 'html.parser')
-    for el in temp_soup(["script", "style", "noscript"]):
-        el.decompose()
-    total_text = temp_soup.get_text()
-    total_word_count = len(tokenize_words(total_text))
-    
-    # Visible Word Count
-    visible_text = extract_visible_text(soup)
-    visible_words = tokenize_words(visible_text)
-    visible_word_count = len(visible_words)
-    
-    # Unique Word Count
-    unique_words = set(tokenize_words(normalize_text(visible_text)))
-    unique_word_count = len(unique_words)
-    
-    # Text-to-HTML Ratio
-    html_size = len(html_content.encode('utf-8'))
-    visible_text_size = len(visible_text.encode('utf-8'))
-    ratio = (visible_text_size / html_size * 100) if html_size > 0 else 0
-    
-    # Sentence and Paragraph counts
-    sentence_count = get_sentence_count(visible_text)
-    paragraph_count = get_paragraph_count(soup)
-    
-    # Averages
-    avg_sentence_len = round(visible_word_count / sentence_count, 2) if sentence_count > 0 else 0
-    avg_paragraph_len = round(visible_word_count / paragraph_count, 2) if paragraph_count > 0 else 0
-    
-    # Keyword Density
-    density = calculate_keyword_density(visible_text, target_keyword)
-    
-    # Thin Content
-    thin_check = detect_thin_content(visible_word_count, unique_word_count)
-    
-    # Section Mapping
-    section_mapping = extract_section_mapping(soup)
-    section_breakdown = {k: round((v / visible_word_count * 100), 2) for k, v in section_mapping.items()} if visible_word_count > 0 else {}
-    
-    # Heading mapping (level prefixed)
-    heading_mapping = {}
-    for h in soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
-        level = h.name.upper()
-        h_text = h.get_text().strip()
-        if h_text:
-            key = f"{level}: {h_text}"
-            # find words until next h of same or higher level
-            words = []
-            for s in h.next_siblings:
-                if s.name and re.match(r'^h[1-6]$', s.name.lower()):
-                    if int(s.name[1]) <= int(h.name[1]):
-                        break
-                if hasattr(s, 'get_text'):
-                    words.append(s.get_text())
-            heading_mapping[key] = len(tokenize_words(' '.join(words)))
+    try:
+        soup = BeautifulSoup(html_content, 'html.parser')
 
-    # Content Type Distribution
-    content_type = detect_intent(visible_text, url)
-    
-    return {
-        "totalWordCount": max(total_word_count, visible_word_count),
-        "visibleWordCount": visible_word_count,
-        "uniqueWordCount": unique_word_count,
-        "textToHtmlRatio": round(ratio, 2),
-        "sentenceCount": sentence_count,
-        "paragraphCount": paragraph_count,
-        "averageSentenceLength": avg_sentence_len,
-        "averageParagraphLength": avg_paragraph_len,
-        "keywordDensity": density,
-        "thinContent": thin_check["thinContent"],
-        "thinContentReason": thin_check["thinContentReason"],
-        "duplicateContent": False, # Requires session
-        "duplicateWithUrls": [], # Requires session
-        "sectionWordCountMapping": section_mapping,
-        "sectionWordCountBreakdown": section_breakdown,
-        "headingWordCountMapping": heading_mapping,
-        "wordCountDistribution": {
-            "contentType": content_type,
-            "isBlog": content_type == "blog",
-            "isProduct": content_type == "product"
+        temp_soup = BeautifulSoup(html_content, 'html.parser')
+        for el in temp_soup(["script", "style", "noscript"]):
+            el.decompose()
+        total_text = temp_soup.get_text()
+        total_word_count = len(tokenize_words(total_text))
+
+        visible_text = extract_visible_text(soup)
+        visible_words = tokenize_words(visible_text)
+        visible_word_count = len(visible_words)
+
+        unique_words = set(tokenize_words(normalize_text(visible_text)))
+        unique_word_count = len(unique_words)
+
+        html_size = len(html_content.encode('utf-8'))
+        visible_text_size = len(visible_text.encode('utf-8'))
+        ratio = (visible_text_size / html_size * 100) if html_size > 0 else 0
+
+        sentence_count = get_sentence_count(visible_text)
+        paragraph_count = get_paragraph_count(soup)
+
+        avg_sentence_len = round(visible_word_count / sentence_count, 2) if sentence_count > 0 else 0
+        avg_paragraph_len = round(visible_word_count / paragraph_count, 2) if paragraph_count > 0 else 0
+
+        density = calculate_keyword_density(visible_text, target_keyword)
+
+        thin_check = detect_thin_content(visible_word_count, unique_word_count)
+
+        section_mapping = extract_section_mapping(soup)
+        section_breakdown = {k: round((v / visible_word_count * 100), 2) for k, v in section_mapping.items()} if visible_word_count > 0 else {}
+
+        heading_mapping = {}
+        for h in soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
+            level = h.name.upper()
+            h_text = h.get_text().strip()
+            if h_text:
+                key = f"{level}: {h_text}"
+                words = []
+                for s in h.next_siblings:
+                    if s.name and re.match(r'^h[1-6]$', s.name.lower()):
+                        if int(s.name[1]) <= int(h.name[1]):
+                            break
+                    if hasattr(s, 'get_text'):
+                        words.append(s.get_text())
+                heading_mapping[key] = len(tokenize_words(' '.join(words)))
+
+        content_type = detect_intent(visible_text, url)
+
+        return {
+            "totalWordCount": max(total_word_count, visible_word_count),
+            "visibleWordCount": visible_word_count,
+            "uniqueWordCount": unique_word_count,
+            "textToHtmlRatio": round(ratio, 2),
+            "sentenceCount": sentence_count,
+            "paragraphCount": paragraph_count,
+            "averageSentenceLength": avg_sentence_len,
+            "averageParagraphLength": avg_paragraph_len,
+            "keywordDensity": density,
+            "thinContent": thin_check["thinContent"],
+            "thinContentReason": thin_check["thinContentReason"],
+            "duplicateContent": False,
+            "duplicateWithUrls": [],
+            "sectionWordCountMapping": section_mapping,
+            "sectionWordCountBreakdown": section_breakdown,
+            "headingWordCountMapping": heading_mapping,
+            "wordCountDistribution": {
+                "contentType": content_type,
+                "isBlog": content_type == "blog",
+                "isProduct": content_type == "product",
+            },
         }
-    }
+    except Exception:
+        return {
+            "totalWordCount": 0,
+            "visibleWordCount": 0,
+            "uniqueWordCount": 0,
+            "textToHtmlRatio": 0.0,
+            "sentenceCount": 0,
+            "paragraphCount": 0,
+            "averageSentenceLength": 0,
+            "averageParagraphLength": 0,
+            "keywordDensity": None,
+            "thinContent": False,
+            "thinContentReason": None,
+            "duplicateContent": False,
+            "duplicateWithUrls": [],
+            "sectionWordCountMapping": {},
+            "sectionWordCountBreakdown": {},
+            "headingWordCountMapping": {},
+            "wordCountDistribution": {
+                "contentType": "general",
+                "isBlog": False,
+                "isProduct": False,
+            },
+            "error": "extract_failed",
+        }

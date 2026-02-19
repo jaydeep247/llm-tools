@@ -1,13 +1,10 @@
 import { createApp } from './app';
 import { env } from './config/env';
-import { connectDatabase } from './config/prisma';
 import { connectToMongo } from './config/mongo';
 import { logger } from './shared/logger/logger';
 
 const startServer = async () => {
   try {
-    // Connect to database
-    await connectDatabase();
     await connectToMongo();
 
     // Create Express app
@@ -31,8 +28,8 @@ const startServer = async () => {
 
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
     process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-  } catch (error) {
-    logger.error('Failed to start server:', error);
+  } catch (error: any) {
+    logger.error(`Failed to start server: ${error?.message || String(error)}`);
     process.exit(1);
   }
 };

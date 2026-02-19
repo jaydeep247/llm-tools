@@ -1,4 +1,26 @@
-import { Session, SessionStatus } from '@prisma/client';
+export enum SessionStatus {
+  CREATED = 'CREATED',
+  RUNNING = 'RUNNING',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
+}
+
+export interface Session {
+  id: string;
+  projectId: string;
+  status: SessionStatus;
+  createdAt: Date;
+  endedAt?: Date | null;
+  startedAt?: Date | null;
+  completedAt?: Date | null;
+  startUrl?: string;
+  allowSubdomains?: boolean;
+  maxConcurrency?: number;
+  totalPages?: number;
+  totalLinks?: number;
+  totalSitemaps?: number;
+  totalResources?: number;
+}
 
 export type SessionResponse = Session;
 

@@ -6,9 +6,6 @@ dotenv.config();
 
 // Environment variable schema
 const envSchema = z.object({
-  // Database
-  DATABASE_URL: z.string().url(),
-
   // Server
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.string().transform(Number).pipe(z.number().min(1).max(65535)).default('4000'),
@@ -35,6 +32,10 @@ const envSchema = z.object({
   // MongoDB
   MONGO_URI: z.string().default('mongodb://localhost:27017'),
   MONGO_DB_NAME: z.string().default('seo_crawler'),
+
+  // Messaging
+  RABBITMQ_URL: z.string().default('amqp://admin:admin@localhost:5672'),
+  REDIS_URL: z.string().default('redis://localhost:6379'),
 });
 
 // Validate and export environment variables

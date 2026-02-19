@@ -4,7 +4,6 @@ import aiofiles
 import json
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "raw_html")
-RESPONSE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "responses")
 
 async def save_raw_html(job_id: str, html_content: str) -> str:
     """
@@ -35,20 +34,60 @@ async def load_raw_html(job_id: str) -> str:
         
     async with aiofiles.open(file_path, "r", encoding="utf-8") as f:
         return await f.read()
-
 async def save_job_response(job_id: str, data: dict) -> str:
     """
-    Saves job results to file system: data/responses/{job_id}/results.json
+    Saves job results to MongoDB fields collection.
+    Stores analysis results directly into the fields collection.
+    
+    Args:
+        job_id: Job ID
+        data: Job results dictionary with structure:
+              { job_id, url, success, modules: { module_c: {...}, ... } }
+    
+    Returns:
+        MongoDB document URI
     """
-    job_dir = os.path.join(RESPONSE_DIR, str(job_id))
-    os.makedirs(job_dir, exist_ok=True)
+    from utils.mongo import mongo_manager
+    from datetime import datetime
     
-    file_path = os.path.join(job_dir, "results.json")
-    
-    async with aiofiles.open(file_path, "w", encoding="utf-8") as f:
-        await f.write(json.dumps(data, indent=2))
+    try:
+        # Extract URL from data
+        url = data.get("url", "")
         
-    return file_path
+        # Prepare base document
+        document = {
+            "jobId": job_id,
+            "url": url,
+            "timestamp": datetime.utcnow()
+        }
+        
+        # Merge all modules into the document at the top level
+        # e.g., 'modules': {'module_c': {...}} -> 'module_c': {...}
+        modules = data.get("modules", {})
+        if modules:
+            document.update(modules)
+            
+        # Connect to MongoDB
+        mongo_manager.connect()
+        
+        # Use upsert to handle updates for the same job_id + url
+        result = mongo_manager.fields.update_one(
+            {"jobId": job_id, "url": url},
+            {"$set": document},
+            upsert=True
+        )
+        
+        doc_id = result.upserted_id or "updated"
+        from utils.logger import logger
+        logger.info(f"Stored results for job {job_id} in MongoDB fields collection")
+        
+        return f"mongodb://fields/{doc_id}"
+        
+    except Exception as e:
+        from utils.logger import logger
+        error_type = type(e).__name__
+        logger.error(f"Failed to save to MongoDB ({error_type})")
+        raise e
 
 def get_raw_html_path(job_id: str) -> str:
     """Returns the expected path for a job's raw HTML file"""

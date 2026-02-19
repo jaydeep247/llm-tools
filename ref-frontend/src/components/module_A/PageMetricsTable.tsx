@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 
 interface PageMetric {
+  id?: string | number
   url: string
   title: string
   titleLength?: number
@@ -161,9 +162,27 @@ export function PageMetricsTable({
   const tableContainerRef = useRef<HTMLDivElement>(null)
   const itemsPerPage = 20
 
+  const uniqueData = useMemo(() => {
+    const seen = new Set<string>()
+    const result: PageMetric[] = []
+
+    data.forEach((page) => {
+      const key = page.url || ''
+      if (key && seen.has(key)) {
+        return
+      }
+      if (key) {
+        seen.add(key)
+      }
+      result.push(page)
+    })
+
+    return result
+  }, [data])
+
   // Filter data based on search and URL filter
   const filteredData = useMemo(() => {
-    let filtered = data
+    let filtered = uniqueData
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
@@ -183,7 +202,7 @@ export function PageMetricsTable({
     }
 
     return filtered
-  }, [data, searchQuery, urlFilter])
+  }, [uniqueData, searchQuery, urlFilter])
 
   // Sort data
   const sortedData = useMemo(() => {
@@ -627,7 +646,7 @@ export function PageMetricsTable({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
           <div className="bg-white/5 border border-white/10 rounded-lg p-3">
             <div className="text-xs text-white/60">Total Pages</div>
-            <div className="text-xl font-bold text-white mt-1">{data.length}</div>
+            <div className="text-xl font-bold text-white mt-1">{uniqueData.length}</div>
           </div>
           <div className="bg-white/5 border border-white/10 rounded-lg p-3">
             <div className="text-xs text-white/60">Filtered</div>
@@ -636,13 +655,13 @@ export function PageMetricsTable({
           <div className="bg-white/5 border border-white/10 rounded-lg p-3">
             <div className="text-xs text-white/60">With Tables</div>
             <div className="text-xl font-bold text-white mt-1">
-              {data.filter(p => p.hasTables).length}
+              {uniqueData.filter(p => p.hasTables).length}
             </div>
           </div>
           <div className="bg-white/5 border border-white/10 rounded-lg p-3">
             <div className="text-xs text-white/60">With FAQs</div>
             <div className="text-xl font-bold text-white mt-1">
-              {data.filter(p => p.hasFaqs).length}
+              {uniqueData.filter(p => p.hasFaqs).length}
             </div>
           </div>
         </div>
@@ -676,9 +695,9 @@ export function PageMetricsTable({
                     </td>
                   </tr>
                 ) : (
-                  paginatedData.map((page) => (
+                  paginatedData.map((page, index) => (
                     <tr 
-                      key={page.url}
+                      key={page.id ?? page.url ?? index}
                       className="hover:bg-white/5 transition-colors"
                     >
                       {orderedVisibleColumns.map((column) => (

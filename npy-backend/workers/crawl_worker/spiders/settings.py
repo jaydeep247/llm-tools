@@ -38,4 +38,4 @@ TWISTED_REACTOR = 'twisted.internet.asyncioreactor.AsyncioSelectorReactor'
 FEED_EXPORT_ENCODING = 'utf-8'
 
 # Logging
-LOG_LEVEL = 'INFO'
+LOG_LEVEL = 'WARNING'

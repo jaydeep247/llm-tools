@@ -159,9 +159,27 @@ export function CrawledDataTable({
   const tableContainerRef = useRef<HTMLDivElement>(null)
   const itemsPerPage = 20
 
+  const uniqueData = useMemo(() => {
+    const seen = new Set<string>()
+    const result: CrawledPage[] = []
+
+    data.forEach((page) => {
+      const key = page.url || ''
+      if (key && seen.has(key)) {
+        return
+      }
+      if (key) {
+        seen.add(key)
+      }
+      result.push(page)
+    })
+
+    return result
+  }, [data])
+
   // Filter data based on search and URL filter
   const filteredData = useMemo(() => {
-    let filtered = data
+    let filtered = uniqueData
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
@@ -181,7 +199,7 @@ export function CrawledDataTable({
     }
 
     return filtered
-  }, [data, searchQuery, urlFilter])
+  }, [uniqueData, searchQuery, urlFilter])
 
   // Sort data
   const sortedData = useMemo(() => {
@@ -629,7 +647,7 @@ export function CrawledDataTable({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
           <div className="bg-white/5 border border-white/10 rounded-lg p-3">
             <div className="text-xs text-white/60">Total Pages</div>
-            <div className="text-xl font-bold text-white mt-1">{data.length}</div>
+            <div className="text-xl font-bold text-white mt-1">{uniqueData.length}</div>
           </div>
           <div className="bg-white/5 border border-white/10 rounded-lg p-3">
             <div className="text-xs text-white/60">Filtered</div>
@@ -638,13 +656,13 @@ export function CrawledDataTable({
           <div className="bg-white/5 border border-white/10 rounded-lg p-3">
             <div className="text-xs text-white/60">Avg Word Count</div>
             <div className="text-xl font-bold text-white mt-1">
-              {data.length > 0 ? Math.round(data.reduce((sum, p) => sum + p.wordCount, 0) / data.length) : 0}
+              {uniqueData.length > 0 ? Math.round(uniqueData.reduce((sum, p) => sum + p.wordCount, 0) / uniqueData.length) : 0}
             </div>
           </div>
           <div className="bg-white/5 border border-white/10 rounded-lg p-3">
             <div className="text-xs text-white/60">Success Rate</div>
             <div className="text-xl font-bold text-white mt-1">
-              {data.length > 0 ? `${((data.filter(p => p.success).length / data.length) * 100).toFixed(1)}%` : '0%'}
+              {uniqueData.length > 0 ? `${((uniqueData.filter(p => p.success).length / uniqueData.length) * 100).toFixed(1)}%` : '0%'}
             </div>
           </div>
         </div>

@@ -30,15 +30,23 @@ export default function SessionDetailPage() {
   const sessionId = params.sessionId as string
 
   // Fetch session and project data using RTK Query
-  const { data: sessionData, isLoading: isLoadingSession, error: sessionError } = useGetSessionQuery(sessionId)
-  const { data: projectData, isLoading: isLoadingProject } = useGetProjectQuery(projectId)
+  const { data: sessionData, isLoading: isLoadingSession, error: sessionError } = useGetSessionQuery(sessionId, { refetchOnMountOrArgChange: true })
+  const { data: projectData, isLoading: isLoadingProject } = useGetProjectQuery(projectId, { refetchOnMountOrArgChange: true })
 
   const session = sessionData?.session
   const project = projectData?.project
 
+  // Redirect to progress page if session is running
+  useEffect(() => {
+    if (session && (session.status === 'running' || session.status === 'auditing')) {
+      router.replace(`/dashboard/projects/${projectId}/sessions/${sessionId}/progress`)
+    }
+  }, [session, projectId, sessionId, router])
+
   // Fetch jobs for this session to get the latest job ID
   const { data: jobsData, isLoading: isLoadingJobs } = useGetSessionJobsQuery(sessionId, {
-    skip: !sessionId
+    skip: !sessionId,
+    refetchOnMountOrArgChange: true
   })
 
   // Get the latest job (assuming sorted by creation or just taking the last one for now)
@@ -61,10 +69,10 @@ export default function SessionDetailPage() {
   // We can use the same limit/page logic or default to fetch all (or a large page) for now 
   // until we implement full server-side pagination in the UI. 
   // For now, let's fetch a reasonable amount to show the concept working.
-  const { data: pagesResult, isLoading: isLoadingPagesRaw, refetch: refetchPagesRaw } = useGetJobPagesQuery({ jobId: jobId!, limit: 1000 }, { skip: !jobId })
-  const { data: linksResult, isLoading: isLoadingLinksRaw, refetch: refetchLinksRaw } = useGetJobLinksQuery({ jobId: jobId!, limit: 1000 }, { skip: !jobId })
-  const { data: fieldsResult, isLoading: isLoadingFieldsRaw, refetch: refetchFieldsRaw } = useGetJobFieldsQuery(jobId!, { skip: !jobId })
-  const { data: sitemapsResult, isLoading: isLoadingSitemapsRaw, refetch: refetchSitemapsRaw } = useGetJobSitemapsQuery(jobId!, { skip: !jobId })
+  const { data: pagesResult, isLoading: isLoadingPagesRaw, refetch: refetchPagesRaw } = useGetJobPagesQuery({ jobId: jobId!, limit: 1000 }, { skip: !jobId, refetchOnMountOrArgChange: true })
+  const { data: linksResult, isLoading: isLoadingLinksRaw, refetch: refetchLinksRaw } = useGetJobLinksQuery({ jobId: jobId!, limit: 1000 }, { skip: !jobId, refetchOnMountOrArgChange: true })
+  const { data: fieldsResult, isLoading: isLoadingFieldsRaw, refetch: refetchFieldsRaw } = useGetJobFieldsQuery(jobId!, { skip: !jobId, refetchOnMountOrArgChange: true })
+  const { data: sitemapsResult, isLoading: isLoadingSitemapsRaw, refetch: refetchSitemapsRaw } = useGetJobSitemapsQuery(jobId!, { skip: !jobId, refetchOnMountOrArgChange: true })
 
   const isLoadingResults = isLoadingPagesRaw || isLoadingLinksRaw || isLoadingFieldsRaw || isLoadingSitemapsRaw
   const refetchJobResults = () => {
@@ -219,25 +227,29 @@ export default function SessionDetailPage() {
       indexabilityStatus: (page.meta_robots?.includes('noindex') || page.x_robots_tag?.includes('noindex')) ? 'Non-Indexable' : 'Indexable',
       indexable: !(page.meta_robots?.includes('noindex') || page.x_robots_tag?.includes('noindex')),
 
-      // PageMetrics Specific Statuses (derived)
-      titleStatus: (page.title_length === 0) ? 'Missing' : 'OK', // Simple derivation
-      metaDescriptionStatus: (page.description_length === 0) ? 'Missing' : 'OK',
+    // PageMetrics Specific Statuses (derived)
+    titleStatus: (page.title_length === 0) ? 'Missing' : 'OK', // Simple derivation
+    metaDescriptionStatus: (page.description_length === 0) ? 'Missing' : 'OK',
+    
+    // Text Quality Fields
+    grammarErrors: crawlerData.grammar_errors || 0,
+    spellingErrors: crawlerData.spelling_errors || 0,
+    
+    // Other status
+    thinContent: page.thin_content || page.thinContent || false,
+    duplicateContent: page.duplicate_content || page.duplicateContent || false,
+    
+    // Ensure timestamp matches
+    timestamp: page.timestamp || new Date().toISOString(),
+    
+    // Attach full field data for components that might dig deeper
+    fields: fieldData
+  }})
 
-      // Text Quality Fields
-      grammarErrors: crawlerData.grammar_errors || 0,
-      spellingErrors: crawlerData.spelling_errors || 0,
-
-      // Other status
-      thinContent: page.thin_content || page.thinContent || false,
-      duplicateContent: page.duplicate_content || page.duplicateContent || false,
-
-      // Ensure timestamp matches
-      timestamp: page.timestamp || new Date().toISOString(),
-
-      // Attach full field data for components that might dig deeper
-      fields: fieldData
-    }
-  })
+  const totalPagesCount =
+    pagesResult?.pagination?.total ??
+    session?.totalPages ??
+    transformedPages.length
 
   // Transform data for Crawled Data Table
   const pagesData = {
@@ -398,7 +410,9 @@ export default function SessionDetailPage() {
       if (session.status === 'running' || session.status === 'auditing') {
         setIsCrawling(true)
         setCrawlStatus(session.status)
-        setCrawlStartTime(new Date(session.startedAt).getTime())
+        if (session.startedAt) {
+          setCrawlStartTime(new Date(session.startedAt).getTime())
+        }
       } else {
         setIsCrawling(false)
         setCrawlStatus((session.status || 'completed') as 'idle' | 'running' | 'auditing' | 'completed' | 'cancelled')
@@ -671,7 +685,7 @@ export default function SessionDetailPage() {
                 </div>
                 <div className="space-y-0.5 sm:space-y-1">
                   <p className="text-[10px] sm:text-xs text-white/60">Total Pages</p>
-                  <p className="text-xs sm:text-sm text-white font-medium">{session.totalPages || 0}</p>
+                  <p className="text-xs sm:text-sm text-white font-medium">{totalPagesCount}</p>
                 </div>
                 <div className="space-y-0.5 sm:space-y-1">
                   <p className="text-[10px] sm:text-xs text-white/60">Total Resources</p>
@@ -680,7 +694,7 @@ export default function SessionDetailPage() {
                 <div className="space-y-0.5 sm:space-y-1">
                   <p className="text-[10px] sm:text-xs text-white/60">Started</p>
                   <p className="text-xs sm:text-sm text-white font-medium">
-                    {new Date(session.startedAt).toLocaleString()}
+                    {session.startedAt ? new Date(session.startedAt).toLocaleString() : 'N/A'}
                   </p>
                 </div>
                 {session.completedAt && (
@@ -689,12 +703,6 @@ export default function SessionDetailPage() {
                     <p className="text-xs sm:text-sm text-white font-medium">
                       {new Date(session.completedAt).toLocaleString()}
                     </p>
-                  </div>
-                )}
-                {session.userId && (
-                  <div className="space-y-0.5 sm:space-y-1">
-                    <p className="text-[10px] sm:text-xs text-white/60">User ID</p>
-                    <p className="text-xs sm:text-sm text-white font-medium">{session.userId}</p>
                   </div>
                 )}
               </div>
@@ -804,31 +812,10 @@ export default function SessionDetailPage() {
         {activeSection === 'module-e' && (
           <div className="space-y-6">
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
-              <ContentConsistencyEntityCoverage jobId={jobId} />
+              <AICitationRanking url={session?.startUrl || ''} />
             </div>
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
-              <BrandAnalysisSection jobId={jobId} />
-            </div>
-            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
-              <SentimentTrackingSection
-                jobId={jobId}
-                sentimentData={moduleEQueryData?.data?.sentiment_tracking}
-              />
-            </div>
-            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
-              <CompetitorMentionsSection
-                jobId={jobId}
-                mentionsData={moduleEQueryData?.data?.competitor_mentions}
-                aiSovData={moduleEQueryData?.data?.ai_share_of_voice}
-                aiSovHistory={moduleEQueryData?.data?.ai_sov_history}
-              />
-            </div>
-            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
-              <AICitationRanking
-                jobId={jobId}
-                url={session?.startUrl || ''}
-                rankingData={moduleEQueryData?.data?.ranking_analysis}
-              />
+              <SentimentTracking brandName={project?.name || 'not configured'} />
             </div>
           </div>
         )}

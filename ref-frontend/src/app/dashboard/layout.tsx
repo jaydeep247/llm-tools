@@ -29,7 +29,7 @@ export default function DashboardLayout({
   // Regular dashboard layout
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-      <div className="min-h-screen bg-black">
+      <div className="min-h-screen bg-background text-foreground">
         <Navbar onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import RotatingText from "../animations/RotatingText"
 import { AuthModal } from '@/components/auth/auth-modal'
 import { ProjectSelectorDialog } from '@/components/dashboard/ProjectSelectorDialog'
-// import { useStartCrawlMutation } from '@/store/api/module_A/crawlApi'
+import { useCreateSessionMutation, useCreateJobMutation } from '@/store/api/sessionApi'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/hooks/useAuth'
 
@@ -41,10 +41,8 @@ export function HeroSection() {
   const router = useRouter()
   const { toast } = useToast()
   const { isAuthenticated } = useAuth()
-  // Mock removed mutation
-  const startCrawl = (args: any) => ({ unwrap: async () => ({ sessionId: null }) })
-  const isCrawling = false
-  // const [startCrawl, { isLoading: isCrawling }] = useStartCrawlMutation()
+  const [createSession, { isLoading: isCreatingSession }] = useCreateSessionMutation()
+  const [createJob, { isLoading: isCreatingJob }] = useCreateJobMutation()
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
   const [isProjectSelectorOpen, setIsProjectSelectorOpen] = useState(false)
   const [url, setUrl] = useState('')
@@ -68,13 +66,18 @@ export function HeroSection() {
 
   const handleProjectSelect = async (projectId: string) => {
     try {
-      const result = await startCrawl({
-        projectId: projectId,
-        url: pendingUrl,
-        allowSubdomains: true,
-        runAudits: false,
-        auditDevice: 'desktop',
-        captureLinkDetails: true,
+      const sessionResult = await createSession(projectId).unwrap()
+      const sessionId = sessionResult.session.id
+
+      await createJob({
+        sessionId,
+        data: {
+          url: pendingUrl,
+          allowSubdomains: true,
+          runAudits: false,
+          auditDevice: 'desktop',
+          captureLinkDetails: true,
+        },
       }).unwrap()
 
       toast({
@@ -82,10 +85,7 @@ export function HeroSection() {
         description: `Successfully started crawling ${pendingUrl}`,
       })
 
-      // Navigate to the session progress page if sessionId is returned
-      if (result.sessionId) {
-        router.push(`/dashboard/projects/${projectId}/sessions/${result.sessionId}/progress`)
-      }
+      router.push(`/dashboard/projects/${projectId}/sessions/${sessionId}/progress`)
     } catch (error: any) {
       toast({
         title: 'Failed to Start Crawl',
@@ -150,10 +150,10 @@ export function HeroSection() {
             />
             <button 
               type="submit"
-              disabled={isCrawling || !url.trim()}
+              disabled={isCreatingSession || isCreatingJob || !url.trim()}
               className="w-full sm:w-auto px-6 py-3 bg-white text-slate-900 rounded-full font-semibold text-sm md:text-base hover:bg-slate-50 transition-all duration-300 hover:scale-105 shadow-lg whitespace-nowrap cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
-              {isCrawling ? 'Analyzing...' : 'Analyze'}
+              {isCreatingSession || isCreatingJob ? 'Analyzing...' : 'Analyze'}
             </button>
           </form>
         </div>

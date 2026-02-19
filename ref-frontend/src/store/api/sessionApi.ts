@@ -5,16 +5,17 @@ export interface CrawlSession {
   projectId: string;
   startUrl: string;
   status: string;
-  startedAt: string;
+  startedAt: string | null;
   completedAt: string | null;
+  allowSubdomains: boolean;
+  maxConcurrency: number;
   totalPages: number;
+  totalLinks: number;
+  totalSitemaps: number;
   totalResources: number;
-  duration: number;
-  userId?: number;
-  _count?: {
-    pages: number;
-    resources: number;
-  };
+  createdAt: string;
+  endedAt: string | null;
+  duration?: number;
 }
 
 export interface SessionResponse {
@@ -67,23 +68,6 @@ export const sessionApi = baseApi.injectEndpoints({
       providesTags: (result, error, sessionId) => [{ type: 'Session', id: sessionId }],
     }),
 
-    // Start a new crawl
-    startCrawl: builder.mutation<SessionResponse, StartCrawlRequest>({
-      query: (data) => ({
-        url: `/projects/${data.projectId}/crawl`,
-        method: 'POST',
-        body: data,
-      }),
-      transformResponse: (response: { success: boolean; data: CrawlSession }) => ({
-        success: response.success,
-        session: response.data,
-      }),
-      invalidatesTags: (result, error, { projectId }) => [
-        { type: 'Project', id: projectId },
-        'Session',
-      ],
-    }),
-
     // Create a new session (Step 1)
     createSession: builder.mutation<SessionResponse, string>({
       query: (projectId) => ({
@@ -114,6 +98,19 @@ export const sessionApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['Session'],
     }),
+
+    // Delete session
+    deleteSession: builder.mutation<void, string>({
+      query: (sessionId) => ({
+        url: `/sessions/${sessionId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (result, error, sessionId) => [
+        'Session',
+        { type: 'Session', id: sessionId },
+        { type: 'Project' } // To update project session counts
+      ],
+    }),
   }),
 });
 
@@ -121,7 +118,7 @@ export const {
   useGetProjectSessionsQuery,
   useLazyGetProjectSessionsQuery,
   useGetSessionQuery,
-  useStartCrawlMutation,
   useCreateSessionMutation,
   useCreateJobMutation,
+  useDeleteSessionMutation,
 } = sessionApi;

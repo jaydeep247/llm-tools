@@ -28,7 +28,7 @@ class MongoManager:
         if self._client is None:
             try:
                 logger.info(f"Connecting to MongoDB at {self.mongo_uri}...")
-                self._client = MongoClient(self.mongo_uri)
+                self._client = MongoClient(self.mongo_uri, serverSelectionTimeoutMS=5000)
                 self._db = self._client[self.db_name]
                 
                 # Check connection
@@ -38,7 +38,8 @@ class MongoManager:
                 # Ensure indexes on startup
                 self._ensure_indexes()
             except Exception as e:
-                logger.error(f"Failed to connect to MongoDB: {e}")
+                error_type = type(e).__name__
+                logger.error(f"Failed to connect to MongoDB ({error_type})")
                 raise e
     
     def _ensure_indexes(self):
@@ -58,6 +59,7 @@ class MongoManager:
             self._db.links.create_index("jobId")
             self._db.sitemaps.create_index("jobId")
             self._db.fields.create_index("jobId")
+            self._db.fields.create_index([("jobId", 1), ("url", 1)])
             self._db.job_summaries.create_index("jobId")
             self._db.module_e.create_index("jobId", unique=True)
             
@@ -97,6 +99,7 @@ class MongoManager:
         if self._client:
             self._client.close()
             self._client = None
+            self._db = None
             logger.info("MongoDB connection closed")
 
 # Global instance

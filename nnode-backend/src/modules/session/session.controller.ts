@@ -1,13 +1,14 @@
 import { Request, Response } from 'express';
 import { SessionService } from './session.service';
 import { ResponseUtil } from '../../utils/response';
-import { sessionIdSchema, projectIdParamSchema, updateSessionStatusSchema, startCrawlSchema } from './session.validator';
+import { sessionIdSchema, projectIdParamSchema, updateSessionStatusSchema } from './session.validator';
 import { logger } from '../../shared/logger/logger';
-import { JobService } from '../job/job.service';
+import { SessionStatus } from './session.types';
+import { getRedisClient } from '../../config/redis';
 
 export class SessionController {
   private sessionService: SessionService;
-  private jobService: JobService;
+  private redis = getRedisClient();
 
   constructor() {
     this.sessionService = new SessionService();
@@ -68,7 +69,7 @@ export class SessionController {
       const session = await this.sessionService.createSession(projectId, userId);
       return ResponseUtil.created(res, 'Session created successfully', session);
     } catch (error: any) {
-      logger.error('Error creating session:', error);
+      logger.error(`Error creating session: ${error.message}`);
       if (error.message.includes('Limit exceeded')) {
         return ResponseUtil.error(res, error.message, undefined, 403);
       }
@@ -93,7 +94,7 @@ export class SessionController {
       const sessions = await this.sessionService.getProjectSessions(projectId, userId);
       return ResponseUtil.success(res, 'Sessions retrieved successfully', sessions);
     } catch (error: any) {
-      logger.error('Error getting sessions:', error);
+      logger.error(`Error getting sessions: ${error.message}`);
       if (error.message.includes('not found') || error.message.includes('access denied')) {
         return ResponseUtil.notFound(res, error.message);
       }
@@ -112,11 +113,37 @@ export class SessionController {
       const session = await this.sessionService.getSessionById(id, userId);
       return ResponseUtil.success(res, 'Session retrieved successfully', session);
     } catch (error: any) {
-      logger.error('Error getting session:', error);
+      logger.error(`Error getting session: ${error.message}`);
       if (error.message.includes('not found') || error.message.includes('access denied')) {
         return ResponseUtil.notFound(res, error.message);
       }
       return ResponseUtil.serverError(res, 'Failed to retrieve session');
+    }
+  };
+
+  /**
+   * Get session runtime status (Redis-backed)
+   */
+  getSessionRuntimeStatus = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = sessionIdSchema.parse(req.params);
+
+      const session = await this.sessionService.getSessionById(id, userId);
+
+      const key = `session:${id}`;
+      const runtime = await this.redis.hgetall(key);
+
+      return ResponseUtil.success(res, 'Session runtime status retrieved', {
+        session,
+        runtime: Object.keys(runtime).length > 0 ? runtime : null,
+      });
+    } catch (error: any) {
+      logger.error(`Error getting session runtime status: ${error.message}`);
+      if (error.message.includes('not found') || error.message.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      return ResponseUtil.serverError(res, 'Failed to retrieve session runtime status');
     }
   };
 
@@ -128,11 +155,14 @@ export class SessionController {
       const userId = req.user!.userId;
       const { id } = sessionIdSchema.parse(req.params);
       const { status } = updateSessionStatusSchema.parse(req.body);
-      
-      const session = await this.sessionService.updateSessionStatus(id, userId, status);
+      const session = await this.sessionService.updateSessionStatus(
+        id,
+        userId,
+        status as SessionStatus
+      );
       return ResponseUtil.success(res, 'Session status updated successfully', session);
     } catch (error: any) {
-      logger.error('Error updating session:', error);
+      logger.error(`Error updating session: ${error.message}`);
       if (error.message.includes('not found') || error.message.includes('access denied')) {
         return ResponseUtil.notFound(res, error.message);
       }
@@ -154,7 +184,7 @@ export class SessionController {
       const session = await this.sessionService.deleteSession(id, userId);
       return ResponseUtil.success(res, 'Session deleted successfully', session);
     } catch (error: any) {
-      logger.error('Error deleting session:', error);
+      logger.error(`Error deleting session: ${error.message}`);
       if (error.message.includes('not found') || error.message.includes('access denied')) {
         return ResponseUtil.notFound(res, error.message);
       }
