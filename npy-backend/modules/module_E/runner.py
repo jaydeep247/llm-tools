@@ -51,14 +51,8 @@ async def _fetch_top_pages_texts(urls: List[str]) -> List[str]:
     return texts
 
 
-async def run_module_e(job_id: str, url: str, html_content: str = None) -> Dict[str, Any]:
-    """
-    Run Module E analysis: content consistency and entity coverage.
-    """
-    logger.info("Module E started", extra={"job_id": job_id, "url": url})
-
-    mongo_manager.connect()
-
+async def _prepare_context(job_id: str, url: str, html_content: str = None) -> str:
+    """Helper to load and aggregate text context for analysis."""
     # Pull top pages by word count
     pages = list(
         mongo_manager.pages.find({"jobId": job_id}).sort("word_count", -1).limit(5)
@@ -70,32 +64,84 @@ async def run_module_e(job_id: str, url: str, html_content: str = None) -> Dict[
     )
 
     top_urls = [p.get("url") for p in pages if p.get("url")]
-    logger.info(
-        "Module E top urls",
-        extra={"job_id": job_id, "top_urls": top_urls}
-    )
-
+    
     # Homepage HTML from disk (saved at crawl depth 0)
     homepage_html = html_content or await load_raw_html(job_id)
     homepage_text = _extract_text(homepage_html) if homepage_html else ""
-    logger.info(
-        "Module E homepage text",
-        extra={"job_id": job_id, "homepage_text_len": len(homepage_text)}
-    )
-
+    
     # Fetch top pages text (live)
     top_texts = await _fetch_top_pages_texts(top_urls)
-    logger.info(
-        "Module E top pages text",
-        extra={"job_id": job_id, "top_texts_count": len(top_texts)}
-    )
-
+    
     # Aggregate context
     aggregated_text = "\n\n".join([t for t in [homepage_text] + top_texts if t])[:12000]
     logger.info(
         "Module E aggregated text",
         extra={"job_id": job_id, "aggregated_text_len": len(aggregated_text)}
     )
+    return aggregated_text
+
+
+async def run_consistency_only(job_id: str, url: str, html_content: str = None) -> Dict[str, Any]:
+    """
+    Run ONLY Content Consistency and Entity Coverage analysis.
+    """
+    logger.info("Module E Consistency Only started", extra={"job_id": job_id, "url": url})
+    mongo_manager.connect()
+
+    aggregated_text = await _prepare_context(job_id, url, html_content)
+
+    # Unified Module E analysis
+    analyzer = UnifiedModuleEAnalyzer()
+    unified_result = await analyzer.analyze(aggregated_text, url=url)
+    consistency_result = unified_result.get("content_consistency", {})
+    entity_coverage_result = unified_result.get("entity_coverage", {})
+    
+    logger.info(
+        "Module E consistency analysis complete",
+        extra={
+            "job_id": job_id,
+            "consistency_score": consistency_result.get("score", 0),
+            "entity_score": entity_coverage_result.get("score", 0),
+        }
+    )
+
+    # Persist ONLY consistency and coverage
+    try:
+        mongo_manager.module_e.update_one(
+            {"jobId": job_id},
+            {
+                "$set": {
+                    "jobId": job_id,
+                    "content_consistency": consistency_result,
+                    "entity_coverage": entity_coverage_result,
+                    "updatedAt": datetime.utcnow(),
+                },
+                "$setOnInsert": {
+                    "createdAt": datetime.utcnow(),
+                },
+            },
+            upsert=True,
+        )
+        logger.info("Module E consistency results persisted", extra={"job_id": job_id})
+    except Exception as exc:
+        logger.warning("Failed to persist module E consistency result: %s", exc)
+
+    return {
+        "job_id": job_id,
+        "content_consistency": consistency_result,
+        "entity_coverage": entity_coverage_result
+    }
+
+
+async def run_module_e(job_id: str, url: str, html_content: str = None) -> Dict[str, Any]:
+    """
+    Run Module E analysis: content consistency and entity coverage.
+    """
+    logger.info("Module E started", extra={"job_id": job_id, "url": url})
+
+    mongo_manager.connect()
+
+    aggregated_text = await _prepare_context(job_id, url, html_content)
 
     # Unified Module E analysis (1 LLM call for everything)
     analyzer = UnifiedModuleEAnalyzer()

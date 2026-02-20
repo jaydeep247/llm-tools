@@ -1,11 +1,11 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Loader2, Gauge, Layers, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
+import { useGetModuleEResultQuery, useRunConsistencyAnalysisMutation } from '@/store/api/module_E/moduleEApi'
 
 interface ContentConsistencyEntityCoverageProps {
   jobId?: string | null
@@ -16,6 +16,40 @@ export default function ContentConsistencyEntityCoverage({ jobId }: ContentConsi
   const { data, isLoading, error, refetch } = useGetModuleEResultQuery(jobId || '', {
     skip: !jobId,
   })
+  
+  const [runConsistencyAnalysis, { isLoading: isAnalyzing }] = useRunConsistencyAnalysisMutation()
+  const [isPolling, setIsPolling] = useState(false)
+
+  // Poll for results when analysis is running or just finished
+  useEffect(() => {
+    let interval: NodeJS.Timeout
+    if (isPolling) {
+      interval = setInterval(() => {
+        refetch().then((res) => {
+           // If we have data and it's recent (or just check if we have data), stop polling
+           // For now, let's just poll for a fixed duration or until data changes
+           // Better approach: check job status if available, but here we just check if data appears
+           if (res.data?.data?.content_consistency?.score) {
+             setIsPolling(false)
+           }
+        })
+      }, 3000)
+    }
+    return () => clearInterval(interval)
+  }, [isPolling, refetch])
+
+  const handleRunAnalysis = async () => {
+    if (jobId) {
+      try {
+        await runConsistencyAnalysis(jobId).unwrap()
+        setIsPolling(true)
+        // Stop polling after 60s timeout if no result
+        setTimeout(() => setIsPolling(false), 60000)
+      } catch (err) {
+        console.error('Failed to run consistency analysis:', err)
+      }
+    }
+  }
 
   const result = data?.data
   const consistencyScore = result?.content_consistency?.score ?? 0
@@ -48,6 +82,8 @@ export default function ContentConsistencyEntityCoverage({ jobId }: ContentConsi
     return chips.filter((c) => c.value && c.value.trim().length > 0)
   }, [mandate])
 
+  const isProcessing = isAnalyzing || isPolling
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -60,19 +96,31 @@ export default function ContentConsistencyEntityCoverage({ jobId }: ContentConsi
             <p className="text-sm text-muted-foreground">Content mandate fit and entity depth</p>
           </div>
         </div>
-        <Button onClick={() => refetch()} size="sm" variant="secondary" disabled={!jobId || isLoading}>
-          {isLoading ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Refreshing
-            </>
-          ) : (
-            <>
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Refresh
-            </>
-          )}
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={handleRunAnalysis} size="sm" variant="default" disabled={!jobId || isProcessing || isLoading}>
+            {isProcessing ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Analyzing
+              </>
+            ) : (
+              'Run Analysis'
+            )}
+          </Button>
+          <Button onClick={() => refetch()} size="sm" variant="secondary" disabled={!jobId || isLoading}>
+            {isLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Refreshing
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {!jobId && (

@@ -14,7 +14,7 @@ export class ModuleEService {
    * Get Module E result by job ID
    */
   async getModuleEResult(jobId: string, userId: string): Promise<ModuleEResult | null> {
-    await this.jobService.getJobById(jobId, userId);
+    await this.jobService.getJobById(userId, jobId);
 
     logger.info('Fetching Module E result', { jobId });
     

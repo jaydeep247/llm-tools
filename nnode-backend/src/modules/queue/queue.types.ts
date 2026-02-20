@@ -8,3 +8,13 @@ export interface CrawlJobPayload {
   auditDevice?: string;
   captureLinkDetails?: boolean;
 }
+
+export interface AnalysisJobPayload {
+  jobId: string;
+  sessionId: string;
+  projectId: string;
+  url: string;
+  modules: string[];
+  sourceJobId?: string;
+  config?: Record<string, any>;
+}

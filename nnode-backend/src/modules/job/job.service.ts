@@ -1,5 +1,5 @@
 import { JobRepository } from './job.repository';
-import { CreateJobDto, Job, JobStatus } from './job.types';
+import { CreateJobDto, Job, JobStatus, JobType } from './job.types';
 import { SessionService } from '../session/session.service';
 import { QueueService } from '../queue/queue.service';
 
@@ -23,16 +23,28 @@ export class JobService {
 
     const job = await this.jobRepository.create(sessionId, projectId, data);
 
-    await this.queueService.publishCrawlJob({
-      jobId: job.id,
-      sessionId,
-      projectId,
-      url: job.url,
-      allowSubdomains: job.allowSubdomains,
-      runAudits: job.runAudits,
-      auditDevice: job.auditDevice,
-      captureLinkDetails: job.captureLinkDetails,
-    });
+    if (job.jobType === JobType.CRAWL) {
+      await this.queueService.publishCrawlJob({
+        jobId: job.id,
+        sessionId,
+        projectId,
+        url: job.url,
+        allowSubdomains: job.allowSubdomains,
+        runAudits: job.runAudits,
+        auditDevice: job.auditDevice,
+        captureLinkDetails: job.captureLinkDetails,
+      });
+    } else if (job.jobType === JobType.AEO_ANALYSIS) {
+      await this.queueService.publishAnalysisJob({
+        jobId: job.id,
+        sessionId,
+        projectId,
+        url: job.url,
+        modules: job.config?.modules || [],
+        sourceJobId: job.config?.sourceJobId,
+        config: job.config,
+      });
+    }
 
     return job;
   }

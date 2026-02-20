@@ -19,9 +19,14 @@ export const connectToMongo = async (): Promise<Db> => {
   if (db) return db;
 
   try {
-    client = new MongoClient(env.MONGO_URI);
+    logger.info(`Attempting to connect to MongoDB URI: ${env.MONGO_URI}`);
+    client = new MongoClient(env.MONGO_URI, {
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
+    });
     await client.connect();
-    
+
     db = client.db(env.MONGO_DB_NAME);
     logger.info('✅ Connected to MongoDB');
     return db;

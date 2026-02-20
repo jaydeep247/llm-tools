@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { ZodError } from 'zod';
 import { JobService } from './job.service';
 import { ResponseUtil } from '../../utils/response';
 import { createJobSchema } from './job.validator';
@@ -24,12 +25,14 @@ export class JobController {
       const job = await this.jobService.createJob(userId, id, data);
       return ResponseUtil.created(res, 'Job created and enqueued successfully', job);
     } catch (error: any) {
+      if (error instanceof ZodError || error.name === 'ZodError') {
+        logger.warn(`Validation failed creating job: ${error.message}`);
+        return ResponseUtil.error(res, 'Validation failed', error.errors);
+      }
+
       logger.error(`Error creating job: ${error.message}`);
       if (error.message.includes('not found') || error.message.includes('access denied')) {
         return ResponseUtil.notFound(res, error.message);
-      }
-      if (error.name === 'ZodError') {
-        return ResponseUtil.error(res, 'Validation failed', error.errors);
       }
       return ResponseUtil.serverError(res, 'Failed to create job');
     }

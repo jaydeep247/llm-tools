@@ -1,13 +1,15 @@
 import { Request, Response } from 'express';
 import { SessionService } from './session.service';
+import { JobService } from '../job/job.service';
 import { ResponseUtil } from '../../utils/response';
-import { sessionIdSchema, projectIdParamSchema, updateSessionStatusSchema } from './session.validator';
+import { sessionIdSchema, projectIdParamSchema, updateSessionStatusSchema, startCrawlSchema } from './session.validator';
 import { logger } from '../../shared/logger/logger';
 import { SessionStatus } from './session.types';
 import { getRedisClient } from '../../config/redis';
 
 export class SessionController {
   private sessionService: SessionService;
+  private jobService: JobService;
   private redis = getRedisClient();
 
   constructor() {
@@ -23,7 +25,7 @@ export class SessionController {
       const userId = req.user!.userId;
       const { projectId } = projectIdParamSchema.parse(req.params);
       const { url, allowSubdomains, runAudits, auditDevice, captureLinkDetails, modules } = startCrawlSchema.parse(req.body);
-      
+
       // Create session
       const session = await this.sessionService.createSession(projectId, userId);
 
@@ -65,7 +67,7 @@ export class SessionController {
     try {
       const userId = req.user!.userId;
       const { projectId } = projectIdParamSchema.parse(req.params);
-      
+
       const session = await this.sessionService.createSession(projectId, userId);
       return ResponseUtil.created(res, 'Session created successfully', session);
     } catch (error: any) {
@@ -90,7 +92,7 @@ export class SessionController {
     try {
       const userId = req.user!.userId;
       const { projectId } = projectIdParamSchema.parse(req.params);
-      
+
       const sessions = await this.sessionService.getProjectSessions(projectId, userId);
       return ResponseUtil.success(res, 'Sessions retrieved successfully', sessions);
     } catch (error: any) {
@@ -109,7 +111,7 @@ export class SessionController {
     try {
       const userId = req.user!.userId;
       const { id } = sessionIdSchema.parse(req.params);
-      
+
       const session = await this.sessionService.getSessionById(id, userId);
       return ResponseUtil.success(res, 'Session retrieved successfully', session);
     } catch (error: any) {
@@ -180,7 +182,7 @@ export class SessionController {
     try {
       const userId = req.user!.userId;
       const { id } = sessionIdSchema.parse(req.params);
-      
+
       const session = await this.sessionService.deleteSession(id, userId);
       return ResponseUtil.success(res, 'Session deleted successfully', session);
     } catch (error: any) {

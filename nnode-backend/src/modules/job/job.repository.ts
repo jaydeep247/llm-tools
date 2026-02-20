@@ -11,6 +11,8 @@ export class JobRepository {
       sessionId,
       projectId,
       url: data.url,
+      jobType: data.jobType,
+      config: data.config,
       allowSubdomains: data.allowSubdomains,
       runAudits: data.runAudits,
       auditDevice: data.auditDevice,
@@ -72,7 +74,7 @@ export class JobRepository {
    */
   async deleteBySessionId(sessionId: string): Promise<void> {
     const db = await connectToMongo();
-    
+
     // Find all jobs for this session
     const jobs = await this.findBySessionId(sessionId);
     const jobIds = jobs.map(job => job.id);

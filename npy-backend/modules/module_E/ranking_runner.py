@@ -369,7 +369,12 @@ class RankingRunner:
              
              # Extract annotations
              annotations = []
-             res_results = task.get("result", [])
+             res_results = task.get("result")
+             if not res_results:
+                 status_code = task.get("status_code")
+                 status_msg = task.get("status_message")
+                 logger.warning(f"[{platform}] Task result is empty/null. Status: {status_code} - {status_msg}")
+                 continue
              
              for res_item in res_results:
                  for item in res_item.get("items", []):

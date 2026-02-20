@@ -134,6 +134,28 @@ export default function AICitationRanking({ jobId, url, rankingData: initialData
         </Button>
       </div>
 
+      {/* Missing Job ID Warning */}
+      {!jobId && (
+        <div className="p-4 border border-yellow-500/50 bg-yellow-500/10 rounded-lg mb-6">
+          <p className="text-sm text-yellow-600">
+            <AlertCircle className="w-4 h-4 inline mr-2" />
+            No active crawl job found. Please run a Site Crawler audit first to enable ranking analysis.
+          </p>
+        </div>
+      )}
+
+      {/* Analysis Errors */}
+      {rankingData?.errors && rankingData.errors.length > 0 && (
+        <div className="p-4 border border-red-500/50 bg-red-500/10 rounded-lg mb-6">
+          <h4 className="text-sm font-semibold text-red-600 mb-2">Analysis Errors</h4>
+          <ul className="list-disc list-inside text-sm text-red-500">
+            {rankingData.errors.map((err, i) => (
+              <li key={i}>{err}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Info Text */}
       {!hasResults && !isRunning && (
         <div className="p-4 border border-border rounded-lg bg-muted/50">

@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { ResponseUtil } from '../../utils/response';
 import { ModuleEService } from './moduleE.service';
 import { JobService } from '../job/job.service';
-import { JobType } from '@prisma/client';
+import { JobType } from '../job/job.types';
 import { jobIdParamSchema } from './moduleE.validator';
 import { logger } from '../../shared/logger/logger';
 
@@ -51,18 +51,17 @@ export class ModuleEController {
       const userId = req.user!.userId;
       const { jobId } = jobIdParamSchema.parse(req.params);
 
-      const job = await this.jobService.getJobById(jobId, userId);
-      const jobConfig = (job.config ?? {}) as Record<string, any>;
-      const url = jobConfig.url as string | undefined;
+      const job = await this.jobService.getJobById(userId, jobId);
+      const url = job.url;
 
       if (!url) {
-        return ResponseUtil.error(res, 'Job is missing URL in config', undefined, 400);
+        return ResponseUtil.error(res, 'Job is missing URL', undefined, 400);
       }
 
-      const analysisJob = await this.jobService.createJob(job.sessionId, userId, {
+      const analysisJob = await this.jobService.createJob(userId, job.sessionId, {
+        url,
         jobType: JobType.AEO_ANALYSIS,
         config: {
-          url,
           modules: ['module_e'],
           sourceJobId: jobId,
         },
@@ -92,18 +91,17 @@ export class ModuleEController {
       const userId = req.user!.userId;
       const { jobId } = jobIdParamSchema.parse(req.params);
 
-      const job = await this.jobService.getJobById(jobId, userId);
-      const jobConfig = (job.config ?? {}) as Record<string, any>;
-      const url = jobConfig.url as string | undefined;
+      const job = await this.jobService.getJobById(userId, jobId);
+      const url = job.url;
 
       if (!url) {
-        return ResponseUtil.error(res, 'Job is missing URL in config', undefined, 400);
+        return ResponseUtil.error(res, 'Job is missing URL', undefined, 400);
       }
 
-      const sentimentJob = await this.jobService.createJob(job.sessionId, userId, {
+      const sentimentJob = await this.jobService.createJob(userId, job.sessionId, {
+        url,
         jobType: JobType.AEO_ANALYSIS,
         config: {
-          url,
           modules: ['module_e_sentiment'],
           sourceJobId: jobId,
         },
@@ -133,18 +131,17 @@ export class ModuleEController {
       const userId = req.user!.userId;
       const { jobId } = jobIdParamSchema.parse(req.params);
 
-      const job = await this.jobService.getJobById(jobId, userId);
-      const jobConfig = (job.config ?? {}) as Record<string, any>;
-      const url = jobConfig.url as string | undefined;
+      const job = await this.jobService.getJobById(userId, jobId);
+      const url = job.url;
 
       if (!url) {
-        return ResponseUtil.error(res, 'Job is missing URL in config', undefined, 400);
+        return ResponseUtil.error(res, 'Job is missing URL', undefined, 400);
       }
 
-      const competitorJob = await this.jobService.createJob(job.sessionId, userId, {
+      const competitorJob = await this.jobService.createJob(userId, job.sessionId, {
+        url,
         jobType: JobType.AEO_ANALYSIS,
         config: {
-          url,
           modules: ['module_e_competitors'],
           sourceJobId: jobId,
         },
@@ -174,18 +171,17 @@ export class ModuleEController {
       const userId = req.user!.userId;
       const { jobId } = jobIdParamSchema.parse(req.params);
 
-      const job = await this.jobService.getJobById(jobId, userId);
-      const jobConfig = (job.config ?? {}) as Record<string, any>;
-      const url = jobConfig.url as string | undefined;
+      const job = await this.jobService.getJobById(userId, jobId);
+      const url = job.url;
 
       if (!url) {
-        return ResponseUtil.error(res, 'Job is missing URL in config', undefined, 400);
+        return ResponseUtil.error(res, 'Job is missing URL', undefined, 400);
       }
 
-      const aiSovJob = await this.jobService.createJob(job.sessionId, userId, {
+      const aiSovJob = await this.jobService.createJob(userId, job.sessionId, {
+        url,
         jobType: JobType.AEO_ANALYSIS,
         config: {
-          url,
           modules: ['module_e_ai_sov'],
           sourceJobId: jobId,
         },
@@ -210,31 +206,71 @@ export class ModuleEController {
     }
   };
 
+  runBrandAnalysis = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { jobId } = jobIdParamSchema.parse(req.params);
+
+      const job = await this.jobService.getJobById(userId, jobId);
+      const url = job.url;
+
+      if (!url) {
+        return ResponseUtil.error(res, 'Job is missing URL', undefined, 400);
+      }
+
+      const brandJob = await this.jobService.createJob(userId, job.sessionId, {
+        url,
+        jobType: JobType.AEO_ANALYSIS,
+        config: {
+          modules: ['module_e_brand'],
+          sourceJobId: jobId,
+        },
+      });
+
+      logger.info('Brand analysis job created', {
+        jobId,
+        brandJobId: brandJob.id,
+        sessionId: job.sessionId,
+      });
+
+      return ResponseUtil.created(res, 'Brand analysis queued', brandJob);
+    } catch (error: any) {
+      logger.error('Error starting brand analysis:', error);
+      if (error.message?.includes('not found') || error.message?.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      if (error.name === 'ZodError') {
+        return ResponseUtil.error(res, 'Validation failed', error.errors);
+      }
+      return ResponseUtil.serverError(res, 'Failed to start brand analysis');
+    }
+  };
+
   runRankingAnalysis = async (req: Request, res: Response): Promise<Response> => {
     try {
       const userId = req.user!.userId;
       const { jobId } = jobIdParamSchema.parse(req.params);
 
-      const job = await this.jobService.getJobById(jobId, userId);
-      const jobConfig = (job.config ?? {}) as Record<string, any>;
-      const url = jobConfig.url as string | undefined;
+      const job = await this.jobService.getJobById(userId, jobId);
+      const url = job.url;
 
       if (!url) {
-        return ResponseUtil.error(res, 'Job is missing URL in config', undefined, 400);
+        return ResponseUtil.error(res, 'Job is missing URL', undefined, 400);
       }
 
-      const rankingJob = await this.jobService.createJob(job.sessionId, userId, {
+      const rankingJob = await this.jobService.createJob(userId, job.sessionId, {
+        url,
         jobType: JobType.AEO_ANALYSIS,
         config: {
-          url,
           modules: ['module_e_ranking'],
           sourceJobId: jobId,
         },
       });
 
-      logger.info('Module E: Ranking analysis job created', {
+      logger.info('Ranking analysis job created', {
+        jobId,
         rankingJobId: rankingJob.id,
-        sourceJobId: jobId,
+        sessionId: job.sessionId,
       });
 
       return ResponseUtil.created(res, 'Ranking analysis queued', rankingJob);
@@ -247,6 +283,46 @@ export class ModuleEController {
         return ResponseUtil.error(res, 'Validation failed', error.errors);
       }
       return ResponseUtil.serverError(res, 'Failed to start ranking analysis');
+    }
+  };
+
+  runConsistencyAnalysis = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { jobId } = jobIdParamSchema.parse(req.params);
+
+      const job = await this.jobService.getJobById(userId, jobId);
+      const url = job.url;
+
+      if (!url) {
+        return ResponseUtil.error(res, 'Job is missing URL', undefined, 400);
+      }
+
+      const consistencyJob = await this.jobService.createJob(userId, job.sessionId, {
+        url,
+        jobType: JobType.AEO_ANALYSIS,
+        config: {
+          modules: ['module_e_consistency'],
+          sourceJobId: jobId,
+        },
+      });
+
+      logger.info('Consistency analysis job created', {
+        jobId,
+        consistencyJobId: consistencyJob.id,
+        sessionId: job.sessionId,
+      });
+
+      return ResponseUtil.created(res, 'Consistency analysis queued', consistencyJob);
+    } catch (error: any) {
+      logger.error('Error starting consistency analysis:', error);
+      if (error.message?.includes('not found') || error.message?.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      if (error.name === 'ZodError') {
+        return ResponseUtil.error(res, 'Validation failed', error.errors);
+      }
+      return ResponseUtil.serverError(res, 'Failed to start consistency analysis');
     }
   };
 }

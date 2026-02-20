@@ -251,21 +251,35 @@ export default function CompetitorMentionsSection({ jobId, mentionsData: initial
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border/50">
-                                {mentionsData?.data
-                                    // Hide the brand's own domain row — it's used for SOV % but not shown as a competitor
-                                    ?.filter((_, i) => i !== 0)
-                                    .map((item, i) => (
-                                        <tr key={i} className="hover:bg-muted/30 transition-colors">
-                                            <td className="p-3 border-r font-medium text-foreground truncate max-w-[120px]">{item.name}</td>
-                                            <td className="p-3 border-r font-mono">{(item.mentions ?? 0).toLocaleString()}</td>
-                                            <td className="p-3 border-r">
-                                                <Badge variant={getSentimentVariant(item.sentiment ?? 'neutral')} className="text-[10px] px-1.5 py-0">
-                                                    {item.sentiment}
-                                                </Badge>
-                                            </td>
-                                            <td className="p-3">{renderSparkline(item.trend)}</td>
-                                        </tr>
-                                    ))}
+                                {(mentionsData?.data?.length ?? 0) > 1 ? (
+                                    mentionsData?.data
+                                        // Hide the brand's own domain row — it's used for SOV % but not shown as a competitor
+                                        ?.filter((_, i) => i !== 0)
+                                        .map((item, i) => (
+                                            <tr key={i} className="hover:bg-muted/30 transition-colors">
+                                                <td className="p-3 border-r font-medium text-foreground truncate max-w-[120px]">{item.name}</td>
+                                                <td className="p-3 border-r font-mono">{(item.mentions ?? 0).toLocaleString()}</td>
+                                                <td className="p-3 border-r">
+                                                    <Badge variant={getSentimentVariant(item.sentiment ?? 'neutral')} className="text-[10px] px-1.5 py-0">
+                                                        {item.sentiment}
+                                                    </Badge>
+                                                </td>
+                                                <td className="p-3">{renderSparkline(item.trend)}</td>
+                                            </tr>
+                                        ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan={4} className="p-8 text-center text-muted-foreground">
+                                            <div className="flex flex-col items-center gap-2">
+                                                <Users className="w-8 h-8 opacity-20" />
+                                                <p className="text-sm font-medium">No competitors found</p>
+                                                <p className="text-xs opacity-70">
+                                                    DataForSEO found no direct competitors for this brand.
+                                                </p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>

@@ -1,12 +1,12 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect, useCallback } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Loader2, TrendingUp, TrendingDown, Minus, Globe } from 'lucide-react'
+import { Loader2, TrendingUp, TrendingDown, Minus, Globe, Play, CheckCircle2, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useGetModuleEResultQuery, useRunModuleEAnalysisMutation } from '@/store/api/module_E/moduleEApi'
+import { useGetModuleEResultQuery, useRunBrandAnalysisMutation } from '@/store/api/module_E/moduleEApi'
 
 interface BrandAnalysisSectionProps {
   jobId?: string | null
@@ -14,14 +14,59 @@ interface BrandAnalysisSectionProps {
 
 export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProps) {
   const [expandedSources, setExpandedSources] = useState(false)
+  const [isPolling, setIsPolling] = useState(false)
+  const [pollCount, setPollCount] = useState(0)
+  const [justCompleted, setJustCompleted] = useState(false)
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | undefined>(undefined)
 
   // Fetch Module E result which includes brand_analysis
   const { data, isLoading } = useGetModuleEResultQuery(jobId || '', {
     skip: !jobId,
+    pollingInterval: isPolling ? 3000 : 0, // Poll only when running analysis
   })
-  const [runModuleEAnalysis, { isLoading: isRunning }] = useRunModuleEAnalysisMutation()
+  
+  const [runBrandAnalysis, { isLoading: isTriggering }] = useRunBrandAnalysisMutation()
 
   const brandAnalysis = data?.data?.brand_analysis
+  const updatedAt = data?.data?.updatedAt
+
+  // Initialize lastUpdatedAt
+  useEffect(() => {
+    if (updatedAt && !isPolling) {
+      setLastUpdatedAt(updatedAt)
+    }
+  }, [updatedAt, isPolling])
+
+  // Stop polling when data updates
+  useEffect(() => {
+    if (!isPolling) return
+    
+    if (updatedAt && updatedAt !== lastUpdatedAt) {
+      setIsPolling(false)
+      setPollCount(0)
+      setLastUpdatedAt(updatedAt)
+      setJustCompleted(true)
+      // Reset success message after 3 seconds
+      const timer = setTimeout(() => setJustCompleted(false), 3000)
+      return () => clearTimeout(timer)
+    }
+    
+    // Safety timeout: stop polling after 60 seconds (20 checks)
+    if (pollCount > 20) {
+      setIsPolling(false)
+      setPollCount(0)
+    }
+  }, [updatedAt, lastUpdatedAt, isPolling, pollCount])
+
+  // Increment poll count
+  useEffect(() => {
+    if (isPolling) {
+      const timer = setInterval(() => {
+        setPollCount(prev => prev + 1)
+      }, 3000)
+      return () => clearInterval(timer)
+    }
+  }, [isPolling])
 
   const brandName = brandAnalysis?.brand_name || 'Unknown Brand'
   const totalMentions = brandAnalysis?.total_mentions ?? 0
@@ -79,13 +124,22 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
   }, [frequencyTrend])
 
   const handleRunAnalysis = async () => {
-    if (!jobId || isRunning) return
+    if (!jobId || isTriggering || isPolling) return
+    
+    // Capture current state before running
+    setLastUpdatedAt(updatedAt)
+    
     try {
-      await runModuleEAnalysis(jobId).unwrap()
+      await runBrandAnalysis(jobId).unwrap()
+      setIsPolling(true)
+      setPollCount(0)
     } catch (error) {
-      console.error('Failed to run Module E analysis:', error)
+      console.error('Failed to run Brand Analysis:', error)
+      setIsPolling(false)
     }
   }
+
+  const isRunning = isTriggering || isPolling
 
   return (
     <div className="space-y-4">
@@ -98,14 +152,26 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
           type="button"
           onClick={handleRunAnalysis}
           disabled={!jobId || isRunning}
-          className="gap-2"
+          className={cn(
+            "gap-2 min-w-[140px]",
+            justCompleted && "bg-green-600 hover:bg-green-700 text-white"
+          )}
         >
-          {isRunning && <Loader2 className="w-4 h-4 animate-spin" />}
-          Run Analysis
+          {isTriggering ? (
+            <><Loader2 className="w-4 h-4 animate-spin" /> Queuing...</>
+          ) : isPolling ? (
+            <><Loader2 className="w-4 h-4 animate-spin" /> Analyzing...</>
+          ) : justCompleted ? (
+            <><CheckCircle2 className="w-4 h-4" /> Done!</>
+          ) : brandAnalysis ? (
+            <><RefreshCw className="w-4 h-4" /> Re-run Analysis</>
+          ) : (
+            <><Play className="w-4 h-4" /> Run Analysis</>
+          )}
         </Button>
       </div>
 
-      {!brandAnalysis && (
+      {!brandAnalysis && !isRunning && (
         <Card className="rounded-xl border p-6">
           <p className="text-sm text-muted-foreground">
             No brand analysis results yet. Click "Run Analysis" to generate insights.
@@ -113,7 +179,7 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
         </Card>
       )}
 
-      {brandAnalysis && (
+      {(brandAnalysis || isRunning) && (
         <>
           {/* Main Brand Card */}
           <Card className={cn('rounded-xl border p-6', getSentimentBg(sentiment.label))}>

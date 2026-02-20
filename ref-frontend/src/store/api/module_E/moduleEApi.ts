@@ -139,6 +139,7 @@ export interface ModuleEResult {
       total_expected: number
     }
     generated_prompts: string[]
+    errors?: string[]
   }
   createdAt?: string
   updatedAt?: string
@@ -171,9 +172,23 @@ export const moduleEApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: (_result, _error, jobId) => [{ type: 'ModuleE' as const, id: jobId }],
     }),
+    runConsistencyAnalysis: builder.mutation<ModuleEResultResponse, string>({
+      query: (jobId) => ({
+        url: `/module-e/jobs/${jobId}/run-consistency`,
+        method: 'POST',
+      }),
+      invalidatesTags: (_result, _error, jobId) => [{ type: 'ModuleE' as const, id: jobId }],
+    }),
     runCompetitorAnalysis: builder.mutation<ModuleEResultResponse, string>({
       query: (jobId) => ({
         url: `/module-e/jobs/${jobId}/run-competitors`,
+        method: 'POST',
+      }),
+      invalidatesTags: (_result, _error, jobId) => [{ type: 'ModuleE' as const, id: jobId }],
+    }),
+    runBrandAnalysis: builder.mutation<ModuleEResultResponse, string>({
+      query: (jobId) => ({
+        url: `/module-e/jobs/${jobId}/run-brand`,
         method: 'POST',
       }),
       invalidatesTags: (_result, _error, jobId) => [{ type: 'ModuleE' as const, id: jobId }],
@@ -198,7 +213,9 @@ export const moduleEApi = baseApi.injectEndpoints({
 export const {
   useGetModuleEResultQuery,
   useRunModuleEAnalysisMutation,
+  useRunBrandAnalysisMutation,
   useRunSentimentAnalysisMutation,
+  useRunConsistencyAnalysisMutation,
   useRunCompetitorAnalysisMutation,
   useRunAiSovAnalysisMutation,
   useRunRankingAnalysisMutation,

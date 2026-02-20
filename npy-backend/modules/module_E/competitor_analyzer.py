@@ -126,7 +126,7 @@ Return ONLY valid JSON (no markdown):
         """
         Strategy:
           1. Try DataForSEO organic competitors (keyword-overlap based)
-          2. If DataForSEO returns nothing → AI fallback (LLM infers top competitors)
+          2. If DataForSEO returns nothing → Return empty list (AI fallback disabled by user request)
         """
         # Step 1: DataForSEO
         dfs_competitors = await self._discover_via_dataforseo(domain)
@@ -134,14 +134,15 @@ Return ONLY valid JSON (no markdown):
             logger.info(f"DataForSEO found {len(dfs_competitors)} competitors: {dfs_competitors}")
             return dfs_competitors
 
-        # Step 2: AI Fallback
+        # Step 2: AI Fallback (DISABLED)
         logger.info(
-            f"DataForSEO found no competitors for '{domain}' (likely new/small domain). "
-            f"Falling back to AI-based competitor discovery."
+            f"DataForSEO found no competitors for '{domain}'. "
+            f"Returning empty list as AI fallback is disabled."
         )
-        ai_competitors = await self._discover_via_ai(brand_name, industry, service_type)
-        logger.info(f"AI fallback found {len(ai_competitors)} competitors: {ai_competitors}")
-        return ai_competitors
+        # ai_competitors = await self._discover_via_ai(brand_name, industry, service_type)
+        # logger.info(f"AI fallback found {len(ai_competitors)} competitors: {ai_competitors}")
+        # return ai_competitors
+        return []
 
     async def _discover_via_dataforseo(self, domain: str) -> List[str]:
         """Calls DataForSEO competitors_domain endpoint."""
@@ -270,19 +271,28 @@ Rules:
                 "date_group": "month"
             }]
 
+            logger.info(f"DataForSEO Request for {d}: {payload}")
+            print(f"DEBUG: DataForSEO Request for {d}: {payload}")  # Direct stdout for debugging
+
             resp = await execute_task(
                 task_name="module_e_mentions_trend",
                 input_data={
                     "endpoint": "/content_analysis/phrase_trends/live",
                     "payload": payload
                 },
-                provider="dataforseo"
+                provider="dataforseo",
+                options={"skip_cache": True}  # FORCE FRESH FETCH
             )
 
             if not resp.success:
                 logger.warning(f"Mentions analysis failed for {d}: {resp.error}")
+                print(f"DEBUG: Mentions analysis failed for {d}: {resp.error}")
                 return d, {"mentions": 0, "sentiment": "Neutral", "trend": [0] * 12}
-
+            
+            # Debug Log
+            logger.info(f"DataForSEO Response for {d} (Success={resp.success})")
+            print(f"DEBUG: DataForSEO Response for {d} (Success={resp.success})")
+            
             try:
                 tasks = resp.data.get("tasks", [])
                 if not tasks:
@@ -292,6 +302,10 @@ Rules:
                 # Each entry has: { "date": "2025-05-01", "total_count": 132001,
                 #                   "connotation_types": {...}, ... }
                 monthly_trends = tasks[0].get("result") or []
+                
+                # Debug Log
+                logger.info(f"DataForSEO Result for {d}: Found {len(monthly_trends)} months of data")
+                print(f"DEBUG: DataForSEO Result for {d}: Found {len(monthly_trends)} months of data")
 
                 trend = [entry.get("total_count", 0) for entry in monthly_trends]
                 total = sum(trend)
@@ -381,20 +395,26 @@ Rules:
             )
 
             logger.info(f"AI SOV query [{model}]: {batch_prompt[:200]}...")
+            print(f"DEBUG: AI SOV query [{model}]: {batch_prompt[:200]}...")
 
             resp = await execute_task(
                 task_name=f"module_e_ai_sov_{model}",
                 input_data={"messages": [{"role": "user", "content": batch_prompt}]},
                 provider=model,
-                options={"temperature": 0.4}
+                options={
+                    "temperature": 0.4,
+                    "skip_cache": True  # FORCE FRESH FETCH
+                }
             )
 
             if not resp.success:
                 logger.warning(f"AI SOV [{model}] failed: {resp.error}")
+                print(f"DEBUG: AI SOV [{model}] failed: {resp.error}")
                 return None
 
             text = str(resp.data).lower()
-            logger.info(f"AI SOV [{model}] response (first 400 chars): {text[:400]}")
+            logger.info(f"AI SOV [{model}] raw response (first 400 chars): {text[:400]}")
+            print(f"DEBUG: AI SOV [{model}] raw response (first 400 chars): {text[:400]}")
 
             # Check if brand is mentioned (any of its terms)
             brand_mentioned = any(term in text for term in brand_terms)
