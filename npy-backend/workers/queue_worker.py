@@ -222,6 +222,33 @@ def drain_results(connection: BlockingConnection) -> None:
         connection.add_callback_threadsafe(do_ack)
 
 
+def run_job_in_worker(payload: dict) -> None:
+    job_type = (payload.get("jobType") or "CRAWL").upper()
+    schema_type = payload.get("schemaType")
+    session_id = payload["sessionId"]
+    project_id = payload["projectId"]
+    url = payload["url"]
+    job_id = payload.get("jobId") or f"job_{session_id}"
+
+    if job_type == "SCHEMA":
+        run_schema_job(
+            url=url,
+            session_id=session_id,
+            job_id=job_id,
+            project_id=project_id,
+            schema_type=schema_type,
+        )
+    elif job_type == "CONTENT_METRICS":
+        run_content_metrics_job(
+            url=url,
+            session_id=session_id,
+            job_id=job_id,
+            project_id=project_id,
+        )
+    else:
+        execute_job(payload)
+
+
 def run_schema_job(url: str, session_id: str, job_id: str, project_id: str, schema_type: str | None = None) -> None:
     logger.info(f"Starting schema generation job {job_id} for {url}")
 
@@ -392,8 +419,6 @@ def start_queue_worker() -> None:
                 project_id = payload["projectId"]
                 url = payload["url"]
                 job_id = payload.get("jobId") or f"job_{session_id}"
-                job_type = payload.get("jobType", "CRAWL").upper()
-                schema_type = payload.get("schemaType")
 
                 session_key = f"session:{session_id}"
                 job_key = f"job:{job_id}"
@@ -417,26 +442,7 @@ def start_queue_worker() -> None:
                     },
                 )
 
-                def run_job() -> None:
-                    if job_type == "SCHEMA":
-                        run_schema_job(
-                            url=url,
-                            session_id=session_id,
-                            job_id=job_id,
-                            project_id=project_id,
-                            schema_type=schema_type,
-                        )
-                    elif job_type == "CONTENT_METRICS":
-                        run_content_metrics_job(
-                            url=url,
-                            session_id=session_id,
-                            job_id=job_id,
-                            project_id=project_id,
-                        )
-                    else:
-                        execute_job(payload)
-
-                future = executor.submit(run_job)
+                future = executor.submit(run_job_in_worker, payload)
 
                 def when_done(f) -> None:
                     try:
