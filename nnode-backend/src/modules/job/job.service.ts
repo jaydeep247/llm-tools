@@ -23,17 +23,27 @@ export class JobService {
 
     const job = await this.jobRepository.create(sessionId, projectId, data);
 
-    if (job.jobType === JobType.CRAWL) {
-      await this.queueService.publishCrawlJob({
+    if (job.type === JobType.SCHEMA) {
+      await this.queueService.publishSchemaJob({
         jobId: job.id,
         sessionId,
         projectId,
         url: job.url,
-        allowSubdomains: job.allowSubdomains,
-        runAudits: job.runAudits,
-        auditDevice: job.auditDevice,
-        captureLinkDetails: job.captureLinkDetails,
+        schemaType: job.schemaType || undefined,
       });
+    } else {
+      if (job.jobType === JobType.CRAWL) {
+      await this.queueService.publishCrawlJob({
+          jobId: job.id,
+          sessionId,
+          projectId,
+          url: job.url,
+          allowSubdomains: job.allowSubdomains,
+          runAudits: job.runAudits,
+          auditDevice: job.auditDevice,
+          captureLinkDetails: job.captureLinkDetails,
+        });
+    }
     } else if (job.jobType === JobType.AEO_ANALYSIS) {
       await this.queueService.publishAnalysisJob({
         jobId: job.id,
@@ -63,6 +73,19 @@ export class JobService {
     return this.jobRepository.findBySessionId(sessionId);
   }
 
+  async startContentMetrics(userId: string, jobId: string): Promise<Job> {
+    const job = await this.getJobById(userId, jobId);
+
+    await this.queueService.publishContentMetricsJob({
+      jobId: job.id,
+      sessionId: job.sessionId,
+      projectId: job.projectId,
+      url: job.url,
+    });
+
+    return job;
+  }
+
   async startSchemaGeneration(userId: string, jobId: string, schemaType?: string): Promise<Job> {
     const job = await this.getJobById(userId, jobId);
 
@@ -77,18 +100,6 @@ export class JobService {
     return job;
   }
 
-  async startContentMetrics(userId: string, jobId: string): Promise<Job> {
-    const job = await this.getJobById(userId, jobId);
-
-    await this.queueService.publishContentMetricsJob({
-      jobId: job.id,
-      sessionId: job.sessionId,
-      projectId: job.projectId,
-      url: job.url,
-    });
-
-    return job;
-  }
 
   async markRunning(jobId: string): Promise<Job> {
     return this.jobRepository.updateStatus(jobId, JobStatus.RUNNING, new Date(), null, null);

@@ -57,6 +57,28 @@ export interface JobSnapshot {
   snapshotAt: number;
 }
 
+export interface JobSiteStructure {
+  jobId: string;
+  sessionId: string;
+  projectId: string;
+  startUrl: string;
+  pages: { url?: string | null }[];
+}
+
+export interface JobSchemaResult {
+  jobId: string;
+  sessionId: string;
+  projectId: string;
+  url: string;
+  success: boolean;
+  error?: string;
+  message?: string;
+  schema?: any;
+  schema_text?: string;
+  rdfa_markup?: string;
+  createdAt?: string;
+}
+
 export const jobApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     // Get job snapshot for live updates

@@ -75,6 +75,7 @@ export default function SessionDetailPage() {
   const { data: fieldsResult, isLoading: isLoadingFieldsRaw, refetch: refetchFieldsRaw } = useGetJobFieldsQuery(jobId!, { skip: !jobId, refetchOnMountOrArgChange: true })
   const { data: sitemapsResult, isLoading: isLoadingSitemapsRaw, refetch: refetchSitemapsRaw } = useGetJobSitemapsQuery(jobId!, { skip: !jobId, refetchOnMountOrArgChange: true })
 
+
   const { data: siteStructureResult } = useGetJobSiteStructureQuery(jobId!, { skip: !jobId })
 
   const isLoadingResults = isLoadingPagesRaw || isLoadingLinksRaw || isLoadingFieldsRaw || isLoadingSitemapsRaw

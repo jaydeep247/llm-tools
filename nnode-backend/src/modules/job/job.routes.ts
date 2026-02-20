@@ -13,6 +13,8 @@ router.get('/jobs/:id', jobController.getJobById);
 router.post('/jobs/:id/generate-schema', jobController.generateSchemaForJob);
 router.post('/jobs/:id/content-metrics', jobController.startContentMetricsForJob);
 router.get('/jobs/:id/snapshot', jobController.getJobSnapshot);
+router.post('/jobs/:id/generate-schema', jobController.generateSchemaForJob);
+router.post('/jobs/:id/content-metrics', jobController.startContentMetricsForJob);
 router.get('/jobs/:id/status', jobController.getJobRuntimeStatus);
 router.get('/jobs/:id/results/pages', jobController.getJobPages);
 router.get('/jobs/:id/results/links', jobController.getJobLinks);

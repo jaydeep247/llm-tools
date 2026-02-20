@@ -94,6 +94,14 @@ class MongoManager:
         return self.db.content_metrics
 
     @property
+    def schemas(self) -> Collection:
+        return self.db.schemas
+
+    @property
+    def content_metrics(self) -> Collection:
+        return self.db.content_metrics
+
+    @property
     def module_e(self) -> Collection:
         return self.db.module_e
 

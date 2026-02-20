@@ -29,3 +29,9 @@ export interface AnalysisJobPayload {
   sourceJobId?: string;
   config?: Record<string, any>;
 }
+
+export interface SchemaJobPayload extends BaseJobPayload {
+  schemaType?: string;
+}
+
+export interface ContentMetricsJobPayload extends BaseJobPayload {}
