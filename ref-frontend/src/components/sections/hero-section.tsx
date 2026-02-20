@@ -73,14 +73,10 @@ export function HeroSection() {
         sessionId,
         data: {
           url: pendingUrl,
-          jobType: 'CRAWL',
           allowSubdomains: true,
           runAudits: false,
           auditDevice: 'desktop',
           captureLinkDetails: true,
-          config: {
-            modules: ['module_c', 'module_e']
-          }
         },
       }).unwrap()
 

@@ -266,8 +266,8 @@ def drain_results(connection: BlockingConnection) -> None:
         connection.add_callback_threadsafe(do_ack)
 
 
-def run_job_in_worker(payload: dict) -> None:
-    job_type = (payload.get("jobType") or "CRAWL").upper()
+def run_job_in_worker(payload: dict, job_type_override: str | None = None) -> None:
+    job_type = (job_type_override or payload.get("jobType") or "CRAWL").upper()
     schema_type = payload.get("schemaType")
     session_id = payload["sessionId"]
     project_id = payload["projectId"]
