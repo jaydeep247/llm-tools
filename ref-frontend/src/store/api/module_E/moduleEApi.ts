@@ -125,12 +125,18 @@ export interface ModuleEResult {
       credibility_score: number
       percentile: number
       content_quality_score: number
+      accuracy_score?: number
+      sentiment_score?: number
     }>
     percentile_by_prompt: Record<string, Record<string, number>>
     model_wise_comparison: Array<{ prompt: string;[model: string]: number | string | null }>
     content_quality: {
       overall_score: number
       by_prompt_model: Record<string, Record<string, number>>
+    }
+    metrics_summary?: {
+      average_accuracy: number
+      average_sentiment: number
     }
     entity_coverage: {
       score: number

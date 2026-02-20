@@ -172,7 +172,7 @@ class RankingRunner:
         return contexts
 
     def _compute_content_quality_score(self, contexts: List[str], prompt: str) -> float:
-        """ Evaluate how detailed/positive the mention is. """
+        """ Evaluate how detailed/positive the mention is. Max 100. """
         if not contexts:
             return 0.0
         
@@ -188,24 +188,30 @@ class RankingRunner:
             context_lower = context.lower()
             context_len = len(context.strip())
             
-            # 1. Context Length Score (30% weight)
+            # 1. Context Length Score (Max 30 points)
+            # < 100 chars: 0-10 pts
+            # 100-300 chars: 10-20 pts
+            # > 300 chars: 20-30 pts
             if context_len < 100:
-                length_score = (context_len / 100) * 30
+                length_score = (context_len / 100) * 10
             elif context_len < 300:
-                length_score = 30 + ((context_len - 100) / 200) * 30
+                length_score = 10 + ((context_len - 100) / 200) * 10
             else:
-                length_score = min(100, 60 + ((context_len - 300) / 200) * 40)
+                length_score = 20 + min(((context_len - 300) / 500) * 10, 10)
             
-            # 2. Completeness Score (40% weight)
+            # 2. Completeness Score (Max 40 points)
             has_sentences = bool(re.search(r'[.!?]\s+', context))
             has_words = len(re.findall(r'\b\w+\b', context)) > 5
-            completeness_score = 40.0 if (has_sentences and has_words) else 20.0
             
-            # 3. Relevance Score (30% weight)
+            completeness_score = 0.0
+            if has_words: completeness_score += 20.0
+            if has_sentences: completeness_score += 20.0
+            
+            # 3. Relevance Score (Max 30 points)
             context_keywords = set(re.findall(r'\b\w{4,}\b', context_lower))
             overlap = len(prompt_keywords & context_keywords)
             max_overlap = max(len(prompt_keywords), 1)
-            relevance_score = min(100, (overlap / max_overlap) * 100) * 0.3
+            relevance_score = min(1, (overlap / max_overlap)) * 30.0
             
             total_score = length_score + completeness_score + relevance_score
             scores.append(min(100.0, total_score))
@@ -277,6 +283,25 @@ class RankingRunner:
         content_quality_by_prompt_model = {}
         all_citation_contexts = []
         errors = []
+        batch_accuracy_items = []
+        
+        # Ensure brand is set for consistency check
+        # If we entered the block above, brand is set. If prompts were passed, it might not be.
+        # Also handle empty brand case.
+        if 'brand' not in locals() or not brand:
+             # Try to recover brand from mandate if available
+             brand = locals().get('mandate', {}).get('brand_name', "")
+        
+        if not brand and url:
+             # Fallback: extract brand from domain
+             try:
+                 domain = self._extract_domain(url)
+                 if domain:
+                     brand = domain.split('.')[0].capitalize()
+             except:
+                 pass
+        
+        logger.info(f"Using Brand Name for analysis: '{brand}'")
 
         # Initialize structures
         for prompt in prompts:
@@ -367,18 +392,29 @@ class RankingRunner:
 
              task = tasks_list[0]
              
-             # Extract annotations
+             # Extract annotations and text
              annotations = []
+             ai_response_text = ""
+             
              res_results = task.get("result")
              if not res_results:
                  status_code = task.get("status_code")
                  status_msg = task.get("status_message")
-                 logger.warning(f"[{platform}] Task result is empty/null. Status: {status_code} - {status_msg}")
+                 err_msg = f"API Error [{platform}]: {status_code} - {status_msg}"
+                 logger.warning(err_msg)
+                 errors.append(err_msg)
                  continue
              
              for res_item in res_results:
                  for item in res_item.get("items", []):
-                     for section in item.get("sections", []):
+                     # Extract full text for accuracy check
+                    if not ai_response_text:
+                        ai_response_text = item.get("text") or item.get("description") or ""
+                        # Fallback: try to construct from sections if main text is empty
+                        if not ai_response_text and item.get("sections"):
+                            ai_response_text = "\n".join([s.get("text", "") for s in item.get("sections") if s.get("text")])
+
+                    for section in item.get("sections", []):
                          anns = section.get("annotations", [])
                          if anns:
                              annotations.extend(anns)
@@ -393,6 +429,15 @@ class RankingRunner:
              citations_count = len(annotations)
              diversity = self._compute_source_diversity(annotations)
              credibility = self._compute_credibility_score(annotations)
+             
+             # Prepare for Batch Accuracy Score
+             # We use the current index as the ID
+             current_idx = len(ranking_position_per_prompt)
+             if ai_response_text:
+                 batch_accuracy_items.append({
+                     "id": current_idx,
+                     "text": ai_response_text
+                 })
              
              # Contexts
              task_wrapper = {"tasks": [task]}
@@ -411,7 +456,9 @@ class RankingRunner:
                 "source_diversity": diversity,
                 "credibility_score": credibility,
                 "percentile": percentile,
-                "content_quality_score": quality_score
+                "content_quality_score": quality_score,
+                "accuracy_score": 0.0, # Will be updated via batch
+                "sentiment_score": 0.0 # Will be updated via batch
              })
              
              percentile_by_prompt[prompt][platform] = percentile
@@ -420,7 +467,26 @@ class RankingRunner:
              if row:
                  row[platform] = position
 
-        # 3. Entity Coverage Analysis (using aggregated contexts)
+        # 3. Batch Accuracy & Sentiment Calculation
+        if batch_accuracy_items:
+            logger.info(f"Calculating accuracy & sentiment scores for {len(batch_accuracy_items)} responses in batch...")
+            batch_scores = await self.consistency_module.calculate_batch_accuracy_scores(
+                aggregated_text,
+                batch_accuracy_items,
+                brand
+            )
+            
+            # Update scores in the main list
+            for item_id_str, scores in batch_scores.items():
+                try:
+                    idx = int(item_id_str)
+                    if 0 <= idx < len(ranking_position_per_prompt):
+                        ranking_position_per_prompt[idx]["accuracy_score"] = scores.get("accuracy", 0.0)
+                        ranking_position_per_prompt[idx]["sentiment_score"] = scores.get("sentiment", 0.0)
+                except ValueError:
+                    pass
+
+        # 4. Entity Coverage Analysis (using aggregated contexts)
         logger.info(f"Analyzing Entity Coverage on {len(all_citation_contexts)} contexts...")
         
         # Get expected entities from original content
@@ -436,12 +502,24 @@ class RankingRunner:
         
         # 4. Final Aggregation
         
-        # Avg quality score
+        # Avg quality score (only for found citations)
         quality_scores = []
         for p_scores in content_quality_by_prompt_model.values():
             for s in p_scores.values():
                 if s > 0: quality_scores.append(s)
         avg_quality = round(sum(quality_scores)/len(quality_scores), 1) if quality_scores else 0.0
+
+        # Avg Accuracy & Sentiment (across ALL prompts)
+        total_acc = 0.0
+        total_sent = 0.0
+        count_items = len(ranking_position_per_prompt)
+        
+        for row in ranking_position_per_prompt:
+            total_acc += row.get("accuracy_score", 0.0)
+            total_sent += row.get("sentiment_score", 0.0)
+            
+        avg_accuracy = round(total_acc / count_items, 1) if count_items > 0 else 0.0
+        avg_sentiment = round(total_sent / count_items, 2) if count_items > 0 else 0.0
         
         result_payload = {
             "ranking_position_per_prompt": ranking_position_per_prompt,
@@ -450,6 +528,10 @@ class RankingRunner:
             "content_quality": {
                 "overall_score": avg_quality,
                 "by_prompt_model": content_quality_by_prompt_model
+            },
+            "metrics_summary": {
+                "average_accuracy": avg_accuracy,
+                "average_sentiment": avg_sentiment
             },
             "entity_coverage": {
                 "score": coverage_result["score"],
@@ -506,6 +588,11 @@ async def run_ranking_analysis(job_id: str, url: str, html_content: str = None) 
     if not html_content:
         html_content = await load_raw_html(job_id)
     
+    # Fallback: Fetch live if missing from storage
+    if not html_content and url:
+        logger.info(f"Homepage content missing for {job_id}, fetching live from {url}...")
+        html_content = await _fetch_text_simple(url)
+
     homepage_text = _extract_text(html_content)
     
     # 2. Get Top Pages Text (if available from previous crawl)

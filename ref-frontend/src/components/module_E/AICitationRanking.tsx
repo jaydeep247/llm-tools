@@ -45,6 +45,9 @@ export default function AICitationRanking({ jobId, url, rankingData: initialData
     (rankingData.model_wise_comparison?.length ?? 0) > 0
   )
 
+  const avgAccuracy = (rankingData as any)?.metrics_summary?.average_accuracy ?? 0
+  const avgSentiment = (rankingData as any)?.metrics_summary?.average_sentiment ?? 0
+  
   // Watch for completion
   useEffect(() => {
     if (isPolling && hasResults && polledData?.data?.ranking_analysis) {
@@ -194,27 +197,49 @@ export default function AICitationRanking({ jobId, url, rankingData: initialData
       {hasResults && (
         <div className="space-y-6">
 
-          {/* Entity Coverage Summary */}
-          {rankingData.entity_coverage && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-4 border rounded-lg bg-background/50">
-                <div className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">Coverage Score</div>
-                <div className="text-2xl font-bold mt-1">{rankingData.entity_coverage.score.toFixed(1)}%</div>
+          {/* Score Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-muted/50 rounded-lg p-4 border border-border">
+              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                Coverage Score
               </div>
-              <div className="p-4 border rounded-lg bg-background/50">
-                <div className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">Found Entities</div>
-                <div className="text-lg font-medium mt-1 text-emerald-500">
-                  {rankingData.entity_coverage.found_entities.length} / {rankingData.entity_coverage.total_expected}
-                </div>
-              </div>
-              <div className="p-4 border rounded-lg bg-background/50">
-                <div className="text-sm text-muted-foreground uppercase tracking-wider font-semibold">Content Quality</div>
-                <div className="text-2xl font-bold mt-1">
-                  {rankingData.content_quality?.overall_score?.toFixed(1) ?? 0}
-                </div>
+              <div className="text-2xl font-bold text-foreground">
+                {(rankingData.entity_coverage?.score ?? 0).toFixed(1)}%
               </div>
             </div>
-          )}
+
+            <div className="bg-muted/50 rounded-lg p-4 border border-border">
+              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                Content Quality
+              </div>
+              <div className="text-2xl font-bold text-foreground">
+                {(rankingData.content_quality?.overall_score ?? 0).toFixed(1)}
+              </div>
+            </div>
+
+            <div className="bg-muted/50 rounded-lg p-4 border border-border">
+              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                Avg Accuracy
+              </div>
+              <div className="text-2xl font-bold text-foreground">
+                {avgAccuracy.toFixed(1)}%
+              </div>
+            </div>
+
+            <div className="bg-muted/50 rounded-lg p-4 border border-border">
+              <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+                Avg Sentiment
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-2xl font-bold text-foreground">
+                  {avgSentiment.toFixed(2)}
+                </span>
+                <Badge variant={avgSentiment > 0.1 ? 'success' : avgSentiment < -0.1 ? 'destructive' : 'secondary'}>
+                  {avgSentiment > 0.1 ? 'Pos' : avgSentiment < -0.1 ? 'Neg' : 'Neu'}
+                </Badge>
+              </div>
+            </div>
+          </div>
 
           {/* 1. Ranking position per prompt */}
           {rankingData.ranking_position_per_prompt &&
@@ -244,6 +269,12 @@ export default function AICitationRanking({ jobId, url, rankingData: initialData
                         <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                           Percentile
                         </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                          Accuracy
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                          Sentiment
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-background divide-y divide-border">
@@ -272,6 +303,24 @@ export default function AICitationRanking({ jobId, url, rankingData: initialData
                               {row.percentile != null ? (
                                 <Badge variant={getPercentileBadgeColor(row.percentile)}>
                                   {row.percentile}%
+                                </Badge>
+                              ) : (
+                                <span className="text-muted-foreground text-sm">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              {row.accuracy_score != null ? (
+                                <Badge variant={row.accuracy_score >= 80 ? 'success' : row.accuracy_score >= 50 ? 'warning' : 'destructive'}>
+                                  {row.accuracy_score.toFixed(0)}%
+                                </Badge>
+                              ) : (
+                                <span className="text-muted-foreground text-sm">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              {row.sentiment_score != null ? (
+                                <Badge variant={row.sentiment_score > 0.3 ? 'success' : row.sentiment_score < -0.3 ? 'destructive' : 'secondary'}>
+                                  {row.sentiment_score > 0.3 ? 'Positive' : row.sentiment_score < -0.3 ? 'Negative' : 'Neutral'}
                                 </Badge>
                               ) : (
                                 <span className="text-muted-foreground text-sm">—</span>

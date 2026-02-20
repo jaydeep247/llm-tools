@@ -105,6 +105,132 @@ CONTENT:
                 "location": "",
             }
 
+    async def calculate_batch_accuracy_scores(self, reference_content: str, items: List[Dict[str, Any]], brand_name: str) -> Dict[str, Dict[str, float]]:
+        """
+        Calculates accuracy AND sentiment scores for multiple AI responses in a single LLM call.
+        items: [{"id": "unique_id", "text": "generated response"}, ...]
+        Returns: {"id": {"accuracy": score, "sentiment": score}, ...}
+        """
+        if not reference_content or not items:
+            return {}
+
+        # Prepare the batch text
+        items_text = json.dumps([{ "id": i["id"], "response": i["text"][:1000] } for i in items], indent=2)
+
+        prompt = f"""
+You are a Fact-Checking & Sentiment Analysis AI.
+Task: Rate the ACCURACY (0-100) and SENTIMENT (-1.0 to 1.0) of AI-generated responses based on the Official Reference Content.
+
+BRAND: {brand_name}
+
+OFFICIAL REFERENCE CONTENT:
+{reference_content[:4000]}
+
+ITEMS TO SCORE:
+{items_text}
+
+INSTRUCTIONS:
+1. For EACH item, verify claims against the Reference Content.
+2. Rate ACCURACY (0-100):
+   - 100: Fully accurate/supported.
+   - 50: Mixed/partial support.
+   - 0: False/Hallucinated.
+3. Rate SENTIMENT (-1.0 to 1.0):
+   - 1.0: Extremely Positive.
+   - 0.0: Neutral.
+   - -1.0: Extremely Negative.
+
+Return ONLY a JSON object mapping IDs to their scores:
+{{
+  "item_id_1": {{ "accuracy": 85, "sentiment": 0.8 }},
+  "item_id_2": {{ "accuracy": 40, "sentiment": -0.2 }}
+}}
+"""
+        try:
+            resp = await execute_task(
+                task_name="module_e_accuracy_batch",
+                input_data={"messages": [{"role": "user", "content": prompt}]},
+                provider="openai",
+                options={
+                    "model": "gpt-4o-mini",
+                    "temperature": 0.0,
+                    "response_format": {"type": "json_object"},
+                },
+            )
+
+            if resp.success and resp.data:
+                data = _safe_parse_json(resp.data)
+                # Ensure values are parsed correctly
+                result = {}
+                for k, v in data.items():
+                    try:
+                        acc = float(v.get("accuracy", 0.0))
+                        sent = float(v.get("sentiment", 0.0))
+                        result[str(k)] = {"accuracy": acc, "sentiment": sent}
+                    except:
+                        continue
+                return result
+            
+            return {}
+        except Exception as e:
+            logger.error(f"Batch accuracy/sentiment calculation failed: {e}")
+            return {}
+
+    async def calculate_accuracy_score(self, reference_content: str, generated_response: str, brand_name: str) -> float:
+        """
+        Calculates the accuracy score (0-100) of a generated response against the reference content.
+        Uses an LLM to verify facts and check for hallucinations.
+        """
+        if not reference_content or not generated_response:
+            return 0.0
+
+        prompt = f"""
+You are a Fact-Checking AI. Your task is to rate the ACCURACY of an AI-generated response about a brand, based STRICTLY on the provided Official Reference Content.
+
+BRAND: {brand_name}
+
+OFFICIAL REFERENCE CONTENT:
+{reference_content[:4000]}
+
+AI-GENERATED RESPONSE:
+{generated_response[:2000]}
+
+INSTRUCTIONS:
+1. Verify if the claims in the AI response are supported by the Reference Content.
+2. Penalize for hallucinations (claims not found in or contradicted by reference).
+3. Penalize for factual errors.
+4. Rate the accuracy on a scale of 0 to 100.
+   - 100: Fully accurate, supported by reference.
+   - 50: Mixed accuracy, some unsupported claims.
+   - 0: Completely false or unrelated.
+
+Return ONLY a JSON object:
+{{
+  "score": <number 0-100>,
+  "reasoning": "<short explanation>"
+}}
+"""
+        try:
+            resp = await execute_task(
+                task_name="module_e_accuracy_check",
+                input_data={"messages": [{"role": "user", "content": prompt}]},
+                provider="openai",
+                options={
+                    "model": "gpt-4o-mini",
+                    "temperature": 0.0,
+                    "response_format": {"type": "json_object"},
+                },
+            )
+
+            if resp.success and resp.data:
+                data = _safe_parse_json(resp.data)
+                return float(data.get("score", 0.0))
+            
+            return 0.0
+        except Exception as e:
+            logger.error(f"Accuracy calculation failed: {e}")
+            return 0.0
+
     async def generate_ranking_prompts(
         self,
         topic: str,
@@ -250,3 +376,85 @@ CONTENT:
             "mandate": mandate,
             "batch_scores": [batch_score],
         }
+
+    async def calculate_batch_accuracy_scores(self, reference_content: str, items: List[Dict[str, Any]], brand_name: str) -> Dict[str, Dict[str, float]]:
+        """
+        Calculates accuracy AND sentiment scores for multiple AI responses in a single LLM call.
+        items: [{"id": "unique_id", "text": "generated response"}, ...]
+        Returns: {"id": {"accuracy": score, "sentiment": score}, ...}
+        """
+        if not items:
+            return {}
+
+        # Check if reference content is available
+        has_ref = bool(reference_content and len(reference_content.strip()) > 50)
+        ref_text = reference_content[:4000] if has_ref else "REFERENCE CONTENT NOT AVAILABLE (Web scraping failed)"
+        
+        # Prepare the batch text
+        items_text = json.dumps([{ "id": i["id"], "response": i["text"][:1000] } for i in items], indent=2)
+
+        prompt = f"""
+You are a Fact-Checking & Sentiment Analysis AI.
+Task: Rate the ACCURACY (0-100) and SENTIMENT (-1.0 to 1.0) of AI-generated responses.
+
+OFFICIAL REFERENCE CONTENT:
+{ref_text}
+
+BRAND NAME: {brand_name or "Unknown Brand"}
+
+INSTRUCTIONS:
+1. ACCURACY (0-100):
+   { '- Compare the AI Response against the Reference Content.' if has_ref else '- Reference content is MISSING. Return 0 for accuracy.' }
+   { '- 100 = Fully accurate, supported by reference.' if has_ref else '' }
+   { '- 50 = Partially accurate or generic.' if has_ref else '' }
+   { '- 0 = Hallucinated, false, or contradicts reference.' if has_ref else '' }
+
+2. SENTIMENT (-1.0 to 1.0):
+   - Analyze the sentiment towards the brand "{brand_name}".
+   - 1.0 = Very Positive / Strong Endorsement / "Best".
+   - 0.5 = Positive / Recommended / Listed in Top Tools.
+   - 0.0 = Neutral / Factual / Just a Link.
+   - -1.0 = Negative / Critical.
+   - If Brand Name is unknown, analyze sentiment of the overall text.
+
+ITEMS TO RATE:
+{items_text}
+
+Return ONLY a JSON object mapping IDs to their scores:
+{{
+  "item_id_1": {{ "accuracy": 85, "sentiment": 0.8 }},
+  "item_id_2": {{ "accuracy": 0, "sentiment": -0.2 }}
+}}
+"""
+        logger.info(f"Batch accuracy/sentiment request for {len(items)} items. Has Ref: {has_ref}, Brand: {brand_name}")
+
+        resp = await execute_task(
+            task_name="module_e_accuracy_batch",
+            input_data={"messages": [{"role": "user", "content": prompt}]},
+            provider="openai",
+            options={
+                "model": "gpt-4o-mini",
+                "temperature": 0.2,
+                "response_format": {"type": "json_object"},
+            },
+        )
+
+        if not resp.success:
+            logger.warning("Batch accuracy/sentiment calculation failed: %s", resp.error)
+            return {}
+
+        try:
+            data = _safe_parse_json(resp.data)
+            result = {}
+            for k, v in data.items():
+                if isinstance(v, dict):
+                    result[str(k)] = {
+                        "accuracy": float(v.get("accuracy", 0.0)),
+                        "sentiment": float(v.get("sentiment", 0.0))
+                    }
+                # Handle flattened structure if LLM returns "item_id_1": { ... } directly
+                # Or if keys are just "0", "1"
+            return result
+        except Exception as exc:
+            logger.warning("Failed to parse batch accuracy/sentiment results: %s", exc)
+            return {}

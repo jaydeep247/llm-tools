@@ -125,13 +125,15 @@ export interface RankingAnalysisResult {
     prompt: string;
     model: string;
     position: number | null;
-    total_cited: number;
-    source_diversity: number;
-    credibility_score: number;
-    percentile: number;
-    content_quality_score: number;
-  }>;
-  percentile_by_prompt: Record<string, Record<string, number>>;
+      total_cited: number;
+      source_diversity: number;
+      credibility_score: number;
+      percentile: number;
+      content_quality_score: number;
+      accuracy_score?: number;
+      sentiment_score?: number;
+    }>;
+    percentile_by_prompt: Record<string, Record<string, number>>;
   model_wise_comparison: Array<{ prompt: string;[model: string]: number | string | null }>;
   content_quality: {
     overall_score: number;
