@@ -7,7 +7,9 @@ export enum JobStatus {
 
 export enum JobType {
   CRAWL = 'CRAWL',
-  AEO_ANALYSIS = 'AEO_ANALYSIS',
+  SCHEMA = 'SCHEMA',
+  CONTENT_METRICS = 'CONTENT_METRICS',
+  AEO_ANALYSIS = 'AEO_ANALYSIS'
 }
 
 export interface Job {
@@ -21,6 +23,8 @@ export interface Job {
   runAudits?: boolean;
   auditDevice?: string;
   captureLinkDetails?: boolean;
+  type: JobType;
+  schemaType?: string | null;
   status: JobStatus;
   createdAt: Date;
   startedAt?: Date | null;
@@ -36,5 +40,6 @@ export interface CreateJobDto {
   runAudits?: boolean;
   auditDevice?: string;
   captureLinkDetails?: boolean;
+  type?: JobType;
+  schemaType?: string;
 }
-

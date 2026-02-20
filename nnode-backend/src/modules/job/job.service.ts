@@ -63,6 +63,33 @@ export class JobService {
     return this.jobRepository.findBySessionId(sessionId);
   }
 
+  async startSchemaGeneration(userId: string, jobId: string, schemaType?: string): Promise<Job> {
+    const job = await this.getJobById(userId, jobId);
+
+    await this.queueService.publishSchemaJob({
+      jobId: job.id,
+      sessionId: job.sessionId,
+      projectId: job.projectId,
+      url: job.url,
+      schemaType: schemaType || job.schemaType || undefined,
+    });
+
+    return job;
+  }
+
+  async startContentMetrics(userId: string, jobId: string): Promise<Job> {
+    const job = await this.getJobById(userId, jobId);
+
+    await this.queueService.publishContentMetricsJob({
+      jobId: job.id,
+      sessionId: job.sessionId,
+      projectId: job.projectId,
+      url: job.url,
+    });
+
+    return job;
+  }
+
   async markRunning(jobId: string): Promise<Job> {
     return this.jobRepository.updateStatus(jobId, JobStatus.RUNNING, new Date(), null, null);
   }
@@ -75,4 +102,3 @@ export class JobService {
     return this.jobRepository.updateStatus(jobId, JobStatus.FAILED, undefined, new Date(), errorMessage);
   }
 }
-

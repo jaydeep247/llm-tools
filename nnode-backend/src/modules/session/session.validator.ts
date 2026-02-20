@@ -22,6 +22,7 @@ export const startCrawlSchema = z.object({
 
 export const sessionIdSchema = z.object({
   id: z.string().uuid('Invalid session ID'),
+  // id: z.string().min('Invalid session ID'),
 });
 
 export const projectIdParamSchema = z.object({

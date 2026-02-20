@@ -1,6 +1,6 @@
-'use client'
 
-import { useState } from 'react'
+
+import { useEffect, useState } from 'react'
 import { 
   Play,
   Copy,
@@ -8,11 +8,19 @@ import {
   AlertCircle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-// import { useGenerateSchemaMutation } from '@/store/api/module_C/aeoApi'
 import { useGetSessionQuery } from '@/store/api/sessionApi'
+import { useGetJobSchemaQuery, useGenerateJobSchemaMutation } from '@/store/api/jobApi'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 interface SchemaGeneratorTableProps {
-  sessionId: number
+  sessionId: string
+  jobId: string | null
   sessionStatus?: 'idle' | 'running' | 'auditing' | 'completed' | 'cancelled'
   isLoading?: boolean
   onRefresh?: () => void
@@ -21,6 +29,7 @@ interface SchemaGeneratorTableProps {
 
 export function SchemaGeneratorTable({ 
   sessionId,
+  jobId,
   sessionStatus = 'completed',
   isLoading: externalLoading = false,
   onRefresh,
@@ -32,44 +41,65 @@ export function SchemaGeneratorTable({
   const [copiedSchema, setCopiedSchema] = useState(false)
   const [schemaFormat, setSchemaFormat] = useState<'json-ld' | 'rdfa'>('json-ld')
   const [selectedSchemaType, setSelectedSchemaType] = useState<string>('auto')
+  const [schemaJobId, setSchemaJobId] = useState<string | null>(null)
+  const [lastSchemaCreatedAt, setLastSchemaCreatedAt] = useState<string | null>(null)
 
-  // Fetch session data to get the URL
   const { data: sessionData } = useGetSessionQuery(sessionId)
   const session = sessionData?.session
-  const url = session?.startUrl || ''
 
-  // Generate schema mutation
-  // const [generateSchema, { isLoading: isGeneratingSchema }] = useGenerateSchemaMutation()
-  const generateSchema = (args: any) => ({ unwrap: async () => ({ success: false, error: 'Feature unavailable' } as any) })
-  const isGeneratingSchema = false
+  const [generateJobSchema] = useGenerateJobSchemaMutation()
+
+  const { data: schemaResult } = useGetJobSchemaQuery(schemaJobId || '', {
+    skip: !schemaJobId,
+    pollingInterval: schemaLoading ? 3000 : 0,
+  })
 
   const handleGenerateSchema = async () => {
-    if (!url) {
-      setSchemaError('No URL found for this session')
+    if (!jobId) {
+      setSchemaError('No crawl job found for this session. Run a crawl first.')
       return
     }
 
     setSchemaLoading(true)
     setSchemaError(null)
+    setSchemaData(null)
 
     try {
-      const result = await generateSchema({ 
-        url, 
-        schema_type: selectedSchemaType 
+      await generateJobSchema({
+        jobId,
+        schemaType: selectedSchemaType === 'auto' ? undefined : selectedSchemaType,
       }).unwrap()
 
-      if (result.success) {
-        // Handle both possible response formats
-        setSchemaData(result.results || result.schema)
-      } else {
-        setSchemaError(result.error || 'Failed to generate schema')
-      }
+      setSchemaJobId(jobId)
     } catch (error: any) {
       setSchemaError(error?.data?.error || error?.message || 'Failed to generate schema')
-    } finally {
       setSchemaLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (!schemaResult) return
+
+    const createdAt = schemaResult.createdAt ?? null
+
+    if (lastSchemaCreatedAt && createdAt && createdAt <= lastSchemaCreatedAt) {
+      return
+    }
+
+    if (!schemaLoading) return
+
+    if (schemaResult.success) {
+      setSchemaData(schemaResult)
+      setSchemaLoading(false)
+    } else if (schemaResult.error) {
+      setSchemaError(schemaResult.message || schemaResult.error || 'Failed to generate schema')
+      setSchemaLoading(false)
+    }
+
+    if (createdAt) {
+      setLastSchemaCreatedAt(createdAt)
+    }
+  }, [schemaLoading, schemaResult, lastSchemaCreatedAt])
 
   const copySchemaToClipboard = () => {
     const textToCopy = schemaFormat === 'json-ld'
@@ -120,7 +150,7 @@ export function SchemaGeneratorTable({
         </div>
         <Button
           onClick={handleGenerateSchema}
-          disabled={schemaLoading || !url}
+          disabled={schemaLoading || !jobId}
           className="bg-green-500 hover:bg-green-600 text-white disabled:bg-gray-500 disabled:cursor-not-allowed cursor-pointer shrink-0"
         >
           <Play className={`h-4 w-4 mr-2 ${schemaLoading ? 'animate-spin' : ''}`} />
@@ -133,39 +163,78 @@ export function SchemaGeneratorTable({
         <label htmlFor="schema-type" className="block text-sm font-medium text-white mb-2">
           Select Schema Type:
         </label>
-        <div className="relative w-full sm:w-96">
-          <select
-            id="schema-type"
-            className="w-full bg-white/5 border border-white/20 text-white text-sm h-10 rounded-full px-4 pr-10 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+        <div className="w-full sm:w-96">
+          <Select
             value={selectedSchemaType}
-            onChange={(e) => setSelectedSchemaType(e.target.value)}
+            onValueChange={setSelectedSchemaType}
             disabled={schemaLoading}
           >
-            <option value="auto">🤖 Auto-detect (Recommended)</option>
-            <option value="Organization">🏢 Organization Markup</option>
-            <option value="LocalBusiness">🏪 Local Business Markup</option>
-            <option value="WebPage">📄 WebPage Markup</option>
-            <option value="Article">📰 Article Markup</option>
-            <option value="BlogPosting">✍️ Blog Post Markup</option>
-            <option value="Product">🛍️ Product Markup</option>
-            <option value="Service">⚙️ Service Markup</option>
-            <option value="FAQPage">❓ FAQ Markup</option>
-            <option value="BreadcrumbList">🍞 Breadcrumb Markup</option>
-            <option value="Person">👤 Person Markup</option>
-            <option value="Event">📅 Event Markup</option>
-            <option value="Recipe">🍳 Recipe Markup</option>
-            <option value="HowTo">📖 How To Markup</option>
-            <option value="VideoObject">🎥 Video Markup</option>
-            <option value="ImageObject">🖼️ Image Markup</option>
-            <option value="Course">🎓 Course Markup</option>
-            <option value="JobPosting">💼 Job Posting Markup</option>
-            <option value="Review">⭐ Review Markup</option>
-          </select>
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-            <svg className="w-4 h-4 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
+            <SelectTrigger
+              id="schema-type"
+              className="bg-white/10 border-white/20 text-white rounded-full text-sm w-full"
+            >
+              <SelectValue placeholder="Select schema type" />
+            </SelectTrigger>
+            <SelectContent className="bg-slate-900 border-white/20">
+              <SelectItem value="auto" className="text-white text-sm">
+                🤖 Auto-detect (Recommended)
+              </SelectItem>
+              <SelectItem value="Organization" className="text-white text-sm">
+                🏢 Organization Markup
+              </SelectItem>
+              <SelectItem value="LocalBusiness" className="text-white text-sm">
+                🏪 Local Business Markup
+              </SelectItem>
+              <SelectItem value="WebPage" className="text-white text-sm">
+                📄 WebPage Markup
+              </SelectItem>
+              <SelectItem value="Article" className="text-white text-sm">
+                📰 Article Markup
+              </SelectItem>
+              <SelectItem value="BlogPosting" className="text-white text-sm">
+                ✍️ Blog Post Markup
+              </SelectItem>
+              <SelectItem value="Product" className="text-white text-sm">
+                🛍️ Product Markup
+              </SelectItem>
+              <SelectItem value="Service" className="text-white text-sm">
+                ⚙️ Service Markup
+              </SelectItem>
+              <SelectItem value="FAQPage" className="text-white text-sm">
+                ❓ FAQ Markup
+              </SelectItem>
+              <SelectItem value="BreadcrumbList" className="text-white text-sm">
+                🍞 Breadcrumb Markup
+              </SelectItem>
+              <SelectItem value="Person" className="text-white text-sm">
+                👤 Person Markup
+              </SelectItem>
+              <SelectItem value="Event" className="text-white text-sm">
+                📅 Event Markup
+              </SelectItem>
+              <SelectItem value="Recipe" className="text-white text-sm">
+                🍳 Recipe Markup
+              </SelectItem>
+              <SelectItem value="HowTo" className="text-white text-sm">
+                📖 How To Markup
+              </SelectItem>
+              <SelectItem value="VideoObject" className="text-white text-sm">
+                🎥 Video Markup
+              </SelectItem>
+              <SelectItem value="ImageObject" className="text-white text-sm">
+                🖼️ Image Markup
+              </SelectItem>
+              <SelectItem value="Course" className="text-white text-sm">
+                🎓 Course Markup
+              </SelectItem>
+              <SelectItem value="JobPosting" className="text-white text-sm">
+                💼 Job Posting Markup
+              </SelectItem>
+              <SelectItem value="Review" className="text-white text-sm">
+                ⭐ Review Markup
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
