@@ -34,6 +34,7 @@ export default function SessionProgressPage() {
     skip: !activeJob?.id
   })
 
+  
   const [crawlStatus, setCrawlStatus] = useState<'idle' | 'running' | 'auditing' | 'completed' | 'cancelled' | 'failed'>('idle')
   const [discoveredPages, setDiscoveredPages] = useState<string[]>([])
   const [logs, setLogs] = useState<LogEntry[]>([])
