@@ -39,8 +39,8 @@ export interface LinkCheckResults {
 }
 
 interface BrokenLinkCheckerProps {
-  sessionId: number
-  onCheck?: (sessionId: number) => Promise<LinkCheckResults>
+  sessionId: string | number
+  onCheck?: (sessionId: string | number) => Promise<LinkCheckResults>
   checkResults?: LinkCheckResults | null
   isChecking?: boolean
 }

@@ -59,7 +59,7 @@ export default function SessionDetailPage() {
     const bTime = new Date(b.createdAt).getTime()
     return bTime - aTime
   })
-  const latestCrawlJob = sortedJobs.find((job) => job.jobType === 'CRAWL') || null
+  const latestCrawlJob = sortedJobs.find((job) => job.type === 'CRAWL') || null
   const jobId = latestCrawlJob?.id
 
   const { data: moduleEQueryData } = useGetModuleEResultQuery(jobId || '', {
@@ -439,7 +439,7 @@ export default function SessionDetailPage() {
 
 
   // Handle broken link checking
-  const handleCheckLinks = async (sessionId: number) => {
+  const handleCheckLinks = async (sessionId: string | number) => {
     try {
       const result = await checkLinks(sessionId).unwrap()
       return result.results
@@ -789,7 +789,7 @@ export default function SessionDetailPage() {
 
         {/* Show Site Structure on site-structure tab */}
         {activeSection === 'site-structure' && (
-          <div className="rounded-lg p-4 sm:p-6 border border-white/20 bg-white/10 backdrop-blur-xl h-[600px]">
+          <div className="rounded-lg p-4 sm:p-6 border border-white/20 bg-white/10 backdrop-blur-xl h-150">
             <SiteStructure
               sessionId={sessionId}
               pages={siteStructurePages}
@@ -878,22 +878,4 @@ export default function SessionDetailPage() {
       </div>
     </SessionLayout>
   )
-export default async function SessionDetailPage({
-  params
-}: {
-  params: Promise<{ projectId: string; sessionId: string }>
-}) {
-  const { projectId, sessionId } = await params
-  
-  // Server-side check for session status to prevent flash of content
-  const data = await getSession(sessionId)
-  const session = data?.session || data?.data
-
-  if (session) {
-    if (session.status === 'running' || session.status === 'auditing') {
-      redirect(`/dashboard/projects/${projectId}/sessions/${sessionId}/progress`)
-    }
-  }
-  
-  return <SessionDetailClient />
 }

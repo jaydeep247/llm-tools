@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 
 interface AnswerCompletenessModuleProps {
   url: string
-  sessionId?: number
+  sessionId?: string | number
 }
 
 export default function AnswerCompletenessModule({ url, sessionId }: AnswerCompletenessModuleProps) {

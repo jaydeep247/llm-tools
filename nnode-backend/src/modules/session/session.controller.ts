@@ -5,6 +5,7 @@ import { ResponseUtil } from '../../utils/response';
 import { sessionIdSchema, projectIdParamSchema, updateSessionStatusSchema, startCrawlSchema } from './session.validator';
 import { logger } from '../../shared/logger/logger';
 import { SessionStatus } from './session.types';
+import { JobType } from '../job/job.types';
 import { getRedisClient } from '../../config/redis';
 
 export class SessionController {
@@ -33,7 +34,8 @@ export class SessionController {
       const resolvedModules = modules && modules.length > 0 ? modules : [];
 
       await this.jobService.createJob(session.id, userId, {
-        jobType: 'CRAWL',
+        url,
+        jobType: JobType.CRAWL,
         config: {
           url,
           allowSubdomains,

@@ -50,4 +50,18 @@ export class QueueService {
       `Enqueued content metrics job ${payload.jobId} for session ${payload.sessionId} url=${payload.url}`
     );
   }
+
+  async publishAnalysisJob(payload: AnalysisJobPayload): Promise<void> {
+    const channel = await getRabbitChannel();
+    const body = Buffer.from(JSON.stringify({ jobType: 'AEO_ANALYSIS', ...payload }));
+
+    channel.publish(QUEUE_EXCHANGE_ANALYSIS, ROUTING_KEY_ANALYSIS_START, body, {
+      persistent: true,
+      contentType: 'application/json',
+    });
+
+    logger.info(
+      `Enqueued analysis job ${payload.jobId} for session ${payload.sessionId} url=${payload.url}`
+    );
+  }
 }

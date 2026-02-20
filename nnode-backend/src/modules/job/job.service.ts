@@ -31,19 +31,17 @@ export class JobService {
         url: job.url,
         schemaType: job.schemaType || undefined,
       });
-    } else {
-      if (job.jobType === JobType.CRAWL) {
+    } else if (job.jobType === JobType.CRAWL) {
       await this.queueService.publishCrawlJob({
-          jobId: job.id,
-          sessionId,
-          projectId,
-          url: job.url,
-          allowSubdomains: job.allowSubdomains,
-          runAudits: job.runAudits,
-          auditDevice: job.auditDevice,
-          captureLinkDetails: job.captureLinkDetails,
-        });
-    }
+        jobId: job.id,
+        sessionId,
+        projectId,
+        url: job.url,
+        allowSubdomains: job.allowSubdomains,
+        runAudits: job.runAudits,
+        auditDevice: job.auditDevice,
+        captureLinkDetails: job.captureLinkDetails,
+      });
     } else if (job.jobType === JobType.AEO_ANALYSIS) {
       await this.queueService.publishAnalysisJob({
         jobId: job.id,
