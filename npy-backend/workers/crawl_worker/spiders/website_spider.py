@@ -15,6 +15,7 @@ import gzip
 from io import BytesIO
 
 import redis
+from scrapy import signals
 
 from .items import PageItem, LinkItem, SitemapUrlItem
 from .extractors import (
@@ -27,6 +28,7 @@ from .extractors import (
 )
 from utils.logger import logger
 from utils.config import config
+from utils.event_publisher import publisher
 
 # Import Module A Metrics
 # Import Module A Metrics
@@ -118,6 +120,23 @@ class WebsiteSpider(scrapy.Spider):
         self.MAX_PAGINATION_DEPTH = 5  # Strict limit: max 5 pages deep
         self.MAX_PAGINATION_FAILURES = 1 # Strict limit: stop on FIRST failure
 
+    @classmethod
+    def from_crawler(cls, crawler, *args, **kwargs):
+        spider = super(WebsiteSpider, cls).from_crawler(crawler, *args, **kwargs)
+        crawler.signals.connect(spider.spider_closed, signal=signals.spider_closed)
+        return spider
+
+    def spider_closed(self, spider, reason):
+        if self.job_id:
+            status = 'completed' if reason == 'finished' else 'failed'
+            publisher.emit_event(self.job_id, 'JOB_COMPLETED' if status == 'completed' else 'JOB_FAILED', {
+                'status': status,
+                'reason': reason,
+                'pagesCrawled': self.pages_crawled,
+                'completedAt': datetime.now().isoformat()
+            })
+            logger.info(f"Emitted job completion event for {self.job_id} (status={status})")
+
     def normalize_url(self, url: str) -> str:
         parsed = urlparse(url)
         scheme = parsed.scheme.lower()
@@ -187,6 +206,14 @@ class WebsiteSpider(scrapy.Spider):
         self.crawl_started_at = datetime.now().isoformat()
         self.crawl_started_timestamp = datetime.now().timestamp()
         
+        if self.job_id:
+            publisher.emit_event(self.job_id, 'JOB_STARTED', {
+                'status': 'running',
+                'startedAt': self.crawl_started_at,
+                'url': self.start_url
+            })
+            logger.info(f"Emitted job start event for {self.job_id}")
+
         if not self.allow_discovery:
             logger.info(f"Starting fixed URL crawl for {self.start_url}")
             for url in self.start_urls:
@@ -497,6 +524,16 @@ class WebsiteSpider(scrapy.Spider):
                     f"{self.pages_crawled}/{self.planned_total} pages done, "
                     f"{remaining} remaining (current={response.url})"
                 )
+            
+            if self.job_id:
+                publisher.emit_event(self.job_id, 'log', {
+                    'message': f"Crawled {response.url} ({response.status})",
+                    'level': 'info',
+                    'pagesCrawled': self.pages_crawled
+                })
+                publisher.emit_event(self.job_id, 'link_found', {
+                    'url': response.url
+                })
 
             if self.max_pages > 0 and self.pages_crawled >= self.max_pages:
                 self.should_stop = True

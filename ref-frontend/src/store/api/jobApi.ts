@@ -26,8 +26,31 @@ export interface CrawlResult {
   fields: any[];
 }
 
+export interface JobSnapshot {
+  jobId: string;
+  status: string;
+  logs: { message: string; timestamp: string | number }[];
+  links: { url: string; timestamp?: string | number }[];
+  completed: boolean;
+  snapshotAt: number;
+}
+
 export const jobApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
+    // Get job snapshot for live updates
+    getJobSnapshot: builder.query<JobSnapshot, string>({
+      query: (jobId) => `/jobs/${jobId}/snapshot`,
+      transformResponse: (response: { success: boolean; data: JobSnapshot }) => response.data,
+      providesTags: (result, error, jobId) => [{ type: 'Job', id: jobId }],
+    }),
+
+    // Get job status by jobId
+    getJobStatus: builder.query<Job, string>({
+      query: (jobId) => `/jobs/${jobId}/status`,
+      transformResponse: (response: { success: boolean; data: any }) => response.data.job || response.data,
+      providesTags: (result, error, jobId) => [{ type: 'Job', id: jobId }],
+    }),
+
     // Get all jobs for a session
     getSessionJobs: builder.query<
       { success: boolean; data: Job[] },
@@ -81,6 +104,8 @@ export const jobApi = baseApi.injectEndpoints({
 });
 
 export const {
+  useGetJobSnapshotQuery,
+  useGetJobStatusQuery,
   useGetSessionJobsQuery,
   useGetJobResultsQuery,
   useLazyGetJobResultsQuery,

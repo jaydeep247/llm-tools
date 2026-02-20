@@ -20,40 +20,21 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { useGetProjectsQuery, useCreateProjectMutation, useDeleteProjectMutation, type Project } from '@/store/api/projectApi'
+import { useGetProjectsQuery, useCreateProjectMutation, type Project } from '@/store/api/projectApi'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { ProjectEditDialog } from '@/components/dashboard/ProjectEditDialog'
-import { useGlobalDialog } from '@/components/providers/GlobalDialogProvider'
+import { ProjectDeleteDialog } from '@/components/dashboard/ProjectDeleteDialog'
 
 export default function ProjectsPage() {
   const router = useRouter()
-  const { confirm } = useGlobalDialog()
   const { data, isLoading, error } = useGetProjectsQuery(undefined, { refetchOnMountOrArgChange: true })
   const [createProject, { isLoading: isCreating }] = useCreateProjectMutation()
-  const [deleteProject] = useDeleteProjectMutation()
   
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [projectToEdit, setProjectToEdit] = useState<Project | null>(null)
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
   const [formData, setFormData] = useState({ name: '', description: '' })
-
-  const handleDeleteProject = async (project: Project) => {
-    const isConfirmed = await confirm({
-      title: 'Delete Project',
-      description: `Are you sure you want to delete "${project.name}"? This action cannot be undone and will permanently delete all associated crawl sessions.`,
-      confirmText: 'Delete Project',
-      variant: 'destructive',
-    })
-
-    if (isConfirmed) {
-      try {
-        await deleteProject(project.id).unwrap()
-        toast.success('Project deleted successfully')
-      } catch (error: any) {
-        toast.error(error?.data?.message || 'Failed to delete project')
-      }
-    }
-  }
 
   const handleCreateProject = async () => {
     if (!formData.name.trim()) {
@@ -204,7 +185,7 @@ export default function ProjectsPage() {
                         <DropdownMenuItem 
                           onClick={(e) => {
                             e.stopPropagation()
-                            handleDeleteProject(project)
+                            setProjectToDelete(project)
                           }}
                           className="text-red-400 cursor-pointer hover:bg-red-500/10"
                         >
@@ -301,6 +282,13 @@ export default function ProjectsPage() {
         project={projectToEdit}
         open={!!projectToEdit}
         onOpenChange={(open) => !open && setProjectToEdit(null)}
+      />
+
+      {/* Delete Project Dialog */}
+      <ProjectDeleteDialog
+        project={projectToDelete}
+        open={!!projectToDelete}
+        onOpenChange={(open) => !open && setProjectToDelete(null)}
       />
     </>
   )

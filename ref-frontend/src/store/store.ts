@@ -2,10 +2,12 @@
 
 import { configureStore } from '@reduxjs/toolkit';
 import { baseApi } from './api/baseApi';
+import liveJobReducer from './slices/liveJobSlice';
 
 export const store = configureStore({
   reducer: {
     [baseApi.reducerPath]: baseApi.reducer,
+    liveJob: liveJobReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

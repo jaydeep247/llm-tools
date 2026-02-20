@@ -9,14 +9,13 @@ import { useGetProjectSessionsQuery, useCreateSessionMutation, useCreateJobMutat
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { ProjectEditDialog } from '@/components/dashboard/ProjectEditDialog'
+import { ProjectDeleteDialog } from '@/components/dashboard/ProjectDeleteDialog'
 import type { CrawlSession } from '@/store/api/sessionApi'
-import { useGlobalDialog } from '@/components/providers/GlobalDialogProvider'
 
 export default function ProjectDetailPage() {
   const params = useParams()
   const router = useRouter()
   const projectId = params.projectId as string
-  const { confirm } = useGlobalDialog()
 
   const { data: projectData, isLoading: isLoadingProject, error: projectError } = useGetProjectQuery(projectId, { refetchOnMountOrArgChange: true })
   const { data: sessionsData, isLoading: isLoadingSessions } = useGetProjectSessionsQuery({ projectId }, { refetchOnMountOrArgChange: true })
@@ -50,14 +49,7 @@ export default function ProjectDetailPage() {
   }
 
   const handleDeleteSession = async (sessionId: string) => {
-    const isConfirmed = await confirm({
-      title: 'Delete Session',
-      description: 'Are you sure you want to delete this session? This action cannot be undone.',
-      confirmText: 'Delete',
-      variant: 'destructive',
-    })
-
-    if (isConfirmed) {
+    if (confirm('Are you sure you want to delete this session?')) {
         try {
             await deleteSession(sessionId).unwrap()
         } catch (err) {
@@ -68,6 +60,7 @@ export default function ProjectDetailPage() {
 
 
   const [projectToEdit, setProjectToEdit] = useState<Project | null>(null)
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
 
   const isStartingCrawl = isCreatingSession || isCreatingJob
 
@@ -175,7 +168,7 @@ export default function ProjectDetailPage() {
       }).unwrap()
 
       // Navigate to session details page (which defaults to crawler tab/view)
-      router.push(`/dashboard/projects/${projectId}/sessions/${sessionId}`)
+      router.push(`/dashboard/projects/${projectId}/sessions/${sessionId}/progress`)
     } catch (err: any) {
       setError(err?.data?.message || err?.message || 'Failed to start crawl session')
     }
@@ -187,7 +180,7 @@ export default function ProjectDetailPage() {
       <div className="space-y-2 sm:space-y-3">
         <div className="flex flex-col gap-2">
           {/* Project Name */}
-          <div className="min-h-10 flex items-center">
+          <div className="min-h-[40px] flex items-center">
             {editingName ? (
               <div className="flex items-center gap-2 flex-1 max-w-xl">
                 <Input
@@ -226,7 +219,7 @@ export default function ProjectDetailPage() {
           </div>
 
           {/* Project Description */}
-          <div className="min-h-6 flex items-center">
+          <div className="min-h-[24px] flex items-center">
             {editingDesc ? (
               <div className="flex items-center gap-2 flex-1 max-w-xl">
                 <Input
@@ -465,6 +458,13 @@ export default function ProjectDetailPage() {
         project={projectToEdit}
         open={!!projectToEdit}
         onOpenChange={(open) => !open && setProjectToEdit(null)}
+      />
+
+      <ProjectDeleteDialog 
+        project={projectToDelete}
+        open={!!projectToDelete}
+        onOpenChange={(open) => !open && setProjectToDelete(null)}
+        onSuccess={() => router.push('/dashboard/projects')}
       />
     </div>
   )

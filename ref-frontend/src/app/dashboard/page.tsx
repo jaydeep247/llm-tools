@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, TrendingUp, Users, Zap, FolderOpen, MoreVertical, Pencil, Trash2, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useGetProjectsQuery, useDeleteProjectMutation, type Project } from '@/store/api/projectApi'
+import { useGetProjectsQuery, type Project } from '@/store/api/projectApi'
 import { useToast } from '@/hooks/use-toast'
 import { AuthModal } from '@/components/auth/auth-modal'
 import { useAuth } from '@/hooks/useAuth'
@@ -15,45 +15,19 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ProjectEditDialog } from '@/components/dashboard/ProjectEditDialog'
-import { useGlobalDialog } from '@/components/providers/GlobalDialogProvider'
+import { ProjectDeleteDialog } from '@/components/dashboard/ProjectDeleteDialog'
 
 export default function DashboardPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const { confirm } = useGlobalDialog()
   const { isAuthenticated, refreshAuth } = useAuth()
   const { data: projectsData } = useGetProjectsQuery(undefined, { refetchOnMountOrArgChange: true })
-  const [deleteProject] = useDeleteProjectMutation()
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
   const [projectToEdit, setProjectToEdit] = useState<Project | null>(null)
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
 
   const handleAuthSuccess = () => {
     refreshAuth()
-  }
-
-  const handleDeleteProject = async (project: Project) => {
-    const isConfirmed = await confirm({
-      title: 'Delete Project',
-      description: `Are you sure you want to delete "${project.name}"? This action cannot be undone and will permanently delete all associated crawl sessions.`,
-      confirmText: 'Delete Project',
-      variant: 'destructive',
-    })
-
-    if (isConfirmed) {
-      try {
-        await deleteProject(project.id).unwrap()
-        toast({
-          title: 'Project deleted',
-          description: 'Your project has been successfully deleted.',
-        })
-      } catch (error: any) {
-        toast({
-          title: 'Failed to delete project',
-          description: error?.data?.message || 'An error occurred while deleting the project.',
-          variant: 'destructive',
-        })
-      }
-    }
   }
 
   const handleViewProject = (projectId: string) => {
@@ -201,7 +175,7 @@ export default function DashboardPage() {
                         <DropdownMenuItem 
                           onClick={(e) => {
                             e.stopPropagation()
-                            handleDeleteProject(project)
+                            setProjectToDelete(project)
                           }}
                           className="text-red-400 cursor-pointer hover:bg-red-500/10"
                         >
@@ -283,6 +257,13 @@ export default function DashboardPage() {
         project={projectToEdit}
         open={!!projectToEdit}
         onOpenChange={(open) => !open && setProjectToEdit(null)}
+      />
+
+      {/* Delete Project Dialog */}
+      <ProjectDeleteDialog
+        project={projectToDelete}
+        open={!!projectToDelete}
+        onOpenChange={(open) => !open && setProjectToDelete(null)}
       />
     </div>
   )

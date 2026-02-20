@@ -17,6 +17,7 @@ from scrapy.crawler import CrawlerProcess
 
 from utils.logger import configure_logger, logger
 from utils.config import config
+from utils.event_publisher import publisher
 from workers.crawl_worker.spiders.website_spider import WebsiteSpider
 from workers.crawl_worker.spiders.sitemap_discovery import SitemapDiscovery
 from workers.crawl_worker.preflight import preflight_discover_all_urls
@@ -71,16 +72,13 @@ def get_mongo_client() -> MongoClient:
     return MongoClient(config.MONGO_URI, serverSelectionTimeoutMS=5000)
 
 
-def run_crawl_job(url: str, session_id: str, job_id: str, project_id: str) -> None:
+# Use multiprocess to run scrapy in a separate process
+# This is required because Twisted reactor cannot be restarted in the same process
+import multiprocessing
+
+def run_spider_in_process(url, session_id, job_id, project_id, urls, total_urls):
     configure_logger()
-    logger.info(f"Starting crawl job {job_id} for {url}")
-
-    urls = preflight_discover_all_urls(url)
-    total_urls = len(urls)
-    logger.info(f"Preflight discovered {total_urls} unique URLs for {url}")
-
     process = CrawlerProcess(settings=SCRAPY_SETTINGS)
-
     process.crawl(
         WebsiteSpider,
         start_url=url,
@@ -92,8 +90,29 @@ def run_crawl_job(url: str, session_id: str, job_id: str, project_id: str) -> No
         allow_discovery=False,
         planned_total=total_urls,
     )
-
     process.start()
+
+def run_crawl_job(url: str, session_id: str, job_id: str, project_id: str) -> None:
+    configure_logger()
+    logger.info(f"Starting crawl job {job_id} for {url}")
+    
+    publisher.emit_event(job_id, 'log', {'message': f"Starting preflight discovery for {url}", 'level': 'info'})
+
+    urls = preflight_discover_all_urls(url)
+    total_urls = len(urls)
+    logger.info(f"Preflight discovered {total_urls} unique URLs for {url}")
+    publisher.emit_event(job_id, 'log', {'message': f"Preflight discovered {total_urls} unique URLs", 'level': 'info'})
+
+    # Run crawler in a separate process to avoid ReactorNotRestartable
+    p = multiprocessing.Process(
+        target=run_spider_in_process,
+        args=(url, session_id, job_id, project_id, urls, total_urls)
+    )
+    p.start()
+    p.join()
+    
+    if p.exitcode != 0:
+        raise Exception(f"Crawler process failed with exit code {p.exitcode}")
 
     logger.info(f"Crawl finished for job {job_id} and url {url}")
 
@@ -110,6 +129,8 @@ def execute_job(payload: dict) -> bool:
 
     try:
         jobs = db.jobs
+        sessions = db.sessions
+
         jobs.update_one(
             {"id": job_id},
             {
@@ -119,6 +140,22 @@ def execute_job(payload: dict) -> bool:
                 }
             },
         )
+        
+        sessions.update_one(
+            {"id": session_id},
+            {
+                "$set": {
+                    "status": "RUNNING",
+                    "startedAt": datetime.utcnow(),
+                }
+            },
+        )
+        
+        publisher.emit_event(job_id, 'JOB_STARTED', {
+            'status': 'running',
+            'startedAt': datetime.now().isoformat(),
+            'url': url
+        })
 
         session_key = f"session:{session_id}"
         r.hset(
@@ -145,6 +182,7 @@ def execute_job(payload: dict) -> bool:
 
         # Pre-crawl planning: discover sitemap URLs to know how many links we plan to crawl
         try:
+            publisher.emit_event(job_id, 'log', {'message': "Analyzing sitemaps for crawl planning...", 'level': 'info'})
             async def _plan_crawl(start_url: str):
                 discovery = SitemapDiscovery(timeout=30)
                 return await discovery.discover_sitemaps(start_url)
@@ -173,6 +211,16 @@ def execute_job(payload: dict) -> bool:
                 }
             },
         )
+        
+        sessions.update_one(
+            {"id": session_id},
+            {
+                "$set": {
+                    "status": "COMPLETED",
+                    "completedAt": datetime.utcnow(),
+                }
+            },
+        )
 
         r.hset(session_key, mapping={"status": "COMPLETED"})
         r.expire(session_key, 3600)
@@ -185,6 +233,7 @@ def execute_job(payload: dict) -> bool:
         raise RetryableJobError(str(e)) from e
     except Exception as e:
         jobs = db.jobs
+        sessions = db.sessions
         jobs.update_one(
             {"id": job_id},
             {
@@ -194,6 +243,17 @@ def execute_job(payload: dict) -> bool:
                 }
             },
         )
+        
+        sessions.update_one(
+            {"id": session_id},
+            {
+                "$set": {
+                    "status": "FAILED",
+                    "completedAt": datetime.utcnow(),
+                }
+            },
+        )
+        
         r.hset(job_key, mapping={"status": "FAILED"})
         r.expire(job_key, 3600)
         raise NonRetryableJobError(str(e)) from e

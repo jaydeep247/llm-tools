@@ -1,23 +1,23 @@
 'use client'
 
 import { useParams, useRouter } from 'next/navigation'
-import { useEffect, useState, useMemo } from 'react'
-import { Loader2, ArrowRight } from 'lucide-react'
+import { useEffect, useState, useMemo, useRef } from 'react'
+import { Loader2 } from 'lucide-react'
 import { motion, AnimatePresence, easeOut, easeIn } from 'framer-motion'
-import { Button } from '@/components/ui/button'
 import Aurora from '@/components/animations/Aurora'
 import { useGetSessionQuery } from '@/store/api/sessionApi'
+import { useGetSessionJobsQuery, useGetJobSnapshotQuery } from '@/store/api/jobApi'
 import { formatDurationHHMMSSMS } from '@/utils/formatDuration'
+import { io } from 'socket.io-client'
 
 interface LogEntry {
   message: string
-  timestamp: string
+  timestamp: string | number
 }
 
 export default function SessionProgressPage() {
   const params = useParams()
   const router = useRouter()
-  const projectId = params.projectId as string
   const sessionId = params.sessionId as string
   
   // Fetch session data using RTK Query
@@ -25,278 +25,218 @@ export default function SessionProgressPage() {
   const session = sessionData?.session
   const isLoading = isLoadingSession
 
+  const { data: jobsData } = useGetSessionJobsQuery(sessionId, { pollingInterval: 0 })
+  const jobs = jobsData?.data || []
+  const activeJob = jobs.find(j => j.status === 'running' || j.status === 'pending') || jobs[jobs.length - 1]
+
+  // Snapshot Query
+  const { data: snapshotData, isSuccess: isSnapshotSuccess } = useGetJobSnapshotQuery(activeJob?.id || '', {
+    skip: !activeJob?.id
+  })
+
   const [crawlStatus, setCrawlStatus] = useState<'idle' | 'running' | 'auditing' | 'completed' | 'cancelled' | 'failed'>('idle')
-  const [pageCount, setPageCount] = useState(0)
   const [discoveredPages, setDiscoveredPages] = useState<string[]>([])
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [crawlStartTime, setCrawlStartTime] = useState<number | null>(null)
   const [currentTime, setCurrentTime] = useState(Date.now())
-  const [estimatedTotal, setEstimatedTotal] = useState<number | null>(null)
-  const [progressPercentage, setProgressPercentage] = useState(0)
+  const [snapshotLoaded, setSnapshotLoaded] = useState(false)
+  const snapshotBoundaryRef = useRef<number | null>(null)
+
+  const pageCount = discoveredPages.length
   
+  // Reset snapshot state when job changes
   useEffect(() => {
+    setSnapshotLoaded(false)
+  }, [activeJob?.id])
+  
+  // ✅ STEP 3 — TIMER MUST WAIT FOR TIME ANCHOR
+  useEffect(() => {
+    if (!crawlStartTime) return
+
     const timer = setInterval(() => {
       setCurrentTime(Date.now())
     }, 100)
-    
+
     return () => clearInterval(timer)
-  }, [])
+  }, [crawlStartTime])
 
-  // Server-Sent Events for live updates
+  // Sync state from Snapshot - Single Source of Truth
   useEffect(() => {
-    const eventSource = new EventSource('/events', {
-      withCredentials: true
-    })
+    if (isSnapshotSuccess && snapshotData && !snapshotLoaded) {
+      console.log('📸 Snapshot loaded:', snapshotData)
 
-    eventSource.addEventListener('connected', (e) => {
-      console.log('SSE connected:', JSON.parse(e.data))
-    })
-
-    eventSource.addEventListener('log', (e) => {
-      const data = JSON.parse(e.data)
-      if (data.sessionId && data.sessionId.toString() !== sessionId) return
-      
-      setLogs(prev => [...prev.slice(-99), {
-        message: data.message,
-        timestamp: new Date().toLocaleTimeString()
-      }])
-    })
-
-    eventSource.addEventListener('page', (e) => {
-      const data = JSON.parse(e.data)
-      if (data.sessionId && data.sessionId.toString() !== sessionId) return
-      
-      setDiscoveredPages(prev => [...prev.slice(-49), data.url])
-      setPageCount(prev => prev + 1)
-      
-      // Update progress percentage
-      if (estimatedTotal && estimatedTotal > 0) {
-        const newPercentage = Math.min((pageCount / estimatedTotal) * 100, 95)
-        setProgressPercentage(newPercentage)
-      }
-    })
-
-    eventSource.addEventListener('done', (e) => {
-      const data = JSON.parse(e.data)
-      if (data.sessionId && data.sessionId.toString() !== sessionId) return
-      
-      const nextStatus = data.status || 'completed'
-      
-      // Capture the exact timer duration at crawl completion
-      // Use session.startedAt directly to avoid race condition with state updates
-      let exactDuration = 0
-      const now = Date.now() // Get current time when done event fires
-      
-      console.log('Done event fired:', {
-        sessionAvailable: !!session,
-        sessionStartedAt: session?.startedAt,
-        currentTime: now,
-        message: data.message
-      })
-      
-      if (session?.startedAt) {
-        const startTime = new Date(session.startedAt).getTime()
-        exactDuration = now - startTime
-        console.log('Duration calculated:', {
-          startTime,
-          currentTime: now,
-          exactDuration,
-          startedAtRaw: session.startedAt
-        })
-      } else {
-        console.log('Session or startedAt missing', { 
-          session: session ? JSON.stringify(session) : 'null',
-          startedAt: session?.startedAt 
-        })
+      // Snapshot hard boundary: lock once and never reset during this page lifecycle
+      if (snapshotBoundaryRef.current === null) {
+        snapshotBoundaryRef.current = Number(snapshotData.snapshotAt) || Date.now()
       }
       
-      // Send the exact duration to backend to store in database
-      if (session?.startedAt && exactDuration > 0) {
-        console.log('Sending duration to backend:', { sessionId, exactDuration })
-        fetch(`/api/crawl/session/${sessionId}/duration`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ duration: exactDuration })
-        })
-          .then(res => res.json())
-          .then(data => console.log('Duration response:', data))
-          .catch((err) => console.error('Failed to send duration:', err))
-      } else {
-        console.log('Not sending duration - conditions not met:', {
-          hasSession: !!session?.startedAt,
-          durationGreaterThanZero: exactDuration > 0,
-          exactDuration
-        })
+      // 1. Restore Status
+      if (snapshotData.status) {
+        setCrawlStatus(snapshotData.status as any)
       }
       
-      // If crawl is completed, mark as complete
-      if (nextStatus === 'completed') {
-        setCrawlStatus('completed')
-        setProgressPercentage(100)
-        setCrawlStartTime(null)
-        setLogs(prev => [...prev, {
-          message: `✅ Crawl completed! Total URLs: ${data.count}.`,
-          timestamp: new Date().toLocaleTimeString()
-        }])
-      } else if (nextStatus !== 'completed') {
-        setCrawlStatus(nextStatus)
-        if (nextStatus === 'cancelled' || nextStatus === 'failed') {
-          setCrawlStartTime(null)
-          setProgressPercentage(100)
-        }
-        
-        setLogs(prev => [...prev, {
-          message: nextStatus === 'cancelled' 
-            ? `⚠️ Crawl cancelled`
-            : `❌ Crawl failed`,
-          timestamp: new Date().toLocaleTimeString()
-        }])
+      // 2. Restore Logs
+      if (snapshotData.logs && snapshotData.logs.length > 0) {
+        setLogs(snapshotData.logs.map(l => ({
+            message: l.message || (typeof l === 'string' ? l : JSON.stringify(l)),
+            timestamp: l.timestamp || Date.now()
+        })))
       }
-    })
-
-    eventSource.addEventListener('session-status-update', (e) => {
-      try {
-        const data = JSON.parse(e.data)
-        if (data?.sessionId && data.sessionId !== parseInt(sessionId)) return
-        
-        const message = data?.message || `Session ${data?.status || ''}`.trim()
-        if (message) {
-          setLogs(prev => [...prev.slice(-99), {
-            message,
-            timestamp: new Date().toLocaleTimeString()
-          }])
-        }
-        
-        if (data?.status) {
-          if (data.status === 'running' || data.status === 'auditing') {
-            setCrawlStatus(data.status)
-          } else if (data.status === 'failed' || data.status === 'cancelled') {
-            setCrawlStatus(data.status)
-            setCrawlStartTime(null)
-          }
-          // Note: 'completed' status is handled in the 'done' event listener
-        }
-      } catch {}
-    })
-
-    eventSource.addEventListener('audit', (e) => {
-      try {
-        const data = JSON.parse(e.data)
-        if (data.sessionId && data.sessionId !== parseInt(sessionId)) return
-        
-        let message = ''
-        if (data?.type === 'audit-start') {
-          message = `🔍 Audit started: ${data.url}`
-          setCrawlStatus('auditing')
-        } else if (data?.type === 'audit-complete') {
-          if (data.success) {
-            const parts: string[] = []
-            if (data.performanceScore !== undefined) parts.push(`Score ${data.performanceScore.toFixed(2)}`)
-            if (data.lcp !== undefined) parts.push(`LCP ${data.lcp.toFixed(2)}ms`)
-            if (data.tbt !== undefined) parts.push(`TBT ${data.tbt.toFixed(2)}ms`)
-            if (data.cls !== undefined) parts.push(`CLS ${data.cls.toFixed(2)}`)
-            message = `✅ Audit: ${data.url} ${parts.length ? `(${parts.join(', ')})` : ''}`.trim()
-          } else {
-            message = `❌ Audit failed: ${data.url}${data.error ? ` - ${data.error}` : ''}`
-          }
-        } else if (data?.type === 'audit-progress') {
-          const progress = data.progress?.toFixed(2) || ''
-          message = `⏳ Audits progress: ${data.completed}/${data.total} ${progress ? `${progress}%` : ''}`.trim()
-        }
-        
-        if (message) {
-          setLogs(prev => [...prev.slice(-99), {
-            message,
-            timestamp: new Date().toLocaleTimeString()
-          }])
-        }
-      } catch (error) {
-        console.error('Error processing audit event:', error)
+      
+      // 3. Restore Links
+      if (snapshotData.links && snapshotData.links.length > 0) {
+        // Handle both object format and potential string format from Redis
+        const links = snapshotData.links.map(l => typeof l === 'string' ? l : l.url).filter(Boolean)
+        setDiscoveredPages(links)
       }
-    })
+      
+      // ✅ STEP 2 — SET crawlStartTime IN ONE PLACE ONLY
+      if (!crawlStartTime && (snapshotData as any).startedAt) {
+          setCrawlStartTime(new Date((snapshotData as any).startedAt).getTime())
+      }
 
-    eventSource.onerror = (error) => {
-      console.error('SSE connection error:', error)
+      setSnapshotLoaded(true)
     }
+  }, [snapshotData, isSnapshotSuccess, snapshotLoaded, crawlStartTime])
+
+  // WebSocket Connection - Only after snapshot is loaded AND job is not completed
+  useEffect(() => {
+    const activeJobId = activeJob?.id
+    
+    // Don't connect if:
+    // 1. No active job
+    // 2. Snapshot hasn't loaded (prevent race condition)
+    // 3. Job is already completed/failed (no need for live updates)
+    if (!activeJobId || !snapshotLoaded) return
+    if (crawlStatus === 'completed' || crawlStatus === 'failed' || crawlStatus === 'cancelled') return
+
+    const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:4000', {
+      path: '/socket.io',
+      transports: ['websocket'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+    })
+
+    socket.on('connect', () => {
+      console.log(`🔌 Connected to job stream: ${activeJobId}`)
+      socket.emit('join-job', activeJobId)
+    })
+
+    const handleEvent = (event: any) => {
+      const boundary = snapshotBoundaryRef.current
+      const eventTimestamp = Number(event?.timestamp)
+
+      // Strict socket filter: no timestamp OR <= snapshot boundary => ignore
+      if (boundary === null || !Number.isFinite(eventTimestamp) || eventTimestamp <= boundary) {
+        return
+      }
+
+      if (event.eventType === 'log') {
+        const message = event.payload?.message || (typeof event.payload === 'string' ? event.payload : JSON.stringify(event.payload))
+        setLogs(prev => {
+            // Deduplication: don't add if identical message exists in last 10 logs
+            // This handles socket reconnects sending buffered events we might have just seen
+            const lastLogs = prev.slice(-10)
+            if (lastLogs.some(l => l.message === message)) return prev
+            
+            return [...prev, {
+              message,
+              timestamp: eventTimestamp
+            }]
+        })
+      }
+      else if (event.eventType === 'link_found' || event.eventType === 'link' || event.eventType === 'LINK_FOUND') {
+        const url = event.payload?.url || (typeof event.payload === 'string' ? event.payload : null)
+        if (url) {
+            setDiscoveredPages(prev => {
+                if (prev.includes(url)) return prev
+                return [...prev, url]
+            })
+        }
+      }
+      else if (['JOB_STARTED', 'JOB_COMPLETED', 'JOB_FAILED', 'status'].includes(event.eventType)) {
+         const status = event.payload?.status || event.eventType
+         
+         if (status === 'completed' || status === 'JOB_COMPLETED') {
+             // ✅ STEP 5 — COMPLETION FREEZES STATE
+             setCrawlStatus('completed')
+             // DO NOT touch crawlStartTime
+             setLogs(prev => [...prev, {
+                 message: `✅ Crawl completed!`,
+               timestamp: eventTimestamp
+             }])
+             // Socket will be cleaned up by effect dependency change or unmount
+         } else if (status === 'failed' || status === 'JOB_FAILED') {
+             setCrawlStatus('failed')
+             setLogs(prev => [...prev, {
+                 message: `❌ Crawl failed`,
+               timestamp: eventTimestamp
+             }])
+         } else if (status === 'running' || status === 'JOB_STARTED') {
+             setCrawlStatus('running')
+         }
+      }
+    }
+
+    socket.on('job:event', handleEvent)
+    
+    socket.on('job:batch', (batch: any[]) => {
+        if (Array.isArray(batch)) {
+            batch.forEach(handleEvent)
+        }
+    })
 
     return () => {
-      eventSource.close()
+      console.log('🔌 Disconnecting socket')
+      socket.disconnect()
     }
-  }, [sessionId, router, projectId, estimatedTotal, pageCount, session])
+  }, [activeJob?.id, snapshotLoaded, crawlStatus])
 
-  // Initialize state from session data
+  // ✅ STEP 4 — SESSION EFFECT BECOMES READ-ONLY
   useEffect(() => {
-    if (session) {
-      console.log('Session data loaded:', {
-        id: session.id,
-        startedAt: session.startedAt,
-        status: session.status,
-        totalPages: session.totalPages
-      })
-      
-      // Set initial state
+    if (!session) return
+
+    if (!snapshotLoaded && session.status) {
+      // Only metadata allowed - do NOT touch logs, links, or time
       if (session.status === 'running' || session.status === 'auditing') {
         setCrawlStatus(session.status)
-        setCrawlStartTime(new Date(session.startedAt).getTime())
       } else if (session.status === 'completed') {
         setCrawlStatus('completed')
-        setProgressPercentage(100)
       } else {
-        setCrawlStatus((session.status || 'idle') as 'idle' | 'running' | 'auditing' | 'completed' | 'cancelled' | 'failed')
+        setCrawlStatus((session.status || 'idle') as any)
       }
-      
-      setPageCount(session.totalPages || 0)
-      
-      // Estimate total pages (rough estimate based on average website)
-      setEstimatedTotal(100)
     }
-  }, [session])
+  }, [session, snapshotLoaded])
 
   // Calculate elapsed time
   const calculateElapsedTime = (): string => {
-    if (crawlStartTime && (crawlStatus === 'running' || crawlStatus === 'auditing')) {
-      const elapsedMs = currentTime - crawlStartTime
-      return formatDurationHHMMSSMS(elapsedMs)
-    }
-    return '00:00:00:00'
-  }
-
-  // Calculate estimated time remaining
-  const calculateEstimatedTime = (): string => {
-    if (!crawlStartTime || pageCount === 0 || !estimatedTotal) return 'Calculating...'
+    // If we have a start time, use it. Otherwise return 0
+    if (!crawlStartTime) return '00:00:00.00'
     
+    // If completed, show final duration if available
+    if (crawlStatus === 'completed' && session?.completedAt) {
+       const start = new Date(session.startedAt as string).getTime()
+       const end = new Date(session.completedAt as string).getTime()
+       return formatDurationHHMMSSMS(end - start)
+    }
+
     const elapsedMs = currentTime - crawlStartTime
-    const elapsedSeconds = elapsedMs / 1000
-    const rate = pageCount / elapsedSeconds
-    
-    if (rate === 0) return 'Calculating...'
-    
-    const remainingPages = Math.max(0, estimatedTotal - pageCount)
-    const remainingSeconds = remainingPages / rate
-    
-    const minutes = Math.floor(remainingSeconds / 60)
-    const seconds = Math.floor(remainingSeconds % 60)
-    
-    if (minutes > 0) {
-      return `~${minutes}m ${seconds}s`
-    }
-    return `~${seconds}s`
+    return formatDurationHHMMSSMS(Math.max(0, elapsedMs))
   }
-
-  // Update progress based on page count
-  useEffect(() => {
-    if (estimatedTotal && estimatedTotal > 0 && pageCount > 0) {
-      const percentage = Math.min((pageCount / estimatedTotal) * 100, 95)
-      setProgressPercentage(percentage)
-    }
-  }, [pageCount, estimatedTotal])
 
   // Auto-redirect when crawl is completed
   useEffect(() => {
-    if (session?.status === 'completed') {
-      router.push(`/dashboard/projects/${params.projectId}/sessions/${params.sessionId}`)
+    // Redirect if session status is completed or if local crawl status is completed
+    if (session?.status === 'completed' || crawlStatus === 'completed') {
+      // Add a small delay to let the user see the completion state
+      const timer = setTimeout(() => {
+        router.push(`/dashboard/projects/${params.projectId}/sessions/${params.sessionId}`)
+      }, 2000)
+      
+      return () => clearTimeout(timer)
     }
-  }, [session, params.projectId, params.sessionId, router])
+  }, [session, crawlStatus, params.projectId, params.sessionId, router])
 
   // Combine logs and discovered pages in chronological order
   const combinedItems = useMemo(() => [
@@ -349,8 +289,6 @@ export default function SessionProgressPage() {
       </div>
     )
   }
-
-  
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-6 relative overflow-hidden">
@@ -439,8 +377,16 @@ export default function SessionProgressPage() {
         </div>
 
         {/* Timer Section */}
-        <div className="flex items-center justify-center whitespace-nowrap py-6">
-          <span className="text-white/85 text-6xl font-mono font-bold tracking-widest font-tabular-nums" style={{ fontVariantNumeric: 'tabular-nums' }}>{calculateElapsedTime()}</span>
+        <div className="flex flex-col items-center justify-center py-6">
+          <span className="text-white/85 text-6xl font-mono font-bold tracking-widest font-tabular-nums" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            {calculateElapsedTime()}
+          </span>
+          <div className="flex items-center gap-2 mt-2">
+            <div className={`w-2 h-2 rounded-full ${crawlStatus === 'running' ? 'bg-green-400 animate-pulse' : crawlStatus === 'completed' ? 'bg-blue-400' : 'bg-gray-400'}`}></div>
+            <span className="text-white/40 text-sm font-mono uppercase tracking-wider">
+              {crawlStatus === 'running' ? 'Live Duration' : crawlStatus === 'completed' ? 'Total Duration' : 'Status: ' + crawlStatus}
+            </span>
+          </div>
         </div>
 
         {/* Logs Section - Smooth Carousel */}
@@ -530,32 +476,19 @@ export default function SessionProgressPage() {
                   </div>
                 </AnimatePresence>
               ) : (
-                <div className="flex flex-col gap-2">
-                  {[
-                    { time: '10:24:33', msg: '✅ Session started' },
-                    { time: '10:24:35', msg: '🔍 Crawling pages...' },
-                    { time: '10:24:40', msg: '📄 Found 42 pages' }
-                  ].map((log, idx) => (
-                    <motion.div
-                      key={`placeholder-${idx}`}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 0.7, y: 0 }}
-                      transition={{ duration: 0.5, delay: idx * 0.1 }}
-                      className="flex items-center justify-center gap-3 p-3 rounded-md bg-white/2 text-sm"
-                      style={{ minHeight: '56px' }}
-                    >
-                      <span className="text-white/40 font-mono shrink-0 text-xs">{log.time}</span>
-                      <span className="text-white/60 text-xs break-all">{log.msg}</span>
-                    </motion.div>
-                  ))}
+                <div className="flex flex-col gap-2 items-center justify-center h-full opacity-50">
+                   <div className="animate-pulse flex items-center gap-2">
+                      <div className="h-2 w-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+                      <div className="h-2 w-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                      <div className="h-2 w-2 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                    </div>
+                    <p className="text-white/40 text-sm font-mono">Initializing crawl...</p>
                 </div>
               )}
             </div>
           </div>
         </div>
       </div>
-
-
     </div>
   )
 }

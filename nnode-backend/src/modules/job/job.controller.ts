@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { JobService } from './job.service';
+import { LiveJobService } from '../../services/live-job.service';
 import { ResponseUtil } from '../../utils/response';
 import { createJobSchema } from './job.validator';
 import { sessionIdSchema } from '../session/session.validator';
@@ -13,6 +14,18 @@ export class JobController {
 
   constructor() {
     this.jobService = new JobService();
+  }
+
+  getJobSnapshot = async (req: Request, res: Response): Promise<Response> => {
+    try {
+        const { id } = sessionIdSchema.parse({ id: req.params.id });
+        const snapshot = await LiveJobService.getSnapshot(id);
+        
+        return ResponseUtil.success(res, 'Job snapshot retrieved', snapshot);
+    } catch (error: any) {
+        logger.error(`Error getting job snapshot: ${error.message}`);
+        return ResponseUtil.serverError(res, 'Failed to retrieve job snapshot');
+    }
   }
 
   createJob = async (req: Request, res: Response): Promise<Response> => {

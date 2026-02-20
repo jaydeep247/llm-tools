@@ -3,7 +3,6 @@ import type { Metadata } from "next"
 import { Suspense } from "react"
 import "./globals.css"
 import { StoreProvider } from "@/store/StoreProvider"
-import { GlobalDialogProvider } from "@/components/providers/GlobalDialogProvider"
 
 // Fonts removed to avoid Docker build timeout issues with Google Fonts API
 // If needed, fonts can be loaded via CDN in production or self-hosted
@@ -24,11 +23,9 @@ export default function RootLayout({
     <html lang="en" className="dark" suppressHydrationWarning>
       <body className="font-sans antialiased">
         <StoreProvider>
-          <GlobalDialogProvider>
-            <Suspense fallback={null}>
-              {children}
-            </Suspense>
-          </GlobalDialogProvider>
+          <Suspense fallback={null}>
+            {children}
+          </Suspense>
         </StoreProvider>
       </body>
     </html>

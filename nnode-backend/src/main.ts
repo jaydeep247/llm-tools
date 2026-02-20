@@ -2,6 +2,8 @@ import { createApp } from './app';
 import { env } from './config/env';
 import { connectToMongo } from './config/mongo';
 import { logger } from './shared/logger/logger';
+import { initSocket } from './socket';
+import { startJobEventsConsumer } from './consumers/job-events.consumer';
 
 const startServer = async () => {
   try {
@@ -16,6 +18,13 @@ const startServer = async () => {
       logger.info(`📝 Environment: ${env.NODE_ENV}`);
       logger.info(`🔗 API: http://localhost:${env.PORT}${env.API_PREFIX}`);
     });
+
+    // Initialize Socket.IO
+    initSocket(server);
+    logger.info('✅ Socket.IO initialized');
+
+    // Start Job Events Consumer
+    startJobEventsConsumer();
 
     // Graceful shutdown
     const gracefulShutdown = async (signal: string) => {
