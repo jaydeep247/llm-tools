@@ -30,22 +30,19 @@ from utils.logger import logger
 from utils.config import config
 from utils.event_publisher import publisher
 
-# Import Module A Metrics
-# Import Module A Metrics
 from modules.module_A.WebsiteCrawler.metrics import (
     pixel_width,
     carbon,
     content_quality,
     link_analysis,
-    similarity
+    similarity,
 )
 from modules.module_A.pagematrix.manager import extract_page_metrics
-
-# Import New SEO Modules
 from modules.module_A.Wordcount_analysis import wordcount_extractor
 from modules.module_A.Broken_links_checker import broken_link_checker
 from modules.module_A.Redirects_audit import redirect_audit
 from modules.module_A.Text_Quality_Analyzer import text_quality_analyzer
+from modules.module_B.keywords import Keyword, extract_keywords_from_html
 
 
 class WebsiteSpider(scrapy.Spider):
@@ -80,6 +77,7 @@ class WebsiteSpider(scrapy.Spider):
         self.session_id = session_id
         self.job_id = job_id
         self.project_id = project_id
+        self.raw_html_saved = False
         
         self.allow_subdomains = allow_subdomains
         self.max_concurrency = min(max_concurrency, 4)
@@ -363,199 +361,212 @@ class WebsiteSpider(scrapy.Spider):
         pass
     
     def parse(self, response: Response):
-        normalized_response_url = self.normalize_url(response.url)
-        if normalized_response_url in self.seen_urls:
+        """Main parsing logic for each page"""
+        # Track start time
+        request_id = id(response.request)
+        start_time = self.request_start_times.get(request_id, datetime.now().timestamp())
+        
+        # Calculate crawl depth
+        crawl_depth = response.meta.get('depth', 0)
+        
+        # Validate content type
+        content_type = response.headers.get('Content-Type', b'').decode('utf-8').lower()
+        if 'text/html' not in content_type and 'application/xhtml+xml' not in content_type:
+            logger.debug(f"Skipping non-HTML content: {response.url} ({content_type})")
             return
-        self.seen_urls.add(normalized_response_url)
-
-        self.pages_seen += 1
-
-        if self.job_id and self.pages_seen % 50 == 0:
-            try:
-                r = redis.from_url(config.REDIS_URL)
-                r.hset(f"job:{self.job_id}", "pagesCrawled", self.pages_seen)
-            except Exception:
-                pass
-
-        try:
-            request_id = id(response.request)
-            start_time = self.request_start_times.get(request_id, datetime.now().timestamp())
-
-            crawl_depth = response.meta.get('depth', 0)
-
-            content_type = response.headers.get('Content-Type', b'').decode('utf-8').lower()
-            if 'text/html' not in content_type and 'application/xhtml+xml' not in content_type:
-                return
-
-            parsed_url = urlparse(response.url)
-            folder_depth = len([p for p in parsed_url.path.split('/') if p])
-
-            if not isinstance(response, HtmlResponse):
-                return
-
-            if crawl_depth == 0:
-                try:
-                    from utils.storage import save_raw_html_sync
-                    save_raw_html_sync(self.job_id, response.text)
-                except Exception:
-                    pass
-
-            basic_fields = BasicExtractor.extract(response, start_time)
-            seo_fields = SeoExtractor.extract(response)
-            content_fields = ContentExtractor.extract(response)
-            heading_fields = HeadingExtractor.extract(response)
-            advanced_fields = AdvancedExtractor.extract(response)
-
-            page_item = PageItem()
-            page_item.update(basic_fields)
-            page_item.update(seo_fields)
-            page_item.update(content_fields)
-            page_item.update(heading_fields)
-            page_item.update(advanced_fields)
-            page_item['crawl_depth'] = crawl_depth
-            page_item['folder_depth'] = folder_depth
-
-            title_pixel_width = pixel_width.calculate_pixel_width(page_item.get('title', ''))
-            meta_desc_pixel_width = pixel_width.calculate_pixel_width(page_item.get('meta_description', ''))
-            total_bytes = page_item.get('page_size_bytes', len(response.body))
-            carbon_data = carbon.calculate_carbon(total_bytes)
-
-            body_text_list = response.css('body ::text').getall()
-            visible_text_legacy = ' '.join([t.strip() for t in body_text_list if t.strip()])
-            word_count = page_item.get('word_count', 0)
-            sentence_count = page_item.get('sentence_count', 0)
-
-            quality_data = content_quality.analyze_content_quality(
-                visible_text_legacy,
-                sentence_count,
-                word_count,
-            )
-
-            links_data = LinkExtractor.extract(response, self.allowed_host, self.allow_subdomains)
-            outlink_stats = link_analysis.analyze_outlinks(links_data)
-            simhash_legacy = similarity.generate_simhash(visible_text_legacy)
-
-            tq_results = text_quality_analyzer.analyze(
-                html_content=response.text,
-                url=response.url,
-                title=page_item.get('title', ''),
-                word_count=page_item.get('word_count', 0),
-                sentence_count=page_item.get('sentence_count', 0),
-                paragraph_count=page_item.get('paragraph_count', 0),
-                heading_count=len(page_item.get('h1s', [])) + len(page_item.get('h2s', [])),
-                target_keyword=None,
-            )
-
-            wordcount_analysis = wordcount_extractor.extract_wordcount_analysis(
-                html_content=response.text,
-                url=response.url,
-                target_keyword=None,
-            )
-
-            broken_links_report = broken_link_checker.analyze_broken_links(links_data)
-
-            redirect_urls = response.request.meta.get('redirect_urls', [])
-            redirect_reasons = response.request.meta.get('redirect_reasons', [])
-            hops = []
-            for i, url in enumerate(redirect_urls):
-                hops.append(
-                    {
-                        'url': url,
-                        'status_code': redirect_reasons[i] if i < len(redirect_reasons) else 302,
-                        'headers': {},
-                    }
-                )
-            hops.append(
-                {
-                    'url': response.url,
-                    'status_code': response.status,
-                    'headers': {k.decode('utf-8'): v[0].decode('utf-8') for k, v in response.headers.items()},
-                }
-            )
-            redirect_audit_report = redirect_audit.analyze_redirects(hops, page_item.get('canonical_url'))
-
-            page_item['fields'] = {
-                'status': 'OK' if response.status == 200 else str(response.status),
-                'website_crawler': {
-                    'title_pixel_width': title_pixel_width,
-                    'meta_description_pixel_width': meta_desc_pixel_width,
-                    'transferred_bytes': total_bytes,
-                    'total_transferred_bytes': total_bytes,
-                    'co2_mg': carbon_data['co2_mg'],
-                    'carbon_rating': carbon_data['rating'],
-                    'average_words_per_sentence': quality_data['average_words_per_sentence'],
-                    'flesch_reading_ease_score': quality_data['flesch_reading_ease_score'],
-                    'readability': quality_data['readability'],
-                    'outlinks': outlink_stats['outlinks'],
-                    'unique_outlinks': outlink_stats['unique_outlinks'],
-                    'unique_js_outlinks': outlink_stats['unique_js_outlinks'],
-                    'external_outlinks': outlink_stats['external_outlinks'],
-                    'unique_external_outlinks': outlink_stats['unique_external_outlinks'],
-                    'unique_external_js_outlinks': outlink_stats['unique_external_js_outlinks'],
-                    'closest_near_duplicate_match': None,
-                    'no_near_duplicates': 0,
-                    'simhash': simhash_legacy,
-                    'spelling_errors': quality_data['spelling_errors'],
-                    'grammar_errors': quality_data['grammar_errors'],
-                    'hash': page_item.get('content_hash', ''),
-                    'url_encoded_address': response.url,
-                },
-                'page_matrix': extract_page_metrics(
-                    url=response.url,
-                    html_content=response.text,
-                    response_status=response.status,
-                    response_headers={k.decode('utf-8'): v[0].decode('utf-8') for k, v in response.headers.items()},
-                    response_time_ms=(datetime.now().timestamp() - start_time) * 1000,
-                    final_url=response.url,
-                ),
-                'Text Quality Analyzer': tq_results,
-                'Wordcount_analysis': wordcount_analysis,
-                'Broken_links_checker': broken_links_report,
-                'Redirects_audit': redirect_audit_report,
-            }
-
-            yield page_item
-            self.pages_crawled += 1
-
-            if self.planned_total:
-                remaining = max(self.planned_total - self.pages_crawled, 0)
-                logger.info(
-                    f"Crawl progress for {self.start_url}: "
-                    f"{self.pages_crawled}/{self.planned_total} pages done, "
-                    f"{remaining} remaining (current={response.url})"
-                )
             
-            if self.job_id:
-                publisher.emit_event(self.job_id, 'log', {
-                    'message': f"Crawled {response.url} ({response.status})",
-                    'level': 'info',
-                    'pagesCrawled': self.pages_crawled
-                })
-                publisher.emit_event(self.job_id, 'link_found', {
-                    'url': response.url
-                })
+        # Calculate folder depth
+        parsed_url = urlparse(response.url)
+        folder_depth = len([p for p in parsed_url.path.split('/') if p])
+        
+        # Extract all fields using extractors
+        # Robust check: Ensure response is actually HTML before using CSS selectors
+        if not isinstance(response, HtmlResponse):
+            logger.warning(f"Response is not HtmlResponse (type: {type(response)}), skipping extraction: {response.url}")
+            return
+            
+        # ==================================================================
+        # SAVE RAW HTML (For Post-Crawl Moudles)
+        # ==================================================================
+        # Only save for the homepage/start_url (depth 0) to handle redirects
+        if crawl_depth == 0:
+            try:
+                from utils.storage import save_raw_html_sync
+                save_raw_html_sync(self.job_id, response.text)
+                logger.info(f"Saved raw HTML for job {self.job_id} from {response.url}")
+            except Exception as e:
+                logger.error(f"Failed to save raw HTML: {e}")
+            
+        basic_fields = BasicExtractor.extract(response, start_time)
+        seo_fields = SeoExtractor.extract(response)
+        content_fields = ContentExtractor.extract(response)
+        heading_fields = HeadingExtractor.extract(response)
+        advanced_fields = AdvancedExtractor.extract(response)
+        
+        # Create page item
+        page_item = PageItem()
+        page_item.update(basic_fields)
+        page_item.update(seo_fields)
+        page_item.update(content_fields)
+        page_item.update(heading_fields)
+        page_item.update(advanced_fields)
+        page_item['crawl_depth'] = crawl_depth
+        page_item['folder_depth'] = folder_depth
+        
+        # ==================================================================
+        # Module A: Metrics Calculation (Legacy + New SEO)
+        # ==================================================================
+        
+        # 1. Legacy Metrics (Restored)
+        title_pixel_width = pixel_width.calculate_pixel_width(page_item.get('title', ''))
+        meta_desc_pixel_width = pixel_width.calculate_pixel_width(page_item.get('meta_description', ''))
+        total_bytes = page_item.get('page_size_bytes', len(response.body))
+        carbon_data = carbon.calculate_carbon(total_bytes)
+        
+        body_text_list = response.css('body ::text').getall()
+        visible_text_legacy = ' '.join([t.strip() for t in body_text_list if t.strip()])
+        word_count = page_item.get('word_count', 0)
+        sentence_count = page_item.get('sentence_count', 0)
+        
+        quality_data = content_quality.analyze_content_quality(
+            visible_text_legacy,
+            sentence_count,
+            word_count
+        )
+        
+        links_data = LinkExtractor.extract(response, self.allowed_host, self.allow_subdomains)
+        outlink_stats = link_analysis.analyze_outlinks(links_data)
+        simhash_legacy = similarity.generate_simhash(visible_text_legacy)
+        
+        # New Consolidated Text Quality Analysis
+        tq_results = text_quality_analyzer.analyze(
+            html_content=response.text,
+            url=response.url,
+            title=page_item.get('title', ''),
+            word_count=page_item.get('word_count', 0),
+            sentence_count=page_item.get('sentence_count', 0),
+            paragraph_count=page_item.get('paragraph_count', 0),
+            heading_count=len(page_item.get('h1s', [])) + len(page_item.get('h2s', [])),
+            target_keyword=None 
+        )
 
-            if self.max_pages > 0 and self.pages_crawled >= self.max_pages:
+        # 2. New SEO Modules (Integrated)
+        wordcount_analysis = wordcount_extractor.extract_wordcount_analysis(
+            html_content=response.text,
+            url=response.url,
+            target_keyword=None 
+        )
+        
+        broken_links_report = broken_link_checker.analyze_broken_links(links_data)
+        
+        redirect_urls = response.request.meta.get('redirect_urls', [])
+        redirect_reasons = response.request.meta.get('redirect_reasons', [])
+        hops = []
+        for i, url in enumerate(redirect_urls):
+            hops.append({
+                'url': url,
+                'status_code': redirect_reasons[i] if i < len(redirect_reasons) else 302,
+                'headers': {}
+            })
+        hops.append({
+            'url': response.url,
+            'status_code': response.status,
+            'headers': {k.decode('utf-8'): v[0].decode('utf-8') for k, v in response.headers.items()}
+        })
+        redirect_audit_report = redirect_audit.analyze_redirects(hops, page_item.get('canonical_url'))
+
+        # Construct 'fields' dictionary
+        page_item['fields'] = {
+            # Status
+            'status': 'OK' if response.status == 200 else str(response.status),
+            
+            'website_crawler': {
+                # Pixel Widths
+                'title_pixel_width': title_pixel_width,
+                'meta_description_pixel_width': meta_desc_pixel_width,
+                
+                # Carbon
+                'transferred_bytes': total_bytes, 
+                'total_transferred_bytes': total_bytes, 
+                'co2_mg': carbon_data['co2_mg'],
+                'carbon_rating': carbon_data['rating'],
+                
+                # Readability & Content (Legacy)
+                'average_words_per_sentence': quality_data['average_words_per_sentence'],
+                'flesch_reading_ease_score': quality_data['flesch_reading_ease_score'],
+                'readability': quality_data['readability'],
+                
+                # Outlinks (Remaining from legacy)
+                'outlinks': outlink_stats['outlinks'],
+                'unique_outlinks': outlink_stats['unique_outlinks'],
+                'unique_js_outlinks': outlink_stats['unique_js_outlinks'],
+                'external_outlinks': outlink_stats['external_outlinks'],
+                'unique_external_outlinks': outlink_stats['unique_external_outlinks'],
+                'unique_external_js_outlinks': outlink_stats['unique_external_js_outlinks'],
+                
+                # Duplicates & Similarity (Legacy)
+                'closest_near_duplicate_match': None, 
+                'no_near_duplicates': 0, 
+                'simhash': simhash_legacy, 
+                
+                # Quality / Errors (Legacy)
+                'spelling_errors': quality_data['spelling_errors'],
+                'grammar_errors': quality_data['grammar_errors'],
+                'hash': page_item.get('content_hash', ''),
+                
+                'url_encoded_address': response.url,
+            },
+            
+            # Module A: Page Matrix Metrics
+            'page_matrix': extract_page_metrics(
+                url=response.url,
+                html_content=response.text,
+                response_status=response.status,
+                response_headers={k.decode('utf-8'): v[0].decode('utf-8') for k, v in response.headers.items()},
+                response_time_ms=(datetime.now().timestamp() - start_time) * 1000,
+                final_url=response.url
+            ),
+            
+            # Text Quality Analyzer (New Consolidated Module)
+            'Text Quality Analyzer': tq_results,
+            
+            # New SEO Fields
+            'Wordcount_analysis': wordcount_analysis,
+            'Broken_links_checker': broken_links_report,
+            'Redirects_audit': redirect_audit_report
+        }
+        
+        
+        yield page_item
+        self.pages_crawled += 1
+        logger.info(f"Completed page {self.pages_crawled} (approx total discovered: {self.links_collected}) - {response.url}")
+        
+        # Check if we should stop crawling
+        if self.max_pages > 0 and self.pages_crawled >= self.max_pages:
+            logger.info(f"Reached max pages limit: {self.max_pages}")
+            self.should_stop = True
+            return
+        
+        if self.timeout > 0:
+            elapsed = datetime.now().timestamp() - self.crawl_started_timestamp
+            if elapsed >= self.timeout:
+                logger.info(f"Reached timeout limit: {self.timeout} seconds")
                 self.should_stop = True
                 return
-
-            if self.timeout > 0:
-                elapsed = datetime.now().timestamp() - self.crawl_started_timestamp
-                if elapsed >= self.timeout:
-                    self.should_stop = True
-                    return
-
+        
+        # Extract links
+        # Optimization: We already extracted links_data above for metrics
+        # links = LinkExtractor.extract(response, self.allowed_host, self.allow_subdomains)
+        for link_data in links_data:
+            link_item = LinkItem()
+            link_item.update(link_data)
+            yield link_item
+            self.links_collected += 1
+        
+        # Follow internal links
+        if not self.should_stop:
             for link_data in links_data:
-                link_item = LinkItem()
-                link_item.update(link_data)
-                yield link_item
-                self.links_collected += 1
-
-            if self.allow_discovery and not self.should_stop:
-                for link_data in links_data:
-                    if not link_data['is_internal'] or link_data['nofollow']:
-                        continue
-
+                if link_data['is_internal'] and not link_data['nofollow']:
                     target_url = link_data['target_url']
 
                     if any(p in target_url for p in ['/cart', '/checkout', '/account']):

@@ -6,14 +6,12 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Loader2, FileText, CheckCircle, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
-// import { 
-//   useGetContentMetricsQuery,
-//   type ContentMetricsResponse 
-// } from '@/store/api/module_C/contentMetricsApi'
+import { useGetContentMetricsQuery, useStartContentMetricsMutation } from '@/store/api/contentMetricsApi'
+import { useGetSessionJobsQuery } from '@/store/api/jobApi'
 
 interface ContentMetricsModuleProps {
   url: string
-  sessionId?: number
+  sessionId?: string
 }
 
 export default function ContentMetricsModule({ url, sessionId }: ContentMetricsModuleProps) {
@@ -46,20 +44,29 @@ export default function ContentMetricsModule({ url, sessionId }: ContentMetricsM
     router.replace(`${pathname}?${params.toString()}`, { scroll: false })
   }
   
-  // Fetch content metrics from database
-  const contentMetricsData: any = null
-  const isLoadingMetrics = false
-  const metricsError = null
-  const refetch = () => {}
-  /*
-  const { data: contentMetricsData, isLoading: isLoadingMetrics, error: metricsError, refetch } = useGetContentMetricsQuery(
-    sessionId!,
-    { 
-      skip: !sessionId,
-      refetchOnMountOrArgChange: true
-    }
-  )
-  */
+  // Resolve latest job for this session
+  const sessionIdStr = sessionId ? String(sessionId) : undefined
+  const { data: jobsData } = useGetSessionJobsQuery(sessionIdStr!, {
+    skip: !sessionIdStr,
+  })
+  const jobs = jobsData?.data || []
+  const latestJob = jobs.length > 0 ? jobs[0] : null
+  const jobId = latestJob?.id as string | undefined
+
+  const [hasTriggeredAnalysis, setHasTriggeredAnalysis] = useState(false)
+
+  // Fetch content metrics from database for the latest job
+  const {
+    data: contentMetricsData,
+    isLoading: isLoadingMetrics,
+    error: metricsError,
+    refetch,
+  } = useGetContentMetricsQuery(jobId || '', {
+    skip: !jobId,
+    refetchOnMountOrArgChange: true,
+  })
+
+  const [startContentMetrics, { isLoading: isStartingAnalysis }] = useStartContentMetricsMutation()
 
   // Extract metrics from response
   const metricsResult = contentMetricsData?.success ? contentMetricsData.data : null
@@ -133,12 +140,50 @@ export default function ContentMetricsModule({ url, sessionId }: ContentMetricsM
       {/* Content Analysis Metrics Tab */}
       {activeTab === 'content-analysis' && (
         <div className="rounded-lg border border-white/20 bg-white/10 backdrop-blur-xl p-6 space-y-6">
-          {/* Empty State */}
+          {/* Empty State + Trigger */}
           {!contentMetrics && !isLoadingMetrics && !metricsError && (
-            <div className="p-6 border border-border rounded-lg bg-muted/50">
-              <p className="text-sm text-muted-foreground mb-4">
+            <div className="p-6 border border-border rounded-lg bg-muted/50 space-y-4">
+              <p className="text-sm text-muted-foreground">
                 No content metrics available yet. Run an AEO analysis to see content insights.
               </p>
+              {jobId && (
+                <div className="flex flex-col gap-2">
+                  <Button
+                    size="sm"
+                    disabled={isStartingAnalysis}
+                    onClick={async () => {
+                      try {
+                        setHasTriggeredAnalysis(true)
+                        await startContentMetrics({ jobId }).unwrap()
+                        setTimeout(() => {
+                          refetch()
+                        }, 5000)
+                      } catch (e) {
+                        // no-op: error will surface via metricsError on next fetch
+                      }
+                    }}
+                    className="cursor-pointer"
+                  >
+                    {isStartingAnalysis ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Starting analysis...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Run Content Metrics Analysis
+                      </>
+                    )}
+                  </Button>
+                  {(isStartingAnalysis || (hasTriggeredAnalysis && isLoadingMetrics)) && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <span>Running analysis and loading metrics...</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

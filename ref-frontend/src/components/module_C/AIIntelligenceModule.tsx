@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils'
 
 interface AIIntelligenceModuleProps {
   url: string
-  sessionId?: number
+  sessionId?: string | number
 }
 
 export default function AIIntelligenceModule({ url, sessionId }: AIIntelligenceModuleProps) {

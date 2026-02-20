@@ -19,7 +19,7 @@ export default function SessionProgressPage() {
   const params = useParams()
   const router = useRouter()
   const sessionId = params.sessionId as string
-  
+
   // Fetch session data using RTK Query
   const { data: sessionData, isLoading: isLoadingSession } = useGetSessionQuery(sessionId)
   const session = sessionData?.session
@@ -299,14 +299,14 @@ export default function SessionProgressPage() {
       </div>
 
       {/* Dotted Background Pattern */}
-      <div 
+      <div
         className="absolute inset-0 opacity-20"
         style={{
           backgroundImage: 'radial-gradient(circle, rgba(255, 255, 255, 0.15) 1px, transparent 1px)',
           backgroundSize: '40px 40px'
         }}
       ></div>
-      
+
       <div className="w-full flex flex-col items-center gap-0 animate-fade-in-hero relative z-20">
         {/* Concentric Rings Loading Animation */}
         <div className="flex items-center justify-center pt-4 pb-0 relative">
@@ -317,21 +317,21 @@ export default function SessionProgressPage() {
                 {pageCount}
               </div>
             </div>
-            
+
             {/* Ring 1 - Inner with dot */}
             <div className="absolute inset-0 flex items-center justify-center animate-spin-slow">
               <div className="relative w-40 h-40 rounded-full border border-white/70">
                 <div className="absolute w-2.5 h-2.5 rounded-full bg-purple-400 -top-1.5 left-1/2 transform -translate-x-1/2"></div>
               </div>
             </div>
-            
+
             {/* Ring 2 - Middle with dot */}
             <div className="absolute inset-0 flex items-center justify-center animate-spin-medium">
               <div className="relative w-64 h-64 rounded-full border border-white/45">
                 <div className="absolute w-2.5 h-2.5 rounded-full bg-blue-400 -top-1.5 left-1/2 transform -translate-x-1/2"></div>
               </div>
             </div>
-            
+
             {/* Ring 3 - Expanding and fading out from Ring 2 */}
             <motion.div
               className="absolute inset-0 flex items-center justify-center"
@@ -435,38 +435,33 @@ export default function SessionProgressPage() {
                           initial="enter"
                           animate="center"
                           exit="exit"
-                          className={`flex items-center justify-center gap-3 p-3 rounded-md transition-all ${
-                            isCenter ? 'bg-white/5 shadow-lg shadow-white/10' : 'bg-transparent'
-                          }`}
+                          className={`flex items-center justify-center gap-3 p-3 rounded-md transition-all ${isCenter ? 'bg-white/5 shadow-lg shadow-white/10' : 'bg-transparent'
+                            }`}
                           style={{ pointerEvents: 'none', minHeight: '56px' }}
                         >
                           {item.type === 'log' ? (
                             <>
-                              <span className={`${
-                                isCenter ? 'text-white/70' : 'text-white/30'
-                              } font-mono shrink-0 text-xs whitespace-nowrap`}>
+                              <span className={`${isCenter ? 'text-white/70' : 'text-white/30'
+                                } font-mono shrink-0 text-xs whitespace-nowrap`}>
                                 {(item.data as LogEntry).timestamp}
                               </span>
-                              <span className={`${
-                                isCenter
+                              <span className={`${isCenter
                                   ? 'text-white font-bold text-base'
                                   : 'text-white/60 text-sm'
-                              } break-all`}>
+                                } break-all`}>
                                 {(item.data as LogEntry).message}
                               </span>
                             </>
                           ) : (
                             <>
-                              <span className={`${
-                                isCenter ? 'text-green-400' : 'text-green-500/50'
-                              } shrink-0 text-base`}>
+                              <span className={`${isCenter ? 'text-green-400' : 'text-green-500/50'
+                                } shrink-0 text-base`}>
                                 ✅
                               </span>
-                              <span className={`${
-                                isCenter
+                              <span className={`${isCenter
                                   ? 'text-white font-bold text-base'
                                   : 'text-white/60 text-sm'
-                              } break-all`}>
+                                } break-all`}>
                                 {item.data as string}
                               </span>
                             </>

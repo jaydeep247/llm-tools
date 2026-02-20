@@ -2,6 +2,7 @@
 # Node.js & JavaScript/TypeScript
 # ===========================================
 
+
 # Dependencies
 node_modules/
 */node_modules/
@@ -40,8 +41,6 @@ pids/
 coverage/
 .nyc_output/
 *.lcov
-
-frontend
 
 # Cache directories
 .cache/
@@ -96,6 +95,7 @@ dist/
 downloads/
 eggs/
 .eggs/
+lib/
 lib64/
 parts/
 sdist/
@@ -182,6 +182,11 @@ Thumbs.db
 # Storage directory - ignore all data files but keep structure
 storage/*
 !storage/.gitkeep
+
+# Crawler/SDK generated files (request queues, session pool, key-value stores)
+node-backend/storage/
+**/key_value_stores/
+**/request_queues/
 
 # AEO API config with secrets
 aeo-api/config/openai.json

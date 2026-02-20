@@ -32,7 +32,7 @@ interface AuditItem {
 }
 
 interface PerformanceAuditsTableProps {
-  sessionId: number
+  sessionId: string | number
   sessionStatus?: 'idle' | 'running' | 'auditing' | 'completed' | 'cancelled'
   isLoading?: boolean
   onRefresh?: () => void

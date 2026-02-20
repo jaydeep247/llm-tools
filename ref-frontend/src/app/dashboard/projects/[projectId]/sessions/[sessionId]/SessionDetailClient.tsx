@@ -428,7 +428,7 @@ export default function SessionDetailClient() {
 
 
   // Handle broken link checking
-  const handleCheckLinks = async (sessionId: number) => {
+  const handleCheckLinks = async (sessionId: string | number) => {
     try {
       const result = await checkLinks(sessionId).unwrap()
       return result.results

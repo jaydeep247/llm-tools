@@ -24,12 +24,18 @@ class OpenAIProvider(BaseProvider):
             if not messages:
                 return TaskResponse(success=False, error="Input must contain 'messages' or 'prompt'", meta={"provider": "openai"})
 
-            response = await self.client.chat.completions.create(
-                model=model,
-                messages=messages,
-                temperature=options.get("temperature", 0.7),
-                max_tokens=options.get("max_tokens", 1000)
-            )
+            request_args = {
+                "model": model,
+                "messages": messages,
+                "temperature": options.get("temperature", 0.7),
+                "max_tokens": options.get("max_tokens", 1000),
+            }
+
+            response_format = options.get("response_format")
+            if response_format:
+                request_args["response_format"] = response_format
+
+            response = await self.client.chat.completions.create(**request_args)
 
             return TaskResponse(
                 success=True, 
