@@ -13,10 +13,10 @@ interface SentimentTrackingProps {
 interface ModelData {
   model: string
   average_score: number
-  distribution: {
-    Positive: number
-    Neutral: number
-    Negative: number
+  distribution?: {
+    Positive?: number
+    Neutral?: number
+    Negative?: number
   }
   details: any[]
 }
@@ -24,10 +24,10 @@ interface ModelData {
 interface SentimentResult {
   brand_name: string
   overall_score: number
-  distribution: {
-    Positive: number
-    Neutral: number
-    Negative: number
+  distribution?: {
+    Positive?: number
+    Neutral?: number
+    Negative?: number
   }
   models: {
     [key: string]: ModelData
@@ -92,7 +92,14 @@ export default function SentimentTracking({ brandName }: SentimentTrackingProps)
     setError(null)
     try {
       const result = await trackSentiment({ brand_name: normalizedBrand }).unwrap()
-      setData(result.data || result)
+      const payload = (result && (result.data || result)) as SentimentResult | null
+
+      if (!payload || !payload.distribution) {
+        setData(null)
+        setError('No sentiment data returned from analysis. Please try again later.')
+      } else {
+        setData(payload)
+      }
       await refetchHistory()
     } catch (err: unknown) {
       setError(((err as any)?.data?.error ?? (err as any)?.message ?? 'Failed to fetch sentiment data'))
@@ -118,11 +125,14 @@ export default function SentimentTracking({ brandName }: SentimentTrackingProps)
     return `${(count / total) * 100}%`
   }
 
-  const getSentimentLabel = (distribution: { Positive: number, Neutral: number, Negative: number }) => {
-    const total = distribution.Positive + distribution.Neutral + distribution.Negative
+  const getSentimentLabel = (distribution?: { Positive?: number; Neutral?: number; Negative?: number }) => {
+    const positive = distribution?.Positive ?? 0
+    const neutral = distribution?.Neutral ?? 0
+    const negative = distribution?.Negative ?? 0
+    const total = positive + neutral + negative
     if (total === 0) return "No Data"
-    const posPct = distribution.Positive / total
-    const negPct = distribution.Negative / total
+    const posPct = positive / total
+    const negPct = negative / total
 
     if (posPct > 0.6) return "Positive Strong"
     if (posPct > 0.4) return "Positive Leaning"
@@ -345,6 +355,15 @@ export default function SentimentTracking({ brandName }: SentimentTrackingProps)
           {/* LEFT COLUMN: Sentiment */}
           <div className="space-y-4">
             {data && (
+              (() => {
+                const distribution = {
+                  Positive: data.distribution?.Positive ?? 0,
+                  Neutral: data.distribution?.Neutral ?? 0,
+                  Negative: data.distribution?.Negative ?? 0,
+                }
+                const totalForBars = distribution.Positive + distribution.Neutral + distribution.Negative
+
+                return (
               <div className="border border-border rounded-lg p-6 bg-card">
                 <h5 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
                   Sentiment Overview
@@ -362,24 +381,24 @@ export default function SentimentTracking({ brandName }: SentimentTrackingProps)
                     <div className="text-sm mb-2 flex justify-between items-center">
                       <span className="text-muted-foreground">Sentiment:</span>
                       <Badge variant={getScoreBadgeVariant(data.overall_score)}>
-                        {getSentimentLabel(data.distribution)}
+                        {getSentimentLabel(distribution)}
                       </Badge>
                     </div>
                     <div className="flex h-3 rounded-full overflow-hidden bg-muted w-full">
                       <div
-                        style={{ width: getBarWidth(data.distribution.Positive, (data.distribution.Positive + data.distribution.Neutral + data.distribution.Negative)) }}
+                        style={{ width: getBarWidth(distribution.Positive, totalForBars) }}
                         className="bg-green-500 h-full"
-                        title={`Positive: ${data.distribution.Positive}`}
+                        title={`Positive: ${distribution.Positive}`}
                       />
                       <div
-                        style={{ width: getBarWidth(data.distribution.Neutral, (data.distribution.Positive + data.distribution.Neutral + data.distribution.Negative)) }}
+                        style={{ width: getBarWidth(distribution.Neutral, totalForBars) }}
                         className="bg-yellow-500 h-full"
-                        title={`Neutral: ${data.distribution.Neutral}`}
+                        title={`Neutral: ${distribution.Neutral}`}
                       />
                       <div
-                        style={{ width: getBarWidth(data.distribution.Negative, (data.distribution.Positive + data.distribution.Neutral + data.distribution.Negative)) }}
+                        style={{ width: getBarWidth(distribution.Negative, totalForBars) }}
                         className="bg-red-500 h-full"
-                        title={`Negative: ${data.distribution.Negative}`}
+                        title={`Negative: ${distribution.Negative}`}
                       />
                     </div>
                     <div className="flex justify-between mt-1 text-[10px] text-muted-foreground">
@@ -390,6 +409,8 @@ export default function SentimentTracking({ brandName }: SentimentTrackingProps)
                   </div>
                 </div>
               </div>
+                )
+              })()
             )}
 
             {/* Sentiment Trend */}
@@ -452,17 +473,22 @@ export default function SentimentTracking({ brandName }: SentimentTrackingProps)
                     <tbody className="bg-background divide-y divide-border">
                       {Object.entries(data.models).map(([model, info]) => {
                         const visibilityForModel = data.visibility?.models?.[model]
+                        const modelDistribution = {
+                          Positive: info.distribution?.Positive ?? 0,
+                          Neutral: info.distribution?.Neutral ?? 0,
+                          Negative: info.distribution?.Negative ?? 0,
+                        }
                         return (
                           <tr key={model} className="hover:bg-muted/50 transition-colors">
                             <td className="px-4 py-3 font-medium text-foreground capitalize">
                               {model}
                             </td>
                             <td className="px-4 py-3 text-right text-xs">
-                              <span className="text-green-500">{info.distribution.Positive}</span>
+                              <span className="text-green-500">{modelDistribution.Positive}</span>
                               <span className="text-muted-foreground mx-1">/</span>
-                              <span className="text-yellow-500">{info.distribution.Neutral}</span>
+                              <span className="text-yellow-500">{modelDistribution.Neutral}</span>
                               <span className="text-muted-foreground mx-1">/</span>
-                              <span className="text-red-500">{info.distribution.Negative}</span>
+                              <span className="text-red-500">{modelDistribution.Negative}</span>
                             </td>
                             <td className="px-4 py-3 text-right">
                               <Badge variant={getScoreBadgeVariant(info.average_score)}>
@@ -477,7 +503,7 @@ export default function SentimentTracking({ brandName }: SentimentTrackingProps)
                                   </Badge>
                                   <span className="text-[10px] text-muted-foreground mt-1">
                                     {(visibilityForModel.appearance_rate * 100).toFixed(0)}% •{" "}
-                                    {visibilityForModel.avg_position_weight.toFixed(2)}
+                                    {(visibilityForModel.avg_position_weight ?? 0).toFixed(2)}
                                   </span>
                                 </div>
                               ) : (

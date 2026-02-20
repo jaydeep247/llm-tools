@@ -26,6 +26,28 @@ export interface CrawlResult {
   fields: any[];
 }
 
+export interface JobSiteStructure {
+  jobId: string;
+  sessionId: string;
+  projectId: string;
+  startUrl: string;
+  pages: { url?: string | null }[];
+}
+
+export interface JobSchemaResult {
+  jobId: string;
+  sessionId: string;
+  projectId: string;
+  url: string;
+  success: boolean;
+  error?: string;
+  message?: string;
+  schema?: any;
+  schema_text?: string;
+  rdfa_markup?: string;
+  createdAt?: string;
+}
+
 export interface JobSnapshot {
   jobId: string;
   status: string;
@@ -100,6 +122,36 @@ export const jobApi = baseApi.injectEndpoints({
         response.data,
       providesTags: (result, error, jobId) => [{ type: 'Job', id: jobId }],
     }),
+
+    getJobSiteStructure: builder.query<JobSiteStructure, string>({
+      query: (jobId) => `/jobs/${jobId}/site-structure`,
+      transformResponse: (response: { success: boolean; data: JobSiteStructure }) =>
+        response.data,
+      providesTags: (result, error, jobId) => [{ type: 'Job', id: jobId }],
+    }),
+
+    getJobSchema: builder.query<JobSchemaResult | null, string>({
+      query: (jobId) => `/jobs/${jobId}/results/schema`,
+      transformResponse: (response: { success: boolean; data: JobSchemaResult | null }) =>
+        response.data ?? null,
+      providesTags: (result, error, jobId) => [{ type: 'Job', id: jobId }],
+    }),
+
+    generateJobSchema: builder.mutation<
+      { success: boolean; job: Job },
+      { jobId: string; schemaType?: string }
+    >({
+      query: ({ jobId, schemaType }) => ({
+        url: `/jobs/${jobId}/generate-schema`,
+        method: 'POST',
+        body: schemaType ? { schemaType } : {},
+      }),
+      transformResponse: (response: { success: boolean; data: Job }) => ({
+        success: response.success,
+        job: response.data,
+      }),
+      invalidatesTags: (result, error, { jobId }) => [{ type: 'Job', id: jobId }],
+    }),
   }),
 });
 
@@ -113,4 +165,7 @@ export const {
   useGetJobLinksQuery,
   useGetJobSitemapsQuery,
   useGetJobFieldsQuery,
+  useGetJobSiteStructureQuery,
+  useGetJobSchemaQuery,
+  useGenerateJobSchemaMutation,
 } = jobApi;

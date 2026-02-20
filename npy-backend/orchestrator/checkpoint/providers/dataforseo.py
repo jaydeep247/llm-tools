@@ -1,9 +1,35 @@
 import os
+import json
+import logging
 import base64
 import aiohttp
 from typing import Dict, Any
 from . import BaseProvider
 from ..schemas import TaskResponse
+
+logger = logging.getLogger("dataforseo")
+
+def _truncate(value: Any, limit: int = 1000) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        text = value
+    else:
+        try:
+            text = json.dumps(value, ensure_ascii=True)
+        except Exception:
+            text = str(value)
+    if len(text) <= limit:
+        return text
+    return text[:limit] + "...<truncated>"
+
+def _summarize_payload(payload: Any) -> Dict[str, Any]:
+    if isinstance(payload, list):
+        return {
+            "count": len(payload),
+            "sample": payload[0] if payload else None
+        }
+    return {"sample": payload}
 
 class DataForSEOProvider(BaseProvider):
     def __init__(self):
@@ -30,17 +56,65 @@ class DataForSEOProvider(BaseProvider):
         try:
             async with aiohttp.ClientSession(auth=auth) as session:
                 url = f"{self.base_url}{endpoint}"
+                logger.info(
+                    "DataForSEO request",
+                    extra={
+                        "task_name": task_name,
+                        "endpoint": endpoint,
+                        "payload_summary": _summarize_payload(payload),
+                        "payload_preview": _truncate(payload, 1000),
+                    }
+                )
+
                 async with session.post(url, json=payload) as response:
+                    text_body = await response.text()
                     if response.status != 200:
-                         return TaskResponse(
-                            success=False, 
-                            error=f"API Error {response.status}", 
+                        logger.error(
+                            "DataForSEO response error",
+                            extra={
+                                "task_name": task_name,
+                                "endpoint": endpoint,
+                                "status": response.status,
+                                "body_preview": _truncate(text_body, 1000),
+                            }
+                        )
+                        return TaskResponse(
+                            success=False,
+                            error=f"API Error {response.status}",
                             meta={"provider": "dataforseo", "status": response.status}
                         )
-                    
-                    data = await response.json()
+
+                    try:
+                        data = json.loads(text_body) if text_body else {}
+                    except Exception:
+                        logger.error(
+                            "DataForSEO response parse error",
+                            extra={
+                                "task_name": task_name,
+                                "endpoint": endpoint,
+                                "status": response.status,
+                                "body_preview": _truncate(text_body, 1000),
+                            }
+                        )
+                        return TaskResponse(
+                            success=False,
+                            error="Invalid JSON response",
+                            meta={"provider": "dataforseo", "status": response.status}
+                        )
+
+                    logger.info(
+                        "DataForSEO response",
+                        extra={
+                            "task_name": task_name,
+                            "endpoint": endpoint,
+                            "status": response.status,
+                            "tasks_count": len(data.get("tasks", []) or []),
+                            "body_preview": _truncate(data, 1000),
+                        }
+                    )
+
                     return TaskResponse(
-                        success=True, 
+                        success=True,
                         data=data,
                         meta={"provider": "dataforseo"}
                     )

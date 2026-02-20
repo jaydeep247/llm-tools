@@ -153,17 +153,21 @@ export default function ProjectDetailPage() {
       const sessionResult = await createSession(projectId).unwrap()
       const sessionId = sessionResult.session.id
 
-       const normalizedUrl = normalizeUrl(url)
-
-      // Step 2: Create job
+       // Step 2: Create job
+      const normalizedUrl = url.trim().startsWith('http') ? url.trim() : `https://${url.trim()}`
+      
       await createJob({
         sessionId,
         data: {
           url: normalizedUrl,
+          jobType: 'CRAWL',
           allowSubdomains,
           runAudits,
           auditDevice,
           captureLinkDetails,
+          config: {
+            modules: ['module_c', 'module_e']
+          }
         }
       }).unwrap()
 

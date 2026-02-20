@@ -13,29 +13,35 @@ class GeminiProvider(BaseProvider):
 
     async def execute(self, task_name: str, input_data: Dict[str, Any], options: Dict[str, Any] = None) -> TaskResponse:
         options = options or {}
-        model_name = options.get("model", "gemini-2.0-flash") # Default to fast model
+        model_name = options.get("model", "gemini-2.0-flash")
+        
+        prompt = input_data.get("prompt")
+        if not prompt and "messages" in input_data:
+            prompt = "\n".join([m["content"] for m in input_data["messages"]])
+
+        if not prompt:
+            return TaskResponse(success=False, error="Input must contain 'prompt' or 'messages'", meta={"provider": "gemini"})
+
+        import asyncio
+        import functools
+        
+        def _run_sync_gemini(api_key: str, model: str, text: str):
+            # Configure and run entirely within the thread to avoid loop conflicts
+            genai.configure(api_key=api_key)
+            model_instance = genai.GenerativeModel(model)
+            result = model_instance.generate_content(text)
+            return result.text
 
         try:
-            model = genai.GenerativeModel(model_name)
-            
-            prompt = input_data.get("prompt")
-            # Gemini handles chat history differently, simplified for single prompt tasks usually
-            # But we can support 'messages' if needed by converting them
-            
-            if not prompt and "messages" in input_data:
-                # Naive conversion for simple tasks
-                prompt = "\n".join([m["content"] for m in input_data["messages"]])
-
-            if not prompt:
-                return TaskResponse(success=False, error="Input must contain 'prompt' or 'messages'", meta={"provider": "gemini"})
-
-            # Generate content (async not fully standard in all python SDK versions of gemini, checking support)
-            # Keeping it sync for now wrapped in executor if needed, or using generate_content_async if available
-            response = await model.generate_content_async(prompt)
+            loop = asyncio.get_running_loop()
+            response_text = await loop.run_in_executor(
+                None, 
+                functools.partial(_run_sync_gemini, self.api_key, model_name, prompt)
+            )
 
             return TaskResponse(
                 success=True, 
-                data=response.text,
+                data=response_text,
                 meta={
                     "provider": "gemini",
                     "model": model_name

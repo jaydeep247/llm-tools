@@ -1,8 +1,11 @@
 import os
+import logging
 import anthropic
 from typing import Dict, Any
 from . import BaseProvider
 from ..schemas import TaskResponse
+
+logger = logging.getLogger("orchestrator.claude")
 
 class ClaudeProvider(BaseProvider):
     def __init__(self):
@@ -43,4 +46,5 @@ class ClaudeProvider(BaseProvider):
             )
 
         except Exception as e:
+            logger.error(f"Claude API Error: {str(e)}", extra={"messages": messages, "model": model})
             return TaskResponse(success=False, error=str(e), meta={"provider": "claude"})

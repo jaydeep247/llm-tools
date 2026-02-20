@@ -17,10 +17,12 @@ export const startCrawlSchema = z.object({
   runAudits: z.boolean().optional(),
   auditDevice: z.enum(['mobile', 'desktop']).optional(),
   captureLinkDetails: z.boolean().optional(),
+  modules: z.array(z.string()).optional(),
 });
 
 export const sessionIdSchema = z.object({
   id: z.string().uuid('Invalid session ID'),
+  // id: z.string().min('Invalid session ID'),
 });
 
 export const projectIdParamSchema = z.object({
