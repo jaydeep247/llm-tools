@@ -51,10 +51,11 @@ export interface JobSchemaResult {
 export interface JobSnapshot {
   jobId: string;
   status: string;
-  logs: { message: string; timestamp: string | number }[];
-  links: { url: string; timestamp?: string | number }[];
+  logs: { message: string; timestamp: number }[];
+  links: { url: string; timestamp: number }[];
   completed: boolean;
-  snapshotAt: number;
+  snapshotAt: number;     // epoch ms - boundary for socket event filtering
+  startedAt?: number;     // epoch ms - when job started
 }
 
 export interface JobSiteStructure {
@@ -86,6 +87,7 @@ export const jobApi = baseApi.injectEndpoints({
       query: (jobId) => `/jobs/${jobId}/snapshot`,
       transformResponse: (response: { success: boolean; data: JobSnapshot }) => response.data,
       providesTags: (result, error, jobId) => [{ type: 'Job', id: jobId }],
+      keepUnusedDataFor: 0, // Never cache - always fetch fresh snapshot to prevent cross-session contamination
     }),
 
     // Get job status by jobId
@@ -106,6 +108,7 @@ export const jobApi = baseApi.injectEndpoints({
         { type: 'Session', id: sessionId },
         'Job',
       ],
+      keepUnusedDataFor: 0, // Never cache - fetch fresh jobs list on session change
     }),
 
     // Get crawl results for a job
@@ -174,6 +177,38 @@ export const jobApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: (result, error, { jobId }) => [{ type: 'Job', id: jobId }],
     }),
+
+    // Cancel a running job (used when browser is closed)
+    cancelJob: builder.mutation<{ success: boolean; job: Job }, string>({
+      query: (jobId) => ({
+        url: `/jobs/${jobId}/cancel`,
+        method: 'POST',
+      }),
+      transformResponse: (response: { success: boolean; data: Job }) => ({
+        success: response.success,
+        job: response.data,
+      }),
+      invalidatesTags: (result, error, jobId) => [
+        { type: 'Job', id: jobId },
+        'Session',
+      ],
+    }),
+
+    // Retry a failed job
+    retryJob: builder.mutation<{ success: boolean; job: Job }, string>({
+      query: (jobId) => ({
+        url: `/jobs/${jobId}/retry`,
+        method: 'POST',
+      }),
+      transformResponse: (response: { success: boolean; data: Job }) => ({
+        success: response.success,
+        job: response.data,
+      }),
+      invalidatesTags: (result, error, jobId) => [
+        { type: 'Job', id: jobId },
+        'Session',
+      ],
+    }),
   }),
 });
 
@@ -190,4 +225,6 @@ export const {
   useGetJobSiteStructureQuery,
   useGetJobSchemaQuery,
   useGenerateJobSchemaMutation,
+  useCancelJobMutation,
+  useRetryJobMutation,
 } = jobApi;

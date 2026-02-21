@@ -1,6 +1,7 @@
 import { JobRepository } from './job.repository';
 import { CreateJobDto, Job, JobStatus, JobType } from './job.types';
 import { SessionService } from '../session/session.service';
+import { SessionStatus } from '../session/session.types';
 import { QueueService } from '../queue/queue.service';
 
 export class JobService {
@@ -109,5 +110,59 @@ export class JobService {
 
   async markFailed(jobId: string, errorMessage: string): Promise<Job> {
     return this.jobRepository.updateStatus(jobId, JobStatus.FAILED, undefined, new Date(), errorMessage);
+  }
+
+  /**
+   * Cancel a running job (called when user closes browser or navigates away)
+   */
+  async cancelJob(userId: string, jobId: string, reason?: string): Promise<Job> {
+    const job = await this.getJobById(userId, jobId);
+    
+    // Only allow cancellation if job is pending or running
+    if (job.status !== JobStatus.PENDING && job.status !== JobStatus.RUNNING) {
+      throw new Error(`Cannot cancel job in ${job.status} state`);
+    }
+
+    // Update session status to failed
+    await this.sessionService.updateSessionStatus(job.sessionId, userId, SessionStatus.FAILED);
+
+    const message = reason === 'browser_closed' 
+      ? 'Job cancelled - browser was closed during crawl'
+      : 'Job cancelled by user';
+
+    return this.jobRepository.updateStatus(
+      jobId,
+      JobStatus.FAILED,
+      undefined,
+      new Date(),
+      message
+    );
+  }
+
+  /**
+   * Retry a failed job by creating a new job with the same config
+   */
+  async retryJob(userId: string, jobId: string): Promise<Job> {
+    const failedJob = await this.getJobById(userId, jobId);
+    
+    if (failedJob.status !== JobStatus.FAILED) {
+      throw new Error('Can only retry failed jobs');
+    }
+
+    // Create a new job with the same configuration
+    const newJob = await this.createJob(userId, failedJob.sessionId, {
+      url: failedJob.url,
+      jobType: failedJob.jobType,
+      config: failedJob.config,
+      allowSubdomains: failedJob.allowSubdomains,
+      runAudits: failedJob.runAudits,
+      auditDevice: failedJob.auditDevice,
+      captureLinkDetails: failedJob.captureLinkDetails,
+    });
+
+    // Update session status back to running
+    await this.sessionService.updateSessionStatus(failedJob.sessionId, userId, SessionStatus.RUNNING);
+
+    return newJob;
   }
 }

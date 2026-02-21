@@ -53,7 +53,7 @@ export const useJobRedirect = ({
 
     if (shouldRedirect) {
       const currentPath = window.location.pathname
-      const progressPath = `/dashboard/projects/${projectId}/sessions/${sessionId}/progress`
+      const progressPath = `/dashboard/jobs/${jobId}/progress`
       
       // Only redirect if we're not already on the progress page
       if (currentPath !== progressPath) {
@@ -124,7 +124,7 @@ export const useMultipleJobsRedirect = (
 
     if (runningJob && !options?.skipRedirect) {
       const currentPath = window.location.pathname
-      const progressPath = `/dashboard/projects/${runningJob.projectId}/sessions/${runningJob.sessionId}/progress`
+      const progressPath = `/dashboard/jobs/${runningJob.jobId}/progress`
       
       // Only redirect if we're not already on the progress page
       if (currentPath !== progressPath) {

@@ -11,11 +11,11 @@ export interface JobEvent {
 export interface JobSnapshot {
   jobId: string;
   status: string;
-  logs: any[];
-  links: any[];
+  logs: { message: string; timestamp: number }[];
+  links: { url: string; timestamp: number }[];
   completed: boolean;
-  snapshotAt: number;
-  startedAt?: string | number;
+  snapshotAt: number;     // epoch ms - boundary for socket event filtering
+  startedAt?: number;     // epoch ms - when job started
 }
 
 const REDIS_TTL = 3600 * 24; // 24 hours
@@ -46,7 +46,13 @@ export class LiveJobService {
         pipeline.expire(statusKey, REDIS_TTL);
         
         if (eventType === 'JOB_STARTED') {
-             // Save startedAt
+             // ✅ CLEAR all previous job data to prevent stale state
+             pipeline.del(logsKey);
+             pipeline.del(linksKey);
+             pipeline.del(`job:${jobId}:pages`);
+             pipeline.del(completedKey);
+             
+             // Save new startedAt
              const startedAt = timestamp ? new Date(timestamp).toISOString() : new Date().toISOString();
              pipeline.set(`job:${jobId}:startedAt`, startedAt);
              pipeline.expire(`job:${jobId}:startedAt`, REDIS_TTL);
@@ -58,15 +64,25 @@ export class LiveJobService {
         }
       }
 
-      // 2. Append Logs (Generic events or specific log events)
-      // We treat most events as logs for the stream, but specifically look for 'log' or 'progress'
-      if (['log', 'info', 'error', 'PROGRESS_UPDATE', 'JOB_STARTED', 'JOB_COMPLETED', 'JOB_FAILED'].includes(eventType) || eventType.includes('log')) {
+      // 2. Append Logs (Only meaningful progress events - NOT link_found)
+      // Filter to: log, JOB_STARTED, JOB_COMPLETED, JOB_FAILED, page_crawled
+      const logEventTypes = ['log', 'JOB_STARTED', 'JOB_COMPLETED', 'JOB_FAILED', 'page_crawled'];
+      if (logEventTypes.includes(eventType)) {
           pipeline.rpush(logsKey, JSON.stringify(event));
           pipeline.ltrim(logsKey, -MAX_LOGS, -1);
           pipeline.expire(logsKey, REDIS_TTL);
       }
 
-      // 3. Append Links
+      // 3. Append Pages (completed crawled pages - for progress count)
+      // This is separate from links discovered
+      const pagesKey = `job:${jobId}:pages`;
+      if (eventType === 'page_crawled') {
+          pipeline.rpush(pagesKey, JSON.stringify(event));
+          pipeline.ltrim(pagesKey, -MAX_LINKS, -1);
+          pipeline.expire(pagesKey, REDIS_TTL);
+      }
+
+      // 4. Append Links (discovered URLs - kept for legacy/reference but not shown in UI count)
       // IMPORTANT: Match ALL possible event type formats:
       // - 'link_found' (lowercase with underscore) - actual spider
       // - 'LINK_FOUND' (uppercase) - test producer
@@ -98,21 +114,24 @@ export class LiveJobService {
     
     const statusKey = `job:${jobId}:status`;
     const logsKey = `job:${jobId}:logs`;
-    const linksKey = `job:${jobId}:links`;
+    const pagesKey = `job:${jobId}:pages`;  // Crawled pages (for progress count)
     const completedKey = `job:${jobId}:completed`;
     const startedAtKey = `job:${jobId}:startedAt`;
 
     try {
       // Execute in parallel
-      const [status, logsRaw, linksRaw, completed, startedAt] = await Promise.all([
+      const [status, logsRaw, pagesRaw, completed, startedAt] = await Promise.all([
         redis.get(statusKey),
         redis.lrange(logsKey, 0, -1),
-        redis.lrange(linksKey, 0, -1),
+        redis.lrange(pagesKey, 0, -1),  // Get crawled pages instead of discovered links
         redis.get(completedKey),
         redis.get(startedAtKey)
       ]);
 
       // Transform raw event envelopes into clean log format
+      // Track max timestamp for snapshotAt boundary
+      let maxTimestamp = 0;
+      
       const logs = logsRaw.map(l => {
         try {
           const event = JSON.parse(l);
@@ -123,19 +142,21 @@ export class LiveJobService {
             || (typeof event.payload === 'string' ? event.payload : null)
             || event.eventType
             || JSON.stringify(event);
+          const ts = event.timestamp || 0;
+          if (ts > maxTimestamp) maxTimestamp = ts;
           return {
             message,
-            timestamp: event.timestamp || Date.now()
+            timestamp: ts || Date.now()
           };
         } catch (e) {
           return { message: l, timestamp: Date.now() };
         }
       });
 
-      // Transform raw event envelopes into clean link format
+      // Transform raw event envelopes into clean page format (crawled URLs)
       // Use a Set to deduplicate URLs
       const seenUrls = new Set<string>();
-      const links = linksRaw
+      const links = pagesRaw
         .map(l => {
           try {
             const event = JSON.parse(l);
@@ -143,9 +164,11 @@ export class LiveJobService {
             const url = event.payload?.url 
               || event.url 
               || (typeof event.payload === 'string' ? event.payload : null);
+            const ts = event.timestamp || 0;
+            if (ts > maxTimestamp) maxTimestamp = ts;
             return {
               url,
-              timestamp: event.timestamp || Date.now()
+              timestamp: ts || Date.now()
             };
           } catch (e) {
             return { url: l, timestamp: Date.now() };
@@ -158,14 +181,27 @@ export class LiveJobService {
           return true;
         });
 
+      // snapshotAt is the max timestamp of all events, or Date.now() if no events
+      // This ensures socket events with timestamp <= snapshotAt are correctly filtered
+      const snapshotAt = maxTimestamp > 0 ? maxTimestamp : Date.now();
+
+      // Convert startedAt to epoch ms for consistent frontend handling
+      let startedAtMs: number | undefined = undefined;
+      if (startedAt) {
+        const parsed = new Date(startedAt).getTime();
+        if (!isNaN(parsed)) {
+          startedAtMs = parsed;
+        }
+      }
+
       return {
         jobId,
         status: status || 'pending',
         logs,
         links,
         completed: completed === 'true',
-        startedAt: startedAt || undefined,
-        snapshotAt: Date.now()
+        startedAt: startedAtMs,
+        snapshotAt
       };
     } catch (error) {
       logger.error(`Error getting snapshot for ${jobId}:`, error);

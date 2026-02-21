@@ -1,19 +1,16 @@
 import json
-import json
 import os
 import asyncio
 from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 import time
 import logging
-import os
-import asyncio
 import queue as thread_queue
+import multiprocessing
 
 import pika
 from pika.exceptions import AMQPConnectionError
 from pika.adapters.blocking_connection import BlockingConnection
-from pika.exceptions import AMQPConnectionError
 import redis
 from pymongo import MongoClient
 from pymongo.errors import ServerSelectionTimeoutError, AutoReconnect, ConnectionFailure
@@ -23,7 +20,6 @@ from utils.logger import configure_logger, logger
 from utils.config import config
 from utils.mongo import mongo_manager
 from utils.storage import load_raw_html_sync
-from utils.storage import load_raw_html_sync
 from utils.event_publisher import publisher
 from workers.crawl_worker.spiders.website_spider import WebsiteSpider
 from modules.module_B.schema_generator import SchemaGenerator
@@ -31,9 +27,6 @@ from modules.module_C.knowledge_base import KnowledgeBaseModule
 from modules.module_D.contentAnylsisMatrix import OpenAIService
 from workers.crawl_worker.spiders.sitemap_discovery import SitemapDiscovery
 from workers.crawl_worker.preflight import preflight_discover_all_urls
-from modules.module_B.schema_generator import SchemaGenerator
-from modules.module_C.knowledge_base import KnowledgeBaseModule
-from modules.module_D.contentAnylsisMatrix import OpenAIService
 
 # Module E Runners
 from modules.module_E.runner import run_module_e, run_consistency_only
@@ -95,21 +88,21 @@ def get_mongo_client() -> MongoClient:
 
 # Use multiprocess to run scrapy in a separate process
 # This is required because Twisted reactor cannot be restarted in the same process
-import multiprocessing
 
-def run_spider_in_process(url, session_id, job_id, project_id, urls, total_urls):
+def run_spider_in_process(url, session_id, job_id, project_id, max_pages=3000, timeout=0, allow_discovery=True):
+    """Run the spider in a separate process (required because Twisted reactor can't restart)"""
     configure_logger()
     process = CrawlerProcess(settings=SCRAPY_SETTINGS)
+    crawler = process.create_crawler(WebsiteSpider)
     process.crawl(
-        WebsiteSpider,
+        crawler,
         start_url=url,
-        start_urls=list(urls),
         session_id=session_id,
         job_id=job_id,
         project_id=project_id,
-        max_pages=3000,
-        allow_discovery=False,
-        planned_total=total_urls,
+        max_pages=max_pages,
+        timeout=timeout,
+        allow_discovery=allow_discovery,
     )
     process.start()
 
@@ -124,8 +117,27 @@ def run_spider_in_process(url, session_id, job_id, project_id, urls, total_urls)
     error_count = stats.get("log_count/ERROR", 0)
 
     logger.info(
-        f"Crawl finished. Stats: pages={pages_crawled}, duration={duration}, errors={error_count}"
+        f"Crawl finished. Stats: pages={pages_crawled}, duration={duration:.2f}s, errors={error_count}"
     )
+    return {"pages_crawled": pages_crawled, "duration": duration, "error_count": error_count}
+
+
+def run_crawl_job(url: str, session_id: str, job_id: str, project_id: str, max_pages: int = 3000, timeout: int = 0) -> None:
+    """Run a crawl job using multiprocessing to avoid Twisted reactor issues"""
+    logger.info(f"Starting crawl job {job_id} for {url}")
+    
+    # Run spider in a separate process
+    p = multiprocessing.Process(
+        target=run_spider_in_process,
+        args=(url, session_id, job_id, project_id, max_pages, timeout, True)
+    )
+    p.start()
+    p.join()  # Wait for crawl to complete
+    
+    if p.exitcode != 0:
+        raise RuntimeError(f"Crawl process exited with code {p.exitcode}")
+    
+    logger.info(f"Crawl job {job_id} completed successfully")
 
 
 def run_schema_job(url: str, session_id: str, job_id: str, project_id: str, schema_type: str | None = None) -> None:
@@ -240,101 +252,39 @@ def run_content_metrics_job(url: str, session_id: str, job_id: str, project_id: 
 
 
 def execute_job(payload: dict, job_type: str = "crawl") -> bool:
-    configure_logger()  # Ensure logging is configured in the worker process
+    """Execute a crawl job directly with the given payload"""
+    configure_logger()
     session_id = payload["sessionId"]
     project_id = payload["projectId"]
     url = payload["url"]
     job_id = payload.get("jobId") or f"job_{session_id}"
+    job_type_resolved = payload.get("jobType", "CRAWL").upper()
+    schema_type = payload.get("schemaType")
 
     mongo_client = get_mongo_client()
     db = mongo_client[config.MONGO_DB_NAME]
     r = redis.from_url(config.REDIS_URL)
 
-    params = pika.URLParameters(config.RABBITMQ_URL)
-    connection = pika.BlockingConnection(params)
-    # max_attempts = int(os.getenv("RABBITMQ_CONNECT_ATTEMPTS", "30"))
-    # delay_seconds = float(os.getenv("RABBITMQ_CONNECT_DELAY", "2.0"))
+    jobs = db.jobs
+    sessions = db.sessions
+    session_key = f"session:{session_id}"
+    job_key = f"job:{job_id}"
 
-    # attempt = 0
-    # connection = None
-    # while connection is None:
-    #     attempt += 1
-    #     try:
-    #         logger.info(
-    #             f"Connecting to RabbitMQ (attempt {attempt}/{max_attempts})..."
-    #         )
-    #         connection = pika.BlockingConnection(params)
-    #     except AMQPConnectionError as e:
-    #         if attempt >= max_attempts:
-    #             logger.error(
-    #                 f"Failed to connect to RabbitMQ after {attempt} attempts: {e}"
-    #             )
-    #             raise
-    #         logger.warning(
-    #             f"RabbitMQ not ready, retrying in {delay_seconds} seconds: {e}"
-    #         )
-    #         time.sleep(delay_seconds)
-    #         continue
-    channel = connection.channel()
-
-    channel.exchange_declare(exchange="crawl.exchange", exchange_type="direct", durable=True)
-    channel.queue_declare(queue="crawl.queue", durable=True)
-    channel.queue_bind(
-        exchange="crawl.exchange",
-        queue="crawl.queue",
-        routing_key="crawl.start",
-    )
-
-    channel.basic_qos(prefetch_count=1)
-
-    logger.info("🐇 RabbitMQ worker connected. Waiting for crawl.start messages...")
-
-    def handle(ch, method, _properties, body) -> None:
-        try:
-            msg = json.loads(body)
-            session_id = msg["sessionId"]
-            project_id = msg["projectId"]
-            url = msg["url"]
-            job_id = msg.get("jobId") or f"job_{session_id}"
-            job_type = msg.get("jobType", "CRAWL").upper()
-            schema_type = msg.get("schemaType")
-
-            jobs = mongo_manager.db.jobs
-            jobs.update_one(
-                {"id": job_id},
-                {
-                    "$set": {
-                        "status": "RUNNING",
-                        "startedAt": datetime.utcnow(),
-                    }
-                },
-            )
-
-            key = f"session:{session_id}"
-            r.hset(
-                key,
-                mapping={
-                    "status": "RUNNING",
-                    "url": url,
-                    "projectId": project_id,
-                },
-            )
-            r.expire(key, 3600)
-
-        job_key = f"job:{job_id}"
-        r.hset(
-            job_key,
-            mapping={
-                "status": "RUNNING",
-                "sessionId": session_id,
-                "projectId": project_id,
-                "url": url,
-            },
+    try:
+        # Update status to RUNNING
+        jobs.update_one(
+            {"id": job_id},
+            {"$set": {"status": "RUNNING", "startedAt": datetime.utcnow()}},
         )
+        
+        r.hset(session_key, mapping={"status": "RUNNING", "url": url, "projectId": project_id})
+        r.expire(session_key, 3600)
+        
+        r.hset(job_key, mapping={"status": "RUNNING", "sessionId": session_id, "projectId": project_id, "url": url})
         r.expire(job_key, 3600)
 
-        if job_type == "crawl":
-            # Pre-crawl planning: discover sitemap URLs to know how many links we plan to crawl
+        # Pre-crawl planning for CRAWL jobs
+        if job_type_resolved == "CRAWL":
             try:
                 publisher.emit_event(job_id, 'log', {'message': "Analyzing sitemaps for crawl planning...", 'level': 'info'})
                 
@@ -346,64 +296,36 @@ def execute_job(payload: dict, job_type: str = "crawl") -> bool:
                 planned_urls = plan_result.get("discovered_urls", []) or []
                 planned_count = len(planned_urls)
 
-                logger.info(
-                    f"Planned crawl for job {job_id}: {planned_count} URLs discovered from sitemaps for {url}"
-                )
+                logger.info(f"Planned crawl for job {job_id}: {planned_count} URLs discovered from sitemaps for {url}")
                 if planned_count > 0:
                     r.hset(job_key, mapping={"plannedPages": planned_count})
             except Exception:
                 # Planning is best-effort; continue even if sitemap discovery fails
                 pass
 
-            if job_type == "SCHEMA":
-                run_schema_job(
-                    url=url,
-                    session_id=session_id,
-                    job_id=job_id,
-                    project_id=project_id,
-                    schema_type=schema_type,
-                )
-            elif job_type == "CONTENT_METRICS":
-                run_content_metrics_job(
-                    url=url,
-                    session_id=session_id,
-                    job_id=job_id,
-                    project_id=project_id,
-                )
-            else:
-                run_crawl_job(
-                    url=url,
-                    session_id=session_id,
-                    job_id=job_id,
-                    project_id=project_id,
-                )
+        # Execute the appropriate job type
+        if job_type_resolved == "SCHEMA":
+            run_schema_job(url=url, session_id=session_id, job_id=job_id, project_id=project_id, schema_type=schema_type)
+        elif job_type_resolved == "CONTENT_METRICS":
+            run_content_metrics_job(url=url, session_id=session_id, job_id=job_id, project_id=project_id)
         else:
-            # Run analysis task
-            asyncio.run(execute_analysis_task(payload))
+            # Run the actual crawl
+            run_crawl_job(url=url, session_id=session_id, job_id=job_id, project_id=project_id)
 
+        # Update status to COMPLETED
         jobs.update_one(
             {"id": job_id},
-            {
-                "$set": {
-                    "status": "COMPLETED",
-                    "completedAt": datetime.utcnow(),
-                }
-            },
+            {"$set": {"status": "COMPLETED", "completedAt": datetime.utcnow()}},
         )
         
         sessions.update_one(
             {"id": session_id},
-            {
-                "$set": {
-                    "status": "COMPLETED",
-                    "completedAt": datetime.utcnow(),
-                }
-            },
+            {"$set": {"status": "COMPLETED", "completedAt": datetime.utcnow()}},
         )
 
         r.hset(session_key, mapping={"status": "COMPLETED"})
         r.expire(session_key, 3600)
-
+        
         r.hset(job_key, mapping={"status": "COMPLETED"})
         r.expire(job_key, 3600)
 
@@ -412,29 +334,16 @@ def execute_job(payload: dict, job_type: str = "crawl") -> bool:
         raise RetryableJobError(str(e)) from e
     except Exception as e:
         logger.error(f"Job failed: {e}", exc_info=True)
-        jobs = db.jobs
-        sessions = db.sessions
         jobs.update_one(
             {"id": job_id},
-            {
-                "$set": {
-                    "status": "FAILED",
-                    "completedAt": datetime.utcnow(),
-                    "errorMessage": str(e)
-                }
-            },
+            {"$set": {"status": "FAILED", "completedAt": datetime.utcnow(), "errorMessage": str(e)}},
         )
         
         sessions.update_one(
             {"id": session_id},
-            {
-                "$set": {
-                    "status": "FAILED",
-                    "completedAt": datetime.utcnow(),
-                    "errorMessage": str(e)
-                }
-            },
+            {"$set": {"status": "FAILED", "completedAt": datetime.utcnow(), "errorMessage": str(e)}},
         )
+        
         r.hset(job_key, mapping={"status": "FAILED"})
         r.expire(job_key, 3600)
         raise NonRetryableJobError(str(e)) from e
@@ -482,117 +391,6 @@ def run_job_in_worker(payload: dict, job_type_override: str | None = None) -> No
         )
     else:
         execute_job(payload)
-
-
-def run_schema_job(url: str, session_id: str, job_id: str, project_id: str, schema_type: str | None = None) -> None:
-    logger.info(f"Starting schema generation job {job_id} for {url}")
-
-    try:
-        html_content = load_raw_html_sync(job_id)
-        if not html_content:
-            logger.warning(f"No raw HTML found for job {job_id}, schema generation skipped")
-            result = {
-                "success": False,
-                "error": "RAW_HTML_NOT_FOUND",
-                "message": "No raw HTML found for this job. Run a crawl first.",
-                "schema": None,
-            }
-        else:
-            generator = SchemaGenerator()
-            result = generator.generate_schema(html_content, url, schema_type or "auto")
-
-        mongo_manager.connect()
-        doc = {
-            "jobId": job_id,
-            "sessionId": session_id,
-            "projectId": project_id,
-            "url": url,
-            "createdAt": datetime.utcnow(),
-            **result,
-        }
-        mongo_manager.schemas.update_one(
-            {"jobId": job_id, "url": url},
-            {"$set": doc},
-            upsert=True,
-        )
-        logger.info(f"Stored schema generation result for job {job_id}")
-    except Exception as e:  # noqa: BLE001
-        error_type = type(e).__name__
-        logger.error(f"Schema generation failed for job {job_id} ({error_type})")
-
-
-def run_content_metrics_job(url: str, session_id: str, job_id: str, project_id: str) -> None:
-    logger.info(f"Starting content metrics job {job_id} for {url}")
-
-    try:
-        html_content = load_raw_html_sync(job_id)
-        if not html_content:
-            logger.warning(f"No raw HTML found for job {job_id}, content metrics analysis skipped")
-            result = {
-                "success": False,
-                "error": "RAW_HTML_NOT_FOUND",
-                "message": "No raw HTML found for this job. Run a crawl first.",
-                "content_metrics": None,
-                "entity_metrics": None,
-            }
-        else:
-            kb_module = KnowledgeBaseModule()
-            kb_result = asyncio.run(kb_module.run_analysis(html_content, url))
-            entity_coverage = kb_result.get("entity_coverage") or {}
-
-            found_entities = entity_coverage.get("found_entities") or []
-            expected_entities = entity_coverage.get("expected_entities") or []
-
-            ai_service = OpenAIService()
-            content_metrics = ai_service.analyze_content_metrics(html_content, url)
-            entity_relevance = ai_service.analyze_entity_relevance(
-                html_content,
-                url,
-                found_entities,
-                expected_entities,
-            )
-
-            entities_detected_count = len(found_entities)
-            entity_coverage_score = entity_coverage.get("coverage_score", 0)
-
-            entity_metrics = {
-                "entities_detected_count": entities_detected_count,
-                "entity_coverage_score": entity_coverage_score,
-                "entity_relevance_score": entity_relevance.get("entity_relevance_score", 50),
-                "entity_relevance_details": {
-                    "relevant_entities": entity_relevance.get("relevant_entities", []),
-                    "irrelevant_entities": entity_relevance.get("irrelevant_entities", []),
-                },
-            }
-
-            result = {
-                "success": True,
-                "content_metrics": content_metrics,
-                "entity_metrics": entity_metrics,
-                "raw": {
-                    "entity_coverage": entity_coverage,
-                    "entity_relevance": entity_relevance,
-                },
-            }
-
-        mongo_manager.connect()
-        doc = {
-            "jobId": job_id,
-            "sessionId": session_id,
-            "projectId": project_id,
-            "url": url,
-            "createdAt": datetime.utcnow(),
-            **result,
-        }
-        mongo_manager.content_metrics.update_one(
-            {"jobId": job_id, "url": url},
-            {"$set": doc},
-            upsert=True,
-        )
-        logger.info(f"Stored content metrics result for job {job_id}")
-    except Exception as e:  # noqa: BLE001
-        error_type = type(e).__name__
-        logger.error(f"Content metrics analysis failed for job {job_id} ({error_type})")
 
 
 def start_queue_worker() -> None:

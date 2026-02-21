@@ -30,7 +30,7 @@ export const useJobStatusRedirect = ({
     // Check if job is running and redirect to progress page
     if (job?.status === 'running' || job?.status === 'auditing') {
       const currentPath = window.location.pathname
-      const progressPath = `/dashboard/projects/${projectId}/sessions/${sessionId}/progress`
+      const progressPath = `/dashboard/jobs/${jobId}/progress`
       
       // Only redirect if we're not already on the progress page
       if (currentPath !== progressPath) {

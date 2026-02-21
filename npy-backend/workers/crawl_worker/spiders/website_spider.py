@@ -108,6 +108,7 @@ class WebsiteSpider(scrapy.Spider):
         self.links_collected = 0
         self.should_stop = False
         self.seen_urls = set()
+        self.emitted_urls = set()  # Track URLs already emitted via link_found
 
         if start_urls is not None:
             self.start_urls = start_urls
@@ -134,6 +135,25 @@ class WebsiteSpider(scrapy.Spider):
                 'completedAt': datetime.now().isoformat()
             })
             logger.info(f"Emitted job completion event for {self.job_id} (status={status})")
+
+    def emit_link_found(self, url: str, source: str = 'crawl') -> None:
+        """
+        Emit a link_found event for live progress tracking.
+        Only emits once per unique URL.
+        """
+        if not self.job_id:
+            return
+        
+        normalized = self.normalize_url(url)
+        if normalized in self.emitted_urls:
+            return
+        
+        self.emitted_urls.add(normalized)
+        publisher.emit_event(self.job_id, 'link_found', {
+            'url': url,
+            'source': source,
+            'count': len(self.emitted_urls)
+        })
 
     def normalize_url(self, url: str) -> str:
         parsed = urlparse(url)
@@ -208,7 +228,8 @@ class WebsiteSpider(scrapy.Spider):
             publisher.emit_event(self.job_id, 'JOB_STARTED', {
                 'status': 'running',
                 'startedAt': self.crawl_started_at,
-                'url': self.start_url
+                'url': self.start_url,
+                'message': f'Starting crawl job for {self.start_url}'
             })
             logger.info(f"Emitted job start event for {self.job_id}")
 
@@ -228,6 +249,9 @@ class WebsiteSpider(scrapy.Spider):
         
         root_normalized = self.normalize_url(self.start_url)
         self.seen_urls.add(root_normalized)
+        
+        # Emit link_found for start URL
+        self.emit_link_found(self.start_url, source='start')
         
         yield scrapy.Request(
             url=self.start_url,
@@ -266,10 +290,25 @@ class WebsiteSpider(scrapy.Spider):
     def parse_robots(self, response):
         """Parse robots.txt for sitemap directives"""
         try:
+            # Emit log for robots.txt check
+            if self.job_id:
+                publisher.emit_event(self.job_id, 'log', {
+                    'message': f'Checking robots.txt at {response.url}',
+                    'type': 'preflight'
+                })
+            
             for line in response.text.splitlines():
                 if line.strip().lower().startswith('sitemap:'):
                     sitemap_url = line.split(':', 1)[1].strip()
                     logger.info(f"Found sitemap in robots.txt: {sitemap_url}")
+                    
+                    # Emit log for sitemap discovery
+                    if self.job_id:
+                        publisher.emit_event(self.job_id, 'log', {
+                            'message': f'Found sitemap: {sitemap_url}',
+                            'type': 'preflight'
+                        })
+                    
                     yield scrapy.Request(
                         url=sitemap_url,
                         callback=self.parse_sitemap,
@@ -342,6 +381,9 @@ class WebsiteSpider(scrapy.Spider):
                             if normalized in self.seen_urls:
                                 continue
                             self.seen_urls.add(normalized)
+                            
+                            # Emit link_found for sitemap URL
+                            self.emit_link_found(url, source='sitemap')
                             
                             yield scrapy.Request(
                                 url=url,
@@ -541,6 +583,14 @@ class WebsiteSpider(scrapy.Spider):
         self.pages_crawled += 1
         logger.info(f"Completed page {self.pages_crawled} (approx total discovered: {self.links_collected}) - {response.url}")
         
+        # Emit page_crawled event for progress tracking
+        if self.job_id:
+            publisher.emit_event(self.job_id, 'page_crawled', {
+                'url': response.url,
+                'count': self.pages_crawled,
+                'message': f'Crawled: {response.url}'
+            })
+        
         # Check if we should stop crawling
         if self.max_pages > 0 and self.pages_crawled >= self.max_pages:
             logger.info(f"Reached max pages limit: {self.max_pages}")
@@ -583,6 +633,9 @@ class WebsiteSpider(scrapy.Spider):
                     if normalized_target in self.seen_urls:
                         continue
                     self.seen_urls.add(normalized_target)
+                    
+                    # Emit link_found for discovered URL
+                    self.emit_link_found(target_url, source='crawl')
 
                     priority = self.get_url_priority(target_url)
 
@@ -594,8 +647,6 @@ class WebsiteSpider(scrapy.Spider):
                             priority=priority,
                             errback=self.handle_error,
                         )
-        except Exception:
-            return
     
     
     def handle_error(self, failure):

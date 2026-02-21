@@ -156,7 +156,7 @@ export default function ProjectDetailPage() {
        // Step 2: Create job
       const normalizedUrl = url.trim().startsWith('http') ? url.trim() : `https://${url.trim()}`
       
-      await createJob({
+      const jobResult = await createJob({
         sessionId,
         data: {
           url: normalizedUrl,
@@ -171,8 +171,8 @@ export default function ProjectDetailPage() {
         }
       }).unwrap()
 
-      // Navigate to session details page (which defaults to crawler tab/view)
-      router.push(`/dashboard/projects/${projectId}/sessions/${sessionId}/progress`)
+      // Navigate to job progress page (jobId is stable identity from URL)
+      router.push(`/dashboard/jobs/${jobResult.job.id}/progress`)
     } catch (err: any) {
       setError(err?.data?.message || err?.message || 'Failed to start crawl session')
     }
@@ -184,7 +184,7 @@ export default function ProjectDetailPage() {
       <div className="space-y-2 sm:space-y-3">
         <div className="flex flex-col gap-2">
           {/* Project Name */}
-          <div className="min-h-[40px] flex items-center">
+          <div className="min-h-10 flex items-center">
             {editingName ? (
               <div className="flex items-center gap-2 flex-1 max-w-xl">
                 <Input
@@ -223,7 +223,7 @@ export default function ProjectDetailPage() {
           </div>
 
           {/* Project Description */}
-          <div className="min-h-[24px] flex items-center">
+          <div className="min-h-6 flex items-center">
             {editingDesc ? (
               <div className="flex items-center gap-2 flex-1 max-w-xl">
                 <Input
@@ -441,9 +441,7 @@ export default function ProjectDetailPage() {
                   {/* Footer Action */}
                   <div className="mt-auto">
                     <a
-                      href={session.status === 'running' || session.status === 'auditing' 
-                        ? `/dashboard/projects/${projectId}/sessions/${session.id}/progress`
-                        : `/dashboard/projects/${projectId}/sessions/${session.id}`}
+                      href={`/dashboard/projects/${projectId}/sessions/${session.id}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="block w-full py-2 bg-white text-black text-xs font-semibold rounded text-center opacity-90 hover:opacity-100 transition-opacity cursor-pointer"

@@ -66,6 +66,7 @@ export const sessionApi = baseApi.injectEndpoints({
         session: response.data,
       }),
       providesTags: (result, error, sessionId) => [{ type: 'Session', id: sessionId }],
+      keepUnusedDataFor: 0, // Never cache - fetch fresh on navigation
     }),
 
     // Create a new session (Step 1)

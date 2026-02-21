@@ -3,7 +3,7 @@
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Clock, Globe, CheckCircle, XCircle, Loader2, AlertCircle } from 'lucide-react'
+import { Clock, Globe, CheckCircle, XCircle, Loader2, AlertCircle, RefreshCw } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { CrawlLogger, DiscoveredPages, CrawlStatusHeader } from '@/components/crawl'
 import { SessionLayout } from '@/components/layout/SessionLayout'
@@ -15,7 +15,7 @@ import { useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
 // import { useGetDataListQuery, useCheckLinksMutation, useGetLinkStatsQuery, useLazyGetPageLinksQuery } from '@/store/api/module_A/dataApi'
 import { useGetProjectQuery } from '@/store/api/projectApi'
 import { useGetSessionQuery } from '@/store/api/sessionApi'
-import { useGetSessionJobsQuery, useGetJobPagesQuery, useGetJobLinksQuery, useGetJobSitemapsQuery, useGetJobFieldsQuery, useGetJobSiteStructureQuery } from '@/store/api/jobApi'
+import { useGetSessionJobsQuery, useGetJobPagesQuery, useGetJobLinksQuery, useGetJobSitemapsQuery, useGetJobFieldsQuery, useGetJobSiteStructureQuery, useRetryJobMutation } from '@/store/api/jobApi'
 import { formatDurationHHMMSSMS, formatDurationReadable } from '@/utils/formatDuration'
 
 interface LogEntry {
@@ -37,13 +37,6 @@ export default function SessionDetailPage() {
   const session = sessionData?.session
   const project = projectData?.project
 
-  // Redirect to progress page if session is running
-  useEffect(() => {
-    if (session && (session.status === 'running' || session.status === 'auditing')) {
-      router.replace(`/dashboard/projects/${projectId}/sessions/${sessionId}/progress`)
-    }
-  }, [session, projectId, sessionId, router])
-
   // Fetch jobs for this session to get the latest job ID
   const { data: jobsData, isLoading: isLoadingJobs } = useGetSessionJobsQuery(sessionId, {
     skip: !sessionId,
@@ -62,6 +55,17 @@ export default function SessionDetailPage() {
   const latestCrawlJob = sortedJobs.find((job) => job.type === 'CRAWL') || null
   const jobId = latestCrawlJob?.id
 
+  // Redirect to progress page if session is running
+  useEffect(() => {
+    if (session && jobs.length > 0 && (session.status === 'running' || session.status === 'auditing')) {
+      // Find active job
+      const activeJob = jobs.find(j => j.status === 'running' || j.status === 'pending' || j.status === 'RUNNING' || j.status === 'PENDING') || jobs[jobs.length - 1]
+      if (activeJob?.id) {
+        router.replace(`/dashboard/jobs/${activeJob.id}/progress`)
+      }
+    }
+  }, [session, jobs, router])
+
   const { data: moduleEQueryData } = useGetModuleEResultQuery(jobId || '', {
     skip: !jobId,
   })
@@ -77,6 +81,20 @@ export default function SessionDetailPage() {
 
 
   const { data: siteStructureResult } = useGetJobSiteStructureQuery(jobId!, { skip: !jobId })
+
+  // Retry job mutation for failed jobs
+  const [retryJob, { isLoading: isRetrying }] = useRetryJobMutation()
+  
+  const handleRetry = async () => {
+    if (!jobId) return
+    try {
+      const result = await retryJob(jobId).unwrap()
+      // Redirect to progress page for the retried job
+      router.push(`/dashboard/jobs/${result.job.id}/progress`)
+    } catch (error) {
+      console.error('Failed to retry job:', error)
+    }
+  }
 
   const isLoadingResults = isLoadingPagesRaw || isLoadingLinksRaw || isLoadingFieldsRaw || isLoadingSitemapsRaw
   const refetchJobResults = () => {
@@ -685,10 +703,28 @@ export default function SessionDetailPage() {
                 </div>
                 <div className="space-y-0.5 sm:space-y-1">
                   <p className="text-[10px] sm:text-xs text-white/60">Status</p>
-                  <Badge className={`${getStatusColor(session.status)} text-[10px] inline-flex items-center gap-1`}>
-                    {getStatusIcon(session.status)}
-                    {session.status.toUpperCase()}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge className={`${getStatusColor(session.status)} text-[10px] inline-flex items-center gap-1`}>
+                      {getStatusIcon(session.status)}
+                      {session.status.toUpperCase()}
+                    </Badge>
+                    {session.status === 'failed' && jobId && (
+                      <Button
+                        onClick={handleRetry}
+                        disabled={isRetrying}
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-[10px] bg-white/10 border-white/20 hover:bg-white/20"
+                      >
+                        {isRetrying ? (
+                          <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                        ) : (
+                          <RefreshCw className="h-3 w-3 mr-1" />
+                        )}
+                        Retry
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 <div className="space-y-0.5 sm:space-y-1">
                   <p className="text-[10px] sm:text-xs text-white/60">Total Pages</p>

@@ -23,5 +23,7 @@ router.get('/jobs/:id/results/fields', jobController.getJobFields);
 router.get('/jobs/:id/results/schema', jobController.getJobSchema);
 router.get('/jobs/:id/site-structure', jobController.getJobSiteStructure);
 router.get('/jobs/:id/results/content-metrics', jobController.getJobContentMetrics);
+router.post('/jobs/:id/cancel', jobController.cancelJob);
+router.post('/jobs/:id/retry', jobController.retryJob);
 
 export default router;

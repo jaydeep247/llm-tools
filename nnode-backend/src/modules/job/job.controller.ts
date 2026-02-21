@@ -333,4 +333,49 @@ export class JobController {
       return ResponseUtil.serverError(res, 'Failed to retrieve job site structure');
     }
   };
+
+  /**
+   * Cancel a running job (called when user closes browser)
+   */
+  cancelJob = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+      const reason = req.body?.reason as string | undefined;
+
+      const job = await this.jobService.cancelJob(userId, id, reason);
+      return ResponseUtil.success(res, 'Job cancelled successfully', job);
+    } catch (error: any) {
+      logger.error(`Error cancelling job: ${error.message}`);
+      if (error.message.includes('not found') || error.message.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      if (error.message.includes('Cannot cancel')) {
+        return ResponseUtil.error(res, error.message, undefined, 400);
+      }
+      return ResponseUtil.serverError(res, 'Failed to cancel job');
+    }
+  };
+
+  /**
+   * Retry a failed job
+   */
+  retryJob = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+
+      const job = await this.jobService.retryJob(userId, id);
+      return ResponseUtil.success(res, 'Job retry started successfully', job);
+    } catch (error: any) {
+      logger.error(`Error retrying job: ${error.message}`);
+      if (error.message.includes('not found') || error.message.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      if (error.message.includes('Can only retry')) {
+        return ResponseUtil.error(res, error.message, undefined, 400);
+      }
+      return ResponseUtil.serverError(res, 'Failed to retry job');
+    }
+  };
 }

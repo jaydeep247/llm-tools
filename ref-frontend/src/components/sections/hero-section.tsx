@@ -69,7 +69,7 @@ export function HeroSection() {
       const sessionResult = await createSession(projectId).unwrap()
       const sessionId = sessionResult.session.id
 
-      await createJob({
+      const jobResult = await createJob({
         sessionId,
         data: {
           url: pendingUrl,
@@ -85,7 +85,8 @@ export function HeroSection() {
         description: `Successfully started crawling ${pendingUrl}`,
       })
 
-      router.push(`/dashboard/projects/${projectId}/sessions/${sessionId}/progress`)
+      // Navigate to job progress page (jobId is stable identity from URL)
+      router.push(`/dashboard/jobs/${jobResult.job.id}/progress`)
     } catch (error: any) {
       toast({
         title: 'Failed to Start Crawl',
