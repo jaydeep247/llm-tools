@@ -28,13 +28,14 @@ type JobStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
  * 1. jobId comes from URL - single stable identity
  * 2. Snapshot hydrates state EXACTLY ONCE per job
  * 3. Socket emits ONLY future deltas (timestamp > snapshotAt)
- * 4. ONE ref (hydratedJobIdRef) for race condition prevention
+ * 4. Refs for race condition prevention and stable closures:
+ *    - hydratedJobIdRef: tracks hydrated job synchronously
+ *    - statusRef: current status for socket handlers
+ *    - snapshotAtRef: current snapshot boundary for handlers
  * 5. Derived values computed, never stored
- * 
- * Race Condition Prevention:
- * - hydratedJobIdRef tracks which job has been hydrated SYNCHRONOUSLY
- * - State updates are batched/async, but ref updates are immediate
- * - This prevents stale data when rapidly switching between job progress pages
+ * 6. Socket effect depends ONLY on jobId + snapshotAt (NOT status)
+ *    - forceNew:true prevents socket multiplexing between jobs
+ *    - Status changes handled internally, don't cause reconnections
  */
 export default function JobProgressPage() {
   const params = useParams()
@@ -58,18 +59,35 @@ export default function JobProgressPage() {
   // Unlike state, refs update immediately, preventing race conditions
   // when navigating between progress pages
   const hydratedJobIdRef = useRef<string | null>(null)
+  
+  // ============ REFS: CURRENT VALUES FOR SOCKET EFFECT ============
+  // These refs allow socket handlers to access current values without
+  // causing effect re-runs (which would reconnect the socket)
+  const statusRef = useRef<JobStatus>('pending')
+  const snapshotAtRef = useRef<number | null>(null)
+  
+  // Keep refs in sync with state
+  useEffect(() => {
+    statusRef.current = status
+  }, [status])
+  
+  useEffect(() => {
+    snapshotAtRef.current = snapshotAt
+  }, [snapshotAt])
 
   // ============ EFFECT 0: RESET STATE ON JOB CHANGE ============
   // CRITICAL: When jobId changes (navigation between progress pages),
   // React preserves component state. We MUST reset to prevent cross-job contamination.
   useEffect(() => {
-    // SYNCHRONOUSLY clear hydration ref FIRST - this is the critical gate
+    // SYNCHRONOUSLY clear ALL refs FIRST - these are the critical gates
     hydratedJobIdRef.current = null
+    statusRef.current = 'pending'
+    snapshotAtRef.current = null
     
     // Reset ALL state to initial values
     setStatus('pending')
     setStartedAt(null)
-    setSnapshotAt(null)  // This gates the hydration effect
+    setSnapshotAt(null)  // This gates the socket effect
     setLogs([])
     setPages([])
     setJobMeta({})
@@ -79,9 +97,7 @@ export default function JobProgressPage() {
 
   // ============ QUERIES ============
   // Snapshot for initial hydration
-  // CRITICAL: We need BOTH isSuccess AND !isFetching to ensure data is fresh
-  // - isSuccess=true, isFetching=true  → stale cache returned, fresh fetch in progress
-  // - isSuccess=true, isFetching=false → fresh data confirmed
+  // CRITICAL: isFetching guards against stale cache - only hydrate when fetch completes
   const { data: snapshot, isSuccess: isSnapshotSuccess, isLoading: isSnapshotLoading, isFetching: isSnapshotFetching } = useGetJobSnapshotQuery(jobId, {
     skip: !jobId,
     refetchOnMountOrArgChange: true,  // Force fresh fetch on mount/jobId change
@@ -95,32 +111,34 @@ export default function JobProgressPage() {
 
   // ============ EFFECT 1: SNAPSHOT HYDRATION (ONE-TIME PER JOB) ============
   useEffect(() => {
-    // Guard 1: Wait for successful fetch
-    if (!isSnapshotSuccess || !snapshot) return
+    // Debug: Log all guard states
+    console.log(`🔍 Hydration check: success=${isSnapshotSuccess}, fetching=${isSnapshotFetching}, loading=${isSnapshotLoading}, hasSnapshot=${!!snapshot}, jobId=${jobId}, hydratedRef=${hydratedJobIdRef.current}`)
     
-    // Guard 2: CRITICAL - Wait for fresh data, not stale cache
-    // When isFetching=true, RTK Query is returning cached data while fetching fresh
-    // We MUST wait for isFetching=false to ensure we have confirmed fresh data
+    // Guard 1: CRITICAL - Wait for fetch to COMPLETE
+    // RTK Query returns stale cached data with isSuccess=true, isFetching=true
+    // We MUST wait for isFetching=false to ensure data is fresh from Redis
+    // DO NOT rely on snapshot.jobId - backend echoes request param, not Redis source
     if (isSnapshotFetching) {
-      console.log('⏳ Waiting for fresh snapshot data (cached data ignored)')
+      console.log('⏳ Waiting for fresh snapshot (fetch in progress, ignoring cached data)...')
+      return
+    }
+    
+    // Guard 2: Wait for data to exist
+    if (!snapshot) {
+      console.log('⏳ Waiting for snapshot data...')
       return
     }
     
     // Guard 3: CRITICAL - Check ref SYNCHRONOUSLY to prevent race conditions
     // State updates are batched and async, but ref updates are immediate
-    // This prevents hydrating with stale data when rapidly switching jobs
+    // This prevents hydrating twice when effect re-runs
     if (hydratedJobIdRef.current === jobId) {
       console.log(`⏭️ Already hydrated for job: ${jobId}`)
       return
     }
-    
-    // Guard 4: Validate snapshot belongs to current job
-    if (snapshot.jobId && snapshot.jobId !== jobId) {
-      console.warn(`⚠️ Ignoring snapshot for wrong job: ${snapshot.jobId} vs ${jobId}`)
-      return
-    }
 
     console.log('📸 Hydrating from FRESH snapshot:', snapshot)
+    console.log(`🕐 Snapshot startedAt: ${snapshot.startedAt}, status: ${snapshot.status}`)
     
     // CRITICAL: Mark this job as hydrated IMMEDIATELY (synchronous)
     hydratedJobIdRef.current = jobId
@@ -184,13 +202,17 @@ export default function JobProgressPage() {
     // Don't connect until snapshot is loaded (snapshotAt is set)
     if (!jobId || snapshotAt === null) return
     
-    // Don't connect for terminal states
+    // Don't connect for terminal states - check current status from state
+    // (not ref, because we want this initial check to use hydrated value)
     if (status === 'completed' || status === 'failed' || status === 'cancelled') {
       console.log(`📵 Socket not needed - job already ${status}`)
       return
     }
 
-    console.log(`🔌 Connecting socket for job: ${jobId}, boundary: ${snapshotAt}`)
+    // Capture snapshotAt for this socket session (stable reference)
+    const socketSnapshotAt = snapshotAt
+    
+    console.log(`🔌 Connecting socket for job: ${jobId}, boundary: ${socketSnapshotAt}`)
 
     const socket: Socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:4000', {
       path: '/socket.io',
@@ -198,6 +220,7 @@ export default function JobProgressPage() {
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
+      forceNew: true,  // CRITICAL: Prevent socket multiplexing across jobs
     })
 
     socket.on('connect', () => {
@@ -206,6 +229,8 @@ export default function JobProgressPage() {
     })
 
     const handleEvent = (event: any) => {
+      console.log(`📥 Socket event received:`, event)
+      
       // CRITICAL: Validate event belongs to this job
       if (event.jobId !== jobId) {
         console.warn(`⚠️ Ignoring event for wrong job: ${event.jobId}`)
@@ -213,12 +238,15 @@ export default function JobProgressPage() {
       }
       
       // CRITICAL: Reject events already covered by snapshot
+      // Use captured socketSnapshotAt (stable for this socket session)
       const eventTimestamp = Number(event.timestamp)
-      if (!eventTimestamp || eventTimestamp <= snapshotAt) {
-        return // Silently ignore - this is expected on reconnect
+      if (!eventTimestamp || eventTimestamp <= socketSnapshotAt) {
+        console.log(`⏭️ Ignoring old event: ts=${eventTimestamp}, boundary=${socketSnapshotAt}`)
+        return
       }
 
       const eventType = event.eventType
+      console.log(`✅ Processing event: ${eventType}, ts=${eventTimestamp}`)
 
       // Handle log events
       if (eventType === 'log') {
@@ -245,12 +273,25 @@ export default function JobProgressPage() {
       else if (eventType === 'JOB_STARTED' || eventType === 'status') {
         const newStatus = event.payload?.status || eventType
         if (newStatus === 'running' || eventType === 'JOB_STARTED') {
+          console.log(`🚀 JOB_STARTED event: payload.startedAt=${event.payload?.startedAt}, event.timestamp=${event.timestamp}`)
+          
           setStatus('running')
-          // Set startedAt if not already set
+          // Set startedAt - VALIDATE it's reasonable (within last hour for a fresh start)
           setStartedAt(prev => {
             if (prev) return prev
-            const ts = event.payload?.startedAt || event.timestamp
-            return typeof ts === 'number' ? ts : new Date(ts).getTime()
+            
+            // Use event.timestamp (when event was created) NOT payload.startedAt
+            // payload.startedAt could be stale from a previous job attempt
+            const ts = eventTimestamp  // Use the filtered event timestamp, not payload
+            
+            // Extra validation: startedAt should be recent (within 1 hour)
+            const age = Date.now() - ts
+            if (age < 0 || age > 60 * 60 * 1000) {
+              console.warn(`⚠️ Rejecting stale JOB_STARTED timestamp: ${ts} (age: ${age}ms)`)
+              return Date.now()  // Use current time as fallback
+            }
+            
+            return ts
           })
           
           // Add start message
@@ -291,7 +332,7 @@ export default function JobProgressPage() {
       socket.emit('leave-job', jobId)
       socket.disconnect()
     }
-  }, [jobId, snapshotAt, status])
+  }, [jobId, snapshotAt]) // REMOVED: status dependency - prevents reconnection cycles
 
   // ============ EFFECT 4: TIMER ============
   useEffect(() => {
@@ -322,6 +363,8 @@ export default function JobProgressPage() {
 
   // ============ DERIVED VALUES (COMPUTED, NOT STORED) ============
   const elapsedTime = useMemo(() => {
+    console.log(`⏱️ Timer calc: snapshotAt=${snapshotAt}, status=${status}, startedAt=${startedAt}, currentTime=${currentTime}`)
+    
     // Guard 1: Still loading snapshot
     if (snapshotAt === null) return '--:--:--.--'
     

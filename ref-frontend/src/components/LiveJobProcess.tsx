@@ -78,7 +78,7 @@ export default function LiveJobProcess({ jobId }: LiveJobProcessProps) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Logs Console */}
-        <Card className="h-[500px] flex flex-col">
+        <Card className="h-125 flex flex-col">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center text-sm font-medium">
               <Terminal className="w-4 h-4 mr-2" />
@@ -103,7 +103,7 @@ export default function LiveJobProcess({ jobId }: LiveJobProcessProps) {
         </Card>
 
         {/* Links Found */}
-        <Card className="h-[500px] flex flex-col">
+        <Card className="h-125 flex flex-col">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center text-sm font-medium">
               <Globe className="w-4 h-4 mr-2" />
