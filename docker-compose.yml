@@ -26,6 +26,7 @@ services:
 
   nnode-backend:
     build: ./nnode-backend
+    container_name: nnode-backend
     ports:
       - "4000:4000"
     depends_on:
@@ -40,9 +41,16 @@ services:
       REDIS_URL: redis://redis:6379
       MONGO_URI: mongodb://host.docker.internal:27017
       MONGO_DB_NAME: seo_crawler
+      CORS_ORIGINS: http://localhost:3000,http://134.122.7.161,http://134.122.7.161:3000
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4000/api/v1/heartbeat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   npy-backend:
     build: ./npy-backend
+    container_name: npy-backend
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -53,3 +61,23 @@ services:
       REDIS_URL: redis://redis:6379
       MONGO_URI: mongodb://host.docker.internal:27017
       MONGO_DB_NAME: seo_crawler
+
+  ref-frontend:
+    build:
+      context: ./ref-frontend
+      args:
+        # These are baked into the JS bundle at build time
+        NEXT_PUBLIC_API_BASE_URL: http://134.122.7.161:4000/api/v1
+        NEXT_PUBLIC_SOCKET_URL: http://134.122.7.161:4000
+    container_name: ref-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      nnode-backend:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

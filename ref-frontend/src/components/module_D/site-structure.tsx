@@ -656,7 +656,7 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
 
         {seoEnabled && (viewMode === 'split' || viewMode === 'table') && (
           <div
-            className={`${viewMode === 'table' ? 'flex-1' : 'w-full md:w-[26rem] lg:w-[30rem]'} max-h-[560px] overflow-y-auto rounded-2xl border border-white/10 bg-[#151515] p-5 flex flex-col gap-4 text-xs text-white/80 shadow-[0_18px_45px_rgba(15,23,42,0.9)]`}
+            className={`${viewMode === 'table' ? 'flex-1' : 'w-full md:w-104 lg:w-120'} max-h-140 overflow-y-auto rounded-2xl border border-white/10 bg-[#151515] p-5 flex flex-col gap-4 text-xs text-white/80 shadow-[0_18px_45px_rgba(15,23,42,0.9)]`}
           >
             <div className="flex items-center justify-between gap-2">
               <div>
@@ -694,7 +694,7 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
               )}
             </div>
             <div className="space-y-2">
-              <div className="rounded-xl bg-gradient-to-r from-slate-800 via-slate-900 to-slate-950 border border-white/10 px-4 py-3">
+              <div className="rounded-xl bg-linear-to-r from-slate-800 via-slate-900 to-slate-950 border border-white/10 px-4 py-3">
                 <div className="text-[10px] uppercase tracking-[0.18em] text-white/45">
                   Main Topic
                 </div>
@@ -704,7 +704,7 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
               </div>
               {selectedKeywords.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px]">
-                  <div className="rounded-xl bg-gradient-to-br from-rose-900/80 via-rose-900/60 to-rose-900/40 border border-rose-500/60 px-4 py-3">
+                  <div className="rounded-xl bg-linear-to-br from-rose-900/80 via-rose-900/60 to-rose-900/40 border border-rose-500/60 px-4 py-3">
                     <div className="flex items-center justify-between text-[10px] text-rose-100/70">
                       <span>Avg Difficulty</span>
                     </div>
@@ -715,7 +715,7 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
                       out of 100
                     </div>
                   </div>
-                  <div className="rounded-xl bg-gradient-to-br from-amber-900/80 via-amber-900/60 to-amber-900/40 border border-amber-500/60 px-4 py-3">
+                  <div className="rounded-xl bg-linear-to-br from-amber-900/80 via-amber-900/60 to-amber-900/40 border border-amber-500/60 px-4 py-3">
                     <div className="flex items-center justify-between text-[10px] text-amber-100/70">
                       <span>Complexity</span>
                     </div>
@@ -726,7 +726,7 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
                       L {complexityStats.low} • M {complexityStats.medium} • H {complexityStats.high}
                     </div>
                   </div>
-                  <div className="rounded-xl bg-gradient-to-br from-emerald-900/80 via-emerald-900/60 to-emerald-900/40 border border-emerald-500/60 px-4 py-3">
+                  <div className="rounded-xl bg-linear-to-br from-emerald-900/80 via-emerald-900/60 to-emerald-900/40 border border-emerald-500/60 px-4 py-3">
                     <div className="flex items-center justify-between text-[10px] text-emerald-100/70">
                       <span>AI Feasibility</span>
                     </div>
@@ -744,7 +744,7 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
               <>
                 <div className="rounded-2xl border border-white/10 overflow-hidden bg-slate-950/60">
                   <div className="overflow-x-auto">
-                    <div className="min-w-[720px]">
+                    <div className="min-w-180">
                       <div className="px-3 py-2 bg-white/5 text-[10px] font-semibold text-white/60 flex">
                         <div className="flex-1">Keyword</div>
                         <div className="w-12 text-right">Score</div>
@@ -761,7 +761,7 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
                             key={kw.text}
                             className="px-3 py-1.5 flex items-center text-[11px] text-white/80 hover:bg-white/5 transition-colors"
                           >
-                            <div className="flex-[2] min-w-[140px] pr-3 whitespace-nowrap">
+                            <div className="flex-2 min-w-35 pr-3 whitespace-nowrap">
                               {kw.text}
                             </div>
                             <div className="w-12 text-right">
