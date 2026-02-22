@@ -22,7 +22,7 @@ const envSchema = z.object({
   // CORS (comma-separated list of allowed origins)
   CORS_ORIGINS: z
     .string()
-    .default('http://localhost:3000,http://134.122.7.161')
+    .default('http://localhost:3000,http://134.122.7.161:3000')
     .transform((val) => val.split(',').map((origin) => origin.trim())),
 
   // Rate Limiting
