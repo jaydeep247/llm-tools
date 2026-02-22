@@ -19,8 +19,11 @@ const envSchema = z.object({
   COOKIE_SECRET: z.string().min(32),
   COOKIE_MAX_AGE: z.string().transform(Number).pipe(z.number().positive()).default('604800000'),
 
-  // CORS
-  CORS_ORIGIN: z.string().url().default('http://localhost:3000'),
+  // CORS (comma-separated list of allowed origins)
+  CORS_ORIGINS: z
+    .string()
+    .default('http://localhost:3000,http://134.122.7.161')
+    .transform((val) => val.split(',').map((origin) => origin.trim())),
 
   // Rate Limiting
   RATE_LIMIT_WINDOW_MS: z.string().transform(Number).pipe(z.number().positive()).default('900000'),
