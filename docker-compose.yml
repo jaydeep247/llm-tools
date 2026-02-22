@@ -43,7 +43,7 @@ services:
       MONGO_DB_NAME: seo_crawler
       CORS_ORIGINS: http://localhost:3000,http://134.122.7.161,http://134.122.7.161:3000
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4000/api/v1/heartbeat"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4000/api/v1/health"]
       interval: 30s
       timeout: 10s
       retries: 3
