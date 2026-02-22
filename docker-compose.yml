@@ -3,11 +3,11 @@ services:
     image: rabbitmq:3-management
     container_name: rabbitmq
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
     environment:
-      RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: admin
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-admin}
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
@@ -17,7 +17,7 @@ services:
     image: redis:7
     container_name: redis
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     command: redis-server --appendonly yes
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -28,7 +28,7 @@ services:
     build: ./nnode-backend
     container_name: nnode-backend
     ports:
-      - "4000:4000"
+      - "${BACKEND_PORT:-4000}:4000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -37,13 +37,13 @@ services:
       redis:
         condition: service_healthy
     environment:
-      JWT_SECRET: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-      COOKIE_SECRET: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
-      RABBITMQ_URL: amqp://admin:admin@rabbitmq:5672
+      JWT_SECRET: ${JWT_SECRET}
+      COOKIE_SECRET: ${COOKIE_SECRET}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASS:-admin}@rabbitmq:5672
       REDIS_URL: redis://redis:6379
-      MONGO_URI: mongodb://host.docker.internal:27017
-      MONGO_DB_NAME: seo_crawler
-      CORS_ORIGINS: http://localhost:3000,http://134.122.7.161,http://134.122.7.161:3000
+      MONGO_URI: ${MONGO_URI:-mongodb://host.docker.internal:27017}
+      MONGO_DB_NAME: ${MONGO_DB_NAME:-seo_crawler}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:4000/api/v1/health"]
       interval: 30s
@@ -61,21 +61,21 @@ services:
       redis:
         condition: service_healthy
     environment:
-      RABBITMQ_URL: amqp://admin:admin@rabbitmq:5672
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASS:-admin}@rabbitmq:5672
       REDIS_URL: redis://redis:6379
-      MONGO_URI: mongodb://host.docker.internal:27017
-      MONGO_DB_NAME: seo_crawler
+      MONGO_URI: ${MONGO_URI:-mongodb://host.docker.internal:27017}
+      MONGO_DB_NAME: ${MONGO_DB_NAME:-seo_crawler}
 
   ref-frontend:
     build:
       context: ./ref-frontend
       args:
         # These are baked into the JS bundle at build time
-        NEXT_PUBLIC_API_BASE_URL: http://134.122.7.161:4000/api/v1
-        NEXT_PUBLIC_SOCKET_URL: http://134.122.7.161:4000
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
+        NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL}
     container_name: ref-frontend
     ports:
-      - "3000:80"
+      - "${FRONTEND_PORT:-3000}:80"
     depends_on:
       nnode-backend:
         condition: service_healthy
