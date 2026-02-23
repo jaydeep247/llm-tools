@@ -258,7 +258,13 @@ def execute_job(payload: dict, job_type: str = "crawl") -> bool:
     project_id = payload["projectId"]
     url = payload["url"]
     job_id = payload.get("jobId") or f"job_{session_id}"
-    job_type_resolved = payload.get("jobType", "CRAWL").upper()
+    payload_job_type = payload.get("jobType")
+    if payload_job_type == "AEO_ANALYSIS":
+        job_type_resolved = "AEO_ANALYSIS"
+    else:
+        job_type_resolved = (job_type or payload_job_type or "CRAWL").upper()
+    
+    logger.info(f"[DEBUG] execute_job called with: job_id={job_id}, job_type={job_type}, payload_jobType={payload.get('jobType')}, resolved={job_type_resolved}")
     schema_type = payload.get("schemaType")
 
     mongo_client = get_mongo_client()
@@ -308,6 +314,33 @@ def execute_job(payload: dict, job_type: str = "crawl") -> bool:
             run_schema_job(url=url, session_id=session_id, job_id=job_id, project_id=project_id, schema_type=schema_type)
         elif job_type_resolved == "CONTENT_METRICS":
             run_content_metrics_job(url=url, session_id=session_id, job_id=job_id, project_id=project_id)
+        elif job_type_resolved == "AEO_ANALYSIS":
+            config_data = payload.get("config", {})
+            source_job_id = config_data.get("sourceJobId")
+            modules = config_data.get("modules", [])
+            
+            # Use source_job_id for persistence if available, so results update the original job
+            target_job_id = source_job_id if source_job_id else job_id
+            
+            logger.info(f"Running AEO Analysis for job {job_id} (Target: {target_job_id}) Modules: {modules}")
+            
+            if "module_e" in modules:
+                 asyncio.run(run_module_e(target_job_id, url, source_job_id=source_job_id))
+            elif "module_e_consistency" in modules:
+                 asyncio.run(run_consistency_only(target_job_id, url, source_job_id=source_job_id))
+            elif "module_e_sentiment" in modules:
+                 asyncio.run(run_sentiment_only(target_job_id, url))
+            elif "module_e_competitors" in modules:
+                 asyncio.run(run_competitor_analysis(target_job_id, url))
+            elif "module_e_ai_sov" in modules:
+                 asyncio.run(run_ai_sov_analysis(target_job_id, url))
+            elif "module_e_ranking" in modules:
+                 asyncio.run(run_ranking_analysis(target_job_id, url))
+            elif "module_e_brand" in modules:
+                 asyncio.run(run_brand_only(target_job_id, url))
+            else:
+                 logger.warning(f"Unknown AEO Analysis module requested: {modules}")
+
         else:
             # Run the actual crawl
             run_crawl_job(url=url, session_id=session_id, job_id=job_id, project_id=project_id)

@@ -51,22 +51,30 @@ async def _fetch_top_pages_texts(urls: List[str]) -> List[str]:
     return texts
 
 
-async def _prepare_context(job_id: str, url: str, html_content: str = None) -> str:
+async def _prepare_context(job_id: str, url: str, html_content: str = None, source_job_id: str = None) -> str:
     """Helper to load and aggregate text context for analysis."""
+    # Use source_job_id for data retrieval if available, otherwise fallback to current job_id
+    data_job_id = source_job_id if source_job_id else job_id
+    
+    logger.info(
+        f"Preparing context for job {job_id} using data from {data_job_id}",
+        extra={"job_id": job_id, "data_job_id": data_job_id}
+    )
+
     # Pull top pages by word count
     pages = list(
-        mongo_manager.pages.find({"jobId": job_id}).sort("word_count", -1).limit(5)
+        mongo_manager.pages.find({"jobId": data_job_id}).sort("word_count", -1).limit(5)
     )
 
     logger.info(
         "Module E pages loaded",
-        extra={"job_id": job_id, "pages_count": len(pages)}
+        extra={"job_id": job_id, "pages_count": len(pages), "data_job_id": data_job_id}
     )
 
     top_urls = [p.get("url") for p in pages if p.get("url")]
     
     # Homepage HTML from disk (saved at crawl depth 0)
-    homepage_html = html_content or await load_raw_html(job_id)
+    homepage_html = html_content or await load_raw_html(data_job_id)
     homepage_text = _extract_text(homepage_html) if homepage_html else ""
     
     # Fetch top pages text (live)
@@ -81,14 +89,14 @@ async def _prepare_context(job_id: str, url: str, html_content: str = None) -> s
     return aggregated_text
 
 
-async def run_consistency_only(job_id: str, url: str, html_content: str = None) -> Dict[str, Any]:
+async def run_consistency_only(job_id: str, url: str, html_content: str = None, source_job_id: str = None) -> Dict[str, Any]:
     """
     Run ONLY Content Consistency and Entity Coverage analysis.
     """
-    logger.info("Module E Consistency Only started", extra={"job_id": job_id, "url": url})
+    logger.info("Module E Consistency Only started", extra={"job_id": job_id, "url": url, "source_job_id": source_job_id})
     mongo_manager.connect()
 
-    aggregated_text = await _prepare_context(job_id, url, html_content)
+    aggregated_text = await _prepare_context(job_id, url, html_content, source_job_id)
 
     # Unified Module E analysis
     analyzer = UnifiedModuleEAnalyzer()
@@ -133,15 +141,15 @@ async def run_consistency_only(job_id: str, url: str, html_content: str = None) 
     }
 
 
-async def run_module_e(job_id: str, url: str, html_content: str = None) -> Dict[str, Any]:
+async def run_module_e(job_id: str, url: str, html_content: str = None, source_job_id: str = None) -> Dict[str, Any]:
     """
     Run Module E analysis: content consistency and entity coverage.
     """
-    logger.info("Module E started", extra={"job_id": job_id, "url": url})
+    logger.info("Module E started", extra={"job_id": job_id, "url": url, "source_job_id": source_job_id})
 
     mongo_manager.connect()
 
-    aggregated_text = await _prepare_context(job_id, url, html_content)
+    aggregated_text = await _prepare_context(job_id, url, html_content, source_job_id)
 
     # Unified Module E analysis (1 LLM call for everything)
     analyzer = UnifiedModuleEAnalyzer()

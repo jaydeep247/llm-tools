@@ -17,7 +17,7 @@ export class JobRepository {
       runAudits: data.runAudits,
       auditDevice: data.auditDevice,
       captureLinkDetails: data.captureLinkDetails,
-      type: data.type ?? JobType.CRAWL,
+      type: data.type ?? data.jobType ?? JobType.CRAWL,
       schemaType: data.schemaType ?? null,
       status: JobStatus.PENDING,
       createdAt: now,
