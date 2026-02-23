@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import D3TidyTree, { TreeNode as TidyTreeNode } from './D3TidyTree'
-import { useGetJobFieldsQuery } from '@/store/api/jobApi'
+import { useGetJobFieldsQuery, useGetSeoKeywordsForUrlMutation } from '@/store/api/jobApi'
 
 export type D3TreeNode = {
   name: string
@@ -195,6 +195,8 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
   const [seoResult] = useState<null | any>(null)
   const [seoByUrl, setSeoByUrl] = useState<Map<string, any>>(new Map())
 
+  const [fetchSeoKeywords] = useGetSeoKeywordsForUrlMutation()
+
   const { data: fieldsResult, isLoading: isLoadingFields, isError: isFieldsError } =
     useGetJobFieldsQuery(jobId!, { skip: !jobId || !seoEnabled })
 
@@ -322,27 +324,14 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
     if (seoByUrl.has(selectedUrl)) return
 
     let cancelled = false
-    const controller = new AbortController()
 
     const fetchSeoForSelected = async () => {
       try {
         setSeoLoading(true)
-        const res = await fetch(`http://localhost:4000/api/v1/seo/extract`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ url: selectedUrl, jobId }),
-          signal: controller.signal
-        })
-
-        if (!res.ok) {
-          return
-        }
-
-        const data = await res.json().catch(() => ({} as any))
+        const data = await fetchSeoKeywords({ jobId: String(jobId), url: selectedUrl }).unwrap()
         if (cancelled || !data) return
 
-        const rawKeywords = Array.isArray(data.keywords) ? data.keywords as any[] : []
+        const rawKeywords = Array.isArray(data.keywords) ? (data.keywords as any[]) : []
 
         const topKeywords: KeywordData[] = rawKeywords.map((k: any) => {
           const base: KeywordData = {
@@ -368,9 +357,9 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
 
         setSeoByUrl(prev => {
           const next = new Map(prev)
-          const key = normalizeUrl(data.url || selectedUrl)
+          const key = normalizeUrl((data as any).url || selectedUrl)
           next.set(key, {
-            parentText: data.parent?.text ?? data.parent ?? null,
+            parentText: (data as any).parent?.text ?? (data as any).parent ?? null,
             topKeywords
           })
           return next
@@ -387,9 +376,8 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
 
     return () => {
       cancelled = true
-      controller.abort()
     }
-  }, [seoEnabled, selectedUrl, jobId, seoByUrl])
+  }, [seoEnabled, selectedUrl, jobId, seoByUrl, fetchSeoKeywords])
 
   useEffect(() => {
     if (startUrl) {
