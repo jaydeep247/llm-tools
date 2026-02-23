@@ -20,6 +20,8 @@ router.get('/jobs/:id/results/pages', jobController.getJobPages);
 router.get('/jobs/:id/results/links', jobController.getJobLinks);
 router.get('/jobs/:id/results/sitemaps', jobController.getJobSitemaps);
 router.get('/jobs/:id/results/fields', jobController.getJobFields);
+router.get('/jobs/:id/results/aeo-analysis', jobController.getJobAeoAnalysis);
+router.get('/jobs/:id/summary', jobController.getJobSummary);
 router.get('/jobs/:id/results/schema', jobController.getJobSchema);
 router.get('/jobs/:id/site-structure', jobController.getJobSiteStructure);
 router.get('/jobs/:id/results/content-metrics', jobController.getJobContentMetrics);

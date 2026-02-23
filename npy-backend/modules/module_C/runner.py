@@ -104,7 +104,7 @@ class ModuleCRunner:
             (sim_res.get('cross_model_metrics', {}).get('consistency_score', 0) * 0.20)
         )
 
-        return {
+        result = {
             "job_id": job_id,
             "url": url,
             "overall_score": round(overall_score, 1),
@@ -118,6 +118,15 @@ class ModuleCRunner:
                 "actionable_insights": actionable_insights_res
             }
         }
+
+        # 6. Save to aeo_analysis collection
+        try:
+            from utils.storage import save_aeo_analysis
+            await save_aeo_analysis(job_id, url, result)
+        except Exception as e:
+            logger.error(f"Failed to save AEO analysis to MongoDB: {str(e)}")
+
+        return result
     
     async def run_bulk_audit(self, urls: List[str], job_id: str = "bulk_audit") -> Dict:
         """

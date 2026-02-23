@@ -80,6 +80,27 @@ export interface JobSchemaResult {
   createdAt?: string;
 }
 
+export interface JobSummary {
+  jobId: string;
+  type: string;
+  createdAt: string;
+  session: {
+    session_id: string;
+    projectId: string;
+    jobId: string;
+    start_url: string;
+    started_at: string;
+    allow_subdomains: boolean;
+    max_concurrency: number;
+    status: string;
+    completed_at: string;
+    total_pages: number;
+    total_links: number;
+    total_sitemaps: number;
+    total_fields: number;
+  };
+}
+
 export const jobApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     // Get job snapshot for live updates
@@ -145,6 +166,13 @@ export const jobApi = baseApi.injectEndpoints({
       query: (jobId) => `/jobs/${jobId}/results/fields`,
       transformResponse: (response: { success: boolean; data: { data: any[] } }) =>
         response.data,
+      providesTags: (result, error, jobId) => [{ type: 'Job', id: jobId }],
+    }),
+
+    getJobSummary: builder.query<JobSummary | null, string>({
+      query: (jobId) => `/jobs/${jobId}/summary`,
+      transformResponse: (response: { success: boolean; data: JobSummary | null }) =>
+        response.data ?? null,
       providesTags: (result, error, jobId) => [{ type: 'Job', id: jobId }],
     }),
 
@@ -222,6 +250,7 @@ export const {
   useGetJobLinksQuery,
   useGetJobSitemapsQuery,
   useGetJobFieldsQuery,
+  useGetJobSummaryQuery,
   useGetJobSiteStructureQuery,
   useGetJobSchemaQuery,
   useGenerateJobSchemaMutation,

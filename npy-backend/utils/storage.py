@@ -92,6 +92,56 @@ async def save_job_response(job_id: str, data: dict) -> str:
 def get_raw_html_path(job_id: str) -> str:
     """Returns the expected path for a job's raw HTML file"""
     return os.path.join(DATA_DIR, str(job_id), "source.html")
+
+
+async def save_aeo_analysis(job_id: str, url: str, data: dict) -> str:
+    """
+    Saves Module C (AEO) analysis results to MongoDB aeo_analysis collection.
+    
+    Args:
+        job_id: Job ID
+        url: URL being analyzed
+        data: Module C analysis results dictionary
+    
+    Returns:
+        MongoDB document URI
+    """
+    from utils.mongo import mongo_manager
+    from datetime import datetime
+    
+    try:
+        # Prepare document
+        document = {
+            "jobId": job_id,
+            "url": url,
+            "timestamp": datetime.utcnow(),
+            "overall_score": data.get("overall_score", 0),
+            "modules": data.get("modules", {})
+        }
+        
+        # Connect to MongoDB
+        mongo_manager.connect()
+        
+        # Use upsert to handle updates for the same job_id + url
+        result = mongo_manager.aeo_analysis.update_one(
+            {"jobId": job_id, "url": url},
+            {"$set": document},
+            upsert=True
+        )
+        
+        doc_id = result.upserted_id or "updated"
+        from utils.logger import logger
+        logger.info(f"Stored AEO analysis for job {job_id} in MongoDB aeo_analysis collection")
+        
+        return f"mongodb://aeo_analysis/{doc_id}"
+        
+    except Exception as e:
+        from utils.logger import logger
+        error_type = type(e).__name__
+        logger.error(f"Failed to save AEO analysis to MongoDB ({error_type})")
+        raise e
+
+
 def save_raw_html_sync(job_id: str, html_content: str) -> str:
     """
     Synchronous version of save_raw_html for use in non-async contexts (e.g. Scrapy)

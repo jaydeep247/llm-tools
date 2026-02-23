@@ -88,6 +88,7 @@ export class JobRepository {
         db.collection('links').deleteMany({ jobId: { $in: jobIds } }),
         db.collection('sitemaps').deleteMany({ jobId: { $in: jobIds } }),
         db.collection('fields').deleteMany({ jobId: { $in: jobIds } }),
+        db.collection('aeo_analysis').deleteMany({ jobId: { $in: jobIds } }),
       ]);
 
       // Delete jobs

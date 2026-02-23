@@ -247,3 +247,5 @@ web_modules/
 
 # vuepress build output
 .vuepress/dist
+
+admin-dashboard-design/

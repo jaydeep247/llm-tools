@@ -304,6 +304,49 @@ export class JobController {
     }
   };
 
+  getJobAeoAnalysis = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+      await this.jobService.getJobById(userId, id);
+
+      const db = await connectToMongo();
+      const collection = db.collection('aeo_analysis');
+      const data = await collection
+        .find({ jobId: id })
+        .sort({ timestamp: -1 })
+        .toArray();
+
+      return ResponseUtil.success(res, 'Job AEO analysis retrieved successfully', { data });
+    } catch (error: any) {
+      logger.error(`Error getting job AEO analysis: ${error.message}`);
+      if (error.message.includes('not found') || error.message.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      return ResponseUtil.serverError(res, 'Failed to retrieve job AEO analysis');
+    }
+  };
+
+  getJobSummary = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+      await this.jobService.getJobById(userId, id);
+
+      const db = await connectToMongo();
+      const collection = db.collection('job_summaries');
+      const summary = await collection.findOne({ jobId: id });
+
+      return ResponseUtil.success(res, 'Job summary retrieved successfully', summary);
+    } catch (error: any) {
+      logger.error(`Error getting job summary: ${error.message}`);
+      if (error.message.includes('not found') || error.message.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      return ResponseUtil.serverError(res, 'Failed to retrieve job summary');
+    }
+  };
+
   getJobSiteStructure = async (req: Request, res: Response): Promise<Response> => {
     try {
       const userId = req.user!.userId;
