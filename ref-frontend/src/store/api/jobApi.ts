@@ -48,6 +48,14 @@ export interface JobSchemaResult {
   createdAt?: string;
 }
 
+export interface SeoKeywordResponse {
+  url: string;
+  language: string | null;
+  parent: any;
+  keywords: any[];
+  cached?: boolean;
+}
+
 export interface JobSnapshot {
   jobId: string;
   status: string;
@@ -194,7 +202,6 @@ export const jobApi = baseApi.injectEndpoints({
       ],
     }),
 
-    // Retry a failed job
     retryJob: builder.mutation<{ success: boolean; job: Job }, string>({
       query: (jobId) => ({
         url: `/jobs/${jobId}/retry`,
@@ -208,6 +215,17 @@ export const jobApi = baseApi.injectEndpoints({
         { type: 'Job', id: jobId },
         'Session',
       ],
+    }),
+
+    getSeoKeywordsForUrl: builder.mutation<
+      SeoKeywordResponse,
+      { jobId: string; url: string }
+    >({
+      query: ({ jobId, url }) => ({
+        url: `/jobs/${jobId}/seo/extract`,
+        method: 'POST',
+        body: { url },
+      }),
     }),
   }),
 });
@@ -227,4 +245,5 @@ export const {
   useGenerateJobSchemaMutation,
   useCancelJobMutation,
   useRetryJobMutation,
+  useGetSeoKeywordsForUrlMutation,
 } = jobApi;

@@ -206,13 +206,15 @@ def extract_keywords_from_html(
     keyword_items.sort(key=lambda k: k.score, reverse=True)
     top_keywords = keyword_items[:30]
     parent_kw: Optional[Keyword] = top_keywords[0] if top_keywords else None
+    parent_dict: Optional[Dict[str, Any]] = parent_kw.dict() if parent_kw else None
+    keyword_dicts: List[Dict[str, Any]] = [k.dict() for k in top_keywords]
     return {
         "url": final_url or url,
         "language": language,
-        "parent": parent_kw,
+        "parent": parent_dict,
         "children": [],
         "tree": None,
-        "keywords": top_keywords,
+        "keywords": keyword_dicts,
         "debug": {
             "total_tokens": len(tokens),
             "filtered_tokens": len(filtered_tokens),

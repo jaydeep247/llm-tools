@@ -516,8 +516,13 @@ class WebsiteSpider(scrapy.Spider):
             'headers': {k.decode('utf-8'): v[0].decode('utf-8') for k, v in response.headers.items()}
         })
         redirect_audit_report = redirect_audit.analyze_redirects(hops, page_item.get('canonical_url'))
+        keyword_analysis = extract_keywords_from_html(
+            html=response.text,
+            url=response.url,
+            final_url=response.url,
+            lang_guess=page_item.get('language') or ''
+        )
 
-        # Construct 'fields' dictionary
         page_item['fields'] = {
             # Status
             'status': 'OK' if response.status == 200 else str(response.status),
@@ -575,7 +580,8 @@ class WebsiteSpider(scrapy.Spider):
             # New SEO Fields
             'Wordcount_analysis': wordcount_analysis,
             'Broken_links_checker': broken_links_report,
-            'Redirects_audit': redirect_audit_report
+            'Redirects_audit': redirect_audit_report,
+            'Keyword_analysis': keyword_analysis
         }
         
         
