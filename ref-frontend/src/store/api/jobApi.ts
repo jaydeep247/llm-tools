@@ -48,6 +48,14 @@ export interface JobSchemaResult {
   createdAt?: string;
 }
 
+export interface SeoKeywordResponse {
+  url: string;
+  language: string | null;
+  parent: any;
+  keywords: any[];
+  cached?: boolean;
+}
+
 export interface JobSnapshot {
   jobId: string;
   status: string;
@@ -78,6 +86,27 @@ export interface JobSchemaResult {
   schema_text?: string;
   rdfa_markup?: string;
   createdAt?: string;
+}
+
+export interface JobSummary {
+  jobId: string;
+  type: string;
+  createdAt: string;
+  session: {
+    session_id: string;
+    projectId: string;
+    jobId: string;
+    start_url: string;
+    started_at: string;
+    allow_subdomains: boolean;
+    max_concurrency: number;
+    status: string;
+    completed_at: string;
+    total_pages: number;
+    total_links: number;
+    total_sitemaps: number;
+    total_fields: number;
+  };
 }
 
 export const jobApi = baseApi.injectEndpoints({
@@ -148,6 +177,13 @@ export const jobApi = baseApi.injectEndpoints({
       providesTags: (result, error, jobId) => [{ type: 'Job', id: jobId }],
     }),
 
+    getJobSummary: builder.query<JobSummary | null, string>({
+      query: (jobId) => `/jobs/${jobId}/summary`,
+      transformResponse: (response: { success: boolean; data: JobSummary | null }) =>
+        response.data ?? null,
+      providesTags: (result, error, jobId) => [{ type: 'Job', id: jobId }],
+    }),
+
     getJobSiteStructure: builder.query<JobSiteStructure, string>({
       query: (jobId) => `/jobs/${jobId}/site-structure`,
       transformResponse: (response: { success: boolean; data: JobSiteStructure }) =>
@@ -194,7 +230,6 @@ export const jobApi = baseApi.injectEndpoints({
       ],
     }),
 
-    // Retry a failed job
     retryJob: builder.mutation<{ success: boolean; job: Job }, string>({
       query: (jobId) => ({
         url: `/jobs/${jobId}/retry`,
@@ -209,6 +244,17 @@ export const jobApi = baseApi.injectEndpoints({
         'Session',
       ],
     }),
+
+    getSeoKeywordsForUrl: builder.mutation<
+      SeoKeywordResponse,
+      { jobId: string; url: string }
+    >({
+      query: ({ jobId, url }) => ({
+        url: `/jobs/${jobId}/seo/extract`,
+        method: 'POST',
+        body: { url },
+      }),
+    }),
   }),
 });
 
@@ -222,9 +268,11 @@ export const {
   useGetJobLinksQuery,
   useGetJobSitemapsQuery,
   useGetJobFieldsQuery,
+  useGetJobSummaryQuery,
   useGetJobSiteStructureQuery,
   useGetJobSchemaQuery,
   useGenerateJobSchemaMutation,
   useCancelJobMutation,
   useRetryJobMutation,
+  useGetSeoKeywordsForUrlMutation,
 } = jobApi;

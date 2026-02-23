@@ -19,18 +19,20 @@ export function CrawlStatusHeader({
   itemsPerSecond,
 }: CrawlStatusHeaderProps) {
   const getStatusColor = (status: string) => {
-    switch (status) {
+    switch (status?.toLowerCase()) {
       case 'completed':
-        return 'bg-green-500/20 text-green-300 border-green-500/30'
+        return 'bg-emerald-500/20 text-emerald-400 border-emerald-400/50'
       case 'running':
-        return 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+        return 'bg-cyan-500/20 text-cyan-400 border-cyan-400/50 animate-pulse'
       case 'auditing':
-        return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
+        return 'bg-amber-500/20 text-amber-400 border-amber-400/50'
       case 'failed':
       case 'cancelled':
-        return 'bg-red-500/20 text-red-300 border-red-500/30'
+        return 'bg-rose-500/20 text-rose-400 border-rose-400/50'
+      case 'pending':
+        return 'bg-violet-500/20 text-violet-400 border-violet-400/50'
       default:
-        return 'bg-white/10 text-white/60 border-white/20'
+        return 'bg-slate-500/20 text-slate-400 border-slate-400/50'
     }
   }
 
@@ -58,8 +60,10 @@ export function CrawlStatusHeader({
             <div
               className={`h-1.5 w-1.5 rounded-full ${
                 isCrawling || crawlStatus === 'running' || crawlStatus === 'auditing'
-                  ? 'bg-purple-400 animate-pulse'
-                  : 'bg-gray-500'
+                  ? 'bg-cyan-400 animate-pulse shadow-[0_0_8px_rgba(34,211,238,0.6)]'
+                  : crawlStatus === 'completed'
+                  ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]'
+                  : 'bg-slate-500'
               }`}
             ></div>
             <Badge className={`${getStatusColor(crawlStatus)} text-[10px] flex items-center gap-1`}>
@@ -74,7 +78,7 @@ export function CrawlStatusHeader({
                 ? 'CANCELLED'
                 : crawlStatus === 'failed'
                 ? 'FAILED'
-                : 'IDLE'}
+                : crawlStatus?.toUpperCase() || 'IDLE'}
             </Badge>
           </div>
         </div>
@@ -83,7 +87,7 @@ export function CrawlStatusHeader({
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <div className="text-center">
-          <div className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-1">
+          <div className="text-xl sm:text-2xl md:text-3xl font-bold text-purple-400 mb-1">
             {pageCount}
           </div>
           <div className="text-[10px] sm:text-xs text-white/60 uppercase tracking-wider">
@@ -95,8 +99,8 @@ export function CrawlStatusHeader({
           <div
             className={`text-xl sm:text-2xl md:text-3xl font-bold mb-1 ${
               isCrawling || crawlStatus === 'running' || crawlStatus === 'auditing'
-                ? 'text-purple-400'
-                : 'text-white'
+                ? 'text-violet-400 animate-pulse'
+                : crawlStatus === 'completed' ? 'text-purple-400' : 'text-white'
             }`}
           >
             {duration}
@@ -105,7 +109,9 @@ export function CrawlStatusHeader({
         </div>
 
         <div className="text-center">
-          <div className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-1">
+          <div className={`text-xl sm:text-2xl md:text-3xl font-bold mb-1 ${
+            crawlStatus === 'completed' ? 'text-purple-400' : 'text-white'
+          }`}>
             {itemsPerSecond}
           </div>
           <div className="text-[10px] sm:text-xs text-white/60 uppercase tracking-wider">Items/Sec</div>

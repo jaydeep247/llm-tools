@@ -3,7 +3,7 @@
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Clock, Globe, CheckCircle, XCircle, Loader2, AlertCircle } from 'lucide-react'
+import { Clock, Globe, CheckCircle, XCircle, Loader2, AlertCircle, RefreshCw } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { CrawlLogger, DiscoveredPages, CrawlStatusHeader } from '@/components/crawl'
 import { SessionLayout } from '@/components/layout/SessionLayout'
@@ -13,7 +13,7 @@ import { AICitationRanking, SentimentTracking } from '@/components/module_E'
 // import { useGetDataListQuery, useCheckLinksMutation, useGetLinkStatsQuery, useLazyGetPageLinksQuery } from '@/store/api/module_A/dataApi'
 import { useGetProjectQuery } from '@/store/api/projectApi'
 import { useGetSessionQuery } from '@/store/api/sessionApi'
-import { useGetSessionJobsQuery, useGetJobPagesQuery, useGetJobLinksQuery, useGetJobSitemapsQuery, useGetJobFieldsQuery } from '@/store/api/jobApi'
+import { useGetSessionJobsQuery, useGetJobPagesQuery, useGetJobLinksQuery, useGetJobSitemapsQuery, useGetJobFieldsQuery, useGetJobSummaryQuery } from '@/store/api/jobApi'
 // import { useJobRedirect } from '@/hooks/useJobRedirect'
 import { formatDurationHHMMSSMS, formatDurationReadable } from '@/utils/formatDuration'
 
@@ -71,6 +71,7 @@ export default function SessionDetailClient() {
   const { data: linksResult, isLoading: isLoadingLinksRaw, refetch: refetchLinksRaw } = useGetJobLinksQuery({ jobId: jobId!, limit: 1000 }, { skip: skipResults, refetchOnMountOrArgChange: true })
   const { data: fieldsResult, isLoading: isLoadingFieldsRaw, refetch: refetchFieldsRaw } = useGetJobFieldsQuery(jobId!, { skip: skipResults, refetchOnMountOrArgChange: true })
   const { data: sitemapsResult, isLoading: isLoadingSitemapsRaw, refetch: refetchSitemapsRaw } = useGetJobSitemapsQuery(jobId!, { skip: skipResults, refetchOnMountOrArgChange: true })
+  const { data: jobSummary } = useGetJobSummaryQuery(jobId!, { skip: skipResults, refetchOnMountOrArgChange: true })
 
   const isLoadingResults = isLoadingPagesRaw || isLoadingLinksRaw || isLoadingFieldsRaw || isLoadingSitemapsRaw
   const refetchJobResults = () => {
@@ -247,6 +248,7 @@ export default function SessionDetailClient() {
   const totalPagesCount =
     pagesResult?.pagination?.total ??
     session?.totalPages ??
+    jobSummary?.session?.total_pages ??
     transformedPages.length
 
   // Transform data for Crawled Data Table
@@ -402,20 +404,58 @@ export default function SessionDetailClient() {
     pagesPerSecond: number
   } | null>(null)
 
-  // Initialize crawl state from session data
+  // Initialize crawl state from session data and job summary
   useEffect(() => {
+    // Determine the actual status from session or jobSummary
+    const actualStatus = session?.status || jobSummary?.session?.status || 'idle'
+    
     if (session) {
-      if (session.status === 'running' || session.status === 'auditing') {
+      if (actualStatus === 'running' || actualStatus === 'auditing') {
         setIsCrawling(true)
-        setCrawlStatus(session.status as 'running' | 'auditing')
+        setCrawlStatus(actualStatus as 'running' | 'auditing')
         setCrawlStartTime(new Date(session.startedAt || '').getTime())
       } else {
         setIsCrawling(false)
-        setCrawlStatus((session.status || 'completed') as 'idle' | 'running' | 'auditing' | 'completed' | 'cancelled')
+        // Map status properly - handle completed/cancelled/failed
+        const mappedStatus = actualStatus.toLowerCase() as 'idle' | 'running' | 'auditing' | 'completed' | 'cancelled'
+        setCrawlStatus(mappedStatus === 'idle' && jobSummary?.session?.status ? 
+          jobSummary.session.status as 'completed' | 'cancelled' : mappedStatus)
       }
-      setPageCount(session.totalPages || 0)
+      // Use session.totalPages first, fallback to jobSummary
+      setPageCount(session.totalPages || jobSummary?.session?.total_pages || 0)
+    } else if (jobSummary?.session) {
+      // No session but we have jobSummary
+      const summaryStatus = jobSummary.session.status?.toLowerCase() as 'idle' | 'running' | 'auditing' | 'completed' | 'cancelled'
+      setCrawlStatus(summaryStatus || 'completed')
+      setPageCount(jobSummary.session.total_pages || 0)
     }
-  }, [session])
+    
+    // Use jobSummary for more accurate data when available
+    if (jobSummary?.session) {
+      const summarySession = jobSummary.session
+      // Set page count from job summary if session doesn't have it
+      if (!session?.totalPages && summarySession.total_pages) {
+        setPageCount(summarySession.total_pages)
+      }
+      // Set crawl start time from job summary if not already set
+      if (!crawlStartTime && summarySession.started_at) {
+        setCrawlStartTime(new Date(summarySession.started_at).getTime())
+      }
+      // Calculate crawl stats if we have completed_at
+      if (summarySession.completed_at && summarySession.started_at) {
+        const started = new Date(summarySession.started_at).getTime()
+        const completed = new Date(summarySession.completed_at).getTime()
+        const durationMs = completed - started
+        const durationSec = durationMs / 1000
+        const pps = durationSec > 0 ? summarySession.total_pages / durationSec : 0
+        setCrawlStats({
+          count: summarySession.total_pages,
+          duration: durationMs,
+          pagesPerSecond: pps
+        })
+      }
+    }
+  }, [session, jobSummary])
 
   // Timer for elapsed time display
   useEffect(() => {
@@ -493,17 +533,20 @@ export default function SessionDetailClient() {
   }
 
   const getStatusColor = (status: string) => {
-    switch (status) {
+    switch (status?.toLowerCase()) {
       case 'completed':
-        return 'bg-green-500/20 text-green-300 border-green-500/30'
+        return 'bg-emerald-500/20 text-emerald-400 border-emerald-400/50 shadow-[0_0_10px_rgba(52,211,153,0.3)]'
       case 'running':
-        return 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+        return 'bg-cyan-500/20 text-cyan-400 border-cyan-400/50 shadow-[0_0_10px_rgba(34,211,238,0.3)] animate-pulse'
       case 'auditing':
-        return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
+        return 'bg-amber-500/20 text-amber-400 border-amber-400/50 shadow-[0_0_10px_rgba(251,191,36,0.3)]'
       case 'failed':
-        return 'bg-red-500/20 text-red-300 border-red-500/30'
+      case 'cancelled':
+        return 'bg-rose-500/20 text-rose-400 border-rose-400/50 shadow-[0_0_10px_rgba(251,113,133,0.3)]'
+      case 'pending':
+        return 'bg-violet-500/20 text-violet-400 border-violet-400/50 shadow-[0_0_10px_rgba(167,139,250,0.3)]'
       default:
-        return 'bg-white/10 text-white/60 border-white/20'
+        return 'bg-slate-500/20 text-slate-400 border-slate-400/50'
     }
   }
 
@@ -681,29 +724,141 @@ export default function SessionDetailClient() {
                 </div>
                 <div className="space-y-0.5 sm:space-y-1">
                   <p className="text-[10px] sm:text-xs text-white/60">Total Pages</p>
-                  <p className="text-xs sm:text-sm text-white font-medium">{totalPagesCount}</p>
+                  <p className="text-xs sm:text-sm text-cyan-400 font-semibold">{totalPagesCount}</p>
                 </div>
-                <div className="space-y-0.5 sm:space-y-1">
-                  <p className="text-[10px] sm:text-xs text-white/60">Total Resources</p>
-                  <p className="text-xs sm:text-sm text-white font-medium">{session.totalResources || 0}</p>
-                </div>
-                {session.startedAt && (
-                    <div className="space-y-0.5 sm:space-y-1">
-                      <p className="text-[10px] sm:text-xs text-white/60">Started</p>
-                      <p className="text-xs sm:text-sm text-white font-medium">
-                        {new Date(session.startedAt).toLocaleString()}
-                      </p>
-                    </div>
-                  )}
-                {session.completedAt && (
+                {(session.completedAt || jobSummary?.session?.completed_at) && (
                   <div className="space-y-0.5 sm:space-y-1">
                     <p className="text-[10px] sm:text-xs text-white/60">Completed</p>
-                    <p className="text-xs sm:text-sm text-white font-medium">
-                      {new Date(session.completedAt).toLocaleString()}
+                    <p className="text-xs sm:text-sm text-emerald-400 font-semibold">
+                      {new Date(session.completedAt || jobSummary?.session?.completed_at || '').toLocaleString()}
                     </p>
                   </div>
                 )}
 
+              </div>
+            </div>
+
+            {/* Crawled Pages Summary Table */}
+            <div className="rounded-lg border border-white/20 bg-white/10 backdrop-blur-xl overflow-hidden">
+              <div className="bg-white/5 px-4 py-3 border-b border-white/10 flex items-center justify-between">
+                <h3 className="text-base sm:text-lg font-semibold text-white">📄 Crawled Pages ({transformedPages.length})</h3>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => refetchJobResults()}
+                  className="text-white/60 hover:text-white hover:bg-white/10"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="overflow-x-auto">
+                {isLoadingResults ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-6 w-6 animate-spin text-white/60" />
+                    <span className="ml-2 text-white/60">Loading crawled pages...</span>
+                  </div>
+                ) : transformedPages.length === 0 ? (
+                  <div className="flex items-center justify-center py-12 text-white/40">
+                    No pages crawled yet
+                  </div>
+                ) : (
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-white/10 bg-white/5">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">URL</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">Status</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">Title</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">Words</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">Response</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">Depth</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {transformedPages.slice(0, 6).map((page: any, idx: number) => {
+                        const responseTime = page.responseTime || page.response_time || 0;
+                        const wordCount = page.wordCount || page.word_count || 0;
+                        const crawlDepth = page.crawlDepth || page.crawl_depth || 0;
+                        
+                        return (
+                          <tr key={page.id || idx} className="hover:bg-white/5 transition-colors">
+                            <td className="px-4 py-3">
+                              <a 
+                                href={page.url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-blue-400 hover:text-blue-300 text-sm truncate max-w-75 block"
+                                title={page.url}
+                              >
+                                {page.url?.length > 50 ? page.url.substring(0, 50) + '...' : page.url}
+                              </a>
+                            </td>
+                            <td className="px-4 py-3">
+                              <Badge className={`text-xs ${
+                                page.statusCode >= 200 && page.statusCode < 300 
+                                  ? 'bg-green-500/20 text-green-300 border-green-500/30' 
+                                  : page.statusCode >= 300 && page.statusCode < 400
+                                  ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
+                                  : 'bg-red-500/20 text-red-300 border-red-500/30'
+                              }`}>
+                                {page.statusCode || 'N/A'}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-3 text-sm text-white/80 truncate max-w-50" title={page.title}>
+                              {page.title?.length > 40 ? page.title.substring(0, 40) + '...' : page.title || '-'}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`text-sm px-2 py-0.5 rounded ${
+                                wordCount > 1000 
+                                  ? 'bg-green-500/15 text-green-300' 
+                                  : wordCount > 300 
+                                  ? 'bg-blue-500/15 text-blue-300'
+                                  : 'bg-orange-500/15 text-orange-300'
+                              }`}>
+                                {wordCount.toLocaleString()}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`text-sm px-2 py-0.5 rounded ${
+                                responseTime > 0 && responseTime < 500 
+                                  ? 'bg-green-500/15 text-green-300' 
+                                  : responseTime >= 500 && responseTime < 1000 
+                                  ? 'bg-yellow-500/15 text-yellow-300'
+                                  : responseTime >= 1000
+                                  ? 'bg-red-500/15 text-red-300'
+                                  : 'text-white/40'
+                              }`}>
+                                {responseTime > 0 ? `${responseTime}ms` : '-'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className={`text-sm px-2 py-0.5 rounded ${
+                                crawlDepth === 0 
+                                  ? 'bg-purple-500/15 text-purple-300' 
+                                  : crawlDepth <= 2 
+                                  ? 'bg-blue-500/15 text-blue-300'
+                                  : 'bg-white/10 text-white/60'
+                              }`}>
+                                {crawlDepth}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+                {transformedPages.length > 6 && (
+                  <div className="px-4 py-3 border-t border-white/10 text-center">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleSectionChange('crawled-data')}
+                      className="text-blue-400 hover:text-blue-300 hover:bg-white/5"
+                    >
+                      View all {transformedPages.length} pages →
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </>
@@ -793,7 +948,8 @@ export default function SessionDetailClient() {
         {activeSection === 'schema-generator' && (
           <div>
             <SchemaGeneratorTable 
-              sessionId={parseInt(sessionId)}
+              sessionId={sessionId}
+              jobId={jobId || null}
               sessionStatus={crawlStatus}
             />
           </div>
@@ -803,7 +959,7 @@ export default function SessionDetailClient() {
         {activeSection === 'ai-intelligence' && (
           <AIIntelligenceModule 
             url={session?.startUrl || ''}
-            sessionId={parseInt(sessionId)}
+            sessionId={sessionId}
           />
         )}
 
@@ -823,7 +979,7 @@ export default function SessionDetailClient() {
         {activeSection === 'content-metrics' && (
           <ContentMetricsModule 
             url={session?.startUrl || ''}
-            sessionId={parseInt(sessionId)}
+            sessionId={sessionId}
           />
         )}
 
