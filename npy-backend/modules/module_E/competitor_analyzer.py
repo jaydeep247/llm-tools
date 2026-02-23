@@ -24,10 +24,12 @@ class CompetitorAnalyzer:
       - SOV = brand appearances / total appearances (brand + all competitors)
     """
 
-    async def analyze(self, url: str, competitor_domains: List[str] = None) -> Dict[str, Any]:
+    async def analyze(self, url: str, competitor_domains: Optional[List[str]] = None, brand_name: Optional[str] = None) -> Dict[str, Any]:
         """Runs the complete competitor analysis suite."""
         domain = self._extract_domain(url)
-        brand_name = self._extract_brand_name(domain)
+        if not brand_name:
+            brand_name = self._extract_brand_name(domain)
+        
         logger.info(f"Starting competitor analysis for: {domain} (brand: {brand_name})")
 
         # 1. Infer industry first (needed for both fallback discovery and AI SOV)

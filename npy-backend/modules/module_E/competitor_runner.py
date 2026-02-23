@@ -20,8 +20,24 @@ async def run_competitor_analysis(job_id: str, url: str, html_content: str = Non
     # 1. Check if we have existing competitors in MongoDB or infer from brand analysis
     # For now, we'll let the analyzer auto-discover via DataForSEO if not provided
     
+    brand_name = None
     try:
-        results = await analyzer.analyze(url)
+        existing = mongo_manager.module_e.find_one({"jobId": job_id})
+        if existing:
+            # Try content_consistency mandate first (most reliable)
+            brand_name = (
+                existing.get("content_consistency", {})
+                .get("mandate", {})
+                .get("brand_name")
+            )
+            # Fallback: brand_analysis
+            if not brand_name:
+                brand_name = existing.get("brand_analysis", {}).get("brand_name")
+    except Exception as e:
+        logger.warning(f"Could not read existing module_e doc: {e}")
+
+    try:
+        results = await analyzer.analyze(url, brand_name=brand_name)
 
         ai_sov = results.get("ai_sov") or {}
 

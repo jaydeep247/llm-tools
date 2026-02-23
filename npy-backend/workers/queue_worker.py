@@ -325,19 +325,31 @@ def execute_job(payload: dict, job_type: str = "crawl") -> bool:
             logger.info(f"Running AEO Analysis for job {job_id} (Target: {target_job_id}) Modules: {modules}")
             
             if "module_e" in modules:
-                 asyncio.run(run_module_e(target_job_id, url, source_job_id=source_job_id))
+                asyncio.run(run_module_e(target_job_id, url, source_job_id=source_job_id))
             elif "module_e_consistency" in modules:
-                 asyncio.run(run_consistency_only(target_job_id, url, source_job_id=source_job_id))
+                asyncio.run(run_consistency_only(target_job_id, url, source_job_id=source_job_id))
             elif "module_e_sentiment" in modules:
-                 asyncio.run(run_sentiment_only(target_job_id, url))
+                asyncio.run(run_sentiment_only(target_job_id, url))
             elif "module_e_competitors" in modules:
-                 asyncio.run(run_competitor_analysis(target_job_id, url))
+                try:
+                    asyncio.run(run_competitor_analysis(target_job_id, url))
+                except Exception as e:
+                    logger.error(f"Error running competitor analysis: {e}", exc_info=True)
             elif "module_e_ai_sov" in modules:
-                 asyncio.run(run_ai_sov_analysis(target_job_id, url))
+                try:
+                    asyncio.run(run_ai_sov_analysis(target_job_id, url))
+                except Exception as e:
+                    logger.error(f"Error running AI SOV analysis: {e}", exc_info=True)
             elif "module_e_ranking" in modules:
-                 asyncio.run(run_ranking_analysis(target_job_id, url))
+                try:
+                    asyncio.run(run_ranking_analysis(target_job_id, url))
+                except Exception as e:
+                    logger.error(f"Error running ranking analysis: {e}", exc_info=True)
             elif "module_e_brand" in modules:
-                 asyncio.run(run_brand_only(target_job_id, url))
+                try:
+                    asyncio.run(run_brand_only(target_job_id, url))
+                except Exception as e:
+                    logger.error(f"Error running brand analysis: {e}", exc_info=True)
             else:
                  logger.warning(f"Unknown AEO Analysis module requested: {modules}")
 
