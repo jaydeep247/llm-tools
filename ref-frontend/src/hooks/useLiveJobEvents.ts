@@ -10,7 +10,7 @@ export interface JobEvent {
   timestamp: number;
 }
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:4000';
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3004';
 
 export const useLiveJobEvents = (jobId: string | null) => {
   const dispatch = useAppDispatch();

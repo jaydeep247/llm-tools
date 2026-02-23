@@ -214,7 +214,7 @@ export default function JobProgressPage() {
     
     console.log(`🔌 Connecting socket for job: ${jobId}, boundary: ${socketSnapshotAt}`)
 
-    const socket: Socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:4000', {
+    const socket: Socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3004', {
       path: '/socket.io',
       transports: ['websocket'],
       reconnection: true,

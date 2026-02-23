@@ -28,7 +28,7 @@ services:
     build: ./nnode-backend
     container_name: nnode-backend
     ports:
-      - "${BACKEND_PORT:-4000}:4000"
+      - "${BACKEND_PORT:-3004}:3004"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -45,7 +45,7 @@ services:
       MONGO_DB_NAME: ${MONGO_DB_NAME:-seo_crawler}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost,http://209.38.70.65}
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4000/api/v1/health"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3004/api/v1/health"]
       interval: 30s
       timeout: 10s
       retries: 3
