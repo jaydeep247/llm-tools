@@ -402,6 +402,52 @@ export default function ModelComparison({ jobId, url = '' }: ModelComparisonProp
             </div>
           )}
 
+          {/* Claim Matrix Section */}
+          {result?.modules?.multi_model_insights?.claim_matrix && (result.modules.multi_model_insights.claim_matrix as any[]).length > 0 && (
+            <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
+              <div className="p-4 border-b border-white/10 flex items-center gap-2">
+                <div className="p-2 bg-purple-500/20 rounded-xl">
+                  <Layers className="w-4 h-4 text-purple-400" />
+                </div>
+                <span className="text-sm font-medium text-white">Claim Verification Matrix</span>
+                <Badge className="bg-purple-500/20 text-purple-300 border-0 ml-auto">
+                  {(result.modules.multi_model_insights.claim_matrix as any[]).length} claims
+                </Badge>
+              </div>
+              <div className="divide-y divide-white/5">
+                {(result.modules.multi_model_insights.claim_matrix as any[]).map((claim: any, i: number) => (
+                  <div key={i} className="p-4 hover:bg-white/5 transition-all">
+                    <div className="flex items-start justify-between gap-4 mb-3">
+                      <p className="text-sm text-white/80 flex-1">{claim.claim}</p>
+                      <Badge variant="outline" className="text-white/50 border-white/20 shrink-0 text-xs">
+                        {claim.category}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs text-white/40">Confirmed by:</span>
+                      {claim.providers && Object.entries(claim.providers)
+                        .filter(([, confirmed]) => confirmed)
+                        .map(([provider]) => (
+                          <Badge key={provider} className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-xs capitalize">
+                            {provider}
+                          </Badge>
+                        ))
+                      }
+                      {claim.providers && Object.entries(claim.providers)
+                        .filter(([, confirmed]) => !confirmed)
+                        .map(([provider]) => (
+                          <Badge key={provider} className="bg-red-500/20 text-red-300 border-red-500/30 text-xs capitalize">
+                            {provider} ✗
+                          </Badge>
+                        ))
+                      }
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Coverage Gaps */}
           {metrics.coverage_gaps && metrics.coverage_gaps.length > 0 && (
             <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-red-500/30 p-5">

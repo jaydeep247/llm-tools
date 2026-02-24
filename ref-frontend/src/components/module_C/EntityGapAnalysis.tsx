@@ -330,6 +330,45 @@ export default function EntityGapAnalysis({ jobId, url = '' }: EntityGapAnalysis
             </div>
           </div>
 
+          {/* KB Recommendations Section */}
+          {knowledgeBase.entity_coverage.recommendations && knowledgeBase.entity_coverage.recommendations.length > 0 && (
+            <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
+              <div className="p-4 border-b border-white/10 flex items-center gap-2">
+                <div className="p-2 bg-amber-500/20 rounded-lg">
+                  <TrendingUp className="w-4 h-4 text-amber-400" />
+                </div>
+                <span className="text-sm font-medium text-white">Knowledge Base Recommendations</span>
+                <Badge className="bg-amber-500/20 text-amber-300 border-0 ml-auto">
+                  {knowledgeBase.entity_coverage.recommendations.length} actions
+                </Badge>
+              </div>
+              <div className="p-4 space-y-3">
+                {knowledgeBase.entity_coverage.recommendations.map((rec, i) => (
+                  <div 
+                    key={i}
+                    className="p-4 bg-white/5 rounded-xl border border-white/5"
+                  >
+                    <div className="flex items-start justify-between gap-4 mb-2">
+                      <Badge className={cn(
+                        "border text-xs",
+                        rec.priority === 'High' ? "bg-red-500/20 text-red-300 border-red-500/30" :
+                        rec.priority === 'Medium' ? "bg-amber-500/20 text-amber-300 border-amber-500/30" :
+                        "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                      )}>
+                        {rec.priority}
+                      </Badge>
+                      <div className="flex items-center gap-1 text-emerald-400">
+                        <span className="text-xs font-semibold">+{rec.impact}</span>
+                        <span className="text-[10px] text-white/40">impact</span>
+                      </div>
+                    </div>
+                    <p className="text-sm text-white/70">{rec.action}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Entity Types Grid */}
           {Object.keys(entityTypes).length > 0 && (
             <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">

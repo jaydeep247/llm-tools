@@ -48,6 +48,7 @@ export interface ModuleCModules {
       percent_questions_answered?: number
       answered_questions?: string[]
       missing_answers_gaps?: string[]
+      missing_aspects?: string[]
       recommendations?: Array<{ action: string; priority: string; impact: number }>
     }
     recommendations?: string[]
@@ -58,6 +59,7 @@ export interface ModuleCModules {
     entity_coverage?: {
       topic?: string
       coverage_score?: number
+      relevance_explanation?: string
       entites_analysis?: Array<{
         entity: string
         type: string

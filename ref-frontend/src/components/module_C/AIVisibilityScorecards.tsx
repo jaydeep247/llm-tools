@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { 
   Loader2, 
   Brain, 
@@ -15,7 +16,10 @@ import {
   XCircle,
   AlertCircle,
   Play,
-  ArrowUpRight
+  ArrowUpRight,
+  ChevronDown,
+  Shield,
+  Globe
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { 
@@ -406,6 +410,216 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisi
           ] : undefined}
         />
       </div>
+
+      {/* AI Presence Detailed Breakdown */}
+      {hasData && aiPresence && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Robot Accessibility */}
+          <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-5">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-purple-500/20 rounded-xl">
+                <Shield className="w-5 h-5 text-purple-400" />
+              </div>
+              <span className="text-sm font-medium text-white">Robot Accessibility</span>
+              <Badge className="bg-white/10 text-white/60 border-0 ml-auto text-xs">
+                {aiPresence.robots_checks ? Object.values(aiPresence.robots_checks).filter(Boolean).length : 0}/{aiPresence.robots_checks ? Object.keys(aiPresence.robots_checks).length : 0} checks
+              </Badge>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-white/70">GPTBot Access</span>
+                </div>
+                {aiPresence.robots_checks?.robots_gptbot ? (
+                  <div className="flex items-center gap-1 text-emerald-400">
+                    <CheckCircle className="w-4 h-4" />
+                    <span className="text-xs">Allowed</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 text-red-400">
+                    <XCircle className="w-4 h-4" />
+                    <span className="text-xs">Blocked</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
+                <span className="text-sm text-white/70">Google Extended</span>
+                {aiPresence.robots_checks?.robots_google_extended ? (
+                  <div className="flex items-center gap-1 text-emerald-400">
+                    <CheckCircle className="w-4 h-4" />
+                    <span className="text-xs">Allowed</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 text-red-400">
+                    <XCircle className="w-4 h-4" />
+                    <span className="text-xs">Blocked</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
+                <span className="text-sm text-white/70">ClaudeBot Access</span>
+                {aiPresence.robots_checks?.robots_claudebot ? (
+                  <div className="flex items-center gap-1 text-emerald-400">
+                    <CheckCircle className="w-4 h-4" />
+                    <span className="text-xs">Allowed</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 text-red-400">
+                    <XCircle className="w-4 h-4" />
+                    <span className="text-xs">Blocked</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
+                <span className="text-sm text-white/70">Sitemap Present</span>
+                {aiPresence.robots_checks?.sitemap_present ? (
+                  <div className="flex items-center gap-1 text-emerald-400">
+                    <CheckCircle className="w-4 h-4" />
+                    <span className="text-xs">Found</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 text-red-400">
+                    <XCircle className="w-4 h-4" />
+                    <span className="text-xs">Missing</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Content Signals */}
+          <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-5">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-blue-500/20 rounded-xl">
+                <Globe className="w-5 h-5 text-blue-400" />
+              </div>
+              <span className="text-sm font-medium text-white">Content Signals</span>
+              <Badge className="bg-white/10 text-white/60 border-0 ml-auto text-xs">
+                {aiPresence.content_checks ? Object.values(aiPresence.content_checks).filter(v => v === true).length : 0} found
+              </Badge>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
+                <span className="text-sm text-white/70">Organization Schema</span>
+                {aiPresence.content_checks?.org_schema_present ? (
+                  <div className="flex items-center gap-1 text-emerald-400">
+                    <CheckCircle className="w-4 h-4" />
+                    <span className="text-xs">Present</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 text-red-400">
+                    <XCircle className="w-4 h-4" />
+                    <span className="text-xs">Missing</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
+                <span className="text-sm text-white/70">Organization Logo</span>
+                {aiPresence.content_checks?.org_logo_present ? (
+                  <div className="flex items-center gap-1 text-emerald-400">
+                    <CheckCircle className="w-4 h-4" />
+                    <span className="text-xs">Present</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 text-red-400">
+                    <XCircle className="w-4 h-4" />
+                    <span className="text-xs">Missing</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
+                <span className="text-sm text-white/70">Wikipedia/Wikidata Link</span>
+                {aiPresence.content_checks?.sameas_wikidata_or_wikipedia ? (
+                  <div className="flex items-center gap-1 text-emerald-400">
+                    <CheckCircle className="w-4 h-4" />
+                    <span className="text-xs">Linked</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 text-amber-400">
+                    <AlertCircle className="w-4 h-4" />
+                    <span className="text-xs">Not Found</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
+                <span className="text-sm text-white/70">Open Graph Tags</span>
+                {aiPresence.content_checks?.open_graph_present ? (
+                  <div className="flex items-center gap-1 text-emerald-400">
+                    <CheckCircle className="w-4 h-4" />
+                    <span className="text-xs">Present</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 text-red-400">
+                    <XCircle className="w-4 h-4" />
+                    <span className="text-xs">Missing</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
+                <span className="text-sm text-white/70">Twitter Card</span>
+                {aiPresence.content_checks?.twitter_card_present ? (
+                  <div className="flex items-center gap-1 text-emerald-400">
+                    <CheckCircle className="w-4 h-4" />
+                    <span className="text-xs">Present</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 text-red-400">
+                    <XCircle className="w-4 h-4" />
+                    <span className="text-xs">Missing</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Answerability Breakdown */}
+      {hasData && answerability?.metrics && (
+        <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-blue-500/20 rounded-xl">
+              <MessageCircle className="w-5 h-5 text-blue-400" />
+            </div>
+            <span className="text-sm font-medium text-white">Answerability Metrics</span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-white/5 rounded-xl p-4 text-center">
+              <div className="text-2xl font-bold text-white">{answerability.metrics.question_count ?? 0}</div>
+              <div className="text-xs text-white/50 mt-1">Questions Found</div>
+            </div>
+            <div className="bg-white/5 rounded-xl p-4 text-center">
+              <div className="text-2xl font-bold text-emerald-400">{answerability.metrics.answer_count ?? 0}</div>
+              <div className="text-xs text-white/50 mt-1">Answers Found</div>
+            </div>
+            <div className="bg-white/5 rounded-xl p-4 text-center">
+              <div className="text-2xl font-bold text-white">{((answerability.metrics.qa_balance ?? 0) * 100).toFixed(0)}%</div>
+              <div className="text-xs text-white/50 mt-1">Q&A Balance</div>
+            </div>
+            <div className="bg-white/5 rounded-xl p-4 text-center">
+              <div className="text-2xl font-bold text-cyan-400">{answerability.metrics.percent_questions_answered ?? 0}%</div>
+              <div className="text-xs text-white/50 mt-1">Questions Answered</div>
+            </div>
+          </div>
+          
+          {/* Missing Answers/Gaps */}
+          {answerability.ai_analysis?.missing_answers_gaps && answerability.ai_analysis.missing_answers_gaps.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-white/10">
+              <div className="flex items-center gap-2 mb-3">
+                <AlertCircle className="w-4 h-4 text-amber-400" />
+                <span className="text-xs text-white/50 uppercase tracking-wider">Missing Answer Gaps</span>
+              </div>
+              <div className="space-y-2">
+                {answerability.ai_analysis.missing_answers_gaps.slice(0, 5).map((gap, i) => (
+                  <div key={i} className="p-3 bg-amber-500/10 rounded-xl border border-amber-500/20">
+                    <p className="text-sm text-amber-200">{gap}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* No Data State */}
       {!hasData && !isLoadingData && jobId && (
