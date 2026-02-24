@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { CrawlLogger, DiscoveredPages, CrawlStatusHeader } from '@/components/crawl'
 import { SessionLayout } from '@/components/layout/SessionLayout'
 import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable } from '@/components/module_A'
-import { AIIntelligenceModule, ContentMetricsModule, AnswerCompletenessModule } from '@/components/module_C'
+import { AIIntelligenceModule, ContentMetricsModule, AIVisibilityScorecards, EntityGapAnalysis, AIAnswerPreview, ImprovementActions, ModelComparison } from '@/components/module_C'
 import { SiteStructure } from '@/components/module_D/site-structure'
 import { AICitationRanking, ContentConsistencyEntityCoverage, BrandAnalysisSection, SentimentTrackingSection, CompetitorMentionsSection, SentimentTracking } from '@/components/module_E'
 import { useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
@@ -1022,6 +1022,35 @@ export default function SessionDetailPage() {
           />
         )}
 
+        {/* Show AI Visibility Scorecards on ai-visibility-scorecards tab */}
+        {activeSection === 'ai-visibility-scorecards' && (
+          <AIVisibilityScorecards
+            url={session?.startUrl || ''}
+            sessionId={sessionId}
+            jobId={jobId}
+          />
+        )}
+
+        {/* Entity & Gap Analysis */}
+        {activeSection === 'entity-and-gap-analysis' && (
+          <EntityGapAnalysis jobId={jobId} />
+        )}
+
+        {/* AI Answer Preview (answer-completeness in sidebar) */}
+        {activeSection === 'answer-completeness' && (
+          <AIAnswerPreview jobId={jobId} />
+        )}
+
+        {/* Improvement Actions */}
+        {activeSection === 'improvement-actions' && (
+          <ImprovementActions jobId={jobId} />
+        )}
+
+        {/* Model Comparison */}
+        {activeSection === 'model-comparison' && (
+          <ModelComparison jobId={jobId} />
+        )}
+
         {/* Show Module E on module-e tab */}
         {activeSection === 'module-e' && (
           <div className="space-y-6">
@@ -1067,13 +1096,6 @@ export default function SessionDetailPage() {
 
         {activeSection === 'content-metrics' && (
           <ContentMetricsModule
-            url={session?.startUrl || ''}
-            sessionId={sessionId}
-          />
-        )}
-
-        {activeSection === 'answer-completeness' && (
-          <AnswerCompletenessModule
             url={session?.startUrl || ''}
             sessionId={sessionId}
           />

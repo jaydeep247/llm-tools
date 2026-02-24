@@ -158,7 +158,7 @@ export default function AIIntelligenceModule({ url, sessionId, jobId }: AIIntell
       {/* Header Section with Tabs */}
       <div className="space-y-6">
         {/* Mode Tabs */}
-        <div className="flex items-center gap-2 border-white/20 bg-white/10 backdrop-blur-xl p-2 rounded-lg border w-fit">
+        <div className="flex items-center gap-2 border-white/10 bg-white/5 backdrop-blur-xl p-2 rounded-lg border w-fit">
           <Button
             onClick={() => handleAuditModeChange('single')}
             variant={auditMode === 'single' ? 'default' : 'ghost'}
@@ -190,7 +190,7 @@ export default function AIIntelligenceModule({ url, sessionId, jobId }: AIIntell
 
       {/* Single Mode */}
       {auditMode === 'single' && (
-        <div className="rounded-lg border border-white/20 bg-white/10 backdrop-blur-xl p-6 space-y-6">
+        <div className="rounded-lg border border-white/10 bg-white/5 backdrop-blur-xl p-6 space-y-6">
           {/* No Job ID Warning */}
           {!jobId && (
             <div className="p-4 border border-yellow-500/50 bg-yellow-500/10 rounded-lg">
@@ -403,7 +403,7 @@ export default function AIIntelligenceModule({ url, sessionId, jobId }: AIIntell
 
       {/* Bulk Mode */}
       {auditMode === 'bulk' && (
-        <div className="rounded-lg border border-white/20 bg-white/10 backdrop-blur-xl p-6 space-y-6">
+        <div className="rounded-lg border border-white/10 bg-white/5 backdrop-blur-xl p-6 space-y-6">
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row gap-3">
               <Input

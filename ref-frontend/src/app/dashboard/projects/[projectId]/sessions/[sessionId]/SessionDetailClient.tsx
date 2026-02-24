@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { CrawlLogger, DiscoveredPages, CrawlStatusHeader } from '@/components/crawl'
 import { SessionLayout } from '@/components/layout/SessionLayout'
 import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable } from '@/components/module_A'
-import { AIIntelligenceModule, ContentMetricsModule, AnswerCompletenessModule } from '@/components/module_C'
+import { AIIntelligenceModule, ContentMetricsModule } from '@/components/module_C'
 import { AICitationRanking, SentimentTracking } from '@/components/module_E'
 // import { useGetDataListQuery, useCheckLinksMutation, useGetLinkStatsQuery, useLazyGetPageLinksQuery } from '@/store/api/module_A/dataApi'
 import { useGetProjectQuery } from '@/store/api/projectApi'
@@ -988,13 +988,6 @@ export default function SessionDetailClient() {
           <ContentMetricsModule 
             url={session?.startUrl || ''}
             sessionId={sessionId}
-          />
-        )}
-
-        {activeSection === 'answer-completeness' && (
-          <AnswerCompletenessModule 
-            url={session?.startUrl || ''}
-            sessionId={parseInt(sessionId)}
           />
         )}
 

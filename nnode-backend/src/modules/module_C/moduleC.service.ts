@@ -106,4 +106,86 @@ export class ModuleCService {
       throw error;
     }
   }
+
+  /**
+   * Get a specific module field from Module C result
+   */
+  async getModuleField(jobId: string, field: string): Promise<any> {
+    try {
+      const db = await connectToMongo();
+      const collection = db.collection('aeo_analysis');
+      
+      const result = await collection.findOne(
+        { jobId },
+        { 
+          sort: { timestamp: -1 },
+          projection: { 
+            jobId: 1, 
+            url: 1, 
+            [`modules.${field}`]: 1,
+            timestamp: 1 
+          }
+        }
+      );
+
+      if (!result) {
+        return null;
+      }
+
+      return {
+        jobId: result.jobId,
+        url: result.url,
+        data: result.modules?.[field] || null,
+        timestamp: result.timestamp,
+      };
+    } catch (error: any) {
+      logger.error(`Error getting Module C field ${field}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Get summary with overall score and all module scores
+   */
+  async getSummary(jobId: string): Promise<any> {
+    try {
+      const db = await connectToMongo();
+      const collection = db.collection('aeo_analysis');
+      
+      const result = await collection.findOne(
+        { jobId },
+        { sort: { timestamp: -1 } }
+      );
+
+      if (!result) {
+        return null;
+      }
+
+      const modules = result.modules || {};
+      
+      return {
+        jobId: result.jobId,
+        url: result.url,
+        overall_score: result.overall_score,
+        module_scores: {
+          ai_presence: modules.ai_presence?.score ?? null,
+          answerability: modules.answerability?.score ?? null,
+          knowledge_base: modules.knowledge_base?.score ?? null,
+          competitor_analysis: modules.competitor_analysis?.score ?? null,
+          llm_simulator: modules.llm_simulator?.cross_model_metrics?.consistency_score ?? null,
+        },
+        actionable_insights: {
+          total_actions: modules.actionable_insights?.totalActions ?? 0,
+          priority_breakdown: modules.actionable_insights?.priorityBreakdown ?? {},
+          current_score: modules.actionable_insights?.currentScore ?? null,
+          predicted_score: modules.actionable_insights?.predictedScore ?? null,
+          improvement: modules.actionable_insights?.improvement ?? 0,
+        },
+        timestamp: result.timestamp,
+      };
+    } catch (error: any) {
+      logger.error(`Error getting Module C summary: ${error.message}`);
+      throw error;
+    }
+  }
 }

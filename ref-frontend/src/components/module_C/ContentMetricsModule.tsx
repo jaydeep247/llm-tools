@@ -97,7 +97,7 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
       {/* Header Section with Tabs */}
       <div className="space-y-6">
         {/* Tab Navigation - Larger size */}
-        <div className="flex flex-wrap items-center gap-2 border-white/20 bg-white/10 backdrop-blur-xl p-2 rounded-lg border w-fit">
+        <div className="flex flex-wrap items-center gap-2 border-white/10 bg-white/5 backdrop-blur-xl p-2 rounded-lg border w-fit">
           <Button
             onClick={() => handleTabChange('content-analysis')}
             variant={activeTab === 'content-analysis' ? 'default' : 'ghost'}
@@ -142,7 +142,7 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
 
       {/* Content Analysis Metrics Tab */}
       {activeTab === 'content-analysis' && (
-        <div className="rounded-lg border border-white/20 bg-white/10 backdrop-blur-xl p-6 space-y-6">
+        <div className="rounded-lg border border-white/10 bg-white/5 backdrop-blur-xl p-6 space-y-6">
           {/* Empty State + Trigger */}
           {!contentMetrics && !isLoadingMetrics && !metricsError && (
             <div className="p-6 border border-border rounded-lg bg-muted/50 space-y-4">
@@ -302,7 +302,7 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
 
       {/* Prompt Intent Clusters Tab */}
       {activeTab === 'intent-clusters' && (
-        <div className="rounded-lg border border-white/20 bg-white/10 backdrop-blur-xl p-6 space-y-6">
+        <div className="rounded-lg border border-white/10 bg-white/5 backdrop-blur-xl p-6 space-y-6">
           {/* Empty State */}
           {!contentMetrics && !isLoadingMetrics && !metricsError && (
             <div className="p-6 border border-border rounded-lg bg-muted/50">
@@ -463,7 +463,7 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
 
       {/* Entity Detection Metrics Tab */}
       {activeTab === 'entity-detection' && (
-        <div className="rounded-lg border border-white/20 bg-white/10 backdrop-blur-xl p-6 space-y-6">
+        <div className="rounded-lg border border-white/10 bg-white/5 backdrop-blur-xl p-6 space-y-6">
           {/* Empty State */}
           {!entityMetrics && !isLoadingMetrics && !metricsError && (
             <div className="p-6 border border-border rounded-lg bg-muted/50">

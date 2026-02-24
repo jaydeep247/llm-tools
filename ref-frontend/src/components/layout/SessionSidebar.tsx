@@ -48,6 +48,7 @@ const menuItems = [
   { id: 'schema-generator', label: 'Schema Generator', icon: Code },
   { id: 'module-e', label: 'Module E', icon: Activity },
   { id: 'ai-intelligence', label: 'AI Intelligence', icon: Brain },
+  { id: 'ai-visibility-scorecards', label: 'AI Visibility Scorecards', icon: Brain },
   { id: 'content-metrics', label: 'Content Metrics', icon: FileCheck },
   { id: 'answer-completeness', label: 'Answer Completeness', icon: Target },
   { id: 'entity-extractor', label: 'Entity Extractor', icon: Tags },
