@@ -9,6 +9,7 @@ import { authMiddleware } from './middlewares/auth.middleware';
 import { connectToMongo } from './config/mongo';
 import { logger } from './shared/logger/logger';
 import moduleERoutes from './modules/module_E/moduleE.routes';
+import moduleCRoutes from './modules/module_C/moduleC.routes';
 
 const router = Router();
 
@@ -80,5 +81,6 @@ router.use('/projects', projectRoutes);
 router.use('/', sessionRoutes);
 router.use('/', jobRoutes);
 router.use('/', moduleERoutes);
+router.use('/', moduleCRoutes);
 
 export default router;

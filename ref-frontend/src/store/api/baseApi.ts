@@ -22,6 +22,7 @@ export const baseApi = createApi({
     'Session',
     'Job',
     'ModuleE',
+    'ModuleC',
   ],
   endpoints: () => ({}),
 });

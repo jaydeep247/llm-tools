@@ -14,14 +14,16 @@ class TaskRegistry:
         # "chat_completion": ["openai", "gemini", "claude"],
         # "dataforseo_generic": ["dataforseo"],
         
-        # # Module C Tasks
-        # "aeo_ai_presence_check": ["openai", "gemini", "claude"],
-        # "aeo_answerability_audit": ["openai", "gemini", "claude"],
-        # "aeo_knowledge_base_audit": ["openai", "gemini", "claude"],
-        # "aeo_competitor_analysis": ["dataforseo"],
-        # "aeo_content_metrics": ["openai", "gemini", "claude"],
-        # "aeo_entity_relevance": ["openai", "gemini", "claude"],
-        # "aeo_content_understanding": ["openai", "gemini", "claude"], # Multi-AI check
+        # Module C Tasks
+        "aeo_ai_presence_check": ["openai", "gemini", "claude"],
+        "aeo_answerability_audit": ["openai", "gemini", "claude"],
+        "aeo_knowledge_base_audit": ["openai", "gemini", "claude"],
+        "aeo_competitor_analysis": ["dataforseo"],
+        "aeo_content_metrics": ["openai", "gemini", "claude"],
+        "aeo_entity_relevance": ["openai", "gemini", "claude"],
+        "aeo_content_understanding": ["openai", "gemini", "claude"],
+        "aeo_simulate_answer_generation": ["openai", "gemini", "claude"],
+        "aeo_evaluate_answer_quality": ["openai", "gemini", "claude"],
 
         # Module E Tasks
         "module_e_content_mandate": ["openai", "gemini", "claude"],

@@ -960,6 +960,7 @@ export default function SessionDetailClient() {
           <AIIntelligenceModule 
             url={session?.startUrl || ''}
             sessionId={sessionId}
+            jobId={jobId}
           />
         )}
 

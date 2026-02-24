@@ -28,6 +28,9 @@ from modules.module_D.contentAnylsisMatrix import OpenAIService
 from workers.crawl_worker.spiders.sitemap_discovery import SitemapDiscovery
 from workers.crawl_worker.preflight import preflight_discover_all_urls
 
+# Module C Runner
+from modules.module_C.runner import run_module_c
+
 # Module E Runners
 from modules.module_E.runner import run_module_e, run_consistency_only
 from modules.module_E.sentiment_runner import run_sentiment_only
@@ -324,7 +327,13 @@ def execute_job(payload: dict, job_type: str = "crawl") -> bool:
             
             logger.info(f"Running AEO Analysis for job {job_id} (Target: {target_job_id}) Modules: {modules}")
             
-            if "module_e" in modules:
+            if "module_c" in modules:
+                query = config_data.get("query")
+                try:
+                    asyncio.run(run_module_c(target_job_id, url, query=query))
+                except Exception as e:
+                    logger.error(f"Error running Module C analysis: {e}", exc_info=True)
+            elif "module_e" in modules:
                 asyncio.run(run_module_e(target_job_id, url, source_job_id=source_job_id))
             elif "module_e_consistency" in modules:
                 asyncio.run(run_consistency_only(target_job_id, url, source_job_id=source_job_id))

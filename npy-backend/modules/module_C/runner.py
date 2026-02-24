@@ -148,42 +148,21 @@ runner = ModuleCRunner()
 async def run_module_c(job_id: str, url: str, html_content: str = None, query: str = None):
     """
     Run Module C analysis for a job.
-    - Runs single-page analysis on the main URL
-    - If multiple pages were crawled, runs bulk audit on all pages
+    Analyzes the main URL using the stored HTML content.
+    
+    Args:
+        job_id: Job ID for this analysis
+        url: URL to analyze
+        html_content: Optional HTML content (if not provided, loads from disk)
+        query: Optional specific query for AI Answer Simulation
+        
+    Returns:
+        Module C analysis results with overall score and module details
     """
-    # Run single-page analysis
-    single_page_result = await runner.run(job_id, url, html_content, query=query)
+    # Run single-page analysis on the main URL
+    result = await runner.run(job_id, url, html_content, query=query)
     
-    # Check if this is a post-crawl job with multiple pages
-    try:
-        from utils.mongo import mongo_manager
-        
-        pages_count = mongo_manager.pages.count_documents({"jobId": job_id})
-        
-        if pages_count > 1:
-            # Run bulk audit on all crawled pages
-            logger.info(f"Found {pages_count} crawled pages for job {job_id}. Running bulk audit...")
-            from .bulk_audit_service import bulk_audit_service
-            
-            bulk_result = await bulk_audit_service.run_bulk_audit_from_crawl(job_id)
-            
-            # Add bulk audit results to the response
-            if 'modules' in single_page_result:
-                single_page_result['modules']['bulk_audit'] = bulk_result
-            else:
-                single_page_result['bulk_audit'] = bulk_result
-                
-            logger.info(f"Bulk audit completed for job {job_id}")
-        else:
-            logger.info(f"Only {pages_count} page(s) found for job {job_id}. Skipping bulk audit.")
-            
-    except Exception as e:
-        logger.error(f"Failed to run bulk audit for job {job_id}: {str(e)}")
-        # Don't fail the entire job if bulk audit fails
-        if 'modules' in single_page_result:
-            single_page_result['modules']['bulk_audit'] = {"error": str(e)}
-        else:
-            single_page_result['bulk_audit'] = {"error": str(e)}
+    logger.info(f"Module C analysis completed for job {job_id}")
     
-    return single_page_result
+    return result
 
