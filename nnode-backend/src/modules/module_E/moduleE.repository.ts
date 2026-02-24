@@ -14,6 +14,7 @@ type ModuleEDocument = WithId<Document> & {
   ranking_analysis?: ModuleEResult['ranking_analysis'];
   ai_sov_history?: ModuleEResult['ai_sov_history'];
   score_history?: ModuleEResult['score_history'];
+  master_analysis?: ModuleEResult['master_analysis'];
   createdAt?: Date;
   updatedAt?: Date;
 };
@@ -36,6 +37,7 @@ export class ModuleERepository {
       ranking_analysis: doc.ranking_analysis,
       ai_sov_history: doc.ai_sov_history,
       score_history: doc.score_history,
+      master_analysis: doc.master_analysis,
       createdAt: doc.createdAt ? doc.createdAt.toISOString() : undefined,
       updatedAt: doc.updatedAt ? doc.updatedAt.toISOString() : undefined,
     };
@@ -61,6 +63,7 @@ export class ModuleERepository {
             competitor_mentions: data.competitor_mentions ?? undefined,
             ai_share_of_voice: data.ai_share_of_voice ?? undefined,
             ranking_analysis: data.ranking_analysis ?? undefined,
+            master_analysis: data.master_analysis ?? undefined,
             updatedAt: now,
           },
           $setOnInsert: {
@@ -201,6 +204,9 @@ export class ModuleERepository {
       }
       if (fields.ranking_analysis !== undefined) {
         updateData.ranking_analysis = fields.ranking_analysis;
+      }
+      if (fields.master_analysis !== undefined) {
+        updateData.master_analysis = fields.master_analysis;
       }
 
       const collection = await this.getCollection();

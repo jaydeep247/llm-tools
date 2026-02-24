@@ -1051,6 +1051,18 @@ export default function SessionDetailPage() {
           </div>
         )}
 
+        {/* Show Tracked Prompts (consistency, entity coverage, accuracy) */}
+        {activeSection === 'keyword-intelligence' && (
+          <div className="space-y-6">
+            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+              <AICitationRanking jobId={jobId} url={session?.startUrl || ''} />
+            </div>
+            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+              <ContentConsistencyEntityCoverage jobId={jobId} />
+            </div>
+          </div>
+        )}
+
 
         {activeSection === 'content-metrics' && (
           <ContentMetricsModule

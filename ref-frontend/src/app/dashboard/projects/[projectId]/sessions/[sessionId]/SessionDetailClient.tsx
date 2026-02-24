@@ -975,6 +975,14 @@ export default function SessionDetailClient() {
           </div>
         )}
 
+        {activeSection === 'keyword-intelligence' && (
+          <div className="space-y-6">
+            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+              <AICitationRanking url={session?.startUrl || ''} />
+            </div>
+          </div>
+        )}
+
         {activeSection === 'content-metrics' && (
           <ContentMetricsModule 
             url={session?.startUrl || ''}

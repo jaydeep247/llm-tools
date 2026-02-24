@@ -1,8 +1,12 @@
 import os
+import logging
 import google.generativeai as genai
 from typing import Dict, Any
 from . import BaseProvider
 from ..schemas import TaskResponse
+
+logger = logging.getLogger("orchestrator_gemini")
+
 
 class GeminiProvider(BaseProvider):
     def __init__(self):
@@ -20,17 +24,23 @@ class GeminiProvider(BaseProvider):
             prompt = "\n".join([m["content"] for m in input_data["messages"]])
 
         if not prompt:
+            logger.warning("GeminiProvider called without prompt", extra={"task_name": task_name})
             return TaskResponse(success=False, error="Input must contain 'prompt' or 'messages'", meta={"provider": "gemini"})
 
         import asyncio
         import functools
         
         def _run_sync_gemini(api_key: str, model: str, text: str):
-            # Configure and run entirely within the thread to avoid loop conflicts
             genai.configure(api_key=api_key)
             model_instance = genai.GenerativeModel(model)
             result = model_instance.generate_content(text)
             return result.text
+
+        logger.info("GeminiProvider executing task", extra={
+            "task_name": task_name,
+            "model": model_name,
+            "prompt_length": len(prompt or "")
+        })
 
         try:
             loop = asyncio.get_running_loop()
@@ -38,6 +48,12 @@ class GeminiProvider(BaseProvider):
                 None, 
                 functools.partial(_run_sync_gemini, self.api_key, model_name, prompt)
             )
+
+            logger.info("GeminiProvider call succeeded", extra={
+                "task_name": task_name,
+                "model": model_name,
+                "response_length": len(response_text or "")
+            })
 
             return TaskResponse(
                 success=True, 
@@ -49,4 +65,9 @@ class GeminiProvider(BaseProvider):
             )
 
         except Exception as e:
+            logger.error("GeminiProvider call failed", extra={
+                "task_name": task_name,
+                "model": model_name,
+                "error": str(e)
+            })
             return TaskResponse(success=False, error=str(e), meta={"provider": "gemini"})

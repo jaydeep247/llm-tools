@@ -11,6 +11,43 @@ export interface ModuleEResult {
     };
     batch_scores?: number[];
   };
+  master_analysis?: {
+    mandate?: {
+      topic?: string;
+      audience?: string;
+      tone?: string;
+      brand_name?: string;
+      location?: string;
+    };
+    expected_entities?: string[];
+    models?: Array<{
+      model: string;
+      accuracy_of_generated_response: number;
+      content_consistency: {
+        score: number;
+        topic_density?: number;
+        audience_density?: number;
+        brand_density?: number;
+        mandate?: {
+          topic?: string;
+          audience?: string;
+          tone?: string;
+          brand_name?: string;
+          location?: string;
+        };
+      };
+      entity_coverage: {
+        score: number;
+        expected: string[];
+        observed: string[];
+        found: string[];
+        missing: string[];
+        total_expected: number;
+      };
+      completeness_score: number;
+      model_wise_performance_score: number;
+    }>;
+  };
   entity_coverage?: {
     score?: number;
     expected?: string[];
