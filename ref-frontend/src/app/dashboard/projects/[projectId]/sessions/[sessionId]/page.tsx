@@ -1022,37 +1022,41 @@ export default function SessionDetailPage() {
           />
         )}
 
-        {/* Show Module E on module-e tab */}
         {activeSection === 'module-e' && (
           <div className="space-y-6">
-            {/* 1. AI Citation Ranking */}
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
               <AICitationRanking jobId={jobId} url={session?.startUrl || ''} />
             </div>
 
-            {/* 2. Content Consistency & Entity Coverage */}
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
               <ContentConsistencyEntityCoverage jobId={jobId} />
             </div>
 
-            {/* 3. Brand Analysis */}
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
               <BrandAnalysisSection jobId={jobId} />
             </div>
 
-            {/* 4. AI Sentiment & Visibility */}
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
               <SentimentTrackingSection jobId={jobId} />
             </div>
 
-            {/* 5. Competitor Mentions / Share of Voice */}
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
               <CompetitorMentionsSection jobId={jobId} />
             </div>
           </div>
         )}
 
-        {/* Show Tracked Prompts (consistency, entity coverage, accuracy) */}
+        {activeSection === 'prompt-difficulty' && (
+          <div className="space-y-6">
+            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+              <BrandAnalysisSection jobId={jobId} />
+            </div>
+            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+              <CompetitorMentionsSection jobId={jobId} />
+            </div>
+          </div>
+        )}
+
         {activeSection === 'keyword-intelligence' && (
           <div className="space-y-6">
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">

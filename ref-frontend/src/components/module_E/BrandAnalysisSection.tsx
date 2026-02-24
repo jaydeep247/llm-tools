@@ -80,6 +80,26 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
   const neutral = sentimentCounts.neutral || 0
   const totalSentiment = positive + negative + neutral
 
+  const last12MonthsTrend = useMemo(() => {
+    if (!frequencyTrend || frequencyTrend.length === 0) return []
+    const now = new Date()
+    const months: { date: string; count: number }[] = []
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const year = d.getFullYear()
+      const month = String(d.getMonth() + 1).padStart(2, '0')
+      const key = `${year}-${month}`
+      const existing = frequencyTrend.find(
+        (item: any) => item.date && String(item.date).slice(0, 7) === key
+      )
+      months.push({
+        date: `${year}-${month}-01`,
+        count: existing?.count ?? 0,
+      })
+    }
+    return months
+  }, [frequencyTrend])
+
   // Calculate percentages
   const sentimentPercentages = useMemo(() => {
     if (totalSentiment === 0) {
@@ -109,19 +129,19 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
 
   // Get peak month
   const peakMonth = useMemo(() => {
-    if (frequencyTrend.length === 0) return null
-    return frequencyTrend.reduce((max, current) => {
+    if (last12MonthsTrend.length === 0) return null
+    return last12MonthsTrend.reduce((max, current) => {
       return (current.count ?? 0) > (max.count ?? 0) ? current : max
     })
-  }, [frequencyTrend])
+  }, [last12MonthsTrend])
 
   // Calculate trend direction
   const trendDirection = useMemo(() => {
-    if (frequencyTrend.length < 2) return null
-    const recent = frequencyTrend.slice(-3).reduce((sum, item) => sum + (item.count ?? 0), 0)
-    const past = frequencyTrend.slice(0, 3).reduce((sum, item) => sum + (item.count ?? 0), 0)
+    if (last12MonthsTrend.length < 2) return null
+    const recent = last12MonthsTrend.slice(-3).reduce((sum, item) => sum + (item.count ?? 0), 0)
+    const past = last12MonthsTrend.slice(0, 3).reduce((sum, item) => sum + (item.count ?? 0), 0)
     return recent > past ? 'up' : recent < past ? 'down' : 'stable'
-  }, [frequencyTrend])
+  }, [last12MonthsTrend])
 
   const handleRunAnalysis = async () => {
     if (!jobId || isTriggering || isPolling) return
@@ -304,8 +324,8 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
             </div>
           </Card>
 
-          {/* Frequency Trend */}
-          {frequencyTrend.length > 0 && (
+          {/* Frequency Trend (last 12 months) */}
+          {totalMentions > 0 && last12MonthsTrend.length > 0 && (
             <Card className="rounded-xl border p-6">
               <div className="space-y-4">
                 <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground">
@@ -313,8 +333,8 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
                 </h4>
                 <div className="overflow-x-auto">
                   <div className="flex gap-1 min-w-full pb-2 pt-16">
-                    {frequencyTrend.map((item, idx) => {
-                      const maxCount = Math.max(...frequencyTrend.map(t => t.count ?? 0), 1)
+                    {last12MonthsTrend.map((item, idx) => {
+                      const maxCount = Math.max(...last12MonthsTrend.map(t => t.count ?? 0), 1)
                       const count = item.count ?? 0
                       // Use square root scaling for better visibility of small values
                       const normalizedHeight = count > 0 ? Math.sqrt(count) / Math.sqrt(maxCount) : 0

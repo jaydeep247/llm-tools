@@ -266,10 +266,12 @@ Rules:
         all_domains = [domain] + competitors
         logger.info(f"Analyzing mentions for: {all_domains}")
 
+        raw_dataforseo: Dict[str, Any] = {}
+
         async def fetch_mentions(d: str) -> tuple[str, Dict]:
             payload = [{
                 "keyword": d,
-                "date_from": date_from,
+                "date_from": "2021-01-01",
                 "date_group": "month"
             }]
 
@@ -285,6 +287,7 @@ Rules:
                 provider="dataforseo",
                 options={"skip_cache": True}  # FORCE FRESH FETCH
             )
+            print(f"DEBUG: Full response from data for seo for {d}: {resp}")
 
             if not resp.success:
                 logger.warning(f"Mentions analysis failed for {d}: {resp.error}")
@@ -294,9 +297,12 @@ Rules:
             # Debug Log
             logger.info(f"DataForSEO Response for {d} (Success={resp.success})")
             print(f"DEBUG: DataForSEO Response for {d} (Success={resp.success})")
+            logger.info(f"DataForSEO Raw Data for {d}: {resp.data}")
+            print(f"DEBUG: DataForSEO Raw Data for {d}: {resp.data}")
             
             try:
                 tasks = resp.data.get("tasks", [])
+                raw_dataforseo[d] = resp.data
                 if not tasks:
                     raise ValueError("No tasks in response")
 
@@ -341,7 +347,8 @@ Rules:
 
         return {
             "overall_sov": brand_sov,
-            "data": [{"name": d, **results[d]} for d in all_domains]
+            "data": [{"name": d, **results[d]} for d in all_domains],
+            "raw_dataforseo": raw_dataforseo,
         }
 
     # ─── AI Share of Voice ────────────────────────────────────────────────────

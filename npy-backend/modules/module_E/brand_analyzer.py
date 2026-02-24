@@ -55,7 +55,7 @@ class BrandAnalyzer:
             # Call DataForSEO via execute_task
             payload = [{
                 'keyword': brand_name,
-                'date_from': start_date_str,
+                'date_from': "2021-01-01",
                 'date_group': 'month'
             }]
 
