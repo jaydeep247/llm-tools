@@ -12,29 +12,28 @@ import { useGetSessionJobsQuery } from '@/store/api/jobApi'
 interface ContentMetricsModuleProps {
   url: string
   sessionId?: string
+  initialTab?: 'content-analysis' | 'intent-clusters' | 'entity-detection'
 }
 
-export default function ContentMetricsModule({ url, sessionId }: ContentMetricsModuleProps) {
+export default function ContentMetricsModule({ url, sessionId, initialTab }: ContentMetricsModuleProps) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
   
-  // Initialize tab mode from URL query params with default fallback
-  const subtab = searchParams.get('subtab') || 'content-analysis'
+  const subtab = searchParams.get('subtab') || initialTab || 'content-analysis'
   const [activeTab, setActiveTab] = useState<'content-analysis' | 'intent-clusters' | 'entity-detection'>(
     subtab === 'intent-clusters' ? 'intent-clusters' : 
     subtab === 'entity-detection' ? 'entity-detection' : 
     'content-analysis'
   )
   
-  // Ensure URL always has subtab parameter
   useEffect(() => {
-    if (!searchParams.get('subtab')) {
+    if (!searchParams.get('subtab') && initialTab) {
       const params = new URLSearchParams(searchParams.toString())
-      params.set('subtab', 'content-analysis')
+      params.set('subtab', initialTab)
       router.replace(`${pathname}?${params.toString()}`, { scroll: false })
     }
-  }, [searchParams, pathname, router])
+  }, [searchParams, pathname, router, initialTab])
   
   // Update URL when tab changes
   const handleTabChange = (tab: 'content-analysis' | 'intent-clusters' | 'entity-detection') => {

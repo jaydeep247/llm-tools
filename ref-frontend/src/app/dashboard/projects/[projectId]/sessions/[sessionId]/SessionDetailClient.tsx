@@ -864,8 +864,8 @@ export default function SessionDetailClient() {
           </>
         )}
 
-        {/* Show Crawled Data Table on crawled-data tab */}
-        {activeSection === 'crawled-data' && (
+        {/* Show Crawled Data Table on crawled-data / technical-audit tab */}
+        {(activeSection === 'crawled-data' || activeSection === 'technical-audit') && (
           <div>
 
             <CrawledDataTable 
@@ -876,8 +876,8 @@ export default function SessionDetailClient() {
           </div>
         )}
 
-        {/* Show Page Metrics Table on page-metrics tab */}
-        {activeSection === 'page-metrics' && (
+        {/* Show Page Metrics Table on page-metrics / content-audit tab */}
+        {(activeSection === 'page-metrics' || activeSection === 'content-audit') && (
           <div>
             <PageMetricsTable 
               data={pageMetricsData?.data || []}
@@ -944,8 +944,8 @@ export default function SessionDetailClient() {
           </div>
         )}
 
-        {/* Show Schema Generator on schema-generator tab */}
-        {activeSection === 'schema-generator' && (
+        {/* Show Schema Generator on schema-generator / structured-data tab */}
+        {(activeSection === 'schema-generator' || activeSection === 'structured-data') && (
           <div>
             <SchemaGeneratorTable 
               sessionId={sessionId}
@@ -976,7 +976,14 @@ export default function SessionDetailClient() {
           </div>
         )}
 
-        {/* Show Content Metrics on content-metrics tab */}
+        {activeSection === 'keyword-intelligence' && (
+          <div className="space-y-6">
+            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+              <AICitationRanking url={session?.startUrl || ''} />
+            </div>
+          </div>
+        )}
+
         {activeSection === 'content-metrics' && (
           <ContentMetricsModule 
             url={session?.startUrl || ''}
@@ -984,7 +991,6 @@ export default function SessionDetailClient() {
           />
         )}
 
-        {/* Show Answer Completeness on answer-completeness tab */}
         {activeSection === 'answer-completeness' && (
           <AnswerCompletenessModule 
             url={session?.startUrl || ''}
@@ -992,8 +998,23 @@ export default function SessionDetailClient() {
           />
         )}
 
-        {/* Placeholder for other tabs */}
-        {activeSection !== 'crawler' && activeSection !== 'crawled-data' && activeSection !== 'page-metrics' && activeSection !== 'text-quality' && activeSection !== 'wordcount' && activeSection !== 'broken-links' && activeSection !== 'link-analysis' && activeSection !== 'performance' && activeSection !== 'schema-generator' && activeSection !== 'ai-intelligence' && activeSection !== 'module-e' && activeSection !== 'content-metrics' && activeSection !== 'answer-completeness' && (
+        {activeSection === 'discover-prompts' && (
+          <ContentMetricsModule 
+            url={session?.startUrl || ''}
+            sessionId={sessionId}
+            initialTab="content-analysis"
+          />
+        )}
+
+        {activeSection === 'topic-clusters' && (
+          <ContentMetricsModule 
+            url={session?.startUrl || ''}
+            sessionId={sessionId}
+            initialTab="intent-clusters"
+          />
+        )}
+
+        {activeSection !== 'crawler' && activeSection !== 'crawled-data' && activeSection !== 'technical-audit' && activeSection !== 'page-metrics' && activeSection !== 'content-audit' && activeSection !== 'text-quality' && activeSection !== 'wordcount' && activeSection !== 'broken-links' && activeSection !== 'link-analysis' && activeSection !== 'performance' && activeSection !== 'schema-generator' && activeSection !== 'structured-data' && activeSection !== 'ai-intelligence' && activeSection !== 'module-e' && activeSection !== 'content-metrics' && activeSection !== 'answer-completeness' && activeSection !== 'discover-prompts' && activeSection !== 'topic-clusters' && activeSection !== 'content-matrix' && activeSection !== 'content-brief-builder' && activeSection !== 'add-to-Tracking' && (
           <div className="rounded-lg p-8 border border-white/20 bg-white/10 backdrop-blur-xl text-center">
             <h2 className="text-xl font-bold text-white mb-2">
               {activeSection.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}

@@ -1,8 +1,10 @@
 'use client'
 
 import { ReactNode, useState } from 'react'
-import { SessionNavbar } from '@/components/layout/SessionNavbar'
-import { SessionSidebar } from '@/components/layout/SessionSidebar'
+// import { SessionNavbar } from '@/components/layout/SessionNavbar'
+import { SessionNavbar } from '@/components/user-journey/NewSessionNavbar'
+// import { SessionSidebar } from '@/components/layout/SessionSidebar'
+import { SessionSidebar } from '@/components/user-journey/NewSessionSidebar'
 
 interface SessionLayoutProps {
   children: ReactNode

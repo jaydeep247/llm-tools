@@ -113,7 +113,27 @@ async def run_consistency_only(job_id: str, url: str, html_content: str = None, 
         }
     )
 
-    # Persist ONLY consistency and coverage
+    # Optional: Master multi-model analysis for consistency-only job as well
+    master_analysis = None
+    try:
+        prompt = (
+            f"Generate an AI summary of this website's mandate and offerings.\n\n"
+            f"URL: {url}\n\n"
+            f"CONTENT SNIPPET:\n{aggregated_text[:4000]}"
+        )
+        model_responses = await analyzer._generate_from_models(prompt)
+
+        if model_responses:
+            master_analysis = await analyzer.analyze_models(
+                website_content=aggregated_text,
+                model_responses=model_responses,
+                url=url,
+            )
+    except Exception as e:
+        logger.error(f"Master multi-model analysis (consistency-only) failed: {e}", exc_info=True)
+        master_analysis = None
+
+    # Persist consistency, coverage, and master_analysis
     try:
         mongo_manager.module_e.update_one(
             {"jobId": job_id},
@@ -122,6 +142,7 @@ async def run_consistency_only(job_id: str, url: str, html_content: str = None, 
                     "jobId": job_id,
                     "content_consistency": consistency_result,
                     "entity_coverage": entity_coverage_result,
+                    "master_analysis": master_analysis,
                     "updatedAt": datetime.utcnow(),
                 },
                 "$setOnInsert": {
@@ -130,14 +151,18 @@ async def run_consistency_only(job_id: str, url: str, html_content: str = None, 
             },
             upsert=True,
         )
-        logger.info("Module E consistency results persisted", extra={"job_id": job_id})
+        logger.info("Module E consistency results persisted", extra={
+            "job_id": job_id,
+            "has_master_analysis": bool(master_analysis),
+        })
     except Exception as exc:
         logger.warning("Failed to persist module E consistency result: %s", exc)
 
     return {
         "job_id": job_id,
         "content_consistency": consistency_result,
-        "entity_coverage": entity_coverage_result
+        "entity_coverage": entity_coverage_result,
+        "master_analysis": master_analysis,
     }
 
 
@@ -209,6 +234,26 @@ async def run_module_e(job_id: str, url: str, html_content: str = None, source_j
             logger.error(f"Sentiment tracking failed: {e}", exc_info=True)
             sentiment_tracking = None
 
+    # Optional: Master multi-model analysis of generated responses
+    master_analysis = None
+    try:
+        prompt = (
+            f"Generate an AI summary of this website's mandate and offerings.\n\n"
+            f"URL: {url}\n\n"
+            f"CONTENT SNIPPET:\n{aggregated_text[:4000]}"
+        )
+        model_responses = await analyzer._generate_from_models(prompt)
+
+        if model_responses:
+            master_analysis = await analyzer.analyze_models(
+                website_content=aggregated_text,
+                model_responses=model_responses,
+                url=url,
+            )
+    except Exception as e:
+        logger.error(f"Master multi-model analysis failed: {e}", exc_info=True)
+        master_analysis = None
+
     result = {
         "job_id": job_id,
         "url": url,
@@ -216,6 +261,7 @@ async def run_module_e(job_id: str, url: str, html_content: str = None, source_j
         "entity_coverage": entity_coverage_result,
         "brand_analysis": brand_analysis,
         "sentiment_tracking": sentiment_tracking,
+        "master_analysis": master_analysis,
         "created_at": datetime.utcnow().isoformat(),
     }
 
@@ -230,6 +276,7 @@ async def run_module_e(job_id: str, url: str, html_content: str = None, source_j
                     "entity_coverage": entity_coverage_result,
                     "brand_analysis": brand_analysis,
                     "sentiment_tracking": sentiment_tracking,
+                    "master_analysis": master_analysis,
                     "updatedAt": datetime.utcnow(),
                 },
                 "$setOnInsert": {
@@ -238,10 +285,10 @@ async def run_module_e(job_id: str, url: str, html_content: str = None, source_j
             },
             upsert=True,
         )
-        logger.info(
-            "Module E persisted to module_e collection",
-            extra={"job_id": job_id}
-        )
+        logger.info("Module E results persisted", extra={
+            "job_id": job_id,
+            "has_master_analysis": bool(master_analysis),
+        })
     except Exception as exc:
         logger.warning("Failed to persist module E result: %s", exc)
 
