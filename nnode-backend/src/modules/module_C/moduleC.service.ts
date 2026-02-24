@@ -171,7 +171,6 @@ export class ModuleCService {
           ai_presence: modules.ai_presence?.score ?? null,
           answerability: modules.answerability?.score ?? null,
           knowledge_base: modules.knowledge_base?.score ?? null,
-          competitor_analysis: modules.competitor_analysis?.score ?? null,
           llm_simulator: modules.llm_simulator?.cross_model_metrics?.consistency_score ?? null,
         },
         actionable_insights: {

@@ -16,10 +16,6 @@ export interface ModuleCResult {
       score: number;
       details?: Record<string, any>;
     };
-    competitor_analysis?: {
-      score: number;
-      details?: Record<string, any>;
-    };
     llm_simulator?: {
       simulations?: Record<string, any>;
       cross_model_metrics?: {

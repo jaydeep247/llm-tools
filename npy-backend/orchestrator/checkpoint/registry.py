@@ -18,7 +18,6 @@ class TaskRegistry:
         "aeo_ai_presence_check": ["openai", "gemini", "claude"],
         "aeo_answerability_audit": ["openai", "gemini", "claude"],
         "aeo_knowledge_base_audit": ["openai", "gemini", "claude"],
-        "aeo_competitor_analysis": ["dataforseo"],
         "aeo_content_metrics": ["openai", "gemini", "claude"],
         "aeo_entity_relevance": ["openai", "gemini", "claude"],
         "aeo_content_understanding": ["openai", "gemini", "claude"],

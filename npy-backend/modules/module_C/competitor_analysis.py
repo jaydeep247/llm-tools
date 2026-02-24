@@ -45,10 +45,14 @@ class CompetitorAnalysisModule:
              return {"score": 0, "error": "No data from DataForSEO"}
              
         try:
-            items = data['tasks'][0].get('result', [])[0].get('items', [])
+            task_result = data['tasks'][0].get('result', [])
+            if not task_result or len(task_result) == 0:
+                return {"score": 0, "error": "No results from DataForSEO backlinks API"}
+            
+            items = task_result[0].get('items', []) if task_result[0] else []
             
             # Simple scoring logic based on number of referring domains (MVP)
-            count = len(items)
+            count = len(items) if items else 0
             
             # Score: 0-100 based on having at least 100 quality referring domains
             score = min(100, count) 
@@ -56,7 +60,7 @@ class CompetitorAnalysisModule:
             return {
                 "score": score,
                 "referring_domains_count": count,
-                "top_referring_domains": [item.get('domain') for item in items[:5]]
+                "top_referring_domains": [item.get('domain') for item in (items[:5] if items else [])]
             }
             
         except Exception as e:

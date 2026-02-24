@@ -12,15 +12,18 @@ import {
   RefreshCw,
   ArrowUpRight,
   Zap,
-  ChevronRight,
-  Sparkles
+  ChevronDown,
+  Sparkles,
+  Play
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useGetModuleCResultQuery } from '@/store/api/module_C/moduleCApi'
-import { useState, useMemo } from 'react'
+import { useGetModuleCResultQuery, useRunModuleCAnalysisMutation } from '@/store/api/module_C/moduleCApi'
+import { useGetJobStatusQuery } from '@/store/api/jobApi'
+import { useState, useMemo, useEffect } from 'react'
 
 interface ImprovementActionsProps {
   jobId?: string | null
+  url?: string
 }
 
 // Circular progress for improvement potential
@@ -60,8 +63,10 @@ function ImprovementGauge({ value, max = 100 }: { value: number; max?: number })
   )
 }
 
-export default function ImprovementActions({ jobId }: ImprovementActionsProps) {
+export default function ImprovementActions({ jobId, url = '' }: ImprovementActionsProps) {
   const [priorityFilter, setPriorityFilter] = useState<'all' | 'High' | 'Medium' | 'Low'>('all')
+  const [analysisJobId, setAnalysisJobId] = useState<string | null>(null)
+  const [expandedAction, setExpandedAction] = useState<number | null>(null)
   
   const { 
     data: moduleCData, 
@@ -71,6 +76,36 @@ export default function ImprovementActions({ jobId }: ImprovementActionsProps) {
     skip: !jobId,
     refetchOnMountOrArgChange: true
   })
+
+  const [runAnalysis] = useRunModuleCAnalysisMutation()
+
+  const { data: analysisJobData } = useGetJobStatusQuery(analysisJobId || '', {
+    skip: !analysisJobId,
+    pollingInterval: analysisJobId ? 2000 : 0,
+  })
+
+  useEffect(() => {
+    if (analysisJobData?.status === 'COMPLETED' || analysisJobData?.status === 'FAILED') {
+      setAnalysisJobId(null)
+      if (analysisJobData?.status === 'COMPLETED') {
+        refetch()
+      }
+    }
+  }, [analysisJobData?.status, refetch])
+
+  const handleRunAnalysis = async () => {
+    if (!jobId) return
+    try {
+      const result = await runAnalysis({ jobId, url }).unwrap()
+      if (result.data?.analysisJobId) {
+        setAnalysisJobId(result.data.analysisJobId)
+      }
+    } catch (error) {
+      console.error('Failed to start analysis:', error)
+    }
+  }
+
+  const isAnalyzing = !!analysisJobId
 
   const result = moduleCData?.data
   const actionableInsights = result?.modules?.actionable_insights
@@ -275,43 +310,89 @@ export default function ImprovementActions({ jobId }: ImprovementActionsProps) {
               <div className="divide-y divide-white/5">
                 {filteredActions.map((action, i) => {
                   const styles = getPriorityStyles(action.priority || 'Low')
+                  const isExpanded = expandedAction === i
                   
                   return (
                     <div 
                       key={i}
                       className={cn(
-                        "p-4 border-l-4 hover:bg-white/5 transition-all",
+                        "border-l-4 transition-all",
                         styles.border
                       )}
                     >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-sm font-medium text-white">
-                              {action.type}
-                            </span>
-                            <Badge className={cn("border text-xs", styles.badge)}>
-                              {action.priority}
-                            </Badge>
-                            {action.category && (
-                              <Badge variant="outline" className="text-white/50 border-white/10 text-xs">
-                                {action.category}
+                      <div 
+                        className="p-4 cursor-pointer hover:bg-white/5 transition-all"
+                        onClick={() => setExpandedAction(isExpanded ? null : i)}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-sm font-medium text-white">
+                                {action.type}
+                              </span>
+                              <Badge className={cn("border text-xs", styles.badge)}>
+                                {action.priority}
                               </Badge>
-                            )}
+                              {action.category && (
+                                <Badge variant="outline" className="text-white/50 border-white/10 text-xs">
+                                  {action.category}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-white/60 leading-relaxed">
+                              {action.description}
+                            </p>
                           </div>
-                          <p className="text-sm text-white/60 leading-relaxed">
-                            {action.description}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className={cn("px-3 py-1.5 rounded-lg", styles.bg)}>
-                            <span className={cn("text-sm font-bold", styles.text)}>
-                              +{action.impact ?? 0}
-                            </span>
+                          <div className="flex items-center gap-3">
+                            <div className={cn("px-3 py-1.5 rounded-lg", styles.bg)}>
+                              <span className={cn("text-sm font-bold", styles.text)}>
+                                +{action.impact ?? 0}
+                              </span>
+                            </div>
+                            <ChevronDown className={cn(
+                              "w-4 h-4 text-white/40 transition-transform duration-200",
+                              isExpanded && "rotate-180"
+                            )} />
                           </div>
-                          <ChevronRight className="w-4 h-4 text-white/20" />
                         </div>
                       </div>
+                      
+                      {/* Expanded Content */}
+                      {isExpanded && (
+                        <div className="px-4 pb-4 pt-0 border-t border-white/5 bg-white/2">
+                          <div className="mt-4 space-y-4">
+                            {/* Implementation Details */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div className="bg-white/5 rounded-lg p-3">
+                                <span className="text-xs text-white/40 uppercase tracking-wider">Priority Level</span>
+                                <p className={cn("text-sm font-medium mt-1", styles.text)}>
+                                  {action.priority}
+                                </p>
+                              </div>
+                              <div className="bg-white/5 rounded-lg p-3">
+                                <span className="text-xs text-white/40 uppercase tracking-wider">Expected Impact</span>
+                                <p className="text-sm font-medium mt-1 text-emerald-400">
+                                  +{action.impact ?? 0} points
+                                </p>
+                              </div>
+                              <div className="bg-white/5 rounded-lg p-3">
+                                <span className="text-xs text-white/40 uppercase tracking-wider">Category</span>
+                                <p className="text-sm font-medium mt-1 text-white/70">
+                                  {action.category || 'General'}
+                                </p>
+                              </div>
+                            </div>
+                            
+                            {/* Full Description */}
+                            <div className="bg-white/5 rounded-lg p-4">
+                              <span className="text-xs text-white/40 uppercase tracking-wider">Action Required</span>
+                              <p className="text-sm text-white/70 mt-2 leading-relaxed">
+                                {action.description}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )
                 })}
@@ -330,9 +411,26 @@ export default function ImprovementActions({ jobId }: ImprovementActionsProps) {
             <Lightbulb className="w-8 h-8 text-white/30" />
           </div>
           <h3 className="text-lg font-semibold text-white mb-2">No Improvement Actions</h3>
-          <p className="text-sm text-white/50">
+          <p className="text-sm text-white/50 mb-6 max-w-md mx-auto">
             Run an AI Visibility analysis to get prioritized recommendations for improvement.
           </p>
+          <Button
+            onClick={handleRunAnalysis}
+            disabled={!jobId || isAnalyzing}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            {isAnalyzing ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Running Analysis...
+              </>
+            ) : (
+              <>
+                <Play className="w-4 h-4 mr-2" />
+                Run AI Visibility Analysis
+              </>
+            )}
+          </Button>
         </div>
       ) : null}
     </div>

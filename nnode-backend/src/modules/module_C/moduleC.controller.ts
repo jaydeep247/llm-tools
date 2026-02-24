@@ -209,24 +209,6 @@ export class ModuleCController {
   };
 
   /**
-   * Get Competitor Analysis module data
-   */
-  getCompetitorAnalysis = async (req: Request, res: Response): Promise<Response> => {
-    try {
-      const userId = req.user!.userId;
-      const { jobId } = jobIdParamSchema.parse(req.params);
-
-      await this.jobService.getJobById(userId, jobId);
-      const result = await this.moduleCService.getModuleField(jobId, 'competitor_analysis');
-      
-      return ResponseUtil.success(res, 'Competitor Analysis data retrieved', result);
-    } catch (error: any) {
-      logger.error('Error fetching Competitor Analysis:', error);
-      return this.handleModuleError(res, error, 'Competitor Analysis');
-    }
-  };
-
-  /**
    * Get LLM Simulator module data
    */
   getLlmSimulator = async (req: Request, res: Response): Promise<Response> => {

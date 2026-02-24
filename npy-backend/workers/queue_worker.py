@@ -37,6 +37,8 @@ from workers.job_types import (
 )
 from workers.worker_config import SCRAPY_SETTINGS, POOL_SIZE_PER_CATEGORY
 
+# Use spawn context to avoid fork issues with Twisted reactor and RabbitMQ connections
+spawn_ctx = multiprocessing.get_context('spawn')
 
 # ============ EXCEPTIONS ============
 
@@ -57,13 +59,50 @@ def get_mongo_client() -> MongoClient:
     return MongoClient(config.MONGO_URI, serverSelectionTimeoutMS=5000)
 
 
+def _run_spider_subprocess(state_dict, url, session_id, job_id, project_id, max_pages, timeout, scrapy_settings):
+    """
+    Run Scrapy spider in subprocess.
+    This function is at module level to be picklable for spawn multiprocessing.
+    """
+    import traceback
+    from scrapy.crawler import CrawlerProcess
+    
+    try:
+        from workers.crawl_worker.spiders.website_spider import WebsiteSpider
+        from utils.event_publisher import publisher
+        from utils.logger import configure_logger
+        
+        configure_logger()
+        
+        process = CrawlerProcess(settings=scrapy_settings)
+        crawler = process.create_crawler(WebsiteSpider)
+        process.crawl(
+            crawler,
+            start_url=url,
+            session_id=session_id,
+            job_id=job_id,
+            project_id=project_id,
+            max_pages=max_pages,
+            timeout=timeout,
+            allow_discovery=True,
+        )
+        process.start()
+        
+        # If we reach here, crawl completed (Scrapy finished)
+        state_dict["success"] = True
+        
+        # Clean up publisher connection
+        publisher.close()
+        
+    except Exception as e:
+        state_dict["error"] = f"{type(e).__name__}: {str(e)}\n{traceback.format_exc()}"
+        state_dict["success"] = False
+
+
 # ============ JOB EXECUTORS ============
 
 def execute_crawler_job(payload: dict) -> bool:
     """Execute crawler job in separate process (Twisted reactor isolation)"""
-    import sys
-    import traceback
-    
     configure_logger()
     
     session_id = payload["sessionId"]
@@ -75,42 +114,18 @@ def execute_crawler_job(payload: dict) -> bool:
     
     logger.info(f"[CRAWLER] Starting job {job_id} for {url}")
     
-    # Use multiprocessing Manager to capture state from subprocess
-    manager = multiprocessing.Manager()
+    # Use spawn context Manager to capture state from subprocess
+    # spawn avoids fork issues with Twisted reactor and RabbitMQ connections
+    manager = spawn_ctx.Manager()
     state = manager.dict()
     state["success"] = False
     state["error"] = None
     
-    def run_spider(state_dict):
-        try:
-            from workers.crawl_worker.spiders.website_spider import WebsiteSpider
-            from utils.event_publisher import publisher
-            
-            process = CrawlerProcess(settings=SCRAPY_SETTINGS)
-            crawler = process.create_crawler(WebsiteSpider)
-            process.crawl(
-                crawler,
-                start_url=url,
-                session_id=session_id,
-                job_id=job_id,
-                project_id=project_id,
-                max_pages=max_pages,
-                timeout=timeout,
-                allow_discovery=True,
-            )
-            process.start()
-            
-            # If we reach here, crawl completed (Scrapy finished)
-            state_dict["success"] = True
-            
-            # Clean up publisher connection
-            publisher.close()
-            
-        except Exception as e:
-            state_dict["error"] = f"{type(e).__name__}: {str(e)}\n{traceback.format_exc()}"
-            state_dict["success"] = False
-    
-    p = multiprocessing.Process(target=run_spider, args=(state,))
+    # Use module-level function (picklable for spawn)
+    p = spawn_ctx.Process(
+        target=_run_spider_subprocess,
+        args=(state, url, session_id, job_id, project_id, max_pages, timeout, SCRAPY_SETTINGS)
+    )
     p.start()
     p.join()
     

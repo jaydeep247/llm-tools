@@ -161,6 +161,9 @@ class AIPresenceModule:
                 try:
                     # Parse JSON from response
                     content = resp.data
+                    if not content:
+                        results[provider_key] = {"error": "Empty response from provider", "score": 0}
+                        continue
                     if "```json" in content:
                         content = content.split("```json")[1].split("```")[0]
                     elif "```" in content:

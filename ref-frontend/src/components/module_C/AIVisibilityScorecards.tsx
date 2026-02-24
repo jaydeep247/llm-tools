@@ -1,14 +1,12 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { Badge } from '@/components/ui/badge'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { 
   Loader2, 
   Brain, 
   MessageCircle, 
   Database, 
-  Users, 
   Cpu, 
   Lightbulb,
   TrendingUp,
@@ -16,7 +14,6 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  RefreshCw,
   Play,
   ArrowUpRight
 } from 'lucide-react'
@@ -245,50 +242,17 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisi
   const aiPresence = modules.ai_presence
   const answerability = modules.answerability
   const knowledgeBase = modules.knowledge_base
-  const competitorAnalysis = modules.competitor_analysis
   const llmSimulator = modules.llm_simulator
   const actionableInsights = modules.actionable_insights
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold text-white">AI Visibility Scorecards</h2>
-          <p className="text-sm text-white/50 mt-1">
-            Comprehensive AEO analysis scores for your website
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={() => refetchData()}
-            variant="outline"
-            size="sm"
-            disabled={isLoadingData || isAnalyzing}
-            className="bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white"
-          >
-            <RefreshCw className={cn("w-4 h-4 mr-2", isLoadingData && "animate-spin")} />
-            Refresh
-          </Button>
-          <Button
-            onClick={handleRunAnalysis}
-            disabled={!jobId || isAnalyzing}
-            size="sm"
-            className="bg-emerald-600 hover:bg-emerald-700 text-white"
-          >
-            {isAnalyzing ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Analyzing...
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4 mr-2" />
-                Run Analysis
-              </>
-            )}
-          </Button>
-        </div>
+      <div>
+        <h2 className="text-xl font-semibold text-white">AI Visibility Scorecards</h2>
+        <p className="text-sm text-white/50 mt-1">
+          Comprehensive AEO analysis scores for your website
+        </p>
       </div>
 
       {/* No Job Warning */}
@@ -414,16 +378,6 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisi
             { label: 'Coverage', value: `${knowledgeBase.entity_coverage?.coverage_score ?? '--'}%` },
             { label: 'Density', value: knowledgeBase.fact_density?.toFixed(1) ?? '--' }
           ] : undefined}
-        />
-
-        {/* Competitor Analysis */}
-        <ScoreCard
-          title="Competitor Analysis"
-          score={competitorAnalysis?.score ?? null}
-          icon={<Users className="w-5 h-5 text-orange-400" />}
-          color="bg-orange-500/20"
-          error={competitorAnalysis?.error}
-          isLoading={isLoadingData}
         />
 
         {/* LLM Simulator */}

@@ -30,9 +30,6 @@ router.get('/module-c/jobs/:jobId/answerability', moduleCController.getAnswerabi
 // Knowledge Base - Entity coverage, fact density
 router.get('/module-c/jobs/:jobId/knowledge-base', moduleCController.getKnowledgeBase);
 
-// Competitor Analysis - Backlinks, referring domains
-router.get('/module-c/jobs/:jobId/competitor-analysis', moduleCController.getCompetitorAnalysis);
-
 // LLM Simulator - Multi-model simulation results
 router.get('/module-c/jobs/:jobId/llm-simulator', moduleCController.getLlmSimulator);
 

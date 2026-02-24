@@ -5,7 +5,6 @@ from bs4 import BeautifulSoup
 from .ai_presence import AIPresenceModule
 from .answerability import AnswerabilityModule
 from .knowledge_base import KnowledgeBaseModule
-from .competitor_analysis import CompetitorAnalysisModule
 from .llm_simulator import LlmSimulatorModule
 from .multi_model_insights import MultiModelInsights
 from .actionable_insights import ActionableInsightsModule
@@ -21,7 +20,6 @@ class ModuleCRunner:
         self.ai_presence = AIPresenceModule()
         self.answerability = AnswerabilityModule()
         self.knowledge_base = KnowledgeBaseModule()
-        self.competitor = CompetitorAnalysisModule()
         self.llm_simulator = LlmSimulatorModule()
         self.multi_model_insights = MultiModelInsights()
         self.actionable_insights = ActionableInsightsModule()
@@ -64,19 +62,17 @@ class ModuleCRunner:
             self.ai_presence.run_analysis(url, html_content, robots_txt),
             self.answerability.run_analysis(html_content),
             self.knowledge_base.run_analysis(html_content, url),
-            self.competitor.analyze_competitors(url),
             self.llm_simulator.simulate_answer(query, html_content),
             self.actionable_insights.run_analysis(html_content, url),
             return_exceptions=True
         )
         
-        ai_res, ans_res, kb_res, comp_res, sim_res, actionable_insights_res = results
+        ai_res, ans_res, kb_res, sim_res, actionable_insights_res = results
 
         # Handle exceptions in results
         ai_res = ai_res if isinstance(ai_res, dict) else {"score": 0, "error": str(ai_res)}
         ans_res = ans_res if isinstance(ans_res, dict) else {"score": 0, "error": str(ans_res)}
         kb_res = kb_res if isinstance(kb_res, dict) else {"score": 0, "error": str(kb_res)}
-        comp_res = comp_res if isinstance(comp_res, dict) else {"score": 0, "error": str(comp_res)}
         sim_res = sim_res if isinstance(sim_res, dict) else {"error": str(sim_res)}
 
         # 4. Multi-Model Insights (Comparison analysis)
@@ -97,10 +93,9 @@ class ModuleCRunner:
 
         # 5. Final Aggregation
         overall_score = (
-            (ai_res.get('score', 0) * 0.25) +
-            (ans_res.get('score', 0) * 0.25) +
+            (ai_res.get('score', 0) * 0.30) +
+            (ans_res.get('score', 0) * 0.30) +
             (kb_res.get('score', 0) * 0.20) +
-            (comp_res.get('score', 0) * 0.10) +
             (sim_res.get('cross_model_metrics', {}).get('consistency_score', 0) * 0.20)
         )
 
@@ -112,7 +107,6 @@ class ModuleCRunner:
                 "ai_presence": ai_res,
                 "answerability": ans_res,
                 "knowledge_base": kb_res,
-                "competitor_analysis": comp_res,
                 "llm_simulator": sim_res,
                 "multi_model_insights": multi_model_insights_res,
                 "actionable_insights": actionable_insights_res

@@ -12,14 +12,17 @@ import {
   XCircle,
   ChevronRight,
   Sparkles,
-  Bot
+  Bot,
+  Play
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useGetModuleCResultQuery } from '@/store/api/module_C/moduleCApi'
-import { useState, useMemo } from 'react'
+import { useGetModuleCResultQuery, useRunModuleCAnalysisMutation } from '@/store/api/module_C/moduleCApi'
+import { useGetJobStatusQuery } from '@/store/api/jobApi'
+import { useState, useMemo, useEffect } from 'react'
 
 interface AIAnswerPreviewProps {
   jobId?: string | null
+  url?: string
 }
 
 // Mini progress bar component
@@ -34,8 +37,9 @@ function MiniProgress({ value, color }: { value: number; color: string }) {
   )
 }
 
-export default function AIAnswerPreview({ jobId }: AIAnswerPreviewProps) {
+export default function AIAnswerPreview({ jobId, url = '' }: AIAnswerPreviewProps) {
   const [selectedModel, setSelectedModel] = useState<string | null>(null)
+  const [analysisJobId, setAnalysisJobId] = useState<string | null>(null)
   
   const { 
     data: moduleCData, 
@@ -45,6 +49,36 @@ export default function AIAnswerPreview({ jobId }: AIAnswerPreviewProps) {
     skip: !jobId,
     refetchOnMountOrArgChange: true
   })
+
+  const [runAnalysis] = useRunModuleCAnalysisMutation()
+
+  const { data: analysisJobData } = useGetJobStatusQuery(analysisJobId || '', {
+    skip: !analysisJobId,
+    pollingInterval: analysisJobId ? 2000 : 0,
+  })
+
+  useEffect(() => {
+    if (analysisJobData?.status === 'COMPLETED' || analysisJobData?.status === 'FAILED') {
+      setAnalysisJobId(null)
+      if (analysisJobData?.status === 'COMPLETED') {
+        refetch()
+      }
+    }
+  }, [analysisJobData?.status, refetch])
+
+  const handleRunAnalysis = async () => {
+    if (!jobId) return
+    try {
+      const result = await runAnalysis({ jobId, url }).unwrap()
+      if (result.data?.analysisJobId) {
+        setAnalysisJobId(result.data.analysisJobId)
+      }
+    } catch (error) {
+      console.error('Failed to start analysis:', error)
+    }
+  }
+
+  const isAnalyzing = !!analysisJobId
 
   const result = moduleCData?.data
   const llmSimulator = result?.modules?.llm_simulator
@@ -328,9 +362,26 @@ export default function AIAnswerPreview({ jobId }: AIAnswerPreviewProps) {
             <Eye className="w-8 h-8 text-white/30" />
           </div>
           <h3 className="text-lg font-semibold text-white mb-2">No AI Answer Preview Data</h3>
-          <p className="text-sm text-white/50">
+          <p className="text-sm text-white/50 mb-6 max-w-md mx-auto">
             Run an AI Visibility analysis to see how AI models respond to queries about your content.
           </p>
+          <Button
+            onClick={handleRunAnalysis}
+            disabled={!jobId || isAnalyzing}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            {isAnalyzing ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Running Analysis...
+              </>
+            ) : (
+              <>
+                <Play className="w-4 h-4 mr-2" />
+                Run AI Visibility Analysis
+              </>
+            )}
+          </Button>
         </div>
       ) : null}
     </div>

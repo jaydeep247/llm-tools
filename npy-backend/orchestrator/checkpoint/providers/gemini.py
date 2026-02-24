@@ -1,11 +1,15 @@
 import os
 import logging
+import time
 import google.generativeai as genai
 from typing import Dict, Any
 from . import BaseProvider
 from ..schemas import TaskResponse
 
 logger = logging.getLogger("orchestrator_gemini")
+
+MAX_RETRIES = 3
+INITIAL_BACKOFF = 2  # seconds
 
 
 class GeminiProvider(BaseProvider):
@@ -42,32 +46,54 @@ class GeminiProvider(BaseProvider):
             "prompt_length": len(prompt or "")
         })
 
-        try:
-            loop = asyncio.get_running_loop()
-            response_text = await loop.run_in_executor(
-                None, 
-                functools.partial(_run_sync_gemini, self.api_key, model_name, prompt)
-            )
+        last_error = None
+        for attempt in range(MAX_RETRIES):
+            try:
+                loop = asyncio.get_running_loop()
+                response_text = await loop.run_in_executor(
+                    None, 
+                    functools.partial(_run_sync_gemini, self.api_key, model_name, prompt)
+                )
 
-            logger.info("GeminiProvider call succeeded", extra={
-                "task_name": task_name,
-                "model": model_name,
-                "response_length": len(response_text or "")
-            })
+                logger.info("GeminiProvider call succeeded", extra={
+                    "task_name": task_name,
+                    "model": model_name,
+                    "response_length": len(response_text or ""),
+                    "attempt": attempt + 1
+                })
 
-            return TaskResponse(
-                success=True, 
-                data=response_text,
-                meta={
-                    "provider": "gemini",
-                    "model": model_name
-                }
-            )
+                return TaskResponse(
+                    success=True, 
+                    data=response_text,
+                    meta={
+                        "provider": "gemini",
+                        "model": model_name
+                    }
+                )
 
-        except Exception as e:
-            logger.error("GeminiProvider call failed", extra={
-                "task_name": task_name,
-                "model": model_name,
-                "error": str(e)
-            })
-            return TaskResponse(success=False, error=str(e), meta={"provider": "gemini"})
+            except Exception as e:
+                last_error = e
+                error_str = str(e).lower()
+                
+                # Check if it's a rate limit error (429)
+                if "429" in str(e) or "resource exhausted" in error_str or "quota" in error_str:
+                    if attempt < MAX_RETRIES - 1:
+                        backoff = INITIAL_BACKOFF * (2 ** attempt)
+                        logger.warning(f"GeminiProvider rate limited, retrying in {backoff}s", extra={
+                            "task_name": task_name,
+                            "attempt": attempt + 1,
+                            "backoff": backoff
+                        })
+                        await asyncio.sleep(backoff)
+                        continue
+                
+                # Non-retryable error or max retries reached
+                logger.error("GeminiProvider call failed", extra={
+                    "task_name": task_name,
+                    "model": model_name,
+                    "error": str(e),
+                    "attempt": attempt + 1
+                })
+                break
+        
+        return TaskResponse(success=False, error=str(last_error), meta={"provider": "gemini"})

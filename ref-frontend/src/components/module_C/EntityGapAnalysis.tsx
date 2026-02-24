@@ -13,14 +13,17 @@ import {
   Hash,
   TrendingUp,
   AlertTriangle,
-  Target
+  Target,
+  Play
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useGetModuleCResultQuery } from '@/store/api/module_C/moduleCApi'
-import { useState, useMemo } from 'react'
+import { useGetModuleCResultQuery, useRunModuleCAnalysisMutation } from '@/store/api/module_C/moduleCApi'
+import { useGetJobStatusQuery } from '@/store/api/jobApi'
+import { useState, useMemo, useEffect } from 'react'
 
 interface EntityGapAnalysisProps {
   jobId?: string | null
+  url?: string
 }
 
 // Donut Chart Component
@@ -71,8 +74,9 @@ function DonutChart({
   )
 }
 
-export default function EntityGapAnalysis({ jobId }: EntityGapAnalysisProps) {
+export default function EntityGapAnalysis({ jobId, url = '' }: EntityGapAnalysisProps) {
   const [searchQuery, setSearchQuery] = useState('')
+  const [analysisJobId, setAnalysisJobId] = useState<string | null>(null)
   
   const { 
     data: moduleCData, 
@@ -82,6 +86,38 @@ export default function EntityGapAnalysis({ jobId }: EntityGapAnalysisProps) {
     skip: !jobId,
     refetchOnMountOrArgChange: true
   })
+
+  const [runAnalysis, { isLoading: isRunning }] = useRunModuleCAnalysisMutation()
+
+  // Poll for analysis job status
+  const { data: analysisJobData } = useGetJobStatusQuery(analysisJobId || '', {
+    skip: !analysisJobId,
+    pollingInterval: analysisJobId ? 2000 : 0,
+  })
+
+  // Check if analysis job is complete
+  useEffect(() => {
+    if (analysisJobData?.status === 'COMPLETED') {
+      setAnalysisJobId(null)
+      refetch()
+    } else if (analysisJobData?.status === 'FAILED') {
+      setAnalysisJobId(null)
+    }
+  }, [analysisJobData, refetch])
+
+  const handleRunAnalysis = async () => {
+    if (!jobId) return
+    try {
+      const result = await runAnalysis({ jobId, url }).unwrap()
+      if (result.data?.analysisJobId) {
+        setAnalysisJobId(result.data.analysisJobId)
+      }
+    } catch (error) {
+      console.error('Failed to start analysis:', error)
+    }
+  }
+
+  const isAnalyzing = isRunning || !!analysisJobId
 
   const result = moduleCData?.data
   const knowledgeBase = result?.modules?.knowledge_base
@@ -369,9 +405,26 @@ export default function EntityGapAnalysis({ jobId }: EntityGapAnalysisProps) {
             <Database className="w-8 h-8 text-white/30" />
           </div>
           <h3 className="text-lg font-semibold text-white mb-2">No Entity Analysis Data</h3>
-          <p className="text-sm text-white/50">
+          <p className="text-sm text-white/50 mb-6 max-w-md mx-auto">
             Run an AI Visibility analysis to see entity coverage and gap analysis.
           </p>
+          <Button
+            onClick={handleRunAnalysis}
+            disabled={!jobId || isAnalyzing}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            {isAnalyzing ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Running Analysis...
+              </>
+            ) : (
+              <>
+                <Play className="w-4 h-4 mr-2" />
+                Run AI Visibility Analysis
+              </>
+            )}
+          </Button>
         </div>
       ) : null}
     </div>

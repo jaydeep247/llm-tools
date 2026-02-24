@@ -1033,22 +1033,22 @@ export default function SessionDetailPage() {
 
         {/* Entity & Gap Analysis */}
         {activeSection === 'entity-and-gap-analysis' && (
-          <EntityGapAnalysis jobId={jobId} />
+          <EntityGapAnalysis jobId={jobId} url={session?.startUrl || ''} />
         )}
 
         {/* AI Answer Preview (answer-completeness in sidebar) */}
         {activeSection === 'answer-completeness' && (
-          <AIAnswerPreview jobId={jobId} />
+          <AIAnswerPreview jobId={jobId} url={session?.startUrl || ''} />
         )}
 
         {/* Improvement Actions */}
         {activeSection === 'improvement-actions' && (
-          <ImprovementActions jobId={jobId} />
+          <ImprovementActions jobId={jobId} url={session?.startUrl || ''} />
         )}
 
         {/* Model Comparison */}
         {activeSection === 'model-comparison' && (
-          <ModelComparison jobId={jobId} />
+          <ModelComparison jobId={jobId} url={session?.startUrl || ''} />
         )}
 
         {/* Show Module E on module-e tab */}

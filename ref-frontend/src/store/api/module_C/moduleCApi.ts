@@ -73,10 +73,6 @@ export interface ModuleCModules {
       recommendations?: Array<{ action: string; priority: string; impact: number }>
     }
   }
-  competitor_analysis?: {
-    score: number
-    error?: string
-  }
   llm_simulator?: {
     query?: string
     simulations?: Record<string, {
@@ -179,7 +175,6 @@ export interface ModuleSummaryResponse {
       ai_presence: number | null
       answerability: number | null
       knowledge_base: number | null
-      competitor_analysis: number | null
       llm_simulator: number | null
     }
     actionable_insights: {
@@ -246,12 +241,6 @@ export const moduleCApi = baseApi.injectEndpoints({
       providesTags: (_result, _error, jobId) => [{ type: 'ModuleC' as const, id: `knowledge-base-${jobId}` }],
     }),
 
-    // Get Competitor Analysis module data
-    getCompetitorAnalysis: builder.query<ModuleFieldResponse<ModuleCModules['competitor_analysis']>, string>({
-      query: (jobId) => `/module-c/jobs/${jobId}/competitor-analysis`,
-      providesTags: (_result, _error, jobId) => [{ type: 'ModuleC' as const, id: `competitor-${jobId}` }],
-    }),
-
     // Get LLM Simulator module data
     getLlmSimulator: builder.query<ModuleFieldResponse<ModuleCModules['llm_simulator']>, string>({
       query: (jobId) => `/module-c/jobs/${jobId}/llm-simulator`,
@@ -287,7 +276,6 @@ export const {
   useGetAiPresenceQuery,
   useGetAnswerabilityQuery,
   useGetKnowledgeBaseQuery,
-  useGetCompetitorAnalysisQuery,
   useGetLlmSimulatorQuery,
   useGetMultiModelInsightsQuery,
   useGetActionableInsightsQuery,

@@ -13,14 +13,17 @@ import {
   Layers,
   Target,
   Activity,
-  Shield
+  Shield,
+  Play
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useGetModuleCResultQuery } from '@/store/api/module_C/moduleCApi'
-import { useMemo } from 'react'
+import { useGetModuleCResultQuery, useRunModuleCAnalysisMutation } from '@/store/api/module_C/moduleCApi'
+import { useGetJobStatusQuery } from '@/store/api/jobApi'
+import { useMemo, useState, useEffect } from 'react'
 
 interface ModelComparisonProps {
   jobId?: string | null
+  url?: string
 }
 
 // Circular progress component for consistency score
@@ -81,7 +84,9 @@ function MiniBar({ value, maxValue = 100, color }: { value: number; maxValue?: n
   )
 }
 
-export default function ModelComparison({ jobId }: ModelComparisonProps) {
+export default function ModelComparison({ jobId, url = '' }: ModelComparisonProps) {
+  const [analysisJobId, setAnalysisJobId] = useState<string | null>(null)
+
   const { 
     data: moduleCData, 
     isLoading, 
@@ -90,6 +95,36 @@ export default function ModelComparison({ jobId }: ModelComparisonProps) {
     skip: !jobId,
     refetchOnMountOrArgChange: true
   })
+
+  const [runAnalysis] = useRunModuleCAnalysisMutation()
+
+  const { data: analysisJobData } = useGetJobStatusQuery(analysisJobId || '', {
+    skip: !analysisJobId,
+    pollingInterval: analysisJobId ? 2000 : 0,
+  })
+
+  useEffect(() => {
+    if (analysisJobData?.status === 'COMPLETED' || analysisJobData?.status === 'FAILED') {
+      setAnalysisJobId(null)
+      if (analysisJobData?.status === 'COMPLETED') {
+        refetch()
+      }
+    }
+  }, [analysisJobData?.status, refetch])
+
+  const handleRunAnalysis = async () => {
+    if (!jobId) return
+    try {
+      const result = await runAnalysis({ jobId, url }).unwrap()
+      if (result.data?.analysisJobId) {
+        setAnalysisJobId(result.data.analysisJobId)
+      }
+    } catch (error) {
+      console.error('Failed to start analysis:', error)
+    }
+  }
+
+  const isAnalyzing = !!analysisJobId
 
   const result = moduleCData?.data
   const llmSimulator = result?.modules?.llm_simulator
@@ -397,9 +432,26 @@ export default function ModelComparison({ jobId }: ModelComparisonProps) {
             <BarChart3 className="w-8 h-8 text-white/30" />
           </div>
           <h3 className="text-lg font-semibold text-white mb-2">No Model Comparison Data</h3>
-          <p className="text-sm text-white/50">
+          <p className="text-sm text-white/50 mb-6 max-w-md mx-auto">
             Run an AI Visibility analysis to see cross-model consistency and performance.
           </p>
+          <Button
+            onClick={handleRunAnalysis}
+            disabled={!jobId || isAnalyzing}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            {isAnalyzing ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Running Analysis...
+              </>
+            ) : (
+              <>
+                <Play className="w-4 h-4 mr-2" />
+                Run AI Visibility Analysis
+              </>
+            )}
+          </Button>
         </div>
       ) : null}
     </div>

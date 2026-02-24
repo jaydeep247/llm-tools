@@ -138,7 +138,6 @@ export default function AIIntelligenceModule({ url, sessionId, jobId }: AIIntell
   const aiPresenceScore = modules.ai_presence?.score || 0
   const answerabilityScore = modules.answerability?.score || 0
   const knowledgeBaseScore = modules.knowledge_base?.score || 0
-  const competitorScore = modules.competitor_analysis?.score || 0
   const llmConsistencyScore = modules.llm_simulator?.cross_model_metrics?.consistency_score || 0
 
   const getScoreColor = (score: number) => {

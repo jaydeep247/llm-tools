@@ -1,6 +1,6 @@
 import json
 import time
-import atexit
+import os
 import pika
 from utils.config import config
 from utils.logger import logger
@@ -11,10 +11,17 @@ class EventPublisher:
         self.exchange = 'job.events'
         self.connection = None
         self.channel = None
-        # Register cleanup on exit
-        atexit.register(self.close)
+        # Track which process created the connection to avoid fork issues
+        self._owner_pid = None
 
     def connect(self):
+        current_pid = os.getpid()
+        
+        # If we forked, reset connections (they're not valid in child)
+        if self._owner_pid is not None and self._owner_pid != current_pid:
+            self.connection = None
+            self.channel = None
+        
         if self.connection and not self.connection.is_closed:
             return
 
@@ -23,14 +30,26 @@ class EventPublisher:
             self.connection = pika.BlockingConnection(params)
             self.channel = self.connection.channel()
             self.channel.exchange_declare(exchange=self.exchange, exchange_type='topic', durable=True)
+            self._owner_pid = current_pid  # Track which process owns this connection
             logger.info(f"✅ Connected to RabbitMQ exchange: {self.exchange}")
         except Exception as e:
             logger.error(f"❌ Failed to connect to RabbitMQ: {e}")
             # Don't raise here to allow retry in emit
             self.connection = None
+            self._owner_pid = None
 
     def close(self):
-        """Clean up RabbitMQ connection"""
+        """Clean up RabbitMQ connection - only if we own it"""
+        current_pid = os.getpid()
+        
+        # Only close if this process owns the connection
+        if self._owner_pid is not None and self._owner_pid != current_pid:
+            # Connection was created in parent process, don't touch it
+            self.channel = None
+            self.connection = None
+            self._owner_pid = None
+            return
+        
         try:
             if self.channel and self.channel.is_open:
                 self.channel.close()
@@ -43,6 +62,7 @@ class EventPublisher:
         finally:
             self.channel = None
             self.connection = None
+            self._owner_pid = None
 
     def emit_event(self, job_id, event_type, payload):
         """
