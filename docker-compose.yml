@@ -24,31 +24,7 @@ services:
       interval: 10s
       retries: 5
 
-  nnode-backend:
-    build: ./nnode-backend
-    container_name: nnode-backend
-    ports:
-      - "${BACKEND_PORT:-3004}:3004"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    environment:
-      JWT_SECRET: ${JWT_SECRET}
-      COOKIE_SECRET: ${COOKIE_SECRET}
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASS:-admin}@rabbitmq:5672
-      REDIS_URL: redis://redis:6379
-      MONGO_URI: ${MONGO_URI:-mongodb://host.docker.internal:27017}
-      MONGO_DB_NAME: ${MONGO_DB_NAME:-seo_crawler}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost,http://209.38.70.65}
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3004/api/v1/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+ 
 
   npy-backend:
     build: ./npy-backend
@@ -73,22 +49,3 @@ services:
       S3_BUCKET_NAME: ${S3_BUCKET_NAME:-colytics-stage}
       S3_REGION: ${S3_REGION:-sfo3}
 
-  ref-frontend:
-    build:
-      context: ./ref-frontend
-      args:
-        # These are baked into the JS bundle at build time
-        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
-        NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL}
-    container_name: ref-frontend
-    ports:
-      - "${FRONTEND_PORT:-80}:80"
-    depends_on:
-      nnode-backend:
-        condition: service_healthy
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:80/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
