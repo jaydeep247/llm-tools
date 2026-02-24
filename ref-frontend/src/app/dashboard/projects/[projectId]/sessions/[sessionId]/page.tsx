@@ -10,7 +10,7 @@ import { SessionLayout } from '@/components/layout/SessionLayout'
 import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable } from '@/components/module_A'
 import { AIIntelligenceModule, ContentMetricsModule, AnswerCompletenessModule } from '@/components/module_C'
 import { SiteStructure } from '@/components/module_D/site-structure'
-import { AICitationRanking, ContentConsistencyEntityCoverage, BrandAnalysisSection, SentimentTrackingSection, CompetitorMentionsSection, SentimentTracking } from '@/components/module_E'
+import { AICitationRanking, ContentConsistencyEntityCoverage, BrandAnalysisSection, SentimentTrackingSection, CompetitorMentionsSection, SentimentTracking, ShareOfVoiceSection } from '@/components/module_E'
 import { useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
 // import { useGetDataListQuery, useCheckLinksMutation, useGetLinkStatsQuery, useLazyGetPageLinksQuery } from '@/store/api/module_A/dataApi'
 import { useGetProjectQuery } from '@/store/api/projectApi'
@@ -1057,6 +1057,14 @@ export default function SessionDetailPage() {
           </div>
         )}
 
+        {activeSection === 'share-of-voice' && (
+          <div className="space-y-6">
+            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+              <ShareOfVoiceSection jobId={jobId} />
+            </div>
+          </div>
+        )}
+
         {activeSection === 'keyword-intelligence' && (
           <div className="space-y-6">
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
@@ -1064,6 +1072,14 @@ export default function SessionDetailPage() {
             </div>
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
               <ContentConsistencyEntityCoverage jobId={jobId} />
+            </div>
+          </div>
+        )}
+
+        {activeSection === 'prompt-opportunities' && (
+          <div className="space-y-6">
+            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+              <AICitationRanking jobId={jobId} url={session?.startUrl || ''} />
             </div>
           </div>
         )}

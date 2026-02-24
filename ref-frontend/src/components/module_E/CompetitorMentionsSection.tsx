@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Users, MessageSquare, Play, Loader2, RefreshCw, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useRunCompetitorAnalysisMutation, useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
+import { useRunCompetitorAnalysisMutation, useRunAiSovAnalysisMutation, useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
 
 interface CompetitorMentionsProps {
     jobId?: string
@@ -215,6 +215,201 @@ export default function CompetitorMentionsSection({ jobId, mentionsData: initial
                                         </td>
                                     </tr>
                                 )}
+                            </tbody>
+                        </table>
+                    </div>
+                </Card>
+            </div>
+        </div>
+    )
+}
+
+interface ShareOfVoiceSectionProps {
+    jobId?: string
+}
+
+export function ShareOfVoiceSection({ jobId }: ShareOfVoiceSectionProps) {
+    const [isPolling, setIsPolling] = useState(false)
+    const [pollCount, setPollCount] = useState(0)
+    const [justCompleted, setJustCompleted] = useState(false)
+    const [lastUpdatedAt, setLastUpdatedAt] = useState<string | undefined>(undefined)
+
+    const [runCompetitorAnalysis, { isLoading: isCompetitorTriggering }] = useRunCompetitorAnalysisMutation()
+    const [runAiSovAnalysis, { isLoading: isAiSovTriggering }] = useRunAiSovAnalysisMutation()
+
+    const { data } = useGetModuleEResultQuery(jobId ?? '', {
+        skip: !jobId,
+        pollingInterval: isPolling ? 5000 : 0,
+        refetchOnMountOrArgChange: true,
+    })
+
+    const aiSov = data?.data?.ai_share_of_voice
+    const competitorRows = data?.data?.competitor_mentions?.data ?? []
+    const updatedAt = data?.data?.updatedAt
+
+    useEffect(() => {
+        if (!isPolling) return
+        if (updatedAt && updatedAt !== lastUpdatedAt && aiSov) {
+            setIsPolling(false)
+            setPollCount(0)
+            setLastUpdatedAt(updatedAt)
+            setJustCompleted(true)
+            setTimeout(() => setJustCompleted(false), 4000)
+        }
+    }, [isPolling, updatedAt, lastUpdatedAt, aiSov])
+
+    useEffect(() => {
+        if (isPolling && pollCount > 36) {
+            setIsPolling(false)
+            setPollCount(0)
+        }
+    }, [isPolling, pollCount])
+
+    useEffect(() => {
+        if (isPolling) {
+            const id = setInterval(() => setPollCount(c => c + 1), 5000)
+            return () => clearInterval(id)
+        }
+    }, [isPolling])
+
+    const handleRunAnalysis = useCallback(async () => {
+        if (!jobId) return
+        try {
+            setLastUpdatedAt(updatedAt)
+            if (competitorRows && competitorRows.length > 0) {
+                await runAiSovAnalysis(jobId).unwrap()
+            } else {
+                await runCompetitorAnalysis(jobId).unwrap()
+            }
+            setIsPolling(true)
+            setPollCount(0)
+        } catch (e) {
+            console.error('AI SOV analysis failed:', e)
+        }
+    }, [jobId, updatedAt, competitorRows, runAiSovAnalysis, runCompetitorAnalysis])
+
+    const isRunning = isCompetitorTriggering || isAiSovTriggering || isPolling
+
+    const RunButton = (
+        <Button
+            size="sm"
+            onClick={handleRunAnalysis}
+            disabled={isRunning}
+            className={cn(
+                'gap-2 font-semibold transition-all',
+                justCompleted
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                    : 'bg-primary hover:bg-primary/90 text-primary-foreground'
+            )}
+        >
+            {isCompetitorTriggering || isAiSovTriggering ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Queuing…</>
+            ) : isPolling ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Analysing…</>
+            ) : justCompleted ? (
+                <><CheckCircle2 className="w-4 h-4" /> Done!</>
+            ) : aiSov ? (
+                <><RefreshCw className="w-4 h-4" /> Re-run Analysis</>
+            ) : (
+                <><Play className="w-4 h-4" /> Run Analysis</>
+            )}
+        </Button>
+    )
+
+    if (!aiSov) {
+        return (
+            <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <Users className="w-5 h-5 text-primary" />
+                        <h3 className="text-lg font-semibold text-foreground">AI Share of Voice</h3>
+                    </div>
+                    {RunButton}
+                </div>
+                <div className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground text-sm">
+                    {isPolling
+                        ? 'Calculating AI Share of Voice using OpenAI, Gemini, and Claude…'
+                        : <>No AI Share of Voice data yet. Click <span className="font-semibold text-foreground">Run Analysis</span> to calculate it.</>
+                    }
+                </div>
+            </div>
+        )
+    }
+
+    const overallSov = aiSov.overall_sov ?? 0
+    const byModelEntries = Object.entries(aiSov.by_model ?? {})
+
+    return (
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <div>
+                    <div className="flex items-center gap-2">
+                        <Users className="w-5 h-5 text-primary" />
+                        <h3 className="text-lg font-semibold text-foreground">AI Share of Voice</h3>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                        How often your brand is mentioned vs competitors across AI models.
+                    </p>
+                </div>
+                {RunButton}
+            </div>
+
+            {isRunning && (
+                <div className="flex items-center gap-2 text-xs text-primary bg-primary/10 border border-primary/20 rounded-lg px-4 py-2">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    <span>
+                        Updating AI Share of Voice. This queries OpenAI, Gemini, and Claude.
+                    </span>
+                </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card className="p-4 flex flex-col justify-between border">
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-muted-foreground">Overall AI SOV</span>
+                        <Badge variant="outline" className="text-[10px] px-2 py-0.5">
+                            All models
+                        </Badge>
+                    </div>
+                    <div className="mt-2">
+                        <div className="text-4xl font-bold text-foreground">
+                            {overallSov.toFixed(1)}%
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            Share of Voice across all AI models.
+                        </p>
+                    </div>
+                </Card>
+
+                <Card className="p-4 md:col-span-2 border">
+                    <div className="flex items-center justify-between mb-3">
+                        <span className="text-sm font-medium text-muted-foreground">By Model</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-xs text-left">
+                            <thead>
+                                <tr className="border-b bg-background/50 text-muted-foreground">
+                                    <th className="p-2 font-medium">Model</th>
+                                    <th className="p-2 font-medium text-right">SOV %</th>
+                                    <th className="p-2 font-medium text-right">Brand mentions</th>
+                                    <th className="p-2 font-medium text-right">Competitor mentions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border/50">
+                                {byModelEntries.map(([model, stats]) => {
+                                    const s = stats as any
+                                    const sov = s.sov ?? 0
+                                    const brandMentions = s.brand_mentions ?? 0
+                                    const competitorMentions = s.competitor_mentions ?? 0
+                                    return (
+                                        <tr key={model} className="hover:bg-muted/30 transition-colors">
+                                            <td className="p-2 font-medium text-foreground">{model}</td>
+                                            <td className="p-2 text-right font-mono">{sov.toFixed(1)}%</td>
+                                            <td className="p-2 text-right font-mono">{brandMentions}</td>
+                                            <td className="p-2 text-right font-mono">{competitorMentions}</td>
+                                        </tr>
+                                    )
+                                })}
                             </tbody>
                         </table>
                     </div>
