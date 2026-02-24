@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
+import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Bug, 
   Database, 
@@ -21,7 +22,10 @@ import {
   Tags,
   GitBranch,
   LayoutDashboard,
-  ChevronLeft
+  ChevronLeft,
+  ChevronDown,
+  Bell,
+  Swords
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -33,18 +37,106 @@ interface SessionSidebarProps {
   onClose?: () => void
 }
 
-const menuItems = [
-  { id: 'Overview', label: 'Overview', icon: Bug },
-  { id: 'Website Health', label: 'Website Health', icon: Database },
-  { id: 'AI Visibility', label: 'AI Visibility', icon: BarChart3 },
-  { id: 'Content Audit', label: 'Content Audit', icon: Sparkles },
-  { id: 'Keyword → Prompt', label: 'Keyword → Prompt', icon: Search },
-  { id: 'Prompt Tracking', label: 'Prompt Tracking', icon: FileText },
-  { id: 'Competitors', label: 'Competitors', icon: Link2Off },
-  { id: 'Impact Analytics', label: 'Impact Analytics', icon: CheckCircle2 }
+const sections = [
+  {
+    id: 'overview',
+    label: 'Overview',
+    icon: LayoutDashboard,
+    children: [
+      { id: 'executive-snapshot', label: 'Executive Snapshot' },
+      { id: 'wins-losses', label: 'Wins & Losses' },
+      {id: 'priority-alerts', label: 'Priority Alerts'},
+      { id: 'opportunity-feed', label: 'Opportunity Feed' }
+    ]
+  },
+  {
+    id: 'audit-center',
+    label: 'Audit Center',
+    icon: Gauge,
+    children: [
+      { id: 'technical-audit', label: 'Technical Audit' },
+      { id: 'content-audit', label: 'Content Audit' },
+      { id: 'structured-data', label: 'Structured Data & AI Files' },
+      { id: 'url-explorer', label: 'URL Explorer' },
+      { id: 'exports', label: 'Exports' },
+    ]
+  },
+  {
+    id: 'ai-visibility',
+    label: 'AI Visibility',
+    icon: BarChart3,
+    children: [
+      { id: 'ai-visibility-scorecards', label: 'Scorecards' },
+      { id: 'entity-and-gap-analysis', label: 'Entity & Gap Analysis' },
+      { id: 'answer-completeness', label: 'AI Answer Preview' },
+      { id: 'improvement-actions', label: 'Improvement Actions' },
+      {id: 'model-comparison', label: 'Model Comparison'}
+    ]
+  },
+  {
+    id: 'prompt-intelligence',
+    label: 'Prompt Intelligence',
+    icon: Sparkles,
+    children: [
+      { id: 'discover-prompts', label: 'Discover Prompts' },
+      { id: 'topic-clusters', label: 'Clusters & Intent' },
+      { id: 'content-matrix', label: 'Difficulty & Opportunity' },
+      {id: 'content-brief-builder', label: 'Content Brief Builder'},
+      {id: 'add-to-Tracking', label: 'Add to Tracking'}
+    ]
+  },
+  {
+    id: 'prompt-tracking',
+    label: 'Prompt Tracking',
+    icon: Search,
+    children: [
+      { id: 'keyword-intelligence', label: 'Tracked Prompts' },
+      { id: 'prompt-difficulty', label: 'Brand & Competitor Mentions' },
+      { id: 'prompt-opportunities', label: 'Citations Tracker' },
+      {id: 'share-of-voice', label: 'Share of Voice'},
+      {id: 'trends-by-model', label: 'Trends by Model'}
+    ]
+  },
+  {
+    id: 'competitors',
+    label: 'Competitors',
+    icon: Swords,
+    children: [
+      { id: 'visibility-comparision', label: 'Visibility Comparison' },
+      { id: 'competitor-wins-library', label: 'Competitor Wins Library' },
+      { id: 'competitor-cited-urls', label: 'Competitor Cited URLs' },
+      {id: 'gap-opportunities', label: 'Gap Opportunities'},
+      {id: 'growth-trends', label : 'Growth Trends'}
+    ]
+  },
+  {
+    id: 'reports-and-alerts',
+    label: 'Reports & Alerts',
+    icon: Bell,
+    children: [
+      { id: 'weekly-summary', label: 'Weekly Summary' },
+      { id: 'audit-reports', label: 'Audit Reports' },
+      { id: 'competitor-reports', label: 'Competitor Reports' },
+      {id: 'alerts-center', label: 'Alert Center'},
+      {id: 'export-api', label : 'Export / API'}
+    ]
+  },
+  {
+    id: 'impact-analytics',
+    label: 'Impact Analytics',
+    icon: CheckCircle2,
+    children: [
+      { id: 'impact-overview', label: 'GA4 Connection' },
+      { id: 'content-roi', label: 'LLM Traffic' },
+      { id: 'attribution-soon', label: 'Top Landing Pages' },
+      {id: 'events-and-Conversions', label: 'Events & Conversions'},
+      {id: 'visibility-traffic-correlation', label: 'Visibility ↔ Traffic Correlation'}
+    ]
+  }
 ]
 
-export function SessionSidebar({ activeSection = 'crawler', onSectionChange, isOpen = true, onClose }: SessionSidebarProps) {
+export function SessionSidebar({ activeSection = 'executive-snapshot', onSectionChange, isOpen = true, onClose }: SessionSidebarProps) {
+  const [hoveredSection, setHoveredSection] = useState<string | null>(null)
   return (
     <>
       {/* Overlay for mobile */}
@@ -86,41 +178,99 @@ export function SessionSidebar({ activeSection = 'crawler', onSectionChange, isO
             </Button>
           </div>
 
-          {/* Navigation Items */}
           <nav className="flex-1 px-3 sm:px-4 py-4 sm:py-5 md:py-6 space-y-1 overflow-y-auto">
-            {menuItems.map((item) => {
-              const Icon = item.icon
-              const isActive = activeSection === item.id
-              
+            {sections.map(section => {
+              const Icon = section.icon
+              const hasChildren = section.children && section.children.length > 0
+              const isSectionActive = section.children?.some(child => child.id === activeSection)
+              const isExpanded = hoveredSection === section.id || isSectionActive
+
               return (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    onSectionChange?.(item.id)
-                    onClose?.()
-                  }}
-                  className={cn(
-                    'group relative w-full flex items-center gap-2.5 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg md:rounded-xl transition-all duration-300 cursor-pointer',
-                    isActive
-                      ? 'bg-white/75 backdrop-blur-md shadow-lg'
-                      : 'hover:bg-white/5'
-                  )}
+                <div
+                  key={section.id}
+                  onMouseEnter={() => setHoveredSection(section.id)}
+                  onMouseLeave={() => setHoveredSection(current => (current === section.id ? null : current))}
                 >
-                  <Icon 
+                  <button
+                    onClick={() => {
+                      const firstChild = section.children && section.children[0]
+                      if (firstChild) {
+                        onSectionChange?.(firstChild.id)
+                        onClose?.()
+                      }
+                    }}
                     className={cn(
-                      'h-4 w-4 sm:h-5 sm:w-5 shrink-0 transition-colors',
-                      isActive ? 'text-slate-900' : 'text-white/70 group-hover:text-white/90'
-                    )} 
-                  />
-                  <span 
-                    className={cn(
-                      'text-xs sm:text-sm font-medium transition-colors',
-                      isActive ? 'text-slate-900 font-semibold' : 'text-white/70 group-hover:text-white/90'
+                      'group relative w-full flex items-center gap-2.5 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg md:rounded-xl transition-all duration-300 cursor-pointer hover:bg-white/5'
                     )}
                   >
-                    {item.label}
-                  </span>
-                </button>
+                    {Icon && (
+                      <Icon
+                        className={cn(
+                          'h-4 w-4 sm:h-5 sm:w-5 shrink-0 transition-colors text-white/70 group-hover:text-white/90'
+                        )}
+                      />
+                    )}
+                    <span
+                      className={cn(
+                        'text-xs sm:text-sm font-medium transition-colors flex-1 text-left text-white/70 group-hover:text-white/90'
+                      )}
+                    >
+                      {section.label}
+                    </span>
+                    {hasChildren && (
+                      <motion.div
+                        animate={{ rotate: isExpanded ? 180 : 0 }}
+                        transition={{ duration: 0.3, ease: 'easeInOut' }}
+                        className="ml-auto"
+                      >
+                        <ChevronDown 
+                          className={cn(
+                            'h-3 w-3 sm:h-4 sm:w-4 transition-colors text-white/70 group-hover:text-white/90'
+                          )}
+                        />
+                      </motion.div>
+                    )}
+                  </button>
+
+                  {hasChildren && (
+                    <AnimatePresence>
+                      {isExpanded && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.4, ease: 'easeInOut' }}
+                          className="ml-4 mt-1 border-l border-white/10 pl-3 space-y-1 overflow-hidden"
+                        >
+                          {section.children!.map(child => {
+                            const isActive = activeSection === child.id
+
+                            return (
+                              <motion.button
+                                key={child.id}
+                                initial={{ x: -10, opacity: 0 }}
+                                animate={{ x: 0, opacity: 1 }}
+                                transition={{ duration: 0.3, delay: 0.1 }}
+                                onClick={() => {
+                                  onSectionChange?.(child.id)
+                                  onClose?.()
+                                }}
+                                className={cn(
+                                  'w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs sm:text-sm transition-all duration-200 cursor-pointer',
+                                  isActive
+                                    ? 'bg-white/75 backdrop-blur-md text-slate-900 shadow'
+                                    : 'text-white/70 hover:text-white hover:bg-white/5'
+                                )}
+                              >
+                                <span className="truncate">{child.label}</span>
+                              </motion.button>
+                            )
+                          })}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  )}
+                </div>
               )
             })}
           </nav>

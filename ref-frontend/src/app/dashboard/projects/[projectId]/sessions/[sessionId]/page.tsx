@@ -910,8 +910,8 @@ export default function SessionDetailPage() {
           </>
         )}
 
-        {/* Show Crawled Data Table on crawled-data tab */}
-        {activeSection === 'crawled-data' && (
+        {/* Show Crawled Data Table on crawled-data / technical-audit tab */}
+        {(activeSection === 'crawled-data' || activeSection === 'technical-audit') && (
           <div>
 
             <CrawledDataTable
@@ -922,8 +922,8 @@ export default function SessionDetailPage() {
           </div>
         )}
 
-        {/* Show Page Metrics Table on page-metrics tab */}
-        {activeSection === 'page-metrics' && (
+        {/* Show Page Metrics Table on page-metrics / content-audit tab */}
+        {(activeSection === 'page-metrics' || activeSection === 'content-audit') && (
           <div>
             <PageMetricsTable
               data={pageMetricsData?.data || []}
@@ -980,8 +980,8 @@ export default function SessionDetailPage() {
           </div>
         )}
 
-        {/* Show Site Structure on site-structure tab */}
-        {activeSection === 'site-structure' && (
+        {/* Show Site Structure on site-structure / content-brief-builder / add-to-Tracking tabs */}
+        {(activeSection === 'site-structure' || activeSection === 'content-brief-builder' || activeSection === 'add-to-Tracking') && (
           <div className="rounded-lg p-4 sm:p-6 border border-white/20 bg-white/10 backdrop-blur-xl h-150">
             <SiteStructure
               sessionId={sessionId}
@@ -1002,8 +1002,8 @@ export default function SessionDetailPage() {
           </div>
         )}
 
-        {/* Show Schema Generator on schema-generator tab */}
-        {activeSection === 'schema-generator' && (
+        {/* Show Schema Generator on schema-generator / structured-data tab */}
+        {(activeSection === 'schema-generator' || activeSection === 'structured-data') && (
           <div>
             <SchemaGeneratorTable 
               sessionId={sessionId}
@@ -1052,7 +1052,6 @@ export default function SessionDetailPage() {
         )}
 
 
-        {/* Show Content Metrics on content-metrics tab */}
         {activeSection === 'content-metrics' && (
           <ContentMetricsModule
             url={session?.startUrl || ''}
@@ -1060,11 +1059,34 @@ export default function SessionDetailPage() {
           />
         )}
 
-        {/* Show Answer Completeness on answer-completeness tab */}
         {activeSection === 'answer-completeness' && (
           <AnswerCompletenessModule
             url={session?.startUrl || ''}
             sessionId={sessionId}
+          />
+        )}
+
+        {activeSection === 'discover-prompts' && (
+          <ContentMetricsModule
+            url={session?.startUrl || ''}
+            sessionId={sessionId}
+            initialTab="content-analysis"
+          />
+        )}
+
+        {activeSection === 'topic-clusters' && (
+          <ContentMetricsModule
+            url={session?.startUrl || ''}
+            sessionId={sessionId}
+            initialTab="intent-clusters"
+          />
+        )}
+
+        {activeSection === 'content-matrix' && (
+          <ContentMetricsModule
+            url={session?.startUrl || ''}
+            sessionId={sessionId}
+            initialTab="content-analysis"
           />
         )}
 
