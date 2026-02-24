@@ -421,4 +421,139 @@ export class JobController {
       return ResponseUtil.serverError(res, 'Failed to retry job');
     }
   };
+
+  // ============ MODULE E SPECIFIC ENDPOINTS ============
+  
+  /**
+   * Start Module E Consistency Analysis
+   */
+  startModuleEConsistency = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+      const job = await this.jobService.startModuleEConsistency(userId, id);
+      return ResponseUtil.success(res, 'Module E consistency analysis job enqueued', job);
+    } catch (error: any) {
+      logger.error(`Error starting Module E consistency: ${error.message}`);
+      if (error.message.includes('not found')) return ResponseUtil.notFound(res, error.message);
+      return ResponseUtil.serverError(res, 'Failed to start Module E consistency analysis');
+    }
+  };
+
+  /**
+   * Start Module E Sentiment Analysis
+   */
+  startModuleESentiment = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+      const job = await this.jobService.startModuleESentiment(userId, id);
+      return ResponseUtil.success(res, 'Module E sentiment analysis job enqueued', job);
+    } catch (error: any) {
+      logger.error(`Error starting Module E sentiment: ${error.message}`);
+      if (error.message.includes('not found')) return ResponseUtil.notFound(res, error.message);
+      return ResponseUtil.serverError(res, 'Failed to start Module E sentiment analysis');
+    }
+  };
+
+  /**
+   * Start Module E Competitor Analysis
+   */
+  startModuleECompetitors = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+      const job = await this.jobService.startModuleECompetitors(userId, id);
+      return ResponseUtil.success(res, 'Module E competitor analysis job enqueued', job);
+    } catch (error: any) {
+      logger.error(`Error starting Module E competitors: ${error.message}`);
+      if (error.message.includes('not found')) return ResponseUtil.notFound(res, error.message);
+      return ResponseUtil.serverError(res, 'Failed to start Module E competitor analysis');
+    }
+  };
+
+  /**
+   * Start Module E AI SOV Analysis
+   */
+  startModuleEAiSov = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+      const job = await this.jobService.startModuleEAiSov(userId, id);
+      return ResponseUtil.success(res, 'Module E AI SOV analysis job enqueued', job);
+    } catch (error: any) {
+      logger.error(`Error starting Module E AI SOV: ${error.message}`);
+      if (error.message.includes('not found')) return ResponseUtil.notFound(res, error.message);
+      return ResponseUtil.serverError(res, 'Failed to start Module E AI SOV analysis');
+    }
+  };
+
+  /**
+   * Start Module E Ranking Analysis
+   */
+  startModuleERanking = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+      const job = await this.jobService.startModuleERanking(userId, id);
+      return ResponseUtil.success(res, 'Module E ranking analysis job enqueued', job);
+    } catch (error: any) {
+      logger.error(`Error starting Module E ranking: ${error.message}`);
+      if (error.message.includes('not found')) return ResponseUtil.notFound(res, error.message);
+      return ResponseUtil.serverError(res, 'Failed to start Module E ranking analysis');
+    }
+  };
+
+  /**
+   * Start Module E Brand Analysis
+   */
+  startModuleEBrand = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+      const job = await this.jobService.startModuleEBrand(userId, id);
+      return ResponseUtil.success(res, 'Module E brand analysis job enqueued', job);
+    } catch (error: any) {
+      logger.error(`Error starting Module E brand: ${error.message}`);
+      if (error.message.includes('not found')) return ResponseUtil.notFound(res, error.message);
+      return ResponseUtil.serverError(res, 'Failed to start Module E brand analysis');
+    }
+  };
+
+  /**
+   * Start Module E AI Citation Ranking Analysis
+   */
+  startModuleEAiCitationRanking = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+      const job = await this.jobService.startModuleEAiCitationRanking(userId, id);
+      return ResponseUtil.success(res, 'Module E AI citation ranking job enqueued', job);
+    } catch (error: any) {
+      logger.error(`Error starting Module E AI citation ranking: ${error.message}`);
+      if (error.message.includes('not found')) return ResponseUtil.notFound(res, error.message);
+      return ResponseUtil.serverError(res, 'Failed to start Module E AI citation ranking');
+    }
+  };
+
+  /**
+   * Get Module E Analysis Results
+   */
+  getJobModuleEAnalysis = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+      await this.jobService.getJobById(userId, id);
+
+      const db = await connectToMongo();
+      const collection = db.collection('module_e');
+      const data = await collection.findOne({ jobId: id });
+
+      return ResponseUtil.success(res, 'Module E analysis retrieved successfully', data);
+    } catch (error: any) {
+      logger.error(`Error getting Module E analysis: ${error.message}`);
+      if (error.message.includes('not found')) return ResponseUtil.notFound(res, error.message);
+      return ResponseUtil.serverError(res, 'Failed to retrieve Module E analysis');
+    }
+  };
 }

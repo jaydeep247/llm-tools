@@ -1,5 +1,5 @@
 import { JobRepository } from './job.repository';
-import { CreateJobDto, Job, JobStatus, JobType } from './job.types';
+import { CreateJobDto, Job, JobStatus, JobType, JobCategory, JOB_TYPE_TO_CATEGORY } from './job.types';
 import { SessionService } from '../session/session.service';
 import { SessionStatus } from '../session/session.types';
 import { QueueService } from '../queue/queue.service';
@@ -15,6 +15,10 @@ export class JobService {
     this.queueService = new QueueService();
   }
 
+  /**
+   * Create and queue a job based on its type
+   * Each job type is routed to its isolated queue
+   */
   async createJob(userId: string, sessionId: string, data: CreateJobDto): Promise<Job> {
     const session = await this.sessionService.getSessionById(sessionId, userId);
     const projectId = session.project?.id;
@@ -23,36 +27,83 @@ export class JobService {
     }
 
     const job = await this.jobRepository.create(sessionId, projectId, data);
+    const jobType = job.jobType || job.type;
+    const category = JOB_TYPE_TO_CATEGORY[jobType];
 
-    if (job.type === JobType.SCHEMA) {
-      await this.queueService.publishSchemaJob({
-        jobId: job.id,
-        sessionId,
-        projectId,
-        url: job.url,
-        schemaType: job.schemaType || undefined,
-      });
-    } else if (job.jobType === JobType.CRAWL) {
-      await this.queueService.publishCrawlJob({
-        jobId: job.id,
-        sessionId,
-        projectId,
-        url: job.url,
-        allowSubdomains: job.allowSubdomains,
-        runAudits: job.runAudits,
-        auditDevice: job.auditDevice,
-        captureLinkDetails: job.captureLinkDetails,
-      });
-    } else if (job.jobType === JobType.AEO_ANALYSIS) {
-      await this.queueService.publishAnalysisJob({
-        jobId: job.id,
-        sessionId,
-        projectId,
-        url: job.url,
-        modules: job.config?.modules || [],
-        sourceJobId: job.config?.sourceJobId,
-        config: job.config,
-      });
+    // Route to appropriate queue based on job category
+    switch (category) {
+      case JobCategory.CRAWLER:
+        await this.queueService.publishCrawlJob({
+          jobId: job.id,
+          sessionId,
+          projectId,
+          url: job.url,
+          jobType: JobType.CRAWL,
+          allowSubdomains: job.allowSubdomains,
+          runAudits: job.runAudits,
+          auditDevice: job.auditDevice,
+          captureLinkDetails: job.captureLinkDetails,
+        });
+        break;
+
+      case JobCategory.SCHEMA:
+        await this.queueService.publishSchemaJob({
+          jobId: job.id,
+          sessionId,
+          projectId,
+          url: job.url,
+          jobType: JobType.SCHEMA,
+          schemaType: job.schemaType || undefined,
+        });
+        break;
+
+      case JobCategory.MODULE_C:
+        await this.queueService.publishModuleCJob({
+          jobId: job.id,
+          sessionId,
+          projectId,
+          url: job.url,
+          jobType: jobType as JobType,
+          query: job.config?.query,
+          sourceJobId: job.config?.sourceJobId,
+        });
+        break;
+
+      case JobCategory.MODULE_D:
+        await this.queueService.publishModuleDJob({
+          jobId: job.id,
+          sessionId,
+          projectId,
+          url: job.url,
+          jobType: jobType as JobType,
+          sourceJobId: job.config?.sourceJobId,
+        });
+        break;
+
+      case JobCategory.MODULE_E:
+        await this.queueService.publishModuleEJob({
+          jobId: job.id,
+          sessionId,
+          projectId,
+          url: job.url,
+          jobType: jobType as JobType,
+          sourceJobId: job.config?.sourceJobId,
+          brandName: job.config?.brandName,
+        });
+        break;
+
+      default:
+        // Legacy fallback - use analysis job publisher
+        await this.queueService.publishAnalysisJob({
+          jobId: job.id,
+          sessionId,
+          projectId,
+          url: job.url,
+          jobType: jobType as JobType,
+          modules: job.config?.modules || [],
+          sourceJobId: job.config?.sourceJobId,
+          config: job.config,
+        });
     }
 
     return job;
@@ -72,6 +123,7 @@ export class JobService {
     return this.jobRepository.findBySessionId(sessionId);
   }
 
+  // ============ MODULE D (Content Metrics) ============
   async startContentMetrics(userId: string, jobId: string): Promise<Job> {
     const job = await this.getJobById(userId, jobId);
 
@@ -80,11 +132,13 @@ export class JobService {
       sessionId: job.sessionId,
       projectId: job.projectId,
       url: job.url,
+      jobType: JobType.CONTENT_METRICS,
     });
 
     return job;
   }
 
+  // ============ SCHEMA (Module B) ============
   async startSchemaGeneration(userId: string, jobId: string, schemaType?: string): Promise<Job> {
     const job = await this.getJobById(userId, jobId);
 
@@ -93,13 +147,106 @@ export class JobService {
       sessionId: job.sessionId,
       projectId: job.projectId,
       url: job.url,
+      jobType: JobType.SCHEMA,
       schemaType: schemaType || job.schemaType || undefined,
     });
 
     return job;
   }
 
+  // ============ MODULE E SPECIFIC JOBS ============
+  async startModuleEConsistency(userId: string, jobId: string): Promise<Job> {
+    const job = await this.getJobById(userId, jobId);
+    await this.queueService.publishModuleEConsistencyJob({
+      jobId: job.id,
+      sessionId: job.sessionId,
+      projectId: job.projectId,
+      url: job.url,
+      jobType: JobType.MODULE_E_CONSISTENCY,
+      sourceJobId: jobId,
+    });
+    return job;
+  }
 
+  async startModuleESentiment(userId: string, jobId: string): Promise<Job> {
+    const job = await this.getJobById(userId, jobId);
+    await this.queueService.publishModuleESentimentJob({
+      jobId: job.id,
+      sessionId: job.sessionId,
+      projectId: job.projectId,
+      url: job.url,
+      jobType: JobType.MODULE_E_SENTIMENT,
+      sourceJobId: jobId,
+    });
+    return job;
+  }
+
+  async startModuleECompetitors(userId: string, jobId: string): Promise<Job> {
+    const job = await this.getJobById(userId, jobId);
+    await this.queueService.publishModuleECompetitorsJob({
+      jobId: job.id,
+      sessionId: job.sessionId,
+      projectId: job.projectId,
+      url: job.url,
+      jobType: JobType.MODULE_E_COMPETITORS,
+      sourceJobId: jobId,
+    });
+    return job;
+  }
+
+  async startModuleEAiSov(userId: string, jobId: string): Promise<Job> {
+    const job = await this.getJobById(userId, jobId);
+    await this.queueService.publishModuleEAiSovJob({
+      jobId: job.id,
+      sessionId: job.sessionId,
+      projectId: job.projectId,
+      url: job.url,
+      jobType: JobType.MODULE_E_AI_SOV,
+      sourceJobId: jobId,
+    });
+    return job;
+  }
+
+  async startModuleERanking(userId: string, jobId: string): Promise<Job> {
+    const job = await this.getJobById(userId, jobId);
+    await this.queueService.publishModuleERankingJob({
+      jobId: job.id,
+      sessionId: job.sessionId,
+      projectId: job.projectId,
+      url: job.url,
+      jobType: JobType.MODULE_E_RANKING,
+      sourceJobId: jobId,
+    });
+    return job;
+  }
+
+  async startModuleEBrand(userId: string, jobId: string): Promise<Job> {
+    const job = await this.getJobById(userId, jobId);
+    await this.queueService.publishModuleEBrandJob({
+      jobId: job.id,
+      sessionId: job.sessionId,
+      projectId: job.projectId,
+      url: job.url,
+      jobType: JobType.MODULE_E_BRAND,
+      sourceJobId: jobId,
+    });
+    return job;
+  }
+
+  async startModuleEAiCitationRanking(userId: string, jobId: string): Promise<Job> {
+    const job = await this.getJobById(userId, jobId);
+    await this.queueService.publishModuleEAiCitationRankingJob({
+      jobId: job.id,
+      sessionId: job.sessionId,
+      projectId: job.projectId,
+      url: job.url,
+      jobType: JobType.MODULE_E_AI_CITATION_RANKING,
+      sourceJobId: jobId,
+    });
+    return job;
+  }
+
+  // ============ STATUS MANAGEMENT ============
   async markRunning(jobId: string): Promise<Job> {
     return this.jobRepository.updateStatus(jobId, JobStatus.RUNNING, new Date(), null, null);
   }

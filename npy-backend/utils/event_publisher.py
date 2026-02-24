@@ -1,5 +1,6 @@
 import json
 import time
+import atexit
 import pika
 from utils.config import config
 from utils.logger import logger
@@ -10,6 +11,8 @@ class EventPublisher:
         self.exchange = 'job.events'
         self.connection = None
         self.channel = None
+        # Register cleanup on exit
+        atexit.register(self.close)
 
     def connect(self):
         if self.connection and not self.connection.is_closed:
@@ -24,6 +27,21 @@ class EventPublisher:
         except Exception as e:
             logger.error(f"❌ Failed to connect to RabbitMQ: {e}")
             # Don't raise here to allow retry in emit
+            self.connection = None
+
+    def close(self):
+        """Clean up RabbitMQ connection"""
+        try:
+            if self.channel and self.channel.is_open:
+                self.channel.close()
+            if self.connection and not self.connection.is_closed:
+                self.connection.close()
+                logger.debug("📤 EventPublisher connection closed cleanly")
+        except Exception as e:
+            # Ignore errors during cleanup
+            pass
+        finally:
+            self.channel = None
             self.connection = None
 
     def emit_event(self, job_id, event_type, payload):

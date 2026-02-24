@@ -15,17 +15,7 @@ export class ModuleEService {
    */
   async getModuleEResult(jobId: string, userId: string): Promise<ModuleEResult | null> {
     await this.jobService.getJobById(userId, jobId);
-
-    logger.info('Fetching Module E result', { jobId });
-    
-    const result = await moduleERepository.getModuleEResultByJobId(jobId);
-
-    logger.info('Module E DB lookup', {
-      jobId,
-      found: !!result,
-    });
-
-    return result;
+    return await moduleERepository.getModuleEResultByJobId(jobId);
   }
 
   /**

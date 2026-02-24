@@ -1,67 +1,158 @@
 import { getRabbitChannel } from '../../config/rabbitmq';
 import {
-  QUEUE_EXCHANGE_CRAWL,
-  ROUTING_KEY_CRAWL_START,
-  QUEUE_EXCHANGE_ANALYSIS,
-  ROUTING_KEY_ANALYSIS_START,
+  QUEUE_CONFIG_BY_CATEGORY,
+  QueueConfig,
 } from './queue.constants';
-import { CrawlJobPayload, SchemaJobPayload, ContentMetricsJobPayload, AnalysisJobPayload } from './queue.types';
+import { 
+  CrawlJobPayload, 
+  SchemaJobPayload, 
+  ContentMetricsJobPayload, 
+  AnalysisJobPayload,
+  ModuleCJobPayload,
+  ModuleDJobPayload,
+  ModuleEJobPayload,
+  AnyJobPayload,
+} from './queue.types';
+import { JobType, JobCategory, JOB_TYPE_TO_CATEGORY } from '../job/job.types';
 import { logger } from '../../shared/logger/logger';
 
 export class QueueService {
+  /**
+   * Generic job publisher - routes to correct queue based on job type
+   */
+  private async publishToQueue(payload: AnyJobPayload, category: JobCategory): Promise<void> {
+    const channel = await getRabbitChannel();
+    const config: QueueConfig = QUEUE_CONFIG_BY_CATEGORY[category];
+    
+    const body = Buffer.from(JSON.stringify(payload));
+
+    channel.publish(config.exchange, config.routingKey, body, {
+      persistent: true,
+      contentType: 'application/json',
+      headers: {
+        'x-job-type': payload.jobType,
+        'x-job-category': category,
+      },
+    });
+
+    logger.info(
+      `[${category}] Enqueued job ${payload.jobId} type=${payload.jobType} url=${payload.url}`
+    );
+  }
+
+  /**
+   * Publish job with automatic routing based on jobType
+   */
+  async publishJob(payload: AnyJobPayload): Promise<void> {
+    const category = JOB_TYPE_TO_CATEGORY[payload.jobType];
+    if (!category) {
+      throw new Error(`Unknown job type: ${payload.jobType}`);
+    }
+    await this.publishToQueue(payload, category);
+  }
+
+  // ============ CRAWLER JOBS ============
   async publishCrawlJob(payload: CrawlJobPayload): Promise<void> {
-    const channel = await getRabbitChannel();
-    const body = Buffer.from(JSON.stringify({ jobType: 'CRAWL', ...payload }));
-
-    channel.publish(QUEUE_EXCHANGE_CRAWL, ROUTING_KEY_CRAWL_START, body, {
-      persistent: true,
-      contentType: 'application/json',
-    });
-
-    logger.info(
-      `Enqueued crawl job ${payload.jobId} for session ${payload.sessionId} url=${payload.url}`
+    await this.publishToQueue(
+      { ...payload, jobType: JobType.CRAWL },
+      JobCategory.CRAWLER
     );
   }
 
+  // ============ SCHEMA JOBS (Module B) ============
   async publishSchemaJob(payload: SchemaJobPayload): Promise<void> {
-    const channel = await getRabbitChannel();
-    const body = Buffer.from(JSON.stringify({ jobType: 'SCHEMA', ...payload }));
-
-    channel.publish(QUEUE_EXCHANGE_CRAWL, ROUTING_KEY_CRAWL_START, body, {
-      persistent: true,
-      contentType: 'application/json',
-    });
-
-    logger.info(
-      `Enqueued schema job ${payload.jobId} for session ${payload.sessionId} url=${payload.url}`
+    await this.publishToQueue(
+      { ...payload, jobType: JobType.SCHEMA },
+      JobCategory.SCHEMA
     );
   }
 
+  // ============ MODULE D JOBS (Content Analysis) ============
   async publishContentMetricsJob(payload: ContentMetricsJobPayload): Promise<void> {
-    const channel = await getRabbitChannel();
-    const body = Buffer.from(JSON.stringify({ jobType: 'CONTENT_METRICS', ...payload }));
-
-    channel.publish(QUEUE_EXCHANGE_CRAWL, ROUTING_KEY_CRAWL_START, body, {
-      persistent: true,
-      contentType: 'application/json',
-    });
-
-    logger.info(
-      `Enqueued content metrics job ${payload.jobId} for session ${payload.sessionId} url=${payload.url}`
+    await this.publishToQueue(
+      { ...payload, jobType: JobType.CONTENT_METRICS },
+      JobCategory.MODULE_D
     );
+  }
+
+  async publishModuleDJob(payload: ModuleDJobPayload): Promise<void> {
+    await this.publishToQueue(payload, JobCategory.MODULE_D);
+  }
+
+  // ============ MODULE C JOBS (AEO Analysis) ============
+  async publishModuleCJob(payload: ModuleCJobPayload): Promise<void> {
+    await this.publishToQueue(payload, JobCategory.MODULE_C);
   }
 
   async publishAnalysisJob(payload: AnalysisJobPayload): Promise<void> {
-    const channel = await getRabbitChannel();
-    const body = Buffer.from(JSON.stringify({ jobType: 'AEO_ANALYSIS', ...payload }));
+    // Determine correct category based on modules requested
+    const modules = payload.modules || [];
+    let category = JobCategory.MODULE_C; // Default to Module C
+    
+    if (modules.some(m => m.startsWith('module_e'))) {
+      category = JobCategory.MODULE_E;
+    } else if (modules.some(m => m.startsWith('module_d'))) {
+      category = JobCategory.MODULE_D;
+    }
 
-    channel.publish(QUEUE_EXCHANGE_ANALYSIS, ROUTING_KEY_ANALYSIS_START, body, {
-      persistent: true,
-      contentType: 'application/json',
-    });
+    await this.publishToQueue(
+      { ...payload, jobType: payload.jobType || JobType.AEO_ANALYSIS },
+      category
+    );
+  }
 
-    logger.info(
-      `Enqueued analysis job ${payload.jobId} for session ${payload.sessionId} url=${payload.url}`
+  // ============ MODULE E JOBS (Brand Intelligence) ============
+  async publishModuleEJob(payload: ModuleEJobPayload): Promise<void> {
+    await this.publishToQueue(payload, JobCategory.MODULE_E);
+  }
+
+  async publishModuleEConsistencyJob(payload: ModuleEJobPayload): Promise<void> {
+    await this.publishToQueue(
+      { ...payload, jobType: JobType.MODULE_E_CONSISTENCY, subModule: 'consistency' },
+      JobCategory.MODULE_E
+    );
+  }
+
+  async publishModuleESentimentJob(payload: ModuleEJobPayload): Promise<void> {
+    await this.publishToQueue(
+      { ...payload, jobType: JobType.MODULE_E_SENTIMENT, subModule: 'sentiment' },
+      JobCategory.MODULE_E
+    );
+  }
+
+  async publishModuleECompetitorsJob(payload: ModuleEJobPayload): Promise<void> {
+    await this.publishToQueue(
+      { ...payload, jobType: JobType.MODULE_E_COMPETITORS, subModule: 'competitors' },
+      JobCategory.MODULE_E
+    );
+  }
+
+  async publishModuleEAiSovJob(payload: ModuleEJobPayload): Promise<void> {
+    await this.publishToQueue(
+      { ...payload, jobType: JobType.MODULE_E_AI_SOV, subModule: 'ai_sov' },
+      JobCategory.MODULE_E
+    );
+  }
+
+  async publishModuleERankingJob(payload: ModuleEJobPayload): Promise<void> {
+    await this.publishToQueue(
+      { ...payload, jobType: JobType.MODULE_E_RANKING, subModule: 'ranking' },
+      JobCategory.MODULE_E
+    );
+  }
+
+  async publishModuleEBrandJob(payload: ModuleEJobPayload): Promise<void> {
+    await this.publishToQueue(
+      { ...payload, jobType: JobType.MODULE_E_BRAND, subModule: 'brand' },
+      JobCategory.MODULE_E
+    );
+  }
+
+  async publishModuleEAiCitationRankingJob(payload: ModuleEJobPayload): Promise<void> {
+    await this.publishToQueue(
+      { ...payload, jobType: JobType.MODULE_E_AI_CITATION_RANKING, subModule: 'ai_citation_ranking' },
+      JobCategory.MODULE_E
     );
   }
 }
+

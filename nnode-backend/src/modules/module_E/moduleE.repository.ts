@@ -98,14 +98,8 @@ export class ModuleERepository {
       const result = await collection.findOne({ jobId });
 
       if (!result) {
-        logger.info('Module E result not found', { jobId });
         return null;
       }
-
-      logger.info('Module E result retrieved', {
-        jobId,
-        found: true,
-      });
 
       return this.toModuleEResult(result);
     } catch (error) {

@@ -20,18 +20,10 @@ export class ModuleEController {
       const userId = req.user!.userId;
       const { jobId } = jobIdParamSchema.parse(req.params);
 
-      logger.info('Module E request received', { jobId, userId });
-
       const result = await this.moduleEService.getModuleEResult(jobId, userId);
       if (!result) {
         return ResponseUtil.success(res, 'Module E result not found', null);
       }
-
-      logger.info('Module E response payload', {
-        jobId,
-        consistencyScore: result.content_consistency?.score ?? null,
-        entityScore: result.entity_coverage?.score ?? null,
-      });
 
       return ResponseUtil.success(res, 'Module E result retrieved', result);
     } catch (error: any) {
@@ -60,9 +52,8 @@ export class ModuleEController {
 
       const analysisJob = await this.jobService.createJob(userId, job.sessionId, {
         url,
-        jobType: JobType.AEO_ANALYSIS,
+        jobType: JobType.MODULE_E_FULL,
         config: {
-          modules: ['module_e'],
           sourceJobId: jobId,
         },
       });
@@ -100,9 +91,8 @@ export class ModuleEController {
 
       const sentimentJob = await this.jobService.createJob(userId, job.sessionId, {
         url,
-        jobType: JobType.AEO_ANALYSIS,
+        jobType: JobType.MODULE_E_SENTIMENT,
         config: {
-          modules: ['module_e_sentiment'],
           sourceJobId: jobId,
         },
       });
@@ -140,9 +130,8 @@ export class ModuleEController {
 
       const competitorJob = await this.jobService.createJob(userId, job.sessionId, {
         url,
-        jobType: JobType.AEO_ANALYSIS,
+        jobType: JobType.MODULE_E_COMPETITORS,
         config: {
-          modules: ['module_e_competitors'],
           sourceJobId: jobId,
         },
       });
@@ -180,9 +169,8 @@ export class ModuleEController {
 
       const aiSovJob = await this.jobService.createJob(userId, job.sessionId, {
         url,
-        jobType: JobType.AEO_ANALYSIS,
+        jobType: JobType.MODULE_E_AI_SOV,
         config: {
-          modules: ['module_e_ai_sov'],
           sourceJobId: jobId,
         },
       });
@@ -220,9 +208,8 @@ export class ModuleEController {
 
       const brandJob = await this.jobService.createJob(userId, job.sessionId, {
         url,
-        jobType: JobType.AEO_ANALYSIS,
+        jobType: JobType.MODULE_E_BRAND,
         config: {
-          modules: ['module_e_brand'],
           sourceJobId: jobId,
         },
       });
@@ -260,9 +247,8 @@ export class ModuleEController {
 
       const rankingJob = await this.jobService.createJob(userId, job.sessionId, {
         url,
-        jobType: JobType.AEO_ANALYSIS,
+        jobType: JobType.MODULE_E_RANKING,
         config: {
-          modules: ['module_e_ranking'],
           sourceJobId: jobId,
         },
       });
@@ -300,9 +286,8 @@ export class ModuleEController {
 
       const consistencyJob = await this.jobService.createJob(userId, job.sessionId, {
         url,
-        jobType: JobType.AEO_ANALYSIS,
+        jobType: JobType.MODULE_E_CONSISTENCY,
         config: {
-          modules: ['module_e_consistency'],
           sourceJobId: jobId,
         },
       });

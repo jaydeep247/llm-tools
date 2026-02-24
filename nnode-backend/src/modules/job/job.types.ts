@@ -5,12 +5,74 @@ export enum JobStatus {
   FAILED = 'FAILED',
 }
 
+/**
+ * Granular Job Types for isolated queue processing
+ * Each job type runs independently without affecting others
+ */
 export enum JobType {
+  // Crawler Module
   CRAWL = 'CRAWL',
+  
+  // Schema Module (Module B)
   SCHEMA = 'SCHEMA',
+  
+  // Content Metrics (Module D)
   CONTENT_METRICS = 'CONTENT_METRICS',
-  AEO_ANALYSIS = 'AEO_ANALYSIS'
+  
+  // AEO Analysis (Module C)
+  AEO_ANALYSIS = 'AEO_ANALYSIS',
+  MODULE_C_AI_PRESENCE = 'MODULE_C_AI_PRESENCE',
+  MODULE_C_ANSWERABILITY = 'MODULE_C_ANSWERABILITY',
+  MODULE_C_KNOWLEDGE_BASE = 'MODULE_C_KNOWLEDGE_BASE',
+  MODULE_C_COMPETITOR = 'MODULE_C_COMPETITOR',
+  MODULE_C_LLM_SIMULATOR = 'MODULE_C_LLM_SIMULATOR',
+  MODULE_C_BULK_AUDIT = 'MODULE_C_BULK_AUDIT',
+  
+  // Brand Intelligence (Module E)
+  MODULE_E_FULL = 'MODULE_E_FULL',
+  MODULE_E_CONSISTENCY = 'MODULE_E_CONSISTENCY',
+  MODULE_E_SENTIMENT = 'MODULE_E_SENTIMENT',
+  MODULE_E_COMPETITORS = 'MODULE_E_COMPETITORS',
+  MODULE_E_AI_SOV = 'MODULE_E_AI_SOV',
+  MODULE_E_RANKING = 'MODULE_E_RANKING',
+  MODULE_E_BRAND = 'MODULE_E_BRAND',
+  MODULE_E_AI_CITATION_RANKING = 'MODULE_E_AI_CITATION_RANKING',
 }
+
+/**
+ * Job Category for queue routing
+ */
+export enum JobCategory {
+  CRAWLER = 'CRAWLER',
+  SCHEMA = 'SCHEMA',
+  MODULE_C = 'MODULE_C',
+  MODULE_D = 'MODULE_D',
+  MODULE_E = 'MODULE_E',
+}
+
+/**
+ * Map job types to their categories for queue routing
+ */
+export const JOB_TYPE_TO_CATEGORY: Record<JobType, JobCategory> = {
+  [JobType.CRAWL]: JobCategory.CRAWLER,
+  [JobType.SCHEMA]: JobCategory.SCHEMA,
+  [JobType.CONTENT_METRICS]: JobCategory.MODULE_D,
+  [JobType.AEO_ANALYSIS]: JobCategory.MODULE_C,
+  [JobType.MODULE_C_AI_PRESENCE]: JobCategory.MODULE_C,
+  [JobType.MODULE_C_ANSWERABILITY]: JobCategory.MODULE_C,
+  [JobType.MODULE_C_KNOWLEDGE_BASE]: JobCategory.MODULE_C,
+  [JobType.MODULE_C_COMPETITOR]: JobCategory.MODULE_C,
+  [JobType.MODULE_C_LLM_SIMULATOR]: JobCategory.MODULE_C,
+  [JobType.MODULE_C_BULK_AUDIT]: JobCategory.MODULE_C,
+  [JobType.MODULE_E_FULL]: JobCategory.MODULE_E,
+  [JobType.MODULE_E_CONSISTENCY]: JobCategory.MODULE_E,
+  [JobType.MODULE_E_SENTIMENT]: JobCategory.MODULE_E,
+  [JobType.MODULE_E_COMPETITORS]: JobCategory.MODULE_E,
+  [JobType.MODULE_E_AI_SOV]: JobCategory.MODULE_E,
+  [JobType.MODULE_E_RANKING]: JobCategory.MODULE_E,
+  [JobType.MODULE_E_BRAND]: JobCategory.MODULE_E,
+  [JobType.MODULE_E_AI_CITATION_RANKING]: JobCategory.MODULE_E,
+};
 
 export interface Job {
   id: string;
