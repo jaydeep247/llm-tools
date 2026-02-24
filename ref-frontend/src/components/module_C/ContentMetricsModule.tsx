@@ -50,8 +50,12 @@ export default function ContentMetricsModule({ url, sessionId }: ContentMetricsM
     skip: !sessionIdStr,
   })
   const jobs = jobsData?.data || []
+  
+  // Find CRAWL job for sourceJobId (HTML is stored under crawl job ID)
+  const crawlJob = jobs.find((j: any) => j.type === 'CRAWL' || j.jobType === 'CRAWL')
   const latestJob = jobs.length > 0 ? jobs[0] : null
   const jobId = latestJob?.id as string | undefined
+  const sourceJobId = crawlJob?.id as string | undefined
 
   const [hasTriggeredAnalysis, setHasTriggeredAnalysis] = useState(false)
 
@@ -154,7 +158,7 @@ export default function ContentMetricsModule({ url, sessionId }: ContentMetricsM
                     onClick={async () => {
                       try {
                         setHasTriggeredAnalysis(true)
-                        await startContentMetrics({ jobId }).unwrap()
+                        await startContentMetrics({ jobId, sourceJobId }).unwrap()
                         setTimeout(() => {
                           refetch()
                         }, 5000)

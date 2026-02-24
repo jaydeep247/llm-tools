@@ -73,8 +73,9 @@ export class JobController {
     try {
       const userId = req.user!.userId;
       const { id } = sessionIdSchema.parse({ id: req.params.id });
+      const { sourceJobId } = req.body || {};
 
-      const job = await this.jobService.startContentMetrics(userId, id);
+      const job = await this.jobService.startContentMetrics(userId, id, sourceJobId);
 
       return ResponseUtil.success(res, 'Content metrics job enqueued successfully', job);
     } catch (error: any) {

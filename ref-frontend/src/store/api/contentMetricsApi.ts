@@ -28,12 +28,12 @@ export const contentMetricsApi = baseApi.injectEndpoints({
     }),
     startContentMetrics: builder.mutation<
       { success: boolean; data: any },
-      { jobId: string }
+      { jobId: string; sourceJobId?: string }
     >({
-      query: ({ jobId }) => ({
+      query: ({ jobId, sourceJobId }) => ({
         url: `/jobs/${jobId}/content-metrics`,
         method: 'POST',
-        body: {},
+        body: { sourceJobId },
       }),
     }),
   }),

@@ -17,9 +17,12 @@ export interface CrawlJobPayload extends BaseJobPayload {
 
 export interface SchemaJobPayload extends BaseJobPayload {
   schemaType?: string;
+  sourceJobId?: string;
 }
 
-export interface ContentMetricsJobPayload extends BaseJobPayload {}
+export interface ContentMetricsJobPayload extends BaseJobPayload {
+  sourceJobId?: string;
+}
 
 /**
  * Module C (AEO Analysis) Job Payload

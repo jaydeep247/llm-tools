@@ -17,7 +17,7 @@ interface SentimentTrackingProps {
     sentiment?: {
       overall_score?: number
       distribution?: { Positive?: number; Neutral?: number; Negative?: number }
-      by_model?: Record<string, { score?: number; distribution?: any }>
+      by_model?: Record<string, { score?: number; distribution?: any; failed?: boolean; error?: string }>
     }
     visibility?: {
       overall_visibility_score?: number
@@ -599,7 +599,7 @@ export default function SentimentTrackingSection({ jobId, sentimentData: initial
       </Card >
 
       {/* Insights Panel */}
-      < Card className="rounded-xl border p-6 bg-gradient-to-br from-purple-500/5 to-blue-500/5" >
+      < Card className="rounded-xl border p-6 bg-liner-to-br from-purple-500/5 to-blue-500/5" >
         <div className="space-y-2">
           <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-purple-400" />

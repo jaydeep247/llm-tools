@@ -54,6 +54,7 @@ export class JobService {
           url: job.url,
           jobType: JobType.SCHEMA,
           schemaType: job.schemaType || undefined,
+          sourceJobId: job.config?.sourceJobId,
         });
         break;
 
@@ -124,7 +125,7 @@ export class JobService {
   }
 
   // ============ MODULE D (Content Metrics) ============
-  async startContentMetrics(userId: string, jobId: string): Promise<Job> {
+  async startContentMetrics(userId: string, jobId: string, sourceJobId?: string): Promise<Job> {
     const job = await this.getJobById(userId, jobId);
 
     await this.queueService.publishContentMetricsJob({
@@ -133,6 +134,7 @@ export class JobService {
       projectId: job.projectId,
       url: job.url,
       jobType: JobType.CONTENT_METRICS,
+      sourceJobId: sourceJobId || job.id,  // Fallback to the job's own ID if no sourceJobId provided
     });
 
     return job;

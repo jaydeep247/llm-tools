@@ -136,12 +136,16 @@ def execute_schema_job(payload: dict) -> bool:
     url = payload["url"]
     job_id = payload.get("jobId") or f"job_{session_id}"
     schema_type = payload.get("schemaType")
+    source_job_id = payload.get("sourceJobId") or payload.get("config", {}).get("sourceJobId")
     
-    logger.info(f"[SCHEMA] Starting job {job_id} for {url}")
+    # Use sourceJobId to load HTML (points to crawl job that saved the HTML)
+    target_job_id = source_job_id if source_job_id else job_id
     
-    html_content = load_raw_html_sync(job_id)
+    logger.info(f"[SCHEMA] Starting job {job_id} for {url}, loading HTML from {target_job_id}")
+    
+    html_content = load_raw_html_sync(target_job_id)
     if not html_content:
-        logger.warning(f"[SCHEMA] No HTML for job {job_id}")
+        logger.warning(f"[SCHEMA] No HTML for job {target_job_id}")
         result = {"success": False, "error": "RAW_HTML_NOT_FOUND"}
     else:
         generator = SchemaGenerator()
@@ -197,10 +201,14 @@ def execute_module_d_job(payload: dict) -> bool:
     project_id = payload["projectId"]
     url = payload["url"]
     job_id = payload.get("jobId") or f"job_{session_id}"
+    source_job_id = payload.get("sourceJobId") or payload.get("config", {}).get("sourceJobId")
     
-    logger.info(f"[MODULE_D] Starting job {job_id} for {url}")
+    # Use sourceJobId to load HTML (points to crawl job that saved the HTML)
+    target_job_id = source_job_id if source_job_id else job_id
     
-    html_content = load_raw_html_sync(job_id)
+    logger.info(f"[MODULE_D] Starting job {job_id} for {url}, loading HTML from {target_job_id}")
+    
+    html_content = load_raw_html_sync(target_job_id)
     if not html_content:
         result = {"success": False, "error": "RAW_HTML_NOT_FOUND"}
     else:
