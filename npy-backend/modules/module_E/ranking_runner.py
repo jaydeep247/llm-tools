@@ -37,7 +37,7 @@ class RankingRunner:
         self.entity_coverage_module = EntityCoverageModule()
 
     def _normalize_url(self, url: str) -> str:
-        """Normalize URL for matching: lowercase, strip trailing slash, remove common query params."""
+        """Normalize URL for matching: lowercase, strip scheme/www, drop params/fragments, strip trailing slash."""
         if not url:
             return ""
         url = url.strip().lower()
@@ -45,19 +45,42 @@ class RankingRunner:
             url = "https://" + url
         try:
             parsed = urlparse(url)
-            # Rebuild without fragment and without utm_* params
-            path = parsed.path.rstrip("/") or "/"
-            return f"{parsed.netloc}{path}"
+            netloc = parsed.netloc or ""
+            if netloc.startswith("www."):
+                netloc = netloc[4:]
+            path = parsed.path or "/"
+            if path != "/":
+                path = path.rstrip("/")
+            return f"{netloc}{path}"
         except Exception:
-            return url.strip().lower()
+            return url.strip().lower().lstrip("http://").lstrip("https://").lstrip("www.").rstrip("/")
 
     def _url_matches(self, target_normalized: str, citation_url: str) -> bool:
-        """Check if citation URL matches target (domain + path)."""
-        if not citation_url:
+        """Check if citation URL matches target using structured domain + path comparison."""
+        if not target_normalized or not citation_url:
             return False
         citation_normalized = self._normalize_url(citation_url)
-        # Direct match or target is prefix of citation (e.g. target=example.com, citation=example.com/page)
-        return target_normalized in citation_normalized or citation_normalized in target_normalized
+        if not citation_normalized:
+            return False
+
+        def split_domain_path(value: str) -> (str, str):
+            parts = value.split("/", 1)
+            domain = parts[0]
+            path = "/" + parts[1] if len(parts) > 1 and parts[1] else "/"
+            return domain, path
+
+        t_domain, t_path = split_domain_path(target_normalized)
+        c_domain, c_path = split_domain_path(citation_normalized)
+
+        if not t_domain or not c_domain:
+            return False
+        if t_domain != c_domain:
+            return False
+
+        if t_path == "/":
+            return True
+
+        return c_path.startswith(t_path)
 
     def _extract_domain(self, url: str) -> str:
         """Extract domain from URL for diversity/credibility."""
@@ -218,7 +241,33 @@ class RankingRunner:
         
         return round(sum(scores) / len(scores), 1) if scores else 0.0
 
-    # ... (existing methods)
+    def _normalize_brand(self, brand: str) -> Dict[str, str]:
+        if not brand:
+            return {"full": "", "short": ""}
+        b = brand.strip().lower()
+        b = re.sub(r'[^\w\s]', ' ', b)
+        b = re.sub(r'\s+', ' ', b).strip()
+        full = b
+        parts = b.split(" ")
+        short = parts[0] if parts else ""
+        return {"full": full, "short": short}
+
+    def _detect_brand_text_mention(self, brand: str, text: str) -> bool:
+        if not brand or not text:
+            return False
+        norm = self._normalize_brand(brand)
+        full = norm["full"]
+        short = norm["short"]
+        if not full and not short:
+            return False
+        text_lower = text.lower()
+        text_clean = re.sub(r'[^\w\s]', ' ', text_lower)
+        text_clean = re.sub(r'\s+', ' ', text_clean).strip()
+        if full and full in text_clean:
+            return True
+        if short and short in text_clean:
+            return True
+        return False
 
     async def analyze_ranking(
         self,
@@ -284,6 +333,7 @@ class RankingRunner:
         all_citation_contexts = []
         errors = []
         batch_accuracy_items = []
+        batch_indices = []
         
         # Ensure brand is set for consistency check
         # If we entered the block above, brand is set. If prompts were passed, it might not be.
@@ -362,129 +412,209 @@ class RankingRunner:
         
         # Process results
         for res in results:
-             if isinstance(res, Exception):
-                 logger.error(f"Parallel fetch failed: {res}")
-                 continue
-             
-             platform, prompt, resp = res
-             
-             if not resp.success:
-                 err_msg = f"{platform}: {resp.error}"
-                 errors.append(err_msg)
-                 logger.error(err_msg)
-                 # Mark valid row null
-                 row = next((r for r in model_wise_rows if r["prompt"] == prompt), None)
-                 if row: row[platform] = None
-                 continue
-             
-             data = resp.data
-             try:
-                 logger.info(f"[{platform}] Response for '{prompt[:20]}...': {json.dumps(data, indent=2)[:2000]}") 
-             except:
-                 pass
+            if isinstance(res, Exception):
+                logger.error(f"Parallel fetch failed: {res}")
+                continue
 
-             tasks_list = data.get("tasks", [])
-             
-             # Should strictly be 1 task since we sent 1
-             if not tasks_list:
-                 logger.warning(f"[{platform}] No tasks returned for prompt '{prompt[:10]}...'")
-                 continue
+            platform, prompt, resp = res
 
-             task = tasks_list[0]
-             
-             # Extract annotations and text
-             annotations = []
-             ai_response_text = ""
-             
-             res_results = task.get("result")
-             if not res_results:
-                 status_code = task.get("status_code")
-                 status_msg = task.get("status_message")
-                 err_msg = f"API Error [{platform}]: {status_code} - {status_msg}"
-                 logger.warning(err_msg)
-                 errors.append(err_msg)
-                 continue
-             
-             for res_item in res_results:
-                 for item in res_item.get("items", []):
-                     # Extract full text for accuracy check
+            if not resp.success:
+                err_msg = f"{platform}: {resp.error}"
+                errors.append(err_msg)
+                logger.error(err_msg)
+                row = next((r for r in model_wise_rows if r["prompt"] == prompt), None)
+                if row:
+                    row[platform] = None
+                continue
+
+            data = resp.data
+            try:
+                logger.info(f"[{platform}] Response for '{prompt[:20]}...': {json.dumps(data, indent=2)[:2000]}")
+            except Exception:
+                pass
+
+            tasks_list = data.get("tasks", [])
+
+            if not tasks_list:
+                logger.warning(f"[{platform}] No tasks returned for prompt '{prompt[:10]}...'")
+                continue
+
+            task = tasks_list[0]
+
+            annotations = []
+            ai_response_text = ""
+
+            res_results = task.get("result")
+            if not res_results:
+                status_code = task.get("status_code")
+                status_msg = task.get("status_message")
+                err_msg = f"API Error [{platform}]: {status_code} - {status_msg}"
+                logger.warning(err_msg)
+                errors.append(err_msg)
+                continue
+
+            for res_item in res_results:
+                for item in res_item.get("items", []):
                     if not ai_response_text:
                         ai_response_text = item.get("text") or item.get("description") or ""
-                        # Fallback: try to construct from sections if main text is empty
                         if not ai_response_text and item.get("sections"):
                             ai_response_text = "\n".join([s.get("text", "") for s in item.get("sections") if s.get("text")])
 
                     for section in item.get("sections", []):
-                         anns = section.get("annotations", [])
-                         if anns:
-                             annotations.extend(anns)
-             
-             logger.info(f"[{platform}] Found {len(annotations)} annotations total for prompt '{prompt[:20]}...'")
-             if annotations:
-                  matches = [a for a in annotations if a.get("url") and self._url_matches(target_normalized, a.get("url"))]
-                  logger.info(f"[{platform}] Matched {len(matches)} citations for '{target_normalized}'")
+                        anns = section.get("annotations", [])
+                        if anns:
+                            annotations.extend(anns)
 
-             position, percentile = self._find_position_and_percentile(annotations, target_normalized)
-             
-             citations_count = len(annotations)
-             diversity = self._compute_source_diversity(annotations)
-             credibility = self._compute_credibility_score(annotations)
-             
-             # Prepare for Batch Accuracy Score
-             # We use the current index as the ID
-             current_idx = len(ranking_position_per_prompt)
-             if ai_response_text:
-                 batch_accuracy_items.append({
-                     "id": current_idx,
-                     "text": ai_response_text
-                 })
-             
-             # Contexts
-             task_wrapper = {"tasks": [task]}
-             contexts = self._extract_citation_contexts(task_wrapper, target_normalized)
-             all_citation_contexts.extend(contexts)
-             
-             quality_score = self._compute_content_quality_score(contexts, prompt)
-             content_quality_by_prompt_model[prompt][platform] = quality_score
-             
-             # Update aggregated structures
-             ranking_position_per_prompt.append({
-                "prompt": prompt,
-                "model": platform,
-                "position": position,
-                "total_cited": citations_count,
-                "source_diversity": diversity,
-                "credibility_score": credibility,
-                "percentile": percentile,
-                "content_quality_score": quality_score,
-                "accuracy_score": 0.0, # Will be updated via batch
-                "sentiment_score": 0.0 # Will be updated via batch
-             })
-             
-             percentile_by_prompt[prompt][platform] = percentile
-             
-             row = next((r for r in model_wise_rows if r["prompt"] == prompt), None)
-             if row:
-                 row[platform] = position
+            logger.info(f"[{platform}] Found {len(annotations)} annotations total for prompt '{prompt[:20]}...'")
+            matches = [a for a in annotations if a.get("url") and self._url_matches(target_normalized, a.get("url"))]
+            citation_matches = len(matches)
+            brand_text_mentioned = self._detect_brand_text_mention(brand, ai_response_text)
+            citation_matched = citation_matches > 0
+            logger.info(f"[{platform}] citation_matches={citation_matches} | text_mention={brand_text_mentioned}")
 
-        # 3. Batch Accuracy & Sentiment Calculation
+            position, percentile = self._find_position_and_percentile(annotations, target_normalized)
+
+            total_citations = len(annotations)
+            diversity = self._compute_source_diversity(annotations)
+            credibility = self._compute_credibility_score(annotations)
+
+            if citation_matched:
+                mention_status = "Cited"
+            elif brand_text_mentioned:
+                mention_status = "Mentioned (No Link)"
+            else:
+                mention_status = "Not Mentioned"
+
+            current_idx = len(ranking_position_per_prompt)
+            if ai_response_text:
+                batch_accuracy_items.append(
+                    {
+                        "id": current_idx,
+                        "text": ai_response_text,
+                    }
+                )
+                batch_indices.append(current_idx)
+
+            task_wrapper = {"tasks": [task]}
+            contexts = self._extract_citation_contexts(task_wrapper, target_normalized)
+            all_citation_contexts.extend(contexts)
+
+            quality_score = self._compute_content_quality_score(contexts, prompt)
+            content_quality_by_prompt_model[prompt][platform] = quality_score
+
+            ranking_position_per_prompt.append(
+                {
+                    "prompt": prompt,
+                    "model": platform,
+                    "position": position,
+                    "total_cited": total_citations,
+                    "citation_count": citation_matches,
+                    "total_citations": total_citations,
+                    "source_diversity": diversity,
+                    "credibility_score": credibility,
+                    "percentile": percentile,
+                    "content_quality_score": quality_score,
+                    "accuracy_score": 0.0,
+                    "sentiment_score": 0.0,
+                    "brand_text_mentioned": brand_text_mentioned,
+                    "citation_matched": citation_matched,
+                    "mention_status": mention_status,
+                }
+            )
+
+            percentile_by_prompt[prompt][platform] = percentile
+
+            row = next((r for r in model_wise_rows if r["prompt"] == prompt), None)
+            if row:
+                row[platform] = position
+
         if batch_accuracy_items:
-            logger.info(f"Calculating accuracy & sentiment scores for {len(batch_accuracy_items)} responses in batch...")
+            logger.info(
+                "Starting batch accuracy/sentiment calculation",
+                extra={
+                    "batch_items": len(batch_accuracy_items),
+                    "ranking_rows": len(ranking_position_per_prompt),
+                    "ids": [str(i.get("id")) for i in batch_accuracy_items],
+                },
+            )
             batch_scores = await self.consistency_module.calculate_batch_accuracy_scores(
                 aggregated_text,
                 batch_accuracy_items,
-                brand
+                brand,
             )
-            
-            # Update scores in the main list
+
+            logger.info(
+                "Received batch accuracy/sentiment scores",
+                extra={
+                    "score_items": len(batch_scores),
+                    "score_keys": list(batch_scores.keys()),
+                },
+            )
+
+            applied_indices = set()
+
             for item_id_str, scores in batch_scores.items():
                 try:
                     idx = int(item_id_str)
-                    if 0 <= idx < len(ranking_position_per_prompt):
-                        ranking_position_per_prompt[idx]["accuracy_score"] = scores.get("accuracy", 0.0)
-                        ranking_position_per_prompt[idx]["sentiment_score"] = scores.get("sentiment", 0.0)
                 except ValueError:
-                    pass
+                    logger.warning(
+                        "Batch accuracy key is not an int index",
+                        extra={"key": item_id_str, "scores": scores},
+                    )
+                    continue
+
+                if 0 <= idx < len(ranking_position_per_prompt):
+                    acc_val = scores.get("accuracy", 0.0)
+                    sent_val = scores.get("sentiment", 0.0)
+                    ranking_position_per_prompt[idx]["accuracy_score"] = acc_val
+                    ranking_position_per_prompt[idx]["sentiment_score"] = sent_val
+                    applied_indices.add(idx)
+                    row = ranking_position_per_prompt[idx]
+                    logger.info(
+                        "Updated ranking row with batch scores",
+                        extra={
+                            "index": idx,
+                            "prompt": row.get("prompt"),
+                            "model": row.get("model"),
+                            "accuracy_score": acc_val,
+                            "sentiment_score": sent_val,
+                        },
+                    )
+                else:
+                    logger.warning(
+                        "Batch accuracy index out of range",
+                        extra={
+                            "index": idx,
+                            "rows": len(ranking_position_per_prompt),
+                            "scores": scores,
+                        },
+                    )
+
+            if not applied_indices and batch_indices and len(batch_scores) == len(batch_indices):
+                logger.info(
+                    "Falling back to sequential batch accuracy mapping",
+                    extra={
+                        "batch_indices": batch_indices,
+                        "score_items": len(batch_scores),
+                    },
+                )
+                for idx, scores in zip(batch_indices, batch_scores.values()):
+                    if 0 <= idx < len(ranking_position_per_prompt):
+                        acc_val = scores.get("accuracy", 0.0)
+                        sent_val = scores.get("sentiment", 0.0)
+                        ranking_position_per_prompt[idx]["accuracy_score"] = acc_val
+                        ranking_position_per_prompt[idx]["sentiment_score"] = sent_val
+                        row = ranking_position_per_prompt[idx]
+                        logger.info(
+                            "Sequentially updated ranking row with batch scores",
+                            extra={
+                                "index": idx,
+                                "prompt": row.get("prompt"),
+                                "model": row.get("model"),
+                                "accuracy_score": acc_val,
+                                "sentiment_score": sent_val,
+                            },
+                        )
 
         # 4. Entity Coverage Analysis (using aggregated contexts)
         logger.info(f"Analyzing Entity Coverage on {len(all_citation_contexts)} contexts...")
@@ -509,17 +639,28 @@ class RankingRunner:
                 if s > 0: quality_scores.append(s)
         avg_quality = round(sum(quality_scores)/len(quality_scores), 1) if quality_scores else 0.0
 
-        # Avg Accuracy & Sentiment (across ALL prompts)
         total_acc = 0.0
         total_sent = 0.0
         count_items = len(ranking_position_per_prompt)
-        
+
         for row in ranking_position_per_prompt:
             total_acc += row.get("accuracy_score", 0.0)
             total_sent += row.get("sentiment_score", 0.0)
-            
+
         avg_accuracy = round(total_acc / count_items, 1) if count_items > 0 else 0.0
         avg_sentiment = round(total_sent / count_items, 2) if count_items > 0 else 0.0
+        non_zero_acc = len([r for r in ranking_position_per_prompt if r.get("accuracy_score", 0.0) != 0.0])
+        non_zero_sent = len([r for r in ranking_position_per_prompt if r.get("sentiment_score", 0.0) != 0.0])
+        logger.info(
+            "Ranking accuracy/sentiment summary",
+            extra={
+                "items": count_items,
+                "non_zero_accuracy": non_zero_acc,
+                "non_zero_sentiment": non_zero_sent,
+                "avg_accuracy": avg_accuracy,
+                "avg_sentiment": avg_sentiment,
+            },
+        )
         
         result_payload = {
             "ranking_position_per_prompt": ranking_position_per_prompt,

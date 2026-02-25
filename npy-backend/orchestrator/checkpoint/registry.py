@@ -52,6 +52,7 @@ class TaskRegistry:
         "module_e_visibility_batch_openai": ["openai"],
         "module_e_visibility_batch_gemini": ["gemini"],
         "module_e_visibility_batch_claude": ["claude"],
+        "module_e_accuracy_batch": ["openai"],
         "module_e_competitor_landscape": ["dataforseo"],
         "module_e_competitor_discovery": ["dataforseo"],
         "module_e_competitor_mentions_trend": ["dataforseo"],
