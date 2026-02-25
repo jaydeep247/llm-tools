@@ -1,15 +1,17 @@
 'use client'
 
-import { useMemo } from 'react'
-import { useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
+import { useMemo, useState, useEffect } from 'react'
+import { useGetModuleEResultQuery, useRunRankingAnalysisMutation } from '@/store/api/module_E/moduleEApi'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Loader2,
   LineChart,
   TrendingUp,
   ArrowUpRight,
   ArrowDownRight,
+  Play,
 } from 'lucide-react'
 
 interface TrendsByModelSectionProps {
@@ -45,9 +47,13 @@ const MODEL_LABELS: Record<string, string> = {
 export default function TrendsByModelSection({
   jobId,
 }: TrendsByModelSectionProps) {
-  const { data, isLoading } = useGetModuleEResultQuery(jobId ?? '', {
+  const [isPolling, setIsPolling] = useState(false)
+  const [pollCount, setPollCount] = useState(0)
+  const [runRankingAnalysis, { isLoading: isTriggering }] = useRunRankingAnalysisMutation()
+
+  const { data, isLoading: isResultLoading } = useGetModuleEResultQuery(jobId ?? '', {
     skip: !jobId,
-    pollingInterval: 0,
+    pollingInterval: isPolling ? 3000 : 0,
     refetchOnMountOrArgChange: true,
   })
 
@@ -195,6 +201,42 @@ export default function TrendsByModelSection({
     return withData.sort((a, b) => (b.sov ?? 0) - (a.sov ?? 0))
   }, [models, rankingRows, aiSov])
 
+  const hasModelData = modelStats.length > 0
+
+  useEffect(() => {
+    if (isPolling && hasModelData) {
+      setIsPolling(false)
+      setPollCount(0)
+    }
+  }, [isPolling, hasModelData])
+
+  useEffect(() => {
+    if (isPolling && pollCount > 60) {
+      setIsPolling(false)
+      setPollCount(0)
+    }
+  }, [isPolling, pollCount])
+
+  useEffect(() => {
+    if (isPolling) {
+      const id = setInterval(() => setPollCount((c) => c + 1), 3000)
+      return () => clearInterval(id)
+    }
+  }, [isPolling])
+
+  const isRunning = isTriggering || isPolling
+
+  const handleRunAnalysis = async () => {
+    if (!jobId) return
+    try {
+      await runRankingAnalysis(jobId).unwrap()
+      setIsPolling(true)
+      setPollCount(0)
+    } catch (e) {
+      console.error('Ranking analysis failed', e)
+    }
+  }
+
   if (!jobId) {
     return (
       <div className="p-6 border border-dashed border-border rounded-lg bg-muted/40">
@@ -205,7 +247,7 @@ export default function TrendsByModelSection({
     )
   }
 
-  if (isLoading) {
+  if (isResultLoading) {
     return (
       <div className="flex items-center justify-center p-10">
         <div className="flex items-center gap-3 text-muted-foreground">
@@ -218,10 +260,33 @@ export default function TrendsByModelSection({
 
   if (!modelStats.length) {
     return (
-      <div className="p-6 border border-dashed border-border rounded-lg bg-muted/40">
-        <p className="text-sm text-muted-foreground">
-          No ranking data available yet.
-        </p>
+      <div className="p-8 border border-dashed border-border rounded-xl bg-muted/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <h3 className="text-base font-semibold text-foreground">
+            Trends by Model
+          </h3>
+          <p className="text-sm text-muted-foreground mt-1 max-w-xl">
+            Run AI citation analysis to unlock model-level trends for citations, mentions, and ranking coverage across ChatGPT, Gemini, and Claude.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          onClick={handleRunAnalysis}
+          disabled={!jobId || isRunning}
+          className="inline-flex items-center gap-2"
+        >
+          {isRunning ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Analyzing…
+            </>
+          ) : (
+            <>
+              <Play className="w-4 h-4" />
+              Run Analysis
+            </>
+          )}
+        </Button>
       </div>
     )
   }
