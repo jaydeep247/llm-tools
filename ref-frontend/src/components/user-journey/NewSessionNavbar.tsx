@@ -1,8 +1,11 @@
 'use client'
 
+'use client'
+
 import { ChevronRight, Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
+import { sessionSections } from './NewSessionSidebar'
 
 interface SessionNavbarProps {
   projectId: string
@@ -12,22 +15,16 @@ interface SessionNavbarProps {
   onMenuToggle?: () => void
 }
 
-const sectionLabels: Record<string, { parent?: string; label: string }> = {
-  'executive-snapshot': { parent: 'Overview', label: 'Executive Snapshot' },
-  'wins-losses': { parent: 'Overview', label: 'Wins & Losses' },
-  'technical-audit': { parent: 'Audit Center', label: 'Technical Audit' },
-  'content-audit': { parent: 'Audit Center', label: 'Content Audit' },
-  'url-explorer': { parent: 'Exploration', label: 'URL Explorer' },
-  'topic-clusters': { parent: 'Exploration', label: 'Topic Clusters' },
-  'llm-files': { parent: 'Structured Data & LLM Files', label: 'LLM Files' },
-  'schema-audit': { parent: 'Structured Data & LLM Files', label: 'Schema Audit' },
-  'ai-visibility': { parent: 'AI SEO / AEO Visibility', label: 'AI Visibility Score' },
-  'entity-coverage': { parent: 'AI SEO / AEO Visibility', label: 'Entity Coverage' },
-  'keyword-intelligence': { parent: 'Keyword → Prompt Intelligence', label: 'Keyword Intelligence' },
-  'prompt-difficulty': { parent: 'Keyword → Prompt Intelligence', label: 'Prompt Difficulty' },
-  'prompt-tracking': { parent: 'Prompt Tracking & Testing', label: 'Prompt Tracking' },
-  'multi-model-testing': { parent: 'Prompt Tracking & Testing', label: 'Multi-Model Testing' },
-}
+const sectionLabels: Record<string, { parent: string; label: string }> = (() => {
+  const map: Record<string, { parent: string; label: string }> = {}
+  for (const group of sessionSections) {
+    if (!group.children) continue
+    for (const child of group.children) {
+      map[child.id] = { parent: group.label, label: child.label }
+    }
+  }
+  return map
+})()
 
 export function SessionNavbar({ projectId, projectName, sessionId, activeSection, onMenuToggle }: SessionNavbarProps) {
   const current = activeSection ? sectionLabels[activeSection] : undefined
@@ -63,14 +60,14 @@ export function SessionNavbar({ projectId, projectName, sessionId, activeSection
           
           <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 text-white/50" />
           
-          <span className="text-white font-medium truncate">
+          <span className="text-white/60 font-medium truncate">
             Session #{sessionId}
           </span>
           
           {current?.parent && (
             <>
               <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 text-white/50" />
-              <span className="text-white/60 truncate hidden sm:inline-block">
+              <span className="text-white/80 font-medium truncate hidden sm:inline-block">
                 {current.parent}
               </span>
             </>
@@ -79,7 +76,7 @@ export function SessionNavbar({ projectId, projectName, sessionId, activeSection
           {current && (
             <>
               <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 text-white/50" />
-              <span className="text-white/60 truncate">
+              <span className="text-white font-semibold truncate">
                 {current.label}
               </span>
             </>
