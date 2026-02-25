@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
@@ -37,7 +37,7 @@ interface SessionSidebarProps {
   onClose?: () => void
 }
 
-const sections = [
+export const sessionSections = [
   {
     id: 'overview',
     label: 'Overview',
@@ -46,7 +46,7 @@ const sections = [
       { id: 'executive-snapshot', label: 'Executive Snapshot' },
       { id: 'wins-losses', label: 'Wins & Losses' },
       {id: 'priority-alerts', label: 'Priority Alerts'},
-      { id: 'opportunity-feed', label: 'Opportunity Feed' }
+      { id: 'last-days', label: 'Last 7/30 days' }
     ]
   },
   {
@@ -136,7 +136,21 @@ const sections = [
 ]
 
 export function SessionSidebar({ activeSection = 'executive-snapshot', onSectionChange, isOpen = true, onClose }: SessionSidebarProps) {
-  const [hoveredSection, setHoveredSection] = useState<string | null>(null)
+  const [openSection, setOpenSection] = useState<string | null>(() => {
+    const found = sessionSections.find(section =>
+      section.children?.some(child => child.id === activeSection)
+    )
+    return found ? found.id : sessionSections[0]?.id ?? null
+  })
+
+  useEffect(() => {
+    const found = sessionSections.find(section =>
+      section.children?.some(child => child.id === activeSection)
+    )
+    if (found) {
+      setOpenSection(found.id)
+    }
+  }, [activeSection])
   return (
     <>
       {/* Overlay for mobile */}
@@ -179,21 +193,20 @@ export function SessionSidebar({ activeSection = 'executive-snapshot', onSection
           </div>
 
           <nav className="flex-1 px-3 sm:px-4 py-4 sm:py-5 md:py-6 space-y-1 overflow-y-auto">
-            {sections.map(section => {
+            {sessionSections.map(section => {
               const Icon = section.icon
               const hasChildren = section.children && section.children.length > 0
               const isSectionActive = section.children?.some(child => child.id === activeSection)
-              const isExpanded = hoveredSection === section.id || isSectionActive
+              const isExpanded = openSection === section.id || isSectionActive
 
               return (
-                <div
-                  key={section.id}
-                  onMouseEnter={() => setHoveredSection(section.id)}
-                  onMouseLeave={() => setHoveredSection(current => (current === section.id ? null : current))}
-                >
+                <div key={section.id}>
                   <button
                     onClick={() => {
                       const firstChild = section.children && section.children[0]
+                      setOpenSection(current =>
+                        current === section.id ? null : section.id
+                      )
                       if (firstChild) {
                         onSectionChange?.(firstChild.id)
                         onClose?.()

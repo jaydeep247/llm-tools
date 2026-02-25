@@ -4,4 +4,5 @@ export { default as ContentConsistencyEntityCoverage } from './ContentConsistenc
 export { default as BrandAnalysisSection } from './BrandAnalysisSection'
 export { default as SentimentTrackingSection } from './SentimentTrackingSection'
 export { default as CompetitorLandscapeSection } from './CompetitorLandscapeSection'
-export { default as CompetitorMentionsSection } from './CompetitorMentionsSection'
+export { default as CompetitorMentionsSection, ShareOfVoiceSection } from './CompetitorMentionsSection'
+export { default as TrendsByModelSection } from './TrendsByModelSection'

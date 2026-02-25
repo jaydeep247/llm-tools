@@ -10,7 +10,7 @@ import { SessionLayout } from '@/components/layout/SessionLayout'
 import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable } from '@/components/module_A'
 import { AIIntelligenceModule, ContentMetricsModule, AIVisibilityScorecards, EntityGapAnalysis, AIAnswerPreview, ImprovementActions, ModelComparison } from '@/components/module_C'
 import { SiteStructure } from '@/components/module_D/site-structure'
-import { AICitationRanking, ContentConsistencyEntityCoverage, BrandAnalysisSection, SentimentTrackingSection, CompetitorMentionsSection, SentimentTracking } from '@/components/module_E'
+import { AICitationRanking, ContentConsistencyEntityCoverage, BrandAnalysisSection, SentimentTrackingSection, CompetitorMentionsSection, SentimentTracking, ShareOfVoiceSection, TrendsByModelSection } from '@/components/module_E'
 import { useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
 // import { useGetDataListQuery, useCheckLinksMutation, useGetLinkStatsQuery, useLazyGetPageLinksQuery } from '@/store/api/module_A/dataApi'
 import { useGetProjectQuery } from '@/store/api/projectApi'
@@ -1054,41 +1054,67 @@ export default function SessionDetailPage() {
         {/* Show Module E on module-e tab */}
         {activeSection === 'module-e' && (
           <div className="space-y-6">
-            {/* 1. AI Citation Ranking */}
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
               <AICitationRanking jobId={jobId} url={session?.startUrl || ''} />
             </div>
 
-            {/* 2. Content Consistency & Entity Coverage */}
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
               <ContentConsistencyEntityCoverage jobId={jobId} />
             </div>
 
-            {/* 3. Brand Analysis */}
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
               <BrandAnalysisSection jobId={jobId} />
             </div>
 
-            {/* 4. AI Sentiment & Visibility */}
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
               <SentimentTrackingSection jobId={jobId} />
             </div>
 
-            {/* 5. Competitor Mentions / Share of Voice */}
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
               <CompetitorMentionsSection jobId={jobId} />
             </div>
           </div>
         )}
 
-        {/* Show Tracked Prompts (consistency, entity coverage, accuracy) */}
+        {activeSection === 'prompt-difficulty' && (
+          <div className="space-y-6">
+            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+              <BrandAnalysisSection jobId={jobId} />
+            </div>
+            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+              <CompetitorMentionsSection jobId={jobId} />
+            </div>
+          </div>
+        )}
+
+        {activeSection === 'share-of-voice' && (
+          <div className="space-y-6">
+            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+              <ShareOfVoiceSection jobId={jobId} />
+            </div>
+          </div>
+        )}
+
+        {activeSection === 'trends-by-model' && (
+          <div className="space-y-6">
+            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+              <TrendsByModelSection jobId={jobId} />
+            </div>
+          </div>
+        )}
+
         {activeSection === 'keyword-intelligence' && (
           <div className="space-y-6">
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
-              <AICitationRanking jobId={jobId} url={session?.startUrl || ''} />
-            </div>
-            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
               <ContentConsistencyEntityCoverage jobId={jobId} />
+            </div>
+          </div>
+        )}
+
+        {activeSection === 'prompt-opportunities' && (
+          <div className="space-y-6">
+            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+              <AICitationRanking jobId={jobId} url={session?.startUrl || ''} />
             </div>
           </div>
         )}

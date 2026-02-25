@@ -426,7 +426,27 @@ Return ONLY a JSON object mapping IDs to their scores:
   "item_id_2": {{ "accuracy": 0, "sentiment": -0.2 }}
 }}
 """
-        logger.info(f"Batch accuracy/sentiment request for {len(items)} items. Has Ref: {has_ref}, Brand: {brand_name}")
+        try:
+            preview_items = [
+                {
+                    "id": str(i.get("id")),
+                    "text_sample": (i.get("text") or "")[:160],
+                    "text_length": len(i.get("text") or ""),
+                }
+                for i in items
+            ]
+        except Exception:
+            preview_items = []
+
+        logger.info(
+            "Batch accuracy/sentiment request",
+            extra={
+                "items": len(items),
+                "has_ref": has_ref,
+                "brand": brand_name,
+                "preview_items": preview_items,
+            },
+        )
 
         resp = await execute_task(
             task_name="module_e_accuracy_batch",
@@ -440,21 +460,101 @@ Return ONLY a JSON object mapping IDs to their scores:
         )
 
         if not resp.success:
-            logger.warning("Batch accuracy/sentiment calculation failed: %s", resp.error)
+            logger.warning(
+                "Batch accuracy/sentiment calculation failed",
+                extra={
+                    "error": resp.error,
+                    "items": len(items),
+                    "has_ref": has_ref,
+                    "brand": brand_name,
+                },
+            )
             return {}
 
         try:
+            logger.debug(
+                "Raw batch accuracy/sentiment response",
+                extra={
+                    "raw": resp.data,
+                    "items": len(items),
+                    "has_ref": has_ref,
+                    "brand": brand_name,
+                },
+            )
+        except Exception:
+            pass
+
+        try:
             data = _safe_parse_json(resp.data)
+            if not isinstance(data, dict):
+                logger.warning(
+                    "Batch accuracy/sentiment JSON was not a dict",
+                    extra={
+                        "type": type(data).__name__,
+                        "items": len(items),
+                        "has_ref": has_ref,
+                        "brand": brand_name,
+                    },
+                )
+                return {}
             result = {}
             for k, v in data.items():
                 if isinstance(v, dict):
+                    acc_raw = v.get("accuracy", 0.0)
+                    sent_raw = v.get("sentiment", 0.0)
+                    acc_val = float(acc_raw) if acc_raw is not None else 0.0
+                    sent_val = float(sent_raw) if sent_raw is not None else 0.0
                     result[str(k)] = {
-                        "accuracy": float(v.get("accuracy", 0.0)),
-                        "sentiment": float(v.get("sentiment", 0.0))
+                        "accuracy": acc_val,
+                        "sentiment": sent_val,
                     }
-                # Handle flattened structure if LLM returns "item_id_1": { ... } directly
-                # Or if keys are just "0", "1"
+                else:
+                    logger.warning(
+                        "Batch accuracy entry is not a dict",
+                        extra={
+                            "key": k,
+                            "value_type": type(v).__name__,
+                        },
+                    )
+            if not result:
+                logger.info(
+                    "Batch accuracy/sentiment returned empty result after parsing",
+                    extra={
+                        "items": len(items),
+                        "has_ref": has_ref,
+                        "brand": brand_name,
+                    },
+                )
+                return {}
+            acc_values = [scores["accuracy"] for scores in result.values()]
+            sent_values = [scores["sentiment"] for scores in result.values()]
+            non_zero_acc = len([v for v in acc_values if v > 0])
+            non_zero_sent = len([v for v in sent_values if v != 0.0])
+            avg_acc = sum(acc_values) / len(acc_values) if acc_values else 0.0
+            avg_sent = sum(sent_values) / len(sent_values) if sent_values else 0.0
+            logger.info(
+                "Batch accuracy/sentiment summary",
+                extra={
+                    "items": len(items),
+                    "result_items": len(result),
+                    "has_ref": has_ref,
+                    "brand": brand_name,
+                    "avg_accuracy": avg_acc,
+                    "avg_sentiment": avg_sent,
+                    "non_zero_accuracy": non_zero_acc,
+                    "non_zero_sentiment": non_zero_sent,
+                    "keys": list(result.keys()),
+                },
+            )
             return result
         except Exception as exc:
-            logger.warning("Failed to parse batch accuracy/sentiment results: %s", exc)
+            logger.warning(
+                "Failed to parse batch accuracy/sentiment results",
+                extra={
+                    "error": str(exc),
+                    "items": len(items),
+                    "has_ref": has_ref,
+                    "brand": brand_name,
+                },
+            )
             return {}

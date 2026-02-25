@@ -266,10 +266,12 @@ Rules:
         all_domains = [domain] + competitors
         logger.info(f"Analyzing mentions for: {all_domains}")
 
+        raw_dataforseo: Dict[str, Any] = {}
+
         async def fetch_mentions(d: str) -> tuple[str, Dict]:
             payload = [{
                 "keyword": d,
-                "date_from": date_from,
+                "date_from": "2021-01-01",
                 "date_group": "month"
             }]
 
@@ -285,6 +287,7 @@ Rules:
                 provider="dataforseo",
                 options={"skip_cache": True}  # FORCE FRESH FETCH
             )
+            print(f"DEBUG: Full response from data for seo for {d}: {resp}")
 
             if not resp.success:
                 logger.warning(f"Mentions analysis failed for {d}: {resp.error}")
@@ -294,9 +297,12 @@ Rules:
             # Debug Log
             logger.info(f"DataForSEO Response for {d} (Success={resp.success})")
             print(f"DEBUG: DataForSEO Response for {d} (Success={resp.success})")
+            logger.info(f"DataForSEO Raw Data for {d}: {resp.data}")
+            print(f"DEBUG: DataForSEO Raw Data for {d}: {resp.data}")
             
             try:
                 tasks = resp.data.get("tasks", [])
+                raw_dataforseo[d] = resp.data
                 if not tasks:
                     raise ValueError("No tasks in response")
 
@@ -341,7 +347,8 @@ Rules:
 
         return {
             "overall_sov": brand_sov,
-            "data": [{"name": d, **results[d]} for d in all_domains]
+            "data": [{"name": d, **results[d]} for d in all_domains],
+            "raw_dataforseo": raw_dataforseo,
         }
 
     # ─── AI Share of Voice ────────────────────────────────────────────────────
@@ -358,38 +365,30 @@ Rules:
         Measures AI Share of Voice: how often the brand appears in AI responses
         to generic industry questions (brand NOT mentioned in the prompt).
 
-        SOV formula per model:
-          brand_score   = 1 if brand mentioned, else 0
-          comp_scores   = count of competitors mentioned (each counts as 1)
-          total_score   = brand_score + comp_scores  (min 1 to avoid div/0)
-          model_sov     = (brand_score / total_score) × 100
-
-        Final SOV = average across all successful models.
+        Uses frequency-based scoring with safe regex matching and a simple
+        position-based weight bonus.
         """
-        # Generic discovery questions — brand NOT mentioned
         questions = [
             f"What are the top companies in the {industry} sector?",
             f"Which {service_type} providers would you recommend?",
             f"Who are the leaders and innovators in {industry}?",
         ]
 
-        # Build search terms for the brand: check domain AND brand name
         brand_terms = [domain.lower(), brand_name.lower()]
-        # Also check domain without TLD (e.g. "yesquesttech" from "yesquesttech.com")
         domain_root = domain.split(".")[0].lower()
         if domain_root not in brand_terms:
             brand_terms.append(domain_root)
+        brand_terms = list(dict.fromkeys(brand_terms))
 
-        # Competitor search terms (domain root + full domain)
         comp_terms: Dict[str, List[str]] = {}
         for c in competitors:
             c_root = c.split(".")[0].lower()
             comp_terms[c] = list({c.lower(), c_root})
 
         models = ["openai", "gemini", "claude"]
-        model_results = {}
+        model_results: Dict[str, Any] = {}
 
-        async def query_model(model: str) -> Optional[Dict]:
+        async def query_model(model: str) -> Optional[Dict[str, Any]]:
             batch_prompt = (
                 f"Answer these questions about the {industry} industry. "
                 f"Be specific with real company names.\n\n"
@@ -405,7 +404,7 @@ Rules:
                 provider=model,
                 options={
                     "temperature": 0.4,
-                    "skip_cache": True  # FORCE FRESH FETCH
+                    "skip_cache": True
                 }
             )
 
@@ -414,33 +413,54 @@ Rules:
                 print(f"DEBUG: AI SOV [{model}] failed: {resp.error}")
                 return None
 
-            text = str(resp.data).lower()
+            text_raw = str(resp.data)
+            text = text_raw.lower()
             logger.info(f"AI SOV [{model}] raw response (first 400 chars): {text[:400]}")
             print(f"DEBUG: AI SOV [{model}] raw response (first 400 chars): {text[:400]}")
 
-            # Check if brand is mentioned (any of its terms)
-            brand_mentioned = any(term in text for term in brand_terms)
-            brand_score = 1 if brand_mentioned else 0
+            brand_mentions_count = 0
+            first_brand_position: Optional[int] = None
+            for term in brand_terms:
+                pattern = r"\b" + re.escape(term) + r"\b"
+                matches = list(re.finditer(pattern, text, flags=re.IGNORECASE))
+                if matches:
+                    brand_mentions_count += len(matches)
+                    first_pos = matches[0].start()
+                    if first_brand_position is None or first_pos < first_brand_position:
+                        first_brand_position = first_pos
 
-            # Count how many distinct competitors are mentioned
-            comp_score = sum(
-                1 for c, terms in comp_terms.items()
-                if any(term in text for term in terms)
-            )
+            competitor_mentions_count = 0
+            for _, terms in comp_terms.items():
+                for term in terms:
+                    pattern = r"\b" + re.escape(term) + r"\b"
+                    matches = re.findall(pattern, text, flags=re.IGNORECASE)
+                    competitor_mentions_count += len(matches)
 
-            total = brand_score + comp_score or 1
-            sov = round((brand_score / total) * 100, 1)
+            if first_brand_position is not None and len(text) > 0:
+                if first_brand_position < len(text) * 0.25:
+                    boosted = int(round(brand_mentions_count * 1.2))
+                    brand_mentions_count = boosted or 1
+
+            total_mentions = brand_mentions_count + competitor_mentions_count
+            if total_mentions == 0:
+                sov = 0.0
+            else:
+                sov = round((brand_mentions_count / total_mentions) * 100, 1)
 
             logger.info(
-                f"AI SOV [{model}]: brand_mentioned={brand_mentioned}, "
-                f"comp_mentions={comp_score}, SOV={sov}%"
+                f"AI SOV [{model}] counts -> "
+                f"Brand mentions: {brand_mentions_count}, "
+                f"Competitor mentions: {competitor_mentions_count}, "
+                f"Total mentions: {total_mentions}, "
+                f"Calculated SOV: {sov}%"
             )
 
             return {
                 "sov": sov,
-                "brand_mentioned": brand_mentioned,
-                "brand_mentions": brand_score,
-                "competitor_mentions": comp_score,
+                "brand_mentions": brand_mentions_count,
+                "competitor_mentions": competitor_mentions_count,
+                "total_mentions": total_mentions,
+                "first_brand_position": first_brand_position,
             }
 
         tasks = [query_model(m) for m in models]
