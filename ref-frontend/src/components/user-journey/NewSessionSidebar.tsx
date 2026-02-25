@@ -46,7 +46,7 @@ export const sessionSections = [
       { id: 'executive-snapshot', label: 'Executive Snapshot' },
       { id: 'wins-losses', label: 'Wins & Losses' },
       {id: 'priority-alerts', label: 'Priority Alerts'},
-      { id: 'opportunity-feed', label: 'Opportunity Feed' }
+      { id: 'last-days', label: 'Last 7/30 days' }
     ]
   },
   {
