@@ -35,7 +35,6 @@ export const useLiveJobEvents = (jobId: string | null) => {
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      console.log(`🔌 Connected to job stream: ${jobId}`);
       dispatch(setConnectionStatus(true));
       socket.emit('join-job', jobId);
     });
@@ -47,7 +46,6 @@ export const useLiveJobEvents = (jobId: string | null) => {
 
     // Handle live events
     const handleEvent = (event: JobEvent) => {
-      // console.log('⚡ Received live event:', event.eventType);
       
       switch (event.eventType) {
         case 'log':
@@ -74,12 +72,10 @@ export const useLiveJobEvents = (jobId: string | null) => {
 
     // Handle batched events
     socket.on('job:batch', (batchEvents: JobEvent[]) => {
-      console.log(`📦 Received batch of ${batchEvents.length} events`);
       batchEvents.forEach(handleEvent);
     });
 
     socket.on('disconnect', () => {
-      console.log('❌ Disconnected from job stream');
       dispatch(setConnectionStatus(false));
     });
 

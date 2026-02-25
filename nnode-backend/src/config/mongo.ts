@@ -19,7 +19,6 @@ export const connectToMongo = async (): Promise<Db> => {
   if (db) return db;
 
   try {
-    logger.info(`Attempting to connect to MongoDB URI: ${env.MONGO_URI}`);
     client = new MongoClient(env.MONGO_URI, {
       serverSelectionTimeoutMS: 5000,
       connectTimeoutMS: 10000,
@@ -48,6 +47,6 @@ export const closeMongoConnection = async (): Promise<void> => {
     await client.close();
     client = null;
     db = null;
-    console.log('🔌 MongoDB connection closed');
+    logger.info('🔌 MongoDB connection closed');
   }
 };

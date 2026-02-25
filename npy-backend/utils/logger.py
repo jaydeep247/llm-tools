@@ -60,7 +60,12 @@ def configure_logger():
     logging.getLogger("scrapy.core.engine").setLevel(logging.DEBUG)
     logging.getLogger("scrapy").setLevel(logging.DEBUG)
     logging.getLogger("twisted").setLevel(logging.ERROR)
+    logging.getLogger("pika").setLevel(logging.WARNING)
     logging.getLogger("pymongo").setLevel(logging.CRITICAL)
+    logging.getLogger("botocore").setLevel(logging.WARNING)
+    logging.getLogger("boto3").setLevel(logging.WARNING)
+    logging.getLogger("s3transfer").setLevel(logging.WARNING)
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 
 logger = logging.getLogger("npy-backend")

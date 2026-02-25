@@ -36,6 +36,7 @@ def main():
         'MONGO_URI': config.MONGO_URI,
         'MONGO_DATABASE': config.MONGO_DB_NAME,
         'MONGO_BATCH_SIZE': 10,
+        'REQUEST_FINGERPRINTER_IMPLEMENTATION': '2.7',
     })
 
     # Start the spider

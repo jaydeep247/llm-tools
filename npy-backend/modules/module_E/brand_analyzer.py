@@ -39,19 +39,12 @@ class BrandAnalyzer:
             logger.warning("Invalid brand name: %s", brand_name)
             return BrandAnalyzer._empty_result(brand_name or "unknown")
 
-        logger.info("Brand analysis started", extra={"brand_name": brand_name})
-
         try:
             # Calculate date range: exactly 1 year ago
             today = datetime.utcnow()
             start_date = today - timedelta(days=365)
             start_date_str = start_date.strftime("%Y-%m-%d")
             
-            logger.info(
-                "Brand analysis date range",
-                extra={"brand_name": brand_name, "start_date": start_date_str, "end_date": today.strftime("%Y-%m-%d")}
-            )
-
             # Call DataForSEO via execute_task
             payload = [{
                 'keyword': brand_name,
@@ -78,53 +71,18 @@ class BrandAnalyzer:
             # Process response - ADD DETAILED DEBUGGING
             data = response.data
             
-            # Log the full response structure for debugging
-            print("\n" + "="*80)
-            print("🔍 DATAFORSEO FULL RESPONSE DEBUG")
-            print("="*80)
-            print(f"Brand: {brand_name}")
-            print(f"Response Type: {type(data).__name__}")
-            print(f"Response Keys: {list(data.keys()) if isinstance(data, dict) else 'NOT_A_DICT'}")
-            print(f"Full Response:")
-            import json
-            print(json.dumps(data, indent=2, default=str))
-            print("="*80 + "\n")
-            
             if not data:
                 logger.warning("❌ DataForSEO response.data is None or empty")
                 return BrandAnalyzer._empty_result(brand_name)
             
             if 'tasks' not in data:
-                print(f"❌ DataForSEO response missing 'tasks' key. Available keys: {list(data.keys())}")
                 return BrandAnalyzer._empty_result(brand_name)
             
             if not data['tasks']:
-                print(f"❌ DataForSEO 'tasks' array is empty. Full data: {data}")
                 return BrandAnalyzer._empty_result(brand_name)
             
-            # Log the tasks structure
-            logger.info(
-                "✅ DataForSEO tasks found",
-                extra={
-                    "brand_name": brand_name,
-                    "tasks_count": len(data['tasks']),
-                    "first_task_keys": list(data['tasks'][0].keys()) if data['tasks'] else [],
-                    "first_task": data['tasks'][0] if data['tasks'] else None
-                }
-            )
-
             try:
                 items = data['tasks'][0].get('result', [])
-                
-                logger.info(
-                    "🔍 DataForSEO result extraction",
-                    extra={
-                        "brand_name": brand_name,
-                        "result_type": type(items).__name__,
-                        "result_length": len(items) if isinstance(items, list) else "NOT_A_LIST",
-                        "result_preview": items[:2] if isinstance(items, list) and items else items
-                    }
-                )
                 
                 if not items:
                     logger.warning(
@@ -158,17 +116,6 @@ class BrandAnalyzer:
         """
         Aggregate monthly data into brand metrics.
         """
-        logger.info(
-            "🔍 Starting brand data aggregation",
-            extra={
-                "brand_name": brand_name,
-                "items_count": len(items),
-                "start_date": start_date.strftime("%Y-%m-%d"),
-                "first_item_keys": list(items[0].keys()) if items else [],
-                "first_item_sample": items[0] if items else None
-            }
-        )
-        
         total_mentions = 0
         history = []
         sentiment_counts = {"positive": 0, "negative": 0, "neutral": 0}
@@ -240,14 +187,6 @@ class BrandAnalyzer:
             "frequency_trend": sorted(history, key=lambda x: x.get("date", "")),
             "top_sources": [{"domain": d} for d in list(domain_set)[:5]]
         }
-
-        # Debug output
-        print("\n" + "="*80)
-        print("✅ BRAND ANALYSIS AGGREGATION COMPLETE")
-        print("="*80)
-        import json
-        print(json.dumps(result, indent=2))
-        print("="*80 + "\n")
 
         logger.info(
             "Brand analysis aggregation complete",

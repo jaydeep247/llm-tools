@@ -139,37 +139,16 @@ No extra text, no markdown, just the JSON array."""
         Run complete sentiment & visibility analysis for a brand.
         Total API calls: 7 (1 industry + 3 sentiment + 3 visibility)
         """
-        print("\n" + "=" * 100)
-        print("🔍 STARTING AI SENTIMENT & VISIBILITY TRACKING")
-        print("=" * 100)
-        print(f"📌 Brand: {brand_name}")
-        print(f"📌 Industry: {industry or 'Auto-detecting...'}")
-        print(f"📌 Service Type: {service_type or 'Auto-detecting...'}")
-        print("=" * 100 + "\n")
-
         # Auto-infer industry and service type if not provided
         if not industry or not service_type:
             inferred = await SentimentVisibilityTracker._infer_industry_and_service(brand_name)
             industry = industry or inferred.get("industry", "technology")
             service_type = service_type or inferred.get("service_type", "software solutions")
 
-            print("\n" + "=" * 100)
-            print("🧠 AUTO-INFERRED BRAND CONTEXT")
-            print("=" * 100)
-            print(f"📍 Industry: {industry}")
-            print(f"📍 Service Type: {service_type}")
-            print("=" * 100 + "\n")
-
         # Phase 1: Sentiment (3 batched calls — 1 per model)
-        print("\n" + "=" * 100)
-        print("💭 PHASE 1: SENTIMENT ANALYSIS (5 Questions × 3 Models — 1 call per model)")
-        print("=" * 100)
         sentiment_results = await SentimentVisibilityTracker._run_sentiment_probes(brand_name)
 
         # Phase 2: Visibility (3 batched calls — 1 per model)
-        print("\n" + "=" * 100)
-        print("👁️  PHASE 2: VISIBILITY ANALYSIS (6 Questions × 3 Models — 1 call per model)")
-        print("=" * 100)
         visibility_results = await SentimentVisibilityTracker._run_visibility_checks(
             brand_name, industry, service_type
         )
@@ -186,15 +165,6 @@ No extra text, no markdown, just the JSON array."""
             "visibility": visibility_data,
             "timestamp": datetime.utcnow().isoformat()
         }
-
-        print("\n" + "=" * 100)
-        print("✅ SENTIMENT & VISIBILITY ANALYSIS COMPLETE")
-        print("=" * 100)
-        print(f"📊 Overall Sentiment Score: {sentiment_data['overall_score']}/100")
-        print(f"📊 Overall Visibility Score: {visibility_data['overall_visibility_score']}%")
-        print(f"📊 Sentiment Distribution: {sentiment_data['distribution']}")
-        print(f"📊 Brand Appearance Rate: {visibility_data.get('overall_appearance_rate', 0):.1%}")
-        print("=" * 100 + "\n")
 
         return result
 
@@ -240,10 +210,6 @@ Return ONLY valid JSON (no markdown):
         run_date = datetime.utcnow().isoformat()  # Cache busts every run
 
         for model_idx, model in enumerate(["openai", "gemini", "claude"], 1):
-            print(f"\n{'─' * 100}")
-            print(f"🤖 MODEL {model_idx}/3: {model.upper()} — Batched 5-question sentiment call")
-            print(f"{'─' * 100}")
-
             opts = {"temperature": 0.3}
             if model == "openai":
                 opts["response_format"] = {"type": "json_object"}
@@ -275,9 +241,6 @@ Return ONLY valid JSON (no markdown):
                     scores.append(score)
                     distribution[label] = distribution.get(label, 0) + 1
 
-                    print(f"  Q{q_idx}: Score={score}/100 | Label={label}")
-                    print(f"       {answer[:120]}{'...' if len(answer) > 120 else ''}")
-
                     model_responses.append({
                         "question": question,
                         "answer": answer,
@@ -286,7 +249,6 @@ Return ONLY valid JSON (no markdown):
                     })
 
                 model_avg = int(sum(scores) / len(scores)) if scores else 50
-                print(f"\n  📊 {model.upper()} Average: {model_avg}/100 | Distribution: {distribution}")
 
                 results.append({
                     "model": model,
@@ -297,7 +259,6 @@ Return ONLY valid JSON (no markdown):
 
             except Exception as e:
                 logger.error(f"Sentiment batch failed for {model}: {e}")
-                print(f"  ❌ Error: {e}")
                 # Add failed entry so it still shows in the UI breakdown
                 results.append({
                     "model": model,
@@ -327,18 +288,7 @@ Return ONLY valid JSON (no markdown):
             for q in SentimentVisibilityTracker.VISIBILITY_DISCOVERY_QUESTIONS
         ]
 
-        print(f"\n{'─' * 100}")
-        print(f"📋 VISIBILITY DISCOVERY QUESTIONS (Brand NOT in prompts)")
-        print(f"{'─' * 100}")
-        for i, q in enumerate(visibility_questions, 1):
-            print(f"  {i}. {q}")
-        print(f"{'─' * 100}\n")
-
         for model_idx, model in enumerate(["openai", "gemini", "claude"], 1):
-            print(f"\n{'─' * 100}")
-            print(f"🤖 MODEL {model_idx}/3: {model.upper()} — Batched 6-question visibility call")
-            print(f"{'─' * 100}")
-
             try:
                 response = await execute_task(
                     task_name=f"module_e_visibility_batch_{model}",
@@ -365,10 +315,6 @@ Return ONLY valid JSON (no markdown):
 
                     if brand_mentioned:
                         mentions += 1
-                        print(f"  Q{q_idx}: ✅ BRAND MENTIONED at pos {mention_position}")
-                        print(f"       ...{answer_text[max(0, mention_position-30):mention_position+80]}...")
-                    else:
-                        print(f"  Q{q_idx}: ❌ Not mentioned")
 
                     model_answers.append({
                         "question": question,
@@ -379,7 +325,6 @@ Return ONLY valid JSON (no markdown):
 
                 total = len(model_answers)
                 rate = mentions / total if total > 0 else 0
-                print(f"\n  📊 {model.upper()} Visibility: {mentions}/{total} mentions ({rate:.1%})")
 
                 results.append({
                     "model": model,
@@ -388,7 +333,6 @@ Return ONLY valid JSON (no markdown):
 
             except Exception as e:
                 logger.error(f"Visibility batch failed for {model}: {e}")
-                print(f"  ❌ Error: {e}")
                 # Add failed entry so it still shows in the UI breakdown
                 results.append({
                     "model": model,
@@ -404,10 +348,7 @@ Return ONLY valid JSON (no markdown):
     @staticmethod
     def _aggregate_sentiment(results: List[Dict]) -> Dict:
         """Aggregate sentiment across all models."""
-        print("\n" + "=" * 100)
-        print("📊 AGGREGATING SENTIMENT RESULTS")
-        print("=" * 100)
-
+        
         # Only average scores from models that didn't fail
         all_scores = [r["average_score"] for r in results if not r.get("failed") and r.get("average_score") is not None]
         total_dist = {"Positive": 0, "Neutral": 0, "Negative": 0}
@@ -419,11 +360,6 @@ Return ONLY valid JSON (no markdown):
                 total_dist[label] = total_dist.get(label, 0) + count
 
         overall_score = int(sum(all_scores) / len(all_scores)) if all_scores else 0
-
-        print(f"  Model Scores (non-failed): {all_scores}")
-        print(f"  Overall Score: {overall_score}/100")
-        print(f"  Total Distribution: {total_dist}")
-        print("=" * 100 + "\n")
 
         return {
             "overall_score": overall_score,
@@ -440,10 +376,7 @@ Return ONLY valid JSON (no markdown):
     @staticmethod
     def _aggregate_visibility(brand_name: str, results: List[Dict]) -> Dict:
         """Calculate visibility score based on brand mentions in discovery answers."""
-        print("\n" + "=" * 100)
-        print("📊 AGGREGATING VISIBILITY RESULTS")
-        print("=" * 100)
-
+        
         model_scores = {}
 
         for result in results:
@@ -475,8 +408,6 @@ Return ONLY valid JSON (no markdown):
             avg_weight = sum(position_weights) / len(position_weights) if position_weights else 0
             visibility_score = int(appearance_rate * avg_weight * 100)
 
-            print(f"  {model.upper()}: {appearances}/{total_questions} mentions | Rate: {appearance_rate:.1%} | Score: {visibility_score}%")
-
             model_scores[model] = {
                 "visibility_score": visibility_score,
                 "appearance_rate": appearance_rate,
@@ -490,10 +421,6 @@ Return ONLY valid JSON (no markdown):
 
         all_rates = [m["appearance_rate"] for m in model_scores.values()]
         overall_rate = sum(all_rates) / len(all_rates) if all_rates else 0
-
-        print(f"\n  Overall Visibility Score: {overall_visibility}%")
-        print(f"  Overall Appearance Rate: {overall_rate:.1%}")
-        print("=" * 100 + "\n")
 
         return {
             "overall_visibility_score": overall_visibility,

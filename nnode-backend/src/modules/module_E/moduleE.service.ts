@@ -1,7 +1,6 @@
 import { moduleERepository } from './moduleE.repository';
 import { JobService } from '../job/job.service';
 import type { ModuleEResult } from './moduleE.types';
-import { logger } from '../../shared/logger/logger';
 
 export class ModuleEService {
   private jobService: JobService;
@@ -22,14 +21,6 @@ export class ModuleEService {
    * Save or update Module E result
    */
   async saveModuleEResult(jobId: string, data: ModuleEResult): Promise<any> {
-    logger.info('Saving Module E result', {
-      jobId,
-      hasContentConsistency: !!data.content_consistency,
-      hasEntityCoverage: !!data.entity_coverage,
-      hasBrandAnalysis: !!data.brand_analysis,
-      hasSentimentTracking: !!data.sentiment_tracking,
-    });
-
     return await moduleERepository.upsertModuleEResult(jobId, data);
   }
 
@@ -37,7 +28,6 @@ export class ModuleEService {
    * Update specific Module E fields
    */
   async updateModuleEFields(jobId: string, fields: Partial<ModuleEResult>): Promise<any> {
-    logger.info('Updating Module E fields', { jobId, fields: Object.keys(fields) });
     return await moduleERepository.updateModuleEFields(jobId, fields);
   }
 
@@ -45,7 +35,6 @@ export class ModuleEService {
    * Delete Module E result
    */
   async deleteModuleEResult(jobId: string): Promise<boolean> {
-    logger.info('Deleting Module E result', { jobId });
     return await moduleERepository.deleteModuleEResult(jobId);
   }
 
@@ -53,7 +42,6 @@ export class ModuleEService {
    * Get all Module E results with pagination
    */
   async getAllModuleEResults(skip = 0, take = 10): Promise<any[]> {
-    logger.info('Fetching all Module E results', { skip, take });
     return await moduleERepository.getAllModuleEResults(skip, take);
   }
 

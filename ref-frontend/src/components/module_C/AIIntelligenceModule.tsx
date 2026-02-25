@@ -80,15 +80,6 @@ export default function AIIntelligenceModule({ url, sessionId, jobId }: AIIntell
     }
   }, [analysisJobData, refetchAeoResults])
 
-  // Debug: Log the AEO response data
-  useEffect(() => {
-    if (existingAeoData) {
-      console.log('📊 Module C AEO Response:', existingAeoData)
-      console.log('📊 AEO Result Data:', existingAeoData?.data)
-      console.log('📊 AEO Modules:', existingAeoData?.data?.modules)
-    }
-  }, [existingAeoData])
-
   // Auto-populate sitemap URL when switching to bulk mode
   useEffect(() => {
     if (auditMode === 'bulk' && url && !sitemapUrl) {
@@ -119,7 +110,6 @@ export default function AIIntelligenceModule({ url, sessionId, jobId }: AIIntell
     // TODO: Implement bulk analysis
     const cleanedUrl = sitemapUrl.trim()
     if (!cleanedUrl) return
-    console.log('Bulk analysis not yet implemented')
   }
 
   // Determine loading state

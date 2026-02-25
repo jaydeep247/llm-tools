@@ -112,8 +112,6 @@ def execute_crawler_job(payload: dict) -> bool:
     max_pages = payload.get("maxPages", 3000)
     timeout = payload.get("timeout", 0)
     
-    logger.info(f"[CRAWLER] Starting job {job_id} for {url}")
-    
     # Use spawn context Manager to capture state from subprocess
     # spawn avoids fork issues with Twisted reactor and RabbitMQ connections
     manager = spawn_ctx.Manager()
@@ -131,7 +129,6 @@ def execute_crawler_job(payload: dict) -> bool:
     
     # Check success flag first (more reliable than exit code)
     if state.get("success"):
-        logger.info(f"[CRAWLER] Completed job {job_id}")
         return True
     
     # If not successful, report the error
@@ -156,8 +153,6 @@ def execute_schema_job(payload: dict) -> bool:
     # Use sourceJobId to load HTML (points to crawl job that saved the HTML)
     target_job_id = source_job_id if source_job_id else job_id
     
-    logger.info(f"[SCHEMA] Starting job {job_id} for {url}, loading HTML from {target_job_id}")
-    
     html_content = load_raw_html_sync(target_job_id)
     if not html_content:
         logger.warning(f"[SCHEMA] No HTML for job {target_job_id}")
@@ -180,7 +175,6 @@ def execute_schema_job(payload: dict) -> bool:
         upsert=True,
     )
     
-    logger.info(f"[SCHEMA] Completed job {job_id}")
     return True
 
 

@@ -6,7 +6,6 @@ import { env } from './config/env';
 import { errorMiddleware } from './middlewares/error.middleware';
 import { rateLimitMiddleware } from './middlewares/rateLimit.middleware';
 import routes from './routes';
-import { logger } from './shared/logger/logger';
 
 export const createApp = (): Application => {
   const app = express();
@@ -29,10 +28,10 @@ export const createApp = (): Application => {
   app.use(cookieParser(env.COOKIE_SECRET));
 
   // Request logging
-  app.use((req, _res, next) => {
-    logger.http(`${req.method} ${req.path}`);
-    next();
-  });
+  // app.use((req, _res, next) => {
+  //   logger.http(`${req.method} ${req.path}`);
+  //   next();
+  // });
 
   // API routes
   app.use(env.API_PREFIX, routes);

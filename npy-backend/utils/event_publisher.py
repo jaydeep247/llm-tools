@@ -31,7 +31,6 @@ class EventPublisher:
             self.channel = self.connection.channel()
             self.channel.exchange_declare(exchange=self.exchange, exchange_type='topic', durable=True)
             self._owner_pid = current_pid  # Track which process owns this connection
-            logger.info(f"✅ Connected to RabbitMQ exchange: {self.exchange}")
         except Exception as e:
             logger.error(f"❌ Failed to connect to RabbitMQ: {e}")
             # Don't raise here to allow retry in emit

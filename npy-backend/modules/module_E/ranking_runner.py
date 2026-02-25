@@ -387,7 +387,7 @@ class RankingRunner:
              endpoint = f"/ai_optimization/{p_platform}/llm_responses/live"
              
              try:
-                 logger.info(f"[{p_platform}] Request Payload (Single): {json.dumps(single_payload, indent=2)}")
+                 logger.info(f"[{p_platform}] Request Payload (Single)")
              except:
                  pass
 
@@ -429,7 +429,7 @@ class RankingRunner:
 
             data = resp.data
             try:
-                logger.info(f"[{platform}] Response for '{prompt[:20]}...': {json.dumps(data, indent=2)[:2000]}")
+                logger.info(f"[{platform}] Response received for '{prompt[:20]}...'")
             except Exception:
                 pass
 
@@ -470,8 +470,7 @@ class RankingRunner:
             citation_matches = len(matches)
             brand_text_mentioned = self._detect_brand_text_mention(brand, ai_response_text)
             citation_matched = citation_matches > 0
-            logger.info(f"[{platform}] citation_matches={citation_matches} | text_mention={brand_text_mentioned}")
-
+            
             position, percentile = self._find_position_and_percentile(annotations, target_normalized)
 
             total_citations = len(annotations)

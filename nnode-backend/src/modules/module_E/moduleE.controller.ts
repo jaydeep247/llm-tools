@@ -58,12 +58,6 @@ export class ModuleEController {
         },
       });
 
-      logger.info('Module E analysis job created', {
-        jobId,
-        analysisJobId: analysisJob.id,
-        sessionId: job.sessionId,
-      });
-
       return ResponseUtil.created(res, 'Module E analysis queued', analysisJob);
     } catch (error: any) {
       logger.error('Error starting Module E analysis:', error);

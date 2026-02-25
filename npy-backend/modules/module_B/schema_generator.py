@@ -66,7 +66,6 @@ class SchemaGenerator:
             }
 
         try:
-            print(f"DEBUG: SchemaGenerator.generate_schema_with_ai called for {url}")
             self.model = "gpt-4o"
             
             # --- UPDATED: Use our _clean_html function first ---
@@ -76,7 +75,6 @@ class SchemaGenerator:
             # Truncate to avoid token limits (GPT-4o context)
             max_chars = 15000
             if len(clean_content) > max_chars:
-                print(f"DEBUG: Truncating content from {len(clean_content)} to {max_chars} chars")
                 content_sample = clean_content[:max_chars]
             else:
                 content_sample = clean_content
@@ -105,8 +103,6 @@ class SchemaGenerator:
             Return ONLY the valid JSON-LD code within a code block. Do not include explanations.
             """
             
-            print(f"DEBUG: Sending prompt to OpenAI (length: {len(prompt)})")
-            
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -117,7 +113,6 @@ class SchemaGenerator:
             )
             
             content = response.choices[0].message.content
-            print(f"DEBUG: OpenAI Payload received. Length: {len(content)}")
             
             # Extract JSON from code block (Other Developer's Regex Logic - PRESERVED)
             json_match = re.search(r'```json\n(.*?)\n```', content, re.DOTALL)
@@ -130,7 +125,6 @@ class SchemaGenerator:
 
             try:
                 data = json.loads(json_str)
-                print("DEBUG: Successfully parsed JSON-LD")
                 return {
                     'success': True,
                     'schema': data,
@@ -139,8 +133,8 @@ class SchemaGenerator:
                     'rdfa_markup': ''
                 }
             except json.JSONDecodeError as e:
-                print(f"ERROR: Failed to parse JSON-LD: {e}")
-                print(f"DEBUG: Raw content: {content[:500]}...") 
+                logging.error(f"ERROR: Failed to parse JSON-LD: {e}")
+                logging.debug(f"DEBUG: Raw content: {content[:500]}...") 
                 return {
                     'success': False,
                     'error': 'Failed to parse AI response',
@@ -148,7 +142,7 @@ class SchemaGenerator:
                 }
                 
         except Exception as e:
-            print(f"ERROR: OpenAI API call failed: {e}")
+            logging.error(f"ERROR: OpenAI API call failed: {e}")
             return {
                 'success': False,
                 'error': 'AI generation failed',

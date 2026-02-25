@@ -73,14 +73,6 @@ export class ModuleERepository {
         { upsert: true, returnDocument: 'after' }
       );
 
-      logger.info('Module E result upserted', {
-        jobId,
-        hasContentConsistency: !!data.content_consistency,
-        hasEntityCoverage: !!data.entity_coverage,
-        hasBrandAnalysis: !!data.brand_analysis,
-        hasSentimentTracking: !!data.sentiment_tracking,
-      });
-
       const doc = (result as any)?.value || result;
       return doc ? this.toModuleEResult(doc as ModuleEDocument) : null;
     } catch (error) {
@@ -150,12 +142,6 @@ export class ModuleERepository {
         .limit(take)
         .toArray();
 
-      logger.info('Module E results retrieved', {
-        count: results.length,
-        skip,
-        take,
-      });
-
       return results.map((doc) => this.toModuleEResult(doc));
     } catch (error) {
       logger.error('Failed to get Module E results', {
@@ -210,11 +196,6 @@ export class ModuleERepository {
         { returnDocument: 'after' }
       );
 
-      logger.info('Module E fields updated', {
-        jobId,
-        updatedFields: Object.keys(updateData),
-      });
-
       const doc = (result as any)?.value || result;
       return doc ? this.toModuleEResult(doc as ModuleEDocument) : null;
     } catch (error) {
@@ -233,7 +214,6 @@ export class ModuleERepository {
     try {
       const collection = await this.getCollection();
       const count = await collection.countDocuments();
-      logger.info('Module E record count', { count });
       return count;
     } catch (error) {
       logger.error('Failed to count Module E results', {

@@ -36,6 +36,7 @@ SCRAPY_SETTINGS = {
     "ITEM_PIPELINES": {
         "workers.crawl_worker.pipelines.mongo_pipeline.MongoPipeline": 300,
     },
+    "REQUEST_FINGERPRINTER_IMPLEMENTATION": "2.7",
 }
 
 

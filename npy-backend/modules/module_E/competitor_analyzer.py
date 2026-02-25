@@ -30,19 +30,14 @@ class CompetitorAnalyzer:
         if not brand_name:
             brand_name = self._extract_brand_name(domain)
         
-        logger.info(f"Starting competitor analysis for: {domain} (brand: {brand_name})")
-
         # 1. Infer industry first (needed for both fallback discovery and AI SOV)
         industry, service_type = await self._infer_industry(domain, brand_name)
-        logger.info(f"Inferred industry: {industry} | service_type: {service_type}")
 
         # 2. Discover competitors
         if not competitor_domains:
             competitor_domains = await self._discover_competitors(
                 domain, brand_name, industry, service_type
             )
-
-        logger.info(f"Using competitors: {competitor_domains}")
 
         # 3. Run mentions + AI SOV in parallel
         mentions_task = self._analyze_mentions(domain, competitor_domains)
@@ -133,7 +128,6 @@ Return ONLY valid JSON (no markdown):
         # Step 1: DataForSEO
         dfs_competitors = await self._discover_via_dataforseo(domain)
         if dfs_competitors:
-            logger.info(f"DataForSEO found {len(dfs_competitors)} competitors: {dfs_competitors}")
             return dfs_competitors
 
         # Step 2: AI Fallback (DISABLED)
@@ -155,8 +149,6 @@ Return ONLY valid JSON (no markdown):
             "language_code": "en",
             "limit": 5
         }]
-
-        logger.info(f"DataForSEO competitor discovery → {domain}")
 
         resp = await execute_task(
             task_name="module_e_competitor_discovery",
@@ -186,7 +178,6 @@ Return ONLY valid JSON (no markdown):
                 and item.get("domain") != domain_root
             ]
 
-            logger.info(f"DataForSEO found {len(competitors)} competitors: {competitors[:5]}")
             return competitors[:5]
 
         except Exception as e:
@@ -275,8 +266,7 @@ Rules:
                 "date_group": "month"
             }]
 
-            logger.info(f"DataForSEO Request for {d}: {payload}")
-            print(f"DEBUG: DataForSEO Request for {d}: {payload}")  # Direct stdout for debugging
+            logger.info(f"DataForSEO Request for {d}")
 
             resp = await execute_task(
                 task_name="module_e_mentions_trend",
@@ -287,18 +277,13 @@ Rules:
                 provider="dataforseo",
                 options={"skip_cache": True}  # FORCE FRESH FETCH
             )
-            print(f"DEBUG: Full response from data for seo for {d}: {resp}")
 
             if not resp.success:
                 logger.warning(f"Mentions analysis failed for {d}: {resp.error}")
-                print(f"DEBUG: Mentions analysis failed for {d}: {resp.error}")
                 return d, {"mentions": 0, "sentiment": "Neutral", "trend": [0] * 12}
             
             # Debug Log
             logger.info(f"DataForSEO Response for {d} (Success={resp.success})")
-            print(f"DEBUG: DataForSEO Response for {d} (Success={resp.success})")
-            logger.info(f"DataForSEO Raw Data for {d}: {resp.data}")
-            print(f"DEBUG: DataForSEO Raw Data for {d}: {resp.data}")
             
             try:
                 tasks = resp.data.get("tasks", [])
@@ -313,7 +298,6 @@ Rules:
                 
                 # Debug Log
                 logger.info(f"DataForSEO Result for {d}: Found {len(monthly_trends)} months of data")
-                print(f"DEBUG: DataForSEO Result for {d}: Found {len(monthly_trends)} months of data")
 
                 trend = [entry.get("total_count", 0) for entry in monthly_trends]
                 total = sum(trend)
@@ -395,13 +379,12 @@ Rules:
                 + "\n".join(f"{i+1}. {q}" for i, q in enumerate(questions))
             )
 
-            logger.info(f"AI SOV query [{model}]: {batch_prompt[:200]}...")
-            print(f"DEBUG: AI SOV query [{model}]: {batch_prompt[:200]}...")
+            logger.info(f"AI SOV query [{model}]")
 
             resp = await execute_task(
                 task_name=f"module_e_ai_sov_{model}",
                 input_data={"messages": [{"role": "user", "content": batch_prompt}]},
-                provider=model,
+                provider="model",
                 options={
                     "temperature": 0.4,
                     "skip_cache": True
@@ -410,13 +393,11 @@ Rules:
 
             if not resp.success:
                 logger.warning(f"AI SOV [{model}] failed: {resp.error}")
-                print(f"DEBUG: AI SOV [{model}] failed: {resp.error}")
                 return None
 
             text_raw = str(resp.data)
             text = text_raw.lower()
             logger.info(f"AI SOV [{model}] raw response (first 400 chars): {text[:400]}")
-            print(f"DEBUG: AI SOV [{model}] raw response (first 400 chars): {text[:400]}")
 
             brand_mentions_count = 0
             first_brand_position: Optional[int] = None
@@ -450,8 +431,6 @@ Rules:
             logger.info(
                 f"AI SOV [{model}] counts -> "
                 f"Brand mentions: {brand_mentions_count}, "
-                f"Competitor mentions: {competitor_mentions_count}, "
-                f"Total mentions: {total_mentions}, "
                 f"Calculated SOV: {sov}%"
             )
 

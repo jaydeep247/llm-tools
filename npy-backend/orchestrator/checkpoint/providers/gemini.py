@@ -40,12 +40,6 @@ class GeminiProvider(BaseProvider):
             result = model_instance.generate_content(text)
             return result.text
 
-        logger.info("GeminiProvider executing task", extra={
-            "task_name": task_name,
-            "model": model_name,
-            "prompt_length": len(prompt or "")
-        })
-
         last_error = None
         for attempt in range(MAX_RETRIES):
             try:
@@ -54,13 +48,6 @@ class GeminiProvider(BaseProvider):
                     None, 
                     functools.partial(_run_sync_gemini, self.api_key, model_name, prompt)
                 )
-
-                logger.info("GeminiProvider call succeeded", extra={
-                    "task_name": task_name,
-                    "model": model_name,
-                    "response_length": len(response_text or ""),
-                    "attempt": attempt + 1
-                })
 
                 return TaskResponse(
                     success=True, 

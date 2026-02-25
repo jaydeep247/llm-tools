@@ -25,7 +25,6 @@ const flushBuffer = (jobId: string) => {
     const io = getIo();
     // Emit batch event to reduce network overhead
     io.to(`job:${jobId}`).emit('job:batch', events);
-    logger.debug(`Streamed batch of ${events.length} events for job ${jobId}`);
   } catch (socketError) {
     logger.warn('Socket.io error during broadcast:', socketError);
   }

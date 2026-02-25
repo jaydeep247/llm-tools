@@ -23,8 +23,6 @@ export class ModuleCController {
       const userId = req.user!.userId;
       const { jobId } = jobIdParamSchema.parse(req.params);
 
-      logger.info('Module C result request received', { jobId, userId });
-
       // Verify job access
       await this.jobService.getJobById(userId, jobId);
 
@@ -32,11 +30,6 @@ export class ModuleCController {
       if (!result) {
         return ResponseUtil.success(res, 'Module C result not found', null);
       }
-
-      logger.info('Module C response payload', {
-        jobId,
-        overallScore: result.overall_score ?? null,
-      });
 
       return ResponseUtil.success(res, 'Module C result retrieved', result);
     } catch (error: any) {
@@ -132,10 +125,7 @@ export class ModuleCController {
    */
   getSessionModuleCResults = async (req: Request, res: Response): Promise<Response> => {
     try {
-      const userId = req.user!.userId;
       const { sessionId } = sessionParamSchema.parse(req.params);
-
-      logger.info('Session Module C results request received', { sessionId, userId });
 
       const results = await this.moduleCService.getSessionModuleCResults(sessionId);
       
