@@ -32,14 +32,15 @@ export default function AICitationRanking({ jobId, url, rankingData: initialData
   const [pollCount, setPollCount] = useState(0)
   const [justCompleted, setJustCompleted] = useState(false)
 
-  // Query to poll for updates
-  const { data: polledData } = useGetModuleEResultQuery(jobId ?? '', {
-    skip: !jobId || !isPolling,
+  // Query Module E result (always fetch when jobId is present; poll only while running)
+  const { data: moduleEData } = useGetModuleEResultQuery(jobId ?? '', {
+    skip: !jobId,
     pollingInterval: isPolling ? 3000 : 0,
+    refetchOnMountOrArgChange: true,
   })
 
-  // Derive current data - prefer polled data if available
-  const rankingData = polledData?.data?.ranking_analysis ?? initialData
+  // Derive current data - prefer live data from API, fall back to initialData if provided
+  const rankingData = moduleEData?.data?.ranking_analysis ?? initialData
   const hasResults = !!rankingData && (
     (rankingData.ranking_position_per_prompt?.length ?? 0) > 0 ||
     (rankingData.model_wise_comparison?.length ?? 0) > 0
@@ -48,15 +49,15 @@ export default function AICitationRanking({ jobId, url, rankingData: initialData
   const avgAccuracy = (rankingData as any)?.metrics_summary?.average_accuracy ?? 0
   const avgSentiment = (rankingData as any)?.metrics_summary?.average_sentiment ?? 0
   
-  // Watch for completion
+  // Watch for completion while polling
   useEffect(() => {
-    if (isPolling && hasResults && polledData?.data?.ranking_analysis) {
+    if (isPolling && hasResults && moduleEData?.data?.ranking_analysis) {
       // Stop polling if we see results
       setIsPolling(false)
       setJustCompleted(true)
       setTimeout(() => setJustCompleted(false), 3000)
     }
-  }, [isPolling, hasResults, polledData])
+  }, [isPolling, hasResults, moduleEData])
 
   // Safety timeout
   useEffect(() => {

@@ -134,8 +134,8 @@ class UnifiedModuleEMasterAnalyzer:
                 "response_length": len(response_text or ""),
             })
 
-            if not response_text or len(response_text.strip()) < 50:
-                logger.warning("Model response too short — skipping", extra={
+            if not response_text or not response_text.strip():
+                logger.warning("Model response empty — skipping", extra={
                     "model": model_name,
                     "response_length": len(response_text or ""),
                 })
@@ -199,6 +199,24 @@ class UnifiedModuleEMasterAnalyzer:
 
             except Exception as e:
                 logger.exception(f"Error evaluating model {model_name}: {str(e)}")
+                results.append({
+                    "model": model_name,
+                    "accuracy_of_generated_response": 0,
+                    "content_consistency": {
+                        "score": 0,
+                        "mandate": mandate,
+                    },
+                    "entity_coverage": {
+                        "score": 0,
+                        "expected": expected_entities,
+                        "observed": [],
+                        "found": [],
+                        "missing": [],
+                        "total_expected": len(expected_entities),
+                    },
+                    "completeness_score": 0,
+                    "model_wise_performance_score": 0,
+                })
                 continue
 
         logger.info("Master analysis completed successfully")
