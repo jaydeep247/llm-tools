@@ -17,6 +17,8 @@ class JobType(str, Enum):
     
     # Content Metrics (Module D)
     CONTENT_METRICS = 'CONTENT_METRICS'
+    MODULE_D = 'MODULE_D'
+    MODULE_D_ENTITY_ANALYSIS = 'MODULE_D_ENTITY_ANALYSIS'
     
     # AEO Analysis (Module C)
     AEO_ANALYSIS = 'AEO_ANALYSIS'
@@ -101,6 +103,8 @@ JOB_TYPE_TO_CATEGORY: Dict[str, JobCategory] = {
     JobType.CRAWL.value: JobCategory.CRAWLER,
     JobType.SCHEMA.value: JobCategory.SCHEMA,
     JobType.CONTENT_METRICS.value: JobCategory.MODULE_D,
+    JobType.MODULE_D.value: JobCategory.MODULE_D,
+    JobType.MODULE_D_ENTITY_ANALYSIS.value: JobCategory.MODULE_D,
     JobType.AEO_ANALYSIS.value: JobCategory.MODULE_C,
     JobType.MODULE_C_AI_PRESENCE.value: JobCategory.MODULE_C,
     JobType.MODULE_C_ANSWERABILITY.value: JobCategory.MODULE_C,
@@ -124,6 +128,8 @@ LEGACY_JOB_TYPE_MAP = {
     'crawl': JobType.CRAWL.value,
     'schema': JobType.SCHEMA.value,
     'content_metrics': JobType.CONTENT_METRICS.value,
+    'module_d': JobType.MODULE_D.value,
+    'module_d_entity_analysis': JobType.MODULE_D_ENTITY_ANALYSIS.value,
     'aeo_analysis': JobType.AEO_ANALYSIS.value,
     'module_c': JobType.AEO_ANALYSIS.value,
     'module_e': JobType.MODULE_E_FULL.value,
@@ -133,6 +139,8 @@ LEGACY_JOB_TYPE_MAP = {
     'module_e_ai_sov': JobType.MODULE_E_AI_SOV.value,
     'module_e_ranking': JobType.MODULE_E_RANKING.value,
     'module_e_brand': JobType.MODULE_E_BRAND.value,
+    'module_e_brand_analysis': JobType.MODULE_E_BRAND.value,
+    'module_e_ai_citation_ranking': JobType.MODULE_E_AI_CITATION_RANKING.value,
 }
 
 

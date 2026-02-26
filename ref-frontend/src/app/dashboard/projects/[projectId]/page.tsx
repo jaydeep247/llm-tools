@@ -8,6 +8,15 @@ import { useGetProjectQuery, useUpdateProjectMutation, type Project } from '@/st
 import { useGetProjectSessionsQuery, useCreateSessionMutation, useCreateJobMutation, useDeleteSessionMutation } from '@/store/api/sessionApi'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { ProjectEditDialog } from '@/components/dashboard/ProjectEditDialog'
 import { ProjectDeleteDialog } from '@/components/dashboard/ProjectDeleteDialog'
 import type { CrawlSession } from '@/store/api/sessionApi'
@@ -64,8 +73,31 @@ export default function ProjectDetailPage() {
 
   const isStartingCrawl = isCreatingSession || isCreatingJob
 
+  // Job Types
+  const JOB_TYPES = {
+    CRAWL: 'CRAWL',
+    SCHEMA: 'SCHEMA',
+    CONTENT_METRICS: 'CONTENT_METRICS',
+    AEO_ANALYSIS: 'AEO_ANALYSIS',
+    MODULE_C_AI_PRESENCE: 'MODULE_C_AI_PRESENCE',
+    MODULE_C_ANSWERABILITY: 'MODULE_C_ANSWERABILITY',
+    MODULE_C_KNOWLEDGE_BASE: 'MODULE_C_KNOWLEDGE_BASE',
+    MODULE_C_COMPETITOR: 'MODULE_C_COMPETITOR',
+    MODULE_C_LLM_SIMULATOR: 'MODULE_C_LLM_SIMULATOR',
+    MODULE_C_BULK_AUDIT: 'MODULE_C_BULK_AUDIT',
+    MODULE_E_FULL: 'MODULE_E_FULL',
+    MODULE_E_CONSISTENCY: 'MODULE_E_CONSISTENCY',
+    MODULE_E_SENTIMENT: 'MODULE_E_SENTIMENT',
+    MODULE_E_COMPETITORS: 'MODULE_E_COMPETITORS',
+    MODULE_E_AI_SOV: 'MODULE_E_AI_SOV',
+    MODULE_E_RANKING: 'MODULE_E_RANKING',
+    MODULE_E_BRAND: 'MODULE_E_BRAND',
+    MODULE_E_AI_CITATION_RANKING: 'MODULE_E_AI_CITATION_RANKING',
+  }
+
   // Form state
   const [url, setUrl] = useState('')
+  const [jobType, setJobType] = useState<string>(JOB_TYPES.CRAWL)
   const [allowSubdomains, setAllowSubdomains] = useState(true)
   const [runAudits, setRunAudits] = useState(false)
   const [auditDevice, setAuditDevice] = useState<'mobile' | 'desktop'>('desktop')
@@ -160,7 +192,7 @@ export default function ProjectDetailPage() {
         sessionId,
         data: {
           url: normalizedUrl,
-          jobType: 'CRAWL',
+          jobType,
           allowSubdomains,
           runAudits,
           auditDevice,
@@ -304,35 +336,80 @@ export default function ProjectDetailPage() {
             )}
 
             {/* Form */}
-            <div className="flex gap-2">
-              <Input
-                id="url"
-                type="url"
-                placeholder="https://example.com"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && !isStartingCrawl && handleStartSession()}
-                className="bg-white/5 border-white/10 text-white placeholder:text-white/40 text-xs sm:text-sm h-8 sm:h-9 flex-1"
-                disabled={isStartingCrawl}
-              />
+            <div className="space-y-2">
+              <Select value={jobType} onValueChange={setJobType} disabled={isStartingCrawl}>
+                <SelectTrigger className="w-full bg-white/5 border-white/10 text-white text-xs sm:text-sm h-8 sm:h-9">
+                  <SelectValue placeholder="Select Job Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Crawler</SelectLabel>
+                    <SelectItem value="CRAWL">Crawl</SelectItem>
+                  </SelectGroup>
+                  <SelectGroup>
+                    <SelectLabel>Schema</SelectLabel>
+                    <SelectItem value="SCHEMA">Schema Analysis</SelectItem>
+                  </SelectGroup>
+                  <SelectGroup>
+                    <SelectLabel>Module D (Content)</SelectLabel>
+                    <SelectItem value="MODULE_D">Full Content Analysis</SelectItem>
+                    <SelectItem value="CONTENT_METRICS">Content Metrics</SelectItem>
+                    <SelectItem value="MODULE_D_ENTITY_ANALYSIS">Entity Analysis</SelectItem>
+                  </SelectGroup>
+                  <SelectGroup>
+                    <SelectLabel>Module C (AEO)</SelectLabel>
+                    <SelectItem value="AEO_ANALYSIS">Full AEO Analysis</SelectItem>
+                    <SelectItem value="MODULE_C_AI_PRESENCE">AI Presence</SelectItem>
+                    <SelectItem value="MODULE_C_ANSWERABILITY">Answerability</SelectItem>
+                    <SelectItem value="MODULE_C_KNOWLEDGE_BASE">Knowledge Base</SelectItem>
+                    <SelectItem value="MODULE_C_COMPETITOR">Competitor Analysis</SelectItem>
+                    <SelectItem value="MODULE_C_LLM_SIMULATOR">LLM Simulator</SelectItem>
+                    <SelectItem value="MODULE_C_BULK_AUDIT">Bulk Audit</SelectItem>
+                  </SelectGroup>
+                  <SelectGroup>
+                    <SelectLabel>Module E (Brand)</SelectLabel>
+                    <SelectItem value="MODULE_E_FULL">Full Brand Analysis</SelectItem>
+                    <SelectItem value="MODULE_E_CONSISTENCY">Brand Consistency</SelectItem>
+                    <SelectItem value="MODULE_E_SENTIMENT">Sentiment Analysis</SelectItem>
+                    <SelectItem value="MODULE_E_COMPETITORS">Competitors</SelectItem>
+                    <SelectItem value="MODULE_E_AI_SOV">AI Share of Voice</SelectItem>
+                    <SelectItem value="MODULE_E_RANKING">Ranking</SelectItem>
+                    <SelectItem value="MODULE_E_BRAND">Brand Analysis</SelectItem>
+                    <SelectItem value="MODULE_E_AI_CITATION_RANKING">AI Citation Ranking</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
 
-              <Button
-                onClick={handleStartSession}
-                disabled={isStartingCrawl || !url.trim()}
-                className="bg-green-500 hover:bg-green-600 text-white rounded-md text-[10px] sm:text-xs h-8 sm:h-9 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 px-3 sm:px-4 shrink-0 transition-colors flex items-center justify-center gap-2"
-                type="button"
-              >
-                {isStartingCrawl ? (
-                  <>
-                    <Loader2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 animate-spin" />
-                  </>
-                ) : (
-                  <>
-                    <Play className="h-3 w-3 sm:h-3.5 sm:w-3.5 fill-current" />
-                    <span className="font-medium">Start</span>
-                  </>
-                )}
-              </Button>
+              <div className="flex gap-2">
+                <Input
+                  id="url"
+                  type="url"
+                  placeholder="https://example.com"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && !isStartingCrawl && handleStartSession()}
+                  className="bg-white/5 border-white/10 text-white placeholder:text-white/40 text-xs sm:text-sm h-8 sm:h-9 flex-1"
+                  disabled={isStartingCrawl}
+                />
+
+                <Button
+                  onClick={handleStartSession}
+                  disabled={isStartingCrawl || !url.trim()}
+                  className="bg-green-500 hover:bg-green-600 text-white rounded-md text-[10px] sm:text-xs h-8 sm:h-9 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 px-3 sm:px-4 shrink-0 transition-colors flex items-center justify-center gap-2"
+                  type="button"
+                >
+                  {isStartingCrawl ? (
+                    <>
+                      <Loader2 className="h-3 w-3 sm:h-3.5 sm:w-3.5 animate-spin" />
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-3 w-3 sm:h-3.5 sm:w-3.5 fill-current" />
+                      <span className="font-medium">Start</span>
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>

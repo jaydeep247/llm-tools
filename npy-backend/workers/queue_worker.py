@@ -184,7 +184,7 @@ def execute_schema_job(payload: dict) -> bool:
 
 def execute_module_c_job(payload: dict) -> bool:
     """Execute Module C (AEO Analysis) job"""
-    from modules.module_C.runner import run_module_c
+    from modules.module_C.runner import runner, run_module_c
     
     configure_logger()
     
@@ -198,15 +198,28 @@ def execute_module_c_job(payload: dict) -> bool:
     target_job_id = source_job_id if source_job_id else job_id
     
     logger.info(f"[MODULE_C] Starting job {job_id} type={job_type} for {url}")
-    asyncio.run(run_module_c(target_job_id, url, query=query))
+    
+    if job_type == "MODULE_C_AI_PRESENCE":
+        asyncio.run(runner.run_submodule("ai_presence", target_job_id, url, query=query))
+    elif job_type == "MODULE_C_ANSWERABILITY":
+        asyncio.run(runner.run_submodule("answerability", target_job_id, url, query=query))
+    elif job_type == "MODULE_C_KNOWLEDGE_BASE":
+        asyncio.run(runner.run_submodule("knowledge_base", target_job_id, url, query=query))
+    elif job_type == "MODULE_C_LLM_SIMULATOR":
+        asyncio.run(runner.run_submodule("llm_simulator", target_job_id, url, query=query))
+    elif job_type == "MODULE_C_ACTIONABLE_INSIGHTS":
+        asyncio.run(runner.run_submodule("actionable_insights", target_job_id, url, query=query))
+    else:
+        # Default to full run
+        asyncio.run(run_module_c(target_job_id, url, query=query))
+
     logger.info(f"[MODULE_C] Completed job {job_id}")
     return True
 
 
 def execute_module_d_job(payload: dict) -> bool:
     """Execute Module D (Content Analysis) job"""
-    from modules.module_C.knowledge_base import KnowledgeBaseModule
-    from modules.module_D.contentAnylsisMatrix import OpenAIService
+    from modules.module_D.runner import run_module_d, run_content_metrics, run_entity_analysis
     
     configure_logger()
     
@@ -214,59 +227,28 @@ def execute_module_d_job(payload: dict) -> bool:
     project_id = payload["projectId"]
     url = payload["url"]
     job_id = payload.get("jobId") or f"job_{session_id}"
+    job_type = payload.get("jobType", "MODULE_D").upper()
     source_job_id = payload.get("sourceJobId") or payload.get("config", {}).get("sourceJobId")
     
     # Use sourceJobId to load HTML (points to crawl job that saved the HTML)
     target_job_id = source_job_id if source_job_id else job_id
     
-    logger.info(f"[MODULE_D] Starting job {job_id} for {url}, loading HTML from {target_job_id}")
-    
-    html_content = load_raw_html_sync(target_job_id)
-    if not html_content:
-        result = {"success": False, "error": "RAW_HTML_NOT_FOUND"}
-    else:
-        kb_module = KnowledgeBaseModule()
-        kb_result = asyncio.run(kb_module.run_analysis(html_content, url))
-        entity_coverage = kb_result.get("entity_coverage") or {}
-        
-        found_entities = entity_coverage.get("found_entities") or []
-        expected_entities = entity_coverage.get("expected_entities") or []
-        
-        ai_service = OpenAIService()
-        content_metrics = ai_service.analyze_content_metrics(html_content, url)
-        entity_relevance = ai_service.analyze_entity_relevance(
-            html_content, url, found_entities, expected_entities
-        )
-        
-        result = {
-            "success": True,
-            "content_metrics": content_metrics,
-            "entity_metrics": {
-                "entities_detected_count": len(found_entities),
-                "entity_coverage_score": entity_coverage.get("coverage_score", 0),
-                "entity_relevance_score": entity_relevance.get("entity_relevance_score", 50),
-            },
-        }
+    logger.info(f"[MODULE_D] Starting job {job_id} type={job_type} for {url}, loading HTML from {target_job_id}")
     
     try:
-        mongo_manager.connect()
-        doc = {
-            "jobId": job_id,
-            "sessionId": session_id,
-            "projectId": project_id,
-            "url": url,
-            "createdAt": datetime.utcnow(),
-            **result,
-        }
-        mongo_manager.content_metrics.update_one(
-            {"jobId": job_id, "url": url},
-            {"$set": doc},
-            upsert=True,
-        )
-        logger.info(f"Stored content metrics result for job {job_id}")
-    except Exception as e:  # noqa: BLE001
-        error_type = type(e).__name__
-        logger.error(f"Content metrics analysis failed for job {job_id} ({error_type})")
+        if job_type == "MODULE_D_CONTENT_METRICS" or job_type == "CONTENT_METRICS":
+            asyncio.run(run_content_metrics(target_job_id, url))
+        elif job_type == "MODULE_D_ENTITY_ANALYSIS":
+            asyncio.run(run_entity_analysis(target_job_id, url))
+        else:
+            # Default to full run
+            asyncio.run(run_module_d(target_job_id, url))
+            
+        logger.info(f"[MODULE_D] Completed job {job_id}")
+        return True
+    except Exception as e:
+        logger.error(f"[MODULE_D] Job failed: {e}", exc_info=True)
+        raise
 
 
 def mark_job_completed(job_id: str, session_id: str) -> None:
@@ -338,17 +320,24 @@ def mark_job_failed(job_id: str, session_id: str, error_message: str) -> None:
 def execute_job(payload: dict, job_type: str = "crawl") -> bool:
     """Dispatch job execution based on payload.jobType or override"""
     job_type_resolved = (payload.get("jobType") or job_type or "CRAWL").upper()
+    
     if job_type_resolved == "CRAWL":
         return execute_crawler_job(payload)
-    if job_type_resolved in ("AEO_ANALYSIS", "MODULE_C"):
+        
+    if job_type_resolved.startswith("MODULE_C") or job_type_resolved == "AEO_ANALYSIS":
         return execute_module_c_job(payload)
+        
     if job_type_resolved.startswith("MODULE_E"):
         return execute_module_e_job(payload)
-    if job_type_resolved in ("CONTENT_METRICS", "MODULE_D"):
+        
+    if job_type_resolved.startswith("MODULE_D") or job_type_resolved == "CONTENT_METRICS":
         return execute_module_d_job(payload)
+        
     if job_type_resolved == "SCHEMA":
         return execute_schema_job(payload)
-    # Default to analysis (Module D) as a safe fallback
+        
+    # Default fallback
+    logger.warning(f"Unknown job type {job_type_resolved}, defaulting to Module D analysis")
     return execute_module_d_job(payload)
 
 
@@ -367,114 +356,43 @@ def execute_module_e_job(payload: dict) -> bool:
     project_id = payload["projectId"]
     url = payload["url"]
     job_id = payload.get("jobId") or f"job_{session_id}"
-    job_type_resolved = payload.get("jobType", "CRAWL").upper()
-    schema_type = payload.get("schemaType")
-    max_pages = payload.get("maxPages") or payload.get("max_pages") or 3000
-    timeout = payload.get("timeout") or 0
-    max_concurrency = payload.get("maxConcurrency") or payload.get("max_concurrency") or 20
-
-    mongo_client = get_mongo_client()
-    db = mongo_client[config.MONGO_DB_NAME]
-    r = redis.from_url(config.REDIS_URL)
-
-    jobs = db.jobs
-    sessions = db.sessions
-    session_key = f"session:{session_id}"
-    job_key = f"job:{job_id}"
-
+    job_type = payload.get("jobType", "MODULE_E_FULL").upper()
+    source_job_id = payload.get("sourceJobId") or payload.get("config", {}).get("sourceJobId")
+    
+    # Use sourceJobId to load HTML if needed (points to crawl job)
+    target_job_id = source_job_id if source_job_id else job_id
+    
+    logger.info(f"[MODULE_E] Starting job {job_id} type={job_type} for {url}")
+    
     try:
-        # Update status to RUNNING
-        jobs.update_one(
-            {"id": job_id},
-            {"$set": {"status": "RUNNING", "startedAt": datetime.utcnow()}},
-        )
-        
-        r.hset(session_key, mapping={"status": "RUNNING", "url": url, "projectId": project_id})
-        r.expire(session_key, 3600)
-        
-        r.hset(job_key, mapping={"status": "RUNNING", "sessionId": session_id, "projectId": project_id, "url": url})
-        r.expire(job_key, 3600)
-
-        # Pre-crawl planning for CRAWL jobs
-        if job_type_resolved == "CRAWL":
-            try:
-                publisher.emit_event(job_id, 'log', {'message': "Analyzing sitemaps for crawl planning...", 'level': 'info'})
-                
-                async def _plan_crawl(start_url: str):
-                    discovery = SitemapDiscovery(timeout=30)
-                    return await discovery.discover_sitemaps(start_url)
-
-                plan_result = asyncio.run(_plan_crawl(url))
-                planned_urls = plan_result.get("discovered_urls", []) or []
-                planned_count = len(planned_urls)
-
-                logger.info(f"Planned crawl for job {job_id}: {planned_count} URLs discovered from sitemaps for {url}")
-                if planned_count > 0:
-                    r.hset(job_key, mapping={"plannedPages": planned_count})
-            except Exception:
-                # Planning is best-effort; continue even if sitemap discovery fails
-                pass
-
-        # Execute the appropriate job type
-        should_mark_completed = True
-        
-        if job_type_resolved == "SCHEMA":
-            run_schema_job(url=url, session_id=session_id, job_id=job_id, project_id=project_id, schema_type=schema_type)
-        elif job_type_resolved == "CONTENT_METRICS":
-            run_content_metrics_job(url=url, session_id=session_id, job_id=job_id, project_id=project_id)
+        # Execute specific sub-module based on job type
+        if job_type == "MODULE_E_CONSISTENCY":
+            asyncio.run(run_consistency_only(target_job_id, url))
+        elif job_type == "MODULE_E_SENTIMENT":
+            asyncio.run(run_sentiment_only(target_job_id, url))
+        elif job_type == "MODULE_E_COMPETITORS":
+            asyncio.run(run_competitor_analysis(target_job_id, url))
+        elif job_type == "MODULE_E_AI_SOV":
+            asyncio.run(run_ai_sov_analysis(target_job_id, url))
+        elif job_type == "MODULE_E_RANKING" or job_type == "MODULE_E_AI_CITATION_RANKING":
+            # Assuming AI_CITATION_RANKING uses ranking runner or similar
+            asyncio.run(run_ranking_analysis(target_job_id, url))
+        elif job_type == "MODULE_E_BRAND":
+            asyncio.run(run_brand_only(target_job_id, url))
         else:
-            # Run the actual crawl
-            # NOTE: For CRAWL jobs, we do NOT mark as completed here.
-            # The spider runs asynchronously and emits JOB_COMPLETED event which is handled by the event consumer.
-            run_crawl_job(
-                url=url, 
-                session_id=session_id, 
-                job_id=job_id, 
-                project_id=project_id,
-                max_pages=int(max_pages),
-                timeout=int(timeout),
-                max_concurrency=int(max_concurrency)
-            )
-            should_mark_completed = False
-
-        if should_mark_completed:
-            # Update status to COMPLETED
-            jobs.update_one(
-                {"id": job_id},
-                {"$set": {"status": "COMPLETED", "completedAt": datetime.utcnow()}},
-            )
+            # Default to full run or generic run
+            asyncio.run(run_module_e(target_job_id, url))
             
-            sessions.update_one(
-                {"id": session_id},
-                {"$set": {"status": "COMPLETED", "completedAt": datetime.utcnow()}},
-            )
-
-            r.hset(session_key, mapping={"status": "COMPLETED"})
-            r.expire(session_key, 3600)
-            
-            r.hset(job_key, mapping={"status": "COMPLETED"})
-            r.expire(job_key, 3600)
-
+        logger.info(f"[MODULE_E] Completed job {job_id}")
+        
+        # Store result in Mongo (usually done by runners, but we can update status here if needed)
+        # For now, we assume runners handle DB updates for results
+        
         return True
-    except (ServerSelectionTimeoutError, AutoReconnect, ConnectionFailure, RedisConnectionError, RedisTimeoutError) as e:
-        raise RetryableJobError(str(e)) from e
+        
     except Exception as e:
-        logger.error(f"Job failed: {e}", exc_info=True)
-        jobs.update_one(
-            {"id": job_id},
-            {"$set": {"status": "FAILED", "completedAt": datetime.utcnow(), "errorMessage": str(e)}},
-        )
-        
-        sessions.update_one(
-            {"id": session_id},
-            {"$set": {"status": "FAILED", "completedAt": datetime.utcnow(), "errorMessage": str(e)}},
-        )
-        
-        r.hset(job_key, mapping={"status": "FAILED"})
-        r.expire(job_key, 3600)
-        raise NonRetryableJobError(str(e)) from e
-    finally:
-        mongo_client.close()
+        logger.error(f"[MODULE_E] Job failed: {e}", exc_info=True)
+        raise
 
 
 def drain_results(connection: BlockingConnection) -> None:
@@ -494,33 +412,11 @@ def drain_results(connection: BlockingConnection) -> None:
 
 def run_job_in_worker(payload: dict, job_type_override: str | None = None) -> None:
     job_type = (job_type_override or payload.get("jobType") or "CRAWL").upper()
-    schema_type = payload.get("schemaType")
-    session_id = payload["sessionId"]
-    project_id = payload["projectId"]
-    url = payload["url"]
-    job_id = payload.get("jobId") or f"job_{session_id}"
-
-    if job_type == "SCHEMA":
-        run_schema_job(
-            url=url,
-            session_id=session_id,
-            job_id=job_id,
-            project_id=project_id,
-            schema_type=schema_type,
-        )
-    elif job_type == "CONTENT_METRICS":
-        run_content_metrics_job(
-            url=url,
-            session_id=session_id,
-            job_id=job_id,
-            project_id=project_id,
-        )
-    else:
-        execute_job(payload)
+    execute_job(payload, job_type)
 
 
 def start_queue_worker() -> None:
-    executor = ThreadPoolExecutor(max_workers=POOL_SIZE_PER_CATEGORY)
+    executor = ThreadPoolExecutor(max_workers=POOL_SIZE_PER_CATEGORY * len(QUEUE_CONFIGS))
     
     while True:
         connection: BlockingConnection | None = None
@@ -530,53 +426,47 @@ def start_queue_worker() -> None:
             channel = connection.channel()
             runtime_redis = redis.from_url(config.REDIS_URL)
 
-            # --- Crawler Setup (aligned with Node isolated queues) ---
-            crawler_cfg = QUEUE_CONFIGS[JobCategory.CRAWLER]
-            channel.exchange_declare(exchange=crawler_cfg.exchange, exchange_type="direct", durable=True)
-            channel.exchange_declare(exchange=crawler_cfg.dlx, exchange_type="direct", durable=True)
-            channel.queue_declare(
-                queue=crawler_cfg.queue,
-                durable=True,
-                arguments={"x-dead-letter-exchange": crawler_cfg.dlx},
-            )
-            channel.queue_declare(queue=crawler_cfg.dlq, durable=True)
-            channel.queue_bind(
-                exchange=crawler_cfg.exchange,
-                queue=crawler_cfg.queue,
-                routing_key=crawler_cfg.routing_key,
-            )
-            channel.queue_bind(
-                exchange=crawler_cfg.dlx,
-                queue=crawler_cfg.dlq,
-                routing_key=crawler_cfg.routing_key.replace(".job", ".failed"),
-            )
-
-            # --- Analysis Setup ---
-            channel.exchange_declare(
-                exchange="analysis.exchange",
-                exchange_type="direct",
-                durable=True,
-            )
-            channel.queue_declare(
-                queue="analysis.queue",
-                durable=True,
-            )
-            channel.queue_bind(
-                exchange="analysis.exchange",
-                queue="analysis.queue",
-                routing_key="analysis.start",
-            )
+            # --- Setup Queues for All Categories ---
+            for category, cfg in QUEUE_CONFIGS.items():
+                logger.info(f"Setting up queue for category: {category}")
+                
+                # Main Exchange
+                channel.exchange_declare(exchange=cfg.exchange, exchange_type="direct", durable=True)
+                
+                # DLX Exchange
+                channel.exchange_declare(exchange=cfg.dlx, exchange_type="direct", durable=True)
+                
+                # Main Queue
+                channel.queue_declare(
+                    queue=cfg.queue,
+                    durable=True,
+                    arguments={"x-dead-letter-exchange": cfg.dlx},
+                )
+                
+                # DLQ Queue
+                channel.queue_declare(queue=cfg.dlq, durable=True)
+                
+                # Bindings
+                channel.queue_bind(
+                    exchange=cfg.exchange,
+                    queue=cfg.queue,
+                    routing_key=cfg.routing_key,
+                )
+                channel.queue_bind(
+                    exchange=cfg.dlx,
+                    queue=cfg.dlq,
+                    routing_key=cfg.routing_key.replace(".job", ".failed"),
+                )
 
             # --- Event Setup (for job completion tracking) ---
             channel.exchange_declare(exchange="job.events", exchange_type="topic", durable=True)
-            channel.queue_declare(queue="job.events.queue", durable=True)
-            # Use '#' wildcard to match any job_id format (e.g. UUIDs with dots, or just string)
+            channel.queue_declare(queue="job.events.queue", durable=True, arguments={'x-message-ttl': 86400000})
             channel.queue_bind(exchange="job.events", queue="job.events.queue", routing_key="job.#.JOB_COMPLETED")
             channel.queue_bind(exchange="job.events", queue="job.events.queue", routing_key="job.#.JOB_FAILED")
 
             channel.basic_qos(prefetch_count=POOL_SIZE_PER_CATEGORY)
 
-            logger.info("🐇 RabbitMQ worker connected. Waiting for crawl and analysis messages...")
+            logger.info("🐇 RabbitMQ worker connected. Waiting for messages...")
 
             def on_event_message(ch, method, _properties, body) -> None:
                 try:
@@ -695,17 +585,14 @@ def start_queue_worker() -> None:
 
                 future.add_done_callback(when_done)
 
-            channel.basic_consume(
-                queue=crawler_cfg.queue,
-                on_message_callback=on_message,
-                auto_ack=False,
-            )
-            
-            channel.basic_consume(
-                queue="analysis.queue",
-                on_message_callback=on_message,
-                auto_ack=False,
-            )
+            # --- Start Consuming from All Queues ---
+            for category, cfg in QUEUE_CONFIGS.items():
+                logger.info(f"Starting consumer for queue: {cfg.queue}")
+                channel.basic_consume(
+                    queue=cfg.queue,
+                    on_message_callback=on_message,
+                    auto_ack=False,
+                )
 
             logger.info("🐇 RabbitMQ worker connected and consuming...")
 

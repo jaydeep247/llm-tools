@@ -33,39 +33,6 @@ export class JobService {
     // Save job metadata to Redis for LiveJobService (progress tracking)
     await LiveJobService.setJobMeta(job.id, projectId, sessionId);
 
-    if (job.type === JobType.SCHEMA) {
-      await this.queueService.publishSchemaJob({
-        jobId: job.id,
-        sessionId,
-        projectId,
-        url: job.url,
-        jobType: JobType.SCHEMA,
-        schemaType: job.schemaType || undefined,
-      });
-    } else if (job.jobType === JobType.CRAWL) {
-      await this.queueService.publishCrawlJob({
-        jobId: job.id,
-        sessionId,
-        projectId,
-        url: job.url,
-        jobType: JobType.CRAWL,
-        allowSubdomains: job.allowSubdomains,
-        runAudits: job.runAudits,
-        auditDevice: job.auditDevice,
-        captureLinkDetails: job.captureLinkDetails,
-      });
-    } else if (job.jobType === JobType.AEO_ANALYSIS) {
-      await this.queueService.publishAnalysisJob({
-        jobId: job.id,
-        sessionId,
-        projectId,
-        url: job.url,
-        jobType: JobType.AEO_ANALYSIS,
-        modules: job.config?.modules || [],
-        sourceJobId: job.config?.sourceJobId,
-        config: job.config,
-      });
-    }
     const jobType = job.jobType || job.type;
     const category = JOB_TYPE_TO_CATEGORY[jobType];
 

@@ -18,6 +18,8 @@ export enum JobType {
   
   // Content Metrics (Module D)
   CONTENT_METRICS = 'CONTENT_METRICS',
+  MODULE_D = 'MODULE_D',
+  MODULE_D_ENTITY_ANALYSIS = 'MODULE_D_ENTITY_ANALYSIS',
   
   // AEO Analysis (Module C)
   AEO_ANALYSIS = 'AEO_ANALYSIS',
@@ -57,6 +59,8 @@ export const JOB_TYPE_TO_CATEGORY: Record<JobType, JobCategory> = {
   [JobType.CRAWL]: JobCategory.CRAWLER,
   [JobType.SCHEMA]: JobCategory.SCHEMA,
   [JobType.CONTENT_METRICS]: JobCategory.MODULE_D,
+  [JobType.MODULE_D]: JobCategory.MODULE_D,
+  [JobType.MODULE_D_ENTITY_ANALYSIS]: JobCategory.MODULE_D,
   [JobType.AEO_ANALYSIS]: JobCategory.MODULE_C,
   [JobType.MODULE_C_AI_PRESENCE]: JobCategory.MODULE_C,
   [JobType.MODULE_C_ANSWERABILITY]: JobCategory.MODULE_C,

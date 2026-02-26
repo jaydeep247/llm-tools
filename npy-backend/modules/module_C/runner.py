@@ -24,25 +24,22 @@ class ModuleCRunner:
         self.multi_model_insights = MultiModelInsights()
         self.actionable_insights = ActionableInsightsModule()
 
-    async def run(self, job_id: str, url: str, html_content: str = None, skip_save: bool = False, query: str = None) -> Dict:
-        """
-        Runs complete Module C analysis.
-        ...
-        Args:
-            job_id: Job ID
-            url: URL being analyzed
-            html_content: HTML content (optional, will load from disk if not provided)
-            skip_save: If True, don't save HTML to disk (useful for bulk audit)
-            query: Specific query for AI Answer Simulation (optional)
-        """
-        logger.info(f"Starting Module C for job {job_id} / {url}")
-        
-        # ... (html loading logic) ...
+    async def _ensure_html_content(self, job_id: str, html_content: str = None, skip_save: bool = False) -> str:
+        """Helper to ensure HTML content is loaded"""
         if html_content:
             if not skip_save:
                 await save_raw_html(job_id, html_content)
         else:
             html_content = await load_raw_html(job_id)
+        return html_content
+
+    async def run(self, job_id: str, url: str, html_content: str = None, skip_save: bool = False, query: str = None) -> Dict:
+        """
+        Runs complete Module C analysis.
+        """
+        logger.info(f"Starting Module C for job {job_id} / {url}")
+        
+        html_content = await self._ensure_html_content(job_id, html_content, skip_save)
             
         if not html_content:
             return {"error": "HTML content missing", "job_id": job_id}
@@ -122,6 +119,38 @@ class ModuleCRunner:
 
         return result
     
+    async def run_submodule(self, submodule: str, job_id: str, url: str, html_content: str = None, query: str = None) -> Dict:
+        """
+        Run a specific sub-module of Module C.
+        """
+        html_content = await self._ensure_html_content(job_id, html_content)
+        if not html_content:
+            return {"error": "HTML content missing"}
+
+        robots_txt = "" # Basic mock
+
+        try:
+            if submodule == "ai_presence":
+                return await self.ai_presence.run_analysis(url, html_content, robots_txt)
+            elif submodule == "answerability":
+                return await self.answerability.run_analysis(html_content)
+            elif submodule == "knowledge_base":
+                return await self.knowledge_base.run_analysis(html_content, url)
+            elif submodule == "llm_simulator":
+                # Ensure query exists
+                if not query:
+                    soup = BeautifulSoup(html_content, 'html.parser')
+                    title = soup.title.string if soup.title else ""
+                    query = f"What is {title}?" if title else f"What is the content of {url} about?"
+                return await self.llm_simulator.simulate_answer(query, html_content)
+            elif submodule == "actionable_insights":
+                return await self.actionable_insights.run_analysis(html_content, url)
+            else:
+                return {"error": f"Unknown submodule: {submodule}"}
+        except Exception as e:
+            logger.error(f"Submodule {submodule} failed: {e}")
+            return {"error": str(e)}
+
     async def run_bulk_audit(self, urls: List[str], job_id: str = "bulk_audit") -> Dict:
         """
         Run bulk AEO audit across multiple URLs.
