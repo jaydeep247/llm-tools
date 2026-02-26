@@ -186,6 +186,7 @@ export const jobApi = baseApi.injectEndpoints({
       providesTags: (result, error, jobId) => [{ type: 'Job', id: jobId }],
     }),
 
+
     // Get all jobs for a session
     getSessionJobs: builder.query<
       { success: boolean; data: Job[] },

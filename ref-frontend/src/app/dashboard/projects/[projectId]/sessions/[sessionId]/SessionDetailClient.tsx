@@ -13,8 +13,7 @@ import { AICitationRanking, SentimentTracking } from '@/components/module_E'
 // import { useGetDataListQuery, useCheckLinksMutation, useGetLinkStatsQuery, useLazyGetPageLinksQuery } from '@/store/api/module_A/dataApi'
 import { useGetProjectQuery } from '@/store/api/projectApi'
 import { useGetSessionQuery } from '@/store/api/sessionApi'
-import { useGetSessionJobsQuery, useGetJobPagesQuery, useGetJobLinksQuery, useGetJobSitemapsQuery, useGetJobFieldsQuery, useGetJobSummaryQuery } from '@/store/api/jobApi'
-// import { useJobRedirect } from '@/hooks/useJobRedirect'
+import { useGetSessionJobsQuery, useGetJobPagesQuery, useGetJobLinksQuery, useGetJobSitemapsQuery, useGetJobFieldsQuery, useGetJobSiteStructureQuery, useRetryJobMutation, useGetJobSummaryQuery, useGetJobSnapshotQuery } from '@/store/api/jobApi'
 import { formatDurationHHMMSSMS, formatDurationReadable } from '@/utils/formatDuration'
 
 interface LogEntry {
@@ -63,15 +62,23 @@ export default function SessionDetailClient() {
   // We removed the 'shouldRedirect' logic that was causing issues
   const skipResults = !jobId
 
+  const isSessionRunning = session?.status === 'running' || session?.status === 'auditing'
+
   // Fetch results for the job using granular endpoints
   // We can use the same limit/page logic or default to fetch all (or a large page) for now 
   // until we implement full server-side pagination in the UI. 
   // For now, let's fetch a reasonable amount to show the concept working.
-  const { data: pagesResult, isLoading: isLoadingPagesRaw, refetch: refetchPagesRaw } = useGetJobPagesQuery({ jobId: jobId!, limit: 1000 }, { skip: skipResults, refetchOnMountOrArgChange: true })
-  const { data: linksResult, isLoading: isLoadingLinksRaw, refetch: refetchLinksRaw } = useGetJobLinksQuery({ jobId: jobId!, limit: 1000 }, { skip: skipResults, refetchOnMountOrArgChange: true })
-  const { data: fieldsResult, isLoading: isLoadingFieldsRaw, refetch: refetchFieldsRaw } = useGetJobFieldsQuery(jobId!, { skip: skipResults, refetchOnMountOrArgChange: true })
-  const { data: sitemapsResult, isLoading: isLoadingSitemapsRaw, refetch: refetchSitemapsRaw } = useGetJobSitemapsQuery(jobId!, { skip: skipResults, refetchOnMountOrArgChange: true })
-  const { data: jobSummary } = useGetJobSummaryQuery(jobId!, { skip: skipResults, refetchOnMountOrArgChange: true })
+  const { data: pagesResult, isLoading: isLoadingPagesRaw, refetch: refetchPagesRaw } = useGetJobPagesQuery({ jobId: jobId!, limit: 1000 }, { skip: skipResults, refetchOnMountOrArgChange: true, pollingInterval: isSessionRunning ? 3000 : 0 })
+  const { data: linksResult, isLoading: isLoadingLinksRaw, refetch: refetchLinksRaw } = useGetJobLinksQuery({ jobId: jobId!, limit: 1000 }, { skip: skipResults, refetchOnMountOrArgChange: true, pollingInterval: isSessionRunning ? 3000 : 0 })
+  const { data: fieldsResult, isLoading: isLoadingFieldsRaw, refetch: refetchFieldsRaw } = useGetJobFieldsQuery(jobId!, { skip: skipResults, refetchOnMountOrArgChange: true, pollingInterval: isSessionRunning ? 3000 : 0 })
+  const { data: sitemapsResult, isLoading: isLoadingSitemapsRaw, refetch: refetchSitemapsRaw } = useGetJobSitemapsQuery(jobId!, { skip: skipResults, refetchOnMountOrArgChange: true, pollingInterval: isSessionRunning ? 3000 : 0 })
+  const { data: jobSummary } = useGetJobSummaryQuery(jobId!, { skip: skipResults, refetchOnMountOrArgChange: true, pollingInterval: isSessionRunning ? 3000 : 0 })
+  
+  // Real-time snapshot for accurate progress tracking
+  const { data: jobSnapshot } = useGetJobSnapshotQuery(jobId!, { 
+    skip: !jobId, 
+    pollingInterval: isSessionRunning ? 1000 : 0 
+  })
 
   const isLoadingResults = isLoadingPagesRaw || isLoadingLinksRaw || isLoadingFieldsRaw || isLoadingSitemapsRaw
   const refetchJobResults = () => {
@@ -100,6 +107,21 @@ export default function SessionDetailClient() {
   
   // Unified data transformation
   const rawPages = pagesResult?.data || []
+  
+  // Dedup rawPages by URL to handle potential backend duplicates
+  const uniquePagesMap = new Map();
+  rawPages.forEach((page: any) => {
+    if (page.url) {
+        // Use the latest entry if duplicates exist (assuming sorted by creation, but simple overwrite works)
+        // Or keep first? Let's overwrite to ensure we have data. 
+        // Actually, if we want to match the count, just ensuring uniqueness is key.
+        if (!uniquePagesMap.has(page.url)) {
+            uniquePagesMap.set(page.url, page);
+        }
+    }
+  });
+  const uniqueRawPages = Array.from(uniquePagesMap.values());
+
   const rawFields = fieldsResult?.data || []
   
   // Create a map of fields by URL for efficient lookup
@@ -110,7 +132,7 @@ export default function SessionDetailClient() {
     }
   });
   
-  const transformedPages = rawPages.map((page: any) => {
+  const transformedPages = uniqueRawPages.map((page: any) => {
     // Find associated fields data
     const fieldData = fieldsMap.get(page.url) || {};
     const crawlerData = fieldData.website_crawler || {};
@@ -246,10 +268,8 @@ export default function SessionDetailClient() {
   }})
 
   const totalPagesCount =
-    pagesResult?.pagination?.total ??
-    session?.totalPages ??
-    jobSummary?.session?.total_pages ??
-    transformedPages.length
+    jobSnapshot?.pagesCrawled ??
+    (uniqueRawPages.length > 0 ? uniqueRawPages.length : (pagesResult?.pagination?.total ?? session?.totalPages ?? jobSummary?.session?.total_pages ?? 0))
 
   // Transform data for Crawled Data Table
   const pagesData = { 
@@ -407,13 +427,15 @@ export default function SessionDetailClient() {
   // Initialize crawl state from session data and job summary
   useEffect(() => {
     // Determine the actual status from session or jobSummary
-    const actualStatus = session?.status || jobSummary?.session?.status || 'idle'
+    const actualStatus = session?.status || jobSnapshot?.status || jobSummary?.session?.status || 'idle'
     
     if (session) {
       if (actualStatus === 'running' || actualStatus === 'auditing') {
         setIsCrawling(true)
         setCrawlStatus(actualStatus as 'running' | 'auditing')
-        setCrawlStartTime(new Date(session.startedAt || '').getTime())
+        if (session.startedAt) {
+          setCrawlStartTime(new Date(session.startedAt).getTime())
+        }
       } else {
         setIsCrawling(false)
         // Map status properly - handle completed/cancelled/failed
@@ -421,20 +443,42 @@ export default function SessionDetailClient() {
         setCrawlStatus(mappedStatus === 'idle' && jobSummary?.session?.status ? 
           jobSummary.session.status as 'completed' | 'cancelled' : mappedStatus)
       }
-      // Use session.totalPages first, fallback to jobSummary
-      setPageCount(session.totalPages || jobSummary?.session?.total_pages || 0)
+      
+      // PRIORITY: Use accurate DB/deduped count if available (via polling)
+      // This fixes the issue where Redis counter is inflated (70) vs actual DB count (35)
+      const dbTotal = pagesResult?.pagination?.total;
+      
+      if (typeof dbTotal === 'number' && dbTotal > 0) {
+        setPageCount(dbTotal);
+      } else if (jobSnapshot?.pagesCrawled !== undefined && (actualStatus === 'running' || actualStatus === 'auditing')) {
+        // Only fallback to Redis if DB count is not yet available
+        setPageCount(jobSnapshot.pagesCrawled)
+      } else {
+        setPageCount(session.totalPages || jobSummary?.session?.total_pages || 0)
+      }
+
     } else if (jobSummary?.session) {
       // No session but we have jobSummary
       const summaryStatus = jobSummary.session.status?.toLowerCase() as 'idle' | 'running' | 'auditing' | 'completed' | 'cancelled'
       setCrawlStatus(summaryStatus || 'completed')
-      setPageCount(jobSummary.session.total_pages || 0)
+      
+      const dbTotal = pagesResult?.pagination?.total;
+      if (typeof dbTotal === 'number' && dbTotal > 0) {
+        setPageCount(dbTotal);
+      } else if (jobSnapshot?.pagesCrawled !== undefined && (summaryStatus === 'running' || summaryStatus === 'auditing')) {
+        setPageCount(jobSnapshot.pagesCrawled)
+      } else {
+        const uniqueCount = uniqueRawPages.length
+        const realTimeCount = uniqueCount > 0 ? uniqueCount : pagesResult?.pagination?.total
+        setPageCount(typeof realTimeCount === 'number' ? realTimeCount : (jobSummary.session.total_pages || 0))
+      }
     }
     
     // Use jobSummary for more accurate data when available
     if (jobSummary?.session) {
       const summarySession = jobSummary.session
-      // Set page count from job summary if session doesn't have it
-      if (!session?.totalPages && summarySession.total_pages) {
+      // Set page count from job summary if session doesn't have it and snapshot is missing
+      if (!session?.totalPages && summarySession.total_pages && pagesResult?.pagination?.total === undefined && jobSnapshot?.pagesCrawled === undefined) {
         setPageCount(summarySession.total_pages)
       }
       // Set crawl start time from job summary if not already set
@@ -447,15 +491,27 @@ export default function SessionDetailClient() {
         const completed = new Date(summarySession.completed_at).getTime()
         const durationMs = completed - started
         const durationSec = durationMs / 1000
-        const pps = durationSec > 0 ? summarySession.total_pages / durationSec : 0
+        // Use snapshot count if available for pps calculation, but respect completion status
+        let total = summarySession.total_pages || 0
+        const dbTotal = pagesResult?.pagination?.total;
+        
+        if (typeof dbTotal === 'number' && dbTotal > 0) {
+             total = dbTotal;
+        } else if (jobSnapshot?.pagesCrawled !== undefined && (actualStatus === 'running' || actualStatus === 'auditing')) {
+            total = jobSnapshot.pagesCrawled
+        } else if (uniqueRawPages.length > 0) {
+            total = uniqueRawPages.length
+        }
+        
+        const pps = durationSec > 0 ? total / durationSec : 0
         setCrawlStats({
-          count: summarySession.total_pages,
+          count: total,
           duration: durationMs,
           pagesPerSecond: pps
         })
       }
     }
-  }, [session, jobSummary])
+  }, [session, jobSummary, pagesResult, jobSnapshot])
 
   // Timer for elapsed time display
   useEffect(() => {

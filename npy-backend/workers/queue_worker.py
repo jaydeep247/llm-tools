@@ -42,6 +42,8 @@ from workers.worker_config import SCRAPY_SETTINGS, POOL_SIZE_PER_CATEGORY
 # Use spawn context to avoid fork issues with Twisted reactor and RabbitMQ connections
 spawn_ctx = multiprocessing.get_context('spawn')
 
+result_queue = thread_queue.Queue()
+
 # ============ EXCEPTIONS ============
 
 class RetryableJobError(Exception):
@@ -518,6 +520,8 @@ def run_job_in_worker(payload: dict, job_type_override: str | None = None) -> No
 
 
 def start_queue_worker() -> None:
+    executor = ThreadPoolExecutor(max_workers=POOL_SIZE_PER_CATEGORY)
+    
     while True:
         connection: BlockingConnection | None = None
         try:
@@ -526,24 +530,25 @@ def start_queue_worker() -> None:
             channel = connection.channel()
             runtime_redis = redis.from_url(config.REDIS_URL)
 
-            # --- Crawl Setup ---
-            channel.exchange_declare(exchange="crawl.exchange", exchange_type="direct", durable=True)
-            channel.exchange_declare(exchange="crawl.dlx", exchange_type="direct", durable=True)
+            # --- Crawler Setup (aligned with Node isolated queues) ---
+            crawler_cfg = QUEUE_CONFIGS[JobCategory.CRAWLER]
+            channel.exchange_declare(exchange=crawler_cfg.exchange, exchange_type="direct", durable=True)
+            channel.exchange_declare(exchange=crawler_cfg.dlx, exchange_type="direct", durable=True)
             channel.queue_declare(
-                queue="crawl.queue",
+                queue=crawler_cfg.queue,
                 durable=True,
-                arguments={"x-dead-letter-exchange": "crawl.dlx"},
+                arguments={"x-dead-letter-exchange": crawler_cfg.dlx},
             )
-            channel.queue_declare(queue="crawl.dlq", durable=True)
+            channel.queue_declare(queue=crawler_cfg.dlq, durable=True)
             channel.queue_bind(
-                exchange="crawl.exchange",
-                queue="crawl.queue",
-                routing_key="crawl.start",
+                exchange=crawler_cfg.exchange,
+                queue=crawler_cfg.queue,
+                routing_key=crawler_cfg.routing_key,
             )
             channel.queue_bind(
-                exchange="crawl.dlx",
-                queue="crawl.dlq",
-                routing_key="crawl.failed",
+                exchange=crawler_cfg.dlx,
+                queue=crawler_cfg.dlq,
+                routing_key=crawler_cfg.routing_key.replace(".job", ".failed"),
             )
 
             # --- Analysis Setup ---
@@ -569,7 +574,7 @@ def start_queue_worker() -> None:
             channel.queue_bind(exchange="job.events", queue="job.events.queue", routing_key="job.#.JOB_COMPLETED")
             channel.queue_bind(exchange="job.events", queue="job.events.queue", routing_key="job.#.JOB_FAILED")
 
-            channel.basic_qos(prefetch_count=POOL_SIZE)
+            channel.basic_qos(prefetch_count=POOL_SIZE_PER_CATEGORY)
 
             logger.info("🐇 RabbitMQ worker connected. Waiting for crawl and analysis messages...")
 
@@ -642,7 +647,7 @@ def start_queue_worker() -> None:
                 url = payload["url"]
                 job_id = payload.get("jobId") or f"job_{session_id}"
                 
-                job_type = "crawl" if method.routing_key == "crawl.start" else "analysis"
+                job_type = payload.get("jobType")
 
                 session_key = f"session:{session_id}"
                 job_key = f"job:{job_id}"
@@ -691,7 +696,7 @@ def start_queue_worker() -> None:
                 future.add_done_callback(when_done)
 
             channel.basic_consume(
-                queue="crawl.queue",
+                queue=crawler_cfg.queue,
                 on_message_callback=on_message,
                 auto_ack=False,
             )

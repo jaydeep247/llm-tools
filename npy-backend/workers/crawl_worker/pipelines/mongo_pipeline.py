@@ -1,6 +1,7 @@
 from twisted.internet import threads, defer
 from datetime import datetime
 from scrapy.exceptions import DropItem
+from pymongo import UpdateOne
 from utils.mongo import mongo_manager
 from utils.logger import logger
 from workers.crawl_worker.spiders.items import PageItem, LinkItem, SitemapUrlItem
@@ -204,8 +205,31 @@ class MongoPipeline:
                         return
 
                     logger.info(f"Flushing {len(data_buffer)} items to {item_type} collection")
-                    result = collection.insert_many(data_buffer, ordered=False)
-                    logger.info(f"Successfully inserted {len(result.inserted_ids)} items into {item_type}")
+                    
+                    if item_type in ['pages', 'fields', 'sitemaps']:
+                        operations = []
+                        for item in data_buffer:
+                            # Use URL and JobID as unique key
+                            # Ensure we have required fields
+                            if 'jobId' not in item or 'url' not in item:
+                                logger.warning(f"Skipping item in {item_type} due to missing jobId or url")
+                                continue
+                                
+                            filter_query = {'jobId': item['jobId'], 'url': item['url']}
+                            operations.append(UpdateOne(
+                                filter_query,
+                                {'$set': item},
+                                upsert=True
+                            ))
+                        
+                        if operations:
+                            result = collection.bulk_write(operations, ordered=False)
+                            logger.info(f"Successfully processed {len(operations)} items in {item_type} (Matched: {result.matched_count}, Upserted: {result.upserted_count})")
+                    else:
+                        # For links or other collections, keep insert_many for speed/behavior
+                        result = collection.insert_many(data_buffer, ordered=False)
+                        logger.info(f"Successfully inserted {len(result.inserted_ids)} items into {item_type}")
+                        
                 except Exception as e:
                     error_type = type(e).__name__
                     import traceback

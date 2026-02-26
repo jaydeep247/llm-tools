@@ -67,6 +67,7 @@ export default function JobProgressPage() {
   // causing effect re-runs (which would reconnect the socket)
   const statusRef = useRef<JobStatus>('pending')
   const snapshotAtRef = useRef<number | null>(null)
+  const seenUrlsRef = useRef<Set<string>>(new Set())
   
   // Keep refs in sync with state
   useEffect(() => {
@@ -85,6 +86,7 @@ export default function JobProgressPage() {
     hydratedJobIdRef.current = null
     statusRef.current = 'pending'
     snapshotAtRef.current = null
+    seenUrlsRef.current = new Set()
     
     // Reset ALL state to initial values
     setStatus('pending')
@@ -162,17 +164,30 @@ export default function JobProgressPage() {
     setLogs(hydratedLogs)
     
     // Transform pages - snapshot returns links as { url, timestamp }
-    const hydratedPages: PageEntry[] = (snapshot.links || [])
-      .map(l => ({
-        url: typeof l === 'string' ? l : l.url,
-        timestamp: typeof l === 'object' && l.timestamp ? Number(l.timestamp) : Date.now()
-      }))
-      .filter(p => p.url) // Filter out entries without URL
+    const uniqueLinks = new Map<string, PageEntry>();
+    const newSeenUrls = new Set<string>();
+    
+    (snapshot.links || []).forEach(l => {
+        const url = typeof l === 'string' ? l : l.url;
+        const timestamp = typeof l === 'object' && l.timestamp ? Number(l.timestamp) : Date.now();
+        if (url && !uniqueLinks.has(url)) {
+            uniqueLinks.set(url, { url, timestamp });
+            newSeenUrls.add(url);
+        }
+    });
+    const hydratedPages = Array.from(uniqueLinks.values());
     setPages(hydratedPages)
+    seenUrlsRef.current = newSeenUrls;
 
     // Hydrate final page count if available
+    // BUT prefer hydratedPages.length if we have pages, to ensure consistency
     if (snapshot.pagesCrawled !== undefined) {
-      setFinalPagesCrawled(snapshot.pagesCrawled)
+      // If we have pages, use that count as it's deduped
+      if (hydratedPages.length > 0) {
+        setFinalPagesCrawled(hydratedPages.length)
+      } else {
+        setFinalPagesCrawled(snapshot.pagesCrawled)
+      }
     }
 
     // Hydrate metadata if available in snapshot
@@ -275,11 +290,17 @@ export default function JobProgressPage() {
       else if (eventType === 'page_crawled') {
         const url = event.payload?.url
         if (url) {
-          setPages(prev => {
-            // Dedupe by URL
-            if (prev.some(p => p.url === url)) return prev
-            return [...prev, { url, timestamp: eventTimestamp }]
-          })
+          // Dedupe using ref (synchronous check)
+          if (seenUrlsRef.current.has(url)) {
+             return
+          }
+          seenUrlsRef.current.add(url)
+
+          setPages(prev => [...prev, { url, timestamp: eventTimestamp }])
+          
+          // Increment finalPagesCrawled if we are tracking it (real-time count)
+          // Only increment for NEW unique pages
+          setFinalPagesCrawled(prev => (prev !== null ? prev + 1 : null))
           
           // Also add to logs
           const message = event.payload?.message || `Crawled: ${url}`
@@ -432,7 +453,7 @@ export default function JobProgressPage() {
     return formatDurationHHMMSSMS(elapsed)
   }, [startedAt, currentTime, snapshotAt, status])
 
-  const pageCount = finalPagesCrawled !== null ? finalPagesCrawled : pages.length
+  const pageCount = pages.length > 0 ? pages.length : (finalPagesCrawled || 0)
 
   // ============ UI HELPERS ============
   // Combine logs and pages for carousel display

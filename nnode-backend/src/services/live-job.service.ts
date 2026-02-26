@@ -63,6 +63,7 @@ export class LiveJobService {
              pipeline.del(logsKey);
              pipeline.del(linksKey);
              pipeline.del(`job:${jobId}:pages`);
+             pipeline.del(`job:${jobId}:pages_count`);
              pipeline.del(completedKey);
              
              // Save new startedAt
@@ -113,10 +114,14 @@ export class LiveJobService {
       // 3. Append Pages (completed crawled pages - for progress count)
       // This is separate from links discovered
       const pagesKey = `job:${jobId}:pages`;
+      const pagesCountKey = `job:${jobId}:pages_count`;
       if (eventType === 'page_crawled') {
           pipeline.rpush(pagesKey, JSON.stringify(event));
           pipeline.ltrim(pagesKey, -MAX_LINKS, -1);
           pipeline.expire(pagesKey, REDIS_TTL);
+          // Increment the real-time counter
+          pipeline.incr(pagesCountKey);
+          pipeline.expire(pagesCountKey, REDIS_TTL);
       }
 
       // 4. Append Links (discovered URLs - kept for legacy/reference but not shown in UI count)

@@ -83,8 +83,9 @@ class WebsiteSpider(RedisSpider):
         
         # Isolate job context in Redis (Crucial for repeated crawls)
         if self.job_id:
-             self.name = f"{self.name}_{self.job_id}"
-             logger.info(f"Isolated spider name: {self.name}")
+             self.name = f"website_spider_{self.job_id}"
+             self.redis_key = f"{self.name}:start_urls"
+             logger.info(f"Isolated spider name: {self.name}, redis_key: {self.redis_key}")
 
         self.raw_html_saved = False
         
