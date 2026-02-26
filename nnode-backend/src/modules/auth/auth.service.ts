@@ -49,6 +49,8 @@ export class AuthService {
         email: user.email,
         name: user.name,
         role: user.role as unknown as UserRole,
+        hasNew: user.hasNew,
+        onboardingData: user.onboardingData,
       },
       token,
     };
@@ -83,6 +85,8 @@ export class AuthService {
         email: user.email,
         name: user.name,
         role: user.role as unknown as UserRole,
+        hasNew: user.hasNew,
+        onboardingData: user.onboardingData,
       },
       token,
     };
@@ -102,6 +106,8 @@ export class AuthService {
       email: user.email,
       name: user.name,
       role: user.role as unknown as UserRole,
+      hasNew: user.hasNew,
+      onboardingData: user.onboardingData,
     };
   }
 

@@ -102,7 +102,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
     try {
       if (isLogin) {
         // Login (token stored in localStorage by authApi)
-        await login({
+        const response = await login({
           email: formData.email,
           password: formData.password,
         }).unwrap()
@@ -110,6 +110,12 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
         // Close modal
         handleClose()
         
+        // Check for onboarding
+        if (response.user.hasNew) {
+            router.push('/onboarding')
+            return
+        }
+
         // Call onSuccess callback if provided, otherwise redirect
         if (onSuccess) {
           onSuccess()
@@ -118,7 +124,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
         }
       } else {
         // Signup
-        await signup({
+        const response = await signup({
           email: formData.email,
           password: formData.password,
           name: formData.name || "User",
@@ -128,6 +134,12 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
         // Close modal
         handleClose()
         
+        // Check for onboarding (should be true for new users)
+        if (response.user.hasNew) {
+            router.push('/onboarding')
+            return
+        }
+
         // Call onSuccess callback if provided, otherwise redirect
         if (onSuccess) {
           onSuccess()

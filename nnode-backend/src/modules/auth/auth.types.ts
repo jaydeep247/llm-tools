@@ -18,6 +18,12 @@ export interface AuthResponse {
     email: string;
     name: string;
     role: UserRole;
+    hasNew?: boolean;
+    onboardingData?: {
+      role?: string;
+      organizationType?: string;
+      focusArea?: string;
+    };
   };
   token: string;
 }

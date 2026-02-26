@@ -55,45 +55,37 @@ const plans = [
 export default function SubscriptionsPage() {
   return (
     <div className="space-y-4 sm:space-y-6 md:space-y-8 animate-fade-in-hero">
-      {/* Header */}
-      <div className="space-y-1 md:space-y-2">
-        <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white">Subscription Plans</h1>
-        <p className="text-white/70 text-sm sm:text-base md:text-lg font-light">
-          Choose the perfect plan for your needs. Upgrade or downgrade at any time.
-        </p>
-      </div>
-
       {/* Current Plan Banner */}
       {plans.some(p => p.current) && (
-        <div className="rounded-xl md:rounded-2xl border border-white/20 bg-white/10 backdrop-blur-xl p-4 sm:p-5 md:p-6 lg:p-8">
-          <div className="space-y-3 md:space-y-4">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
+        <div className="rounded-xl border border-white/10 bg-[#121212] p-6">
+          <div className="space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
-                <h2 className="text-lg sm:text-xl font-bold text-white">Current Plan: Pro</h2>
-                <p className="text-white/60 mt-1 text-xs sm:text-sm">Your subscription renews on March 15, 2024</p>
+                <h2 className="text-xl font-bold text-white">Current Plan: Pro</h2>
+                <p className="text-white/60 mt-1 text-sm">Your subscription renews on March 15, 2024</p>
               </div>
-              <Button className="bg-white text-black hover:bg-slate-100 rounded-full font-semibold px-4 sm:px-5 md:px-6 text-xs sm:text-sm h-9 sm:h-10 w-full md:w-auto">
-                Manage Billing <ArrowRight className="ml-1.5 sm:ml-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <Button className="bg-white text-black hover:bg-slate-100 rounded-full font-semibold px-6 text-sm h-10 w-full md:w-auto cursor-pointer">
+                Manage Billing <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
 
             {/* Plan Details Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 pt-3 md:pt-4 border-t border-white/20">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-white/10">
               <div>
-                <p className="text-[10px] sm:text-xs text-white/60 mb-1">Billing Cycle</p>
-                <p className="font-semibold text-white text-xs sm:text-sm">Monthly</p>
+                <p className="text-xs text-white/60 mb-1">Billing Cycle</p>
+                <p className="font-semibold text-white text-sm">Monthly</p>
               </div>
               <div>
-                <p className="text-[10px] sm:text-xs text-white/60 mb-1">Renewal Date</p>
-                <p className="font-semibold text-white text-xs sm:text-sm">Mar 15, 2024</p>
+                <p className="text-xs text-white/60 mb-1">Renewal Date</p>
+                <p className="font-semibold text-white text-sm">Mar 15, 2024</p>
               </div>
               <div>
-                <p className="text-[10px] sm:text-xs text-white/60 mb-1">Monthly Cost</p>
-                <p className="font-semibold text-white text-xs sm:text-sm">$29.00</p>
+                <p className="text-xs text-white/60 mb-1">Monthly Cost</p>
+                <p className="font-semibold text-white text-sm">$29.00</p>
               </div>
               <div>
-                <p className="text-[10px] sm:text-xs text-white/60 mb-1">API Usage</p>
-                <p className="font-semibold text-white text-xs sm:text-sm">45% of quota</p>
+                <p className="text-xs text-white/60 mb-1">API Usage</p>
+                <p className="font-semibold text-white text-sm">45% of quota</p>
               </div>
             </div>
           </div>
@@ -101,58 +93,58 @@ export default function SubscriptionsPage() {
       )}
 
       {/* Plans Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 md:gap-5 lg:gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
         {plans.map((plan, idx) => (
           <div
             key={idx}
-            className={`relative rounded-xl md:rounded-2xl border backdrop-blur-xl p-4 sm:p-5 md:p-6 lg:p-8 transition-all duration-500 flex flex-col ${
+            className={`relative rounded-xl border p-6 transition-all duration-300 flex flex-col ${
               plan.current
-                ? 'border-white/30 bg-white/15 md:scale-105 md:z-10 md:shadow-xl md:shadow-white/10'
-                : 'border-white/20 bg-white/10 hover:border-white/30 hover:bg-white/15'
+                ? 'border-primary/50 bg-[#1A1A1A] md:scale-105 md:z-10 md:shadow-xl md:shadow-black/50'
+                : 'border-white/10 bg-[#121212] hover:border-white/20 hover:bg-[#1A1A1A]'
             }`}
           >
             {plan.popular && (
               <div className="absolute top-0 right-0">
-                <div className="bg-white text-black text-[10px] sm:text-xs font-bold px-2 sm:px-3 py-0.5 sm:py-1 rounded-bl-xl md:rounded-bl-2xl">
+                <div className="bg-white text-black text-xs font-bold px-3 py-1 rounded-bl-xl rounded-tr-xl">
                   POPULAR
                 </div>
               </div>
             )}
 
-            <div className="space-y-1.5 md:space-y-2 mb-4 md:mb-6">
-              <h3 className="text-xl sm:text-2xl font-bold text-white">{plan.name}</h3>
-              <p className="text-white/60 text-xs sm:text-sm">{plan.description}</p>
+            <div className="space-y-2 mb-6">
+              <h3 className="text-2xl font-bold text-white">{plan.name}</h3>
+              <p className="text-white/60 text-sm">{plan.description}</p>
             </div>
 
             {/* Pricing */}
-            <div className="space-y-0.5 md:space-y-1 mb-4 md:mb-6">
+            <div className="space-y-1 mb-6">
               <div className="flex items-baseline gap-1">
-                <span className="text-3xl sm:text-4xl font-bold text-white">{plan.price}</span>
-                <span className="text-white/60 text-sm sm:text-base">{plan.period}</span>
+                <span className="text-4xl font-bold text-white">{plan.price}</span>
+                <span className="text-white/60 text-base">{plan.period}</span>
               </div>
             </div>
 
             {/* CTA Button */}
             <Button
-              className={`w-full mb-4 md:mb-6 rounded-full font-semibold text-xs sm:text-sm h-9 sm:h-10 ${
+              className={`w-full mb-6 rounded-full font-semibold text-sm h-10 cursor-pointer ${
                 plan.current
                   ? 'bg-white text-black hover:bg-slate-100'
-                  : 'bg-white/20 text-white hover:bg-white/30 border border-white/30'
+                  : 'bg-white/10 text-white hover:bg-white/20 border border-white/10'
               }`}
             >
               {plan.current ? 'Current Plan' : 'Choose Plan'}
             </Button>
 
             {/* Features List */}
-            <div className="space-y-2 md:space-y-3 flex-1">
+            <div className="space-y-3 flex-1">
               {plan.features.map((feature, featureIdx) => (
-                <div key={featureIdx} className="flex items-start gap-2 sm:gap-3">
+                <div key={featureIdx} className="flex items-start gap-3">
                   {feature.included ? (
-                    <Check className="h-4 w-4 sm:h-5 sm:w-5 text-white/80 shrink-0 mt-0.5" />
+                    <Check className="h-5 w-5 text-white/80 shrink-0 mt-0.5" />
                   ) : (
-                    <X className="h-4 w-4 sm:h-5 sm:w-5 text-white/40 shrink-0 mt-0.5" />
+                    <X className="h-5 w-5 text-white/40 shrink-0 mt-0.5" />
                   )}
-                  <span className={`text-xs sm:text-sm ${
+                  <span className={`text-sm ${
                     feature.included ? 'text-white/90' : 'text-white/60'
                   }`}>
                     {feature.name}
@@ -163,7 +155,7 @@ export default function SubscriptionsPage() {
 
             {/* Contact for Enterprise */}
             {plan.name === 'Enterprise' && (
-              <Button className="w-full mt-4 md:mt-6 border border-white/20 bg-white/10 text-white hover:bg-white/20 rounded-full font-semibold text-xs sm:text-sm h-9 sm:h-10">
+              <Button className="w-full mt-6 border border-white/10 bg-white/5 text-white hover:bg-white/10 rounded-full font-semibold text-sm h-10 cursor-pointer">
                 Contact Sales
               </Button>
             )}
@@ -172,8 +164,8 @@ export default function SubscriptionsPage() {
       </div>
 
       {/* FAQ Section */}
-      <div className="space-y-3 md:space-y-4">
-        <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-white">Frequently Asked Questions</h2>
+      <div className="space-y-4">
+        <h2 className="text-2xl md:text-3xl font-bold text-white">Frequently Asked Questions</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
           {[
             {
@@ -195,10 +187,10 @@ export default function SubscriptionsPage() {
           ].map((faq, idx) => (
             <div
               key={idx}
-              className="rounded-xl md:rounded-2xl border border-white/20 bg-white/10 backdrop-blur-xl p-3 sm:p-4 hover:border-white/30 hover:bg-white/15 transition-all duration-300"
+              className="rounded-xl border border-white/10 bg-[#121212] p-4 hover:border-white/20 hover:bg-[#1A1A1A] transition-all duration-300"
             >
-              <h3 className="font-semibold mb-1.5 md:mb-2 text-white text-sm sm:text-base">{faq.q}</h3>
-              <p className="text-xs sm:text-sm text-white/60">{faq.a}</p>
+              <h3 className="font-semibold mb-2 text-white text-base">{faq.q}</h3>
+              <p className="text-sm text-white/60">{faq.a}</p>
             </div>
           ))}
         </div>

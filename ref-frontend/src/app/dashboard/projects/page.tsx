@@ -63,18 +63,10 @@ export default function ProjectsPage() {
   if (isLoading) {
     return (
       <div className="space-y-4 sm:space-y-6 md:space-y-8 animate-fade-in-hero">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 md:gap-4">
-          <div className="space-y-1 md:space-y-2">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white">Projects</h1>
-            <p className="text-white/70 text-sm sm:text-base md:text-lg font-light">
-              Loading your projects...
-            </p>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5 lg:gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="rounded-lg p-3 sm:p-4 md:p-5 border border-white/20 bg-white/10 backdrop-blur-xl animate-pulse">
-              <div className="h-16 sm:h-20 bg-white/10 rounded"></div>
+            <div key={i} className="rounded-xl p-4 border border-white/10 bg-[#121212] animate-pulse">
+              <div className="h-20 bg-white/5 rounded"></div>
             </div>
           ))}
         </div>
@@ -101,42 +93,27 @@ export default function ProjectsPage() {
   return (
     <>
       <div className="space-y-4 sm:space-y-6 md:space-y-8 animate-fade-in-hero">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 md:gap-4">
-          <div className="space-y-1 md:space-y-2">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white">Projects</h1>
-            <p className="text-white/70 text-sm sm:text-base md:text-lg font-light">
-              Manage and organize all your crawl sessions
-            </p>
-          </div>
-          <Button 
-            onClick={() => setIsCreateDialogOpen(true)}
-            className="bg-white text-black hover:bg-slate-100 rounded-full font-semibold px-4 sm:px-5 md:px-6 text-xs sm:text-sm h-9 sm:h-10 cursor-pointer"
-          >
-            <Plus className="mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" /> New Project
-          </Button>
-        </div>
 
         {/* Empty State */}
         {projects.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 sm:py-16 md:py-20 rounded-lg border border-white/20 bg-white/10 backdrop-blur-xl">
-            <FolderOpen className="h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 text-white/40 mb-3 md:mb-4" />
-            <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">No projects yet</h2>
-            <p className="text-sm sm:text-base text-white/60 mb-4 md:mb-6">Create your first project to get started</p>
+          <div className="flex flex-col items-center justify-center py-20 rounded-xl border border-white/10 bg-[#121212]">
+            <FolderOpen className="h-16 w-16 text-white/20 mb-4" />
+            <h2 className="text-xl font-bold text-white mb-2">No projects yet</h2>
+            <p className="text-white/60 mb-6">Create your first project to get started</p>
             <Button 
               onClick={() => setIsCreateDialogOpen(true)}
-              className="bg-white text-black hover:bg-slate-100 rounded-full font-semibold px-4 sm:px-5 md:px-6 text-xs sm:text-sm cursor-pointer"
+              className="bg-white text-black hover:bg-slate-100 rounded-full font-semibold px-6 text-sm h-10 cursor-pointer"
             >
-              <Plus className="mr-1.5 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" /> Create Project
+              <Plus className="mr-2 h-4 w-4" /> Create Project
             </Button>
           </div>
         ) : (
           /* Projects Grid */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5 lg:gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {projects.map((project) => (
               <div
                 key={project.id}
-                className="group rounded-lg p-3 sm:p-4 md:p-5 border border-white/20 bg-white/10 backdrop-blur-xl hover:border-white/30 hover:bg-white/15 transition-all duration-500 flex flex-col cursor-pointer"
+                className="group rounded-xl p-3 sm:p-4 border border-white/10 bg-[#121212] hover:border-white/20 hover:bg-[#1A1A1A] transition-all duration-300 flex flex-col cursor-pointer"
                 onClick={() => handleViewProject(project.id)}
               >
                 <div className="space-y-2 md:space-y-3 flex-1">

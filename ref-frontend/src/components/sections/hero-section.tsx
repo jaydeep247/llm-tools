@@ -69,7 +69,8 @@ export function HeroSection() {
       const sessionResult = await createSession(projectId).unwrap()
       const sessionId = sessionResult.session.id
 
-      const jobResult = await createJob({
+      // Disconnected crawling
+      /* const jobResult = await createJob({
         sessionId,
         data: {
           url: pendingUrl,
@@ -86,11 +87,18 @@ export function HeroSection() {
       })
 
       // Navigate to job progress page (jobId is stable identity from URL)
-      router.push(`/dashboard/jobs/${jobResult.job.id}/progress`)
+      router.push(`/dashboard/jobs/${jobResult.job.id}/progress`) */
+
+      toast({
+        title: 'Session Created',
+        description: `Session created for ${pendingUrl}`,
+      })
+      
+      router.push(`/dashboard/projects/${projectId}/sessions/${sessionId}`)
     } catch (error: any) {
       toast({
-        title: 'Failed to Start Crawl',
-        description: error?.data?.message || 'An error occurred while starting the crawl',
+        title: 'Failed to Start Session',
+        description: error?.data?.message || 'An error occurred while starting the session',
         variant: 'destructive',
       })
     }

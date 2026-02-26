@@ -8,6 +8,12 @@ export interface UserEntity {
   role: UserRole;
   createdAt: Date;
   updatedAt: Date;
+  hasNew?: boolean;
+  onboardingData?: {
+    role?: string;
+    organizationType?: string;
+    focusArea?: string;
+  };
 }
 
 export type UserResponse = Omit<UserEntity, 'password'>;
@@ -23,6 +29,12 @@ export interface UpdateUserDto {
   email?: string;
   name?: string;
   role?: UserRole;
+  hasNew?: boolean;
+  onboardingData?: {
+    role?: string;
+    organizationType?: string;
+    focusArea?: string;
+  };
 }
 
 export interface UserFilters {

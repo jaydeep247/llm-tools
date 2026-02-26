@@ -18,6 +18,7 @@ export class UserRepository {
       role: data.role ?? UserRole.ANALYST,
       createdAt: now,
       updatedAt: now,
+      hasNew: true, // Default to true for new users
     };
     await db.collection<UserEntity>('users').insertOne(user);
     return user;
@@ -44,7 +45,7 @@ export class UserRepository {
    */
   async findAll(filters?: UserFilters): Promise<UserEntity[]> {
     const db = await connectToMongo();
-    const query: Partial<UserFilters> = {};
+    const query: Partial<UserEntity> = {}; // Use UserEntity for query
     if (filters?.email) {
       query.email = filters.email;
     }
@@ -63,12 +64,10 @@ export class UserRepository {
    */
   async update(id: string, data: UpdateUserDto): Promise<UserEntity> {
     const db = await connectToMongo();
-    await db
-      .collection<UserEntity>('users')
-      .updateOne(
-        { id },
-        { $set: { ...data, updatedAt: new Date() } }
-      );
+    await db.collection<UserEntity>('users').updateOne(
+      { id },
+      { $set: { ...data, updatedAt: new Date() } }
+    );
     const user = await this.findById(id);
     if (!user) {
       throw new Error('User not found');

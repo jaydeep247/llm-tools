@@ -76,8 +76,8 @@ export default function ProjectDetailPage() {
     return (
       <div className="space-y-6 sm:space-y-8 animate-fade-in-hero">
         <div className="space-y-2">
-          <div className="h-8 sm:h-10 md:h-12 w-48 sm:w-64 bg-white/10 rounded animate-pulse"></div>
-          <div className="h-4 sm:h-5 w-32 sm:w-48 bg-white/10 rounded animate-pulse"></div>
+          <div className="h-8 sm:h-10 md:h-12 w-48 sm:w-64 bg-white/5 rounded animate-pulse"></div>
+          <div className="h-4 sm:h-5 w-32 sm:w-48 bg-white/5 rounded animate-pulse"></div>
         </div>
       </div>
     )
@@ -153,8 +153,8 @@ export default function ProjectDetailPage() {
       const sessionResult = await createSession(projectId).unwrap()
       const sessionId = sessionResult.session.id
 
-       // Step 2: Create job
-      const normalizedUrl = url.trim().startsWith('http') ? url.trim() : `https://${url.trim()}`
+      // Step 2: Create job - DISCONNECTED
+      /* const normalizedUrl = url.trim().startsWith('http') ? url.trim() : `https://${url.trim()}`
       
       const jobResult = await createJob({
         sessionId,
@@ -172,7 +172,10 @@ export default function ProjectDetailPage() {
       }).unwrap()
 
       // Navigate to job progress page (jobId is stable identity from URL)
-      router.push(`/dashboard/jobs/${jobResult.job.id}/progress`)
+      router.push(`/dashboard/jobs/${jobResult.job.id}/progress`) */
+
+      // Navigate to session page
+      router.push(`/dashboard/projects/${projectId}/sessions/${sessionId}`)
     } catch (err: any) {
       setError(err?.data?.message || err?.message || 'Failed to start crawl session')
     }
@@ -283,7 +286,7 @@ export default function ProjectDetailPage() {
 
       {/* Start New Session Card */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-4">
-        <div className="rounded-lg p-3 sm:p-4 md:p-5 border border-white/20 bg-white/10 backdrop-blur-xl transition-all duration-500 flex flex-col h-full">
+        <div className="rounded-xl p-3 sm:p-4 md:p-5 border border-white/10 bg-[#121212] transition-all duration-300 flex flex-col h-full">
           <div className="space-y-3 flex-1 flex flex-col justify-center">
             {/* Header */}
             <div className="flex items-start justify-between gap-2 mb-2">
@@ -312,7 +315,7 @@ export default function ProjectDetailPage() {
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !isStartingCrawl && handleStartSession()}
-                className="bg-white/5 border-white/20 text-white placeholder:text-white/40 text-xs sm:text-sm h-8 sm:h-9 flex-1"
+                className="bg-white/5 border-white/10 text-white placeholder:text-white/40 text-xs sm:text-sm h-8 sm:h-9 flex-1"
                 disabled={isStartingCrawl}
               />
 
@@ -345,14 +348,14 @@ export default function ProjectDetailPage() {
         {isLoadingSessions ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="rounded-lg p-3 sm:p-4 md:p-5 border border-white/20 bg-white/10 backdrop-blur-xl animate-pulse">
-                <div className="h-20 sm:h-24 bg-white/10 rounded"></div>
+              <div key={i} className="rounded-xl p-3 sm:p-4 md:p-5 border border-white/10 bg-[#121212] animate-pulse">
+                <div className="h-20 sm:h-24 bg-white/5 rounded"></div>
               </div>
             ))}
           </div>
         ) : sessions.length === 0 ? (
-          <div className="rounded-lg p-8 sm:p-10 md:p-12 border border-white/20 bg-white/10 backdrop-blur-xl text-center">
-            <Globe className="h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 text-white/40 mx-auto mb-3 sm:mb-4" />
+          <div className="rounded-xl p-8 sm:p-10 md:p-12 border border-white/10 bg-[#121212] text-center">
+            <Globe className="h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 text-white/20 mx-auto mb-3 sm:mb-4" />
             <h3 className="text-base sm:text-lg md:text-xl font-semibold text-white mb-1.5 sm:mb-2">No sessions yet</h3>
             <p className="text-xs sm:text-sm text-white/60 mb-4 sm:mb-6">Start a new crawl to see sessions here</p>
             <Button 
@@ -367,7 +370,7 @@ export default function ProjectDetailPage() {
             {sessions.map((session: CrawlSession) => (
               <div
                 key={session.id}
-                className="rounded-lg p-3 sm:p-4 md:p-5 border border-white/20 bg-white/10 backdrop-blur-xl transition-all duration-500 flex flex-col"
+                className="rounded-xl p-3 sm:p-4 md:p-5 border border-white/10 bg-[#121212] transition-all duration-300 flex flex-col"
               >
                 <div className="flex flex-col h-full">
                   {/* Top Meta: Date and Status */}

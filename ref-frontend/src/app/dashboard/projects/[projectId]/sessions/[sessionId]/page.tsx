@@ -666,13 +666,13 @@ export default function SessionDetailPage() {
       >
         <div className="p-6 space-y-6 sm:space-y-8 animate-fade-in-hero">
           <div className="space-y-2">
-            <div className="h-8 sm:h-10 md:h-12 w-48 sm:w-64 bg-white/10 rounded animate-pulse"></div>
-            <div className="h-4 sm:h-5 w-32 sm:w-48 bg-white/10 rounded animate-pulse"></div>
+            <div className="h-8 sm:h-10 md:h-12 w-48 sm:w-64 bg-white/5 rounded animate-pulse"></div>
+            <div className="h-4 sm:h-5 w-32 sm:w-48 bg-white/5 rounded animate-pulse"></div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="rounded-lg p-3 sm:p-4 md:p-5 border border-white/20 bg-white/10 backdrop-blur-xl animate-pulse">
-                <div className="h-20 sm:h-24 bg-white/10 rounded"></div>
+              <div key={i} className="rounded-xl p-3 sm:p-4 md:p-5 border border-white/10 bg-[#121212] animate-pulse">
+                <div className="h-20 sm:h-24 bg-white/5 rounded"></div>
               </div>
             ))}
           </div>
@@ -729,7 +729,7 @@ export default function SessionDetailPage() {
             />
 
             {/* Session Info */}
-            <div className="rounded-lg p-3 sm:p-4 md:p-5 border border-white/20 bg-white/10 backdrop-blur-xl">
+            <div className="rounded-xl p-3 sm:p-4 md:p-5 border border-white/10 bg-[#121212]">
               <h2 className="text-base sm:text-lg md:text-xl font-bold text-white mb-3 sm:mb-4">Session Details</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
                 <div className="space-y-0.5 sm:space-y-1">
@@ -785,7 +785,7 @@ export default function SessionDetailPage() {
             </div>
 
             {/* Crawled Pages Summary Table */}
-            <div className="rounded-lg border border-white/20 bg-white/10 backdrop-blur-xl overflow-hidden">
+            <div className="rounded-xl border border-white/10 bg-[#121212] overflow-hidden">
               <div className="bg-white/5 px-4 py-3 border-b border-white/10 flex items-center justify-between">
                 <h3 className="text-base sm:text-lg font-semibold text-white">📄 Crawled Pages ({transformedPages.length})</h3>
                 <Button 

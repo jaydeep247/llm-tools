@@ -11,6 +11,12 @@ export interface User {
   email: string;
   name: string;
   role: UserRole;
+  hasNew?: boolean;
+  onboardingData?: {
+    role?: string;
+    organizationType?: string;
+    focusArea?: string;
+  };
 }
 
 export interface SignupRequest {
