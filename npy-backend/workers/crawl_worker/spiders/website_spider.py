@@ -1,6 +1,6 @@
 """
 Website Spider
-Main Scrapy spider for crawling websites with sitemap discovery
+Main Scrapy spider for crawling websites with sitemap discovery pages
 """
 
 import scrapy
