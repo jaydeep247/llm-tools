@@ -1,3 +1,4 @@
+from twisted.internet import threads, defer
 from datetime import datetime
 from scrapy.exceptions import DropItem
 from utils.mongo import mongo_manager
@@ -47,12 +48,18 @@ class MongoPipeline:
         mongo_manager.connect()
         logger.info(f"MongoPipeline (Streaming) initialized for Job {self.job_id}")
 
+    @defer.inlineCallbacks
     def close_spider(self, spider):
-        """Flush remaining buffers and write job summary"""
+        """Flush all buffers and update job summary"""
         try:
+            logger.info(f"Closing spider for Job {self.job_id}. Buffers: { {k: len(v) for k, v in self.buffers.items()} }")
+            
             # 1. Flush all remaining items
             for item_type in self.buffers:
-                self._flush_buffer(item_type)
+                try:
+                    yield self._flush_buffer(item_type)
+                except Exception as e:
+                    logger.error(f"Error flushing {item_type} buffer: {e}")
 
             # 2. Write Job Summary document
             summary_doc = {
@@ -76,11 +83,34 @@ class MongoPipeline:
                 }
             }
             
-            mongo_manager.job_summaries.update_one(
-                {'jobId': self.job_id},
-                {'$set': summary_doc},
-                upsert=True
-            )
+            def _write_summary(doc):
+                try:
+                    # Ensure connection is alive
+                    if mongo_manager.job_summaries is None:
+                        mongo_manager.connect()
+                        
+                    mongo_manager.job_summaries.update_one(
+                        {'jobId': self.job_id},
+                        {'$set': doc},
+                        upsert=True
+                    )
+                    logger.info(f"Job summary written for {self.job_id}")
+                    
+                    # Also update jobs collection stats
+                    mongo_manager.db.jobs.update_one(
+                        {'id': self.job_id},
+                        {'$set': {
+                            'status': 'completed', 
+                            'completedAt': datetime.now().isoformat(),
+                            'pagesCrawled': self.total_counts['pages'],
+                            'linksFound': self.total_counts['links']
+                        }}
+                    )
+                except Exception as ex:
+                    logger.error(f"Failed to write summary/stats: {ex}")
+            
+            yield threads.deferToThread(_write_summary, summary_doc)
+            
             logger.info(
                 f"Job {self.job_id} complete. Pages: {self.total_counts['pages']}, "
                 f"Links: {self.total_counts['links']}, "
@@ -90,17 +120,31 @@ class MongoPipeline:
             
         except Exception as e:
             error_type = type(e).__name__
-            logger.error(f"Error finalizing job {self.job_id} in MongoDB ({error_type})")
-        finally:
-            mongo_manager.close()
+            import traceback
+            logger.error(f"Error finalizing job {self.job_id} in MongoDB ({error_type}): {traceback.format_exc()}")
+        # finally:
+        #    mongo_manager.close() # Do NOT close global connection to avoid race conditions
 
     def process_item(self, item, spider):
         """Buffer items and flush periodically to respective collections"""
         item_dict = dict(item)
-        item_dict['jobId'] = self.job_id # Ensure all documents linked by jobId
+        # Prefer job_id from item, fallback to spider's initial job_id
+        item_dict['jobId'] = item.get('job_id') or self.job_id 
+        
+        # Update pipeline's job_id if we found one and didn't have one
+        if not self.job_id and item_dict['jobId']:
+             self.job_id = item_dict['jobId']
+             self.project_id = getattr(spider, 'project_id', None)
+             self.session_id = getattr(spider, 'session_id', None)
+        
+        if not item_dict['jobId']:
+             # If no job ID, we can't save it properly. Log warning?
+             # But keep going to avoid crashing
+             pass
         item_dict['createdAt'] = datetime.utcnow()
         
         target_buffer = None
+        deferreds = []
         
         if isinstance(item, PageItem):
             if not item_dict.get('url'): return item
@@ -111,7 +155,7 @@ class MongoPipeline:
                 
                 # Create separate fields document
                 fields_doc = {
-                    'jobId': self.job_id,
+                    'jobId': item_dict['jobId'],
                     'url': item_dict['url'],
                     'createdAt': datetime.utcnow(),
                     **fields_data # Flatten: status, website_crawler, Wordcount_analysis, etc.
@@ -122,7 +166,7 @@ class MongoPipeline:
                 self.total_counts['fields'] += 1
                 
                 if len(self.buffers['fields']) >= self.batch_size:
-                    self._flush_buffer('fields')
+                    deferreds.append(self._flush_buffer('fields'))
             
             target_buffer = 'pages'
         elif isinstance(item, LinkItem):
@@ -136,21 +180,35 @@ class MongoPipeline:
             self.total_counts[target_buffer] += 1
             
             if len(self.buffers[target_buffer]) >= self.batch_size:
-                self._flush_buffer(target_buffer)
+                deferreds.append(self._flush_buffer(target_buffer))
+        
+        if deferreds:
+            return defer.DeferredList(deferreds).addCallback(lambda _: item)
                 
         return item
 
     def _flush_buffer(self, item_type):
-        """Write a specific buffer to MongoDB"""
+        """Write a specific buffer to MongoDB (Async)"""
         buffer = self.buffers[item_type]
         if not buffer:
-            return
+            return defer.succeed(None)
             
-        try:
-            collection = getattr(mongo_manager, item_type)
-            collection.insert_many(buffer, ordered=False)
-            self.buffers[item_type] = []
-        except Exception as e:
-            error_type = type(e).__name__
-            logger.error(f"Failed to flush {item_type} buffer for Job {self.job_id} ({error_type})")
-            self.buffers[item_type] = [] # Clear even on error to prevent memory bloat
+        # Clear buffer immediately for new items
+        self.buffers[item_type] = []
+        
+        def _write_to_mongo(data_buffer):
+                try:
+                    collection = getattr(mongo_manager, item_type)
+                    if collection is None:
+                        logger.error(f"Collection {item_type} not found in MongoManager")
+                        return
+
+                    logger.info(f"Flushing {len(data_buffer)} items to {item_type} collection")
+                    result = collection.insert_many(data_buffer, ordered=False)
+                    logger.info(f"Successfully inserted {len(result.inserted_ids)} items into {item_type}")
+                except Exception as e:
+                    error_type = type(e).__name__
+                    import traceback
+                    logger.error(f"Failed to flush {item_type} buffer for Job {self.job_id}: {str(e)}\n{traceback.format_exc()}")
+
+        return threads.deferToThread(_write_to_mongo, buffer)

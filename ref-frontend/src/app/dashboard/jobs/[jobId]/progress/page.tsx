@@ -49,10 +49,12 @@ export default function JobProgressPage() {
   const [snapshotAt, setSnapshotAt] = useState<number | null>(null)
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [pages, setPages] = useState<PageEntry[]>([])
+  const [finalPagesCrawled, setFinalPagesCrawled] = useState<number | null>(null)
   const [currentTime, setCurrentTime] = useState(Date.now())
   
   // For redirect after completion
   const [jobMeta, setJobMeta] = useState<{ projectId?: string; sessionId?: string }>({})
+  const [redirectCountdown, setRedirectCountdown] = useState<number | null>(null)
 
   // ============ REF: HYDRATION TRACKING ============
   // CRITICAL: This ref synchronously tracks which jobId we've hydrated
@@ -90,6 +92,7 @@ export default function JobProgressPage() {
     setSnapshotAt(null)  // This gates the socket effect
     setLogs([])
     setPages([])
+    setFinalPagesCrawled(null)
     setJobMeta({})
     setCurrentTime(Date.now())
   }, [jobId])
@@ -105,6 +108,7 @@ export default function JobProgressPage() {
   // Job status for metadata (projectId, sessionId)
   const { data: jobStatus } = useGetJobStatusQuery(jobId, {
     skip: !jobId,
+    pollingInterval: status === 'running' ? 2000 : 0, // Poll every 2s while running (fallback for socket)
     refetchOnMountOrArgChange: true,
   })
 
@@ -130,6 +134,7 @@ export default function JobProgressPage() {
     
     // Hydrate status
     const snapshotStatus = (snapshot.status || 'pending') as JobStatus
+    console.log(`📊 Setting initial status from snapshot: ${snapshotStatus}`)
     setStatus(snapshotStatus)
     
     // CRITICAL: Only set startedAt if:
@@ -165,18 +170,57 @@ export default function JobProgressPage() {
       .filter(p => p.url) // Filter out entries without URL
     setPages(hydratedPages)
 
+    // Hydrate final page count if available
+    if (snapshot.pagesCrawled !== undefined) {
+      setFinalPagesCrawled(snapshot.pagesCrawled)
+    }
+
+    // Hydrate metadata if available in snapshot
+    if (snapshot.projectId || snapshot.sessionId) {
+      setJobMeta({
+        projectId: snapshot.projectId,
+        sessionId: snapshot.sessionId
+      })
+    }
+
+    console.log(`✅ Snapshot hydrated: ${hydratedLogs.length} logs, ${hydratedPages.length} pages, boundary=${snapshot.snapshotAt}`)
   }, [isSnapshotSuccess, isSnapshotFetching, snapshot, jobId])
   // NOTE: Removed snapshotAt from deps - we use hydratedJobIdRef for gating now
 
-  // ============ EFFECT 2: JOB METADATA ============
+  // ============ EFFECT 2: JOB METADATA & STATUS SYNC ============
   useEffect(() => {
     if (jobStatus) {
       setJobMeta({
         projectId: (jobStatus as any).projectId,
         sessionId: (jobStatus as any).sessionId
       })
+      
+      // Sync status from polling (fallback if socket event missed)
+      // Normalize status to lowercase to match local state type
+      const polledStatus = (jobStatus.status || '').toLowerCase() as JobStatus
+      
+      console.log(`📡 Polled status: ${polledStatus}, current status: ${status}, jobId: ${jobId}`)
+
+      if (polledStatus && polledStatus !== status) {
+        // CRITICAL: Guard against status regression via polling
+        // If current state is terminal (completed/failed/cancelled),
+        // do NOT revert to 'running' just because polling returned stale data
+        if ((status === 'completed' || status === 'failed' || status === 'cancelled') && polledStatus === 'running') {
+           console.log(`🛡️ Ignoring polled status '${polledStatus}' - job already ${status}`)
+           return
+        }
+
+        console.log(`🔄 Status updated via polling: ${jobStatus.status} -> ${polledStatus}`)
+        setStatus(polledStatus)
+        
+        // If completed via polling, ensure we stop the loader
+        if (polledStatus === 'completed' || polledStatus === 'failed') {
+             // We might miss finalPagesCrawled if socket missed, but redirect will handle it
+             console.log('✅ Job completed (detected via polling)')
+        }
+      }
     }
-  }, [jobStatus])
+  }, [jobStatus, status])
 
   // ============ EFFECT 3: SOCKET SUBSCRIPTION (FUTURE DELTAS ONLY) ============
   useEffect(() => {
@@ -245,6 +289,13 @@ export default function JobProgressPage() {
       // Handle status transitions
       else if (eventType === 'JOB_STARTED' || eventType === 'status') {
         const newStatus = event.payload?.status || eventType
+        
+        // CRITICAL: Guard against status regression (e.g. late 'running' event after completion)
+        if (statusRef.current === 'completed' || statusRef.current === 'failed' || statusRef.current === 'cancelled') {
+           console.log(`🛡️ Ignoring ${eventType} (status=${newStatus}) - job already ${statusRef.current}`)
+           return
+        }
+
         if (newStatus === 'running' || eventType === 'JOB_STARTED') {
           setStatus('running')
           // Set startedAt - VALIDATE it's reasonable (within last hour for a fresh start)
@@ -273,6 +324,23 @@ export default function JobProgressPage() {
       else if (eventType === 'JOB_COMPLETED' || event.payload?.status === 'completed') {
         setStatus('completed')
         setLogs(prev => [...prev, { message: '✅ Crawl completed!', timestamp: eventTimestamp }])
+        
+        // Capture final stats from payload
+        if (event.payload?.pages_crawled !== undefined) {
+          setFinalPagesCrawled(event.payload.pages_crawled)
+        }
+
+        // CRITICAL: Hydrate metadata from completion event if missing
+        // This ensures redirect works even if initial query failed
+        if (event.payload?.projectId && event.payload?.sessionId) {
+            console.log('📦 Hydrating metadata from completion event', event.payload)
+            setJobMeta(prev => ({
+                ...prev,
+                projectId: event.payload.projectId,
+                sessionId: event.payload.sessionId
+            }))
+        }
+        
         socket.disconnect()
       }
       else if (eventType === 'JOB_FAILED' || event.payload?.status === 'failed') {
@@ -321,13 +389,30 @@ export default function JobProgressPage() {
 
   // ============ EFFECT 5: REDIRECT ON COMPLETION ============
   useEffect(() => {
+    console.log(`🏁 Redirect effect triggered: status=${status}, meta=`, jobMeta)
     if (status === 'completed' || status === 'failed' || status === 'cancelled') {
+      console.log(`🏁 Job ${status}. Starting redirect countdown...`)
+      setRedirectCountdown(5)
+      
+      const interval = setInterval(() => {
+        setRedirectCountdown(prev => {
+           if (prev === null || prev <= 1) return 0
+           return prev - 1
+        })
+      }, 1000)
+
       const timer = setTimeout(() => {
         if (jobMeta.projectId && jobMeta.sessionId) {
+          console.log(`➡️ Redirecting to session: ${jobMeta.sessionId}`)
           router.push(`/dashboard/projects/${jobMeta.projectId}/sessions/${jobMeta.sessionId}`)
+        } else {
+            console.warn('⚠️ Cannot redirect: missing metadata', jobMeta)
         }
-      }, 2000)
-      return () => clearTimeout(timer)
+      }, 5000)
+      return () => {
+        clearTimeout(timer)
+        clearInterval(interval)
+      }
     }
   }, [status, jobMeta.projectId, jobMeta.sessionId, router])
 
@@ -347,7 +432,7 @@ export default function JobProgressPage() {
     return formatDurationHHMMSSMS(elapsed)
   }, [startedAt, currentTime, snapshotAt, status])
 
-  const pageCount = pages.length
+  const pageCount = finalPagesCrawled !== null ? finalPagesCrawled : pages.length
 
   // ============ UI HELPERS ============
   // Combine logs and pages for carousel display
@@ -425,20 +510,21 @@ export default function JobProgressPage() {
             </div>
 
             {/* Ring 1 - Inner with dot */}
-            <div className="absolute inset-0 flex items-center justify-center animate-spin-slow">
-              <div className="relative w-40 h-40 rounded-full border border-white/70">
-                <div className="absolute w-2.5 h-2.5 rounded-full bg-purple-400 -top-1.5 left-1/2 transform -translate-x-1/2"></div>
+            <div className={`absolute inset-0 flex items-center justify-center ${status === 'running' ? 'animate-spin-slow' : ''}`}>
+              <div className={`relative w-40 h-40 rounded-full border ${status === 'completed' ? 'border-green-400' : 'border-white/70'}`}>
+                <div className={`absolute w-2.5 h-2.5 rounded-full ${status === 'completed' ? 'bg-green-400' : 'bg-purple-400'} -top-1.5 left-1/2 transform -translate-x-1/2`}></div>
               </div>
             </div>
 
             {/* Ring 2 - Middle with dot */}
-            <div className="absolute inset-0 flex items-center justify-center animate-spin-medium">
-              <div className="relative w-64 h-64 rounded-full border border-white/45">
-                <div className="absolute w-2.5 h-2.5 rounded-full bg-blue-400 -top-1.5 left-1/2 transform -translate-x-1/2"></div>
+            <div className={`absolute inset-0 flex items-center justify-center ${status === 'running' ? 'animate-spin-medium' : ''}`}>
+              <div className={`relative w-64 h-64 rounded-full border ${status === 'completed' ? 'border-green-400/50' : 'border-white/45'}`}>
+                <div className={`absolute w-2.5 h-2.5 rounded-full ${status === 'completed' ? 'bg-green-400' : 'bg-blue-400'} -top-1.5 left-1/2 transform -translate-x-1/2`}></div>
               </div>
             </div>
 
             {/* Ring 3 - Expanding and fading out from Ring 2 */}
+            {status === 'running' && (
             <motion.div
               className="absolute inset-0 flex items-center justify-center"
               animate={{
@@ -455,15 +541,17 @@ export default function JobProgressPage() {
               <div className="relative w-96 h-96 rounded-full border border-white/35">
               </div>
             </motion.div>
+            )}
 
             {/* Ring 3 - Static spinning ring (visual background) */}
-            <div className="absolute inset-0 flex items-center justify-center animate-spin-fast">
+            <div className={`absolute inset-0 flex items-center justify-center ${status === 'running' ? 'animate-spin-fast' : ''}`}>
               <div className="relative w-96 h-96 rounded-full border border-white/15">
-                <div className="absolute w-2.5 h-2.5 rounded-full bg-green-400 -top-1.5 left-1/2 transform -translate-x-1/2"></div>
+                <div className={`absolute w-2.5 h-2.5 rounded-full ${status === 'completed' ? 'bg-green-400' : 'bg-green-400'} -top-1.5 left-1/2 transform -translate-x-1/2`}></div>
               </div>
             </div>
 
             {/* Ring 4 - Loader ring expanding and fading out */}
+            {status === 'running' && (
             <motion.div
               className="absolute inset-0 flex items-center justify-center"
               animate={{
@@ -480,6 +568,7 @@ export default function JobProgressPage() {
               <div className="relative w-96 h-96 rounded-full border border-white/40">
               </div>
             </motion.div>
+            )}
           </div>
         </div>
 
@@ -494,6 +583,14 @@ export default function JobProgressPage() {
               {status === 'running' ? 'Live Duration' : status === 'completed' ? 'Total Duration' : status === 'failed' ? 'Failed' : 'Status: ' + status}
             </span>
           </div>
+          
+          {redirectCountdown !== null && (
+            <div className="mt-4 px-4 py-2 bg-white/10 rounded-full border border-white/20 animate-pulse">
+              <span className="text-white/80 font-mono text-sm">
+                Redirecting in {redirectCountdown}s...
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Logs Section - Smooth Carousel */}

@@ -128,4 +128,18 @@ export class SessionService {
 
     return this.sessionRepository.delete(sessionId);
   }
+
+  /**
+   * Mark session as completed (System action - no auth check)
+   */
+  async markSessionCompleted(sessionId: string): Promise<void> {
+    await this.sessionRepository.updateStatus(sessionId, SessionStatus.COMPLETED, new Date());
+  }
+
+  /**
+   * Mark session as failed (System action - no auth check)
+   */
+  async markSessionFailed(sessionId: string): Promise<void> {
+    await this.sessionRepository.updateStatus(sessionId, SessionStatus.FAILED, new Date());
+  }
 }

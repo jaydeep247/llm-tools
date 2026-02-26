@@ -7,7 +7,7 @@ import scrapy
 from scrapy.http import Response, HtmlResponse
 from typing import Dict, Any, Optional, List
 from datetime import datetime
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 import asyncio
 import re
 import xml.etree.ElementTree as ET
@@ -15,7 +15,9 @@ import gzip
 from io import BytesIO
 
 import redis
+from scrapy_redis.spiders import RedisSpider
 from scrapy import signals
+from scrapy.exceptions import DontCloseSpider
 
 from .items import PageItem, LinkItem, SitemapUrlItem
 from .extractors import (
@@ -45,19 +47,20 @@ from modules.module_A.Text_Quality_Analyzer import text_quality_analyzer
 from modules.module_B.keywords import Keyword, extract_keywords_from_html
 
 
-class WebsiteSpider(scrapy.Spider):
+class WebsiteSpider(RedisSpider):
     """
     Main spider for website crawling
     Matches functionality of Node.js crawler
     """
     
     name = 'website_spider'
+    redis_key = "website_spider:start_urls"
     
     custom_settings = {}
     
     def __init__(
         self,
-        start_url: str,
+        start_url: str = None,
         session_id: str = None,
         job_id: str = None,
         project_id: str = None,
@@ -77,20 +80,39 @@ class WebsiteSpider(scrapy.Spider):
         self.session_id = session_id
         self.job_id = job_id
         self.project_id = project_id
+        
+        # Isolate job context in Redis (Crucial for repeated crawls)
+        if self.job_id:
+             self.name = f"{self.name}_{self.job_id}"
+             logger.info(f"Isolated spider name: {self.name}")
+
         self.raw_html_saved = False
         
         self.allow_subdomains = allow_subdomains
-        self.max_concurrency = min(max_concurrency, 4)
+        self.max_concurrency = max_concurrency
         self.max_pages = max_pages
         self.timeout = timeout
         self.allow_discovery = allow_discovery
         self.planned_total = planned_total
         
-        parsed = urlparse(start_url)
-        self.allowed_host = parsed.netloc
-        self.base_scheme = parsed.scheme
-        
-        self.force_trailing_slash = start_url.endswith('/')
+        if start_url:
+            parsed = urlparse(start_url)
+            self.allowed_host = parsed.netloc
+            self.base_scheme = parsed.scheme
+            self.force_trailing_slash = start_url.endswith('/')
+            
+            # Explicitly set allowed_domains for Scrapy's OffsiteMiddleware
+            self.allowed_domains = [parsed.netloc]
+            # Handle www vs non-www
+            if parsed.netloc.startswith('www.'):
+                self.allowed_domains.append(parsed.netloc[4:])
+            else:
+                self.allowed_domains.append(f'www.{parsed.netloc}')
+        else:
+            self.allowed_host = None
+            self.base_scheme = None
+            self.force_trailing_slash = False
+            self.allowed_domains = []
         
         self.sitemap_data = {
             'sitemap_urls': [],
@@ -106,14 +128,18 @@ class WebsiteSpider(scrapy.Spider):
         self.crawl_started_timestamp = None
         self.pages_crawled = 0
         self.links_collected = 0
+        self.scheduled_count = 0  # 7.4 Crawl Progress Tracking
+        self.skipped_count = 0    # 7.4 Crawl Progress Tracking
         self.should_stop = False
         self.seen_urls = set()
         self.emitted_urls = set()  # Track URLs already emitted via link_found
 
         if start_urls is not None:
             self.start_urls = start_urls
-        else:
+        elif start_url:
             self.start_urls = [start_url]
+        else:
+            self.start_urls = []
         
         # Constants
         self.MAX_PAGINATION_DEPTH = 5  # Strict limit: max 5 pages deep
@@ -121,21 +147,71 @@ class WebsiteSpider(scrapy.Spider):
 
     @classmethod
     def from_crawler(cls, crawler, *args, **kwargs):
+        """Initialize spider with signal handlers for 7.4 Crawl Progress Tracking"""
         spider = super(WebsiteSpider, cls).from_crawler(crawler, *args, **kwargs)
         crawler.signals.connect(spider.spider_closed, signal=signals.spider_closed)
+        crawler.signals.connect(spider.request_scheduled, signal=signals.request_scheduled)
+        crawler.signals.connect(spider.request_dropped, signal=signals.request_dropped)
         return spider
 
-    def spider_closed(self, spider, reason):
-        if self.job_id:
-            status = 'completed' if reason == 'finished' else 'failed'
-            publisher.emit_event(self.job_id, 'JOB_COMPLETED' if status == 'completed' else 'JOB_FAILED', {
-                'status': status,
-                'reason': reason,
-                'pagesCrawled': self.pages_crawled,
-                'completedAt': datetime.now().isoformat()
-            })
-            logger.info(f"Emitted job completion event for {self.job_id} (status={status})")
+    def request_scheduled(self, request, spider):
+        """Handle scheduled request"""
+        self.scheduled_count += 1
 
+    def request_dropped(self, request, spider):
+        """Handle dropped request (e.g. filtered by dupefilter)"""
+        self.skipped_count += 1
+
+    def spider_closed(self, spider, reason):
+        logger.info(f"🕷️ SPIDER_CLOSED signal received for {self.job_id}. Reason: {reason}")
+        if self.job_id:
+            # Determine status based on reason
+            # Treat closespider_ reasons (like pagecount limit) as completed
+            # Also treat 'finished' (normal completion) as completed
+            status = 'completed'
+            if reason in ['cancelled', 'shutdown'] or 'error' in reason:
+                status = 'failed'
+            
+            # Special case: if reason is 'finished', it means success
+            if reason == 'finished':
+                status = 'completed'
+
+            logger.info(f"Emitting final job event for {self.job_id} (status={status}, reason={reason})")
+            
+            try:
+                success = publisher.emit_event(self.job_id, 'JOB_COMPLETED' if status == 'completed' else 'JOB_FAILED', {
+                    'url': self.start_url or 'distributed',
+                    'completed_at': datetime.now().isoformat(),
+                    'pages_crawled': self.pages_crawled,
+                    'links_discovered': self.links_collected,
+                    'status': status,
+                    'reason': reason,
+                    'source': 'spider_closed',
+                    'projectId': self.project_id,
+                    'sessionId': self.session_id
+                }, retries=5)
+                
+                if success:
+                    logger.info(f"✅ Successfully emitted job completion event for {self.job_id}")
+                else:
+                    logger.error(f"❌ Failed to emit job completion event for {self.job_id} in spider_closed")
+            except Exception as e:
+                logger.error(f"❌ Exception emitting job completion event: {e}")
+
+    def spider_idle(self, spider):
+        """Force close if idle and no requests (failsafe for SCHEDULER_IDLE_BEFORE_CLOSE)"""
+        # Grace period: Wait at least 10s after start to allow initial requests to queue
+        if self.crawl_started_timestamp:
+            elapsed = datetime.now().timestamp() - self.crawl_started_timestamp
+            if elapsed < 10:
+                logger.info(f"🕷️ Spider idle but in grace period ({elapsed:.1f}s < 10s). Waiting...")
+                raise DontCloseSpider
+
+        # Check if queue is empty using RedisSpider's scheduler
+        if not self.server.exists(self.redis_key) and not self.scheduler.has_pending_requests():
+             logger.info(f"🕷️ Spider is idle and queue is empty. Forcing close for {self.job_id}")
+             self.crawler.engine.close_spider(self, reason='finished')
+    
     def emit_link_found(self, url: str, source: str = 'crawl') -> None:
         """
         Emit a link_found event for live progress tracking.
@@ -156,6 +232,9 @@ class WebsiteSpider(scrapy.Spider):
         })
 
     def normalize_url(self, url: str) -> str:
+        # 1. Remove fragment
+        url = url.split('#')[0]
+        
         parsed = urlparse(url)
         scheme = parsed.scheme.lower()
         netloc = parsed.netloc.lower()
@@ -177,8 +256,25 @@ class WebsiteSpider(scrapy.Spider):
 
         if not path.startswith('/'):
             path = '/' + path
+            
+        # 2. Query Parameter Normalization (Sort & Filter)
+        query = parsed.query
+        sorted_query = ''
+        if query:
+            # Parse query parameters
+            params = parse_qs(query, keep_blank_values=True)
+            
+            # Filter out tracking parameters (Infinite URL Protection)
+            blocked_params = {'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'fbclid', 'gclid', 'ref', 'mc_cid', 'mc_eid'}
+            filtered_params = {k: v for k, v in params.items() if k.lower() not in blocked_params}
+            
+            # Sort parameters by key for consistent ordering (Duplicate Prevention)
+            if filtered_params:
+                sorted_keys = sorted(filtered_params.keys())
+                # Reconstruct query string with sorted keys
+                sorted_query = urlencode([(k, filtered_params[k]) for k in sorted_keys], doseq=True)
 
-        return urlunparse((scheme, netloc, path, '', '', ''))
+        return urlunparse((scheme, netloc, path, '', sorted_query, ''))
 
     def is_pagination_url(self, url: str) -> tuple[bool, int, str]:
         """
@@ -221,6 +317,14 @@ class WebsiteSpider(scrapy.Spider):
     
     def start_requests(self):
         """Initialize crawl with parallel sitemap discovery and homepage crawl"""
+        # If no start_url is provided, assume we are running in distributed mode
+        # and pulling URLs from Redis.
+        if not self.start_url and not self.start_urls:
+            logger.info(f"Starting in distributed mode. Waiting for jobs on {self.redis_key}")
+            # Yield from Redis if available
+            yield from super().start_requests()
+            return
+
         self.crawl_started_at = datetime.now().isoformat()
         self.crawl_started_timestamp = datetime.now().timestamp()
         
@@ -259,6 +363,7 @@ class WebsiteSpider(scrapy.Spider):
             priority=100,
             meta={'depth': 0},
             errback=self.handle_error,
+            dont_filter=True  # Force crawl even if previously seen in Redis
         )
         
         parsed = urlparse(self.start_url)
@@ -270,7 +375,8 @@ class WebsiteSpider(scrapy.Spider):
             callback=self.parse_robots,
             priority=90,
             errback=self.handle_sitemap_error,
-            meta={'dont_cache': True}
+            meta={'dont_cache': True},
+            dont_filter=True  # Always check robots.txt fresh
         )
         
         common_sitemaps = [
@@ -284,11 +390,19 @@ class WebsiteSpider(scrapy.Spider):
                 callback=self.parse_sitemap,
                 priority=80,
                 errback=self.handle_sitemap_error,
-                meta={'dont_cache': True}
+                meta={'dont_cache': True},
+                dont_filter=True
             )
 
     def parse_robots(self, response):
         """Parse robots.txt for sitemap directives"""
+        if 'job_id' in response.meta:
+            self.job_id = response.meta['job_id']
+        if 'session_id' in response.meta:
+            self.session_id = response.meta['session_id']
+        if 'project_id' in response.meta:
+            self.project_id = response.meta['project_id']
+
         try:
             # Emit log for robots.txt check
             if self.job_id:
@@ -313,13 +427,28 @@ class WebsiteSpider(scrapy.Spider):
                         url=sitemap_url,
                         callback=self.parse_sitemap,
                         priority=90,
-                        errback=self.handle_sitemap_error
+                        errback=self.handle_sitemap_error,
+                        meta={'dont_cache': True, 'job_id': self.job_id},
+                        dont_filter=True
                     )
         except Exception as e:
             logger.warning(f"Error parsing robots.txt: {e}")
 
     def parse_sitemap(self, response):
         """Parse sitemap XML (handles regular sitemaps and indexes)"""
+        logger.info(f"Parsing sitemap: {response.url}")
+        
+        if 'job_id' in response.meta:
+            self.job_id = response.meta['job_id']
+        if 'session_id' in response.meta:
+            self.session_id = response.meta['session_id']
+        if 'project_id' in response.meta:
+            self.project_id = response.meta['project_id']
+        if 'allow_discovery' in response.meta:
+            self.allow_discovery = response.meta['allow_discovery']
+
+        logger.info(f"Sitemap parsing config: allow_discovery={self.allow_discovery}, job_id={self.job_id}")
+            
         try:
             body = response.body
             
@@ -333,24 +462,30 @@ class WebsiteSpider(scrapy.Spider):
             # Safe XML parsing
             try:
                 root = ET.fromstring(body)
+                logger.info(f"Sitemap root tag: {root.tag}")
             except ET.ParseError:
                 logger.warning(f"Invalid XML in sitemap: {response.url}")
                 return
 
             if 'sitemapindex' in root.tag.lower():
+                logger.info(f"Found sitemap index: {response.url}")
                 namespace = {'ns': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
                 for sitemap in root.findall('.//ns:sitemap', namespace):
                     loc = sitemap.find('ns:loc', namespace)
                     if loc is not None and loc.text:
+                        logger.info(f"Found child sitemap: {loc.text}")
                         if self.allow_discovery:
                             yield scrapy.Request(
                                 url=loc.text,
                                 callback=self.parse_sitemap,
                                 priority=85,
-                                errback=self.handle_sitemap_error
+                                errback=self.handle_sitemap_error,
+                                meta={'dont_cache': True, 'job_id': self.job_id},
+                                dont_filter=True
                             )
             # Check for urlset
             elif 'urlset' in root.tag.lower():
+                logger.info(f"Found urlset in sitemap: {response.url}")
                 namespace = {'ns': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
                 urls_found = 0
                 for url_elem in root.findall('.//ns:url', namespace):
@@ -363,6 +498,8 @@ class WebsiteSpider(scrapy.Spider):
                         item = SitemapUrlItem()
                         item['url'] = url
                         item['source_sitemap'] = response.url
+                        if self.job_id:
+                            item['job_id'] = self.job_id
                         
                         # Extract other metadata
                         lastmod = url_elem.find('ns:lastmod', namespace)
@@ -385,37 +522,188 @@ class WebsiteSpider(scrapy.Spider):
                             # Emit link_found for sitemap URL
                             self.emit_link_found(url, source='sitemap')
                             
+                            logger.info(f"Yielding request for discovered URL: {url}")
                             yield scrapy.Request(
                                 url=url,
                                 callback=self.parse,
                                 priority=50,
-                                meta={'from_sitemap': True}
+                                meta={
+                                    'from_sitemap': True,
+                                    'job_id': self.job_id,
+                                    'session_id': self.session_id,
+                                    'project_id': self.project_id
+                                }
                             )
                 
                 self.links_collected += urls_found
                 logger.info(f"Parsed {urls_found} URLs from sitemap: {response.url}. Total known: {self.links_collected}")
+                
+                # Emit scope update for 7.2 Pre-Crawl Discovery
+                if self.job_id:
+                    publisher.emit_event(self.job_id, 'scope_updated', {
+                        'total_discovered': self.links_collected,
+                        'source': 'sitemap',
+                        'newly_found': urls_found
+                    })
 
         except Exception as e:
             logger.error(f"Error parsing sitemap {response.url}: {e}")
 
     def handle_sitemap_error(self, failure):
-        """Handle sitemap request failures silently"""
-        pass
+        """Handle sitemap request failures"""
+        logger.error(f"Sitemap request failed: {failure.request.url} - {failure.value}")
     
+    def make_request_from_data(self, data):
+        """
+        Overridden to support JSON payloads from Redis.
+        Expected format: {"url": "...", "meta": {...}}
+        """
+        import json
+        from scrapy_redis.utils import bytes_to_str
+
+        try:
+            # Try parsing as JSON
+            if isinstance(data, bytes):
+                data_str = data.decode('utf-8')
+            else:
+                data_str = data
+            
+            job_data = json.loads(data_str)
+            url = job_data.get('url')
+            meta = job_data.get('meta', {})
+            
+            logger.info(f"Parsed JSON job from Redis: url={url}, job_id={meta.get('job_id')}")
+
+            if not url:
+                logger.error(f"Received JSON from Redis without URL: {data}")
+                return None
+
+            # Create request with metadata
+            return scrapy.Request(
+                url=url,
+                meta=meta,
+                callback=self.parse,
+                dont_filter=True  # Allow start URLs to be processed even if visited before (in a new job)
+            )
+        except (json.JSONDecodeError, TypeError):
+            # Fallback to default string handling (legacy support)
+            url = bytes_to_str(data, self.redis_encoding)
+            logger.info(f"Consumed raw URL from Redis: {url}")
+            return scrapy.Request(url, callback=self.parse, dont_filter=True)
+
     def parse(self, response: Response):
         """Main parsing logic for each page"""
+        
+        if response.url.endswith('.xml') or 'sitemap' in response.url:
+            logger.info(f"Redirecting {response.url} to parse_sitemap from parse")
+            for item in self.parse_sitemap(response):
+                yield item
+            return
+        
+        # Update instance state from meta for distributed context (Crucial for multi-job workers)
+        if 'job_id' in response.meta:
+            self.job_id = response.meta['job_id']
+        if 'session_id' in response.meta:
+            self.session_id = response.meta['session_id']
+        if 'project_id' in response.meta:
+            self.project_id = response.meta['project_id']
+            
+        # Calculate crawl depth
+        crawl_depth = response.meta.get('depth', 0)
+
+        # Initialize allowed_host if running in distributed mode without start_url
+        if not self.allowed_host:
+            parsed = urlparse(response.url)
+            self.allowed_host = parsed.netloc
+            if self.allow_subdomains and self.allowed_host.startswith('www.'):
+                 self.allowed_host = self.allowed_host[4:]
+            logger.info(f"Initialized allowed_host to {self.allowed_host} from {response.url}")
+        
+        # Handle Redirects for Start URL (Critical for "One Page Crawl" fix)
+        # If start_url redirected to a different domain, we must update allowed_host
+        if crawl_depth == 0:
+            parsed_response = urlparse(response.url)
+            response_domain = parsed_response.netloc
+            
+            # Normalize domains (remove www)
+            norm_allowed = self.allowed_host.replace('www.', '') if self.allowed_host else ''
+            norm_response = response_domain.replace('www.', '')
+            
+            if norm_allowed and norm_response != norm_allowed:
+                logger.info(f"🔄 Start URL redirected to new domain: {norm_allowed} -> {norm_response}. Updating allowed_host.")
+                self.allowed_host = norm_response
+                
+                # Update Scrapy's allowed_domains dynamically
+                if hasattr(self, 'allowed_domains'):
+                    if norm_response not in self.allowed_domains:
+                        self.allowed_domains.append(norm_response)
+                    if response_domain not in self.allowed_domains:
+                        self.allowed_domains.append(response_domain)
+
+        # Emit JOB_STARTED event for the first page
+        if crawl_depth == 0 and self.job_id:
+             publisher.emit_event(self.job_id, 'JOB_STARTED', {
+                'url': response.url,
+                'started_at': datetime.now().isoformat(),
+                'status': 'running',
+                'message': f'Started crawling {response.url}',
+                'projectId': self.project_id,
+                'sessionId': self.session_id
+             })
+
+        # Trigger discovery for the entry point (Distributed Mode support)
+        if crawl_depth == 0 and self.allow_discovery:
+             parsed = urlparse(response.url)
+             base_url = f"{parsed.scheme}://{parsed.netloc}"
+             robots_url = f"{base_url}/robots.txt"
+             
+             logger.info(f"Triggering distributed discovery for {base_url}")
+             
+             yield scrapy.Request(
+                 url=robots_url,
+                 callback=self.parse_robots,
+                 priority=90,
+                 errback=self.handle_sitemap_error,
+                 meta={'dont_cache': True, 'job_id': self.job_id},
+                 dont_filter=True
+             )
+             
+             common_sitemaps = [
+                 f"{base_url}/sitemap.xml",
+                 f"{base_url}/sitemap_index.xml",
+             ]
+             
+             for sitemap_url in common_sitemaps:
+                 yield scrapy.Request(
+                     url=sitemap_url,
+                     callback=self.parse_sitemap,
+                     priority=80,
+                     errback=self.handle_sitemap_error,
+                     meta={'dont_cache': True, 'job_id': self.job_id},
+                     dont_filter=True
+                 )
+
         # Track start time
         request_id = id(response.request)
         start_time = self.request_start_times.get(request_id, datetime.now().timestamp())
         
-        # Calculate crawl depth
-        crawl_depth = response.meta.get('depth', 0)
-        
+        logger.info(f"Parsing content for {response.url} (job_id: {self.job_id})")
+
         # Validate content type
         content_type = response.headers.get('Content-Type', b'').decode('utf-8').lower()
         if 'text/html' not in content_type and 'application/xhtml+xml' not in content_type:
-            logger.debug(f"Skipping non-HTML content: {response.url} ({content_type})")
+            logger.warning(f"Skipping non-HTML content: {response.url} ({content_type})")
             return
+
+        logger.info(f"Extracting links for {response.url}")
+        # Extract links
+        links_data = LinkExtractor.extract(response, self.allowed_host, self.allow_subdomains)
+        logger.info(f"Found {len(links_data)} links on {response.url}")
+
+        # Emit link_found for ALL discovered links (for progress tracking)
+        if self.job_id:
+            for link_data in links_data:
+                self.emit_link_found(link_data['target_url'], source='crawl')
             
         # Calculate folder depth
         parsed_url = urlparse(response.url)
@@ -454,6 +742,8 @@ class WebsiteSpider(scrapy.Spider):
         page_item.update(advanced_fields)
         page_item['crawl_depth'] = crawl_depth
         page_item['folder_depth'] = folder_depth
+        if self.job_id:
+            page_item['job_id'] = self.job_id
         
         # ==================================================================
         # Module A: Metrics Calculation (Legacy + New SEO)
@@ -475,8 +765,6 @@ class WebsiteSpider(scrapy.Spider):
             sentence_count,
             word_count
         )
-        
-        links_data = LinkExtractor.extract(response, self.allowed_host, self.allow_subdomains)
         outlink_stats = link_analysis.analyze_outlinks(links_data)
         simhash_legacy = similarity.generate_simhash(visible_text_legacy)
         
@@ -499,6 +787,32 @@ class WebsiteSpider(scrapy.Spider):
             target_keyword=None 
         )
         
+        # Canonical URL Prioritization (7.3 Intelligent Request Scheduling)
+        canonical = page_item.get('canonical_url')
+        if canonical and self.allow_discovery:
+            normalized_canonical = self.normalize_url(canonical)
+            normalized_current = self.normalize_url(response.url)
+            
+            if normalized_canonical != normalized_current:
+                # If canonical is different and internal, prioritize it
+                parsed_canon = urlparse(normalized_canonical)
+                if parsed_canon.netloc == self.allowed_host or (self.allow_subdomains and parsed_canon.netloc.endswith(self.allowed_host)):
+                    if normalized_canonical not in self.seen_urls:
+                        logger.info(f"Prioritizing canonical URL: {normalized_canonical}")
+                        self.seen_urls.add(normalized_canonical)
+                        self.emit_link_found(normalized_canonical, source='canonical')
+                        yield scrapy.Request(
+                            url=normalized_canonical,
+                            callback=self.parse,
+                            priority=200, # Higher priority than normal links
+                            meta={
+                                'depth': crawl_depth, # Preserve depth
+                                'job_id': self.job_id,
+                                'session_id': self.session_id,
+                                'project_id': self.project_id
+                            }
+                        )
+
         broken_links_report = broken_link_checker.analyze_broken_links(links_data)
         
         redirect_urls = response.request.meta.get('redirect_urls', [])
@@ -588,19 +902,22 @@ class WebsiteSpider(scrapy.Spider):
         yield page_item
         self.pages_crawled += 1
         logger.info(f"Completed page {self.pages_crawled} (approx total discovered: {self.links_collected}) - {response.url}")
-        
+
         # Emit page_crawled event for progress tracking
         if self.job_id:
             publisher.emit_event(self.job_id, 'page_crawled', {
                 'url': response.url,
-                'count': self.pages_crawled,
-                'message': f'Crawled: {response.url}'
+                'title': response.css('title::text').get() or '',
+                'crawled_at': datetime.now().isoformat(),
+                'status': response.status
             })
         
         # Check if we should stop crawling
         if self.max_pages > 0 and self.pages_crawled >= self.max_pages:
             logger.info(f"Reached max pages limit: {self.max_pages}")
             self.should_stop = True
+            # Explicitly close the spider
+            self.crawler.engine.close_spider(self, reason='closespider_pagecount')
             return
         
         if self.timeout > 0:
@@ -608,6 +925,8 @@ class WebsiteSpider(scrapy.Spider):
             if elapsed >= self.timeout:
                 logger.info(f"Reached timeout limit: {self.timeout} seconds")
                 self.should_stop = True
+                # Explicitly close the spider
+                self.crawler.engine.close_spider(self, reason='closespider_timeout')
                 return
         
         # Extract links
@@ -616,40 +935,52 @@ class WebsiteSpider(scrapy.Spider):
         for link_data in links_data:
             link_item = LinkItem()
             link_item.update(link_data)
+            if self.job_id:
+                link_item['job_id'] = self.job_id
             yield link_item
             self.links_collected += 1
         
         # Follow internal links
         if not self.should_stop:
+            internal_candidates = [l for l in links_data if l['is_internal'] and not l['nofollow']]
+            logger.info(f"Processing {len(internal_candidates)} internal candidates out of {len(links_data)} total links")
+
             for link_data in links_data:
                 if link_data['is_internal'] and not link_data['nofollow']:
                     target_url = link_data['target_url']
 
                     if any(p in target_url for p in ['/cart', '/checkout', '/account']):
+                        self.skipped_count += 1
                         continue
 
                     is_pag, page_num, _ = self.is_pagination_url(target_url)
                     if is_pag:
                         if page_num > self.MAX_PAGINATION_DEPTH:
+                            self.skipped_count += 1
                             continue
                         if not self.should_follow_pagination(target_url):
+                            self.skipped_count += 1
                             continue
 
                     normalized_target = self.normalize_url(target_url)
                     if normalized_target in self.seen_urls:
+                        self.skipped_count += 1
                         continue
                     self.seen_urls.add(normalized_target)
-                    
-                    # Emit link_found for discovered URL
-                    self.emit_link_found(target_url, source='crawl')
 
                     priority = self.get_url_priority(target_url)
 
                     if not self.should_stop:
+                        logger.info(f"Yielding request for: {target_url}")
                         yield scrapy.Request(
                             url=target_url,
                             callback=self.parse,
-                            meta={'depth': crawl_depth + 1},
+                            meta={
+                                'depth': crawl_depth + 1,
+                                'job_id': self.job_id,
+                                'session_id': self.session_id,
+                                'project_id': self.project_id
+                            },
                             priority=priority,
                             errback=self.handle_error,
                         )
@@ -688,10 +1019,3 @@ class WebsiteSpider(scrapy.Spider):
             if self.pagination_failures.get(key, 0) >= 1:
                 return False
         return True
-    
-    def closed(self, reason):
-        """Called when spider closes"""
-        logger.info(
-            f"Crawl finished for {self.start_url} - reason: {reason}. "
-            f"Pages crawled: {self.pages_crawled}, links discovered: {self.links_collected}"
-        )

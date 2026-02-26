@@ -29,7 +29,7 @@ class LinkExtractor:
         
         for link in response.css('a[href]'):
             href = link.css('::attr(href)').get()
-            if not href or href.startswith('#') or href.startswith('javascript:') or href.startswith('mailto:'):
+            if not href or href.startswith('#') or href.startswith('javascript:') or href.startswith('mailto:') or href.startswith('tel:'):
                 continue
             
             target_url = response.urljoin(href)

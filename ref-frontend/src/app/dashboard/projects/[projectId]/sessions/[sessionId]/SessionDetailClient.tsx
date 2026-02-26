@@ -7,7 +7,7 @@ import { Clock, Globe, CheckCircle, XCircle, Loader2, AlertCircle, RefreshCw } f
 import { Badge } from '@/components/ui/badge'
 import { CrawlLogger, DiscoveredPages, CrawlStatusHeader } from '@/components/crawl'
 import { SessionLayout } from '@/components/layout/SessionLayout'
-import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable } from '@/components/module_A'
+import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable, AuditChecker } from '@/components/module_A'
 import { AIIntelligenceModule, ContentMetricsModule } from '@/components/module_C'
 import { AICitationRanking, SentimentTracking } from '@/components/module_E'
 // import { useGetDataListQuery, useCheckLinksMutation, useGetLinkStatsQuery, useLazyGetPageLinksQuery } from '@/store/api/module_A/dataApi'
@@ -921,6 +921,16 @@ export default function SessionDetailClient() {
           </div>
         )}
 
+        {/* Show Audit Checker on audit-checker tab */}
+        {activeSection === 'audit-checker' && (
+          <div>
+            <AuditChecker 
+              sessionId={parseInt(sessionId)}
+              pages={transformedPages}
+            />
+          </div>
+        )}
+
         {/* Show Link Analysis on link-analysis tab */}
         {activeSection === 'link-analysis' && (
           <div>
@@ -939,6 +949,7 @@ export default function SessionDetailClient() {
           <div>
             <PerformanceAuditsTable 
               sessionId={parseInt(sessionId)}
+              jobId={jobId || null}
               sessionStatus={crawlStatus}
             />
           </div>
@@ -949,7 +960,7 @@ export default function SessionDetailClient() {
           <div>
             <SchemaGeneratorTable 
               sessionId={sessionId}
-              jobId={jobId || null}
+              jobId={jobId ?? null}
               sessionStatus={crawlStatus}
             />
           </div>
@@ -999,15 +1010,8 @@ export default function SessionDetailClient() {
           />
         )}
 
-        {activeSection === 'topic-clusters' && (
-          <ContentMetricsModule 
-            url={session?.startUrl || ''}
-            sessionId={sessionId}
-            initialTab="intent-clusters"
-          />
-        )}
-
-        {activeSection !== 'crawler' && activeSection !== 'crawled-data' && activeSection !== 'technical-audit' && activeSection !== 'page-metrics' && activeSection !== 'content-audit' && activeSection !== 'text-quality' && activeSection !== 'wordcount' && activeSection !== 'broken-links' && activeSection !== 'link-analysis' && activeSection !== 'performance' && activeSection !== 'schema-generator' && activeSection !== 'structured-data' && activeSection !== 'ai-intelligence' && activeSection !== 'module-e' && activeSection !== 'content-metrics' && activeSection !== 'answer-completeness' && activeSection !== 'discover-prompts' && activeSection !== 'topic-clusters' && activeSection !== 'content-matrix' && activeSection !== 'content-brief-builder' && activeSection !== 'add-to-Tracking' && (
+        {/* Placeholder for other tabs */}
+        {activeSection !== 'crawler' && activeSection !== 'crawled-data' && activeSection !== 'page-metrics' && activeSection !== 'text-quality' && activeSection !== 'wordcount' && activeSection !== 'broken-links' && activeSection !== 'audit-checker' && activeSection !== 'link-analysis' && activeSection !== 'performance' && activeSection !== 'schema-generator' && activeSection !== 'ai-intelligence' && activeSection !== 'module-e' && activeSection !== 'content-metrics' && activeSection !== 'discover-prompts' && activeSection !== 'keyword-intelligence' && (
           <div className="rounded-lg p-8 border border-white/20 bg-white/10 backdrop-blur-xl text-center">
             <h2 className="text-xl font-bold text-white mb-2">
               {activeSection.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}

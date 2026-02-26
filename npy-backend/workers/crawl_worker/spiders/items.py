@@ -99,6 +99,7 @@ class PageItem(scrapy.Item):
 
     # New computed fields (module_A metrics)
     fields = scrapy.Field()
+    job_id = scrapy.Field()
 
 
 class LinkItem(scrapy.Item):
@@ -110,6 +111,7 @@ class LinkItem(scrapy.Item):
     anchor_text = scrapy.Field()
     nofollow = scrapy.Field()
     rel = scrapy.Field()
+    job_id = scrapy.Field()
 
 
 class SitemapUrlItem(scrapy.Item):
@@ -120,3 +122,4 @@ class SitemapUrlItem(scrapy.Item):
     change_frequency = scrapy.Field()
     priority = scrapy.Field()
     source_sitemap = scrapy.Field()
+    job_id = scrapy.Field()

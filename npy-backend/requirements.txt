@@ -11,6 +11,8 @@ uvicorn[standard]==0.27.1
 httpx==0.26.0
 aiofiles==23.2.1
 aiohttp==3.9.3
+requests>=2.31.0
+
 
 # =========================
 # Data Validation & Models
@@ -35,6 +37,7 @@ pika==1.3.2
 # Crawling (HTTP-based)
 # =========================
 scrapy==2.11.0
+scrapy-redis==0.9.1
 beautifulsoup4==4.12.3
 lxml==5.1.0
 readability-lxml==0.8.1

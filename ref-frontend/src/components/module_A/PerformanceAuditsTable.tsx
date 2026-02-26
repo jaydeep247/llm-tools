@@ -15,7 +15,10 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-// import { useGetAuditResultsQuery, useStartAuditMutation } from '@/store/api/module_A/auditApi'
+import { 
+  useGetJobPerformanceAuditsQuery, 
+  useStartJobPerformanceAuditsMutation 
+} from '@/store/api/jobApi'
 
 interface AuditItem {
   id: string
@@ -33,6 +36,7 @@ interface AuditItem {
 
 interface PerformanceAuditsTableProps {
   sessionId: string | number
+  jobId: string | null
   sessionStatus?: 'idle' | 'running' | 'auditing' | 'completed' | 'cancelled'
   isLoading?: boolean
   onRefresh?: () => void
@@ -66,6 +70,7 @@ const DEFAULT_VISIBLE_COLUMNS: Set<keyof AuditItem> = new Set(['runAt', 'device'
 
 export function PerformanceAuditsTable({ 
   sessionId,
+  jobId,
   sessionStatus = 'completed',
   isLoading: externalLoading = false,
   onRefresh,
@@ -83,14 +88,13 @@ export function PerformanceAuditsTable({
   const [isAuditing, setIsAuditing] = useState(false)
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
-  // API calls removed
-  const apiData = { items: [] }
-  const isLoadingData = false
-  const refetch = () => {}
-  const startAudit = (arg: any) => ({ unwrap: async () => {} })
-  const isStartingAudit = false
+  const { data: apiData, isLoading: isLoadingData, refetch } = useGetJobPerformanceAuditsQuery(
+    { jobId: jobId || '', device: deviceFilter },
+    { skip: !jobId }
+  )
+  const [startAudit, { isLoading: isStartingAudit }] = useStartJobPerformanceAuditsMutation()
 
-  const data: AuditItem[] = apiData?.items || []
+  const data: AuditItem[] = (apiData?.items as AuditItem[]) || []
   const isLoading = externalLoading || isLoadingData || isAuditing
 
   // Sync isAuditing with sessionStatus from parent (SSE updates)
@@ -107,7 +111,7 @@ export function PerformanceAuditsTable({
       // Refetch to get the completed audit results
       refetch()
     }
-  }, [sessionStatus])
+  }, [sessionStatus, isAuditing, refetch])
 
   // Cleanup on unmount
   useEffect(() => {
@@ -379,10 +383,11 @@ export function PerformanceAuditsTable({
   }
 
   const handleStartAudit = async () => {
+    if (!jobId) return
     try {
       setIsAuditing(true)
-      // Start the audit for this session
-      await startAudit({ sessionId, device: deviceFilter === 'all' ? 'desktop' : deviceFilter }).unwrap()
+      await startAudit({ jobId, device: deviceFilter === 'all' ? 'desktop' : deviceFilter }).unwrap()
+      refetch()
       
       // Set a timeout to stop showing auditing state after 5 minutes
       const timeoutId = setTimeout(() => {

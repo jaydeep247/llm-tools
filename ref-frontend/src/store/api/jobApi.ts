@@ -64,6 +64,66 @@ export interface JobSnapshot {
   completed: boolean;
   snapshotAt: number;     // epoch ms - boundary for socket event filtering
   startedAt?: number;     // epoch ms - when job started
+  projectId?: string;
+  sessionId?: string;
+  pagesCrawled?: number;
+}
+
+export interface RedirectAuditSummary {
+  totalChecked: number;
+  total301Redirects: number;
+  total302Redirects: number;
+  total307Redirects: number;
+  totalRedirectChains: number;
+  totalRedirectLoops: number;
+  totalBrokenRedirects: number;
+  totalCanonicalMismatches: number;
+  totalOk: number;
+  totalWarnings: number;
+  totalErrors: number;
+}
+
+export interface RedirectAuditResultItem {
+  originalUrl: string;
+  finalUrl: string;
+  finalStatusCode: number;
+  has301Redirect: boolean;
+  has302Redirect: boolean;
+  has307Redirect: boolean;
+  redirectChain: {
+    url: string;
+    statusCode: number;
+    redirectType: '301' | '302' | '307' | '308' | null;
+    redirectUrl: string | null;
+    headers: Record<string, string>;
+  }[];
+  chainLength: number;
+  hasRedirectChain: boolean;
+  hasRedirectLoop: boolean;
+  loopDetectedAt?: string;
+  finalUrlStatus: 'ok' | 'broken' | 'server_error' | 'unreachable';
+  finalUrlStatusCode: number;
+  isBrokenRedirect: boolean;
+  brokenReason?: string;
+  canonicalUrl?: string;
+  canonicalAlignment: 'match' | 'mismatch' | 'not_found' | 'error';
+  canonicalMismatchReason?: string;
+  overallStatus: 'ok' | 'warning' | 'error';
+  issues: string[];
+}
+
+export interface PerformanceAuditItem {
+  id: string;
+  url: string;
+  device: 'mobile' | 'desktop';
+  runAt: string;
+  LCP_ms?: number;
+  TBT_ms?: number;
+  CLS?: number;
+  FCP_ms?: number;
+  TTFB_ms?: number;
+  performanceScore?: number;
+  psiReportUrl?: string;
 }
 
 export interface JobSiteStructure {
@@ -198,6 +258,45 @@ export const jobApi = baseApi.injectEndpoints({
       providesTags: (result, error, jobId) => [{ type: 'Job', id: jobId }],
     }),
 
+    getJobRedirectAudit: builder.query<
+      { sessionId: string; summary: RedirectAuditSummary; results: RedirectAuditResultItem[] } | null,
+      string
+    >({
+      query: (jobId) => `/jobs/${jobId}/results/redirects-audit`,
+      transformResponse: (response: {
+        success: boolean;
+        data: { sessionId: string; summary: RedirectAuditSummary; results: RedirectAuditResultItem[] } | null;
+      }) => response.data ?? null,
+      providesTags: (result, error, jobId) => [{ type: 'Job', id: jobId }],
+    }),
+
+    getJobPerformanceAudits: builder.query<
+      { items: PerformanceAuditItem[] },
+      { jobId: string; device?: 'all' | 'mobile' | 'desktop' }
+    >({
+      query: ({ jobId, device = 'all' }) => {
+        const params =
+          device && device !== 'all'
+            ? `?device=${encodeURIComponent(device)}`
+            : '';
+        return `/jobs/${jobId}/performance-audits${params}`;
+      },
+      transformResponse: (response: { success: boolean; data: { items: PerformanceAuditItem[] } }) =>
+        response.data,
+      providesTags: (result, error, { jobId }) => [{ type: 'Job', id: jobId }],
+    }),
+
+    startJobPerformanceAudits: builder.mutation<
+      { success: boolean; data: { jobId: string; device: string; totalPages: number } },
+      { jobId: string; device: 'mobile' | 'desktop' }
+    >({
+      query: ({ jobId, device }) => ({
+        url: `/jobs/${jobId}/performance-audits/start`,
+        method: 'POST',
+        body: { device },
+      }),
+    }),
+
     generateJobSchema: builder.mutation<
       { success: boolean; job: Job },
       { jobId: string; schemaType?: string }
@@ -271,6 +370,10 @@ export const {
   useGetJobSummaryQuery,
   useGetJobSiteStructureQuery,
   useGetJobSchemaQuery,
+  useGetJobRedirectAuditQuery,
+  useLazyGetJobRedirectAuditQuery,
+  useGetJobPerformanceAuditsQuery,
+  useStartJobPerformanceAuditsMutation,
   useGenerateJobSchemaMutation,
   useCancelJobMutation,
   useRetryJobMutation,

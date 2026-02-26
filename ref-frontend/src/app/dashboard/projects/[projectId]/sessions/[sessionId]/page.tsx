@@ -7,7 +7,7 @@ import { Clock, Globe, CheckCircle, XCircle, Loader2, AlertCircle, RefreshCw } f
 import { Badge } from '@/components/ui/badge'
 import { CrawlLogger, DiscoveredPages, CrawlStatusHeader } from '@/components/crawl'
 import { SessionLayout } from '@/components/layout/SessionLayout'
-import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable } from '@/components/module_A'
+import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable, AuditChecker } from '@/components/module_A'
 import { AIIntelligenceModule, ContentMetricsModule, AIVisibilityScorecards, EntityGapAnalysis, AIAnswerPreview, ImprovementActions, ModelComparison } from '@/components/module_C'
 import { SiteStructure } from '@/components/module_D/site-structure'
 import { AICitationRanking, ContentConsistencyEntityCoverage, BrandAnalysisSection, SentimentTrackingSection, CompetitorMentionsSection, SentimentTracking, ShareOfVoiceSection, TrendsByModelSection } from '@/components/module_E'
@@ -967,6 +967,17 @@ export default function SessionDetailPage() {
           </div>
         )}
 
+        {/* Show Audit Checker on audit-checker tab */}
+        {activeSection === 'audit-checker' && (
+          <div>
+            <AuditChecker 
+              sessionId={sessionId}
+              jobId={jobId || null}
+              pages={transformedPages}
+            />
+          </div>
+        )}
+
         {/* Show Link Analysis on link-analysis tab */}
         {activeSection === 'link-analysis' && (
           <div>
@@ -997,6 +1008,7 @@ export default function SessionDetailPage() {
           <div>
             <PerformanceAuditsTable
               sessionId={sessionId}
+              jobId={jobId || null}
               sessionStatus={crawlStatus}
             />
           </div>

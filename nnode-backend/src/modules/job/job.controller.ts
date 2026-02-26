@@ -8,6 +8,7 @@ import { sessionIdSchema } from '../session/session.validator';
 import { logger } from '../../shared/logger/logger';
 import { getRedisClient } from '../../config/redis';
 import { connectToMongo } from '../../config/mongo';
+import { fetchPsi, DeviceStrategy } from './psiClient';
 
 export class JobController {
   private jobService: JobService;
@@ -137,6 +138,127 @@ export class JobController {
     }
   };
 
+  getJobRedirectAudit = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+      const job = await this.jobService.getJobById(userId, id);
+
+      const db = await connectToMongo();
+      const collection = db.collection('fields');
+      const docs = await collection
+        .find({ jobId: id })
+        .sort({ createdAt: 1 })
+        .toArray();
+
+      const results: any[] = [];
+
+      for (const doc of docs) {
+        const url = (doc as any).url || (doc as any).pageUrl || '';
+        const fields = (doc as any).fields || {};
+        const redirectData = fields.Redirects_audit || fields.redirects_audit;
+
+        if (!url || !redirectData) {
+          continue;
+        }
+
+        const redirectChainRaw = redirectData.redirectChain || redirectData.redirect_chain || [];
+        const redirectChain = (redirectChainRaw || []).map((hop: any) => ({
+          url: hop.url || '',
+          statusCode: hop.statusCode ?? hop.status_code ?? 0,
+          redirectType: (hop.redirectType ?? hop.redirect_type ?? null) as
+            | '301'
+            | '302'
+            | '307'
+            | '308'
+            | null,
+          redirectUrl: hop.redirectUrl ?? hop.redirect_url ?? null,
+          headers: hop.headers || {},
+        }));
+
+        const finalStatusCode =
+          redirectData.finalStatusCode ??
+          redirectData.final_status_code ??
+          (redirectData.finalUrlStatusCode ?? 0);
+
+        const result = {
+          originalUrl: redirectData.originalUrl || url,
+          finalUrl: redirectData.finalUrl || url,
+          finalStatusCode,
+          has301Redirect: !!redirectData.has301Redirect,
+          has302Redirect: !!redirectData.has302Redirect,
+          has307Redirect: !!redirectData.has307Redirect,
+          redirectChain,
+          chainLength:
+            redirectData.chainLength ??
+            redirectData.chain_length ??
+            Math.max(redirectChain.length - 1, 0),
+          hasRedirectChain: !!redirectData.hasRedirectChain,
+          hasRedirectLoop: !!redirectData.hasRedirectLoop,
+          loopDetectedAt: redirectData.loopDetectedAt,
+          finalUrlStatus:
+            redirectData.finalUrlStatus ||
+            redirectData.final_url_status ||
+            (finalStatusCode >= 400 ? 'broken' : 'ok'),
+          finalUrlStatusCode:
+            redirectData.finalUrlStatusCode ??
+            redirectData.final_url_status_code ??
+            finalStatusCode,
+          isBrokenRedirect:
+            redirectData.isBrokenRedirect ?? (finalStatusCode >= 400 ? true : false),
+          brokenReason: redirectData.brokenReason,
+          canonicalUrl: redirectData.canonicalUrl,
+          canonicalAlignment:
+            redirectData.canonicalAlignment ||
+            redirectData.canonical_alignment ||
+            'not_found',
+          canonicalMismatchReason: redirectData.canonicalMismatchReason,
+          overallStatus: redirectData.overallStatus || redirectData.status || 'ok',
+          issues: Array.isArray(redirectData.issues) ? redirectData.issues : [],
+        };
+
+        results.push(result);
+      }
+
+      const summary = {
+        totalChecked: results.length,
+        total301Redirects: results.filter((r: any) => r.has301Redirect).length,
+        total302Redirects: results.filter((r: any) => r.has302Redirect).length,
+        total307Redirects: results.filter((r: any) => r.has307Redirect).length,
+        totalRedirectChains: results.filter((r: any) => r.hasRedirectChain).length,
+        totalRedirectLoops: results.filter((r: any) => r.hasRedirectLoop).length,
+        totalBrokenRedirects: results.filter((r: any) => r.isBrokenRedirect).length,
+        totalCanonicalMismatches: results.filter(
+          (r: any) => r.canonicalAlignment === 'mismatch',
+        ).length,
+        totalOk: results.filter((r: any) => r.overallStatus === 'ok').length,
+        totalWarnings: results.filter((r: any) => r.overallStatus === 'warning').length,
+        totalErrors: results.filter((r: any) => r.overallStatus === 'error').length,
+      };
+
+      const payload = {
+        sessionId: job.sessionId,
+        summary,
+        results,
+      };
+
+      return ResponseUtil.success(
+        res,
+        'Job redirect audit results retrieved successfully',
+        payload,
+      );
+    } catch (error: any) {
+      logger.error(`Error getting job redirect audit results: ${error.message}`);
+      if (error.message.includes('not found') || error.message.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      return ResponseUtil.serverError(
+        res,
+        'Failed to retrieve job redirect audit results',
+      );
+    }
+  };
+
   getSessionJobs = async (req: Request, res: Response): Promise<Response> => {
     try {
       const userId = req.user!.userId;
@@ -175,12 +297,20 @@ export class JobController {
       const { id } = sessionIdSchema.parse({ id: req.params.id });
       const job = await this.jobService.getJobById(userId, id);
 
-      const key = `job:${id}`;
-      const runtime = await this.redis.hgetall(key);
+      // Get real-time status from Redis
+      const statusKey = `job:${id}:status`;
+      const redisStatus = await this.redis.get(statusKey);
+
+      logger.info(`🔍 JobController.getJobRuntimeStatus(${id}): DB=${job.status}, Redis=${redisStatus}`);
+
+      // If Redis has a more recent status (e.g. completed), overlay it
+      if (redisStatus && redisStatus !== job.status) {
+          (job as any).status = redisStatus;
+      }
 
       return ResponseUtil.success(res, 'Job runtime status retrieved', {
         job,
-        runtime: Object.keys(runtime).length > 0 ? runtime : null,
+        runtime: redisStatus ? { status: redisStatus } : null,
       });
     } catch (error: any) {
       logger.error(`Error getting job runtime status: ${error.message}`);
@@ -375,6 +505,148 @@ export class JobController {
         return ResponseUtil.notFound(res, error.message);
       }
       return ResponseUtil.serverError(res, 'Failed to retrieve job site structure');
+    }
+  };
+
+  startJobPerformanceAudits = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+      const deviceRaw = typeof req.body?.device === 'string' ? req.body.device : 'desktop';
+      const device: DeviceStrategy =
+        deviceRaw === 'mobile' || deviceRaw === 'desktop' ? deviceRaw : 'desktop';
+
+      const job = await this.jobService.getJobById(userId, id);
+
+      const db = await connectToMongo();
+      const pagesCollection = db.collection('pages');
+      const auditsCollection = db.collection('performance_audits');
+
+      const pages = await pagesCollection
+        .find({ jobId: id })
+        .project({ url: 1 })
+        .toArray();
+
+      const urls = pages
+        .map((p: any) => (p && typeof p.url === 'string' ? p.url : ''))
+        .filter((u: string) => !!u);
+
+      if (urls.length === 0) {
+        return ResponseUtil.success(res, 'No pages found for this job to audit', {
+          jobId: id,
+          device,
+          totalPages: 0,
+        });
+      }
+
+      const runAudit = async () => {
+        try {
+          logger.info(
+            `Starting performance audits for job ${id} (device=${device}) on ${urls.length} pages`,
+          );
+
+          for (const url of urls) {
+            try {
+              const result = await fetchPsi(url, device, {});
+
+              const doc = {
+                jobId: id,
+                sessionId: job.sessionId,
+                projectId: job.projectId,
+                url: result.url,
+                device: result.device,
+                runAt: result.runAt,
+                LCP_ms: result.lab?.LCP_ms ?? result.field?.LCP_ms,
+                TBT_ms: result.lab?.TBT_ms,
+                CLS: result.lab?.CLS ?? result.field?.CLS,
+                FCP_ms: result.lab?.FCP_ms,
+                TTFB_ms: result.lab?.TTFB_ms,
+                performanceScore: result.lab?.performanceScore,
+                psiReportUrl: result.psiReportUrl,
+                createdAt: new Date(),
+              };
+
+              await auditsCollection.updateOne(
+                { jobId: id, url: doc.url, device: doc.device },
+                { $set: doc },
+                { upsert: true },
+              );
+            } catch (err: any) {
+              logger.warn(
+                `Failed performance audit for url=${url} job=${id}: ${err?.message || err}`,
+              );
+            }
+          }
+
+          logger.info(`Performance audits completed for job ${id}`);
+        } catch (err: any) {
+          logger.error(
+            `Error during performance audits for job ${id}: ${err?.message || err}`,
+          );
+        }
+      };
+
+      void runAudit();
+
+      return ResponseUtil.success(res, 'Performance audits started', {
+        jobId: id,
+        device,
+        totalPages: urls.length,
+      });
+    } catch (error: any) {
+      logger.error(`Error starting performance audits: ${error.message}`);
+      if (error.message.includes('not found') || error.message.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      return ResponseUtil.serverError(res, 'Failed to start performance audits');
+    }
+  };
+
+  getJobPerformanceAudits = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+      const deviceRaw = req.query.device ? String(req.query.device) : 'all';
+      const deviceFilter: DeviceStrategy | 'all' =
+        deviceRaw === 'mobile' || deviceRaw === 'desktop' ? (deviceRaw as DeviceStrategy) : 'all';
+
+      await this.jobService.getJobById(userId, id);
+
+      const db = await connectToMongo();
+      const collection = db.collection('performance_audits');
+
+      const filter: any = { jobId: id };
+      if (deviceFilter !== 'all') {
+        filter.device = deviceFilter;
+      }
+
+      const docs = await collection.find(filter).sort({ runAt: -1 }).toArray();
+
+      const items = docs.map((doc: any) => ({
+        id: String(doc._id),
+        url: doc.url,
+        device: doc.device as DeviceStrategy,
+        runAt: doc.runAt || doc.createdAt || new Date().toISOString(),
+        LCP_ms: doc.LCP_ms,
+        TBT_ms: doc.TBT_ms,
+        CLS: doc.CLS,
+        FCP_ms: doc.FCP_ms,
+        TTFB_ms: doc.TTFB_ms,
+        performanceScore: doc.performanceScore,
+        psiReportUrl: doc.psiReportUrl,
+      }));
+
+      return ResponseUtil.success(
+        res,
+        'Job performance audits retrieved successfully',
+        { items },
+      );
+    } catch (error: any) {
+      logger.error(`Error getting job performance audits: ${error.message}`);
+      if (error.message.includes('not found') || error.message.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      return ResponseUtil.serverError(res, 'Failed to retrieve job performance audits');
     }
   };
 

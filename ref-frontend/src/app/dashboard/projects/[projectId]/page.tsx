@@ -153,8 +153,8 @@ export default function ProjectDetailPage() {
       const sessionResult = await createSession(projectId).unwrap()
       const sessionId = sessionResult.session.id
 
-      // Step 2: Create job - DISCONNECTED
-      /* const normalizedUrl = url.trim().startsWith('http') ? url.trim() : `https://${url.trim()}`
+      // Step 2: Create job
+      const normalizedUrl = url.trim().startsWith('http') ? url.trim() : `https://${url.trim()}`
       
       const jobResult = await createJob({
         sessionId,
@@ -171,11 +171,8 @@ export default function ProjectDetailPage() {
         }
       }).unwrap()
 
-      // Navigate to job progress page (jobId is stable identity from URL)
-      router.push(`/dashboard/jobs/${jobResult.job.id}/progress`) */
-
-      // Navigate to session page
-      router.push(`/dashboard/projects/${projectId}/sessions/${sessionId}`)
+      console.log(`🚀 Starting job: ${jobResult.job.id}, redirecting to progress...`)
+      router.push(`/dashboard/jobs/${jobResult.job.id}/progress`)
     } catch (err: any) {
       setError(err?.data?.message || err?.message || 'Failed to start crawl session')
     }

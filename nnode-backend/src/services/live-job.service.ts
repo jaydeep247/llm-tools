@@ -16,6 +16,9 @@ export interface JobSnapshot {
   completed: boolean;
   snapshotAt: number;     // epoch ms - boundary for socket event filtering
   startedAt?: number;     // epoch ms - when job started
+  projectId?: string;
+  sessionId?: string;
+  pagesCrawled?: number;  // Final count from completion event
 }
 
 const REDIS_TTL = 3600 * 24; // 24 hours
@@ -23,6 +26,16 @@ const MAX_LOGS = 1000;
 const MAX_LINKS = 1000;
 
 export class LiveJobService {
+  /**
+   * Save job metadata (projectId, sessionId) to Redis
+   */
+  static async setJobMeta(jobId: string, projectId: string, sessionId: string): Promise<void> {
+    const redis = getRedisClient();
+    const metaKey = `job:${jobId}:meta`;
+    await redis.set(metaKey, JSON.stringify({ projectId, sessionId }));
+    await redis.expire(metaKey, REDIS_TTL);
+  }
+
   /**
    * Save event to Redis using the Snapshot schema
    */
@@ -56,11 +69,35 @@ export class LiveJobService {
              const startedAt = timestamp ? new Date(timestamp).toISOString() : new Date().toISOString();
              pipeline.set(`job:${jobId}:startedAt`, startedAt);
              pipeline.expire(`job:${jobId}:startedAt`, REDIS_TTL);
+             
+             // Save metadata if available (projectId, sessionId)
+             if (payload?.projectId && payload?.sessionId) {
+                 pipeline.set(`job:${jobId}:meta`, JSON.stringify({
+                     projectId: payload.projectId,
+                     sessionId: payload.sessionId
+                 }));
+                 pipeline.expire(`job:${jobId}:meta`, REDIS_TTL);
+             }
         }
         
         if (eventType === 'JOB_COMPLETED' || eventType === 'JOB_FAILED' || status === 'completed' || status === 'failed') {
              pipeline.set(completedKey, 'true');
              pipeline.expire(completedKey, REDIS_TTL);
+             
+             // Save final stats if available
+             if (payload?.pages_crawled !== undefined) {
+                 pipeline.set(`job:${jobId}:pages_count`, payload.pages_crawled);
+                 pipeline.expire(`job:${jobId}:pages_count`, REDIS_TTL);
+             }
+
+             // Save metadata if available (projectId, sessionId) - Robustness for redirect
+             if (payload?.projectId && payload?.sessionId) {
+                 pipeline.set(`job:${jobId}:meta`, JSON.stringify({
+                     projectId: payload.projectId,
+                     sessionId: payload.sessionId
+                 }));
+                 pipeline.expire(`job:${jobId}:meta`, REDIS_TTL);
+             }
         }
       }
 
@@ -94,7 +131,17 @@ export class LiveJobService {
           pipeline.expire(linksKey, REDIS_TTL);
       }
 
-      await pipeline.exec();
+      const results = await pipeline.exec();
+      
+      // Check for errors in pipeline execution
+      if (results) {
+        results.forEach(([err], index) => {
+          if (err) {
+            logger.error(`Redis pipeline error at index ${index} for job ${jobId}:`, err);
+          }
+        });
+      }
+
       return true;
     } catch (error) {
       logger.error(`Error saving job event for ${jobId}:`, error);
@@ -117,16 +164,35 @@ export class LiveJobService {
     const pagesKey = `job:${jobId}:pages`;  // Crawled pages (for progress count)
     const completedKey = `job:${jobId}:completed`;
     const startedAtKey = `job:${jobId}:startedAt`;
+    const metaKey = `job:${jobId}:meta`;
+    const pagesCountKey = `job:${jobId}:pages_count`;
 
     try {
       // Execute in parallel
-      const [status, logsRaw, pagesRaw, completed, startedAt] = await Promise.all([
+      const [status, logsRaw, pagesRaw, completed, startedAt, metaRaw, pagesCountRaw] = await Promise.all([
         redis.get(statusKey),
         redis.lrange(logsKey, 0, -1),
         redis.lrange(pagesKey, 0, -1),  // Get crawled pages instead of discovered links
         redis.get(completedKey),
-        redis.get(startedAtKey)
+        redis.get(startedAtKey),
+        redis.get(metaKey),
+        redis.get(pagesCountKey)
       ]);
+
+      logger.info(`📸 LiveJobService.getSnapshot(${jobId}): status=${status}, completed=${completed}, startedAt=${startedAt}, pages=${pagesRaw.length}`);
+
+      // Parse metadata
+      let projectId: string | undefined;
+      let sessionId: string | undefined;
+      if (metaRaw) {
+        try {
+          const meta = JSON.parse(metaRaw);
+          projectId = meta.projectId;
+          sessionId = meta.sessionId;
+        } catch (e) {
+          logger.warn(`Failed to parse job meta for ${jobId}: ${e}`);
+        }
+      }
 
       // Transform raw event envelopes into clean log format
       // Track max timestamp for snapshotAt boundary
@@ -194,14 +260,19 @@ export class LiveJobService {
         }
       }
 
+      const pagesCrawled = pagesCountRaw ? parseInt(pagesCountRaw, 10) : undefined;
+
       return {
         jobId,
         status: status || 'pending',
         logs,
         links,
-        completed: completed === 'true',
+        completed: !!completed,
         startedAt: startedAtMs,
-        snapshotAt
+        snapshotAt,
+        projectId,
+        sessionId,
+        pagesCrawled
       };
     } catch (error) {
       logger.error(`Error getting snapshot for ${jobId}:`, error);

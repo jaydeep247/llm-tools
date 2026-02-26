@@ -22,17 +22,23 @@ class JsonStoragePipeline:
     
     def open_spider(self, spider):
         """Initialize when spider opens"""
-        self.session_id = spider.session_id
+        self.session_id = getattr(spider, 'session_id', None)
+        if not self.session_id:
+            # Generate a default session ID if not provided (e.g. distributed crawl)
+            self.session_id = f"crawl_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            # Set it back to spider for consistency
+            spider.session_id = self.session_id
+            
         self.session_path = os.path.join(self.base_path, self.session_id)
         os.makedirs(self.session_path, exist_ok=True)
         
         # Initialize session metadata
         self.session_data = {
             'session_id': self.session_id,
-            'start_url': spider.start_url,
-            'started_at': spider.crawl_started_at,
-            'allow_subdomains': spider.allow_subdomains,
-            'max_concurrency': spider.max_concurrency,
+            'start_url': getattr(spider, 'start_url', 'distributed_crawl'),
+            'started_at': getattr(spider, 'crawl_started_at', datetime.now().isoformat()),
+            'allow_subdomains': getattr(spider, 'allow_subdomains', True),
+            'max_concurrency': getattr(spider, 'max_concurrency', 20),
             'status': 'running',
         }
         

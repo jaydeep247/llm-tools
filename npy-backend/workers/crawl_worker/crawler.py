@@ -12,6 +12,7 @@ from scrapy.crawler import CrawlerProcess
 from workers.crawl_worker.spiders.website_spider import WebsiteSpider
 from utils.logger import configure_logger, logger
 from utils.config import config
+from utils.event_publisher import publisher
 
 def main():
     parser = argparse.ArgumentParser(description='Run Scrapy Crawler for a specific job')
@@ -28,16 +29,45 @@ def main():
     configure_logger()
     logger.info(f"Starting crawl job {args.job_id} for {args.url}")
 
-    # Initialize CrawlerProcess
-    process = CrawlerProcess(settings={
+    # Load project settings
+    from scrapy.settings import Settings
+    from workers.crawl_worker.spiders import settings as spider_settings
+    
+    crawler_settings = Settings()
+    crawler_settings.setmodule(spider_settings)
+
+    # Initialize CrawlerProcess with merged settings
+    # We override specific settings for this job while preserving defaults
+    settings_update = {
         'LOG_ENABLED': False,
         'LOG_LEVEL': 'ERROR',
         'LOG_FORMAT': '%(asctime)s [%(name)s] %(levelname)s: %(message)s',
         'MONGO_URI': config.MONGO_URI,
         'MONGO_DATABASE': config.MONGO_DB_NAME,
-        'MONGO_BATCH_SIZE': 10,
+        'MONGO_BATCH_SIZE': 200,
         'REQUEST_FINGERPRINTER_IMPLEMENTATION': '2.7',
-    })
+
+        # Ensure Item Pipelines are active (merge with existing)
+        'ITEM_PIPELINES': spider_settings.ITEM_PIPELINES,
+        # Ensure Redis settings are active
+        'SCHEDULER': spider_settings.SCHEDULER,
+        'DUPEFILTER_CLASS': spider_settings.DUPEFILTER_CLASS,
+        'SCHEDULER_PERSIST': spider_settings.SCHEDULER_PERSIST,
+    }
+
+    # Apply limits if provided
+    if args.max_pages > 0:
+        settings_update['CLOSESPIDER_PAGECOUNT'] = args.max_pages
+    
+    if args.timeout > 0:
+        settings_update['CLOSESPIDER_TIMEOUT'] = args.timeout
+        
+    if args.max_concurrency > 0:
+        settings_update['CONCURRENT_REQUESTS'] = args.max_concurrency
+
+    crawler_settings.update(settings_update)
+
+    process = CrawlerProcess(settings=crawler_settings)
 
     # Start the spider
     crawler = process.create_crawler(WebsiteSpider)
@@ -53,27 +83,58 @@ def main():
     
     try:
         # Start crawling (blocks until finished)
+        logger.info(f"🕷️ Starting crawler process for {args.url} (max_pages={args.max_pages})")
         process.start()
+        logger.info("🕷️ Crawler process finished execution")
         
         # detailed stats are available after the crawl
         stats = crawler.stats.get_stats()
         pages_crawled = stats.get('pages_crawled', 0)
-        start_time = stats.get('start_time', time.time())
         
+        # Get custom stats from spider instance if available
+        links_collected = 0
+        if hasattr(crawler, 'spider'):
+            links_collected = getattr(crawler.spider, 'links_collected', 0)
+            
+        start_time = stats.get('start_time', time.time())
         if isinstance(start_time, datetime):
             start_time = start_time.timestamp()
             
         duration = (time.time() - start_time)
         error_count = stats.get('log_count/ERROR', 0)
         
-        logger.info(
-            f"Crawl finished. Stats: pages={pages_crawled}, duration={duration}, errors={error_count}"
-        )
+        logger.info(f"🕷️ Crawler finished. Pages: {pages_crawled}, Links: {links_collected}, Duration: {duration:.2f}s, Errors: {error_count}")
+
+        # FALLBACK: Emit JOB_COMPLETED event to ensure status is updated
+        # This handles cases where spider_closed might fail or not fire
+        publisher.emit_event(args.job_id, 'JOB_COMPLETED', {
+            'url': args.url,
+            'completed_at': datetime.now().isoformat(),
+            'pages_crawled': pages_crawled,
+            'links_discovered': links_collected,
+            'status': 'completed',
+            'reason': 'finished',
+            'source': 'crawler_wrapper',
+            'projectId': args.project_id,
+            'sessionId': args.session_id
+        }, retries=5)
+        logger.info(f"✅ Emitted fallback JOB_COMPLETED event for {args.job_id}")
 
     except Exception as e:
-        error_type = type(e).__name__
-        logger.error(f"Crawl failed with exception ({error_type})")
+        logger.error(f"❌ Crawler process failed: {e}")
+        # Emit failure event
+        publisher.emit_event(args.job_id, 'JOB_FAILED', {
+            'url': args.url,
+            'failed_at': datetime.now().isoformat(),
+            'error': str(e),
+            'status': 'failed',
+            'reason': 'exception',
+            'source': 'crawler_wrapper',
+            'projectId': args.project_id,
+            'sessionId': args.session_id
+        }, retries=5)
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

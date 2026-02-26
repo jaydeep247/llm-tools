@@ -3,6 +3,8 @@ import { CreateJobDto, Job, JobStatus, JobType, JobCategory, JOB_TYPE_TO_CATEGOR
 import { SessionService } from '../session/session.service';
 import { SessionStatus } from '../session/session.types';
 import { QueueService } from '../queue/queue.service';
+import { LiveJobService } from '../../services/live-job.service';
+import { logger } from '../../shared/logger/logger';
 
 export class JobService {
   private jobRepository: JobRepository;
@@ -27,6 +29,43 @@ export class JobService {
     }
 
     const job = await this.jobRepository.create(sessionId, projectId, data);
+
+    // Save job metadata to Redis for LiveJobService (progress tracking)
+    await LiveJobService.setJobMeta(job.id, projectId, sessionId);
+
+    if (job.type === JobType.SCHEMA) {
+      await this.queueService.publishSchemaJob({
+        jobId: job.id,
+        sessionId,
+        projectId,
+        url: job.url,
+        jobType: JobType.SCHEMA,
+        schemaType: job.schemaType || undefined,
+      });
+    } else if (job.jobType === JobType.CRAWL) {
+      await this.queueService.publishCrawlJob({
+        jobId: job.id,
+        sessionId,
+        projectId,
+        url: job.url,
+        jobType: JobType.CRAWL,
+        allowSubdomains: job.allowSubdomains,
+        runAudits: job.runAudits,
+        auditDevice: job.auditDevice,
+        captureLinkDetails: job.captureLinkDetails,
+      });
+    } else if (job.jobType === JobType.AEO_ANALYSIS) {
+      await this.queueService.publishAnalysisJob({
+        jobId: job.id,
+        sessionId,
+        projectId,
+        url: job.url,
+        jobType: JobType.AEO_ANALYSIS,
+        modules: job.config?.modules || [],
+        sourceJobId: job.config?.sourceJobId,
+        config: job.config,
+      });
+    }
     const jobType = job.jobType || job.type;
     const category = JOB_TYPE_TO_CATEGORY[jobType];
 
@@ -254,6 +293,7 @@ export class JobService {
   }
 
   async markCompleted(jobId: string): Promise<Job> {
+    logger.info(`✅ JobService: Marking job ${jobId} as COMPLETED in DB`);
     return this.jobRepository.updateStatus(jobId, JobStatus.COMPLETED, undefined, new Date(), null);
   }
 

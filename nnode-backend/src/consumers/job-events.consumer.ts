@@ -2,10 +2,12 @@ import amqp, { ConsumeMessage } from 'amqplib';
 import { env } from '../config/env';
 import { logger } from '../shared/logger/logger';
 import { LiveJobService, JobEvent } from '../services/live-job.service';
+import { JobService } from '../modules/job/job.service';
+import { SessionService } from '../modules/session/session.service';
 import { getIo } from '../socket';
 
 const EXCHANGE_NAME = 'job.events';
-const QUEUE_NAME = 'job.events.queue';
+const QUEUE_NAME = 'job.events.queue.v3'; // Bump version to force fresh queue binding
 const ROUTING_KEY_PATTERN = 'job.#';
 const BATCH_INTERVAL_MS = 500;
 
@@ -30,6 +32,9 @@ const flushBuffer = (jobId: string) => {
   }
 };
 
+const jobService = new JobService();
+const sessionService = new SessionService();
+
 export const startJobEventsConsumer = async () => {
   try {
     const connection = await amqp.connect(env.RABBITMQ_URL);
@@ -47,7 +52,7 @@ export const startJobEventsConsumer = async () => {
     // Bind Queue
     await channel.bindQueue(QUEUE_NAME, EXCHANGE_NAME, ROUTING_KEY_PATTERN);
 
-    logger.info(`✅ Job Events Consumer connected to ${EXCHANGE_NAME}`);
+    logger.info(`✅ Job Events Consumer connected to ${EXCHANGE_NAME} (Queue: ${QUEUE_NAME})`);
 
     // Consume
     await channel.consume(QUEUE_NAME, async (msg: ConsumeMessage | null) => {
@@ -64,19 +69,120 @@ export const startJobEventsConsumer = async () => {
           return;
         }
 
+        logger.info(`📥 Job Event Received: ${event.eventType} for Job ${event.jobId}`, { payload: event.payload });
+
         // 1. Save to Redis (Immediate persistence)
         await LiveJobService.saveEvent(event);
 
-        // 2. Buffer for WebSocket Broadcast
-        const jobId = event.jobId;
-        if (!eventBuffers.has(jobId)) {
-          eventBuffers.set(jobId, []);
-          // Schedule flush
-          const timer = setTimeout(() => flushBuffer(jobId), BATCH_INTERVAL_MS);
-          flushTimers.set(jobId, timer);
+        // 2. Update MongoDB Status for critical events
+        try {
+          if (event.eventType === 'JOB_STARTED') {
+             logger.info(`🚀 Processing JOB_STARTED for ${event.jobId}`);
+             const job = await jobService.markRunning(event.jobId);
+             if (!job) logger.error(`❌ Failed to mark job ${event.jobId} as RUNNING - Job not found`);
+             
+             // Emit direct socket event for start
+             try {
+                 const io = getIo();
+                 io.to(`job:${event.jobId}`).emit('job:started', event);
+             } catch (e) { logger.error('Socket emit error:', e); }
+
+          } else if (event.eventType === 'JOB_COMPLETED' || (event.payload && event.payload.status === 'completed')) {
+             logger.info(`✅ Processing JOB_COMPLETED for ${event.jobId}`);
+             
+             // Update Job Status
+             try {
+                 const job = await jobService.markCompleted(event.jobId);
+                 if (job) logger.info(`✅ DB Updated: Job ${event.jobId} is COMPLETED`);
+                 else logger.error(`❌ DB Update Failed: Job ${event.jobId} not found`);
+             } catch (e) {
+                 logger.error(`❌ DB Update Exception for ${event.jobId}:`, e);
+             }
+
+             // Update Session Status
+             if (event.payload && event.payload.sessionId) {
+                 try {
+                     await sessionService.markSessionCompleted(event.payload.sessionId);
+                     logger.info(`✅ Session ${event.payload.sessionId} marked COMPLETED`);
+                 } catch (e) {
+                     logger.error(`❌ Session Update Exception:`, e);
+                 }
+             }
+             
+             // Emit Direct Socket Event (Critical for UI)
+             try {
+                 const io = getIo();
+                 io.to(`job:${event.jobId}`).emit('job:completed', {
+                     jobId: event.jobId,
+                     status: 'completed',
+                     completedAt: new Date().toISOString(),
+                     payload: event.payload
+                 });
+                 logger.info(`✅ Emitted direct job:completed event for ${event.jobId}`);
+             } catch (e) {
+                 logger.error(`❌ Socket emit error:`, e);
+             }
+
+             // Flush Buffer immediately
+             const existingTimer = flushTimers.get(event.jobId);
+             if (existingTimer) clearTimeout(existingTimer);
+             
+             // Add to buffer for batch consistency
+             if (!eventBuffers.has(event.jobId)) eventBuffers.set(event.jobId, []);
+             eventBuffers.get(event.jobId)?.push(event);
+             
+             flushBuffer(event.jobId);
+             
+          } else if (event.eventType === 'JOB_FAILED' || (event.payload && event.payload.status === 'failed')) {
+              logger.info(`❌ Processing JOB_FAILED for ${event.jobId}`);
+              const reason = event.payload?.reason || event.payload?.message || 'Unknown error';
+              await jobService.markFailed(event.jobId, reason);
+
+              if (event.payload && event.payload.sessionId) {
+                  await sessionService.markSessionFailed(event.payload.sessionId);
+              }
+              
+              // Emit Direct Socket Event
+              try {
+                 const io = getIo();
+                 io.to(`job:${event.jobId}`).emit('job:failed', {
+                     jobId: event.jobId,
+                     status: 'failed',
+                     error: reason,
+                     payload: event.payload
+                 });
+              } catch (e) { logger.error('Socket emit error:', e); }
+
+              // Flush Buffer
+              const existingTimer = flushTimers.get(event.jobId);
+              if (existingTimer) clearTimeout(existingTimer);
+              
+              if (!eventBuffers.has(event.jobId)) eventBuffers.set(event.jobId, []);
+              eventBuffers.get(event.jobId)?.push(event);
+              
+              flushBuffer(event.jobId);
+          }
+        } catch (dbError) {
+           logger.error(`Failed to update DB status for job ${event.jobId}:`, dbError);
         }
+
+        // 3. Buffer for WebSocket Broadcast (for non-terminal events)
+        const jobId = event.jobId;
         
-        eventBuffers.get(jobId)?.push(event);
+        // Skip adding terminal events here as they are handled above
+        const isTerminal = ['JOB_COMPLETED', 'JOB_FAILED'].includes(event.eventType) || 
+                          (event.payload && ['completed', 'failed'].includes(event.payload.status));
+                          
+        if (!isTerminal) {
+            if (!eventBuffers.has(jobId)) {
+              eventBuffers.set(jobId, []);
+              // Schedule flush
+              const timer = setTimeout(() => flushBuffer(jobId), BATCH_INTERVAL_MS);
+              flushTimers.set(jobId, timer);
+            }
+            
+            eventBuffers.get(jobId)?.push(event);
+        }
 
         channel.ack(msg);
       } catch (error) {
