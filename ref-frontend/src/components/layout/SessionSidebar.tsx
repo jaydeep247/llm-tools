@@ -19,6 +19,7 @@ import {
   FileCheck, 
   Target, 
   Tags,
+  TrendingUp,
   GitBranch,
   LayoutDashboard,
   ChevronLeft
@@ -52,6 +53,7 @@ const menuItems = [
   { id: 'content-metrics', label: 'Content Metrics', icon: FileCheck },
   { id: 'answer-completeness', label: 'Answer Completeness', icon: Target },
   { id: 'entity-extractor', label: 'Entity Extractor', icon: Tags },
+  { id: 'growth-trends', label: 'Growth Trends', icon: TrendingUp },
 ]
 
 export function SessionSidebar({ activeSection = 'crawler', onSectionChange, isOpen = true, onClose }: SessionSidebarProps) {

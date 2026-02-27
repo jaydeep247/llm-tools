@@ -11,7 +11,13 @@ import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis
 import { AIIntelligenceModule, ContentMetricsModule, AIVisibilityScorecards, EntityGapAnalysis, AIAnswerPreview, ImprovementActions, ModelComparison } from '@/components/module_C'
 import { SiteStructure } from '@/components/module_D/site-structure'
 import { AICitationRanking, ContentConsistencyEntityCoverage, BrandAnalysisSection, SentimentTrackingSection, CompetitorMentionsSection, SentimentTracking, ShareOfVoiceSection, TrendsByModelSection } from '@/components/module_E'
+import VisibilityComparisonSection from '@/components/module_F/VisibilityComparisonSection'
+import CompetitorWinsLibrary from '@/components/module_F/CompetitorWinsLibrary'
+import CompetitorGrowthTrends from '@/components/module_F/CompetitorGrowthTrends'
+import GapOpportunities from '@/components/module_F/GapOpportunities'
+import CompetitorCitedURLs from '@/components/module_F/CompetitorCitedURLs'
 import { useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
+import { useGetModuleFResultQuery } from '@/store/api/module_F/moduleFApi'
 // import { useGetDataListQuery, useCheckLinksMutation, useGetLinkStatsQuery, useLazyGetPageLinksQuery } from '@/store/api/module_A/dataApi'
 import { useGetProjectQuery } from '@/store/api/projectApi'
 import { useGetSessionQuery } from '@/store/api/sessionApi'
@@ -67,6 +73,10 @@ export default function SessionDetailPage() {
   }, [session, jobs, router])
 
   const { data: moduleEQueryData } = useGetModuleEResultQuery(jobId || '', {
+    skip: !jobId,
+  })
+  
+  const { data: moduleFQueryData, isLoading: isLoadingModuleF } = useGetModuleFResultQuery(jobId || '', {
     skip: !jobId,
   })
 
@@ -1111,6 +1121,52 @@ export default function SessionDetailPage() {
           <div className="space-y-6">
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
               <TrendsByModelSection jobId={jobId} />
+            </div>
+          </div>
+        )}
+
+        {activeSection === 'visibility-comparision' && (
+          <div className="space-y-6">
+            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+              <VisibilityComparisonSection jobId={jobId || null} />
+            </div>
+          </div>
+        )}
+
+        {activeSection === 'competitor-wins-library' && (
+          <div className="space-y-6">
+            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+              <CompetitorWinsLibrary 
+                moduleFData={moduleFQueryData?.data}
+                isLoading={isLoadingModuleF}
+              />
+            </div>
+          </div>
+        )}
+
+        {activeSection === 'competitor-cited-urls' && (
+          <div className="space-y-6">
+            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+              <CompetitorCitedURLs 
+                moduleFData={moduleFQueryData?.data} 
+                isLoading={isLoadingModuleF} 
+              />
+            </div>
+          </div>
+        )}
+
+        {activeSection === 'growth-trends' && (
+          <div className="space-y-6">
+            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+              <CompetitorGrowthTrends jobId={jobId || ''} />
+            </div>
+          </div>
+        )}
+
+        {activeSection === 'gap-opportunities' && (
+          <div className="space-y-6">
+            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+              <GapOpportunities moduleFData={moduleFQueryData?.data} isLoading={isLoadingModuleF} />
             </div>
           </div>
         )}

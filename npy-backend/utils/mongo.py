@@ -56,6 +56,7 @@ class MongoManager:
             self._db.fields.create_index([("jobId", 1), ("url", 1)])
             self._db.job_summaries.create_index("jobId")
             self._db.module_e.create_index("jobId", unique=True)
+            self._db.module_f.create_index("jobId", unique=True)
             self._db.aeo_analysis.create_index("jobId")
             self._db.aeo_analysis.create_index([("jobId", 1), ("url", 1)])
             
@@ -106,6 +107,10 @@ class MongoManager:
     @property
     def module_e(self) -> Collection:
         return self.db.module_e
+
+    @property
+    def module_f(self) -> Collection:
+        return self.db.module_f
 
     @property
     def aeo_analysis(self) -> Collection:

@@ -23,6 +23,7 @@ export const baseApi = createApi({
     'Job',
     'ModuleE',
     'ModuleC',
+    'ModuleF',
   ],
   endpoints: () => ({}),
 });

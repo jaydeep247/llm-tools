@@ -39,6 +39,9 @@ class JobType(str, Enum):
     MODULE_E_BRAND = 'MODULE_E_BRAND'
     MODULE_E_AI_CITATION_RANKING = 'MODULE_E_AI_CITATION_RANKING'
 
+    # Competitor AI Intelligence (Module F)
+    MODULE_F_COMPETITOR_AI_INTELLIGENCE = 'MODULE_F_COMPETITOR_AI_INTELLIGENCE'
+
 
 class JobCategory(str, Enum):
     """Job categories for queue routing"""
@@ -120,6 +123,7 @@ JOB_TYPE_TO_CATEGORY: Dict[str, JobCategory] = {
     JobType.MODULE_E_RANKING.value: JobCategory.MODULE_E,
     JobType.MODULE_E_BRAND.value: JobCategory.MODULE_E,
     JobType.MODULE_E_AI_CITATION_RANKING.value: JobCategory.MODULE_E,
+    JobType.MODULE_F_COMPETITOR_AI_INTELLIGENCE.value: JobCategory.MODULE_E,
 }
 
 
@@ -141,6 +145,7 @@ LEGACY_JOB_TYPE_MAP = {
     'module_e_brand': JobType.MODULE_E_BRAND.value,
     'module_e_brand_analysis': JobType.MODULE_E_BRAND.value,
     'module_e_ai_citation_ranking': JobType.MODULE_E_AI_CITATION_RANKING.value,
+    'module_f_competitor_ai_intelligence': JobType.MODULE_F_COMPETITOR_AI_INTELLIGENCE.value,
 }
 
 
