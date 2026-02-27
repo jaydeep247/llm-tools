@@ -2,6 +2,23 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { 
+  Brain, 
+  Target, 
+  TrendingUp, 
+  TrendingDown,
+  Layers, 
+  Zap, 
+  CheckCircle, 
+  XCircle, 
+  ArrowUpRight, 
+  Globe,
+  Maximize2,
+  Table,
+  Split,
+  Search
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
 import D3TidyTree, { TreeNode as TidyTreeNode } from './D3TidyTree'
 import { useGetJobFieldsQuery, useGetSeoKeywordsForUrlMutation } from '@/store/api/jobApi'
 
@@ -169,8 +186,72 @@ function calculateContentMetrics(keyword: KeywordData): {
   }
 }
 
+// Score Card Component
+interface ScoreCardProps {
+  title: string
+  score: number | string | null
+  icon: React.ReactNode
+  color: string
+  subText?: string
+  trend?: number
+  className?: string
+}
+
+function ScoreCard({ title, score, icon, color, subText, trend, className }: ScoreCardProps) {
+  const getScoreLabel = (s: number) => {
+    if (s >= 80) return { text: 'Excellent', color: 'text-green-400 bg-green-500/10' }
+    if (s >= 60) return { text: 'Good', color: 'text-yellow-400 bg-yellow-500/10' }
+    if (s >= 40) return { text: 'Fair', color: 'text-orange-400 bg-orange-500/10' }
+    return { text: 'Needs Work', color: 'text-red-400 bg-red-500/10' }
+  }
+
+  const numericScore = typeof score === 'number' ? score : parseFloat(score as string)
+  const showBadge = !isNaN(numericScore) && score !== null
+
+  return (
+    <div className={cn("bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10 hover:bg-white/5 transition-all duration-300 group flex flex-col justify-between", className)}>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className={cn("p-2.5 rounded-xl", color)}>
+            {icon}
+          </div>
+          <span className="text-sm font-medium text-white/80">{title}</span>
+        </div>
+        {showBadge && (
+          <span className={cn(
+            "text-[10px] px-2 py-0.5 rounded-full font-medium border border-white/5",
+            getScoreLabel(numericScore).color
+          )}>
+            {getScoreLabel(numericScore).text}
+          </span>
+        )}
+      </div>
+      <div>
+        <div className="flex items-baseline gap-1">
+          <div className="text-3xl font-bold text-white">{score ?? '--'}</div>
+          {typeof score === 'number' && <span className="text-sm text-white/40">/100</span>}
+        </div>
+        
+        <div className="flex items-center justify-between mt-2">
+           {subText && <div className="text-[11px] text-white/40">{subText}</div>}
+           {trend !== undefined && (
+              <div className={cn(
+                "flex items-center gap-1 text-[10px] font-medium",
+                trend >= 0 ? "text-green-400" : "text-red-400"
+              )}>
+                {trend >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                <span>{trend >= 0 ? '+' : ''}{trend}%</span>
+              </div>
+           )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructureProps) {
-  const containerRef = useRef<HTMLDivElement | null>(null)
+  const observerRef = useRef<ResizeObserver | null>(null)
+  const [containerSize, setContainerSize] = useState({ width: 1200, height: 700 })
   const [rootUrl, setRootUrl] = useState<string>('')
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
@@ -462,10 +543,30 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
 
   const handleBuild = useCallback(() => { buildTreeFn() }, [buildTreeFn])
 
-  const containerSize = useMemo(() => ({
-    width: containerRef.current?.clientWidth || 1200,
-    height: containerRef.current?.clientHeight || 700
-  }), [containerRef.current])
+  const setContainerRef = useCallback((node: HTMLDivElement | null) => {
+    if (observerRef.current) {
+      observerRef.current.disconnect()
+      observerRef.current = null
+    }
+
+    if (node) {
+      const observer = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          setContainerSize({
+            width: entry.contentRect.width,
+            height: entry.contentRect.height
+          })
+        }
+      })
+      observer.observe(node)
+      observerRef.current = observer
+      
+      setContainerSize({
+        width: node.clientWidth,
+        height: node.clientHeight
+      })
+    }
+  }, [])
 
   const [seoUpdateKey, setSeoUpdateKey] = useState(0)
   useEffect(() => { setSeoUpdateKey(prev => prev + 1) }, [seoByUrl, seoEnabled])
@@ -498,6 +599,7 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
               onClick={() => { setSiblingSeparation(0.6); setNonSiblingSeparation(0.8); setLabelMaxChars(30); }}
               title="Ultra compact - Best for 1000+ nodes"
             >
+              <Maximize2 className="w-3 h-3 mr-1.5" />
               Compact
             </Button>
             <Button
@@ -507,6 +609,7 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
               onClick={() => { setSiblingSeparation(1.0); setNonSiblingSeparation(1.3); setLabelMaxChars(50); }}
               title="Balanced spacing - Good for 100-500 nodes"
             >
+              <Maximize2 className="w-3 h-3 mr-1.5 rotate-90" />
               Comfortable
             </Button>
           </div>
@@ -547,6 +650,7 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
                 : 'bg-white/5 border-white/20 text-white hover:bg-white/10'}
               onClick={() => setViewMode('split')}
             >
+              <Split className="w-3 h-3 mr-1.5" />
               Split View
             </Button>
             <Button
@@ -557,6 +661,7 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
                 : 'bg-white/5 border-white/20 text-white hover:bg-white/10'}
               onClick={() => setViewMode('tree')}
             >
+              <Layers className="w-3 h-3 mr-1.5" />
               Tree Only
             </Button>
             <Button
@@ -568,6 +673,7 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
               onClick={() => setViewMode('table')}
               disabled={!seoEnabled}
             >
+              <Table className="w-3 h-3 mr-1.5" />
               Table Only
             </Button>
 
@@ -575,10 +681,11 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
               size="sm"
               variant={seoEnabled ? 'default' : 'outline'}
               className={seoEnabled
-                ? 'bg-purple-500 text-white hover:bg-purple-600'
+                ? 'bg-purple-500 text-white hover:bg-purple-600 shadow-lg shadow-purple-500/20'
                 : 'bg-white/5 border-white/20 text-white hover:bg-white/10'}
               onClick={() => setSeoEnabled(prev => !prev)}
             >
+              <Brain className="w-3 h-3 mr-1.5" />
               AI Keywords
             </Button>
           </div>
@@ -597,8 +704,8 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
       <div className="flex-1 flex gap-4 min-h-0">
         {(viewMode === 'split' || viewMode === 'tree') && (
           <div
-            ref={containerRef}
-            className="flex-1 rounded-lg border border-white/20 overflow-hidden relative bg-[#151515]"
+            ref={setContainerRef}
+            className="flex-1 rounded-2xl border border-white/10 overflow-hidden relative bg-white/5 backdrop-blur-xl"
           >
             {(() => {
               const isSeoBusy = seoEnabled && (seoLoading || seoBatchLoading)
@@ -621,6 +728,7 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
                   dy={nonSiblingSeparation * 320}
                   onSelectPath={setBreadcrumb}
                   recenterKey={recenterKey + seoUpdateKey}
+                  initialExpandDepth={0}
                 />
               )
             })()}
@@ -644,146 +752,222 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
 
         {seoEnabled && (viewMode === 'split' || viewMode === 'table') && (
           <div
-            className={`${viewMode === 'table' ? 'flex-1' : 'w-full md:w-104 lg:w-120'} max-h-140 overflow-y-auto rounded-2xl border border-white/10 bg-[#151515] p-5 flex flex-col gap-4 text-xs text-white/80 shadow-[0_18px_45px_rgba(15,23,42,0.9)]`}
+            className={`${viewMode === 'table' ? 'flex-1' : 'w-full md:w-104 lg:w-120'} h-full overflow-y-auto rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-5 flex flex-col gap-5 text-xs text-white/80 shadow-[0_18px_45px_rgba(15,23,42,0.9)]`}
           >
+            {/* Header Section */}
             <div className="flex items-center justify-between gap-2">
-              <div>
-                <div className="inline-flex items-center rounded-full bg-fuchsia-500/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-fuchsia-300">
-                  <span className="mr-1.5 h-1.5 w-1.5 rounded-full bg-fuchsia-400 shadow-[0_0_0_4px_rgba(244,114,182,0.35)]" />
-                  AI Keywords
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-fuchsia-500/20">
+                  <Brain className="w-5 h-5 text-fuchsia-400" />
                 </div>
-                <div className="mt-1 text-sm font-semibold text-white leading-tight">
-                  AI Keywords & Scores
+                <div>
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-fuchsia-300">
+                    AI Keywords
+                  </div>
+                  <div className="text-sm font-semibold text-white leading-tight">
+                    Analysis & Scores
+                  </div>
                 </div>
               </div>
+              
               {hasKeywordStats && (
-                <div className="hidden md:flex items-center gap-1.5 rounded-full bg-white/5 px-3 py-1 text-[10px] text-white/70 border border-white/10">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  <span>Optimized for this URL</span>
+                <div className="hidden md:flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-[10px] text-emerald-300 border border-emerald-500/20">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Optimized</span>
                 </div>
               )}
             </div>
-            <div className="space-y-1.5">
-              <div className="text-[10px] uppercase tracking-[0.18em] text-white/40">Selected URL</div>
+
+            {/* Selected URL Section */}
+            <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
+              <div className="text-[10px] uppercase tracking-wider text-white/40 mb-2 flex items-center gap-2">
+                <Globe className="w-3 h-3" />
+                Selected URL
+              </div>
               {selectedUrl ? (
                 <a
                   href={selectedUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-[11px] text-sky-300 hover:text-sky-200 break-all"
+                  className="group flex items-center gap-2 text-[11px] text-sky-300 hover:text-sky-200 break-all transition-colors"
                 >
-                  <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-sky-500/20 text-[9px] text-sky-200">
-                    ↗
-                  </span>
+                  <div className="p-1 rounded-md bg-sky-500/20 text-sky-300 group-hover:bg-sky-500/30 transition-colors">
+                    <ArrowUpRight className="w-3 h-3" />
+                  </div>
                   <span className="truncate">{selectedUrl}</span>
                 </a>
               ) : (
-                <div className="text-[11px] text-white/50">Select a node in the tree</div>
+                <div className="text-[11px] text-white/50 italic">Select a node in the tree to view details</div>
               )}
             </div>
-            <div className="space-y-2">
-              <div className="rounded-xl bg-linear-to-r from-slate-800 via-slate-900 to-slate-950 border border-white/10 px-4 py-3">
-                <div className="text-[10px] uppercase tracking-[0.18em] text-white/45">
-                  Main Topic
+
+            {/* Main Topic & Scores */}
+            <div className="space-y-3">
+               {/* Main Topic */}
+               <div className="bg-linear-to-r from-slate-800 to-slate-900 rounded-2xl p-5 border border-white/10 relative overflow-hidden">
+                 <div className="absolute top-0 right-0 p-3 opacity-10">
+                   <Target className="w-16 h-16 text-white" />
+                 </div>
+                 <div className="text-[10px] uppercase tracking-wider text-white/50 mb-1">Main Topic</div>
+                 <div className="text-lg font-bold text-white relative z-10">
+                   {selectedSeo?.parentText || 'Not available'}
+                 </div>
+               </div>
+
+               {selectedKeywords.length > 0 && (
+                 <div className="grid grid-cols-1 gap-3">
+                   <div className="grid grid-cols-2 gap-3">
+                      <ScoreCard 
+                        title="Difficulty"
+                        score={avgDifficulty != null ? Math.round(avgDifficulty) : '--'}
+                        subText="SEO Competition"
+                        icon={<TrendingUp className="w-5 h-5 text-rose-300" />}
+                        color="bg-rose-500/20"
+                        trend={avgDifficulty && avgDifficulty > 50 ? 12 : -5}
+                      />
+                      <ScoreCard 
+                        title="Feasibility"
+                        score={avgFeasibility != null ? Math.round(avgFeasibility) : '--'}
+                        subText="AI Generation"
+                        icon={<Zap className="w-5 h-5 text-emerald-300" />}
+                        color="bg-emerald-500/20"
+                        trend={avgFeasibility && avgFeasibility > 70 ? 8 : 2}
+                      />
+                   </div>
+                   <ScoreCard 
+                     title="Complexity"
+                     score={complexityStats.main === 'High' ? 85 : complexityStats.main === 'Medium' ? 50 : 25}
+                     subText={`Distribution: ${complexityStats.low} Low, ${complexityStats.medium} Med, ${complexityStats.high} High`}
+                     icon={<Layers className="w-5 h-5 text-amber-300" />}
+                     color="bg-amber-500/20"
+                     className="col-span-1"
+                   />
+                 </div>
+               )}
+            </div>
+
+            {/* Keywords Table */}
+            {selectedKeywords.length > 0 && (
+              <div className="flex flex-col shrink-0 mt-2">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-[10px] uppercase tracking-wider text-white/40">Keyword Analysis</div>
+                  <div className="text-[10px] text-white/40">{selectedKeywords.length} keywords</div>
                 </div>
-                <div className="mt-1 text-sm md:text-base font-semibold text-white truncate">
-                  {selectedSeo?.parentText || 'Not available yet'}
+                
+                <div className="rounded-2xl border border-white/10 overflow-hidden bg-white/5 flex flex-col">
+                  <div className="overflow-auto custom-scrollbar">
+                     <table className="w-full text-left border-collapse">
+                       <thead className="bg-white/5 sticky top-0 z-10 backdrop-blur-md border-b border-white/10">
+                         <tr>
+                           <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider">Keyword</th>
+                           <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right">Score</th>
+                           <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right" title="Relevance Score">Rel</th>
+                           <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right" title="Diversity Score">Div</th>
+                           <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right" title="Prompt Count">Prompt</th>
+                           <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right" title="Difficulty">Dif</th>
+                           <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right" title="Feasibility">Feas</th>
+                           <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right" title="Complexity">Cmplx</th>
+                         </tr>
+                       </thead>
+                       <tbody className="divide-y divide-white/5">
+                         {selectedKeywords.map((kw: any, idx: number) => (
+                           <tr key={idx} className="hover:bg-white/5 transition-all duration-200 group">
+                             <td className="px-4 py-3 text-xs text-white/90 font-medium">
+                               <div className="flex items-center gap-2">
+                                 <div className="w-1.5 h-1.5 rounded-full bg-indigo-400/50 group-hover:bg-indigo-400 transition-colors"></div>
+                                 <div className="truncate max-w-[120px] sm:max-w-[150px]" title={kw.text}>{kw.text}</div>
+                               </div>
+                             </td>
+                             <td className="px-4 py-3 text-right">
+                               <div className="flex flex-col items-end gap-1">
+                                 <span className="text-xs font-mono text-white/90 font-medium">{kw.score != null ? Number(kw.score).toFixed(1) : '-'}</span>
+                                 <div className="w-12 h-1 bg-white/10 rounded-full overflow-hidden">
+                                   <div 
+                                     className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full"
+                                     style={{ width: `${Math.min(100, (Number(kw.score) || 0) * 10)}%` }}
+                                   />
+                                 </div>
+                               </div>
+                             </td>
+                             <td className="px-4 py-3 text-right">
+                               <div className="flex flex-col items-end gap-1">
+                                 <span className="text-xs font-mono text-white/70">{kw.relevance_score != null ? Number(kw.relevance_score).toFixed(1) : '-'}</span>
+                                 <div className="w-8 h-0.5 bg-white/10 rounded-full overflow-hidden">
+                                   <div 
+                                     className="h-full bg-blue-400/70 rounded-full"
+                                     style={{ width: `${Math.min(100, (Number(kw.relevance_score) || 0))}%` }}
+                                   />
+                                 </div>
+                               </div>
+                             </td>
+                             <td className="px-4 py-3 text-right">
+                               <div className="flex flex-col items-end gap-1">
+                                 <span className="text-xs font-mono text-white/70">{kw.diversity_score != null ? Number(kw.diversity_score).toFixed(1) : '-'}</span>
+                                 <div className="w-8 h-0.5 bg-white/10 rounded-full overflow-hidden">
+                                   <div 
+                                     className="h-full bg-teal-400/70 rounded-full"
+                                     style={{ width: `${Math.min(100, (Number(kw.diversity_score) || 0))}%` }}
+                                   />
+                                 </div>
+                               </div>
+                             </td>
+                             <td className="px-4 py-3 text-right">
+                               <div className="flex justify-end">
+                                 <span className="w-6 h-6 rounded-full border border-white/10 bg-white/5 flex items-center justify-center text-[10px] font-mono text-white/70">
+                                   {kw.prompt_count ?? '-'}
+                                 </span>
+                               </div>
+                             </td>
+                             <td className="px-4 py-3 text-right">
+                               <span className={cn(
+                                 "px-2 py-0.5 rounded-full text-[10px] font-medium border",
+                                 (kw.difficulty_score || 0) > 70 ? "bg-rose-500/10 text-rose-400 border-rose-500/20" :
+                                 (kw.difficulty_score || 0) > 40 ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
+                                 "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                               )}>
+                                 {kw.difficulty_score != null ? Math.round(kw.difficulty_score) : '-'}
+                               </span>
+                             </td>
+                             <td className="px-4 py-3 text-right">
+                               <span className={cn(
+                                 "px-2 py-0.5 rounded-full text-[10px] font-medium border",
+                                 (kw.ai_generation_feasibility || 0) > 70 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
+                                 (kw.ai_generation_feasibility || 0) > 40 ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
+                                 "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                               )}>
+                                 {kw.ai_generation_feasibility != null ? `${Math.round(kw.ai_generation_feasibility)}%` : '-'}
+                               </span>
+                             </td>
+                             <td className="px-4 py-3 text-right">
+                               <span className={cn(
+                                 "px-2 py-0.5 rounded-full text-[10px] font-medium border",
+                                 kw.complexity_level === 'High' ? "bg-rose-500/10 text-rose-400 border-rose-500/20" :
+                                 kw.complexity_level === 'Medium' ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
+                                 kw.complexity_level === 'Low' ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
+                                 "bg-white/5 text-white/40 border-white/10"
+                               )}>
+                                 {kw.complexity_level ?? '-'}
+                               </span>
+                             </td>
+                           </tr>
+                         ))}
+                       </tbody>
+                     </table>
+                  </div>
                 </div>
               </div>
-              {selectedKeywords.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px]">
-                  <div className="rounded-xl bg-linear-to-br from-rose-900/80 via-rose-900/60 to-rose-900/40 border border-rose-500/60 px-4 py-3">
-                    <div className="flex items-center justify-between text-[10px] text-rose-100/70">
-                      <span>Avg Difficulty</span>
-                    </div>
-                    <div className="mt-1 text-xl font-semibold text-rose-50 leading-none">
-                      {avgDifficulty != null ? Math.round(avgDifficulty) : '--'}
-                    </div>
-                    <div className="mt-0.5 text-[10px] text-rose-100/70">
-                      out of 100
-                    </div>
-                  </div>
-                  <div className="rounded-xl bg-linear-to-br from-amber-900/80 via-amber-900/60 to-amber-900/40 border border-amber-500/60 px-4 py-3">
-                    <div className="flex items-center justify-between text-[10px] text-amber-100/70">
-                      <span>Complexity</span>
-                    </div>
-                    <div className="mt-1 text-xl font-semibold text-amber-50 leading-none">
-                      {complexityStats.main || '--'}
-                    </div>
-                    <div className="mt-0.5 text-[10px] text-amber-100/70">
-                      L {complexityStats.low} • M {complexityStats.medium} • H {complexityStats.high}
-                    </div>
-                  </div>
-                  <div className="rounded-xl bg-linear-to-br from-emerald-900/80 via-emerald-900/60 to-emerald-900/40 border border-emerald-500/60 px-4 py-3">
-                    <div className="flex items-center justify-between text-[10px] text-emerald-100/70">
-                      <span>AI Feasibility</span>
-                    </div>
-                    <div className="mt-1 text-xl font-semibold text-emerald-50 leading-none">
-                      {avgFeasibility != null ? `${Math.round(avgFeasibility)}%` : '--'}
-                    </div>
-                    <div className="mt-0.5 text-[10px] text-emerald-100/70">
-                      generation score
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-            {selectedKeywords.length > 0 && (
-              <>
-                <div className="rounded-2xl border border-white/10 overflow-hidden bg-slate-950/60">
-                  <div className="overflow-x-auto">
-                    <div className="min-w-180">
-                      <div className="px-3 py-2 bg-white/5 text-[10px] font-semibold text-white/60 flex">
-                        <div className="flex-1">Keyword</div>
-                        <div className="w-12 text-right">Score</div>
-                        <div className="w-14 text-right">Prompts</div>
-                        <div className="w-16 text-right">Relevance</div>
-                        <div className="w-16 text-right">Diversity</div>
-                        <div className="w-16 text-right">Difficulty</div>
-                        <div className="w-20 text-right">Complexity</div>
-                        <div className="w-24 text-right">AI Feasibility</div>
-                      </div>
-                      <div className="max-h-64 overflow-y-auto divide-y divide-white/10">
-                        {selectedKeywords.map((kw: any) => (
-                          <div
-                            key={kw.text}
-                            className="px-3 py-1.5 flex items-center text-[11px] text-white/80 hover:bg-white/5 transition-colors"
-                          >
-                            <div className="flex-2 min-w-35 pr-3 whitespace-nowrap">
-                              {kw.text}
-                            </div>
-                            <div className="w-12 text-right">
-                              {kw.score != null ? Number(kw.score).toFixed(2) : '-'}
-                            </div>
-                            <div className="w-14 text-right">
-                              {kw.prompt_count != null ? kw.prompt_count : '-'}
-                            </div>
-                            <div className="w-16 text-right">
-                              {kw.relevance_score != null ? `${Math.round(kw.relevance_score)}%` : '-'}
-                            </div>
-                            <div className="w-16 text-right">
-                              {kw.diversity_score != null ? `${Math.round(kw.diversity_score)}%` : '-'}
-                            </div>
-                            <div className="w-16 text-right">
-                              {kw.difficulty_score != null ? Math.round(kw.difficulty_score) : '-'}
-                            </div>
-                            <div className="w-20 text-right">
-                              {kw.complexity_level || '-'}
-                            </div>
-                            <div className="w-24 text-right">
-                              {kw.ai_generation_feasibility != null ? `${Math.round(kw.ai_generation_feasibility)}%` : '-'}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </>
             )}
+            
             {selectedKeywords.length === 0 && (
-              <div className="mt-1 rounded-xl border border-dashed border-white/15 bg-slate-950/40 px-3 py-3 text-[11px] text-white/55">
-                AI keywords are still being extracted for this URL.
+              <div className="mt-4 rounded-2xl border border-dashed border-white/10 bg-white/5 px-6 py-8 text-center">
+                <div className="flex justify-center mb-3">
+                   <div className="p-3 rounded-full bg-white/5">
+                     <Search className="w-5 h-5 text-white/30" />
+                   </div>
+                </div>
+                <div className="text-xs text-white/50">
+                  AI keywords are still being extracted or none were found for this URL.
+                </div>
               </div>
             )}
           </div>

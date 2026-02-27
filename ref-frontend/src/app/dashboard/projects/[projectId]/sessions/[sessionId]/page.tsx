@@ -993,7 +993,7 @@ export default function SessionDetailPage() {
 
         {/* Show Site Structure on site-structure / content-brief-builder / add-to-Tracking tabs */}
         {(activeSection === 'site-structure' || activeSection === 'content-brief-builder' || activeSection === 'add-to-Tracking') && (
-          <div className="rounded-lg p-4 sm:p-6 border border-white/20 bg-white/10 backdrop-blur-xl h-150">
+          <div className="h-[calc(100vh-64px)] p-4 sm:p-6">
             <SiteStructure
               sessionId={sessionId}
               pages={siteStructurePages}

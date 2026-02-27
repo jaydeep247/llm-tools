@@ -4,10 +4,155 @@ import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Loader2, FileText, CheckCircle, AlertCircle } from 'lucide-react'
+import { 
+  Loader2, 
+  FileText, 
+  CheckCircle, 
+  AlertCircle, 
+  Target, 
+  TrendingUp, 
+  TrendingDown, 
+  Brain, 
+  Search, 
+  Shield, 
+  Database, 
+  Activity,
+  Zap,
+  List,
+  BarChart,
+  Eye,
+  MessageSquare,
+  BookOpen,
+  ShoppingBag,
+  Scale,
+  CreditCard,
+  Bot,
+  HelpCircle
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useGetContentMetricsQuery, useStartContentMetricsMutation } from '@/store/api/contentMetricsApi'
 import { useGetSessionJobsQuery } from '@/store/api/jobApi'
+
+// Score Card Component - Adapted from AIVisibilityScorecards
+interface ScoreCardProps {
+  title: string
+  score?: number | null
+  value?: string | number | React.ReactNode
+  icon: React.ReactNode
+  color: string
+  trend?: number
+  subStats?: { label: string; value: string | number | React.ReactNode }[]
+  error?: string
+  isLoading?: boolean
+  description?: string
+  footer?: React.ReactNode
+  suffix?: string
+}
+
+function ScoreCard({ title, score, value, icon, color, trend, subStats, error, isLoading, description, footer, suffix = '/100' }: ScoreCardProps) {
+  const getScoreLabel = (s: number) => {
+    if (s >= 80) return { text: 'Excellent', color: 'text-green-400 bg-green-500/10' }
+    if (s >= 60) return { text: 'Good', color: 'text-yellow-400 bg-yellow-500/10' }
+    if (s >= 40) return { text: 'Fair', color: 'text-orange-400 bg-orange-500/10' }
+    return { text: 'Needs Work', color: 'text-red-400 bg-red-500/10' }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10 animate-pulse h-full">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-xl bg-white/10" />
+          <div className="h-4 w-24 bg-white/10 rounded" />
+        </div>
+        <div className="h-12 w-20 bg-white/10 rounded mt-4" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10 hover:bg-white/5 transition-all duration-300 group h-full flex flex-col">
+      {/* Header */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-start gap-3">
+          <div className={cn("p-2.5 rounded-xl shrink-0", color)}>
+            {icon}
+          </div>
+          <div>
+            <span className="text-sm font-medium text-white/90 block">{title}</span>
+            {description && <span className="text-xs text-white/50 block mt-0.5 leading-relaxed">{description}</span>}
+          </div>
+        </div>
+        {score !== undefined && score !== null && !error && (
+          <span className={cn(
+            "text-xs px-2 py-1 rounded-full font-medium shrink-0 ml-2",
+            getScoreLabel(score).color
+          )}>
+            {getScoreLabel(score).text}
+          </span>
+        )}
+      </div>
+
+      {/* Score/Value */}
+      <div className="flex items-end justify-between mb-4">
+        <div>
+          {error ? (
+            <div className="flex items-center gap-2 text-red-400">
+              <AlertCircle className="w-5 h-5" />
+              <span className="text-sm">Error</span>
+            </div>
+          ) : (
+            <div className="flex items-baseline gap-1">
+              {value !== undefined ? (
+                <span className="text-4xl font-bold text-white">{value}</span>
+              ) : score !== undefined && score !== null ? (
+                <>
+                  <span className="text-4xl font-bold text-white">{score}</span>
+                  <span className="text-sm text-white/40">{suffix}</span>
+                </>
+              ) : (
+                <span className="text-3xl font-bold text-white/30">--</span>
+              )}
+            </div>
+          )}
+          
+          {/* Trend */}
+          {trend !== undefined && !error && (
+            <div className={cn(
+              "flex items-center gap-1 mt-2 text-xs font-medium",
+              trend >= 0 ? "text-green-400" : "text-red-400"
+            )}>
+              {trend >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+              <span>{trend >= 0 ? '+' : ''}{trend.toFixed(1)}%</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Mini Stats / Content */}
+      <div className="mt-auto space-y-3">
+        {subStats && subStats.length > 0 && !error && (
+          <div className={cn(
+            "grid gap-3 pt-3 border-t border-white/5",
+            subStats.length === 1 ? "grid-cols-1" : "grid-cols-2"
+          )}>
+            {subStats.map((stat, i) => (
+              <div key={i}>
+                <div className="text-xs text-white/40 mb-1">{stat.label}</div>
+                <div className="text-sm font-semibold text-white/90 truncate">{stat.value}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        {footer}
+      </div>
+
+      {/* Error Message */}
+      {error && (
+        <p className="text-xs text-red-300/70 mt-2 line-clamp-2">{error}</p>
+      )}
+    </div>
+  )
+}
 
 interface ContentMetricsModuleProps {
   url: string
@@ -145,8 +290,8 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
         <div className="rounded-lg border border-white/10 bg-white/5 backdrop-blur-xl p-6 space-y-6">
           {/* Empty State + Trigger */}
           {!contentMetrics && !isLoadingMetrics && !metricsError && (
-            <div className="p-6 border border-border rounded-lg bg-muted/50 space-y-4">
-              <p className="text-sm text-muted-foreground">
+            <div className="p-6 border border-white/10 rounded-lg bg-white/5 backdrop-blur-xl space-y-4">
+              <p className="text-sm text-white/60">
                 No content metrics available yet. Run an AEO analysis to see content insights.
               </p>
               {jobId && (
@@ -180,7 +325,7 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
                     )}
                   </Button>
                   {(isStartingAnalysis || (hasTriggeredAnalysis && isLoadingMetrics)) && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2 text-xs text-white/50">
                       <Loader2 className="w-3 h-3 animate-spin" />
                       <span>Running analysis and loading metrics...</span>
                     </div>
@@ -192,18 +337,18 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
 
           {/* Loading State */}
           {isLoadingMetrics && (
-            <div className="p-8 text-center border border-border rounded-lg bg-muted/50">
+            <div className="p-8 text-center border border-white/10 rounded-lg bg-white/5 backdrop-blur-xl">
               <Loader2 className="w-10 h-10 mx-auto mb-4 text-primary animate-spin" />
-              <p className="text-sm text-muted-foreground">Loading content metrics...</p>
+              <p className="text-sm text-white/60">Loading content metrics...</p>
             </div>
           )}
 
           {/* Error Display */}
           {metricsError && !contentMetrics && (
-            <div className="p-4 border border-destructive/50 bg-destructive/10 rounded-lg">
+            <div className="p-4 border border-red-500/20 bg-red-500/10 rounded-lg">
               <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-destructive" />
-                <p className="text-sm text-destructive">
+                <AlertCircle className="w-4 h-4 text-red-400" />
+                <p className="text-sm text-red-400">
                   {((metricsError as any)?.data?.error ?? (metricsError as any)?.message ?? 'Failed to load metrics')}
                 </p>
               </div>
@@ -214,87 +359,67 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
           {contentMetrics && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Content Type Accuracy */}
-              <div className="border border-border rounded-lg p-6 bg-muted/30">
-                <div className="flex items-start gap-3 mb-4">
-                  <div className="text-3xl">📄</div>
-                  <div className="flex-1">
-                    <h4 className="text-sm font-medium text-foreground mb-1">Content Type Accuracy</h4>
-                    <p className="text-xs text-muted-foreground">How accurately the system identifies your content type</p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-center mb-4">
-                  <div className={`text-5xl font-bold ${getScoreColor(contentMetrics.content_type_accuracy || 0)}`}>
-                    {contentMetrics.content_type_accuracy || 0}
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-xs text-muted-foreground mb-1">Suggested Type:</div>
-                  <Badge variant="outline" className="text-xs font-medium">
-                    {contentMetrics.suggested_content_type || 'Unknown'}
-                  </Badge>
-                </div>
-              </div>
+              <ScoreCard
+                title="Content Type Accuracy"
+                description="How accurately the system identifies your content type"
+                score={contentMetrics.content_type_accuracy || 0}
+                icon={<MessageSquare className="w-5 h-5 text-blue-400" />}
+                color="bg-blue-500/20"
+                subStats={[
+                  { label: 'Suggested Type', value: contentMetrics.suggested_content_type || 'Unknown' }
+                ]}
+              />
 
               {/* Prompt Intent Match */}
-              <div className="border border-border rounded-lg p-6 bg-muted/30">
-                <div className="flex items-start gap-3 mb-4">
-                  <div className="text-3xl">🎯</div>
-                  <div className="flex-1">
-                    <h4 className="text-sm font-medium text-foreground mb-1">Prompt Intent Match</h4>
-                    <p className="text-xs text-muted-foreground">How well your content matches user search intent</p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-center mb-4">
-                  <div className={`text-5xl font-bold ${getScoreColor(contentMetrics.prompt_intent_match || 0)}`}>
-                    {contentMetrics.prompt_intent_match || 0}
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-xs text-muted-foreground mb-2">Matched Intents:</div>
-                  <div className="flex flex-wrap gap-1 justify-center">
-                    {contentMetrics.prompt_intent_details?.matched_intents && contentMetrics.prompt_intent_details.matched_intents.length > 0 ? (
-                      contentMetrics.prompt_intent_details.matched_intents.map((intent: string, idx: number) => (
-                        <Badge key={idx} variant="secondary" className="text-xs">{intent}</Badge>
-                      ))
-                    ) : (
-                      <span className="text-xs text-muted-foreground">No intents detected</span>
-                    )}
-                  </div>
-                  {contentMetrics.prompt_intent_details?.confidence !== undefined && (
-                    <div className="text-xs text-muted-foreground mt-2">
-                      Confidence: {contentMetrics.prompt_intent_details.confidence}%
-                    </div>
-                  )}
-                </div>
-              </div>
+              <ScoreCard
+                title="Prompt Intent Match"
+                description="How well your content matches user search intent"
+                score={contentMetrics.prompt_intent_match || 0}
+                icon={<Brain className="w-5 h-5 text-purple-400" />}
+                color="bg-purple-500/20"
+                subStats={[
+                  { 
+                    label: 'Matched Intents', 
+                    value: (
+                      <div className="flex flex-wrap gap-1">
+                        {contentMetrics.prompt_intent_details?.matched_intents && contentMetrics.prompt_intent_details.matched_intents.length > 0 ? (
+                          contentMetrics.prompt_intent_details.matched_intents.slice(0, 3).map((intent: string, idx: number) => (
+                            <span key={idx} className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 text-white/80 border border-white/5">{intent}</span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-white/40">No intents detected</span>
+                        )}
+                      </div>
+                    )
+                  },
+                  { label: 'Confidence', value: `${contentMetrics.prompt_intent_details?.confidence ?? 0}%` }
+                ]}
+              />
 
               {/* Visibility Impact */}
-              <div className="border border-border rounded-lg p-6 bg-muted/30">
-                <div className="flex items-start gap-3 mb-4">
-                  <div className="text-3xl">📈</div>
-                  <div className="flex-1">
-                    <h4 className="text-sm font-medium text-foreground mb-1">Visibility Impact</h4>
-                    <p className="text-xs text-muted-foreground">Potential impact on search visibility and ranking</p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-center mb-4">
-                  <div className={`text-5xl font-bold ${getScoreColor(contentMetrics.visibility_impact || 0)}`}>
-                    {contentMetrics.visibility_impact || 0}
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-xs text-muted-foreground mb-2">Key Factors:</div>
-                  <div className="flex flex-wrap gap-1 justify-center">
-                    {contentMetrics.visibility_factors?.factors && contentMetrics.visibility_factors.factors.length > 0 ? (
-                      contentMetrics.visibility_factors.factors.map((factor: string, idx: number) => (
-                        <Badge key={idx} variant="outline" className="text-xs">{factor}</Badge>
-                      ))
-                    ) : (
-                      <span className="text-xs text-muted-foreground">No factors identified</span>
-                    )}
-                  </div>
-                </div>
-              </div>
+              <ScoreCard
+                title="Visibility Impact"
+                description="Potential impact on search visibility and ranking"
+                score={contentMetrics.visibility_impact || 0}
+                icon={<Eye className="w-5 h-5 text-emerald-400" />}
+                color="bg-emerald-500/20"
+                subStats={[
+                  { 
+                    label: 'Key Factors', 
+                    value: (
+                      <div className="flex flex-wrap gap-1">
+                        {contentMetrics.visibility_factors?.factors && contentMetrics.visibility_factors.factors.length > 0 ? (
+                          contentMetrics.visibility_factors.factors.slice(0, 2).map((factor: string, idx: number) => (
+                            <span key={idx} className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 text-white/80 border border-white/5 truncate max-w-[100px] inline-block">{factor}</span>
+                          ))
+                        ) : (
+                          <span className="text-xs text-white/40">No factors</span>
+                        )}
+                      </div>
+                    )
+                  }
+                ]}
+              />
             </div>
           )}
         </div>
@@ -305,8 +430,8 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
         <div className="rounded-lg border border-white/10 bg-white/5 backdrop-blur-xl p-6 space-y-6">
           {/* Empty State */}
           {!contentMetrics && !isLoadingMetrics && !metricsError && (
-            <div className="p-6 border border-border rounded-lg bg-muted/50">
-              <p className="text-sm text-muted-foreground mb-4">
+            <div className="p-6 border border-white/10 rounded-lg bg-white/5 backdrop-blur-xl">
+              <p className="text-sm text-white/60 mb-4">
                 No intent cluster data available yet. Run an AEO analysis to see prompt intent analysis.
               </p>
             </div>
@@ -314,18 +439,18 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
 
           {/* Loading State */}
           {isLoadingMetrics && (
-            <div className="p-8 text-center border border-border rounded-lg bg-muted/50">
+            <div className="p-8 text-center border border-white/10 rounded-lg bg-white/5 backdrop-blur-xl">
               <Loader2 className="w-10 h-10 mx-auto mb-4 text-primary animate-spin" />
-              <p className="text-sm text-muted-foreground">Loading intent clusters...</p>
+              <p className="text-sm text-white/60">Loading intent clusters...</p>
             </div>
           )}
 
           {/* Error Display */}
           {metricsError && !contentMetrics && (
-            <div className="p-4 border border-destructive/50 bg-destructive/10 rounded-lg">
+            <div className="p-4 border border-red-500/20 bg-red-500/10 rounded-lg">
               <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-destructive" />
-                <p className="text-sm text-destructive">
+                <AlertCircle className="w-4 h-4 text-red-400" />
+                <p className="text-sm text-red-400">
                   {((metricsError as any)?.data?.error ?? (metricsError as any)?.message ?? 'Failed to load metrics')}
                 </p>
               </div>
@@ -336,44 +461,55 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
           {contentMetrics?.prompt_intent_details?.cluster_metrics && contentMetrics.prompt_intent_details?.intent_clusters && (
             <div className="space-y-6">
               {/* Metrics Summary */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="border border-green-500/30 rounded-lg p-4 bg-green-500/10">
-                  <div className="text-xs text-green-300 mb-1">Accuracy of Clustering</div>
-                  <div className="text-3xl font-bold text-green-400">
-                    {Math.round(100 * (contentMetrics.prompt_intent_details.cluster_metrics.clustering_accuracy ?? 0))}%
-                  </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <div className="h-full">
+                  <ScoreCard
+                    title="Clustering Accuracy"
+                    description="Precision of intent classification"
+                    score={Math.round(100 * (contentMetrics.prompt_intent_details.cluster_metrics.clustering_accuracy ?? 0))}
+                    value={`${Math.round(100 * (contentMetrics.prompt_intent_details.cluster_metrics.clustering_accuracy ?? 0))}%`}
+                    icon={<Target className="w-5 h-5 text-green-400" />}
+                    color="bg-green-500/20"
+                  />
                 </div>
                 
-                <div className="border border-blue-500/30 rounded-lg p-4 bg-blue-500/10">
-                  <div className="text-xs text-blue-300 mb-1">Total Prompts Analyzed</div>
-                  <div className="text-3xl font-bold text-blue-400">
-                    {contentMetrics.prompt_intent_details.cluster_metrics.total_prompts ?? 0}
-                  </div>
+                <div className="h-full">
+                  <ScoreCard
+                    title="Total Prompts"
+                    description="Number of prompts analyzed"
+                    value={contentMetrics.prompt_intent_details.cluster_metrics.total_prompts ?? 0}
+                    icon={<List className="w-5 h-5 text-blue-400" />}
+                    color="bg-blue-500/20"
+                  />
                 </div>
                 
-                <div className="border border-purple-500/30 rounded-lg p-4 bg-purple-500/10">
-                  <div className="text-xs text-purple-300 mb-1">% Successfully Categorized</div>
-                  <div className="text-3xl font-bold text-purple-400">
-                    {contentMetrics.prompt_intent_details.cluster_metrics.coverage_percentage?.toFixed(1) ?? 0}%
-                  </div>
+                <div className="h-full">
+                  <ScoreCard
+                    title="Categorized"
+                    description="Prompts successfully mapped to intents"
+                    score={contentMetrics.prompt_intent_details.cluster_metrics.coverage_percentage ?? 0}
+                    value={`${contentMetrics.prompt_intent_details.cluster_metrics.coverage_percentage?.toFixed(1) ?? 0}%`}
+                    icon={<Brain className="w-5 h-5 text-purple-400" />}
+                    color="bg-purple-500/20"
+                  />
                 </div>
               </div>
 
               {/* Intent Distribution Table */}
-              <div className="border border-border rounded-lg overflow-hidden bg-background">
-                <div className="bg-muted px-4 py-3">
-                  <h4 className="text-sm font-semibold text-foreground">Intent Cluster Distribution</h4>
+              <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
+                <div className="bg-white/5 px-6 py-4 border-b border-white/10">
+                  <h4 className="text-sm font-semibold text-white">Intent Cluster Distribution</h4>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-muted/50 border-b border-border">
+                    <thead className="bg-white/5 border-b border-white/10">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Intent Cluster</th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground">Number of Prompts</th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground">% of Total</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white/50 uppercase tracking-wider">Intent Cluster</th>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-white/50 uppercase tracking-wider">Number of Prompts</th>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-white/50 uppercase tracking-wider">% of Total</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-border">
+                    <tbody className="divide-y divide-white/5">
                       {(() => {
                         const clusters: any = contentMetrics.prompt_intent_details?.intent_clusters || {}
                         const total: number = contentMetrics.prompt_intent_details?.cluster_metrics?.total_prompts ?? 0
@@ -386,12 +522,12 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
                           agent_style: 'Agent-style'
                         }
 
-                        const iconMap: Record<string, string> = {
-                          informational: '📚',
-                          commercial: '🛍️',
-                          comparative: '⚖️',
-                          transactional: '💳',
-                          agent_style: '🤖'
+                        const iconMap: Record<string, React.ReactNode> = {
+                          informational: <BookOpen className="w-4 h-4 text-blue-400" />,
+                          commercial: <ShoppingBag className="w-4 h-4 text-purple-400" />,
+                          comparative: <Scale className="w-4 h-4 text-orange-400" />,
+                          transactional: <CreditCard className="w-4 h-4 text-emerald-400" />,
+                          agent_style: <Bot className="w-4 h-4 text-cyan-400" />
                         }
 
                         return (
@@ -402,16 +538,23 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
                               const percent = total > 0 ? Math.round((count / total) * 100) : 0
 
                               return (
-                                <tr key={key} className="hover:bg-muted/50 transition-colors">
-                                  <td className="px-4 py-3 text-sm text-foreground">
-                                    <span className="mr-2">{iconMap[key]}</span>
+                                <tr key={key} className="hover:bg-white/5 transition-colors">
+                                  <td className="px-6 py-4 text-sm text-white/90 flex items-center gap-3">
+                                    <div className="p-1.5 rounded-lg bg-white/5">
+                                      {iconMap[key]}
+                                    </div>
                                     {labelMap[key]}
                                   </td>
-                                  <td className="px-4 py-3 text-center text-sm font-semibold text-foreground">{count}</td>
-                                  <td className="px-4 py-3 text-center">
-                                    <Badge variant={percent >= 20 ? 'default' : 'secondary'} className="font-semibold">
+                                  <td className="px-6 py-4 text-center text-sm font-semibold text-white/90">{count}</td>
+                                  <td className="px-6 py-4 text-center">
+                                    <div className={cn(
+                                      "inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium",
+                                      percent >= 20 
+                                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
+                                        : "bg-white/10 text-white/60 border border-white/10"
+                                    )}>
                                       {percent}%
-                                    </Badge>
+                                    </div>
                                   </td>
                                 </tr>
                               )
@@ -427,14 +570,18 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
                               const otherPercent = total > 0 ? Math.round((otherCount / total) * 100) : 0
 
                               return (
-                                <tr className="bg-muted/30">
-                                  <td className="px-4 py-3 text-sm text-muted-foreground">
-                                    <span className="mr-2">❓</span>
+                                <tr className="bg-white/5">
+                                  <td className="px-6 py-4 text-sm text-white/50 flex items-center gap-3">
+                                    <div className="p-1.5 rounded-lg bg-white/5">
+                                      <HelpCircle className="w-4 h-4 text-white/40" />
+                                    </div>
                                     Other / Uncategorized
                                   </td>
-                                  <td className="px-4 py-3 text-center text-sm font-semibold text-muted-foreground">{otherCount}</td>
-                                  <td className="px-4 py-3 text-center">
-                                    <Badge variant="outline" className="font-semibold">{otherPercent}%</Badge>
+                                  <td className="px-6 py-4 text-center text-sm font-semibold text-white/50">{otherCount}</td>
+                                  <td className="px-6 py-4 text-center">
+                                    <div className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-white/5 text-white/40 border border-white/10">
+                                      {otherPercent}%
+                                    </div>
                                   </td>
                                 </tr>
                               )
@@ -451,9 +598,9 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
 
           {/* No Data Message for Intent Clusters */}
           {contentMetrics && (!contentMetrics.prompt_intent_details?.cluster_metrics || !contentMetrics.prompt_intent_details?.intent_clusters) && (
-            <div className="p-6 border border-border rounded-lg bg-muted/50 text-center">
-              <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
+            <div className="p-6 border border-white/10 rounded-lg bg-white/5 backdrop-blur-xl text-center">
+              <FileText className="w-12 h-12 mx-auto mb-4 text-white/20" />
+              <p className="text-sm text-white/60">
                 No intent cluster data available for this analysis.
               </p>
             </div>
@@ -466,8 +613,8 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
         <div className="rounded-lg border border-white/10 bg-white/5 backdrop-blur-xl p-6 space-y-6">
           {/* Empty State */}
           {!entityMetrics && !isLoadingMetrics && !metricsError && (
-            <div className="p-6 border border-border rounded-lg bg-muted/50">
-              <p className="text-sm text-muted-foreground mb-4">
+            <div className="p-6 border border-white/10 rounded-lg bg-white/5 backdrop-blur-xl">
+              <p className="text-sm text-white/60 mb-4">
                 No entity detection data available yet. Run an AEO analysis to see entity metrics.
               </p>
             </div>
@@ -475,18 +622,18 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
 
           {/* Loading State */}
           {isLoadingMetrics && (
-            <div className="p-8 text-center border border-border rounded-lg bg-muted/50">
+            <div className="p-8 text-center border border-white/10 rounded-lg bg-white/5 backdrop-blur-xl">
               <Loader2 className="w-10 h-10 mx-auto mb-4 text-primary animate-spin" />
-              <p className="text-sm text-muted-foreground">Loading entity metrics...</p>
+              <p className="text-sm text-white/60">Loading entity metrics...</p>
             </div>
           )}
 
           {/* Error Display */}
           {metricsError && !entityMetrics && (
-            <div className="p-4 border border-destructive/50 bg-destructive/10 rounded-lg">
+            <div className="p-4 border border-red-500/20 bg-red-500/10 rounded-lg">
               <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-destructive" />
-                <p className="text-sm text-destructive">
+                <AlertCircle className="w-4 h-4 text-red-400" />
+                <p className="text-sm text-red-400">
                   {((metricsError as any)?.data?.error ?? (metricsError as any)?.message ?? 'Failed to load metrics')}
                 </p>
               </div>
@@ -497,35 +644,39 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
           {entityMetrics && (
             <div className="space-y-6">
               {/* Main Entity Metrics */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Entities Detected */}
-                <div className="border border-border rounded-lg p-6 bg-muted/30 text-center">
-                  <div className="text-3xl mb-2">🔢</div>
-                  <div className="text-4xl font-bold text-foreground mb-2">
-                    {entityMetrics.entities_detected_count || 0}
-                  </div>
-                  <div className="text-sm font-medium text-foreground mb-1">Entities Detected</div>
-                  <div className="text-xs text-muted-foreground">Number of required entities found in content</div>
+                <div className="h-full">
+                  <ScoreCard
+                    title="Entities Detected"
+                    description="Number of required entities found in content"
+                    value={entityMetrics.entities_detected_count || 0}
+                    icon={<Database className="w-5 h-5 text-blue-400" />}
+                    color="bg-blue-500/20"
+                  />
                 </div>
 
                 {/* Coverage Score */}
-                <div className="border border-border rounded-lg p-6 bg-muted/30 text-center">
-                  <div className="text-3xl mb-2">📊</div>
-                  <div className={`text-4xl font-bold mb-2 ${getScoreColor(entityMetrics.entity_coverage_score || 0)}`}>
-                    {entityMetrics.entity_coverage_score || 0}%
-                  </div>
-                  <div className="text-sm font-medium text-foreground mb-1">Coverage Score</div>
-                  <div className="text-xs text-muted-foreground">Percentage of required entities included</div>
+                <div className="h-full">
+                  <ScoreCard
+                    title="Coverage Score"
+                    description="Percentage of required entities included"
+                    score={entityMetrics.entity_coverage_score || 0}
+                    value={`${entityMetrics.entity_coverage_score || 0}%`}
+                    icon={<BarChart className="w-5 h-5 text-emerald-400" />}
+                    color="bg-emerald-500/20"
+                  />
                 </div>
 
                 {/* Entity Relevance */}
-                <div className="border border-border rounded-lg p-6 bg-muted/30 text-center">
-                  <div className="text-3xl mb-2">🎯</div>
-                  <div className={`text-4xl font-bold mb-2 ${getScoreColor(entityMetrics.entity_relevance_score || 0)}`}>
-                    {entityMetrics.entity_relevance_score || 0}
-                  </div>
-                  <div className="text-sm font-medium text-foreground mb-1">Entity Relevance</div>
-                  <div className="text-xs text-muted-foreground">How relevant entities are to search intent</div>
+                <div className="h-full">
+                  <ScoreCard
+                    title="Entity Relevance"
+                    description="How relevant entities are to search intent"
+                    score={entityMetrics.entity_relevance_score || 0}
+                    icon={<Target className="w-5 h-5 text-purple-400" />}
+                    color="bg-purple-500/20"
+                  />
                 </div>
               </div>
 
@@ -534,8 +685,8 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
                 (entityMetrics.entity_relevance_details?.irrelevant_entities && entityMetrics.entity_relevance_details.irrelevant_entities.length > 0)) && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {entityMetrics.entity_relevance_details?.relevant_entities && entityMetrics.entity_relevance_details.relevant_entities.length > 0 && (
-                    <div className="border border-green-500/30 rounded-lg p-4 bg-green-500/10">
-                      <h4 className="text-sm font-semibold text-green-300 mb-3 flex items-center gap-2">
+                    <div className="bg-emerald-500/5 backdrop-blur-xl rounded-2xl border border-emerald-500/20 p-5">
+                      <h4 className="text-sm font-semibold text-emerald-400 mb-3 flex items-center gap-2">
                         <span>✅</span>
                         Relevant Entities
                       </h4>
@@ -550,7 +701,7 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
                   )}
                   
                   {entityMetrics.entity_relevance_details?.irrelevant_entities && entityMetrics.entity_relevance_details.irrelevant_entities.length > 0 && (
-                    <div className="border border-amber-500/30 rounded-lg p-4 bg-amber-500/10">
+                    <div className="bg-amber-500/5 backdrop-blur-xl rounded-2xl border border-amber-500/20 p-5">
                       <h4 className="text-sm font-semibold text-amber-300 mb-3 flex items-center gap-2">
                         <span>⚠️</span>
                         Irrelevant Entities
@@ -571,18 +722,20 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
                 {/* Top Search Queries */}
                 {contentMetrics?.prompt_intent_details?.search_queries && contentMetrics.prompt_intent_details.search_queries.length > 0 && (
-                  <div className="border border-border rounded-lg p-4 bg-muted/30">
-                    <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                      <span className="text-lg">🔍</span>
+                  <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-5">
+                    <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-blue-500/20">
+                        <Search className="w-4 h-4 text-blue-400" />
+                      </div>
                       Top Search Queries
                     </h4>
                     <div className="space-y-2">
                       {contentMetrics.prompt_intent_details.search_queries.map((query: string, idx: number) => (
-                        <div key={idx} className="flex items-start gap-3 p-2 rounded hover:bg-muted/50 transition-colors">
-                          <span className="shrink-0 w-6 h-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-bold">
+                        <div key={idx} className="flex items-start gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors">
+                          <span className="shrink-0 w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold">
                             {idx + 1}
                           </span>
-                          <span className="text-sm text-foreground">"{query}"</span>
+                          <span className="text-sm text-white/90">"{query}"</span>
                         </div>
                       ))}
                     </div>
@@ -592,19 +745,21 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
                 {/* Visibility Score Breakdown */}
                 {contentMetrics?.visibility_factors?.score_breakdown && 
                  Object.keys(contentMetrics.visibility_factors.score_breakdown).length > 0 && (
-                  <div className="border border-border rounded-lg p-4 bg-muted/30">
-                    <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                      <span className="text-lg">📊</span>
+                  <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-5">
+                    <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-emerald-500/20">
+                        <BarChart className="w-4 h-4 text-emerald-400" />
+                      </div>
                       Visibility Score Breakdown
                     </h4>
                     <div className="space-y-3">
                       {Object.entries(contentMetrics.visibility_factors.score_breakdown).map(([factor, score]) => (
                         <div key={factor} className="space-y-1">
                           <div className="flex items-center justify-between text-xs">
-                            <span className="text-muted-foreground capitalize">{factor.replace(/_/g, ' ')}</span>
+                            <span className="text-white/60 capitalize">{factor.replace(/_/g, ' ')}</span>
                             <span className={`font-semibold ${getScoreColor(score as number)}`}>{score as number}</span>
                           </div>
-                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                          <div className="h-2 bg-white/10 rounded-full overflow-hidden">
                             <div
                               className="h-full transition-all duration-300"
                               style={{
