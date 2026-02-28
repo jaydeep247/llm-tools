@@ -9,11 +9,12 @@ import { CrawlLogger, DiscoveredPages, CrawlStatusHeader } from '@/components/cr
 import { SessionLayout } from '@/components/layout/SessionLayout'
 import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable, AuditChecker } from '@/components/module_A'
 import { AIIntelligenceModule, ContentMetricsModule } from '@/components/module_C'
-import { AICitationRanking, SentimentTracking } from '@/components/module_E'
+import { AICitationRanking, SentimentTracking, CompetitorMentionsSection, ShareOfVoiceSection, BrandAnalysisSection, TrendsByModelSection } from '@/components/module_E'
 // import { useGetDataListQuery, useCheckLinksMutation, useGetLinkStatsQuery, useLazyGetPageLinksQuery } from '@/store/api/module_A/dataApi'
 import { useGetProjectQuery } from '@/store/api/projectApi'
 import { useGetSessionQuery } from '@/store/api/sessionApi'
 import { useGetSessionJobsQuery, useGetJobPagesQuery, useGetJobLinksQuery, useGetJobSitemapsQuery, useGetJobFieldsQuery, useGetJobSiteStructureQuery, useRetryJobMutation, useGetJobSummaryQuery, useGetJobSnapshotQuery } from '@/store/api/jobApi'
+import { useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
 import { formatDurationHHMMSSMS, formatDurationReadable } from '@/utils/formatDuration'
 
 interface LogEntry {
@@ -96,14 +97,25 @@ export default function SessionDetailClient() {
   useEffect(() => {
     if (!searchParams.get('tab')) {
       const params = new URLSearchParams(searchParams.toString())
-      params.set('tab', 'crawler')
+      params.set('tab', 'module-e')
       router.replace(`/dashboard/projects/${projectId}/sessions/${sessionId}?${params.toString()}`, { scroll: false })
     }
   }, [searchParams, projectId, sessionId, router])
 
-  const tab = searchParams.get('tab') || 'crawler'
+  const tab = searchParams.get('tab') || 'module-e'
   
   const activeSection = tab
+
+  // Auto-poll module E result while on the brand-intelligence tab so all
+  // 4 sections update automatically when the background job completes.
+  // RTK Query shares the cache key, so CompetitorMentionsSection,
+  // BrandAnalysisSection, ShareOfVoiceSection, and TrendsByModelSection
+  // all receive live data without any user interaction.
+  const { data: moduleEPolled } = useGetModuleEResultQuery(jobId ?? '', {
+    skip: !jobId || activeSection !== 'module-e',
+    pollingInterval: 5000,
+    refetchOnMountOrArgChange: true,
+  })
   
   // Unified data transformation
   const rawPages = pagesResult?.data || []
@@ -1034,11 +1046,24 @@ export default function SessionDetailClient() {
         {/* Show Module E on module-e tab */}
         {activeSection === 'module-e' && (
           <div className="space-y-6">
+            {/* Competitor Mentions */}
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
-              <AICitationRanking url={session?.startUrl || ''} />
+              <CompetitorMentionsSection jobId={jobId} />
             </div>
+
+            {/* Brand Analysis */}
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
-              <SentimentTracking brandName={project?.name || 'not configured'} />
+              <BrandAnalysisSection jobId={jobId} />
+            </div>
+
+            {/* AI Share of Voice */}
+            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+              <ShareOfVoiceSection jobId={jobId} />
+            </div>
+
+            {/* Trends by Model */}
+            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+              <TrendsByModelSection jobId={jobId} />
             </div>
           </div>
         )}

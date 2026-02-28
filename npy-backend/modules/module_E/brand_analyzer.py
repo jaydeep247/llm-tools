@@ -188,16 +188,6 @@ class BrandAnalyzer:
             "top_sources": [{"domain": d} for d in list(domain_set)[:5]]
         }
 
-        logger.info(
-            "Brand analysis aggregation complete",
-            extra={
-                "brand_name": brand_name,
-                "total_mentions": total_mentions,
-                "sentiment_label": sentiment_label,
-                "top_sources_count": len(domain_set)
-            }
-        )
-
         return result
 
     @staticmethod

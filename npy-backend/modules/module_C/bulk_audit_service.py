@@ -32,8 +32,6 @@ class BulkAuditService:
         Returns:
             Dict with 'summary' and 'details' keys containing aggregated metrics
         """
-        logger.info(f"Starting bulk audit for {len(urls)} URLs")
-        
         # Create analysis tasks for all URLs
         tasks = []
         for idx, url in enumerate(urls):
@@ -61,8 +59,6 @@ class BulkAuditService:
         from utils.mongo import mongo_manager
         from utils.storage import load_raw_html_sync
         
-        logger.info(f"Starting bulk audit from crawl for job {job_id}")
-        
         # Fetch all pages for this job from MongoDB
         try:
             pages_cursor = mongo_manager.pages.find({"jobId": job_id})
@@ -82,8 +78,6 @@ class BulkAuditService:
                     },
                     'details': []
                 }
-            
-            logger.info(f"Found {len(pages)} pages for job {job_id}")
             
             # Create analysis tasks for all pages
             tasks = []
@@ -292,7 +286,6 @@ class BulkAuditService:
             results_summary['missing_entities_ratio'] = round((pages_with_missing_entities / count) * 100, 1)
             results_summary['weak_content_ratio'] = round((pages_with_weak_content / count) * 100, 1)
         
-        logger.info(f"Bulk audit completed: {count}/{len(urls)} successful")
         
         return {
             'summary': results_summary,

@@ -85,5 +85,6 @@ REDIS_PARAMS = {
     "retry_on_timeout": True,
 }
 
-# Logging
-LOG_LEVEL = 'INFO'
+# Logging — WARNING suppresses scrapy.* framework startup spam;
+# application [npy-backend] logs use their own handler (see utils/logger.py)
+LOG_LEVEL = 'WARNING'

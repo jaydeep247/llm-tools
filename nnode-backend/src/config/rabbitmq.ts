@@ -93,21 +93,7 @@ export const getRabbitChannel = async (): Promise<any> => {
       await channel.assertExchange(config.dlx, 'direct', { durable: true });
       await channel.assertQueue(config.dlq, { durable: true });
       await channel.bindQueue(config.dlq, config.dlx, `${config.routingKey}.failed`);
-
-      logger.info(`✅ Setup queue: ${config.queue} (exchange: ${config.exchange})`);
     }
-
-    // Legacy queues (backward compatibility)
-    await channel.assertExchange(EXCHANGE_NAME, 'direct', { durable: true });
-    await channel.assertQueue(QUEUE_NAME, {
-      durable: true,
-      deadLetterExchange: DLX_NAME,
-    });
-    await channel.bindQueue(QUEUE_NAME, EXCHANGE_NAME, ROUTING_KEY_CRAWL_START);
-
-    await channel.assertExchange(DLX_NAME, 'direct', { durable: true });
-    await channel.assertQueue(DLQ_NAME, { durable: true });
-    await channel.bindQueue(DLQ_NAME, DLX_NAME, ROUTING_KEY_CRAWL_FAILED);
 
     // Legacy analysis queue
     await channel.assertExchange('analysis.exchange', 'direct', { durable: true });

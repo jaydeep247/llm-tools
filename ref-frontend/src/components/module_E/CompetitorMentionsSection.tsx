@@ -192,7 +192,7 @@ export default function CompetitorMentionsSection({ jobId, mentionsData: initial
                                         ?.filter((_, i) => i !== 0)
                                         .map((item, i) => (
                                             <tr key={i} className="hover:bg-muted/30 transition-colors">
-                                                <td className="p-3 border-r font-medium text-foreground truncate max-w-[120px]">{item.name}</td>
+                                                <td className="p-3 border-r font-medium text-foreground truncate max-w-30">{item.name}</td>
                                                 <td className="p-3 border-r font-mono">{(item.mentions ?? 0).toLocaleString()}</td>
                                                 <td className="p-3 border-r">
                                                     <Badge variant={getSentimentVariant(item.sentiment ?? 'neutral')} className="text-[10px] px-1.5 py-0">
@@ -338,6 +338,17 @@ export function ShareOfVoiceSection({ jobId }: ShareOfVoiceSectionProps) {
 
     const overallSov = aiSov.overall_sov ?? 0
     const byModelEntries = Object.entries(aiSov.by_model ?? {})
+    const visibilityTier = aiSov.visibility_tier ?? (overallSov === 0 ? 'Not yet AI-indexed' : 'Emerging')
+    const brandKnownBy: string[] = aiSov.brand_known_by_models ?? []
+
+    const tierColor: Record<string, string> = {
+        'Not yet AI-indexed': 'bg-zinc-100 text-zinc-600 border-zinc-300',
+        'Minimally Indexed': 'bg-blue-50 text-blue-700 border-blue-200',
+        'Emerging': 'bg-amber-50 text-amber-700 border-amber-200',
+        'Recognized': 'bg-green-50 text-green-700 border-green-200',
+        'Established': 'bg-emerald-50 text-emerald-800 border-emerald-300',
+    }
+    const tierClass = tierColor[visibilityTier] ?? 'bg-zinc-100 text-zinc-600 border-zinc-300'
 
     return (
         <div className="space-y-4">
@@ -375,9 +386,19 @@ export function ShareOfVoiceSection({ jobId }: ShareOfVoiceSectionProps) {
                         <div className="text-4xl font-bold text-foreground">
                             {overallSov.toFixed(1)}%
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                            Share of Voice across all AI models.
-                        </p>
+                        <span className={cn('inline-block mt-2 text-[10px] font-semibold px-2 py-0.5 rounded border', tierClass)}>
+                            {visibilityTier}
+                        </span>
+                        {brandKnownBy.length > 0 && (
+                            <p className="text-[10px] text-muted-foreground mt-1">
+                                Recognized by: {brandKnownBy.join(', ')}
+                            </p>
+                        )}
+                        {overallSov === 0 && (
+                            <p className="text-[10px] text-muted-foreground mt-1">
+                                Brand not yet mentioned unprompted by AI models.
+                            </p>
+                        )}
                     </div>
                 </Card>
 
@@ -393,6 +414,7 @@ export function ShareOfVoiceSection({ jobId }: ShareOfVoiceSectionProps) {
                                     <th className="p-2 font-medium text-right">SOV %</th>
                                     <th className="p-2 font-medium text-right">Brand mentions</th>
                                     <th className="p-2 font-medium text-right">Competitor mentions</th>
+                                    <th className="p-2 font-medium text-right">Brand known</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border/50">
@@ -401,12 +423,23 @@ export function ShareOfVoiceSection({ jobId }: ShareOfVoiceSectionProps) {
                                     const sov = s.sov ?? 0
                                     const brandMentions = s.brand_mentions ?? 0
                                     const competitorMentions = s.competitor_mentions ?? 0
+                                    const brandKnown = s.brand_known === true
                                     return (
                                         <tr key={model} className="hover:bg-muted/30 transition-colors">
-                                            <td className="p-2 font-medium text-foreground">{model}</td>
+                                            <td className="p-2 font-medium text-foreground capitalize">{model}</td>
                                             <td className="p-2 text-right font-mono">{sov.toFixed(1)}%</td>
                                             <td className="p-2 text-right font-mono">{brandMentions}</td>
                                             <td className="p-2 text-right font-mono">{competitorMentions}</td>
+                                            <td className="p-2 text-right">
+                                                <span className={cn(
+                                                    'text-[10px] font-semibold px-1.5 py-0.5 rounded border',
+                                                    brandKnown
+                                                        ? 'bg-green-50 text-green-700 border-green-200'
+                                                        : 'bg-zinc-100 text-zinc-500 border-zinc-200'
+                                                )}>
+                                                    {brandKnown ? 'Yes' : 'No'}
+                                                </span>
+                                            </td>
                                         </tr>
                                     )
                                 })}

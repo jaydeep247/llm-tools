@@ -110,7 +110,6 @@ async def run_module_d(job_id: str, url: str, html_content: str = None) -> Dict[
             {"$set": doc},
             upsert=True,
         )
-        logger.info(f"Stored Module D result for job {job_id}")
     except Exception as e:
         logger.error(f"Failed to store Module D result: {e}")
     

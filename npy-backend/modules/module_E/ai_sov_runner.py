@@ -34,7 +34,6 @@ def _clear_ai_sov_cache() -> int:
         with open(cache_file, "w", encoding="utf-8") as f:
             f.writelines(kept)
 
-        logger.info(f"AI SOV cache cleared: removed {removed} entries, kept {len(kept)}")
     except Exception as e:
         logger.warning(f"Could not clear AI SOV cache: {e}")
 
@@ -50,8 +49,6 @@ async def run_ai_sov_analysis(job_id: str, url: str, html_content: str = None) -
     - Clears only AI SOV cache entries so LLMs are queried fresh
     - Runs _analyze_ai_sov() and pushes a new snapshot to ai_sov_history
     """
-    logger.info(f"AI SOV runner started for job {job_id}")
-
     mongo_manager.connect()
     analyzer = CompetitorAnalyzer()
 
@@ -73,16 +70,12 @@ async def run_ai_sov_analysis(job_id: str, url: str, html_content: str = None) -
         domain = data_rows[0]["name"] if data_rows else analyzer._extract_domain(url)
         competitors = [row["name"] for row in data_rows[1:]]
 
-        logger.info(f"AI SOV re-run for domain={domain}, competitors={competitors}")
-
         # 2. Clear AI SOV cache entries so we get fresh LLM responses
         _clear_ai_sov_cache()
 
         # 3. Infer industry (cached — no need to clear this)
         brand_name = analyzer._extract_brand_name(domain)
         industry, service_type = await analyzer._infer_industry(domain, brand_name)
-        logger.info(f"Industry: {industry} | Service: {service_type}")
-
         # 4. Run AI SOV analysis (fresh, cache cleared above)
         ai_sov = await analyzer._analyze_ai_sov(
             domain=domain,
@@ -96,6 +89,8 @@ async def run_ai_sov_analysis(job_id: str, url: str, html_content: str = None) -
         sov_snapshot = {
             "date": datetime.utcnow().strftime("%Y-%m-%d"),
             "overall_sov": ai_sov.get("overall_sov", 0),
+            "visibility_tier": ai_sov.get("visibility_tier", "Not yet AI-indexed"),
+            "brand_known_by_models": ai_sov.get("brand_known_by_models", []),
             "by_model": ai_sov.get("by_model", {}),
         }
 
@@ -115,7 +110,6 @@ async def run_ai_sov_analysis(job_id: str, url: str, html_content: str = None) -
             },
         )
 
-        logger.info(f"AI SOV re-run complete for job {job_id}: {ai_sov.get('overall_sov', 0)}%")
         return {"ai_sov": ai_sov, "snapshot": sov_snapshot}
 
     except Exception as e:

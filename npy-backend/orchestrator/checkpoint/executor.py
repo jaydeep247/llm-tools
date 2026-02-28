@@ -35,25 +35,20 @@ async def execute_task(
 
     # 1. Generate Deterministic Hash
     task_hash = generate_task_hash(task_name, input_data, provider, options)
-    logger.info(f"Task: {task_name} | Provider: {provider} | Hash: {task_hash}")
 
     # 2. Check Cache (unless skip_cache is requested)
     skip_cache = options.get("skip_cache", False)
     if not skip_cache:
         cached_entry = cache_manager.get(task_hash)
         if cached_entry:
-            logger.info(f"Cache HIT for {task_hash}")
             return TaskResponse(
                 success=True,
                 data=cached_entry["data"],
                 meta=cached_entry["meta"],
                 cached=True
             )
-    else:
-        logger.info(f"Cache SKIP requested for {task_name}")
 
     # 3. Execution (Cache Miss or Skip)
-    logger.info(f"Cache {'SKIP' if skip_cache else 'MISS'} for {task_hash}. calling provider...")
     
     try:
         # Get Provider Adapter

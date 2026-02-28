@@ -12,8 +12,6 @@ async def run_brand_only(job_id: str, url: str, html_content: str = None) -> Dic
     Run Brand Analysis only (no crawl, no other analysis).
     Upserts only the `brand_analysis` field in MongoDB.
     """
-    logger.info("Brand-only runner started", extra={"job_id": job_id, "url": url})
-    
     mongo_manager.connect()
 
     # 1. Try to get brand_name from existing module_e document
@@ -45,11 +43,8 @@ async def run_brand_only(job_id: str, url: str, html_content: str = None) -> Dic
             domain = parsed.netloc or parsed.path
             parts = domain.replace("www.", "").split(".")
             brand_name = parts[0].capitalize() if parts else "Unknown"
-            logger.info(f"Inferred brand_name from URL: {brand_name}")
         except Exception:
             brand_name = "Unknown"
-
-    logger.info(f"Running brand analysis for: {brand_name}", extra={"job_id": job_id})
 
     # 3. Run Brand Analysis
     try:
@@ -78,7 +73,6 @@ async def run_brand_only(job_id: str, url: str, html_content: str = None) -> Dic
             },
             upsert=True,
         )
-        logger.info("Brand analysis results persisted", extra={"job_id": job_id})
     except Exception as exc:
         logger.warning(f"Failed to persist brand analysis result: {exc}")
 

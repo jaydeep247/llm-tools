@@ -213,7 +213,6 @@ def execute_module_c_job(payload: dict) -> bool:
         # Default to full run
         asyncio.run(run_module_c(target_job_id, url, query=query))
 
-    logger.info(f"[MODULE_C] Completed job {job_id}")
     return True
 
 
@@ -244,7 +243,6 @@ def execute_module_d_job(payload: dict) -> bool:
             # Default to full run
             asyncio.run(run_module_d(target_job_id, url))
             
-        logger.info(f"[MODULE_D] Completed job {job_id}")
         return True
     except Exception as e:
         logger.error(f"[MODULE_D] Job failed: {e}", exc_info=True)
@@ -344,6 +342,7 @@ def execute_job(payload: dict, job_type: str = "crawl") -> bool:
 def execute_module_e_job(payload: dict) -> bool:
     """Execute Module E (Brand Intelligence) job"""
     from modules.module_E.runner import run_module_e, run_consistency_only
+    from modules.module_E.quick_start_runner import run_quick_start
     from modules.module_E.sentiment_runner import run_sentiment_only
     from modules.module_E.competitor_runner import run_competitor_analysis
     from modules.module_E.ai_sov_runner import run_ai_sov_analysis
@@ -366,7 +365,10 @@ def execute_module_e_job(payload: dict) -> bool:
     
     try:
         # Execute specific sub-module based on job type
-        if job_type == "MODULE_E_CONSISTENCY":
+        if job_type == "MODULE_E_QUICK_START":
+            # Runs Brand Analysis + Competitor Mentions + AI SOV + full crawl in parallel
+            asyncio.run(run_quick_start(job_id, url, session_id=session_id, project_id=project_id))
+        elif job_type == "MODULE_E_CONSISTENCY":
             asyncio.run(run_consistency_only(target_job_id, url))
         elif job_type == "MODULE_E_SENTIMENT":
             asyncio.run(run_sentiment_only(target_job_id, url))
@@ -383,11 +385,6 @@ def execute_module_e_job(payload: dict) -> bool:
             # Default to full run or generic run
             asyncio.run(run_module_e(target_job_id, url))
             
-        logger.info(f"[MODULE_E] Completed job {job_id}")
-        
-        # Store result in Mongo (usually done by runners, but we can update status here if needed)
-        # For now, we assume runners handle DB updates for results
-        
         return True
         
     except Exception as e:
@@ -428,7 +425,6 @@ def start_queue_worker() -> None:
 
             # --- Setup Queues for All Categories ---
             for category, cfg in QUEUE_CONFIGS.items():
-                logger.info(f"Setting up queue for category: {category}")
                 
                 # Main Exchange
                 channel.exchange_declare(exchange=cfg.exchange, exchange_type="direct", durable=True)
@@ -587,7 +583,6 @@ def start_queue_worker() -> None:
 
             # --- Start Consuming from All Queues ---
             for category, cfg in QUEUE_CONFIGS.items():
-                logger.info(f"Starting consumer for queue: {cfg.queue}")
                 channel.basic_consume(
                     queue=cfg.queue,
                     on_message_callback=on_message,

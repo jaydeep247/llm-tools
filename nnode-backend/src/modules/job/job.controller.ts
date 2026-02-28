@@ -301,8 +301,6 @@ export class JobController {
       const statusKey = `job:${id}:status`;
       const redisStatus = await this.redis.get(statusKey);
 
-      logger.info(`🔍 JobController.getJobRuntimeStatus(${id}): DB=${job.status}, Redis=${redisStatus}`);
-
       // If Redis has a more recent status (e.g. completed), overlay it
       if (redisStatus && redisStatus !== job.status) {
           (job as any).status = redisStatus;

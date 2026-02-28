@@ -46,8 +46,6 @@ CONTENT:
 {context[:5000]}
 """
 
-        logger.info("Expected entities request", extra={"context_len": len(context)})
-
         resp = await execute_task(
             task_name="module_e_expected_entities",
             input_data={"messages": [{"role": "user", "content": prompt}]},
@@ -67,7 +65,6 @@ CONTENT:
             data = _safe_parse_json(resp.data)
             entities = data.get("entities", []) if isinstance(data, dict) else []
             normalized = self._normalize_entities(entities)
-            logger.info("Expected entities response", extra={"count": len(normalized)})
             return normalized
         except Exception as exc:
             logger.warning("Failed to parse expected entities: %s", exc)
@@ -84,8 +81,6 @@ Return JSON only: {{"entities": ["..."]}}
 CONTENT:
 {content[:8000]}
 """
-
-        logger.info("Observed entities request", extra={"content_len": len(content)})
 
         resp = await execute_task(
             task_name="module_e_observed_entities",
@@ -106,7 +101,6 @@ CONTENT:
             data = _safe_parse_json(resp.data)
             entities = data.get("entities", []) if isinstance(data, dict) else []
             normalized = self._normalize_entities(entities)
-            logger.info("Observed entities response", extra={"count": len(normalized)})
             return normalized
         except Exception as exc:
             logger.warning("Failed to parse observed entities: %s", exc)
@@ -129,15 +123,6 @@ CONTENT:
             "found": found,
             "total_expected": len(expected_set),
         }
-        logger.info(
-            "Entity coverage comparison",
-            extra={
-                "score": score,
-                "expected": len(expected),
-                "observed": len(observed),
-                "missing": len(missing),
-            },
-        )
         return result
 
     def _normalize_entities(self, entities: List[str]) -> List[str]:

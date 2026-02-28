@@ -173,7 +173,7 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
           onClick={handleRunAnalysis}
           disabled={!jobId || isRunning}
           className={cn(
-            "gap-2 min-w-[140px]",
+            "gap-2 min-w-35",
             justCompleted && "bg-green-600 hover:bg-green-700 text-white"
           )}
         >
@@ -344,7 +344,7 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
                         : ''
 
                       return (
-                        <div key={idx} className="flex flex-col items-center gap-1 flex-1 min-w-[40px] group relative">
+                        <div key={idx} className="flex flex-col items-center gap-1 flex-1 min-w-10 group relative">
                           {/* Tooltip */}
                           <div className="absolute -top-12 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-gray-900 text-white text-xs px-3 py-1.5 rounded-lg whitespace-nowrap z-10 shadow-lg border border-gray-700">
                             <div className="font-semibold">{item.count?.toLocaleString()} mentions</div>
@@ -356,7 +356,7 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
                           {/* Bar */}
                           <div className="w-full flex items-end justify-center" style={{ height: '120px' }}>
                             <div
-                              className="w-full bg-gradient-to-t from-cyan-500 via-cyan-400 to-blue-500 rounded-t-md transition-all hover:from-cyan-400 hover:via-cyan-300 hover:to-blue-400 cursor-pointer shadow-lg"
+                              className="w-full bg-linear-to-t from-cyan-500 via-cyan-400 to-blue-500 rounded-t-md transition-all hover:from-cyan-400 hover:via-cyan-300 hover:to-blue-400 cursor-pointer shadow-lg"
                               style={{ height: `${heightPx}px` }}
                             />
                           </div>

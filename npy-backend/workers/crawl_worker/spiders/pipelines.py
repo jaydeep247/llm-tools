@@ -42,7 +42,7 @@ class JsonStoragePipeline:
             'status': 'running',
         }
         
-        logger.info(f"Initialized storage for session: {self.session_id}")
+
     
     def close_spider(self, spider):
         """Save all data when spider closes"""
@@ -76,10 +76,7 @@ class JsonStoragePipeline:
         with open(sitemaps_file, 'w', encoding='utf-8') as f:
             json.dump(sitemap_data, f, indent=2, ensure_ascii=False)
         
-        logger.info(f"Saved crawl data to {self.session_path}")
-        logger.info(f"  - Pages: {len(self.pages)}")
-        logger.info(f"  - Links: {len(self.links)}")
-        logger.info(f"  - Sitemap URLs: {len(self.sitemap_urls)}")
+
     
     def process_item(self, item, spider):
         """Process each item"""

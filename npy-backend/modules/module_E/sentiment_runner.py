@@ -28,8 +28,6 @@ async def run_sentiment_only(job_id: str, url: str, html_content: str = None) ->
     Returns:
         Dict with sentiment_tracking result and success flag
     """
-    logger.info("Sentiment-only runner started", extra={"job_id": job_id, "url": url})
-
     mongo_manager.connect()
 
     # 1. Try to get brand_name from existing module_e document
@@ -58,11 +56,8 @@ async def run_sentiment_only(job_id: str, url: str, html_content: str = None) ->
             # Strip www. and TLD for a rough brand name
             parts = domain.replace("www.", "").split(".")
             brand_name = parts[0].capitalize() if parts else "Unknown"
-            logger.info(f"Inferred brand_name from URL: {brand_name}")
         except Exception:
             brand_name = "Unknown"
-
-    logger.info(f"Running sentiment analysis for brand: {brand_name}", extra={"job_id": job_id})
 
     # 3. Run sentiment & visibility analysis
     try:
@@ -103,10 +98,6 @@ async def run_sentiment_only(job_id: str, url: str, html_content: str = None) ->
                 },
             },
             upsert=True,
-        )
-        logger.info(
-            "Sentiment tracking persisted to module_e collection",
-            extra={"job_id": job_id, "brand_name": brand_name}
         )
     except Exception as exc:
         logger.warning(f"Failed to persist sentiment result: {exc}")

@@ -55,20 +55,10 @@ async def _prepare_context(job_id: str, url: str, html_content: str = None, sour
     """Helper to load and aggregate text context for analysis."""
     # Use source_job_id for data retrieval if available, otherwise fallback to current job_id
     data_job_id = source_job_id if source_job_id else job_id
-    
-    logger.info(
-        f"Preparing context for job {job_id} using data from {data_job_id}",
-        extra={"job_id": job_id, "data_job_id": data_job_id}
-    )
 
     # Pull top pages by word count
     pages = list(
         mongo_manager.pages.find({"jobId": data_job_id}).sort("word_count", -1).limit(5)
-    )
-
-    logger.info(
-        "Module E pages loaded",
-        extra={"job_id": job_id, "pages_count": len(pages), "data_job_id": data_job_id}
     )
 
     top_urls = [p.get("url") for p in pages if p.get("url")]
@@ -82,10 +72,6 @@ async def _prepare_context(job_id: str, url: str, html_content: str = None, sour
     
     # Aggregate context
     aggregated_text = "\n\n".join([t for t in [homepage_text] + top_texts if t])[:12000]
-    logger.info(
-        "Module E aggregated text",
-        extra={"job_id": job_id, "aggregated_text_len": len(aggregated_text)}
-    )
     return aggregated_text
 
 
@@ -93,7 +79,6 @@ async def run_consistency_only(job_id: str, url: str, html_content: str = None, 
     """
     Run ONLY Content Consistency and Entity Coverage analysis.
     """
-    logger.info("Module E Consistency Only started", extra={"job_id": job_id, "url": url, "source_job_id": source_job_id})
     mongo_manager.connect()
 
     aggregated_text = await _prepare_context(job_id, url, html_content, source_job_id)
@@ -104,15 +89,6 @@ async def run_consistency_only(job_id: str, url: str, html_content: str = None, 
     consistency_result = unified_result.get("content_consistency", {})
     entity_coverage_result = unified_result.get("entity_coverage", {})
     
-    logger.info(
-        "Module E consistency analysis complete",
-        extra={
-            "job_id": job_id,
-            "consistency_score": consistency_result.get("score", 0),
-            "entity_score": entity_coverage_result.get("score", 0),
-        }
-    )
-
     # Optional: Master multi-model analysis for consistency-only job as well
     master_analysis = None
     try:
@@ -151,10 +127,6 @@ async def run_consistency_only(job_id: str, url: str, html_content: str = None, 
             },
             upsert=True,
         )
-        logger.info("Module E consistency results persisted", extra={
-            "job_id": job_id,
-            "has_master_analysis": bool(master_analysis),
-        })
     except Exception as exc:
         logger.warning("Failed to persist module E consistency result: %s", exc)
 
@@ -170,8 +142,6 @@ async def run_module_e(job_id: str, url: str, html_content: str = None, source_j
     """
     Run Module E analysis: content consistency and entity coverage.
     """
-    logger.info("Module E started", extra={"job_id": job_id, "url": url, "source_job_id": source_job_id})
-
     mongo_manager.connect()
 
     aggregated_text = await _prepare_context(job_id, url, html_content, source_job_id)
@@ -182,53 +152,18 @@ async def run_module_e(job_id: str, url: str, html_content: str = None, source_j
     consistency_result = unified_result.get("content_consistency", {})
     entity_coverage_result = unified_result.get("entity_coverage", {})
     
-    logger.info(
-        "Module E unified analysis complete",
-        extra={
-            "job_id": job_id,
-            "consistency_score": consistency_result.get("score", 0),
-            "entity_score": entity_coverage_result.get("score", 0),
-        }
-    )
-
     # Brand Analysis (if brand name available)
     brand_analysis = None
     sentiment_tracking = None
     brand_name = consistency_result.get("mandate", {}).get("brand_name")
     
     if brand_name:
-        logger.info(
-            "Module E brand analysis starting",
-            extra={"job_id": job_id, "brand_name": brand_name}
-        )
         brand_analysis = await BrandAnalyzer.analyze_brand(brand_name)
-        logger.info(
-            "Module E brand analysis complete",
-            extra={
-                "job_id": job_id,
-                "brand_name": brand_name,
-                "total_mentions": brand_analysis.get("total_mentions", 0),
-                "sentiment_label": brand_analysis.get("sentiment", {}).get("label", "N/A")
-            }
-        )
         
         # Sentiment & Visibility Tracking
-        logger.info(
-            "Module E sentiment & visibility tracking starting",
-            extra={"job_id": job_id, "brand_name": brand_name}
-        )
         try:
             sentiment_tracking = await SentimentVisibilityTracker.analyze_sentiment_and_visibility(
                 brand_name=brand_name
-            )
-            logger.info(
-                "Module E sentiment & visibility tracking complete",
-                extra={
-                    "job_id": job_id,
-                    "brand_name": brand_name,
-                    "sentiment_score": sentiment_tracking.get("sentiment", {}).get("overall_score", 0),
-                    "visibility_score": sentiment_tracking.get("visibility", {}).get("overall_visibility_score", 0)
-                }
             )
         except Exception as e:
             logger.error(f"Sentiment tracking failed: {e}", exc_info=True)
@@ -285,10 +220,6 @@ async def run_module_e(job_id: str, url: str, html_content: str = None, source_j
             },
             upsert=True,
         )
-        logger.info("Module E results persisted", extra={
-            "job_id": job_id,
-            "has_master_analysis": bool(master_analysis),
-        })
     except Exception as exc:
         logger.warning("Failed to persist module E result: %s", exc)
 

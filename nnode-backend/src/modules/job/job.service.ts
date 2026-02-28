@@ -4,7 +4,6 @@ import { SessionService } from '../session/session.service';
 import { SessionStatus } from '../session/session.types';
 import { QueueService } from '../queue/queue.service';
 import { LiveJobService } from '../../services/live-job.service';
-import { logger } from '../../shared/logger/logger';
 
 export class JobService {
   private jobRepository: JobRepository;
@@ -260,7 +259,6 @@ export class JobService {
   }
 
   async markCompleted(jobId: string): Promise<Job> {
-    logger.info(`✅ JobService: Marking job ${jobId} as COMPLETED in DB`);
     return this.jobRepository.updateStatus(jobId, JobStatus.COMPLETED, undefined, new Date(), null);
   }
 

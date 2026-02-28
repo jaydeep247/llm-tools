@@ -12,8 +12,6 @@ async def run_competitor_analysis(job_id: str, url: str, html_content: str = Non
     Runner for competitor analysis.
     Called by job_runner.py for 'module_e_competitors' jobs.
     """
-    logger.info(f"Competitor analysis runner started for job {job_id}")
-
     mongo_manager.connect()
     analyzer = CompetitorAnalyzer()
 
@@ -71,7 +69,6 @@ async def run_competitor_analysis(job_id: str, url: str, html_content: str = Non
             upsert=True,
         )
         
-        logger.info(f"Competitor analysis results persisted for job {job_id}")
         return results
 
     except Exception as e:

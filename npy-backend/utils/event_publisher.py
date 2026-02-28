@@ -121,7 +121,6 @@ class EventPublisher:
                         body=body,
                         properties=properties
                     )
-                    logger.debug(f"📤 Emitted event: {routing_key}")
                     return True
                 else:
                     raise pika.exceptions.AMQPChannelError("Channel unavailable")

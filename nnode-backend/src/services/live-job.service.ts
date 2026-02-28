@@ -184,8 +184,6 @@ export class LiveJobService {
         redis.get(pagesCountKey)
       ]);
 
-      logger.info(`📸 LiveJobService.getSnapshot(${jobId}): status=${status}, completed=${completed}, startedAt=${startedAt}, pages=${pagesRaw.length}`);
-
       // Parse metadata
       let projectId: string | undefined;
       let sessionId: string | undefined;

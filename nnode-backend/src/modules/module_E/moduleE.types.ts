@@ -131,24 +131,31 @@ export interface ModuleEResult {
   };
   ai_share_of_voice?: {
     overall_sov: number;
+    visibility_tier?: string;
+    brand_known_by_models?: string[];
+    brand_terms_checked?: string[];
     by_model: Record<
       string,
       {
         sov: number;
         brand_mentions: number;
         competitor_mentions: number;
+        brand_known?: boolean;
       }
     >;
   };
   ai_sov_history?: Array<{
     date: string;
     overall_sov: number;
+    visibility_tier?: string;
+    brand_known_by_models?: string[];
     by_model: Record<
       string,
       {
         sov: number;
         brand_mentions: number;
         competitor_mentions: number;
+        brand_known?: boolean;
       }
     >;
   }>;

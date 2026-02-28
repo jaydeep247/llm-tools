@@ -85,7 +85,6 @@ class WebsiteSpider(RedisSpider):
         if self.job_id:
              self.name = f"website_spider_{self.job_id}"
              self.redis_key = f"{self.name}:start_urls"
-             logger.info(f"Isolated spider name: {self.name}, redis_key: {self.redis_key}")
 
         self.raw_html_saved = False
         
@@ -177,8 +176,6 @@ class WebsiteSpider(RedisSpider):
             if reason == 'finished':
                 status = 'completed'
 
-            logger.info(f"Emitting final job event for {self.job_id} (status={status}, reason={reason})")
-            
             try:
                 success = publisher.emit_event(self.job_id, 'JOB_COMPLETED' if status == 'completed' else 'JOB_FAILED', {
                     'url': self.start_url or 'distributed',
@@ -192,9 +189,7 @@ class WebsiteSpider(RedisSpider):
                     'sessionId': self.session_id
                 }, retries=5)
                 
-                if success:
-                    logger.info(f"✅ Successfully emitted job completion event for {self.job_id}")
-                else:
+                if not success:
                     logger.error(f"❌ Failed to emit job completion event for {self.job_id} in spider_closed")
             except Exception as e:
                 logger.error(f"❌ Exception emitting job completion event: {e}")
@@ -205,13 +200,22 @@ class WebsiteSpider(RedisSpider):
         if self.crawl_started_timestamp:
             elapsed = datetime.now().timestamp() - self.crawl_started_timestamp
             if elapsed < 10:
-                logger.info(f"🕷️ Spider idle but in grace period ({elapsed:.1f}s < 10s). Waiting...")
                 raise DontCloseSpider
 
-        # Check if queue is empty using RedisSpider's scheduler
-        if not self.server.exists(self.redis_key) and not self.scheduler.has_pending_requests():
-             logger.info(f"🕷️ Spider is idle and queue is empty. Forcing close for {self.job_id}")
-             self.crawler.engine.close_spider(self, reason='finished')
+        # Check if queue is empty.
+        # Access the scheduler safely via the engine slot — self.scheduler is not
+        # automatically set by scrapy_redis and raises AttributeError if used directly.
+        redis_queue_empty = not self.server.exists(self.redis_key)
+        try:
+            slot = self.crawler.engine.slot
+            scheduler = getattr(slot, 'scheduler', None)
+            has_pending = bool(scheduler and scheduler.has_pending_requests())
+        except Exception:
+            has_pending = False
+
+        if redis_queue_empty and not has_pending:
+            logger.info(f"🕷️ Spider is idle and queue is empty. Forcing close for {self.job_id}")
+            self.crawler.engine.close_spider(self, reason='finished')
     
     def emit_link_found(self, url: str, source: str = 'crawl') -> None:
         """
@@ -336,7 +340,6 @@ class WebsiteSpider(RedisSpider):
                 'url': self.start_url,
                 'message': f'Starting crawl job for {self.start_url}'
             })
-            logger.info(f"Emitted job start event for {self.job_id}")
 
         if not self.allow_discovery:
             logger.info(f"Starting fixed URL crawl for {self.start_url}")
@@ -415,7 +418,6 @@ class WebsiteSpider(RedisSpider):
             for line in response.text.splitlines():
                 if line.strip().lower().startswith('sitemap:'):
                     sitemap_url = line.split(':', 1)[1].strip()
-                    logger.info(f"Found sitemap in robots.txt: {sitemap_url}")
                     
                     # Emit log for sitemap discovery
                     if self.job_id:
@@ -437,7 +439,6 @@ class WebsiteSpider(RedisSpider):
 
     def parse_sitemap(self, response):
         """Parse sitemap XML (handles regular sitemaps and indexes)"""
-        logger.info(f"Parsing sitemap: {response.url}")
         
         if 'job_id' in response.meta:
             self.job_id = response.meta['job_id']
@@ -447,8 +448,6 @@ class WebsiteSpider(RedisSpider):
             self.project_id = response.meta['project_id']
         if 'allow_discovery' in response.meta:
             self.allow_discovery = response.meta['allow_discovery']
-
-        logger.info(f"Sitemap parsing config: allow_discovery={self.allow_discovery}, job_id={self.job_id}")
             
         try:
             body = response.body
@@ -463,18 +462,15 @@ class WebsiteSpider(RedisSpider):
             # Safe XML parsing
             try:
                 root = ET.fromstring(body)
-                logger.info(f"Sitemap root tag: {root.tag}")
             except ET.ParseError:
                 logger.warning(f"Invalid XML in sitemap: {response.url}")
                 return
 
             if 'sitemapindex' in root.tag.lower():
-                logger.info(f"Found sitemap index: {response.url}")
                 namespace = {'ns': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
                 for sitemap in root.findall('.//ns:sitemap', namespace):
                     loc = sitemap.find('ns:loc', namespace)
                     if loc is not None and loc.text:
-                        logger.info(f"Found child sitemap: {loc.text}")
                         if self.allow_discovery:
                             yield scrapy.Request(
                                 url=loc.text,
@@ -486,7 +482,6 @@ class WebsiteSpider(RedisSpider):
                             )
             # Check for urlset
             elif 'urlset' in root.tag.lower():
-                logger.info(f"Found urlset in sitemap: {response.url}")
                 namespace = {'ns': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
                 urls_found = 0
                 for url_elem in root.findall('.//ns:url', namespace):
@@ -523,7 +518,6 @@ class WebsiteSpider(RedisSpider):
                             # Emit link_found for sitemap URL
                             self.emit_link_found(url, source='sitemap')
                             
-                            logger.info(f"Yielding request for discovered URL: {url}")
                             yield scrapy.Request(
                                 url=url,
                                 callback=self.parse,
@@ -537,7 +531,6 @@ class WebsiteSpider(RedisSpider):
                             )
                 
                 self.links_collected += urls_found
-                logger.info(f"Parsed {urls_found} URLs from sitemap: {response.url}. Total known: {self.links_collected}")
                 
                 # Emit scope update for 7.2 Pre-Crawl Discovery
                 if self.job_id:
@@ -573,8 +566,6 @@ class WebsiteSpider(RedisSpider):
             url = job_data.get('url')
             meta = job_data.get('meta', {})
             
-            logger.info(f"Parsed JSON job from Redis: url={url}, job_id={meta.get('job_id')}")
-
             if not url:
                 logger.error(f"Received JSON from Redis without URL: {data}")
                 return None
@@ -589,14 +580,12 @@ class WebsiteSpider(RedisSpider):
         except (json.JSONDecodeError, TypeError):
             # Fallback to default string handling (legacy support)
             url = bytes_to_str(data, self.redis_encoding)
-            logger.info(f"Consumed raw URL from Redis: {url}")
             return scrapy.Request(url, callback=self.parse, dont_filter=True)
 
     def parse(self, response: Response):
         """Main parsing logic for each page"""
         
         if response.url.endswith('.xml') or 'sitemap' in response.url:
-            logger.info(f"Redirecting {response.url} to parse_sitemap from parse")
             for item in self.parse_sitemap(response):
                 yield item
             return
@@ -618,7 +607,6 @@ class WebsiteSpider(RedisSpider):
             self.allowed_host = parsed.netloc
             if self.allow_subdomains and self.allowed_host.startswith('www.'):
                  self.allowed_host = self.allowed_host[4:]
-            logger.info(f"Initialized allowed_host to {self.allowed_host} from {response.url}")
         
         # Handle Redirects for Start URL (Critical for "One Page Crawl" fix)
         # If start_url redirected to a different domain, we must update allowed_host
@@ -658,8 +646,6 @@ class WebsiteSpider(RedisSpider):
              base_url = f"{parsed.scheme}://{parsed.netloc}"
              robots_url = f"{base_url}/robots.txt"
              
-             logger.info(f"Triggering distributed discovery for {base_url}")
-             
              yield scrapy.Request(
                  url=robots_url,
                  callback=self.parse_robots,
@@ -688,18 +674,14 @@ class WebsiteSpider(RedisSpider):
         request_id = id(response.request)
         start_time = self.request_start_times.get(request_id, datetime.now().timestamp())
         
-        logger.info(f"Parsing content for {response.url} (job_id: {self.job_id})")
-
         # Validate content type
         content_type = response.headers.get('Content-Type', b'').decode('utf-8').lower()
         if 'text/html' not in content_type and 'application/xhtml+xml' not in content_type:
             logger.warning(f"Skipping non-HTML content: {response.url} ({content_type})")
             return
 
-        logger.info(f"Extracting links for {response.url}")
         # Extract links
         links_data = LinkExtractor.extract(response, self.allowed_host, self.allow_subdomains)
-        logger.info(f"Found {len(links_data)} links on {response.url}")
 
         # Emit link_found for ALL discovered links (for progress tracking)
         if self.job_id:
@@ -724,7 +706,6 @@ class WebsiteSpider(RedisSpider):
             try:
                 from utils.storage import save_raw_html_sync
                 save_raw_html_sync(self.job_id, response.text)
-                logger.info(f"Saved raw HTML for job {self.job_id} from {response.url}")
             except Exception as e:
                 logger.error(f"Failed to save raw HTML: {e}")
             
@@ -799,7 +780,6 @@ class WebsiteSpider(RedisSpider):
                 parsed_canon = urlparse(normalized_canonical)
                 if parsed_canon.netloc == self.allowed_host or (self.allow_subdomains and parsed_canon.netloc.endswith(self.allowed_host)):
                     if normalized_canonical not in self.seen_urls:
-                        logger.info(f"Prioritizing canonical URL: {normalized_canonical}")
                         self.seen_urls.add(normalized_canonical)
                         self.emit_link_found(normalized_canonical, source='canonical')
                         yield scrapy.Request(
@@ -902,7 +882,6 @@ class WebsiteSpider(RedisSpider):
         
         yield page_item
         self.pages_crawled += 1
-        logger.info(f"Completed page {self.pages_crawled} (approx total discovered: {self.links_collected}) - {response.url}")
 
         # Emit page_crawled event for progress tracking
         if self.job_id:
@@ -944,7 +923,6 @@ class WebsiteSpider(RedisSpider):
         # Follow internal links
         if not self.should_stop:
             internal_candidates = [l for l in links_data if l['is_internal'] and not l['nofollow']]
-            logger.info(f"Processing {len(internal_candidates)} internal candidates out of {len(links_data)} total links")
 
             for link_data in links_data:
                 if link_data['is_internal'] and not link_data['nofollow']:
@@ -972,7 +950,6 @@ class WebsiteSpider(RedisSpider):
                     priority = self.get_url_priority(target_url)
 
                     if not self.should_stop:
-                        logger.info(f"Yielding request for: {target_url}")
                         yield scrapy.Request(
                             url=target_url,
                             callback=self.parse,
@@ -1005,7 +982,6 @@ class WebsiteSpider(RedisSpider):
             
             # Strict mode: Block pattern immediately on failure
             if key not in self.pagination_failures:
-                 logger.info(f"Blocking pagination pattern due to failure: {base_url}")
                  self.pagination_failures[key] = 999  # Mark as blocked
 
     def should_follow_pagination(self, url: str) -> bool:

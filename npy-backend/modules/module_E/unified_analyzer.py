@@ -7,7 +7,6 @@ from typing import Dict, Any, List, Tuple
 from orchestrator.checkpoint.executor import execute_task
 
 logger = logging.getLogger("module_e_master")
-logger.setLevel(logging.DEBUG)
 
 
 # ============================================================
@@ -98,11 +97,6 @@ class UnifiedModuleEMasterAnalyzer:
                 "models": [],
             }
 
-        logger.info("Starting Master Multi-Model Analysis", extra={
-            "url": url,
-            "models_count": len(model_responses)
-        })
-
         # ============================================================
         # STEP 1 — Extract Mandate ONCE
         # ============================================================
@@ -111,11 +105,6 @@ class UnifiedModuleEMasterAnalyzer:
             website_content,
             url
         )
-
-        logger.debug("Mandate extracted successfully", extra={
-            "topic": mandate.get("topic"),
-            "expected_entities_count": len(expected_entities)
-        })
 
         results = []
 
@@ -128,12 +117,6 @@ class UnifiedModuleEMasterAnalyzer:
             model_name = model_data.get("model")
             response_text = model_data.get("response")
 
-            logger.info("Evaluating model response", extra={
-                "index": idx,
-                "model": model_name,
-                "response_length": len(response_text or ""),
-            })
-
             if not response_text or not response_text.strip():
                 logger.warning("Model response empty — skipping", extra={
                     "model": model_name,
@@ -144,11 +127,6 @@ class UnifiedModuleEMasterAnalyzer:
             try:
 
                 observed_entities = self._extract_observed_entities(response_text)
-
-                logger.debug("Observed entities extracted for model response", extra={
-                    "model": model_name,
-                    "observed_count": len(observed_entities),
-                })
 
                 entity_coverage = self._calculate_entity_coverage(
                     expected_entities,
@@ -178,15 +156,6 @@ class UnifiedModuleEMasterAnalyzer:
                     (entity_coverage["score"] * 0.2) +
                     (completeness_score * 0.2)
                 )
-
-                logger.debug("Model scoring breakdown", extra={
-                    "model": model_name,
-                    "accuracy": accuracy_score,
-                    "consistency": content_consistency["score"],
-                    "entity_coverage": entity_coverage["score"],
-                    "completeness": completeness_score,
-                    "performance_score": performance_score
-                })
 
                 results.append({
                     "model": model_name,
@@ -218,8 +187,6 @@ class UnifiedModuleEMasterAnalyzer:
                     "model_wise_performance_score": 0,
                 })
                 continue
-
-        logger.info("Master analysis completed successfully")
 
         return {
             "mandate": mandate,
@@ -256,26 +223,12 @@ class UnifiedModuleEAnalyzer(UnifiedModuleEMasterAnalyzer):
                 },
             }
 
-        logger.info("Module E advanced analysis started", extra={
-            "url": url,
-            "content_length": len(aggregated_text),
-        })
-
         mandate, expected_entities = await self._extract_mandate_and_expected(
             aggregated_text,
             url,
         )
 
-        logger.debug("Mandate extracted for website analysis", extra={
-            "topic": mandate.get("topic"),
-            "expected_entities_count": len(expected_entities),
-        })
-
         observed_entities = self._extract_observed_entities(aggregated_text)
-
-        logger.debug("Observed entities extracted for website analysis", extra={
-            "observed_count": len(observed_entities),
-        })
 
         entity_coverage = self._calculate_entity_coverage(
             expected_entities,
@@ -286,18 +239,6 @@ class UnifiedModuleEAnalyzer(UnifiedModuleEMasterAnalyzer):
             aggregated_text,
             mandate,
         )
-
-        logger.info("Module E advanced analysis completed", extra={
-            "url": url,
-            "consistency_score": content_consistency.get("score"),
-            "entity_score": entity_coverage.get("score"),
-            "expected_count": len(entity_coverage.get("expected", [])),
-            "observed_count": len(entity_coverage.get("observed", [])),
-            "found_count": len(entity_coverage.get("found", [])),
-            "missing_count": len(entity_coverage.get("missing", [])),
-            "mandate_topic": mandate.get("topic"),
-            "has_brand_name": bool(mandate.get("brand_name")),
-        })
 
         return {
             "content_consistency": content_consistency,
@@ -310,10 +251,6 @@ class UnifiedModuleEAnalyzer(UnifiedModuleEMasterAnalyzer):
     # ============================================================
 
     async def _generate_from_models(self, prompt: str) -> List[Dict[str, str]]:
-
-        logger.info("Starting multi-model generation", extra={
-            "prompt_length": len(prompt or "")
-        })
 
         responses = []
 
@@ -331,9 +268,6 @@ class UnifiedModuleEAnalyzer(UnifiedModuleEMasterAnalyzer):
             responses.append({
                 "model": "gpt-4o-mini",
                 "response": gpt_resp.data
-            })
-            logger.info("GPT generation succeeded", extra={
-                "model": "gpt-4o-mini"
             })
         else:
             logger.warning("GPT generation failed", extra={
@@ -355,20 +289,12 @@ class UnifiedModuleEAnalyzer(UnifiedModuleEMasterAnalyzer):
                 "model": "gemini-2.0-flash",
                 "response": gemini_resp.data
             })
-            logger.info("Gemini generation succeeded", extra={
-                "model": "gemini-2.0-flash",
-                "response_length": len(gemini_resp.data or "")
-            })
         else:
             logger.warning(
                 "Gemini generation failed: %s",
                 getattr(gemini_resp, "error", None),
                 extra={"error": getattr(gemini_resp, "error", None)}
             )
-
-        logger.info("Multi-model generation completed", extra={
-            "total_responses": len(responses)
-        })
 
         return responses
 

@@ -58,11 +58,6 @@ CONTENT:
 {context[:5000]}
 """
 
-        logger.info(
-            "Content mandate request",
-            extra={"url": url, "context_len": len(context)}
-        )
-
         resp = await execute_task(
             task_name="module_e_content_mandate",
             input_data={"messages": [{"role": "user", "content": prompt}]},
@@ -93,7 +88,6 @@ CONTENT:
                 "brand_name": (data.get("brand_name") or "").strip(),
                 "location": (data.get("location") or "").strip(),
             }
-            logger.info("Content mandate response", extra={"result": result})
             return result
         except Exception as exc:
             logger.warning("Failed to parse content mandate: %s", exc)
@@ -255,16 +249,6 @@ Return ONLY a JSON object:
         Return JSON only: {{"prompts": ["prompt1", "prompt2", "prompt3", "prompt4", "prompt5"]}}
         """
 
-        logger.info(
-            "Ranking prompts generation request",
-            extra={
-                "topic": topic,
-                "audience": audience,
-                "brand": brand_name,
-                "location": location,
-            },
-        )
-
         resp = await execute_task(
             task_name="module_e_ranking_prompts",
             input_data={"messages": [{"role": "user", "content": prompt}]},
@@ -286,7 +270,6 @@ Return ONLY a JSON object:
             if isinstance(prompts, list):
                 # Clean prompts
                 cleaned = [p.strip() for p in prompts if isinstance(p, str) and len(p.strip()) > 5]
-                logger.info("Ranking prompts generated", extra={"count": len(cleaned), "prompts": cleaned})
                 return cleaned
             return []
         except Exception as exc:
@@ -310,16 +293,6 @@ CONTENT:
 {batch_content[:4000]}
 """
 
-        logger.info(
-            "Consistency scoring request",
-            extra={
-                "topic": topic,
-                "audience": audience,
-                "tone": tone,
-                "content_len": len(batch_content),
-            }
-        )
-
         resp = await execute_task(
             task_name="module_e_consistency_score",
             input_data={"messages": [{"role": "user", "content": prompt}]},
@@ -339,7 +312,6 @@ CONTENT:
             data = _safe_parse_json(resp.data)
             score = int(data.get("score", 0))
             score = max(0, min(100, score))
-            logger.info("Consistency scoring response", extra={"score": score})
             return score
         except Exception as exc:
             logger.warning("Failed to parse consistency score: %s", exc)
@@ -438,16 +410,6 @@ Return ONLY a JSON object mapping IDs to their scores:
         except Exception:
             preview_items = []
 
-        logger.info(
-            "Batch accuracy/sentiment request",
-            extra={
-                "items": len(items),
-                "has_ref": has_ref,
-                "brand": brand_name,
-                "preview_items": preview_items,
-            },
-        )
-
         resp = await execute_task(
             task_name="module_e_accuracy_batch",
             input_data={"messages": [{"role": "user", "content": prompt}]},
@@ -470,19 +432,6 @@ Return ONLY a JSON object mapping IDs to their scores:
                 },
             )
             return {}
-
-        try:
-            logger.debug(
-                "Raw batch accuracy/sentiment response",
-                extra={
-                    "raw": resp.data,
-                    "items": len(items),
-                    "has_ref": has_ref,
-                    "brand": brand_name,
-                },
-            )
-        except Exception:
-            pass
 
         try:
             data = _safe_parse_json(resp.data)
@@ -516,15 +465,6 @@ Return ONLY a JSON object mapping IDs to their scores:
                             "value_type": type(v).__name__,
                         },
                     )
-            if not result:
-                logger.info(
-                    "Batch accuracy/sentiment returned empty result after parsing",
-                    extra={
-                        "items": len(items),
-                        "has_ref": has_ref,
-                        "brand": brand_name,
-                    },
-                )
                 return {}
             acc_values = [scores["accuracy"] for scores in result.values()]
             sent_values = [scores["sentiment"] for scores in result.values()]
@@ -532,20 +472,6 @@ Return ONLY a JSON object mapping IDs to their scores:
             non_zero_sent = len([v for v in sent_values if v != 0.0])
             avg_acc = sum(acc_values) / len(acc_values) if acc_values else 0.0
             avg_sent = sum(sent_values) / len(sent_values) if sent_values else 0.0
-            logger.info(
-                "Batch accuracy/sentiment summary",
-                extra={
-                    "items": len(items),
-                    "result_items": len(result),
-                    "has_ref": has_ref,
-                    "brand": brand_name,
-                    "avg_accuracy": avg_acc,
-                    "avg_sentiment": avg_sent,
-                    "non_zero_accuracy": non_zero_acc,
-                    "non_zero_sentiment": non_zero_sent,
-                    "keys": list(result.keys()),
-                },
-            )
             return result
         except Exception as exc:
             logger.warning(

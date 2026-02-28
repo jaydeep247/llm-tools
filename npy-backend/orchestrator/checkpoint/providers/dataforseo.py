@@ -56,15 +56,6 @@ class DataForSEOProvider(BaseProvider):
         try:
             async with aiohttp.ClientSession(auth=auth) as session:
                 url = f"{self.base_url}{endpoint}"
-                logger.info(
-                    "DataForSEO request",
-                    extra={
-                        "task_name": task_name,
-                        "endpoint": endpoint,
-                        "payload_summary": _summarize_payload(payload),
-                        "payload_preview": _truncate(payload, 1000),
-                    }
-                )
 
                 async with session.post(url, json=payload) as response:
                     text_body = await response.text()
@@ -101,17 +92,6 @@ class DataForSEOProvider(BaseProvider):
                             error="Invalid JSON response",
                             meta={"provider": "dataforseo", "status": response.status}
                         )
-
-                    logger.info(
-                        "DataForSEO response",
-                        extra={
-                            "task_name": task_name,
-                            "endpoint": endpoint,
-                            "status": response.status,
-                            "tasks_count": len(data.get("tasks", []) or []),
-                            "body_preview": _truncate(data, 1000),
-                        }
-                    )
 
                     return TaskResponse(
                         success=True,

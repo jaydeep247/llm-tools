@@ -69,15 +69,12 @@ export const startJobEventsConsumer = async () => {
           return;
         }
 
-        logger.info(`📥 Job Event Received: ${event.eventType} for Job ${event.jobId}`, { payload: event.payload });
-
         // 1. Save to Redis (Immediate persistence)
         await LiveJobService.saveEvent(event);
 
         // 2. Update MongoDB Status for critical events
         try {
           if (event.eventType === 'JOB_STARTED') {
-             logger.info(`🚀 Processing JOB_STARTED for ${event.jobId}`);
              const job = await jobService.markRunning(event.jobId);
              if (!job) logger.error(`❌ Failed to mark job ${event.jobId} as RUNNING - Job not found`);
              
@@ -88,13 +85,10 @@ export const startJobEventsConsumer = async () => {
              } catch (e) { logger.error('Socket emit error:', e); }
 
           } else if (event.eventType === 'JOB_COMPLETED' || (event.payload && event.payload.status === 'completed')) {
-             logger.info(`✅ Processing JOB_COMPLETED for ${event.jobId}`);
-             
              // Update Job Status
              try {
                  const job = await jobService.markCompleted(event.jobId);
-                 if (job) logger.info(`✅ DB Updated: Job ${event.jobId} is COMPLETED`);
-                 else logger.error(`❌ DB Update Failed: Job ${event.jobId} not found`);
+                 if (!job) logger.error(`❌ DB Update Failed: Job ${event.jobId} not found`);
              } catch (e) {
                  logger.error(`❌ DB Update Exception for ${event.jobId}:`, e);
              }
@@ -103,7 +97,6 @@ export const startJobEventsConsumer = async () => {
              if (event.payload && event.payload.sessionId) {
                  try {
                      await sessionService.markSessionCompleted(event.payload.sessionId);
-                     logger.info(`✅ Session ${event.payload.sessionId} marked COMPLETED`);
                  } catch (e) {
                      logger.error(`❌ Session Update Exception:`, e);
                  }
@@ -118,7 +111,6 @@ export const startJobEventsConsumer = async () => {
                      completedAt: new Date().toISOString(),
                      payload: event.payload
                  });
-                 logger.info(`✅ Emitted direct job:completed event for ${event.jobId}`);
              } catch (e) {
                  logger.error(`❌ Socket emit error:`, e);
              }
@@ -134,7 +126,6 @@ export const startJobEventsConsumer = async () => {
              flushBuffer(event.jobId);
              
           } else if (event.eventType === 'JOB_FAILED' || (event.payload && event.payload.status === 'failed')) {
-              logger.info(`❌ Processing JOB_FAILED for ${event.jobId}`);
               const reason = event.payload?.reason || event.payload?.message || 'Unknown error';
               await jobService.markFailed(event.jobId, reason);
 

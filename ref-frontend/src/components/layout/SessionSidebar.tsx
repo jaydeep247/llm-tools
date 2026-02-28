@@ -46,7 +46,7 @@ const menuItems = [
   { id: 'site-structure', label: 'Site Structure', icon: GitBranch },
   { id: 'performance', label: 'Performance Audits', icon: Gauge },
   { id: 'schema-generator', label: 'Schema Generator', icon: Code },
-  { id: 'module-e', label: 'Module E', icon: Activity },
+  { id: 'module-e', label: 'Brand Intelligence', icon: Activity },
   { id: 'ai-intelligence', label: 'AI Intelligence', icon: Brain },
   { id: 'ai-visibility-scorecards', label: 'AI Visibility Scorecards', icon: Brain },
   { id: 'content-metrics', label: 'Content Metrics', icon: FileCheck },

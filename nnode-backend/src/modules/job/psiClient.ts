@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import { logger } from '../../shared/logger/logger'
 
 export type DeviceStrategy = 'mobile' | 'desktop'
 
@@ -139,8 +140,7 @@ export async function fetchPsi(
           const ms = Date.now() - start
 
           if (debug) {
-            // eslint-disable-next-line no-console
-            console.log(
+            logger.debug(
               `[psi] attempt=${attempt + 1} status=${res.status} ms=${ms} device=${device} url=${url}`
             )
           }
@@ -157,7 +157,7 @@ export async function fetchPsi(
             }
 
             if (debug) {
-              console.log(`[psi] rate limited, waiting ${waitMs}ms before retry`)
+              logger.debug(`[psi] rate limited, waiting ${waitMs}ms before retry`)
             }
             await sleep(waitMs)
             attempt++
@@ -170,7 +170,7 @@ export async function fetchPsi(
             }
             const waitMs = Math.min(Math.max(5000, backoffBaseMs * Math.pow(2, attempt)), 60000)
             if (debug) {
-              console.log(`[psi] server error ${res.status}, waiting ${waitMs}ms`)
+              logger.debug(`[psi] server error ${res.status}, waiting ${waitMs}ms`)
             }
             await sleep(waitMs)
             attempt++
@@ -185,10 +185,8 @@ export async function fetchPsi(
           return parseApiResponse(url, device, json)
         } catch (err: any) {
           if (debug) {
-            // eslint-disable-next-line no-console
-            console.error(
-              `[psi] error attempt=${attempt + 1} device=${device} url=${url} ->`,
-              err?.message
+            logger.debug(
+              `[psi] error attempt=${attempt + 1} device=${device} url=${url} -> ${err?.message}`
             )
           }
 

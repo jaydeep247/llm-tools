@@ -47,14 +47,11 @@ class MongoPipeline:
         self.session_id = getattr(spider, 'session_id', None)
         
         mongo_manager.connect()
-        logger.info(f"MongoPipeline (Streaming) initialized for Job {self.job_id}")
 
     @defer.inlineCallbacks
     def close_spider(self, spider):
         """Flush all buffers and update job summary"""
         try:
-            logger.info(f"Closing spider for Job {self.job_id}. Buffers: { {k: len(v) for k, v in self.buffers.items()} }")
-            
             # 1. Flush all remaining items
             for item_type in self.buffers:
                 try:
@@ -95,8 +92,6 @@ class MongoPipeline:
                         {'$set': doc},
                         upsert=True
                     )
-                    logger.info(f"Job summary written for {self.job_id}")
-                    
                     # Also update jobs collection stats
                     mongo_manager.db.jobs.update_one(
                         {'id': self.job_id},
@@ -204,8 +199,6 @@ class MongoPipeline:
                         logger.error(f"Collection {item_type} not found in MongoManager")
                         return
 
-                    logger.info(f"Flushing {len(data_buffer)} items to {item_type} collection")
-                    
                     if item_type in ['pages', 'fields', 'sitemaps']:
                         operations = []
                         for item in data_buffer:
@@ -223,12 +216,10 @@ class MongoPipeline:
                             ))
                         
                         if operations:
-                            result = collection.bulk_write(operations, ordered=False)
-                            logger.info(f"Successfully processed {len(operations)} items in {item_type} (Matched: {result.matched_count}, Upserted: {result.upserted_count})")
+                            collection.bulk_write(operations, ordered=False)
                     else:
                         # For links or other collections, keep insert_many for speed/behavior
-                        result = collection.insert_many(data_buffer, ordered=False)
-                        logger.info(f"Successfully inserted {len(result.inserted_ids)} items into {item_type}")
+                        collection.insert_many(data_buffer, ordered=False)
                         
                 except Exception as e:
                     error_type = type(e).__name__

@@ -3,20 +3,11 @@
 import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Clock, Globe, CheckCircle, XCircle, Loader2, AlertCircle, Play, MoreVertical, Pencil, Trash2 } from 'lucide-react'
+import { Clock, Globe, CheckCircle, XCircle, Loader2, AlertCircle, Play, Pencil, Trash2 } from 'lucide-react'
 import { useGetProjectQuery, useUpdateProjectMutation, type Project } from '@/store/api/projectApi'
 import { useGetProjectSessionsQuery, useCreateSessionMutation, useCreateJobMutation, useDeleteSessionMutation } from '@/store/api/sessionApi'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { ProjectEditDialog } from '@/components/dashboard/ProjectEditDialog'
 import { ProjectDeleteDialog } from '@/components/dashboard/ProjectDeleteDialog'
 import type { CrawlSession } from '@/store/api/sessionApi'
@@ -73,35 +64,8 @@ export default function ProjectDetailPage() {
 
   const isStartingCrawl = isCreatingSession || isCreatingJob
 
-  // Job Types
-  const JOB_TYPES = {
-    CRAWL: 'CRAWL',
-    SCHEMA: 'SCHEMA',
-    CONTENT_METRICS: 'CONTENT_METRICS',
-    AEO_ANALYSIS: 'AEO_ANALYSIS',
-    MODULE_C_AI_PRESENCE: 'MODULE_C_AI_PRESENCE',
-    MODULE_C_ANSWERABILITY: 'MODULE_C_ANSWERABILITY',
-    MODULE_C_KNOWLEDGE_BASE: 'MODULE_C_KNOWLEDGE_BASE',
-    MODULE_C_COMPETITOR: 'MODULE_C_COMPETITOR',
-    MODULE_C_LLM_SIMULATOR: 'MODULE_C_LLM_SIMULATOR',
-    MODULE_C_BULK_AUDIT: 'MODULE_C_BULK_AUDIT',
-    MODULE_E_FULL: 'MODULE_E_FULL',
-    MODULE_E_CONSISTENCY: 'MODULE_E_CONSISTENCY',
-    MODULE_E_SENTIMENT: 'MODULE_E_SENTIMENT',
-    MODULE_E_COMPETITORS: 'MODULE_E_COMPETITORS',
-    MODULE_E_AI_SOV: 'MODULE_E_AI_SOV',
-    MODULE_E_RANKING: 'MODULE_E_RANKING',
-    MODULE_E_BRAND: 'MODULE_E_BRAND',
-    MODULE_E_AI_CITATION_RANKING: 'MODULE_E_AI_CITATION_RANKING',
-  }
-
   // Form state
   const [url, setUrl] = useState('')
-  const [jobType, setJobType] = useState<string>(JOB_TYPES.CRAWL)
-  const [allowSubdomains, setAllowSubdomains] = useState(true)
-  const [runAudits, setRunAudits] = useState(false)
-  const [auditDevice, setAuditDevice] = useState<'mobile' | 'desktop'>('desktop')
-  const [captureLinkDetails, setCaptureLinkDetails] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   if (isLoadingProject) {
@@ -185,28 +149,19 @@ export default function ProjectDetailPage() {
       const sessionResult = await createSession(projectId).unwrap()
       const sessionId = sessionResult.session.id
 
-      // Step 2: Create job
       const normalizedUrl = url.trim().startsWith('http') ? url.trim() : `https://${url.trim()}`
-      
-      const jobResult = await createJob({
+
+      // Step 2: Fire ONE quick-start job that runs Brand Analysis,
+      // Competitor Mentions, and AI Share of Voice in parallel on the Python side.
+      await createJob({
         sessionId,
-        data: {
-          url: normalizedUrl,
-          jobType,
-          allowSubdomains,
-          runAudits,
-          auditDevice,
-          captureLinkDetails,
-          config: {
-            modules: ['module_c', 'module_e']
-          }
-        }
+        data: { url: normalizedUrl, jobType: 'MODULE_E_QUICK_START' },
       }).unwrap()
 
-      console.log(`🚀 Starting job: ${jobResult.job.id}, redirecting to progress...`)
-      router.push(`/dashboard/jobs/${jobResult.job.id}/progress`)
+      // Step 3: Go directly to session page (no progress/crawl wait)
+      router.push(`/dashboard/projects/${projectId}/sessions/${sessionId}`)
     } catch (err: any) {
-      setError(err?.data?.message || err?.message || 'Failed to start crawl session')
+      setError(err?.data?.message || err?.message || 'Failed to start session')
     }
   }
 
@@ -324,7 +279,7 @@ export default function ProjectDetailPage() {
                   Start New Session
                 </h3>
                 <p className="text-[10px] sm:text-xs text-white/60 mt-0.5">
-                  Enter a URL to begin crawling and analysis
+                  Enter a URL to instantly start Brand Sentiment, Competitors &amp; AI Share of Voice analysis
                 </p>
               </div>
             </div>
@@ -337,49 +292,6 @@ export default function ProjectDetailPage() {
 
             {/* Form */}
             <div className="space-y-2">
-              <Select value={jobType} onValueChange={setJobType} disabled={isStartingCrawl}>
-                <SelectTrigger className="w-full bg-white/5 border-white/10 text-white text-xs sm:text-sm h-8 sm:h-9">
-                  <SelectValue placeholder="Select Job Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>Crawler</SelectLabel>
-                    <SelectItem value="CRAWL">Crawl</SelectItem>
-                  </SelectGroup>
-                  <SelectGroup>
-                    <SelectLabel>Schema</SelectLabel>
-                    <SelectItem value="SCHEMA">Schema Analysis</SelectItem>
-                  </SelectGroup>
-                  <SelectGroup>
-                    <SelectLabel>Module D (Content)</SelectLabel>
-                    <SelectItem value="MODULE_D">Full Content Analysis</SelectItem>
-                    <SelectItem value="CONTENT_METRICS">Content Metrics</SelectItem>
-                    <SelectItem value="MODULE_D_ENTITY_ANALYSIS">Entity Analysis</SelectItem>
-                  </SelectGroup>
-                  <SelectGroup>
-                    <SelectLabel>Module C (AEO)</SelectLabel>
-                    <SelectItem value="AEO_ANALYSIS">Full AEO Analysis</SelectItem>
-                    <SelectItem value="MODULE_C_AI_PRESENCE">AI Presence</SelectItem>
-                    <SelectItem value="MODULE_C_ANSWERABILITY">Answerability</SelectItem>
-                    <SelectItem value="MODULE_C_KNOWLEDGE_BASE">Knowledge Base</SelectItem>
-                    <SelectItem value="MODULE_C_COMPETITOR">Competitor Analysis</SelectItem>
-                    <SelectItem value="MODULE_C_LLM_SIMULATOR">LLM Simulator</SelectItem>
-                    <SelectItem value="MODULE_C_BULK_AUDIT">Bulk Audit</SelectItem>
-                  </SelectGroup>
-                  <SelectGroup>
-                    <SelectLabel>Module E (Brand)</SelectLabel>
-                    <SelectItem value="MODULE_E_FULL">Full Brand Analysis</SelectItem>
-                    <SelectItem value="MODULE_E_CONSISTENCY">Brand Consistency</SelectItem>
-                    <SelectItem value="MODULE_E_SENTIMENT">Sentiment Analysis</SelectItem>
-                    <SelectItem value="MODULE_E_COMPETITORS">Competitors</SelectItem>
-                    <SelectItem value="MODULE_E_AI_SOV">AI Share of Voice</SelectItem>
-                    <SelectItem value="MODULE_E_RANKING">Ranking</SelectItem>
-                    <SelectItem value="MODULE_E_BRAND">Brand Analysis</SelectItem>
-                    <SelectItem value="MODULE_E_AI_CITATION_RANKING">AI Citation Ranking</SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-
               <div className="flex gap-2">
                 <Input
                   id="url"

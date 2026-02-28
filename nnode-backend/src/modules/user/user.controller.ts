@@ -55,7 +55,7 @@ export class UserController {
       const user = await userService.updateUser(id as string, data);
        return ResponseUtil.success(res, 'User updated successfully', user);
      } catch (error: any) {
-       console.error('Update user error:', error);
+       logger.error(`Error updating user: ${error.message}`);
        if (error.message === 'User not found') {
          return ResponseUtil.notFound(res, 'User not found');
        }

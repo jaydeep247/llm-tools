@@ -83,7 +83,6 @@ class SitemapDiscovery:
                         if line.lower().startswith('sitemap:'):
                             sitemap_url = line.split(':', 1)[1].strip()
                             sitemap_urls.append(sitemap_url)
-                            logger.info(f"Found sitemap in robots.txt: {sitemap_url}")
         except Exception as e:
             logger.debug(f"Could not fetch robots.txt: {str(e)}")
         
@@ -95,7 +94,6 @@ class SitemapDiscovery:
             async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
                 response = await client.head(sitemap_url)
                 if response.status_code == 200:
-                    logger.info(f"Found sitemap: {sitemap_url}")
                     return True
         except Exception:
             pass
@@ -144,8 +142,6 @@ class SitemapDiscovery:
                     url_data['source_sitemap'] = sitemap_url
                     urls.append(url_data)
                 
-                logger.info(f"Parsed {len(urls)} URLs from sitemap: {sitemap_url}")
-        
         except Exception as e:
             logger.error(f"Error parsing sitemap {sitemap_url}: {str(e)}")
             raise

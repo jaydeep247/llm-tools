@@ -56,7 +56,6 @@ class LocalObjectStore(StorageBackend):
             async with aiofiles.open(meta_path, 'w', encoding='utf-8') as f:
                 await f.write(json.dumps(meta_payload, indent=2))
                 
-            logger.info(f"Stored crawl data for {url} in {html_path}")
             return html_path
         except Exception as e:
             logger.error(f"Storage error for job {job_id}: {str(e)}")
@@ -70,7 +69,6 @@ class LocalObjectStore(StorageBackend):
             async with aiofiles.open(result_path, 'w', encoding='utf-8') as f:
                 await f.write(json.dumps(result, indent=2))
                 
-            logger.info(f"Stored analysis result for job {job_id}")
             return result_path
         except Exception as e:
             logger.error(f"Storage error for job {job_id}: {str(e)}")

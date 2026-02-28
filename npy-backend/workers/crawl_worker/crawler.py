@@ -85,7 +85,6 @@ def main():
         # Start crawling (blocks until finished)
         logger.info(f"🕷️ Starting crawler process for {args.url} (max_pages={args.max_pages})")
         process.start()
-        logger.info("🕷️ Crawler process finished execution")
         
         # detailed stats are available after the crawl
         stats = crawler.stats.get_stats()
@@ -118,8 +117,6 @@ def main():
             'projectId': args.project_id,
             'sessionId': args.session_id
         }, retries=5)
-        logger.info(f"✅ Emitted fallback JOB_COMPLETED event for {args.job_id}")
-
     except Exception as e:
         logger.error(f"❌ Crawler process failed: {e}")
         # Emit failure event

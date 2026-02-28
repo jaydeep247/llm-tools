@@ -101,7 +101,6 @@ class S3StorageClient:
                 }
             )
             uri = f"s3://{self._bucket}/{key}"
-            logger.debug(f"📤 Saved to S3: {key}")
             return uri
         except ClientError as e:
             logger.error(f"❌ S3 save failed for {key}: {e}")
@@ -126,11 +125,9 @@ class S3StorageClient:
         try:
             response = self._client.get_object(Bucket=self._bucket, Key=key)
             content = response['Body'].read().decode('utf-8')
-            logger.debug(f"📥 Loaded from S3: {key}")
             return content
         except ClientError as e:
             if e.response['Error']['Code'] == 'NoSuchKey':
-                logger.debug(f"📭 S3 key not found: {key}")
                 return ""
             logger.error(f"❌ S3 load failed for {key}: {e}")
             raise
@@ -157,7 +154,6 @@ class S3StorageClient:
         
         try:
             self._client.delete_object(Bucket=self._bucket, Key=key)
-            logger.debug(f"🗑️ Deleted from S3: {key}")
             return True
         except ClientError as e:
             logger.error(f"❌ S3 delete failed for {key}: {e}")

@@ -32,6 +32,7 @@ export enum JobType {
   
   // Brand Intelligence (Module E)
   MODULE_E_FULL = 'MODULE_E_FULL',
+  MODULE_E_QUICK_START = 'MODULE_E_QUICK_START',   // Brand + Competitors + AI SOV in one shot
   MODULE_E_CONSISTENCY = 'MODULE_E_CONSISTENCY',
   MODULE_E_SENTIMENT = 'MODULE_E_SENTIMENT',
   MODULE_E_COMPETITORS = 'MODULE_E_COMPETITORS',
@@ -69,6 +70,7 @@ export const JOB_TYPE_TO_CATEGORY: Record<JobType, JobCategory> = {
   [JobType.MODULE_C_LLM_SIMULATOR]: JobCategory.MODULE_C,
   [JobType.MODULE_C_BULK_AUDIT]: JobCategory.MODULE_C,
   [JobType.MODULE_E_FULL]: JobCategory.MODULE_E,
+  [JobType.MODULE_E_QUICK_START]: JobCategory.MODULE_E,
   [JobType.MODULE_E_CONSISTENCY]: JobCategory.MODULE_E,
   [JobType.MODULE_E_SENTIMENT]: JobCategory.MODULE_E,
   [JobType.MODULE_E_COMPETITORS]: JobCategory.MODULE_E,

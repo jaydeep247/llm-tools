@@ -281,17 +281,12 @@ class RankingRunner:
         Analyze ranking position, percentile, model-wise comparison,
         content quality, and entity coverage.
         """
-        logger.info(f"Starting Ranking Analysis for URL: {url}")
-        
         target_normalized = self._normalize_url(url)
-        logger.info(f"Normalized Target URL: '{target_normalized}'") 
         
         platforms = list(SUPPORTED_PLATFORMS)
         
         # 1. Generate Prompts if not provided
         if not prompts:
-            logger.info("No prompts provided. Generating from content...")
-            
             if not aggregated_text or len(aggregated_text) < 100:
                  # Fetch if empty
                  # Note: in runner.py main flow, aggregated_text is usually passed. 
@@ -324,8 +319,6 @@ class RankingRunner:
              logger.error("Failed to generate prompts.")
              return {"error": "Could not generate prompts"}
 
-        logger.info(f"Using prompts: {prompts}")
-        
         ranking_position_per_prompt = []
         percentile_by_prompt = {}
         model_wise_rows = []
@@ -351,8 +344,6 @@ class RankingRunner:
              except:
                  pass
         
-        logger.info(f"Using Brand Name for analysis: '{brand}'")
-
         # Initialize structures
         for prompt in prompts:
             percentile_by_prompt[prompt] = {}
@@ -387,7 +378,7 @@ class RankingRunner:
              endpoint = f"/ai_optimization/{p_platform}/llm_responses/live"
              
              try:
-                 logger.info(f"[{p_platform}] Request Payload (Single)")
+                 pass
              except:
                  pass
 
@@ -407,7 +398,6 @@ class RankingRunner:
              for prompt in prompts:
                  tasks.append(fetch_binding(platform, prompt))
         
-        logger.info(f"Dispatching {len(tasks)} ranking queries in parallel...")
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
         # Process results
@@ -429,7 +419,7 @@ class RankingRunner:
 
             data = resp.data
             try:
-                logger.info(f"[{platform}] Response received for '{prompt[:20]}...'")
+                pass
             except Exception:
                 pass
 
@@ -465,7 +455,6 @@ class RankingRunner:
                         if anns:
                             annotations.extend(anns)
 
-            logger.info(f"[{platform}] Found {len(annotations)} annotations total for prompt '{prompt[:20]}...'")
             matches = [a for a in annotations if a.get("url") and self._url_matches(target_normalized, a.get("url"))]
             citation_matches = len(matches)
             brand_text_mentioned = self._detect_brand_text_mention(brand, ai_response_text)
@@ -528,26 +517,10 @@ class RankingRunner:
                 row[platform] = position
 
         if batch_accuracy_items:
-            logger.info(
-                "Starting batch accuracy/sentiment calculation",
-                extra={
-                    "batch_items": len(batch_accuracy_items),
-                    "ranking_rows": len(ranking_position_per_prompt),
-                    "ids": [str(i.get("id")) for i in batch_accuracy_items],
-                },
-            )
             batch_scores = await self.consistency_module.calculate_batch_accuracy_scores(
                 aggregated_text,
                 batch_accuracy_items,
                 brand,
-            )
-
-            logger.info(
-                "Received batch accuracy/sentiment scores",
-                extra={
-                    "score_items": len(batch_scores),
-                    "score_keys": list(batch_scores.keys()),
-                },
             )
 
             applied_indices = set()
@@ -568,17 +541,6 @@ class RankingRunner:
                     ranking_position_per_prompt[idx]["accuracy_score"] = acc_val
                     ranking_position_per_prompt[idx]["sentiment_score"] = sent_val
                     applied_indices.add(idx)
-                    row = ranking_position_per_prompt[idx]
-                    logger.info(
-                        "Updated ranking row with batch scores",
-                        extra={
-                            "index": idx,
-                            "prompt": row.get("prompt"),
-                            "model": row.get("model"),
-                            "accuracy_score": acc_val,
-                            "sentiment_score": sent_val,
-                        },
-                    )
                 else:
                     logger.warning(
                         "Batch accuracy index out of range",
@@ -590,34 +552,14 @@ class RankingRunner:
                     )
 
             if not applied_indices and batch_indices and len(batch_scores) == len(batch_indices):
-                logger.info(
-                    "Falling back to sequential batch accuracy mapping",
-                    extra={
-                        "batch_indices": batch_indices,
-                        "score_items": len(batch_scores),
-                    },
-                )
                 for idx, scores in zip(batch_indices, batch_scores.values()):
                     if 0 <= idx < len(ranking_position_per_prompt):
                         acc_val = scores.get("accuracy", 0.0)
                         sent_val = scores.get("sentiment", 0.0)
                         ranking_position_per_prompt[idx]["accuracy_score"] = acc_val
                         ranking_position_per_prompt[idx]["sentiment_score"] = sent_val
-                        row = ranking_position_per_prompt[idx]
-                        logger.info(
-                            "Sequentially updated ranking row with batch scores",
-                            extra={
-                                "index": idx,
-                                "prompt": row.get("prompt"),
-                                "model": row.get("model"),
-                                "accuracy_score": acc_val,
-                                "sentiment_score": sent_val,
-                            },
-                        )
 
         # 4. Entity Coverage Analysis (using aggregated contexts)
-        logger.info(f"Analyzing Entity Coverage on {len(all_citation_contexts)} contexts...")
-        
         # Get expected entities from original content
         expected_entities = await self.entity_coverage_module.generate_expected_entities(aggregated_text)
         
@@ -648,18 +590,6 @@ class RankingRunner:
 
         avg_accuracy = round(total_acc / count_items, 1) if count_items > 0 else 0.0
         avg_sentiment = round(total_sent / count_items, 2) if count_items > 0 else 0.0
-        non_zero_acc = len([r for r in ranking_position_per_prompt if r.get("accuracy_score", 0.0) != 0.0])
-        non_zero_sent = len([r for r in ranking_position_per_prompt if r.get("sentiment_score", 0.0) != 0.0])
-        logger.info(
-            "Ranking accuracy/sentiment summary",
-            extra={
-                "items": count_items,
-                "non_zero_accuracy": non_zero_acc,
-                "non_zero_sentiment": non_zero_sent,
-                "avg_accuracy": avg_accuracy,
-                "avg_sentiment": avg_sentiment,
-            },
-        )
         
         result_payload = {
             "ranking_position_per_prompt": ranking_position_per_prompt,
@@ -683,7 +613,6 @@ class RankingRunner:
             "errors": errors if errors else None
         }
         
-        logger.info("Ranking Analysis Completed")
         return result_payload
 
 
@@ -721,7 +650,7 @@ async def run_ranking_analysis(job_id: str, url: str, html_content: str = None) 
     Aggregates text from homepage + top pages (from Mongo), then runs Ranking Analysis.
     Persists result to Module E collection.
     """
-    logger.info(f"Preparing Rank Analysis for {job_id} / {url}")
+    logger.info(f"[RANKING] Starting ranking analysis for {url}")
     mongo_manager.connect()
 
     # 1. Get Homepage Text
@@ -730,7 +659,6 @@ async def run_ranking_analysis(job_id: str, url: str, html_content: str = None) 
     
     # Fallback: Fetch live if missing from storage
     if not html_content and url:
-        logger.info(f"Homepage content missing for {job_id}, fetching live from {url}...")
         html_content = await _fetch_text_simple(url)
 
     homepage_text = _extract_text(html_content)
@@ -745,10 +673,9 @@ async def run_ranking_analysis(job_id: str, url: str, html_content: str = None) 
             # We don't have text cached in mongo pages usually, so we might need to fetch live
             # mirroring module_E/runner.py logic
             urls = [p.get("url") for p in pages if p.get("url")]
-            logger.info(f"Fetching top pages for context: {urls}")
-            tasks = [_fetch_text_simple(u) for u in urls]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            for res in results:
+            tasks_fetch = [_fetch_text_simple(u) for u in urls]
+            results_fetch = await asyncio.gather(*tasks_fetch, return_exceptions=True)
+            for res in results_fetch:
                 if isinstance(res, str) and res:
                     top_texts.append(res)
     except Exception as e:
@@ -780,10 +707,10 @@ async def run_ranking_analysis(job_id: str, url: str, html_content: str = None) 
                 },
                 upsert=True,
             )
-             logger.info(f"Ranking Analysis persisted for {job_id}")
         except Exception as e:
             logger.error(f"Failed to persist ranking analysis: {e}")
             
+    logger.info(f"[RANKING] Ranking analysis done for {url}")
     return {
         "job_id": job_id,
         "ranking_analysis": result_data

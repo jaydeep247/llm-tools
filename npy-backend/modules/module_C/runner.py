@@ -37,8 +37,6 @@ class ModuleCRunner:
         """
         Runs complete Module C analysis.
         """
-        logger.info(f"Starting Module C for job {job_id} / {url}")
-        
         html_content = await self._ensure_html_content(job_id, html_content, skip_save)
             
         if not html_content:
@@ -184,8 +182,6 @@ async def run_module_c(job_id: str, url: str, html_content: str = None, query: s
     """
     # Run single-page analysis on the main URL
     result = await runner.run(job_id, url, html_content, query=query)
-    
-    logger.info(f"Module C analysis completed for job {job_id}")
     
     return result
 
