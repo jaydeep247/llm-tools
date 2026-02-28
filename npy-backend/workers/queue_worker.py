@@ -327,6 +327,9 @@ def execute_job(payload: dict, job_type: str = "crawl") -> bool:
         
     if job_type_resolved.startswith("MODULE_E"):
         return execute_module_e_job(payload)
+
+    if job_type_resolved.startswith("MODULE_F"):
+        return execute_module_f_job(payload)
         
     if job_type_resolved.startswith("MODULE_D") or job_type_resolved == "CONTENT_METRICS":
         return execute_module_d_job(payload)
@@ -337,6 +340,35 @@ def execute_job(payload: dict, job_type: str = "crawl") -> bool:
     # Default fallback
     logger.warning(f"Unknown job type {job_type_resolved}, defaulting to Module D analysis")
     return execute_module_d_job(payload)
+
+
+def execute_module_f_job(payload: dict) -> bool:
+    """Execute Module F (Competitor AI Intelligence) job"""
+    from modules.module_F.runner import run_module_f_competitor_ai_intelligence
+
+    configure_logger()
+
+    session_id = payload["sessionId"]
+    url = payload["url"]
+    job_id = payload.get("jobId") or f"job_{session_id}"
+    job_type = payload.get("jobType", "MODULE_F_COMPETITOR_AI_INTELLIGENCE").upper()
+    source_job_id = payload.get("sourceJobId") or payload.get("config", {}).get("sourceJobId")
+
+    target_job_id = source_job_id if source_job_id else job_id
+
+    logger.info(f"[MODULE_F] Starting job {job_id} type={job_type} for {url}")
+
+    try:
+        if job_type == "MODULE_F_COMPETITOR_AI_INTELLIGENCE":
+            asyncio.run(run_module_f_competitor_ai_intelligence(target_job_id, url))
+        else:
+            asyncio.run(run_module_f_competitor_ai_intelligence(target_job_id, url))
+
+        logger.info(f"[MODULE_F] Completed job {job_id}")
+        return True
+    except Exception as e:
+        logger.error(f"[MODULE_F] Job failed: {e}", exc_info=True)
+        raise
 
 
 def execute_module_e_job(payload: dict) -> bool:
