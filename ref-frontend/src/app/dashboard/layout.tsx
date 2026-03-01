@@ -29,14 +29,14 @@ export default function DashboardLayout({
   // Regular dashboard layout
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-      <div className="min-h-screen bg-[#0A0A0A] text-foreground flex">
+      <div className="min-h-screen bg-[#09090B] text-foreground flex">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         
         {/* Main content area */}
-        <main className="flex-1 transition-all duration-300 md:ml-67.5 p-2 md:p-4 h-screen overflow-hidden">
-          <div className="bg-[#0E0E0E] rounded-md border border-border/50 shadow-sm h-full flex flex-col overflow-hidden relative">
+        <main className="flex-1 transition-all duration-300 md:ml-68 p-1.5 md:p-3 h-screen overflow-hidden">
+          <div className="bg-[#0F0F11] rounded-2xl border border-zinc-800 h-full flex flex-col overflow-hidden relative">
             <Navbar onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
-            <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-8">
+            <div className="flex-1 overflow-y-auto pt-10 px-4 md:px-8 pb-8">
               <div className="mx-auto h-full">
                 {children}
               </div>

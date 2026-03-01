@@ -20,10 +20,10 @@ export default function SettingsPage() {
       {/* Header */}
 
       <Tabs defaultValue="account" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-2 bg-transparent border border-white/10 p-1 h-auto rounded-xl">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-2 bg-transparent border border-zinc-800 p-1 h-auto rounded-2xl">
           <TabsTrigger 
             value="account"
-            className="data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:font-semibold data-[state=inactive]:text-white/70 data-[state=inactive]:hover:text-white rounded-lg border border-white/0 data-[state=active]:border-white/0 transition-all duration-200 text-xs sm:text-sm py-2 cursor-pointer"
+            className="data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:font-semibold data-[state=inactive]:text-zinc-400 data-[state=inactive]:hover:text-white rounded-lg border border-white/0 data-[state=active]:border-white/0 transition-all duration-200 text-xs sm:text-sm py-2 cursor-pointer"
           >
             <span className="flex items-center gap-2">
               <Palette className="h-4 w-4" />
@@ -32,7 +32,7 @@ export default function SettingsPage() {
           </TabsTrigger>
           <TabsTrigger 
             value="preferences"
-            className="data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:font-semibold data-[state=inactive]:text-white/70 data-[state=inactive]:hover:text-white rounded-lg border border-white/0 data-[state=active]:border-white/0 transition-all duration-200 text-xs sm:text-sm py-2 cursor-pointer"
+            className="data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:font-semibold data-[state=inactive]:text-zinc-400 data-[state=inactive]:hover:text-white rounded-lg border border-white/0 data-[state=active]:border-white/0 transition-all duration-200 text-xs sm:text-sm py-2 cursor-pointer"
           >
             <span className="flex items-center gap-2">
               <Palette className="h-4 w-4" />
@@ -41,7 +41,7 @@ export default function SettingsPage() {
           </TabsTrigger>
           <TabsTrigger 
             value="security"
-            className="data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:font-semibold data-[state=inactive]:text-white/70 data-[state=inactive]:hover:text-white rounded-lg border border-white/0 data-[state=active]:border-white/0 transition-all duration-200 text-xs sm:text-sm py-2 cursor-pointer"
+            className="data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:font-semibold data-[state=inactive]:text-zinc-400 data-[state=inactive]:hover:text-white rounded-lg border border-white/0 data-[state=active]:border-white/0 transition-all duration-200 text-xs sm:text-sm py-2 cursor-pointer"
           >
             <span className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
@@ -50,7 +50,7 @@ export default function SettingsPage() {
           </TabsTrigger>
           <TabsTrigger 
             value="notifications"
-            className="data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:font-semibold data-[state=inactive]:text-white/70 data-[state=inactive]:hover:text-white rounded-lg border border-white/0 data-[state=active]:border-white/0 transition-all duration-200 text-xs sm:text-sm py-2 cursor-pointer"
+            className="data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:font-semibold data-[state=inactive]:text-zinc-400 data-[state=inactive]:hover:text-white rounded-lg border border-white/0 data-[state=active]:border-white/0 transition-all duration-200 text-xs sm:text-sm py-2 cursor-pointer"
           >
             <span className="flex items-center gap-2">
               <Bell className="h-4 w-4" />
@@ -61,7 +61,7 @@ export default function SettingsPage() {
 
         {/* Account Settings */}
         <TabsContent value="account" className="space-y-6">
-          <div className="rounded-xl border border-white/10 bg-[#121212] p-6">
+          <div className="rounded-2xl border border-zinc-800 bg-[#111113] p-6">
             <h2 className="text-xl font-bold text-white mb-6">Profile Information</h2>
             <div className="space-y-6 max-w-2xl">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -71,7 +71,7 @@ export default function SettingsPage() {
                     id="fullname" 
                     placeholder="John Doe" 
                     defaultValue="John Doe"
-                    className="bg-[#1A1A1A] border border-white/10 text-white placeholder:text-white/30 hover:border-white/20 focus:border-white/30 transition-colors rounded-lg text-sm h-10"
+                    className="bg-[#1A1A1A] border border-zinc-800 text-white placeholder:text-white/30 hover:border-zinc-700 focus:border-white/30 transition-colors rounded-lg text-sm h-10"
                   />
                 </div>
                 <div className="space-y-2">
@@ -81,7 +81,7 @@ export default function SettingsPage() {
                     type="email"
                     placeholder="john@example.com" 
                     defaultValue="john@example.com"
-                    className="bg-[#1A1A1A] border border-white/10 text-white placeholder:text-white/30 hover:border-white/20 focus:border-white/30 transition-colors rounded-lg text-sm h-10"
+                    className="bg-[#1A1A1A] border border-zinc-800 text-white placeholder:text-white/30 hover:border-zinc-700 focus:border-white/30 transition-colors rounded-lg text-sm h-10"
                   />
                 </div>
               </div>
@@ -90,7 +90,7 @@ export default function SettingsPage() {
                 <textarea 
                   id="bio"
                   placeholder="Tell us about yourself"
-                  className="w-full bg-[#1A1A1A] border border-white/10 text-white placeholder:text-white/30 hover:border-white/20 focus:border-white/30 transition-colors rounded-lg p-3 min-h-24 text-sm resize-none"
+                  className="w-full bg-[#1A1A1A] border border-zinc-800 text-white placeholder:text-white/30 hover:border-zinc-700 focus:border-white/30 transition-colors rounded-lg p-3 min-h-24 text-sm resize-none"
                 />
               </div>
               <Button className="bg-white text-black hover:bg-slate-100 rounded-full font-semibold text-sm px-6 h-10 cursor-pointer">
@@ -102,20 +102,20 @@ export default function SettingsPage() {
 
         {/* Preferences */}
         <TabsContent value="preferences" className="space-y-6">
-          <div className="rounded-xl border border-white/10 bg-[#121212] p-6">
+          <div className="rounded-2xl border border-zinc-800 bg-[#111113] p-6">
             <h2 className="text-xl font-bold text-white mb-6">Preferences</h2>
             <div className="space-y-6 max-w-2xl">
               <div>
                 <Label htmlFor="language" className="text-white/80 font-semibold block mb-2 text-sm">Language</Label>
                 <Select defaultValue="en">
-                  <SelectTrigger className="bg-[#1A1A1A] border border-white/10 text-white rounded-lg text-sm h-10">
+                  <SelectTrigger className="bg-[#1A1A1A] border border-zinc-800 text-white rounded-lg text-sm h-10">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#1A1A1A] border border-white/10">
-                    <SelectItem value="en" className="text-white text-sm focus:bg-white/10 cursor-pointer">English</SelectItem>
-                    <SelectItem value="es" className="text-white text-sm focus:bg-white/10 cursor-pointer">Spanish</SelectItem>
-                    <SelectItem value="fr" className="text-white text-sm focus:bg-white/10 cursor-pointer">French</SelectItem>
-                    <SelectItem value="de" className="text-white text-sm focus:bg-white/10 cursor-pointer">German</SelectItem>
+                  <SelectContent className="bg-[#1A1A1A] border border-zinc-800">
+                    <SelectItem value="en" className="text-white text-sm focus:bg-zinc-800/50 cursor-pointer">English</SelectItem>
+                    <SelectItem value="es" className="text-white text-sm focus:bg-zinc-800/50 cursor-pointer">Spanish</SelectItem>
+                    <SelectItem value="fr" className="text-white text-sm focus:bg-zinc-800/50 cursor-pointer">French</SelectItem>
+                    <SelectItem value="de" className="text-white text-sm focus:bg-zinc-800/50 cursor-pointer">German</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -123,14 +123,14 @@ export default function SettingsPage() {
               <div>
                 <Label htmlFor="timezone" className="text-white/80 font-semibold block mb-2 text-sm">Timezone</Label>
                 <Select defaultValue="utc">
-                  <SelectTrigger className="bg-[#1A1A1A] border border-white/10 text-white rounded-lg text-sm h-10">
+                  <SelectTrigger className="bg-[#1A1A1A] border border-zinc-800 text-white rounded-lg text-sm h-10">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-[#1A1A1A] border border-white/10">
-                    <SelectItem value="utc" className="text-white text-sm focus:bg-white/10 cursor-pointer">UTC</SelectItem>
-                    <SelectItem value="est" className="text-white text-sm focus:bg-white/10 cursor-pointer">EST</SelectItem>
-                    <SelectItem value="cst" className="text-white text-sm focus:bg-white/10 cursor-pointer">CST</SelectItem>
-                    <SelectItem value="pst" className="text-white text-sm focus:bg-white/10 cursor-pointer">PST</SelectItem>
+                  <SelectContent className="bg-[#1A1A1A] border border-zinc-800">
+                    <SelectItem value="utc" className="text-white text-sm focus:bg-zinc-800/50 cursor-pointer">UTC</SelectItem>
+                    <SelectItem value="est" className="text-white text-sm focus:bg-zinc-800/50 cursor-pointer">EST</SelectItem>
+                    <SelectItem value="cst" className="text-white text-sm focus:bg-zinc-800/50 cursor-pointer">CST</SelectItem>
+                    <SelectItem value="pst" className="text-white text-sm focus:bg-zinc-800/50 cursor-pointer">PST</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -144,7 +144,7 @@ export default function SettingsPage() {
 
         {/* Security Settings */}
         <TabsContent value="security" className="space-y-6">
-          <div className="rounded-xl border border-white/10 bg-[#121212] p-6">
+          <div className="rounded-2xl border border-zinc-800 bg-[#111113] p-6">
             <h2 className="text-xl font-bold text-white mb-6">Security Settings</h2>
             <div className="space-y-6 max-w-2xl">
               <div className="space-y-2">
@@ -153,7 +153,7 @@ export default function SettingsPage() {
                   id="password"
                   type="password"
                   placeholder="••••••••"
-                  className="bg-[#1A1A1A] border border-white/10 text-white placeholder:text-white/30 hover:border-white/20 focus:border-white/30 transition-colors rounded-lg text-sm h-10"
+                  className="bg-[#1A1A1A] border border-zinc-800 text-white placeholder:text-white/30 hover:border-zinc-700 focus:border-white/30 transition-colors rounded-lg text-sm h-10"
                 />
               </div>
               <div className="space-y-2">
@@ -162,15 +162,15 @@ export default function SettingsPage() {
                   id="newpassword"
                   type="password"
                   placeholder="••••••••"
-                  className="bg-[#1A1A1A] border border-white/10 text-white placeholder:text-white/30 hover:border-white/20 focus:border-white/30 transition-colors rounded-lg text-sm h-10"
+                  className="bg-[#1A1A1A] border border-zinc-800 text-white placeholder:text-white/30 hover:border-zinc-700 focus:border-white/30 transition-colors rounded-lg text-sm h-10"
                 />
               </div>
 
-              <div className="rounded-xl border border-white/10 bg-[#1A1A1A] p-4">
+              <div className="rounded-2xl border border-zinc-800 bg-[#1A1A1A] p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Lock className="h-5 w-5 text-white/60" />
-                    <span className="text-white/70 text-sm">Two-Factor Authentication</span>
+                    <Lock className="h-5 w-5 text-zinc-500" />
+                    <span className="text-zinc-400 text-sm">Two-Factor Authentication</span>
                   </div>
                   <Switch />
                 </div>
@@ -185,7 +185,7 @@ export default function SettingsPage() {
 
         {/* Notifications */}
         <TabsContent value="notifications" className="space-y-6">
-          <div className="rounded-xl border border-white/10 bg-[#121212] p-6">
+          <div className="rounded-2xl border border-zinc-800 bg-[#111113] p-6">
             <h2 className="text-xl font-bold text-white mb-6">Notification Preferences</h2>
             <div className="space-y-4 max-w-2xl">
               {[
@@ -194,10 +194,10 @@ export default function SettingsPage() {
                 { label: 'Security Updates', desc: 'Important security notices' },
                 { label: 'Product Updates', desc: 'New features and improvements' },
               ].map((item, i) => (
-                <div key={i} className="rounded-lg border border-white/10 bg-[#1A1A1A] p-4 flex items-center justify-between gap-4">
+                <div key={i} className="rounded-lg border border-zinc-800 bg-[#1A1A1A] p-4 flex items-center justify-between gap-4">
                   <div>
                     <p className="text-white/90 font-semibold text-sm">{item.label}</p>
-                    <p className="text-xs text-white/60">{item.desc}</p>
+                    <p className="text-xs text-zinc-500">{item.desc}</p>
                   </div>
                   <Switch defaultChecked={i < 2} />
                 </div>

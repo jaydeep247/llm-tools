@@ -57,12 +57,12 @@ export default function SubscriptionsPage() {
     <div className="space-y-4 sm:space-y-6 md:space-y-8 animate-fade-in-hero">
       {/* Current Plan Banner */}
       {plans.some(p => p.current) && (
-        <div className="rounded-xl border border-white/10 bg-[#121212] p-6">
+        <div className="rounded-2xl border border-zinc-800 bg-[#111113] p-6">
           <div className="space-y-4">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
                 <h2 className="text-xl font-bold text-white">Current Plan: Pro</h2>
-                <p className="text-white/60 mt-1 text-sm">Your subscription renews on March 15, 2024</p>
+                <p className="text-zinc-500 mt-1 text-sm">Your subscription renews on March 15, 2024</p>
               </div>
               <Button className="bg-white text-black hover:bg-slate-100 rounded-full font-semibold px-6 text-sm h-10 w-full md:w-auto cursor-pointer">
                 Manage Billing <ArrowRight className="ml-2 h-4 w-4" />
@@ -70,21 +70,21 @@ export default function SubscriptionsPage() {
             </div>
 
             {/* Plan Details Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-white/10">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-zinc-800">
               <div>
-                <p className="text-xs text-white/60 mb-1">Billing Cycle</p>
+                <p className="text-xs text-zinc-500 mb-1">Billing Cycle</p>
                 <p className="font-semibold text-white text-sm">Monthly</p>
               </div>
               <div>
-                <p className="text-xs text-white/60 mb-1">Renewal Date</p>
+                <p className="text-xs text-zinc-500 mb-1">Renewal Date</p>
                 <p className="font-semibold text-white text-sm">Mar 15, 2024</p>
               </div>
               <div>
-                <p className="text-xs text-white/60 mb-1">Monthly Cost</p>
+                <p className="text-xs text-zinc-500 mb-1">Monthly Cost</p>
                 <p className="font-semibold text-white text-sm">$29.00</p>
               </div>
               <div>
-                <p className="text-xs text-white/60 mb-1">API Usage</p>
+                <p className="text-xs text-zinc-500 mb-1">API Usage</p>
                 <p className="font-semibold text-white text-sm">45% of quota</p>
               </div>
             </div>
@@ -97,10 +97,10 @@ export default function SubscriptionsPage() {
         {plans.map((plan, idx) => (
           <div
             key={idx}
-            className={`relative rounded-xl border p-6 transition-all duration-300 flex flex-col ${
+            className={`relative rounded-2xl border p-6 transition-all duration-300 flex flex-col ${
               plan.current
                 ? 'border-primary/50 bg-[#1A1A1A] md:scale-105 md:z-10 md:shadow-xl md:shadow-black/50'
-                : 'border-white/10 bg-[#121212] hover:border-white/20 hover:bg-[#1A1A1A]'
+                : 'border-zinc-800 bg-[#111113] hover:border-zinc-700 hover:bg-[#1A1A1A]'
             }`}
           >
             {plan.popular && (
@@ -113,14 +113,14 @@ export default function SubscriptionsPage() {
 
             <div className="space-y-2 mb-6">
               <h3 className="text-2xl font-bold text-white">{plan.name}</h3>
-              <p className="text-white/60 text-sm">{plan.description}</p>
+              <p className="text-zinc-500 text-sm">{plan.description}</p>
             </div>
 
             {/* Pricing */}
             <div className="space-y-1 mb-6">
               <div className="flex items-baseline gap-1">
                 <span className="text-4xl font-bold text-white">{plan.price}</span>
-                <span className="text-white/60 text-base">{plan.period}</span>
+                <span className="text-zinc-500 text-base">{plan.period}</span>
               </div>
             </div>
 
@@ -129,7 +129,7 @@ export default function SubscriptionsPage() {
               className={`w-full mb-6 rounded-full font-semibold text-sm h-10 cursor-pointer ${
                 plan.current
                   ? 'bg-white text-black hover:bg-slate-100'
-                  : 'bg-white/10 text-white hover:bg-white/20 border border-white/10'
+                  : 'bg-zinc-800/50 text-white hover:bg-white/20 border border-zinc-800'
               }`}
             >
               {plan.current ? 'Current Plan' : 'Choose Plan'}
@@ -145,7 +145,7 @@ export default function SubscriptionsPage() {
                     <X className="h-5 w-5 text-white/40 shrink-0 mt-0.5" />
                   )}
                   <span className={`text-sm ${
-                    feature.included ? 'text-white/90' : 'text-white/60'
+                    feature.included ? 'text-white/90' : 'text-zinc-500'
                   }`}>
                     {feature.name}
                   </span>
@@ -155,7 +155,7 @@ export default function SubscriptionsPage() {
 
             {/* Contact for Enterprise */}
             {plan.name === 'Enterprise' && (
-              <Button className="w-full mt-6 border border-white/10 bg-white/5 text-white hover:bg-white/10 rounded-full font-semibold text-sm h-10 cursor-pointer">
+              <Button className="w-full mt-6 border border-zinc-800 bg-zinc-800/40 text-white hover:bg-zinc-800/50 rounded-full font-semibold text-sm h-10 cursor-pointer">
                 Contact Sales
               </Button>
             )}
@@ -187,10 +187,10 @@ export default function SubscriptionsPage() {
           ].map((faq, idx) => (
             <div
               key={idx}
-              className="rounded-xl border border-white/10 bg-[#121212] p-4 hover:border-white/20 hover:bg-[#1A1A1A] transition-all duration-300"
+              className="rounded-2xl border border-zinc-800 bg-[#111113] p-4 hover:border-zinc-700 hover:bg-[#1A1A1A] transition-all duration-300"
             >
               <h3 className="font-semibold mb-2 text-white text-base">{faq.q}</h3>
-              <p className="text-sm text-white/60">{faq.a}</p>
+              <p className="text-sm text-zinc-500">{faq.a}</p>
             </div>
           ))}
         </div>

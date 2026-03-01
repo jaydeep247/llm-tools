@@ -72,8 +72,8 @@ export default function ProjectDetailPage() {
     return (
       <div className="space-y-6 sm:space-y-8 animate-fade-in-hero">
         <div className="space-y-2">
-          <div className="h-8 sm:h-10 md:h-12 w-48 sm:w-64 bg-white/5 rounded animate-pulse"></div>
-          <div className="h-4 sm:h-5 w-32 sm:w-48 bg-white/5 rounded animate-pulse"></div>
+          <div className="h-8 sm:h-10 md:h-12 w-48 sm:w-64 bg-zinc-800/40 rounded animate-pulse"></div>
+          <div className="h-4 sm:h-5 w-32 sm:w-48 bg-zinc-800/40 rounded animate-pulse"></div>
         </div>
       </div>
     )
@@ -85,7 +85,7 @@ export default function ProjectDetailPage() {
         <div className="flex flex-col items-center justify-center py-20">
           <AlertCircle className="h-16 w-16 text-red-400 mb-4" />
           <h2 className="text-2xl font-bold text-white mb-2">Project not found</h2>
-          <p className="text-white/60 mb-4">The project you're looking for doesn't exist</p>
+          <p className="text-zinc-500 mb-4">The project you're looking for doesn't exist</p>
           <Button onClick={() => router.push('/dashboard/projects')} className="bg-white text-black hover:bg-slate-100">
             Back to Projects
           </Button>
@@ -117,7 +117,7 @@ export default function ProjectDetailPage() {
       case 'created':
         return 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20 hover:bg-zinc-500/20'
       default:
-        return 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10'
+        return 'bg-zinc-800/40 text-zinc-500 border-zinc-800 hover:bg-zinc-800/50'
     }
   }
 
@@ -177,7 +177,7 @@ export default function ProjectDetailPage() {
                 <Input
                   value={tempName}
                   onChange={(e) => setTempName(e.target.value)}
-                  className="text-2xl sm:text-3xl md:text-4xl font-bold text-white bg-white/10 border-white/20 h-auto py-1"
+                  className="text-2xl sm:text-3xl md:text-4xl font-bold text-white bg-zinc-800/50 border-zinc-700 h-auto py-1"
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleSaveName()
@@ -197,7 +197,7 @@ export default function ProjectDetailPage() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 text-white/50 hover:text-white hover:bg-white/10 pointer-events-none group-hover:pointer-events-auto shrink-0"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 text-white/50 hover:text-white hover:bg-zinc-800/50 pointer-events-none group-hover:pointer-events-auto shrink-0"
                   onClick={() => {
                     setTempName(project.name)
                     setEditingName(true)
@@ -216,7 +216,7 @@ export default function ProjectDetailPage() {
                 <Input
                   value={tempDesc}
                   onChange={(e) => setTempDesc(e.target.value)}
-                  className="text-white/60 text-sm sm:text-base bg-white/10 border-white/20 h-auto py-1"
+                  className="text-zinc-500 text-sm sm:text-base bg-zinc-800/50 border-zinc-700 h-auto py-1"
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleSaveDesc()
@@ -232,13 +232,13 @@ export default function ProjectDetailPage() {
               </div>
             ) : (
               <div className="group flex items-center gap-2 max-w-full w-fit">
-                <p className="text-white/60 text-sm sm:text-base truncate">
+                <p className="text-zinc-500 text-sm sm:text-base truncate">
                   {project.description || 'No description'}
                 </p>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 text-white/50 hover:text-white hover:bg-white/10 pointer-events-none group-hover:pointer-events-auto shrink-0"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 text-white/50 hover:text-white hover:bg-zinc-800/50 pointer-events-none group-hover:pointer-events-auto shrink-0"
                   onClick={() => {
                     setTempDesc(project.description || '')
                     setEditingDesc(true)
@@ -270,7 +270,7 @@ export default function ProjectDetailPage() {
 
       {/* Start New Session Card */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-4">
-        <div className="rounded-xl p-3 sm:p-4 md:p-5 border border-white/10 bg-[#121212] transition-all duration-300 flex flex-col h-full">
+        <div className="rounded-2xl p-3 sm:p-4 md:p-5 border border-zinc-800 bg-[#111113] transition-all duration-300 flex flex-col h-full">
           <div className="space-y-3 flex-1 flex flex-col justify-center">
             {/* Header */}
             <div className="flex items-start justify-between gap-2 mb-2">
@@ -278,7 +278,7 @@ export default function ProjectDetailPage() {
                 <h3 className="font-semibold text-sm sm:text-base text-white transition-colors">
                   Start New Session
                 </h3>
-                <p className="text-[10px] sm:text-xs text-white/60 mt-0.5">
+                <p className="text-[10px] sm:text-xs text-zinc-500 mt-0.5">
                   Enter a URL to instantly start Brand Sentiment, Competitors &amp; AI Share of Voice analysis
                 </p>
               </div>
@@ -300,7 +300,7 @@ export default function ProjectDetailPage() {
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && !isStartingCrawl && handleStartSession()}
-                  className="bg-white/5 border-white/10 text-white placeholder:text-white/40 text-xs sm:text-sm h-8 sm:h-9 flex-1"
+                  className="bg-zinc-800/40 border-zinc-800 text-white placeholder:text-zinc-600 text-xs sm:text-sm h-8 sm:h-9 flex-1"
                   disabled={isStartingCrawl}
                 />
 
@@ -334,16 +334,16 @@ export default function ProjectDetailPage() {
         {isLoadingSessions ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="rounded-xl p-3 sm:p-4 md:p-5 border border-white/10 bg-[#121212] animate-pulse">
-                <div className="h-20 sm:h-24 bg-white/5 rounded"></div>
+              <div key={i} className="rounded-2xl p-3 sm:p-4 md:p-5 border border-zinc-800 bg-[#111113] animate-pulse">
+                <div className="h-20 sm:h-24 bg-zinc-800/40 rounded"></div>
               </div>
             ))}
           </div>
         ) : sessions.length === 0 ? (
-          <div className="rounded-xl p-8 sm:p-10 md:p-12 border border-white/10 bg-[#121212] text-center">
+          <div className="rounded-2xl p-8 sm:p-10 md:p-12 border border-zinc-800 bg-[#111113] text-center">
             <Globe className="h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 text-white/20 mx-auto mb-3 sm:mb-4" />
             <h3 className="text-base sm:text-lg md:text-xl font-semibold text-white mb-1.5 sm:mb-2">No sessions yet</h3>
-            <p className="text-xs sm:text-sm text-white/60 mb-4 sm:mb-6">Start a new crawl to see sessions here</p>
+            <p className="text-xs sm:text-sm text-zinc-500 mb-4 sm:mb-6">Start a new crawl to see sessions here</p>
             <Button 
               onClick={() => router.push('/dashboard')}
               className="bg-white text-black hover:bg-slate-100 rounded-full text-sm cursor-pointer"
@@ -356,7 +356,7 @@ export default function ProjectDetailPage() {
             {sessions.map((session: CrawlSession) => (
               <div
                 key={session.id}
-                className="rounded-xl p-3 sm:p-4 md:p-5 border border-white/10 bg-[#121212] transition-all duration-300 flex flex-col"
+                className="rounded-2xl p-3 sm:p-4 md:p-5 border border-zinc-800 bg-[#111113] transition-all duration-300 flex flex-col"
               >
                 <div className="flex flex-col h-full">
                   {/* Top Meta: Date and Status */}
@@ -414,15 +414,15 @@ export default function ProjectDetailPage() {
 
                   {/* Tags / Config Section */}
                   <div className="flex flex-wrap gap-2 mb-6">
-                    <div className="px-2 py-1 rounded bg-white/5 border border-white/10 text-[10px] text-white/70">
+                    <div className="px-2 py-1 rounded bg-zinc-800/40 border border-zinc-800 text-[10px] text-zinc-400">
                       Subdomains: <span className={session.allowSubdomains ? 'text-green-400' : 'text-red-400'}>{session.allowSubdomains ? 'Yes' : 'No'}</span>
                     </div>
                     {session.completedAt && (
-                      <div className="px-2 py-1 rounded bg-white/5 border border-white/10 text-[10px] text-white/70">
+                      <div className="px-2 py-1 rounded bg-zinc-800/40 border border-zinc-800 text-[10px] text-zinc-400">
                         Duration: {Math.round((new Date(session.completedAt).getTime() - new Date(session.startedAt || 0).getTime()) / 1000)}s
                       </div>
                     )}
-                    <div className="px-2 py-1 rounded bg-white/5 border border-white/10 text-[10px] text-white/70">
+                    <div className="px-2 py-1 rounded bg-zinc-800/40 border border-zinc-800 text-[10px] text-zinc-400">
                       Resources: {session.totalResources}
                     </div>
                   </div>

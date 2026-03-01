@@ -46,17 +46,17 @@ export default function DashboardPage() {
         {/* Total Projects Card */}
         <button 
           onClick={() => router.push('/dashboard/projects')}
-          className="group rounded-xl p-3 sm:p-4 border border-white/10 bg-[#121212] hover:border-white/20 hover:bg-[#1A1A1A] transition-all duration-300 cursor-pointer text-left"
+          className="group rounded-xl p-3 sm:p-4 border border-white/10 bg-[#121212] hover:border-blue-500/20 hover:bg-[#1A1A1A] transition-all duration-300 cursor-pointer text-left"
         >
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-white/70">Total Projects</span>
-              <FolderOpen className="h-4 w-4 text-white/60 group-hover:text-white/80 transition-colors" />
+              <FolderOpen className="h-4 w-4 text-blue-400 group-hover:text-blue-300 transition-colors" />
             </div>
             <div className="space-y-1">
               <p className="text-xl sm:text-2xl font-bold text-white">{totalProjects}</p>
               <p className="text-[10px] text-white/60 flex items-center gap-1">
-                <TrendingUp className="h-3 w-3 text-white/80" />
+                <TrendingUp className="h-3 w-3 text-blue-400" />
                 Click to manage
               </p>
             </div>
@@ -64,30 +64,30 @@ export default function DashboardPage() {
         </button>
 
         {/* Current Plan Card */}
-        <div className="group rounded-xl p-3 sm:p-4 border border-white/10 bg-[#121212] hover:border-white/20 hover:bg-[#1A1A1A] transition-all duration-300 cursor-pointer">
+        <div className="group rounded-xl p-3 sm:p-4 border border-white/10 bg-[#121212] hover:border-violet-500/20 hover:bg-[#1A1A1A] transition-all duration-300 cursor-pointer">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-white/70">Current Plan</span>
-              <Zap className="h-4 w-4 text-white/60 group-hover:text-white/80 transition-colors" />
+              <Zap className="h-4 w-4 text-violet-400 group-hover:text-violet-300 transition-colors" />
             </div>
             <div className="space-y-1">
-              <p className="text-xl sm:text-2xl font-bold text-white">Pro</p>
+              <p className="text-xl sm:text-2xl font-bold text-violet-300">Pro</p>
               <p className="text-[10px] text-white/60">Renews on Dec 15, 2024</p>
             </div>
           </div>
         </div>
 
         {/* API Usage Card */}
-        <div className="group rounded-xl p-3 sm:p-4 border border-white/10 bg-[#121212] hover:border-white/20 hover:bg-[#1A1A1A] transition-all duration-300 cursor-pointer">
+        <div className="group rounded-xl p-3 sm:p-4 border border-white/10 bg-[#121212] hover:border-emerald-500/20 hover:bg-[#1A1A1A] transition-all duration-300 cursor-pointer">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-white/70">API Usage</span>
-              <TrendingUp className="h-4 w-4 text-white/60 group-hover:text-white/80 transition-colors" />
+              <TrendingUp className="h-4 w-4 text-emerald-400 group-hover:text-emerald-300 transition-colors" />
             </div>
             <div className="space-y-2">
               <p className="text-xl sm:text-2xl font-bold text-white">45%</p>
               <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
-                <div className="bg-white/60 h-full rounded-full w-[45%]" />
+                <div className="bg-emerald-500 h-full rounded-full w-[45%]" />
               </div>
               <p className="text-[10px] text-white/60">Of monthly quota</p>
             </div>
@@ -95,11 +95,11 @@ export default function DashboardPage() {
         </div>
 
         {/* Team Members Card */}
-        <div className="group rounded-xl p-3 sm:p-4 border border-white/10 bg-[#121212] hover:border-white/20 hover:bg-[#1A1A1A] transition-all duration-300 cursor-pointer">
+        <div className="group rounded-xl p-3 sm:p-4 border border-white/10 bg-[#121212] hover:border-amber-500/20 hover:bg-[#1A1A1A] transition-all duration-300 cursor-pointer">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-white/70">Team Members</span>
-              <Users className="h-4 w-4 text-white/60 group-hover:text-white/80 transition-colors" />
+              <Users className="h-4 w-4 text-amber-400 group-hover:text-amber-300 transition-colors" />
             </div>
             <div className="space-y-1">
               <p className="text-xl sm:text-2xl font-bold text-white">5</p>
@@ -115,7 +115,7 @@ export default function DashboardPage() {
           <h2 className="text-base sm:text-lg font-bold text-white">Recent Projects</h2>
           <Button 
             onClick={() => router.push('/dashboard/projects')}
-            className="bg-white text-black hover:bg-slate-100 rounded-full font-semibold text-xs px-3 h-8 cursor-pointer"
+            className="bg-indigo-600 text-white hover:bg-indigo-500 rounded-full font-semibold text-xs px-3 h-8 cursor-pointer"
           >
             View All
             <ArrowRight className="ml-1 h-3 w-3" />
@@ -201,7 +201,7 @@ export default function DashboardPage() {
               <p className="text-sm text-white/60 mb-4">Create your first project to get started</p>
               <Button 
                 onClick={() => router.push('/dashboard/projects')}
-                className="bg-white text-black hover:bg-slate-100 rounded-full font-semibold text-xs cursor-pointer"
+                className="bg-indigo-600 text-white hover:bg-indigo-500 rounded-full font-semibold text-xs cursor-pointer"
               >
                 Create Project
               </Button>
@@ -216,19 +216,19 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <button 
             onClick={() => router.push('/dashboard/projects')}
-            className="rounded-xl p-3 sm:p-4 border border-white/10 bg-[#121212] hover:border-white/20 hover:bg-[#1A1A1A] transition-all duration-300 text-left group cursor-pointer"
+            className="rounded-xl p-3 sm:p-4 border border-white/10 bg-[#121212] hover:border-blue-500/20 hover:bg-[#1A1A1A] transition-all duration-300 text-left group cursor-pointer"
           >
             <div className="space-y-1">
-              <p className="text-sm sm:text-base font-semibold text-white group-hover:text-white/90">+ New Project</p>
+              <p className="text-sm sm:text-base font-semibold text-blue-300 group-hover:text-blue-200">+ New Project</p>
               <p className="text-[10px] sm:text-xs text-white/60">Create a new project to organize your crawls</p>
             </div>
           </button>
           <button 
             onClick={() => router.push('/dashboard/usage')}
-            className="rounded-xl p-3 sm:p-4 border border-white/10 bg-[#121212] hover:border-white/20 hover:bg-[#1A1A1A] transition-all duration-300 text-left group cursor-pointer"
+            className="rounded-xl p-3 sm:p-4 border border-white/10 bg-[#121212] hover:border-emerald-500/20 hover:bg-[#1A1A1A] transition-all duration-300 text-left group cursor-pointer"
           >
             <div className="space-y-1">
-              <p className="text-sm sm:text-base font-semibold text-white group-hover:text-white/90">View Usage</p>
+              <p className="text-sm sm:text-base font-semibold text-emerald-300 group-hover:text-emerald-200">View Usage</p>
               <p className="text-[10px] sm:text-xs text-white/60">Check your API usage and quota</p>
             </div>
           </button>

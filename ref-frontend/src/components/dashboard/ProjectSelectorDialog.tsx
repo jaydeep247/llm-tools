@@ -147,7 +147,7 @@ export function ProjectSelectorDialog({ isOpen, onClose, onSelectProject, defaul
                     <button
                       key={project.id}
                       onClick={() => setSelectedProjectId(project.id)}
-                      className={`w-full text-left px-4 py-4 rounded-xl border-2 transition-all duration-200 cursor-pointer ${
+                      className={`w-full text-left px-4 py-4 rounded-2xl border-2 transition-all duration-200 cursor-pointer ${
                         selectedProjectId === project.id
                           ? 'border-slate-900 bg-slate-50'
                           : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'

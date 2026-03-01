@@ -107,13 +107,13 @@ export function SessionNavbar({ projectId, projectName, sessionId, sessionUrl, a
         <Button
           variant="ghost"
           size="icon"
-          className="h-9 w-9 rounded-xl text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60"
+          className="h-9 w-9 rounded-xl text-zinc-500 hover:text-indigo-400 hover:bg-zinc-800/60"
         >
           <Settings className="h-4 w-4" />
         </Button>
 
         {/* User avatar */}
-        <div className="w-8 h-8 rounded-xl bg-zinc-700 flex items-center justify-center text-white text-xs font-semibold ml-1 cursor-pointer hover:ring-2 hover:ring-zinc-600 transition-all">
+        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-semibold ml-1 cursor-pointer hover:ring-2 hover:ring-indigo-500/50 transition-all">
           U
         </div>
       </div>

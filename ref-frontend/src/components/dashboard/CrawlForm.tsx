@@ -68,18 +68,18 @@ export function CrawlForm({ onSubmit, onStop, loading = false, isCrawling = fals
         <Select value={projectId} onValueChange={setProjectId} disabled={loading}>
           <SelectTrigger 
             id="project"
-            className="bg-white/10 border-white/20 text-white placeholder:text-white/40 hover:bg-white/15 focus:bg-white/15 rounded-xl"
+            className="bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-600 hover:bg-white/15 focus:bg-white/15 rounded-2xl"
           >
             <SelectValue placeholder="Choose a project..." />
           </SelectTrigger>
-          <SelectContent className="bg-slate-900 border-white/20">
+          <SelectContent className="bg-slate-900 border-zinc-700">
             {isLoadingProjects ? (
               <div className="flex items-center justify-center py-4">
-                <Loader2 className="h-4 w-4 animate-spin text-white/60" />
-                <span className="ml-2 text-sm text-white/60">Loading projects...</span>
+                <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />
+                <span className="ml-2 text-sm text-zinc-500">Loading projects...</span>
               </div>
             ) : projects.length === 0 ? (
-              <div className="py-4 text-center text-sm text-white/60">
+              <div className="py-4 text-center text-sm text-zinc-500">
                 No projects found. Create one first.
               </div>
             ) : (
@@ -106,14 +106,14 @@ export function CrawlForm({ onSubmit, onStop, loading = false, isCrawling = fals
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="Enter website URL (e.g., example.com or https://example.com)"
-            className="flex-1 bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:bg-white/15 rounded-xl"
+            className="flex-1 bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-600 focus:bg-white/15 rounded-2xl"
             disabled={loading}
             required
           />
           <Button
             type="submit"
             disabled={loading || !url.trim() || !projectId}
-            className="bg-white text-black hover:bg-slate-100 rounded-xl px-6 font-semibold"
+            className="bg-white text-black hover:bg-slate-100 rounded-2xl px-6 font-semibold"
           >
             {loading ? (
               <>
@@ -133,7 +133,7 @@ export function CrawlForm({ onSubmit, onStop, loading = false, isCrawling = fals
               onClick={onStop}
               disabled={!isProcessActive || stopping}
               variant="destructive"
-              className="rounded-xl px-6 font-semibold"
+              className="rounded-2xl px-6 font-semibold"
             >
               {stopping ? (
                 <>
@@ -152,7 +152,7 @@ export function CrawlForm({ onSubmit, onStop, loading = false, isCrawling = fals
       </div>
 
       {/* Run Crawl Option */}
-      <div className="flex items-center space-x-2 rounded-xl p-4 bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
+      <div className="flex items-center space-x-2 rounded-2xl p-4 bg-zinc-800/40 border border-zinc-800 hover:bg-zinc-800/50 transition-all">
         <Switch
           id="runCrawl"
           checked={runCrawl}
@@ -167,7 +167,7 @@ export function CrawlForm({ onSubmit, onStop, loading = false, isCrawling = fals
 
       {/* Advanced Options */}
       {runCrawl && (
-        <div className="space-y-4 rounded-xl p-4 bg-white/5 border border-white/10">
+        <div className="space-y-4 rounded-2xl p-4 bg-zinc-800/40 border border-zinc-800">
           <button
             type="button"
             onClick={() => setShowAdvanced(!showAdvanced)}
@@ -182,7 +182,7 @@ export function CrawlForm({ onSubmit, onStop, loading = false, isCrawling = fals
           </button>
 
           {showAdvanced && (
-            <div className="space-y-4 pt-4 border-t border-white/10">
+            <div className="space-y-4 pt-4 border-t border-zinc-800">
               {/* Allow Subdomains */}
               <div className="flex items-center justify-between">
                 <Label htmlFor="allowSubdomains" className="text-white/80 text-sm cursor-pointer">
@@ -218,18 +218,18 @@ export function CrawlForm({ onSubmit, onStop, loading = false, isCrawling = fals
 
               {/* Audit Device (only show if runAudits is enabled) */}
               {runAudits && (
-                <div className="space-y-2 pl-4 border-l-2 border-white/20">
+                <div className="space-y-2 pl-4 border-l-2 border-zinc-700">
                   <Label htmlFor="auditDevice" className="text-white/80 text-sm">
                     Audit Device
                   </Label>
                   <Select value={auditDevice} onValueChange={(value: 'mobile' | 'desktop') => setAuditDevice(value)} disabled={loading}>
                     <SelectTrigger 
                       id="auditDevice"
-                      className="bg-white/10 border-white/20 text-white hover:bg-white/15"
+                      className="bg-zinc-800/50 border-zinc-700 text-white hover:bg-white/15"
                     >
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-slate-900 border-white/20">
+                    <SelectContent className="bg-slate-900 border-zinc-700">
                       <SelectItem value="desktop" className="text-white">Desktop</SelectItem>
                       <SelectItem value="mobile" className="text-white">Mobile</SelectItem>
                     </SelectContent>
@@ -257,12 +257,12 @@ export function CrawlForm({ onSubmit, onStop, loading = false, isCrawling = fals
 
       {/* Loading Progress */}
       {loading && (
-        <div className="rounded-xl p-4 bg-white/5 border border-white/10">
-          <div className="flex items-center gap-3 text-white/70 text-sm">
+        <div className="rounded-2xl p-4 bg-zinc-800/40 border border-zinc-800">
+          <div className="flex items-center gap-3 text-zinc-400 text-sm">
             <Loader2 className="h-5 w-5 animate-spin" />
             <span>Fetching data. Please wait...</span>
           </div>
-          <div className="mt-3 h-1 bg-white/10 rounded-full overflow-hidden">
+          <div className="mt-3 h-1 bg-zinc-800/50 rounded-full overflow-hidden">
             <div className="h-full bg-white/60 rounded-full animate-progress-bar" />
           </div>
         </div>

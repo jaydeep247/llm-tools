@@ -22,7 +22,7 @@ export function GreetingHeader() {
   const displayName = user?.name || user?.email?.split('@')[0] || 'User'
 
   return (
-    <div className="relative overflow-hidden rounded-xl bg-linear-to-r from-primary/20 via-primary/5 to-[#0A0A0A] border-white/10 p-6 sm:p-8 mb-6 sm:mb-8">
+    <div className="relative overflow-hidden rounded-xl bg-linear-to-r from-primary/20 via-primary/5 to-[#09090B] border-white/10 p-6 sm:p-8 mb-6 sm:mb-8">
       <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-2">
           <h1 className="text-xl font-extralight text-white tracking-tight">

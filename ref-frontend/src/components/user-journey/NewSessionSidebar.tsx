@@ -50,6 +50,17 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+const sectionColors: Record<string, string> = {
+  overview: 'text-amber-400',
+  'audit-center': 'text-rose-400',
+  'ai-visibility': 'text-violet-400',
+  'prompt-intelligence': 'text-blue-400',
+  'prompt-tracking': 'text-cyan-400',
+  competitors: 'text-orange-400',
+  'reports-and-alerts': 'text-yellow-400',
+  'impact-analytics': 'text-emerald-400',
+}
+
 interface SessionSidebarProps {
   activeSection?: string
   onSectionChange?: (section: string) => void
@@ -220,11 +231,11 @@ export function SessionSidebar({
               className={cn(
                 'flex items-center gap-3 w-full px-3 py-2 rounded-sm text-[13px] font-medium transition-colors duration-150 cursor-pointer',
                 activeSection === dashboard.id
-                  ? 'bg-zinc-800 text-white'
-                  : 'text-white hover:bg-zinc-800/40'
+                  ? 'bg-indigo-500/10 text-indigo-200'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
               )}
             >
-              <dashboard.icon className="w-4 h-4 shrink-0 text-white" />
+              <dashboard.icon className={cn('w-4 h-4 shrink-0', activeSection === dashboard.id ? 'text-indigo-400' : 'text-zinc-500')} />
               <span>{dashboard.label}</span>
             </button>
           </div>
@@ -237,8 +248,8 @@ export function SessionSidebar({
 
               {/* Group label – not clickable, white with icon */}
               <div className="flex items-center gap-2 px-8 py-1">
-                <section.icon className="w-3.5 h-3.5 shrink-0 text-white" />
-                <span className="text-[12px] font-semibold text-white uppercase tracking-wider">
+                <section.icon className={cn('w-3.5 h-3.5 shrink-0', sectionColors[section.id] || 'text-zinc-400')} />
+                <span className="text-[12px] font-semibold text-zinc-400 uppercase tracking-wider">
                   {section.label}
                 </span>
               </div>
@@ -255,11 +266,11 @@ export function SessionSidebar({
                       className={cn(
                         'flex items-center gap-2.5 w-full px-3 py-1.5 rounded-sm text-[12.5px] transition-colors duration-150 cursor-pointer text-left',
                         isActive
-                          ? 'bg-zinc-800 text-white font-medium'
+                          ? 'bg-indigo-500/10 text-white font-medium'
                           : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/40'
                       )}
                     >
-                      <ChildIcon className={cn('w-3.5 h-3.5 shrink-0', isActive ? 'text-zinc-300' : 'text-zinc-600')} />
+                      <ChildIcon className={cn('w-3.5 h-3.5 shrink-0', isActive ? 'text-indigo-400' : 'text-zinc-600')} />
                       <span className="truncate">{child.label}</span>
                     </button>
                   )
