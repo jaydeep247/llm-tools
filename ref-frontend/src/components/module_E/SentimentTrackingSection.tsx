@@ -502,7 +502,7 @@ export default function SentimentTrackingSection({ jobId, sentimentData: initial
       <Card className="rounded-xl border p-6">
         <div className="space-y-4">
           <div className="flex items-center gap-2">
-            <Brain className="w-4 h-4 text-purple-400" />
+            <Brain className="w-4 h-4 text-blue-400" />
             <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground">
               Breakdown by AI Model
             </h4>
@@ -599,10 +599,10 @@ export default function SentimentTrackingSection({ jobId, sentimentData: initial
       </Card >
 
       {/* Insights Panel */}
-      < Card className="rounded-xl border p-6 bg-liner-to-br from-purple-500/5 to-blue-500/5" >
+      < Card className="rounded-xl border p-6 bg-zinc-800/50 border-zinc-800" >
         <div className="space-y-2">
           <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-purple-400" />
+            <AlertCircle className="w-4 h-4 text-blue-400" />
             What This Means
           </h4>
           <ul className="space-y-1 text-xs text-muted-foreground">
@@ -619,7 +619,7 @@ export default function SentimentTrackingSection({ jobId, sentimentData: initial
               </span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-purple-400 mt-0.5">•</span>
+              <span className="text-blue-400 mt-0.5">•</span>
               <span>
                 <strong>Higher scores:</strong> Better AI perception and stronger organic recommendations in AI-powered search
               </span>

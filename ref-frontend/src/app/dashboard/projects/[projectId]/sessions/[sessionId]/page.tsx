@@ -10,7 +10,7 @@ import { SessionLayout } from '@/components/layout/SessionLayout'
 import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable, AuditChecker } from '@/components/module_A'
 import { AIIntelligenceModule, ContentMetricsModule, AIVisibilityScorecards, EntityGapAnalysis, AIAnswerPreview, ImprovementActions, ModelComparison } from '@/components/module_C'
 import { SiteStructure } from '@/components/module_D/site-structure'
-import { AICitationRanking, ContentConsistencyEntityCoverage, BrandAnalysisSection, SentimentTrackingSection, CompetitorMentionsSection, SentimentTracking, ShareOfVoiceSection, TrendsByModelSection } from '@/components/module_E'
+import { AICitationRanking, ContentConsistencyEntityCoverage, BrandAnalysisSection, SentimentTrackingSection, CompetitorMentionsSection, SentimentTracking, ShareOfVoiceSection, TrendsByModelSection, DashboardOverview } from '@/components/module_E'
 import VisibilityComparisonSection from '@/components/module_F/VisibilityComparisonSection'
 import CompetitorWinsLibrary from '@/components/module_F/CompetitorWinsLibrary'
 import CompetitorGrowthTrends from '@/components/module_F/CompetitorGrowthTrends'
@@ -118,17 +118,16 @@ export default function SessionDetailPage() {
   const isLoading = isLoadingSession || isLoadingProject || isLoadingJobs || (!!jobId && isLoadingResults)
   const error = sessionError ? 'Failed to load session' : null
 
-  // Ensure URL always has tab parameter with default 'crawler'
-  // Ensure URL always has tab parameter with default 'crawler'
+  // Ensure URL always has tab parameter with default 'dashboard'
   useEffect(() => {
     if (!searchParams.get('tab')) {
       const params = new URLSearchParams(searchParams.toString())
-      params.set('tab', 'crawler')
+      params.set('tab', 'dashboard')
       router.replace(`/dashboard/projects/${projectId}/sessions/${sessionId}?${params.toString()}`, { scroll: false })
     }
   }, [searchParams, projectId, sessionId, router])
 
-  const tab = searchParams.get('tab') || 'crawler'
+  const tab = searchParams.get('tab') || 'dashboard'
 
   const activeSection = tab
 
@@ -722,10 +721,20 @@ export default function SessionDetailPage() {
       projectId={projectId}
       projectName={project?.name || "Unknown Project"}
       sessionId={sessionId}
+      sessionUrl={session?.startUrl}
       activeSection={activeSection}
       onSectionChange={handleSectionChange}
     >
       <div className="p-6 space-y-6 sm:space-y-8 animate-fade-in-hero">
+        {/* Dashboard Overview — top-level summary of quick_start_runner fields */}
+        {activeSection === 'dashboard' && (
+          <DashboardOverview
+            jobId={jobId}
+            url={session?.startUrl || ''}
+            onNavigate={handleSectionChange}
+          />
+        )}
+
         {/* Show Crawler Status only on crawler tab */}
         {activeSection === 'crawler' && (
           <>
@@ -1100,29 +1109,17 @@ export default function SessionDetailPage() {
 
         {activeSection === 'prompt-difficulty' && (
           <div className="space-y-6">
-            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
-              <BrandAnalysisSection jobId={jobId} />
-            </div>
-            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
-              <CompetitorMentionsSection jobId={jobId} />
-            </div>
+            <BrandAnalysisSection jobId={jobId} />
+            <CompetitorMentionsSection jobId={jobId} />
           </div>
         )}
 
         {activeSection === 'share-of-voice' && (
-          <div className="space-y-6">
-            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
-              <ShareOfVoiceSection jobId={jobId} />
-            </div>
-          </div>
+          <ShareOfVoiceSection jobId={jobId} />
         )}
 
         {activeSection === 'trends-by-model' && (
-          <div className="space-y-6">
-            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
-              <TrendsByModelSection jobId={jobId} />
-            </div>
-          </div>
+          <TrendsByModelSection jobId={jobId} />
         )}
 
         {activeSection === 'visibility-comparision' && (
@@ -1172,19 +1169,11 @@ export default function SessionDetailPage() {
         )}
 
         {activeSection === 'keyword-intelligence' && (
-          <div className="space-y-6">
-            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
-              <ContentConsistencyEntityCoverage jobId={jobId} />
-            </div>
-          </div>
+          <ContentConsistencyEntityCoverage jobId={jobId} />
         )}
 
         {activeSection === 'prompt-opportunities' && (
-          <div className="space-y-6">
-            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
-              <AICitationRanking jobId={jobId} url={session?.startUrl || ''} />
-            </div>
-          </div>
+          <AICitationRanking jobId={jobId} url={session?.startUrl || ''} />
         )}
 
 

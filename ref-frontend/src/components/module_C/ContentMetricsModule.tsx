@@ -59,18 +59,18 @@ function ScoreCard({ title, score, value, icon, color, trend, subStats, error, i
 
   if (isLoading) {
     return (
-      <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10 animate-pulse h-full">
+      <div className="bg-zinc-800/50 rounded-2xl p-5 border border-zinc-800 animate-pulse h-full">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-white/10" />
-          <div className="h-4 w-24 bg-white/10 rounded" />
+          <div className="w-10 h-10 rounded-xl bg-zinc-800" />
+          <div className="h-4 w-24 bg-zinc-800 rounded" />
         </div>
-        <div className="h-12 w-20 bg-white/10 rounded mt-4" />
+        <div className="h-12 w-20 bg-zinc-800 rounded mt-4" />
       </div>
     )
   }
 
   return (
-    <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10 hover:bg-white/5 transition-all duration-300 group h-full flex flex-col">
+    <div className="bg-zinc-800/50 rounded-2xl p-5 border border-zinc-800 hover:bg-zinc-800/50 transition-all duration-300 group h-full flex flex-col">
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-start gap-3">
@@ -78,8 +78,8 @@ function ScoreCard({ title, score, value, icon, color, trend, subStats, error, i
             {icon}
           </div>
           <div>
-            <span className="text-sm font-medium text-white/90 block">{title}</span>
-            {description && <span className="text-xs text-white/50 block mt-0.5 leading-relaxed">{description}</span>}
+            <span className="text-sm font-medium text-zinc-100 block">{title}</span>
+            {description && <span className="text-xs text-zinc-400 block mt-0.5 leading-relaxed">{description}</span>}
           </div>
         </div>
         {score !== undefined && score !== null && !error && (
@@ -107,10 +107,10 @@ function ScoreCard({ title, score, value, icon, color, trend, subStats, error, i
               ) : score !== undefined && score !== null ? (
                 <>
                   <span className="text-4xl font-bold text-white">{score}</span>
-                  <span className="text-sm text-white/40">{suffix}</span>
+                  <span className="text-sm text-zinc-500">{suffix}</span>
                 </>
               ) : (
-                <span className="text-3xl font-bold text-white/30">--</span>
+                <span className="text-3xl font-bold text-zinc-600">--</span>
               )}
             </div>
           )}
@@ -132,13 +132,13 @@ function ScoreCard({ title, score, value, icon, color, trend, subStats, error, i
       <div className="mt-auto space-y-3">
         {subStats && subStats.length > 0 && !error && (
           <div className={cn(
-            "grid gap-3 pt-3 border-t border-white/5",
+            "grid gap-3 pt-3 border-t border-zinc-800/50",
             subStats.length === 1 ? "grid-cols-1" : "grid-cols-2"
           )}>
             {subStats.map((stat, i) => (
               <div key={i}>
-                <div className="text-xs text-white/40 mb-1">{stat.label}</div>
-                <div className="text-sm font-semibold text-white/90 truncate">{stat.value}</div>
+                <div className="text-xs text-zinc-500 mb-1">{stat.label}</div>
+                <div className="text-sm font-semibold text-zinc-100 truncate">{stat.value}</div>
               </div>
             ))}
           </div>
@@ -242,7 +242,7 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
       {/* Header Section with Tabs */}
       <div className="space-y-6">
         {/* Tab Navigation - Larger size */}
-        <div className="flex flex-wrap items-center gap-2 border-white/10 bg-white/5 backdrop-blur-xl p-2 rounded-lg border w-fit">
+        <div className="flex flex-wrap items-center gap-2 border-zinc-800 bg-zinc-800/50 p-2 rounded-lg border w-fit">
           <Button
             onClick={() => handleTabChange('content-analysis')}
             variant={activeTab === 'content-analysis' ? 'default' : 'ghost'}
@@ -287,11 +287,11 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
 
       {/* Content Analysis Metrics Tab */}
       {activeTab === 'content-analysis' && (
-        <div className="rounded-lg border border-white/10 bg-white/5 backdrop-blur-xl p-6 space-y-6">
+        <div className="rounded-lg border border-zinc-800 bg-zinc-800/50 p-6 space-y-6">
           {/* Empty State + Trigger */}
           {!contentMetrics && !isLoadingMetrics && !metricsError && (
-            <div className="p-6 border border-white/10 rounded-lg bg-white/5 backdrop-blur-xl space-y-4">
-              <p className="text-sm text-white/60">
+            <div className="p-6 border border-zinc-800 rounded-lg bg-zinc-800/50 space-y-4">
+              <p className="text-sm text-zinc-400">
                 No content metrics available yet. Run an AEO analysis to see content insights.
               </p>
               {jobId && (
@@ -325,7 +325,7 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
                     )}
                   </Button>
                   {(isStartingAnalysis || (hasTriggeredAnalysis && isLoadingMetrics)) && (
-                    <div className="flex items-center gap-2 text-xs text-white/50">
+                    <div className="flex items-center gap-2 text-xs text-zinc-400">
                       <Loader2 className="w-3 h-3 animate-spin" />
                       <span>Running analysis and loading metrics...</span>
                     </div>
@@ -337,9 +337,9 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
 
           {/* Loading State */}
           {isLoadingMetrics && (
-            <div className="p-8 text-center border border-white/10 rounded-lg bg-white/5 backdrop-blur-xl">
+            <div className="p-8 text-center border border-zinc-800 rounded-lg bg-zinc-800/50">
               <Loader2 className="w-10 h-10 mx-auto mb-4 text-primary animate-spin" />
-              <p className="text-sm text-white/60">Loading content metrics...</p>
+              <p className="text-sm text-zinc-400">Loading content metrics...</p>
             </div>
           )}
 
@@ -375,8 +375,8 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
                 title="Prompt Intent Match"
                 description="How well your content matches user search intent"
                 score={contentMetrics.prompt_intent_match || 0}
-                icon={<Brain className="w-5 h-5 text-purple-400" />}
-                color="bg-purple-500/20"
+                icon={<Brain className="w-5 h-5 text-blue-400" />}
+                color="bg-blue-500/20"
                 subStats={[
                   { 
                     label: 'Matched Intents', 
@@ -384,10 +384,10 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
                       <div className="flex flex-wrap gap-1">
                         {contentMetrics.prompt_intent_details?.matched_intents && contentMetrics.prompt_intent_details.matched_intents.length > 0 ? (
                           contentMetrics.prompt_intent_details.matched_intents.slice(0, 3).map((intent: string, idx: number) => (
-                            <span key={idx} className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 text-white/80 border border-white/5">{intent}</span>
+                            <span key={idx} className="text-[10px] px-1.5 py-0.5 rounded-full bg-zinc-800 text-zinc-200 border border-zinc-800/50">{intent}</span>
                           ))
                         ) : (
-                          <span className="text-xs text-white/40">No intents detected</span>
+                          <span className="text-xs text-zinc-500">No intents detected</span>
                         )}
                       </div>
                     )
@@ -410,10 +410,10 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
                       <div className="flex flex-wrap gap-1">
                         {contentMetrics.visibility_factors?.factors && contentMetrics.visibility_factors.factors.length > 0 ? (
                           contentMetrics.visibility_factors.factors.slice(0, 2).map((factor: string, idx: number) => (
-                            <span key={idx} className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 text-white/80 border border-white/5 truncate max-w-[100px] inline-block">{factor}</span>
+                            <span key={idx} className="text-[10px] px-1.5 py-0.5 rounded-full bg-zinc-800 text-zinc-200 border border-zinc-800/50 truncate max-w-[100px] inline-block">{factor}</span>
                           ))
                         ) : (
-                          <span className="text-xs text-white/40">No factors</span>
+                          <span className="text-xs text-zinc-500">No factors</span>
                         )}
                       </div>
                     )
@@ -427,11 +427,11 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
 
       {/* Prompt Intent Clusters Tab */}
       {activeTab === 'intent-clusters' && (
-        <div className="rounded-lg border border-white/10 bg-white/5 backdrop-blur-xl p-6 space-y-6">
+        <div className="rounded-lg border border-zinc-800 bg-zinc-800/50 p-6 space-y-6">
           {/* Empty State */}
           {!contentMetrics && !isLoadingMetrics && !metricsError && (
-            <div className="p-6 border border-white/10 rounded-lg bg-white/5 backdrop-blur-xl">
-              <p className="text-sm text-white/60 mb-4">
+            <div className="p-6 border border-zinc-800 rounded-lg bg-zinc-800/50">
+              <p className="text-sm text-zinc-400 mb-4">
                 No intent cluster data available yet. Run an AEO analysis to see prompt intent analysis.
               </p>
             </div>
@@ -439,9 +439,9 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
 
           {/* Loading State */}
           {isLoadingMetrics && (
-            <div className="p-8 text-center border border-white/10 rounded-lg bg-white/5 backdrop-blur-xl">
+            <div className="p-8 text-center border border-zinc-800 rounded-lg bg-zinc-800/50">
               <Loader2 className="w-10 h-10 mx-auto mb-4 text-primary animate-spin" />
-              <p className="text-sm text-white/60">Loading intent clusters...</p>
+              <p className="text-sm text-zinc-400">Loading intent clusters...</p>
             </div>
           )}
 
@@ -489,27 +489,27 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
                     description="Prompts successfully mapped to intents"
                     score={contentMetrics.prompt_intent_details.cluster_metrics.coverage_percentage ?? 0}
                     value={`${contentMetrics.prompt_intent_details.cluster_metrics.coverage_percentage?.toFixed(1) ?? 0}%`}
-                    icon={<Brain className="w-5 h-5 text-purple-400" />}
-                    color="bg-purple-500/20"
+                    icon={<Brain className="w-5 h-5 text-blue-400" />}
+                    color="bg-blue-500/20"
                   />
                 </div>
               </div>
 
               {/* Intent Distribution Table */}
-              <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
-                <div className="bg-white/5 px-6 py-4 border-b border-white/10">
+              <div className="bg-zinc-800/50 rounded-2xl border border-zinc-800 overflow-hidden">
+                <div className="bg-zinc-800/50 px-6 py-4 border-b border-zinc-800">
                   <h4 className="text-sm font-semibold text-white">Intent Cluster Distribution</h4>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-white/5 border-b border-white/10">
+                    <thead className="bg-zinc-800/50 border-b border-zinc-800">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-white/50 uppercase tracking-wider">Intent Cluster</th>
-                        <th className="px-6 py-3 text-center text-xs font-medium text-white/50 uppercase tracking-wider">Number of Prompts</th>
-                        <th className="px-6 py-3 text-center text-xs font-medium text-white/50 uppercase tracking-wider">% of Total</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-zinc-400 uppercase tracking-wider">Intent Cluster</th>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-zinc-400 uppercase tracking-wider">Number of Prompts</th>
+                        <th className="px-6 py-3 text-center text-xs font-medium text-zinc-400 uppercase tracking-wider">% of Total</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/5">
+                    <tbody className="divide-y divide-zinc-800/50">
                       {(() => {
                         const clusters: any = contentMetrics.prompt_intent_details?.intent_clusters || {}
                         const total: number = contentMetrics.prompt_intent_details?.cluster_metrics?.total_prompts ?? 0
@@ -524,7 +524,7 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
 
                         const iconMap: Record<string, React.ReactNode> = {
                           informational: <BookOpen className="w-4 h-4 text-blue-400" />,
-                          commercial: <ShoppingBag className="w-4 h-4 text-purple-400" />,
+                          commercial: <ShoppingBag className="w-4 h-4 text-blue-400" />,
                           comparative: <Scale className="w-4 h-4 text-orange-400" />,
                           transactional: <CreditCard className="w-4 h-4 text-emerald-400" />,
                           agent_style: <Bot className="w-4 h-4 text-cyan-400" />
@@ -538,20 +538,20 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
                               const percent = total > 0 ? Math.round((count / total) * 100) : 0
 
                               return (
-                                <tr key={key} className="hover:bg-white/5 transition-colors">
-                                  <td className="px-6 py-4 text-sm text-white/90 flex items-center gap-3">
-                                    <div className="p-1.5 rounded-lg bg-white/5">
+                                <tr key={key} className="hover:bg-zinc-800/50 transition-colors">
+                                  <td className="px-6 py-4 text-sm text-zinc-100 flex items-center gap-3">
+                                    <div className="p-1.5 rounded-lg bg-zinc-800/50">
                                       {iconMap[key]}
                                     </div>
                                     {labelMap[key]}
                                   </td>
-                                  <td className="px-6 py-4 text-center text-sm font-semibold text-white/90">{count}</td>
+                                  <td className="px-6 py-4 text-center text-sm font-semibold text-zinc-100">{count}</td>
                                   <td className="px-6 py-4 text-center">
                                     <div className={cn(
                                       "inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium",
                                       percent >= 20 
                                         ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
-                                        : "bg-white/10 text-white/60 border border-white/10"
+                                        : "bg-zinc-800 text-zinc-400 border border-zinc-800"
                                     )}>
                                       {percent}%
                                     </div>
@@ -570,16 +570,16 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
                               const otherPercent = total > 0 ? Math.round((otherCount / total) * 100) : 0
 
                               return (
-                                <tr className="bg-white/5">
-                                  <td className="px-6 py-4 text-sm text-white/50 flex items-center gap-3">
-                                    <div className="p-1.5 rounded-lg bg-white/5">
-                                      <HelpCircle className="w-4 h-4 text-white/40" />
+                                <tr className="bg-zinc-800/50">
+                                  <td className="px-6 py-4 text-sm text-zinc-400 flex items-center gap-3">
+                                    <div className="p-1.5 rounded-lg bg-zinc-800/50">
+                                      <HelpCircle className="w-4 h-4 text-zinc-500" />
                                     </div>
                                     Other / Uncategorized
                                   </td>
-                                  <td className="px-6 py-4 text-center text-sm font-semibold text-white/50">{otherCount}</td>
+                                  <td className="px-6 py-4 text-center text-sm font-semibold text-zinc-400">{otherCount}</td>
                                   <td className="px-6 py-4 text-center">
-                                    <div className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-white/5 text-white/40 border border-white/10">
+                                    <div className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-zinc-800/50 text-zinc-500 border border-zinc-800">
                                       {otherPercent}%
                                     </div>
                                   </td>
@@ -598,9 +598,9 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
 
           {/* No Data Message for Intent Clusters */}
           {contentMetrics && (!contentMetrics.prompt_intent_details?.cluster_metrics || !contentMetrics.prompt_intent_details?.intent_clusters) && (
-            <div className="p-6 border border-white/10 rounded-lg bg-white/5 backdrop-blur-xl text-center">
-              <FileText className="w-12 h-12 mx-auto mb-4 text-white/20" />
-              <p className="text-sm text-white/60">
+            <div className="p-6 border border-zinc-800 rounded-lg bg-zinc-800/50 text-center">
+              <FileText className="w-12 h-12 mx-auto mb-4 text-zinc-700" />
+              <p className="text-sm text-zinc-400">
                 No intent cluster data available for this analysis.
               </p>
             </div>
@@ -610,11 +610,11 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
 
       {/* Entity Detection Metrics Tab */}
       {activeTab === 'entity-detection' && (
-        <div className="rounded-lg border border-white/10 bg-white/5 backdrop-blur-xl p-6 space-y-6">
+        <div className="rounded-lg border border-zinc-800 bg-zinc-800/50 p-6 space-y-6">
           {/* Empty State */}
           {!entityMetrics && !isLoadingMetrics && !metricsError && (
-            <div className="p-6 border border-white/10 rounded-lg bg-white/5 backdrop-blur-xl">
-              <p className="text-sm text-white/60 mb-4">
+            <div className="p-6 border border-zinc-800 rounded-lg bg-zinc-800/50">
+              <p className="text-sm text-zinc-400 mb-4">
                 No entity detection data available yet. Run an AEO analysis to see entity metrics.
               </p>
             </div>
@@ -622,9 +622,9 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
 
           {/* Loading State */}
           {isLoadingMetrics && (
-            <div className="p-8 text-center border border-white/10 rounded-lg bg-white/5 backdrop-blur-xl">
+            <div className="p-8 text-center border border-zinc-800 rounded-lg bg-zinc-800/50">
               <Loader2 className="w-10 h-10 mx-auto mb-4 text-primary animate-spin" />
-              <p className="text-sm text-white/60">Loading entity metrics...</p>
+              <p className="text-sm text-zinc-400">Loading entity metrics...</p>
             </div>
           )}
 
@@ -674,8 +674,8 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
                     title="Entity Relevance"
                     description="How relevant entities are to search intent"
                     score={entityMetrics.entity_relevance_score || 0}
-                    icon={<Target className="w-5 h-5 text-purple-400" />}
-                    color="bg-purple-500/20"
+                    icon={<Target className="w-5 h-5 text-blue-400" />}
+                    color="bg-blue-500/20"
                   />
                 </div>
               </div>
@@ -685,7 +685,7 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
                 (entityMetrics.entity_relevance_details?.irrelevant_entities && entityMetrics.entity_relevance_details.irrelevant_entities.length > 0)) && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {entityMetrics.entity_relevance_details?.relevant_entities && entityMetrics.entity_relevance_details.relevant_entities.length > 0 && (
-                    <div className="bg-emerald-500/5 backdrop-blur-xl rounded-2xl border border-emerald-500/20 p-5">
+                    <div className="bg-emerald-500/5 rounded-2xl border border-emerald-500/20 p-5">
                       <h4 className="text-sm font-semibold text-emerald-400 mb-3 flex items-center gap-2">
                         <span>✅</span>
                         Relevant Entities
@@ -701,7 +701,7 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
                   )}
                   
                   {entityMetrics.entity_relevance_details?.irrelevant_entities && entityMetrics.entity_relevance_details.irrelevant_entities.length > 0 && (
-                    <div className="bg-amber-500/5 backdrop-blur-xl rounded-2xl border border-amber-500/20 p-5">
+                    <div className="bg-amber-500/5 rounded-2xl border border-amber-500/20 p-5">
                       <h4 className="text-sm font-semibold text-amber-300 mb-3 flex items-center gap-2">
                         <span>⚠️</span>
                         Irrelevant Entities
@@ -722,7 +722,7 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
                 {/* Top Search Queries */}
                 {contentMetrics?.prompt_intent_details?.search_queries && contentMetrics.prompt_intent_details.search_queries.length > 0 && (
-                  <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-5">
+                  <div className="bg-zinc-800/50 rounded-2xl border border-zinc-800 p-5">
                     <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
                       <div className="p-1.5 rounded-lg bg-blue-500/20">
                         <Search className="w-4 h-4 text-blue-400" />
@@ -731,11 +731,11 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
                     </h4>
                     <div className="space-y-2">
                       {contentMetrics.prompt_intent_details.search_queries.map((query: string, idx: number) => (
-                        <div key={idx} className="flex items-start gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors">
+                        <div key={idx} className="flex items-start gap-3 p-2 rounded-lg hover:bg-zinc-800/50 transition-colors">
                           <span className="shrink-0 w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold">
                             {idx + 1}
                           </span>
-                          <span className="text-sm text-white/90">"{query}"</span>
+                          <span className="text-sm text-zinc-100">"{query}"</span>
                         </div>
                       ))}
                     </div>
@@ -745,7 +745,7 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
                 {/* Visibility Score Breakdown */}
                 {contentMetrics?.visibility_factors?.score_breakdown && 
                  Object.keys(contentMetrics.visibility_factors.score_breakdown).length > 0 && (
-                  <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-5">
+                  <div className="bg-zinc-800/50 rounded-2xl border border-zinc-800 p-5">
                     <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
                       <div className="p-1.5 rounded-lg bg-emerald-500/20">
                         <BarChart className="w-4 h-4 text-emerald-400" />
@@ -756,10 +756,10 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
                       {Object.entries(contentMetrics.visibility_factors.score_breakdown).map(([factor, score]) => (
                         <div key={factor} className="space-y-1">
                           <div className="flex items-center justify-between text-xs">
-                            <span className="text-white/60 capitalize">{factor.replace(/_/g, ' ')}</span>
+                            <span className="text-zinc-400 capitalize">{factor.replace(/_/g, ' ')}</span>
                             <span className={`font-semibold ${getScoreColor(score as number)}`}>{score as number}</span>
                           </div>
-                          <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                          <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
                             <div
                               className="h-full transition-all duration-300"
                               style={{

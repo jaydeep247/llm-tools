@@ -376,8 +376,8 @@ export function CrawledDataTable({
     return (
       <th
         key={String(column)}
-        className={`px-3 py-2 text-center text-xs font-semibold text-white/80 whitespace-nowrap ${
-          isSortable ? 'cursor-pointer hover:bg-white/5' : ''
+        className={`px-3 py-2 text-center text-xs font-semibold text-zinc-200 whitespace-nowrap ${
+          isSortable ? 'cursor-pointer hover:bg-zinc-800/50' : ''
         } ${
           isMinWidthColumn 
             ? column === 'url' || column === 'description' 
@@ -519,14 +519,14 @@ export function CrawledDataTable({
       {/* Sidebar Filter Panel */}
       <div className={`${sidebarOpen ? 'w-70' : 'w-0'} transition-all duration-300 overflow-hidden shrink-0`}>
         {sidebarOpen && (
-          <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg p-4 h-[calc(100vh-120px)] overflow-y-auto">
+          <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-4 h-[calc(100vh-120px)] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-white">Column Filters</h3>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setSidebarOpen(false)}
-                className="text-white/60 hover:text-white p-1 h-auto"
+                className="text-zinc-400 hover:text-white p-1 h-auto"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -534,7 +534,7 @@ export function CrawledDataTable({
 
             {/* URL/Resource Filter */}
             <div className="mb-4">
-              <label className="text-xs text-white/60 mb-1 block">Filter by URL/Type</label>
+              <label className="text-xs text-zinc-400 mb-1 block">Filter by URL/Type</label>
               <Input
                 placeholder="URL or content type..."
                 value={urlFilter}
@@ -542,7 +542,7 @@ export function CrawledDataTable({
                   setUrlFilter(e.target.value)
                   setCurrentPage(1)
                 }}
-                className="bg-white/5 border-white/20 text-white placeholder:text-white/40 text-xs h-8"
+                className="bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 text-xs h-8"
               />
             </div>
 
@@ -554,22 +554,22 @@ export function CrawledDataTable({
                   <div key={category.name} className="space-y-2">
                     <button
                       onClick={() => toggleCategoryColumns(category)}
-                      className="flex items-center justify-between w-full text-xs font-medium text-white/80 hover:text-white"
+                      className="flex items-center justify-between w-full text-xs font-medium text-zinc-200 hover:text-white"
                     >
                       <span>{category.name}</span>
-                      <span className="text-white/40">{visible}/{total}</span>
+                      <span className="text-zinc-500">{visible}/{total}</span>
                     </button>
                     <div className="space-y-1 pl-2">
                       {category.columns.map((column) => (
                         <label
                           key={String(column)}
-                          className="flex items-center gap-2 text-xs text-white/70 hover:text-white cursor-pointer"
+                          className="flex items-center gap-2 text-xs text-zinc-300 hover:text-white cursor-pointer"
                         >
                           <input
                             type="checkbox"
                             checked={visibleColumns.has(column)}
                             onChange={() => toggleColumn(column)}
-                            className="rounded border-white/20 bg-white/5 text-blue-500 focus:ring-blue-500/50 focus:ring-offset-0"
+                            className="rounded border-zinc-700 bg-zinc-800/50 text-blue-500 focus:ring-blue-500/50 focus:ring-offset-0"
                           />
                           <span className="truncate">{getColumnLabel(column)}</span>
                         </label>
@@ -592,7 +592,7 @@ export function CrawledDataTable({
               variant="outline"
               size="sm"
               onClick={() => setSidebarOpen(true)}
-              className="bg-white/5 border-white/20 text-white hover:bg-white/10"
+              className="bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800"
             >
               <ChevronRight className="h-4 w-4 mr-2" />
               Show Filters
@@ -604,7 +604,7 @@ export function CrawledDataTable({
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between mb-4">
           <div className="flex-1 w-full sm:max-w-md">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/40" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-500" />
               <Input
                 placeholder="Search by URL, title, or description..."
                 value={searchQuery}
@@ -612,7 +612,7 @@ export function CrawledDataTable({
                   setSearchQuery(e.target.value)
                   setCurrentPage(1)
                 }}
-                className="pl-10 bg-white/5 border-white/20 text-white placeholder:text-white/40 text-sm"
+                className="pl-10 bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 text-sm"
               />
             </div>
           </div>
@@ -622,7 +622,7 @@ export function CrawledDataTable({
                 onClick={onRefresh}
                 variant="outline"
                 size="sm"
-                className="bg-white/5 border-white/20 text-white hover:bg-white/10"
+                className="bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800"
                 disabled={isLoading}
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
@@ -634,7 +634,7 @@ export function CrawledDataTable({
                 onClick={onExport}
                 variant="outline"
                 size="sm"
-                className="bg-white/5 border-white/20 text-white hover:bg-white/10"
+                className="bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800"
               >
                 <Download className="h-4 w-4 mr-2" />
                 Export
@@ -645,22 +645,22 @@ export function CrawledDataTable({
 
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-          <div className="bg-white/5 border border-white/10 rounded-lg p-3">
-            <div className="text-xs text-white/60">Total Pages</div>
+          <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-3">
+            <div className="text-xs text-zinc-400">Total Pages</div>
             <div className="text-xl font-bold text-white mt-1">{uniqueData.length}</div>
           </div>
-          <div className="bg-white/5 border border-white/10 rounded-lg p-3">
-            <div className="text-xs text-white/60">Filtered</div>
+          <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-3">
+            <div className="text-xs text-zinc-400">Filtered</div>
             <div className="text-xl font-bold text-white mt-1">{filteredData.length}</div>
           </div>
-          <div className="bg-white/5 border border-white/10 rounded-lg p-3">
-            <div className="text-xs text-white/60">Avg Word Count</div>
+          <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-3">
+            <div className="text-xs text-zinc-400">Avg Word Count</div>
             <div className="text-xl font-bold text-white mt-1">
               {uniqueData.length > 0 ? Math.round(uniqueData.reduce((sum, p) => sum + p.wordCount, 0) / uniqueData.length) : 0}
             </div>
           </div>
-          <div className="bg-white/5 border border-white/10 rounded-lg p-3">
-            <div className="text-xs text-white/60">Success Rate</div>
+          <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-3">
+            <div className="text-xs text-zinc-400">Success Rate</div>
             <div className="text-xl font-bold text-white mt-1">
               {uniqueData.length > 0 ? `${((uniqueData.filter(p => p.success).length / uniqueData.length) * 100).toFixed(1)}%` : '0%'}
             </div>
@@ -668,22 +668,22 @@ export function CrawledDataTable({
         </div>
 
         {/* Table */}
-        <div className="rounded-lg border border-white/20 bg-white/5 backdrop-blur-xl overflow-hidden flex-1">
+        <div className="rounded-lg border border-zinc-700 bg-zinc-800/50 overflow-hidden flex-1">
           <div 
             ref={tableContainerRef} 
             className="overflow-x-auto overflow-y-auto max-w-full h-full custom-scrollbar"
           >
             <table className="w-full text-sm">
-              <thead className="bg-gray-900 border-b border-white/20 sticky top-0 z-10">
+              <thead className="bg-gray-900 border-b border-zinc-700 sticky top-0 z-10">
                 <tr>
                   {orderedVisibleColumns.map(column => renderTableHeader(column))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/10">
+              <tbody className="divide-y divide-zinc-800">
                 {isLoading ? (
                   <tr>
                     <td colSpan={visibleColumns.size} className="px-4 py-12 text-center">
-                      <div className="flex items-center justify-center gap-2 text-white/60">
+                      <div className="flex items-center justify-center gap-2 text-zinc-400">
                         <RefreshCw className="h-5 w-5 animate-spin" />
                         <span>Loading data...</span>
                       </div>
@@ -691,7 +691,7 @@ export function CrawledDataTable({
                   </tr>
                 ) : paginatedData.length === 0 ? (
                   <tr>
-                    <td colSpan={visibleColumns.size} className="px-4 py-12 text-center text-white/60">
+                    <td colSpan={visibleColumns.size} className="px-4 py-12 text-center text-zinc-400">
                       No pages found. {(searchQuery || urlFilter) && 'Try adjusting your filters.'}
                     </td>
                   </tr>
@@ -699,10 +699,10 @@ export function CrawledDataTable({
                   paginatedData.map((page) => (
                     <tr 
                       key={page.id}
-                      className="hover:bg-white/5 transition-colors"
+                      className="hover:bg-zinc-800/50 transition-colors"
                     >
                       {orderedVisibleColumns.map((column) => (
-                        <td key={String(column)} className="px-3 py-2 text-white/80 text-center whitespace-normal overflow-wrap-break-word">
+                        <td key={String(column)} className="px-3 py-2 text-zinc-200 text-center whitespace-normal overflow-wrap-break-word">
                           {renderCellContent(page, column)}
                         </td>
                       ))}
@@ -717,7 +717,7 @@ export function CrawledDataTable({
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between">
-            <div className="text-sm text-white/60">
+            <div className="text-sm text-zinc-400">
               Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, sortedData.length)} of {sortedData.length} results
             </div>
             <div className="flex gap-2">
@@ -726,7 +726,7 @@ export function CrawledDataTable({
                 size="sm"
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="bg-white/5 border-white/20 text-white hover:bg-white/10 disabled:opacity-50"
+                className="bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800 disabled:opacity-50"
               >
                 Previous
               </Button>
@@ -752,7 +752,7 @@ export function CrawledDataTable({
                       className={`${
                         currentPage === pageNum
                           ? 'bg-white text-black'
-                          : 'bg-white/5 border-white/20 text-white hover:bg-white/10'
+                          : 'bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800'
                       }`}
                     >
                       {pageNum}
@@ -765,7 +765,7 @@ export function CrawledDataTable({
                 size="sm"
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
-                className="bg-white/5 border-white/20 text-white hover:bg-white/10 disabled:opacity-50"
+                className="bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800 disabled:opacity-50"
               >
                 Next
               </Button>

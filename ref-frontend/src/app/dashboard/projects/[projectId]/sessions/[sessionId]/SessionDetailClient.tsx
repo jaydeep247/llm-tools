@@ -9,7 +9,7 @@ import { CrawlLogger, DiscoveredPages, CrawlStatusHeader } from '@/components/cr
 import { SessionLayout } from '@/components/layout/SessionLayout'
 import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable, AuditChecker } from '@/components/module_A'
 import { AIIntelligenceModule, ContentMetricsModule } from '@/components/module_C'
-import { AICitationRanking, SentimentTracking, CompetitorMentionsSection, ShareOfVoiceSection, BrandAnalysisSection, TrendsByModelSection } from '@/components/module_E'
+import { AICitationRanking, SentimentTracking, CompetitorMentionsSection, ShareOfVoiceSection, BrandAnalysisSection, TrendsByModelSection, DashboardOverview } from '@/components/module_E'
 // import { useGetDataListQuery, useCheckLinksMutation, useGetLinkStatsQuery, useLazyGetPageLinksQuery } from '@/store/api/module_A/dataApi'
 import { useGetProjectQuery } from '@/store/api/projectApi'
 import { useGetSessionQuery } from '@/store/api/sessionApi'
@@ -92,17 +92,16 @@ export default function SessionDetailClient() {
   const isLoading = isLoadingSession || isLoadingProject || isLoadingJobs || (!!jobId && !skipResults && isLoadingResults)
   const error = sessionError ? 'Failed to load session' : null
   
-  // Ensure URL always has tab parameter with default 'crawler'
-  // Ensure URL always has tab parameter with default 'crawler'
+  // Ensure URL always has tab parameter with default 'dashboard'
   useEffect(() => {
     if (!searchParams.get('tab')) {
       const params = new URLSearchParams(searchParams.toString())
-      params.set('tab', 'module-e')
+      params.set('tab', 'dashboard')
       router.replace(`/dashboard/projects/${projectId}/sessions/${sessionId}?${params.toString()}`, { scroll: false })
     }
   }, [searchParams, projectId, sessionId, router])
 
-  const tab = searchParams.get('tab') || 'module-e'
+  const tab = searchParams.get('tab') || 'dashboard'
   
   const activeSection = tab
 
@@ -612,7 +611,7 @@ export default function SessionDetailClient() {
       case 'cancelled':
         return 'bg-rose-500/20 text-rose-400 border-rose-400/50 shadow-[0_0_10px_rgba(251,113,133,0.3)]'
       case 'pending':
-        return 'bg-violet-500/20 text-violet-400 border-violet-400/50 shadow-[0_0_10px_rgba(167,139,250,0.3)]'
+        return 'bg-zinc-500/20 text-zinc-400 border-zinc-400/50 shadow-[0_0_10px_rgba(161,161,170,0.3)]'
       default:
         return 'bg-slate-500/20 text-slate-400 border-slate-400/50'
     }
@@ -705,13 +704,13 @@ export default function SessionDetailClient() {
       >
         <div className="p-6 space-y-6 sm:space-y-8 animate-fade-in-hero">
           <div className="space-y-2">
-            <div className="h-8 sm:h-10 md:h-12 w-48 sm:w-64 bg-white/10 rounded animate-pulse"></div>
-            <div className="h-4 sm:h-5 w-32 sm:w-48 bg-white/10 rounded animate-pulse"></div>
+            <div className="h-8 sm:h-10 md:h-12 w-48 sm:w-64 bg-zinc-800/40 rounded-2xl animate-pulse"></div>
+            <div className="h-4 sm:h-5 w-32 sm:w-48 bg-zinc-800/40 rounded-xl animate-pulse"></div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="rounded-lg p-3 sm:p-4 md:p-5 border border-white/20 bg-white/10 backdrop-blur-xl animate-pulse">
-                <div className="h-20 sm:h-24 bg-white/10 rounded"></div>
+              <div key={i} className="rounded-2xl p-3 sm:p-4 md:p-5 border border-zinc-800 bg-[#111113] animate-pulse">
+                <div className="h-20 sm:h-24 bg-zinc-800/40 rounded-xl"></div>
               </div>
             ))}
           </div>
@@ -731,12 +730,14 @@ export default function SessionDetailClient() {
       >
         <div className="p-6 space-y-8 animate-fade-in-hero">
           <div className="flex flex-col items-center justify-center py-20">
-            <AlertCircle className="h-16 w-16 text-red-400 mb-4" />
+            <div className="w-16 h-16 rounded-2xl bg-rose-500/10 flex items-center justify-center mb-4">
+              <AlertCircle className="h-8 w-8 text-rose-400" />
+            </div>
             <h2 className="text-2xl font-bold text-white mb-2">Session not found</h2>
-            <p className="text-white/60 mb-4">{error || 'The session you\'re looking for doesn\'t exist'}</p>
+            <p className="text-zinc-500 mb-6">{error || 'The session you\'re looking for doesn\'t exist'}</p>
             <Button 
               onClick={() => router.push(`/dashboard/projects/${projectId}`)} 
-              className="bg-white text-black hover:bg-slate-100 cursor-pointer"
+              className="bg-white text-black hover:bg-zinc-200 rounded-xl px-6 cursor-pointer"
             >
               Back to Project
             </Button>
@@ -751,10 +752,20 @@ export default function SessionDetailClient() {
       projectId={projectId}
       projectName={project?.name || "Unknown Project"}
       sessionId={sessionId}
+      sessionUrl={session?.startUrl}
       activeSection={activeSection}
       onSectionChange={handleSectionChange}
     >
       <div className="p-6 space-y-6 sm:space-y-8 animate-fade-in-hero">
+        {/* Dashboard Overview — top-level summary of quick_start_runner fields */}
+        {activeSection === 'dashboard' && (
+          <DashboardOverview
+            jobId={jobId}
+            url={session?.startUrl || ''}
+            onNavigate={handleSectionChange}
+          />
+        )}
+
         {/* Show Crawler Status only on crawler tab */}
         {activeSection === 'crawler' && (
           <>
@@ -768,36 +779,36 @@ export default function SessionDetailClient() {
             />
 
             {/* Session Info */}
-            <div className="rounded-lg p-3 sm:p-4 md:p-5 border border-white/20 bg-white/10 backdrop-blur-xl">
-              <h2 className="text-base sm:text-lg md:text-xl font-bold text-white mb-3 sm:mb-4">Session Details</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
-                <div className="space-y-0.5 sm:space-y-1">
-                  <p className="text-[10px] sm:text-xs text-white/60">Session ID</p>
-                  <p className="text-xs sm:text-sm text-white font-medium">#{session.id}</p>
+            <div className="rounded-2xl p-4 sm:p-5 border border-zinc-800 bg-[#111113]">
+              <h2 className="text-base sm:text-lg font-semibold text-white mb-4">Session Details</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                <div className="space-y-1">
+                  <p className="text-[11px] text-zinc-500 uppercase tracking-wider">Session ID</p>
+                  <p className="text-sm text-white font-medium font-mono">#{session.id}</p>
                 </div>
-                <div className="space-y-0.5 sm:space-y-1">
-                  <p className="text-[10px] sm:text-xs text-white/60">Project ID</p>
-                  <p className="text-xs sm:text-sm text-white font-medium">{session.projectId}</p>
+                <div className="space-y-1">
+                  <p className="text-[11px] text-zinc-500 uppercase tracking-wider">Project ID</p>
+                  <p className="text-sm text-white font-medium">{session.projectId}</p>
                 </div>
-                <div className="space-y-0.5 sm:space-y-1">
-                  <p className="text-[10px] sm:text-xs text-white/60">Start URL</p>
-                  <p className="text-xs sm:text-sm text-white font-medium truncate">{session.startUrl}</p>
+                <div className="space-y-1">
+                  <p className="text-[11px] text-zinc-500 uppercase tracking-wider">Start URL</p>
+                  <p className="text-sm text-white font-medium truncate">{session.startUrl}</p>
                 </div>
-                <div className="space-y-0.5 sm:space-y-1">
-                  <p className="text-[10px] sm:text-xs text-white/60">Status</p>
+                <div className="space-y-1">
+                  <p className="text-[11px] text-zinc-500 uppercase tracking-wider">Status</p>
                   <Badge className={`${getStatusColor(session.status)} text-[10px] inline-flex items-center gap-1`}>
                     {getStatusIcon(session.status)}
                     {session.status.toUpperCase()}
                   </Badge>
                 </div>
-                <div className="space-y-0.5 sm:space-y-1">
-                  <p className="text-[10px] sm:text-xs text-white/60">Total Pages</p>
-                  <p className="text-xs sm:text-sm text-cyan-400 font-semibold">{totalPagesCount}</p>
+                <div className="space-y-1">
+                  <p className="text-[11px] text-zinc-500 uppercase tracking-wider">Total Pages</p>
+                  <p className="text-sm text-blue-400 font-semibold">{totalPagesCount}</p>
                 </div>
                 {(session.completedAt || jobSummary?.session?.completed_at) && (
-                  <div className="space-y-0.5 sm:space-y-1">
-                    <p className="text-[10px] sm:text-xs text-white/60">Completed</p>
-                    <p className="text-xs sm:text-sm text-emerald-400 font-semibold">
+                  <div className="space-y-1">
+                    <p className="text-[11px] text-zinc-500 uppercase tracking-wider">Completed</p>
+                    <p className="text-sm text-emerald-400 font-semibold">
                       {new Date(session.completedAt || jobSummary?.session?.completed_at || '').toLocaleString()}
                     </p>
                   </div>
@@ -807,14 +818,14 @@ export default function SessionDetailClient() {
             </div>
 
             {/* Crawled Pages Summary Table */}
-            <div className="rounded-lg border border-white/20 bg-white/10 backdrop-blur-xl overflow-hidden">
-              <div className="bg-white/5 px-4 py-3 border-b border-white/10 flex items-center justify-between">
-                <h3 className="text-base sm:text-lg font-semibold text-white">📄 Crawled Pages ({transformedPages.length})</h3>
+            <div className="rounded-2xl border border-zinc-800 bg-[#111113] overflow-hidden">
+              <div className="px-5 py-3.5 border-b border-zinc-800/60 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-zinc-200">📄 Crawled Pages ({transformedPages.length})</h3>
                 <Button 
                   variant="ghost" 
                   size="sm" 
                   onClick={() => refetchJobResults()}
-                  className="text-white/60 hover:text-white hover:bg-white/10"
+                  className="text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60 rounded-xl"
                 >
                   <RefreshCw className="h-4 w-4" />
                 </Button>
@@ -822,33 +833,33 @@ export default function SessionDetailClient() {
               <div className="overflow-x-auto">
                 {isLoadingResults ? (
                   <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-6 w-6 animate-spin text-white/60" />
-                    <span className="ml-2 text-white/60">Loading crawled pages...</span>
+                    <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
+                    <span className="ml-2 text-zinc-500">Loading crawled pages...</span>
                   </div>
                 ) : transformedPages.length === 0 ? (
-                  <div className="flex items-center justify-center py-12 text-white/40">
+                  <div className="flex items-center justify-center py-12 text-zinc-600">
                     No pages crawled yet
                   </div>
                 ) : (
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-white/10 bg-white/5">
-                        <th className="px-4 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">URL</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">Status</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">Title</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">Words</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">Response</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">Depth</th>
+                      <tr className="border-b border-zinc-800 bg-zinc-900/50">
+                        <th className="px-4 py-3 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider">URL</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Status</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Title</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Words</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Response</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Depth</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/5">
+                    <tbody className="divide-y divide-zinc-800/60">
                       {transformedPages.slice(0, 6).map((page: any, idx: number) => {
                         const responseTime = page.responseTime || page.response_time || 0;
                         const wordCount = page.wordCount || page.word_count || 0;
                         const crawlDepth = page.crawlDepth || page.crawl_depth || 0;
                         
                         return (
-                          <tr key={page.id || idx} className="hover:bg-white/5 transition-colors">
+                          <tr key={page.id || idx} className="hover:bg-zinc-800/30 transition-colors">
                             <td className="px-4 py-3">
                               <a 
                                 href={page.url} 
@@ -871,7 +882,7 @@ export default function SessionDetailClient() {
                                 {page.statusCode || 'N/A'}
                               </Badge>
                             </td>
-                            <td className="px-4 py-3 text-sm text-white/80 truncate max-w-50" title={page.title}>
+                            <td className="px-4 py-3 text-sm text-zinc-400 truncate max-w-50" title={page.title}>
                               {page.title?.length > 40 ? page.title.substring(0, 40) + '...' : page.title || '-'}
                             </td>
                             <td className="px-4 py-3">
@@ -893,7 +904,7 @@ export default function SessionDetailClient() {
                                   ? 'bg-yellow-500/15 text-yellow-300'
                                   : responseTime >= 1000
                                   ? 'bg-red-500/15 text-red-300'
-                                  : 'text-white/40'
+                                  : 'text-zinc-600'
                               }`}>
                                 {responseTime > 0 ? `${responseTime}ms` : '-'}
                               </span>
@@ -904,7 +915,7 @@ export default function SessionDetailClient() {
                                   ? 'bg-purple-500/15 text-purple-300' 
                                   : crawlDepth <= 2 
                                   ? 'bg-blue-500/15 text-blue-300'
-                                  : 'bg-white/10 text-white/60'
+                                  : 'bg-zinc-800/40 text-zinc-400'
                               }`}>
                                 {crawlDepth}
                               </span>
@@ -916,12 +927,12 @@ export default function SessionDetailClient() {
                   </table>
                 )}
                 {transformedPages.length > 6 && (
-                  <div className="px-4 py-3 border-t border-white/10 text-center">
+                  <div className="px-4 py-3 border-t border-zinc-800/60 text-center">
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => handleSectionChange('crawled-data')}
-                      className="text-blue-400 hover:text-blue-300 hover:bg-white/5"
+                      className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-xl"
                     >
                       View all {transformedPages.length} pages →
                     </Button>
@@ -1047,22 +1058,22 @@ export default function SessionDetailClient() {
         {activeSection === 'module-e' && (
           <div className="space-y-6">
             {/* Competitor Mentions */}
-            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+            <div className="rounded-2xl p-6 border border-zinc-800 bg-[#111113]">
               <CompetitorMentionsSection jobId={jobId} />
             </div>
 
             {/* Brand Analysis */}
-            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+            <div className="rounded-2xl p-6 border border-zinc-800 bg-[#111113]">
               <BrandAnalysisSection jobId={jobId} />
             </div>
 
             {/* AI Share of Voice */}
-            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+            <div className="rounded-2xl p-6 border border-zinc-800 bg-[#111113]">
               <ShareOfVoiceSection jobId={jobId} />
             </div>
 
             {/* Trends by Model */}
-            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+            <div className="rounded-2xl p-6 border border-zinc-800 bg-[#111113]">
               <TrendsByModelSection jobId={jobId} />
             </div>
           </div>
@@ -1070,7 +1081,7 @@ export default function SessionDetailClient() {
 
         {activeSection === 'keyword-intelligence' && (
           <div className="space-y-6">
-            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
+            <div className="rounded-2xl p-6 border border-zinc-800 bg-[#111113]">
               <AICitationRanking url={session?.startUrl || ''} />
             </div>
           </div>
@@ -1093,11 +1104,11 @@ export default function SessionDetailClient() {
 
         {/* Placeholder for other tabs */}
         {activeSection !== 'crawler' && activeSection !== 'crawled-data' && activeSection !== 'page-metrics' && activeSection !== 'text-quality' && activeSection !== 'wordcount' && activeSection !== 'broken-links' && activeSection !== 'audit-checker' && activeSection !== 'link-analysis' && activeSection !== 'performance' && activeSection !== 'schema-generator' && activeSection !== 'ai-intelligence' && activeSection !== 'module-e' && activeSection !== 'content-metrics' && activeSection !== 'discover-prompts' && activeSection !== 'keyword-intelligence' && (
-          <div className="rounded-lg p-8 border border-white/20 bg-white/10 backdrop-blur-xl text-center">
-            <h2 className="text-xl font-bold text-white mb-2">
+          <div className="rounded-2xl p-8 border border-zinc-800 bg-[#111113] text-center">
+            <h2 className="text-xl font-semibold text-white mb-2">
               {activeSection.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
             </h2>
-            <p className="text-white/60">This section is under development.</p>
+            <p className="text-zinc-500">This section is under development.</p>
           </div>
         )}
       </div>

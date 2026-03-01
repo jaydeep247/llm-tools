@@ -146,7 +146,7 @@ export function SchemaGeneratorTable({
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h3 className="text-xl sm:text-2xl font-bold text-white">📝 Schema.org Markup Generator</h3>
-          <p className="text-sm text-white/60 mt-1">Generate SEO-optimized Schema.org JSON-LD markup using AI</p>
+          <p className="text-sm text-zinc-400 mt-1">Generate SEO-optimized Schema.org JSON-LD markup using AI</p>
         </div>
         <Button
           onClick={handleGenerateSchema}
@@ -159,7 +159,7 @@ export function SchemaGeneratorTable({
       </div>
 
       {/* Schema Type Selector */}
-      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg p-4">
+      <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-4">
         <label htmlFor="schema-type" className="block text-sm font-medium text-white mb-2">
           Select Schema Type:
         </label>
@@ -171,11 +171,11 @@ export function SchemaGeneratorTable({
           >
             <SelectTrigger
               id="schema-type"
-              className="bg-white/10 border-white/20 text-white rounded-full text-sm w-full"
+              className="bg-zinc-800 border-zinc-700 text-white rounded-full text-sm w-full"
             >
               <SelectValue placeholder="Select schema type" />
             </SelectTrigger>
-            <SelectContent className="bg-slate-900 border-white/20">
+            <SelectContent className="bg-slate-900 border-zinc-700">
               <SelectItem value="auto" className="text-white text-sm">
                 🤖 Auto-detect (Recommended)
               </SelectItem>
@@ -251,30 +251,30 @@ export function SchemaGeneratorTable({
 
       {/* Loading State */}
       {schemaLoading && (
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg p-12">
+        <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-12">
           <div className="flex flex-col items-center justify-center gap-4 text-center">
             <div className="relative">
-              <div className="w-16 h-16 border-4 border-white/20 border-t-green-400 rounded-full animate-spin"></div>
+              <div className="w-16 h-16 border-4 border-zinc-700 border-t-green-400 rounded-full animate-spin"></div>
             </div>
             <p className="text-white text-lg font-medium">Analyzing page content and generating schema markup...</p>
-            <p className="text-white/60 text-sm">This may take a few moments</p>
+            <p className="text-zinc-400 text-sm">This may take a few moments</p>
           </div>
         </div>
       )}
 
       {/* Schema Results */}
       {schemaData && !schemaLoading && (
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg overflow-hidden">
+        <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg overflow-hidden">
           {/* Header with Format Toggle and Copy Button */}
-          <div className="bg-white/10 border-b border-white/10 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="bg-zinc-800 border-b border-zinc-800 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <h4 className="text-base font-semibold text-white">Schema Markup</h4>
-              <div className="flex items-center gap-2 bg-white/5 rounded-full p-1">
+              <div className="flex items-center gap-2 bg-zinc-800/50 rounded-full p-1">
                 <button
                   className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors cursor-pointer ${
                     schemaFormat === 'json-ld'
                       ? 'bg-white text-black'
-                      : 'text-white/70 hover:text-white hover:bg-white/10'
+                      : 'text-zinc-300 hover:text-white hover:bg-zinc-800'
                   }`}
                   onClick={() => setSchemaFormat('json-ld')}
                 >
@@ -284,7 +284,7 @@ export function SchemaGeneratorTable({
                   className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors cursor-pointer ${
                     schemaFormat === 'rdfa'
                       ? 'bg-white text-black'
-                      : 'text-white/70 hover:text-white hover:bg-white/10'
+                      : 'text-zinc-300 hover:text-white hover:bg-zinc-800'
                   }`}
                   onClick={() => setSchemaFormat('rdfa')}
                 >
@@ -296,7 +296,7 @@ export function SchemaGeneratorTable({
               onClick={copySchemaToClipboard}
               variant="outline"
               size="sm"
-              className="bg-white/5 border-white/20 text-white hover:bg-white/10 cursor-pointer"
+              className="bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800 cursor-pointer"
             >
               {copiedSchema ? (
                 <>
@@ -314,7 +314,7 @@ export function SchemaGeneratorTable({
 
           {/* Schema Code Display */}
           <div className="p-4 overflow-x-auto">
-            <pre className="text-xs sm:text-sm text-white/90 font-mono bg-black/30 p-4 rounded-lg overflow-x-auto">
+            <pre className="text-xs sm:text-sm text-zinc-100 font-mono bg-black/30 p-4 rounded-lg overflow-x-auto">
               <code>
                 {schemaFormat === 'json-ld'
                   ? (schemaData.schema_text ?? schemaData.schemaText ?? schemaData.json_ld ?? '')
@@ -327,11 +327,11 @@ export function SchemaGeneratorTable({
 
       {/* Empty State */}
       {!schemaData && !schemaLoading && !schemaError && (
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg p-12">
+        <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-12">
           <div className="flex flex-col items-center justify-center gap-4 text-center max-w-2xl mx-auto">
             <div className="text-6xl mb-2">📝</div>
             <h3 className="text-xl font-bold text-white">Generate Schema Markup</h3>
-            <p className="text-white/70">
+            <p className="text-zinc-300">
               Click the "Generate Schema" button above to create SEO-optimized Schema.org markup for your page.
               <br /><br />
               Our AI will analyze your page content and generate the most appropriate schema type

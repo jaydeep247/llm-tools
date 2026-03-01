@@ -68,7 +68,7 @@ function DonutChart({
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-2xl font-bold text-white">{value}</span>
-        <span className="text-[10px] text-white/50 uppercase tracking-wider">{label || 'Coverage'}</span>
+        <span className="text-[10px] text-zinc-400 uppercase tracking-wider">{label || 'Coverage'}</span>
       </div>
     </div>
   )
@@ -153,7 +153,7 @@ export default function EntityGapAnalysis({ jobId, url = '' }: EntityGapAnalysis
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold text-white">Entity & Gap Analysis</h2>
-          <p className="text-sm text-white/50 mt-1">
+          <p className="text-sm text-zinc-400 mt-1">
             Identified entities and content gaps in your content
           </p>
         </div>
@@ -162,7 +162,7 @@ export default function EntityGapAnalysis({ jobId, url = '' }: EntityGapAnalysis
           variant="outline"
           size="sm"
           disabled={isLoading}
-          className="bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white"
+          className="bg-zinc-800/50 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white"
         >
           <RefreshCw className={cn("w-4 h-4 mr-2", isLoading && "animate-spin")} />
           Refresh
@@ -172,7 +172,7 @@ export default function EntityGapAnalysis({ jobId, url = '' }: EntityGapAnalysis
       {/* Loading State */}
       {isLoading && (
         <div className="flex items-center justify-center p-12">
-          <Loader2 className="w-8 h-8 animate-spin text-white/60" />
+          <Loader2 className="w-8 h-8 animate-spin text-zinc-400" />
         </div>
       )}
 
@@ -182,7 +182,7 @@ export default function EntityGapAnalysis({ jobId, url = '' }: EntityGapAnalysis
           {/* Top Stats Row */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* Coverage Donut Card */}
-            <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
+            <div className="bg-zinc-800/50 rounded-2xl p-6 border border-zinc-800">
               <div className="flex items-center gap-6">
                 <DonutChart 
                   value={knowledgeBase.entity_coverage.coverage_score ?? 0} 
@@ -190,21 +190,21 @@ export default function EntityGapAnalysis({ jobId, url = '' }: EntityGapAnalysis
                   strokeWidth={10}
                 />
                 <div className="flex-1">
-                  <h3 className="text-sm font-medium text-white/70 mb-3">Entity Coverage</h3>
+                  <h3 className="text-sm font-medium text-zinc-300 mb-3">Entity Coverage</h3>
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                      <span className="text-xs text-white/60">Found</span>
+                      <span className="text-xs text-zinc-400">Found</span>
                       <span className="text-sm font-bold text-white ml-auto">{foundCount}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full bg-red-500" />
-                      <span className="text-xs text-white/60">Missing</span>
+                      <span className="text-xs text-zinc-400">Missing</span>
                       <span className="text-sm font-bold text-white ml-auto">{missingCount}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-white/50" />
-                      <span className="text-xs text-white/60">Total</span>
+                      <div className="w-2 h-2 rounded-full bg-zinc-500" />
+                      <span className="text-xs text-zinc-400">Total</span>
                       <span className="text-sm font-bold text-white ml-auto">{totalEntities}</span>
                     </div>
                   </div>
@@ -213,26 +213,26 @@ export default function EntityGapAnalysis({ jobId, url = '' }: EntityGapAnalysis
             </div>
 
             {/* Entity Counts Card */}
-            <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
-              <h3 className="text-sm font-medium text-white/70 mb-4">Entity Breakdown</h3>
+            <div className="bg-zinc-800/50 rounded-2xl p-6 border border-zinc-800">
+              <h3 className="text-sm font-medium text-zinc-300 mb-4">Entity Breakdown</h3>
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white/5 rounded-xl p-4">
+                <div className="bg-zinc-800/50 rounded-xl p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="p-1.5 bg-emerald-500/20 rounded-lg">
                       <Target className="w-4 h-4 text-emerald-400" />
                     </div>
-                    <span className="text-xs text-white/60">Critical</span>
+                    <span className="text-xs text-zinc-400">Critical</span>
                   </div>
                   <div className="text-2xl font-bold text-emerald-400">
                     {knowledgeBase.entity_coverage.critical_entities_count ?? 0}
                   </div>
                 </div>
-                <div className="bg-white/5 rounded-xl p-4">
+                <div className="bg-zinc-800/50 rounded-xl p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="p-1.5 bg-blue-500/20 rounded-lg">
                       <Hash className="w-4 h-4 text-blue-400" />
                     </div>
-                    <span className="text-xs text-white/60">Minor</span>
+                    <span className="text-xs text-zinc-400">Minor</span>
                   </div>
                   <div className="text-2xl font-bold text-blue-400">
                     {knowledgeBase.entity_coverage.minor_entities_count ?? 0}
@@ -242,25 +242,25 @@ export default function EntityGapAnalysis({ jobId, url = '' }: EntityGapAnalysis
             </div>
 
             {/* Topic & Density Card */}
-            <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
-              <h3 className="text-sm font-medium text-white/70 mb-4">Content Analysis</h3>
+            <div className="bg-zinc-800/50 rounded-2xl p-6 border border-zinc-800">
+              <h3 className="text-sm font-medium text-zinc-300 mb-4">Content Analysis</h3>
               <div className="space-y-4">
                 <div>
-                  <span className="text-xs text-white/50 uppercase tracking-wider">Topic Identified</span>
+                  <span className="text-xs text-zinc-400 uppercase tracking-wider">Topic Identified</span>
                   <p className="text-white font-semibold mt-1 truncate" title={knowledgeBase.entity_coverage.topic || 'N/A'}>
                     {knowledgeBase.entity_coverage.topic || 'N/A'}
                   </p>
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <span className="text-xs text-white/50 uppercase tracking-wider">Fact Density</span>
+                    <span className="text-xs text-zinc-400 uppercase tracking-wider">Fact Density</span>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-xl font-bold text-white">{knowledgeBase.fact_density?.toFixed(2) ?? '--'}</span>
                       <TrendingUp className="w-4 h-4 text-emerald-400" />
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-xs text-white/50">per 100 words</span>
+                    <span className="text-xs text-zinc-400">per 100 words</span>
                   </div>
                 </div>
               </div>
@@ -270,7 +270,7 @@ export default function EntityGapAnalysis({ jobId, url = '' }: EntityGapAnalysis
           {/* Entity Tags Section */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Found Entities */}
-            <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10">
+            <div className="bg-zinc-800/50 rounded-2xl p-5 border border-zinc-800">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <div className="p-2 bg-emerald-500/20 rounded-lg">
@@ -286,20 +286,20 @@ export default function EntityGapAnalysis({ jobId, url = '' }: EntityGapAnalysis
                 {knowledgeBase.entity_coverage.found_entities?.map((entity, i) => (
                   <span 
                     key={i} 
-                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-white/5 hover:bg-white/8 rounded-lg text-xs text-white/80 transition-colors cursor-default"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-zinc-800/50 hover:bg-zinc-800 rounded-lg text-xs text-zinc-200 transition-colors cursor-default"
                   >
                     <Hash className="w-3 h-3 text-emerald-400" />
                     {entity}
                   </span>
                 ))}
                 {foundCount === 0 && (
-                  <span className="text-white/40 text-sm">No entities found</span>
+                  <span className="text-zinc-500 text-sm">No entities found</span>
                 )}
               </div>
             </div>
 
             {/* Missing Entities */}
-            <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10">
+            <div className="bg-zinc-800/50 rounded-2xl p-5 border border-zinc-800">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <div className="p-2 bg-red-500/20 rounded-lg">
@@ -332,8 +332,8 @@ export default function EntityGapAnalysis({ jobId, url = '' }: EntityGapAnalysis
 
           {/* KB Recommendations Section */}
           {knowledgeBase.entity_coverage.recommendations && knowledgeBase.entity_coverage.recommendations.length > 0 && (
-            <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
-              <div className="p-4 border-b border-white/10 flex items-center gap-2">
+            <div className="bg-zinc-800/50 rounded-2xl border border-zinc-800 overflow-hidden">
+              <div className="p-4 border-b border-zinc-800 flex items-center gap-2">
                 <div className="p-2 bg-amber-500/20 rounded-lg">
                   <TrendingUp className="w-4 h-4 text-amber-400" />
                 </div>
@@ -346,7 +346,7 @@ export default function EntityGapAnalysis({ jobId, url = '' }: EntityGapAnalysis
                 {knowledgeBase.entity_coverage.recommendations.map((rec, i) => (
                   <div 
                     key={i}
-                    className="p-4 bg-white/5 rounded-xl border border-white/5"
+                    className="p-4 bg-zinc-800/50 rounded-xl border border-zinc-800/50"
                   >
                     <div className="flex items-start justify-between gap-4 mb-2">
                       <Badge className={cn(
@@ -359,10 +359,10 @@ export default function EntityGapAnalysis({ jobId, url = '' }: EntityGapAnalysis
                       </Badge>
                       <div className="flex items-center gap-1 text-emerald-400">
                         <span className="text-xs font-semibold">+{rec.impact}</span>
-                        <span className="text-[10px] text-white/40">impact</span>
+                        <span className="text-[10px] text-zinc-500">impact</span>
                       </div>
                     </div>
-                    <p className="text-sm text-white/70">{rec.action}</p>
+                    <p className="text-sm text-zinc-300">{rec.action}</p>
                   </div>
                 ))}
               </div>
@@ -371,16 +371,16 @@ export default function EntityGapAnalysis({ jobId, url = '' }: EntityGapAnalysis
 
           {/* Entity Types Grid */}
           {Object.keys(entityTypes).length > 0 && (
-            <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
-              <div className="p-4 border-b border-white/5 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+            <div className="bg-zinc-800/50 rounded-2xl border border-zinc-800 overflow-hidden">
+              <div className="p-4 border-b border-zinc-800/50 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
                 <h3 className="text-sm font-medium text-white">Entity Analysis by Type</h3>
                 <div className="relative w-full sm:w-64">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/40" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-500" />
                   <Input
                     placeholder="Search entities..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/40 text-sm h-9"
+                    className="pl-10 bg-zinc-800/50 border-zinc-800 text-white placeholder:text-zinc-500 text-sm h-9"
                   />
                 </div>
               </div>
@@ -394,14 +394,14 @@ export default function EntityGapAnalysis({ jobId, url = '' }: EntityGapAnalysis
                   if (filteredTypeEntities.length === 0) return null
 
                   const typeColors: Record<string, { bg: string; border: string; text: string }> = {
-                    'Person': { bg: 'bg-white/[0.03]', border: 'border-purple-500/30', text: 'text-purple-400' },
-                    'Organization': { bg: 'bg-white/[0.03]', border: 'border-blue-500/30', text: 'text-blue-400' },
-                    'Location': { bg: 'bg-white/[0.03]', border: 'border-amber-500/30', text: 'text-amber-400' },
-                    'Concept': { bg: 'bg-white/[0.03]', border: 'border-cyan-500/30', text: 'text-cyan-400' },
-                    'Product': { bg: 'bg-white/[0.03]', border: 'border-emerald-500/30', text: 'text-emerald-400' },
-                    'Date': { bg: 'bg-white/[0.03]', border: 'border-pink-500/30', text: 'text-pink-400' },
+                    'Person': { bg: 'bg-zinc-800/30', border: 'border-blue-500/30', text: 'text-blue-400' },
+                    'Organization': { bg: 'bg-zinc-800/30', border: 'border-blue-500/30', text: 'text-blue-400' },
+                    'Location': { bg: 'bg-zinc-800/30', border: 'border-amber-500/30', text: 'text-amber-400' },
+                    'Concept': { bg: 'bg-zinc-800/30', border: 'border-cyan-500/30', text: 'text-cyan-400' },
+                    'Product': { bg: 'bg-zinc-800/30', border: 'border-emerald-500/30', text: 'text-emerald-400' },
+                    'Date': { bg: 'bg-zinc-800/30', border: 'border-pink-500/30', text: 'text-pink-400' },
                   }
-                  const colors = typeColors[type] || { bg: 'bg-white/[0.03]', border: 'border-white/[0.08]', text: 'text-white/70' }
+                  const colors = typeColors[type] || { bg: 'bg-zinc-800/30', border: 'border-zinc-800', text: 'text-zinc-300' }
 
                   return (
                     <div 
@@ -410,13 +410,13 @@ export default function EntityGapAnalysis({ jobId, url = '' }: EntityGapAnalysis
                     >
                       <div className="flex items-center justify-between mb-3">
                         <span className={cn("text-sm font-medium", colors.text)}>{type}</span>
-                        <span className="text-xs text-white/50">{filteredTypeEntities.length} items</span>
+                        <span className="text-xs text-zinc-400">{filteredTypeEntities.length} items</span>
                       </div>
                       <div className="space-y-2 max-h-40 overflow-y-auto">
                         {filteredTypeEntities.map((entity, i) => (
                           <div 
                             key={i}
-                            className="flex items-center justify-between p-2 rounded-lg bg-white/5"
+                            className="flex items-center justify-between p-2 rounded-lg bg-zinc-800/50"
                           >
                             <span className="text-sm text-white truncate flex-1">{entity.entity}</span>
                             <div className="flex items-center gap-2 ml-2">
@@ -426,7 +426,7 @@ export default function EntityGapAnalysis({ jobId, url = '' }: EntityGapAnalysis
                               )}>
                                 {entity.status === 'Found' ? '✓' : '✗'}
                               </span>
-                              <span className="text-xs text-white/50">{entity.relevance_score}/10</span>
+                              <span className="text-xs text-zinc-400">{entity.relevance_score}/10</span>
                             </div>
                           </div>
                         ))}
@@ -439,12 +439,12 @@ export default function EntityGapAnalysis({ jobId, url = '' }: EntityGapAnalysis
           )}
         </>
       ) : !isLoading ? (
-        <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-12 text-center">
-          <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Database className="w-8 h-8 text-white/30" />
+        <div className="bg-zinc-800/50 rounded-2xl border border-zinc-800 p-12 text-center">
+          <div className="w-16 h-16 bg-zinc-800/50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <Database className="w-8 h-8 text-zinc-600" />
           </div>
           <h3 className="text-lg font-semibold text-white mb-2">No Entity Analysis Data</h3>
-          <p className="text-sm text-white/50 mb-6 max-w-md mx-auto">
+          <p className="text-sm text-zinc-400 mb-6 max-w-md mx-auto">
             Run an AI Visibility analysis to see entity coverage and gap analysis.
           </p>
           <Button

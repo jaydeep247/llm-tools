@@ -65,7 +65,7 @@ function ConsistencyGauge({ value }: { value: number }) {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className={cn("text-3xl font-bold", colors.text)}>{value}%</span>
-        <span className="text-xs text-white/50">Consistency</span>
+        <span className="text-xs text-zinc-400">Consistency</span>
       </div>
     </div>
   )
@@ -75,7 +75,7 @@ function ConsistencyGauge({ value }: { value: number }) {
 function MiniBar({ value, maxValue = 100, color }: { value: number; maxValue?: number; color: string }) {
   const percentage = Math.min((value / maxValue) * 100, 100)
   return (
-    <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
+    <div className="h-2 w-full bg-zinc-800 rounded-full overflow-hidden">
       <div 
         className={cn("h-full rounded-full transition-all duration-500", color)}
         style={{ width: `${percentage}%` }}
@@ -132,11 +132,11 @@ export default function ModelComparison({ jobId, url = '' }: ModelComparisonProp
 
   // Model colors mapping
   const modelColors: Record<string, { bg: string; icon: string; bar: string }> = {
-    'gpt': { bg: 'bg-white/[0.05]', icon: 'text-emerald-400', bar: 'bg-emerald-500' },
-    'claude': { bg: 'bg-white/[0.05]', icon: 'text-orange-400', bar: 'bg-orange-500' },
-    'gemini': { bg: 'bg-white/[0.05]', icon: 'text-blue-400', bar: 'bg-blue-500' },
-    'llama': { bg: 'bg-white/[0.05]', icon: 'text-purple-400', bar: 'bg-purple-500' },
-    'mistral': { bg: 'bg-white/[0.05]', icon: 'text-cyan-400', bar: 'bg-cyan-500' },
+    'gpt': { bg: 'bg-zinc-800/50', icon: 'text-emerald-400', bar: 'bg-emerald-500' },
+    'claude': { bg: 'bg-zinc-800/50', icon: 'text-orange-400', bar: 'bg-orange-500' },
+    'gemini': { bg: 'bg-zinc-800/50', icon: 'text-blue-400', bar: 'bg-blue-500' },
+    'llama': { bg: 'bg-zinc-800/50', icon: 'text-blue-400', bar: 'bg-purple-500' },
+    'mistral': { bg: 'bg-zinc-800/50', icon: 'text-cyan-400', bar: 'bg-cyan-500' },
   }
 
   const getModelColor = (model: string) => {
@@ -144,7 +144,7 @@ export default function ModelComparison({ jobId, url = '' }: ModelComparisonProp
     for (const [key, colors] of Object.entries(modelColors)) {
       if (lowerModel.includes(key)) return colors
     }
-    return { bg: 'bg-white/[0.05]', icon: 'text-white/70', bar: 'bg-white/50' }
+    return { bg: 'bg-zinc-800/50', icon: 'text-zinc-300', bar: 'bg-zinc-500' }
   }
 
   const models = useMemo(() => {
@@ -158,7 +158,7 @@ export default function ModelComparison({ jobId, url = '' }: ModelComparisonProp
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold text-white">Model Comparison</h2>
-          <p className="text-sm text-white/50 mt-1">
+          <p className="text-sm text-zinc-400 mt-1">
             Cross-model consistency and performance analysis
           </p>
         </div>
@@ -167,7 +167,7 @@ export default function ModelComparison({ jobId, url = '' }: ModelComparisonProp
           variant="outline"
           size="sm"
           disabled={isLoading}
-          className="bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white"
+          className="bg-zinc-800/50 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white"
         >
           <RefreshCw className={cn("w-4 h-4 mr-2", isLoading && "animate-spin")} />
           Refresh
@@ -177,7 +177,7 @@ export default function ModelComparison({ jobId, url = '' }: ModelComparisonProp
       {/* Loading State */}
       {isLoading && (
         <div className="flex items-center justify-center p-12">
-          <Loader2 className="w-8 h-8 animate-spin text-white/60" />
+          <Loader2 className="w-8 h-8 animate-spin text-zinc-400" />
         </div>
       )}
 
@@ -187,14 +187,14 @@ export default function ModelComparison({ jobId, url = '' }: ModelComparisonProp
           {/* Hero Stats Section */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
             {/* Consistency Score Card */}
-            <div className="lg:col-span-4 bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
+            <div className="lg:col-span-4 bg-zinc-800/50 rounded-2xl p-6 border border-zinc-800">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <Activity className="w-4 h-4 text-white/50" />
-                    <span className="text-xs text-white/50 uppercase tracking-wider">Consistency</span>
+                    <Activity className="w-4 h-4 text-zinc-400" />
+                    <span className="text-xs text-zinc-400 uppercase tracking-wider">Consistency</span>
                   </div>
-                  <p className="text-sm text-white/60 max-w-37.5">
+                  <p className="text-sm text-zinc-400 max-w-37.5">
                     How consistent are responses across all AI models
                   </p>
                 </div>
@@ -204,29 +204,29 @@ export default function ModelComparison({ jobId, url = '' }: ModelComparisonProp
 
             {/* Quick Stats */}
             <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10">
+              <div className="bg-zinc-800/50 rounded-2xl p-5 border border-zinc-800">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="p-2 bg-blue-500/20 rounded-xl">
                     <Cpu className="w-4 h-4 text-blue-400" />
                   </div>
                 </div>
                 <div className="text-2xl font-bold text-white">{models.length}</div>
-                <div className="text-xs text-white/50 mt-1">Models Compared</div>
+                <div className="text-xs text-zinc-400 mt-1">Models Compared</div>
               </div>
 
-              <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10">
+              <div className="bg-zinc-800/50 rounded-2xl p-5 border border-zinc-800">
                 <div className="flex items-center gap-2 mb-3">
-                  <div className="p-2 bg-purple-500/20 rounded-xl">
-                    <Layers className="w-4 h-4 text-purple-400" />
+                  <div className="p-2 bg-blue-500/20 rounded-xl">
+                    <Layers className="w-4 h-4 text-blue-400" />
                   </div>
                 </div>
                 <div className="text-2xl font-bold text-white">
                   {((metrics.variation_analysis?.reasoning_level?.similarity ?? 0) * 100).toFixed(0)}%
                 </div>
-                <div className="text-xs text-white/50 mt-1">Reasoning Similarity</div>
+                <div className="text-xs text-zinc-400 mt-1">Reasoning Similarity</div>
               </div>
 
-              <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10">
+              <div className="bg-zinc-800/50 rounded-2xl p-5 border border-zinc-800">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="p-2 bg-amber-500/20 rounded-xl">
                     <Target className="w-4 h-4 text-amber-400" />
@@ -235,10 +235,10 @@ export default function ModelComparison({ jobId, url = '' }: ModelComparisonProp
                 <div className="text-2xl font-bold text-white">
                   {metrics.variation_analysis?.specificity_level?.depth_score ?? 0}
                 </div>
-                <div className="text-xs text-white/50 mt-1">Depth Score</div>
+                <div className="text-xs text-zinc-400 mt-1">Depth Score</div>
               </div>
 
-              <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10">
+              <div className="bg-zinc-800/50 rounded-2xl p-5 border border-zinc-800">
                 <div className="flex items-center gap-2 mb-3">
                   <div className={cn(
                     "p-2 rounded-xl",
@@ -257,7 +257,7 @@ export default function ModelComparison({ jobId, url = '' }: ModelComparisonProp
                 )}>
                   {metrics.coverage_gaps?.length ?? 0}
                 </div>
-                <div className="text-xs text-white/50 mt-1">Coverage Gaps</div>
+                <div className="text-xs text-zinc-400 mt-1">Coverage Gaps</div>
               </div>
             </div>
           </div>
@@ -266,7 +266,7 @@ export default function ModelComparison({ jobId, url = '' }: ModelComparisonProp
           {metrics.variation_analysis && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* Outcome Level */}
-              <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10">
+              <div className="bg-zinc-800/50 rounded-2xl p-5 border border-zinc-800">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="p-2 bg-emerald-500/20 rounded-xl">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400" />
@@ -277,19 +277,19 @@ export default function ModelComparison({ jobId, url = '' }: ModelComparisonProp
                   <span className="text-white font-semibold capitalize">
                     {metrics.variation_analysis.outcome_level?.agreement || 'N/A'}
                   </span>
-                  <Badge className="bg-white/10 text-white/70 border-0">
+                  <Badge className="bg-zinc-800 text-zinc-300 border-0">
                     Score: {metrics.variation_analysis.outcome_level?.score ?? 'N/A'}
                   </Badge>
                 </div>
                 {metrics.variation_analysis.outcome_level?.note && (
-                  <p className="text-xs text-white/50 leading-relaxed">
+                  <p className="text-xs text-zinc-400 leading-relaxed">
                     {metrics.variation_analysis.outcome_level.note}
                   </p>
                 )}
               </div>
 
               {/* Tone Analysis */}
-              <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10">
+              <div className="bg-zinc-800/50 rounded-2xl p-5 border border-zinc-800">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="p-2 bg-blue-500/20 rounded-xl">
                     <TrendingUp className="w-4 h-4 text-blue-400" />
@@ -298,13 +298,13 @@ export default function ModelComparison({ jobId, url = '' }: ModelComparisonProp
                 </div>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-white/50">Confidence</span>
+                    <span className="text-xs text-zinc-400">Confidence</span>
                     <Badge className="bg-blue-500/20 text-blue-300 border-0 capitalize">
                       {metrics.variation_analysis.tone_analysis?.confidence || 'N/A'}
                     </Badge>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-xs text-white/50">Risk Posture</span>
+                    <span className="text-xs text-zinc-400">Risk Posture</span>
                     <Badge className="bg-amber-500/20 text-amber-300 border-0 capitalize">
                       {metrics.variation_analysis.tone_analysis?.risk_posture || 'N/A'}
                     </Badge>
@@ -313,22 +313,22 @@ export default function ModelComparison({ jobId, url = '' }: ModelComparisonProp
               </div>
 
               {/* Specificity Level */}
-              <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10">
+              <div className="bg-zinc-800/50 rounded-2xl p-5 border border-zinc-800">
                 <div className="flex items-center gap-2 mb-4">
-                  <div className="p-2 bg-purple-500/20 rounded-xl">
-                    <Shield className="w-4 h-4 text-purple-400" />
+                  <div className="p-2 bg-blue-500/20 rounded-xl">
+                    <Shield className="w-4 h-4 text-blue-400" />
                   </div>
                   <span className="text-sm font-medium text-white">Specificity Level</span>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <div className="text-xs text-white/50 mb-1">Depth</div>
+                    <div className="text-xs text-zinc-400 mb-1">Depth</div>
                     <div className="text-2xl font-bold text-white">
                       {metrics.variation_analysis.specificity_level?.depth_score ?? 0}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-white/50 mb-1">Completeness</div>
+                    <div className="text-xs text-zinc-400 mb-1">Completeness</div>
                     <div className="text-2xl font-bold text-white">
                       {metrics.variation_analysis.specificity_level?.completeness_score ?? 0}
                     </div>
@@ -340,16 +340,16 @@ export default function ModelComparison({ jobId, url = '' }: ModelComparisonProp
 
           {/* Model Scores Cards */}
           {models.length > 0 && (
-            <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
-              <div className="p-4 border-b border-white/10 flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-white/50" />
+            <div className="bg-zinc-800/50 rounded-2xl border border-zinc-800 overflow-hidden">
+              <div className="p-4 border-b border-zinc-800 flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-zinc-400" />
                 <span className="text-sm font-medium text-white">Model Performance</span>
-                <Badge className="bg-white/10 text-white/70 border-0 ml-auto">
+                <Badge className="bg-zinc-800 text-zinc-300 border-0 ml-auto">
                   {models.length} models
                 </Badge>
               </div>
 
-              <div className="divide-y divide-white/5">
+              <div className="divide-y divide-zinc-800/50">
                 {models.map(([model, scores]) => {
                   const colors = getModelColor(model)
                   const overall = ((scores.overall ?? 0) * 100)
@@ -357,7 +357,7 @@ export default function ModelComparison({ jobId, url = '' }: ModelComparisonProp
                   const depth = ((scores.depth ?? 0) * 100)
                   
                   return (
-                    <div key={model} className="p-4 hover:bg-white/5 transition-all">
+                    <div key={model} className="p-4 hover:bg-zinc-800/50 transition-all">
                       <div className="flex items-center gap-4">
                         <div className={cn("p-2.5 rounded-xl", colors.bg)}>
                           <Cpu className={cn("w-5 h-5", colors.icon)} />
@@ -380,14 +380,14 @@ export default function ModelComparison({ jobId, url = '' }: ModelComparisonProp
                           <div className="grid grid-cols-2 gap-6">
                             <div>
                               <div className="flex items-center justify-between mb-1.5">
-                                <span className="text-xs text-white/50">Agreement</span>
+                                <span className="text-xs text-zinc-400">Agreement</span>
                                 <span className="text-xs font-medium text-white">{agreement.toFixed(0)}%</span>
                               </div>
                               <MiniBar value={agreement} color={colors.bar} />
                             </div>
                             <div>
                               <div className="flex items-center justify-between mb-1.5">
-                                <span className="text-xs text-white/50">Depth</span>
+                                <span className="text-xs text-zinc-400">Depth</span>
                                 <span className="text-xs font-medium text-white">{depth.toFixed(0)}%</span>
                               </div>
                               <MiniBar value={depth} color={colors.bar} />
@@ -404,27 +404,27 @@ export default function ModelComparison({ jobId, url = '' }: ModelComparisonProp
 
           {/* Claim Matrix Section */}
           {result?.modules?.multi_model_insights?.claim_matrix && (result.modules.multi_model_insights.claim_matrix as any[]).length > 0 && (
-            <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
-              <div className="p-4 border-b border-white/10 flex items-center gap-2">
-                <div className="p-2 bg-purple-500/20 rounded-xl">
-                  <Layers className="w-4 h-4 text-purple-400" />
+            <div className="bg-zinc-800/50 rounded-2xl border border-zinc-800 overflow-hidden">
+              <div className="p-4 border-b border-zinc-800 flex items-center gap-2">
+                <div className="p-2 bg-blue-500/20 rounded-xl">
+                  <Layers className="w-4 h-4 text-blue-400" />
                 </div>
                 <span className="text-sm font-medium text-white">Claim Verification Matrix</span>
-                <Badge className="bg-purple-500/20 text-purple-300 border-0 ml-auto">
+                <Badge className="bg-blue-500/20 text-blue-300 border-0 ml-auto">
                   {(result.modules.multi_model_insights.claim_matrix as any[]).length} claims
                 </Badge>
               </div>
-              <div className="divide-y divide-white/5">
+              <div className="divide-y divide-zinc-800/50">
                 {(result.modules.multi_model_insights.claim_matrix as any[]).map((claim: any, i: number) => (
-                  <div key={i} className="p-4 hover:bg-white/5 transition-all">
+                  <div key={i} className="p-4 hover:bg-zinc-800/50 transition-all">
                     <div className="flex items-start justify-between gap-4 mb-3">
-                      <p className="text-sm text-white/80 flex-1">{claim.claim}</p>
-                      <Badge variant="outline" className="text-white/50 border-white/20 shrink-0 text-xs">
+                      <p className="text-sm text-zinc-200 flex-1">{claim.claim}</p>
+                      <Badge variant="outline" className="text-zinc-400 border-zinc-700 shrink-0 text-xs">
                         {claim.category}
                       </Badge>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs text-white/40">Confirmed by:</span>
+                      <span className="text-xs text-zinc-500">Confirmed by:</span>
                       {claim.providers && Object.entries(claim.providers)
                         .filter(([, confirmed]) => confirmed)
                         .map(([provider]) => (
@@ -450,7 +450,7 @@ export default function ModelComparison({ jobId, url = '' }: ModelComparisonProp
 
           {/* Coverage Gaps */}
           {metrics.coverage_gaps && metrics.coverage_gaps.length > 0 && (
-            <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-red-500/30 p-5">
+            <div className="bg-zinc-800/50 rounded-2xl border border-red-500/30 p-5">
               <div className="flex items-center gap-2 mb-4">
                 <div className="p-2 bg-red-500/20 rounded-xl">
                   <AlertTriangle className="w-4 h-4 text-red-400" />
@@ -463,7 +463,7 @@ export default function ModelComparison({ jobId, url = '' }: ModelComparisonProp
                 {metrics.coverage_gaps.map((gap, i) => (
                   <div 
                     key={i} 
-                    className="text-sm text-white/70 bg-white/5 rounded-xl px-4 py-2.5 border border-white/10"
+                    className="text-sm text-zinc-300 bg-zinc-800/50 rounded-xl px-4 py-2.5 border border-zinc-800"
                   >
                     {gap}
                   </div>
@@ -473,12 +473,12 @@ export default function ModelComparison({ jobId, url = '' }: ModelComparisonProp
           )}
         </>
       ) : !isLoading ? (
-        <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-12 text-center">
-          <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <BarChart3 className="w-8 h-8 text-white/30" />
+        <div className="bg-zinc-800/50 rounded-2xl border border-zinc-800 p-12 text-center">
+          <div className="w-16 h-16 bg-zinc-800/50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <BarChart3 className="w-8 h-8 text-zinc-600" />
           </div>
           <h3 className="text-lg font-semibold text-white mb-2">No Model Comparison Data</h3>
-          <p className="text-sm text-white/50 mb-6 max-w-md mx-auto">
+          <p className="text-sm text-zinc-400 mb-6 max-w-md mx-auto">
             Run an AI Visibility analysis to see cross-model consistency and performance.
           </p>
           <Button

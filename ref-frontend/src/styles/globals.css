@@ -41,49 +41,49 @@
 }
 
 .dark {
-  /* User / Admin Dashboard – Dark Theme Palette */
-  --background: #0E0E0F; /* Main Background */
-  --foreground: #FDFFFD; /* Primary Text */
+  /* Dashboard – Dark Neutral Theme */
+  --background: #09090B;
+  --foreground: #FAFAFA;
   
-  --card: #2E343A; /* Surface (Cards / Panels) */
-  --card-foreground: #FDFFFD;
+  --card: #111113;
+  --card-foreground: #FAFAFA;
   
-  --popover: #2E343A; /* Surface */
-  --popover-foreground: #FDFFFD;
+  --popover: #161618;
+  --popover-foreground: #FAFAFA;
   
-  --primary: #34D399; /* CTA / Accent - Green */
-  --primary-foreground: #0E0E0F;
+  --primary: #FAFAFA;
+  --primary-foreground: #09090B;
   
-  --secondary: #1B1D21; /* Secondary Background */
-  --secondary-foreground: #FDFFFD;
+  --secondary: #1C1C1E;
+  --secondary-foreground: #FAFAFA;
   
-  --muted: #1B1D21; /* Secondary Background as muted area? Or lighter? */
-  --muted-foreground: #9F9395; /* Muted Text */
+  --muted: #1C1C1E;
+  --muted-foreground: #71717A;
   
-  --accent: #F28256; /* CTA / Accent - Orange */
-  --accent-foreground: #0E0E0F;
+  --accent: #3B82F6;
+  --accent-foreground: #FAFAFA;
   
   --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: #FDFFFD;
+  --destructive-foreground: #FAFAFA;
   
-  --border: #54595B; /* Border */
-  --input: #54595B;
-  --ring: #34D399; /* Match primary */
+  --border: #27272A;
+  --input: #27272A;
+  --ring: #A1A1AA;
   
-  --chart-1: #34D399; /* Green */
-  --chart-2: #F28256; /* Orange */
-  --chart-3: #CCD1D5; /* Light Text color for chart? */
-  --chart-4: #0EE00F; /* Hero Highlight? */
-  --chart-5: #2E343A;
+  --chart-1: #3B82F6;
+  --chart-2: #10B981;
+  --chart-3: #F59E0B;
+  --chart-4: #EF4444;
+  --chart-5: #8B5CF6;
   
-  --sidebar: #1B1D21; /* Secondary Background */
-  --sidebar-foreground: #FDFFFD; /* Primary Text */
-  --sidebar-primary: #34D399; /* Green */
-  --sidebar-primary-foreground: #0E0E0F;
-  --sidebar-accent: #2E343A; /* Surface */
-  --sidebar-accent-foreground: #FDFFFD;
-  --sidebar-border: #54595B; /* Border */
-  --sidebar-ring: #34D399;
+  --sidebar: #0C0C0E;
+  --sidebar-foreground: #FAFAFA;
+  --sidebar-primary: #FAFAFA;
+  --sidebar-primary-foreground: #09090B;
+  --sidebar-accent: #1C1C1E;
+  --sidebar-accent-foreground: #FAFAFA;
+  --sidebar-border: #27272A;
+  --sidebar-ring: #A1A1AA;
 }
 
 @theme inline {

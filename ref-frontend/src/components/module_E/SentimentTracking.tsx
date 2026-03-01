@@ -322,8 +322,8 @@ export default function SentimentTracking({ brandName }: SentimentTrackingProps)
       {/* Header Section */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-linear-to-br from-pink-500 to-rose-600">
-            <Heart className="w-5 h-5 text-white" />
+          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-zinc-800/50 border border-zinc-800">
+            <Heart className="w-5 h-5 text-rose-400" />
           </div>
           <div>
             <h3 className="text-lg font-semibold text-foreground">

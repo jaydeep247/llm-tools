@@ -31,7 +31,7 @@ function ChatGPTLogo(props: any) {
       />
       <path
         fillRule="nonzero"
-        d="M412.037 221.764a90.834 90.834 0 004.648-28.67 90.79 90.79 0 00-12.443-45.87c-16.37-28.496-46.738-46.089-79.605-46.089-6.466 0-12.943.683-19.264 2.04a90.765 90.765 0 00-67.881-30.515h-.576c-.059.002-.149.002-.216.002-39.807 0-75.108 25.686-87.346 63.554-25.626 5.239-47.748 21.31-60.682 44.03a91.873 91.873 0 00-12.407 46.077 91.833 91.833 0 0023.694 61.553 90.802 90.802 0 00-4.649 28.67 90.804 90.804 0 0012.442 45.87c16.369 28.504 46.74 46.087 79.61 46.087a91.81 91.81 0 0019.253-2.04 90.783 90.783 0 0067.887 30.516h.576l.234-.001c39.829 0 75.119-25.686 87.357-63.588 25.626-5.242 47.748-21.312 60.682-44.033a91.718 91.718 0 0012.383-46.035 91.83 91.83 0 00-23.693-61.553l-.004-.005zM275.102 413.161h-.094a68.146 68.146 0 01-43.611-15.8 56.936 56.936 0 002.155-1.221l72.54-41.901a11.799 11.799 0 005.962-10.251V241.651l30.661 17.704c.326.163.55.479.596.84v84.693c-.042 37.653-30.554 68.198-68.21 68.273h.001zm-146.689-62.649a68.128 68.128 0 01-9.152-34.085c0-3.904.341-7.817 1.005-11.663.539.323 1.48.897 2.155 1.285l72.54 41.901a11.832 11.832 0 0011.918-.002l88.563-51.137v35.408a1.1 1.1 0 01-.438.94l-73.33 42.339a68.43 68.43 0 01-34.11 9.12 68.359 68.359 0 01-59.15-34.11l-.001.004zm-19.083-158.36a68.044 68.044 0 0135.538-29.934c0 .625-.036 1.731-.036 2.5v83.801l-.001.07a11.79 11.79 0 005.954 10.242l88.564 51.13-30.661 17.704a1.096 1.096 0 01-1.034.093l-73.337-42.375a68.36 68.36 0 01-34.095-59.143 68.412 68.412 0 019.112-34.085l-.004-.003zm251.907 58.621l-88.563-51.137 30.661-17.697a1.097 1.097 0 011.034-.094l73.337 42.339c21.109 12.195 34.132 34.746 34.132 59.132 0 28.604-17.849 54.199-44.686 64.078v-86.308c.004-.032.004-.065.004-.096 0-4.219-2.261-8.119-5.919-10.217zm30.518-45.93c-.539-.331-1.48-.898-2.155-1.286l-72.54-41.901a11.842 11.842 0 00-5.958-1.611c-2.092 0-4.15.558-5.957 1.611l-88.564 51.137v-35.408l-.001-.061a1.1 1.1 0 01.44-.88l73.33-42.303a68.301 68.301 0 0134.108-9.129c37.704 0 68.281 30.577 68.281 68.281a68.69 68.69 0 01-.984 11.545v.005zm-191.843 63.37a12.374 12.374 0 016.166-10.592l75.612-43.671 75.7 43.724a12.369 12.369 0 01.23 21.453l-75.62 43.664-75.695-43.73a12.376 12.376 0 01-6.393-10.853z"
+        d="M412.037 221.764a90.834 90.834 0 004.648-28.67 90.79 90.79 0 00-12.443-45.87c-16.37-28.496-46.738-46.089-79.605-46.089-6.466 0-12.943.683-19.264 2.04a90.765 90.765 0 00-67.881-30.515h-.576c-.059.002-.149.002-.216.002-39.807 0-75.108 25.686-87.346 63.554-25.626 5.239-47.748 21.31-60.682 44.03a91.873 91.873 0 00-12.407 46.077 91.833 91.833 0 0023.694 61.553 90.802 90.802 0 00-4.649 28.67 90.804 90.804 0 0012.442 45.87c16.369 28.504 46.74 46.087 79.61 46.087a91.81 91.81 0 0019.253-2.04 90.783 90.783 0 0067.887 30.516h.576l.234-.001c39.829 0 75.119-25.686 87.357-63.588 25.626-5.242 47.748-21.312 60.682-44.033a91.718 91.718 0 0012.383-46.035 91.83 91.83 0 00-23.693-61.553l-.004-.005zM275.102 413.161h-.094a68.146 68.146 0 01-43.611-15.8 56.936 56.936 0 002.155-1.221l72.54-41.901a11.799 11.799 0 005.962-10.251V241.651l30.661 17.704c.326.163.55.479.596.84v84.693c-.042 37.653-30.554 68.198-68.21 68.273h.001zm-146.689-62.649a68.128 68.128 0 01-9.152-34.085c0-3.904.341-7.817 1.005-11.663.539.323 1.48.897 2.155 1.285l72.54 41.901a11.832 11.832 0 0011.918-.002l88.563-51.137v35.408a1.1 1.1 0 01-.438.94l-73.33 42.339a68.43 68.43 0 01-34.11 9.12 68.359 68.359 0 01-59.15-34.11l-.001.004zm-19.083-158.36a68.044 68.044 0 0135.538-29.934c0 .625-.036 1.731-.036 2.5v83.801l-.001.07a11.79 11.79 0 005.954 10.242l88.564 51.13-30.661 17.704a1.096 1.096 0 01-1.034.093l-73.337-42.375a68.36 68.36 0 01-34.095-59.143 68.412 68.412 0 019.112-34.085l-.004-.003zm251.907 58.621l-88.563-51.137 30.661-17.697a1.097 1.097 0 011.034-.094l73.337 42.339c21.109 12.195 34.132 34.746 34.132 59.132 0 28.604-17.849 54.199-44.686 64.078v-86.308c.004-.032.004-.065.004-.096 0-4.219-2.261-8.119-5.919-10.217zm30.518-45.93c-.539-.331-1.48-.898-2.155-1.286l-72.54-41.901a11.842 11.842 0 00-5.958-1.611c-2.092 0-4.15.558-5.957 1.611l-88.564 51.137v-35.408l-.001-.061a1.1 1.1 0 01.44-.88l73.33-42.303a68.301 68.301 0 0134.108-9.129c37.704 0 68.281 30.577 68.281 68.281a68.69 68.69 0 01-.984 11.545v.005zm-191.843 63.109l-30.668-17.704a1.09 1.09 0 01-.596-.84v-84.692c.016-37.685 30.593-68.236 68.281-68.236a68.332 68.332 0 0143.689 15.804 63.09 63.09 0 00-2.155 1.222l-72.54 41.9a11.794 11.794 0 00-5.961 10.248v.068l-.05 102.23zm16.655-35.91l39.445-22.782 39.444 22.767v45.55l-39.444 22.767-39.445-22.767v-45.535z"
       />
     </svg>
   )
@@ -85,69 +85,20 @@ function GeminiLogo(props: any) {
   )
 }
 
-function getMetricGradientClass(score: number | null | undefined) {
-  if (score == null) {
-    return 'bg-muted/60 border-border/60'
-  }
-  if (score >= 80) {
-    return 'bg-linear-to-br from-emerald-500/20 to-emerald-500/5 border-emerald-500/50'
-  }
-  if (score >= 50) {
-    return 'bg-linear-to-br from-blue-500/20 to-blue-500/5 border-blue-500/50'
-  }
-  return 'bg-linear-to-br from-amber-500/20 to-amber-500/5 border-amber-500/40'
+/* Flat color helpers — no gradients */
+
+function getScoreColor(score: number | null | undefined) {
+  if (score == null) return 'text-zinc-500'
+  if (score >= 80) return 'text-emerald-400'
+  if (score >= 50) return 'text-amber-400'
+  return 'text-rose-400'
 }
 
-function getCoverageGradient(score: number | null | undefined) {
-  if (score == null) {
-    return 'bg-linear-to-br from-amber-500/10 to-amber-800/30 border-amber-500/60'
-  }
-  if (score >= 80) {
-    return 'bg-linear-to-br from-amber-400/40 to-yellow-400/25 border-amber-300/70'
-  }
-  if (score >= 50) {
-    return 'bg-linear-to-br from-amber-500/35 to-orange-500/25 border-amber-500/70'
-  }
-  return 'bg-linear-to-br from-red-500/35 to-amber-600/25 border-red-500/70'
-}
-
-function getQualityGradient(score: number | null | undefined) {
-  if (score == null) {
-    return 'bg-linear-to-br from-emerald-500/10 to-emerald-900/40 border-emerald-500/60'
-  }
-  if (score >= 80) {
-    return 'bg-linear-to-br from-emerald-400/40 to-teal-400/25 border-emerald-300/70'
-  }
-  if (score >= 50) {
-    return 'bg-linear-to-br from-emerald-500/30 to-teal-600/25 border-emerald-500/70'
-  }
-  return 'bg-linear-to-br from-emerald-700/25 to-slate-800/35 border-emerald-600/60'
-}
-
-function getAccuracyGradient(score: number | null | undefined) {
-  if (score == null) {
-    return 'bg-linear-to-br from-sky-500/10 to-slate-900/40 border-sky-500/60'
-  }
-  if (score >= 80) {
-    return 'bg-linear-to-br from-sky-400/40 to-indigo-400/25 border-sky-300/70'
-  }
-  if (score >= 50) {
-    return 'bg-linear-to-br from-sky-500/30 to-indigo-600/25 border-sky-500/70'
-  }
-  return 'bg-linear-to-br from-sky-700/25 to-slate-900/35 border-sky-600/60'
-}
-
-function getSentimentGradientClass(sentiment: number | null | undefined) {
-  if (sentiment == null) {
-    return 'bg-linear-to-br from-slate-500/25 to-slate-900/60 border-slate-500/60'
-  }
-  if (sentiment > 0.1) {
-    return 'bg-linear-to-br from-violet-500/30 to-fuchsia-500/30 border-violet-400/60'
-  }
-  if (sentiment < -0.1) {
-    return 'bg-linear-to-br from-rose-500/30 to-red-500/30 border-rose-400/60'
-  }
-  return 'bg-linear-to-br from-slate-600/30 to-slate-900/40 border-slate-500/60'
+function getScoreBorder(score: number | null | undefined) {
+  if (score == null) return 'border-zinc-800'
+  if (score >= 80) return 'border-emerald-500/30'
+  if (score >= 50) return 'border-amber-500/30'
+  return 'border-rose-500/30'
 }
 
 function getModelStats(rankingData: any, modelId: string) {
@@ -220,39 +171,32 @@ interface AICitationRankingProps {
 export default function AICitationRanking({ jobId, url, rankingData: initialData }: AICitationRankingProps) {
   const [runRankingAnalysis, { isLoading: isTriggering }] = useRunRankingAnalysisMutation()
 
-  // Polling state
   const [isPolling, setIsPolling] = useState(false)
   const [pollCount, setPollCount] = useState(0)
   const [justCompleted, setJustCompleted] = useState(false)
-  const [showAllPrompts, setShowAllPrompts] = useState(false)
 
-  // Query Module E result (always fetch when jobId is present; poll only while running)
   const { data: moduleEData } = useGetModuleEResultQuery(jobId ?? '', {
     skip: !jobId,
     pollingInterval: isPolling ? 3000 : 0,
     refetchOnMountOrArgChange: true,
   })
 
-  // Derive current data - prefer live data from API, fall back to initialData if provided
   const rankingData = moduleEData?.data?.ranking_analysis ?? initialData
   const hasResults = !!rankingData && (
     (rankingData.ranking_position_per_prompt?.length ?? 0) > 0 ||
     (rankingData.model_wise_comparison?.length ?? 0) > 0
   )
-  
-  // Watch for completion while polling
+
   useEffect(() => {
     if (isPolling && hasResults && moduleEData?.data?.ranking_analysis) {
-      // Stop polling if we see results
       setIsPolling(false)
       setJustCompleted(true)
       setTimeout(() => setJustCompleted(false), 3000)
     }
   }, [isPolling, hasResults, moduleEData])
 
-  // Safety timeout
   useEffect(() => {
-    if (isPolling && pollCount > 60) { // 3 mins
+    if (isPolling && pollCount > 60) {
       setIsPolling(false)
       setPollCount(0)
     }
@@ -264,7 +208,6 @@ export default function AICitationRanking({ jobId, url, rankingData: initialData
       return () => clearInterval(id)
     }
   }, [isPolling])
-
 
   const handleRun = async () => {
     if (!jobId) return
@@ -289,23 +232,27 @@ export default function AICitationRanking({ jobId, url, rankingData: initialData
       return {
         label: 'ChatGPT',
         icon: <ChatGPTLogo className="w-5 h-5" />,
+        accent: 'border-emerald-500/30',
       }
     }
     if (modelId === 'gemini') {
       return {
         label: 'Gemini',
         icon: <GeminiLogo className="w-5 h-5 rounded" />,
+        accent: 'border-sky-500/30',
       }
     }
     if (modelId === 'claude') {
       return {
         label: 'Claude',
         icon: null,
+        accent: 'border-zinc-600',
       }
     }
     return {
       label: modelId,
       icon: null,
+      accent: 'border-zinc-800',
     }
   }
 
@@ -313,19 +260,15 @@ export default function AICitationRanking({ jobId, url, rankingData: initialData
 
   return (
     <div className="space-y-6">
-      {/* Header Section */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-linear-to-br from-amber-500 to-orange-600">
-            <Trophy className="w-5 h-5 text-white" />
+          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-zinc-800/50 border border-zinc-800">
+            <Trophy className="w-5 h-5 text-amber-400" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-foreground">
-              AI Citation Ranking
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              Analyze how your URL ranks across AI models
-            </p>
+            <h3 className="text-lg font-semibold text-foreground">AI Citation Ranking</h3>
+            <p className="text-sm text-muted-foreground">Analyze how your URL ranks across AI models</p>
           </div>
         </div>
 
@@ -354,21 +297,20 @@ export default function AICitationRanking({ jobId, url, rankingData: initialData
         </Button>
       </div>
 
-      {/* Missing Job ID Warning */}
+      {/* Warnings */}
       {!jobId && (
-        <div className="p-4 border border-yellow-500/50 bg-yellow-500/10 rounded-lg mb-6">
-          <p className="text-sm text-yellow-600">
+        <div className="p-4 border border-amber-500/30 bg-amber-500/5 rounded-xl">
+          <p className="text-sm text-amber-400">
             <AlertCircle className="w-4 h-4 inline mr-2" />
-            No active crawl job found. Please run a Site Crawler audit first to enable ranking analysis.
+            No active crawl job found. Please run a Site Crawler audit first.
           </p>
         </div>
       )}
 
-      {/* Analysis Errors */}
       {rankingData?.errors && rankingData.errors.length > 0 && (
-        <div className="p-4 border border-red-500/50 bg-red-500/10 rounded-lg mb-6">
-          <h4 className="text-sm font-semibold text-red-600 mb-2">Analysis Errors</h4>
-          <ul className="list-disc list-inside text-sm text-red-500">
+        <div className="p-4 border border-rose-500/30 bg-rose-500/5 rounded-xl">
+          <h4 className="text-sm font-semibold text-rose-400 mb-2">Analysis Errors</h4>
+          <ul className="list-disc list-inside text-sm text-rose-300">
             {rankingData.errors.map((err, i) => (
               <li key={i}>{err}</li>
             ))}
@@ -376,233 +318,169 @@ export default function AICitationRanking({ jobId, url, rankingData: initialData
         </div>
       )}
 
-      {/* Info Text */}
+      {/* Empty state */}
       {!hasResults && !isRunning && (
-        <div className="p-4 border border-border rounded-lg bg-muted/50">
-          <p className="text-sm text-muted-foreground">
-            Click Run Analysis to see how your URL ranks in AI citations across
-            ChatGPT, Claude, Gemini. Prompts are auto-generated
-            from your page content.
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-800/50 p-6 text-center">
+          <p className="text-sm text-zinc-400">
+            Click Run Analysis to see how your URL ranks in AI citations across ChatGPT, Claude, Gemini.
           </p>
         </div>
       )}
 
       {isPolling && (
-        <div className="p-4 border border-blue-500/20 bg-blue-500/10 rounded-lg animate-pulse">
+        <div className="p-4 border border-blue-500/20 bg-blue-500/5 rounded-xl animate-pulse">
           <p className="text-sm text-blue-400">
             Analysis in progress... This may take up to 2 minutes as we query live LLMs.
           </p>
         </div>
       )}
 
+      {/* Results */}
       {hasResults && (
-        <div className="space-y-6">
-          <div className="flex flex-col gap-6">
-            {MODELS.map((modelId) => {
-              const stats = getModelStats(rankingData, modelId)
-              if (!stats.hasAnyData && modelId === 'claude') {
-                return null
-              }
-              if (!stats.hasAnyData && (modelId === 'chat_gpt' || modelId === 'gemini')) {
-                return null
-              }
+        <div className="space-y-5">
+          {MODELS.map((modelId) => {
+            const stats = getModelStats(rankingData, modelId)
+            if (!stats.hasAnyData) return null
 
-              const meta = getModelMeta(modelId)
-              const coverageScore = (rankingData.entity_coverage?.score ?? 0) as number
-              const contentQuality = (rankingData.content_quality?.overall_score ?? 0) as number
-              const modelAvgAccuracy = stats.avgAccuracy ?? 0
-              const modelAvgSentiment = stats.avgSentiment ?? 0
+            const meta = getModelMeta(modelId)
+            const coverageScore = (rankingData.entity_coverage?.score ?? 0) as number
+            const contentQuality = (rankingData.content_quality?.overall_score ?? 0) as number
+            const modelAvgAccuracy = stats.avgAccuracy ?? 0
+            const modelAvgSentiment = stats.avgSentiment ?? 0
 
-              return (
-                <div
-                  key={modelId}
-                  className={cn(
-                    'rounded-xl border p-5 shadow-sm flex flex-col gap-4 bg-background/80 backdrop-blur-sm transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5',
-                    modelId === 'chat_gpt'
-                      ? 'bg-linear-to-br from-emerald-500/12 to-emerald-500/0 border-emerald-500/40'
-                      : modelId === 'gemini'
-                      ? 'bg-linear-to-br from-sky-500/12 to-indigo-500/0 border-sky-500/40'
-                      : 'bg-linear-to-br from-violet-500/12 to-amber-500/0 border-violet-500/40'
-                  )}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-9 h-9 rounded-full bg-background/70 border border-white/10">
-                        {meta.icon}
-                      </div>
-                      <div>
-                        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                          AI Model
-                        </div>
-                        <div className="text-base font-semibold text-foreground">
-                          {meta.label}
-                        </div>
-                      </div>
+            return (
+              <div
+                key={modelId}
+                className={cn(
+                  'rounded-2xl border bg-zinc-800/50 p-5 space-y-4',
+                  meta.accent
+                )}
+              >
+                {/* Model header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center w-9 h-9 rounded-full bg-zinc-800/50 border border-zinc-800">
+                      {meta.icon}
                     </div>
-                    <div className="px-2.5 py-1 rounded-full text-[11px] font-medium border border-white/15 bg-background/40 text-muted-foreground">
-                      {stats.rankingRows.length} prompts
+                    <div>
+                      <div className="text-xs font-medium text-zinc-400 uppercase tracking-wider">AI Model</div>
+                      <div className="text-base font-semibold text-white">{meta.label}</div>
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div
-                      className={cn(
-                        'rounded-lg p-3 border text-xs shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5',
-                        getCoverageGradient(coverageScore)
-                      )}
-                    >
-                      <div className="font-medium mb-1 text-foreground/80">
-                        Coverage Score
-                      </div>
-                      <div className="text-lg font-semibold text-foreground">
-                        {coverageScore.toFixed(1)}%
-                      </div>
-                    </div>
-                    <div
-                      className={cn(
-                        'rounded-lg p-3 border text-xs shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5',
-                        getQualityGradient(contentQuality)
-                      )}
-                    >
-                      <div className="font-medium mb-1 text-foreground/80">
-                        Content Quality
-                      </div>
-                      <div className="text-lg font-semibold text-foreground">
-                        {contentQuality.toFixed(1)}
-                      </div>
-                    </div>
-                    <div
-                      className={cn(
-                        'rounded-lg p-3 border text-xs shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5',
-                        getAccuracyGradient(modelAvgAccuracy)
-                      )}
-                    >
-                      <div className="font-medium mb-1 text-foreground/80">
-                        Avg Accuracy
-                      </div>
-                      <div className="text-lg font-semibold text-foreground">
-                        {modelAvgAccuracy.toFixed(1)}%
-                      </div>
-                    </div>
-                    <div
-                      className={cn(
-                        'rounded-lg p-3 border text-xs shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5',
-                        getSentimentGradientClass(modelAvgSentiment)
-                      )}
-                    >
-                      <div className="font-medium mb-1 text-foreground/80">
-                        Avg Sentiment
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-semibold text-foreground">
-                          {modelAvgSentiment.toFixed(2)}
-                        </span>
-                        <Badge variant={modelAvgSentiment > 0.1 ? 'success' : modelAvgSentiment < -0.1 ? 'destructive' : 'secondary'}>
-                          {modelAvgSentiment > 0.1 ? 'Pos' : modelAvgSentiment < -0.1 ? 'Neg' : 'Neu'}
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-
-                  {stats.rankingRows.length > 0 && (
-                    <div className="mt-2 border border-border/60 rounded-lg overflow-hidden bg-background/60">
-                      <div className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground bg-muted/60">
-                        Ranking position per prompt
-                      </div>
-                      <div className="max-h-64 overflow-auto">
-                        <table className="w-full">
-                          <thead className="bg-muted/40 border-b border-border/60">
-                            <tr>
-                              <th className="px-4 py-2.5 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                                Prompt
-                              </th>
-                              <th className="px-4 py-2.5 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                                Status
-                              </th>
-                              <th className="px-4 py-2.5 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                                Position
-                              </th>
-                              <th className="px-4 py-2.5 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                                Percentile
-                              </th>
-                              <th className="px-4 py-2.5 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                                Accuracy
-                              </th>
-                              <th className="px-4 py-2.5 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                                Sentiment
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-background divide-y divide-border/60 text-xs">
-                            {stats.rankingRows.slice(0, 8).map((row: any, i: number) => {
-                              const percentile = stats.percentilesByPrompt[row.prompt]
-                              return (
-                                <tr key={i} className="hover:bg-muted/40 transition-colors">
-                                  <td className="px-4 py-2.5 text-foreground max-w-xs truncate" title={row.prompt}>
-                                    {row.prompt}
-                                  </td>
-                                  <td className="px-4 py-2.5">
-                                    <span className="text-xs">
-                                      {row.mention_status ?? (row.position != null ? 'Cited' : 'Not Mentioned')}
-                                    </span>
-                                  </td>
-                                  <td className="px-4 py-2.5">
-                                    {row.position != null ? (
-                                      <span className="font-medium text-foreground">
-                                        #{row.position}
-                                      </span>
-                                    ) : (
-                                      <span className="text-muted-foreground">—</span>
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-2.5">
-                                    {percentile != null ? (
-                                      <Badge variant={getPercentileBadgeColor(percentile)}>
-                                        {percentile}%
-                                      </Badge>
-                                    ) : (
-                                      <span className="text-muted-foreground text-xs">—</span>
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-2.5">
-                                    {row.accuracy_score != null ? (
-                                      <Badge variant={row.accuracy_score >= 80 ? 'success' : row.accuracy_score >= 50 ? 'warning' : 'destructive'}>
-                                        {row.accuracy_score.toFixed(0)}%
-                                      </Badge>
-                                    ) : (
-                                      <span className="text-muted-foreground text-xs">—</span>
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-2.5">
-                                    {row.sentiment_score != null ? (
-                                      <Badge variant={row.sentiment_score > 0.3 ? 'success' : row.sentiment_score < -0.3 ? 'destructive' : 'secondary'}>
-                                        {row.sentiment_score > 0.3 ? 'Positive' : row.sentiment_score < -0.3 ? 'Negative' : 'Neutral'}
-                                      </Badge>
-                                    ) : (
-                                      <span className="text-muted-foreground text-xs">—</span>
-                                    )}
-                                  </td>
-                                </tr>
-                              )
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-
-                  {stats.comparisonRows.length > 0 && (
-                    <></>
-                  )}
+                  <span className="rounded-full px-2.5 py-1 text-[11px] font-medium border border-zinc-800 bg-zinc-800/50 text-zinc-400">
+                    {stats.rankingRows.length} prompts
+                  </span>
                 </div>
-              )
-            })}
-          </div>
+
+                {/* Metric cards — flat, no gradients */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className={cn('rounded-xl bg-zinc-800/50 border p-3', getScoreBorder(coverageScore))}>
+                    <div className="text-xs text-zinc-400 mb-1">Coverage Score</div>
+                    <div className={cn('text-lg font-bold', getScoreColor(coverageScore))}>
+                      {coverageScore.toFixed(1)}%
+                    </div>
+                  </div>
+                  <div className={cn('rounded-xl bg-zinc-800/50 border p-3', getScoreBorder(contentQuality))}>
+                    <div className="text-xs text-zinc-400 mb-1">Content Quality</div>
+                    <div className={cn('text-lg font-bold', getScoreColor(contentQuality))}>
+                      {contentQuality.toFixed(1)}
+                    </div>
+                  </div>
+                  <div className={cn('rounded-xl bg-zinc-800/50 border p-3', getScoreBorder(modelAvgAccuracy))}>
+                    <div className="text-xs text-zinc-400 mb-1">Avg Accuracy</div>
+                    <div className={cn('text-lg font-bold', getScoreColor(modelAvgAccuracy))}>
+                      {modelAvgAccuracy.toFixed(1)}%
+                    </div>
+                  </div>
+                  <div className="rounded-xl bg-zinc-800/50 border border-zinc-800 p-3">
+                    <div className="text-xs text-zinc-400 mb-1">Avg Sentiment</div>
+                    <div className="flex items-center gap-2">
+                      <span className={cn('text-lg font-bold', modelAvgSentiment > 0.1 ? 'text-emerald-400' : modelAvgSentiment < -0.1 ? 'text-rose-400' : 'text-zinc-400')}>
+                        {modelAvgSentiment.toFixed(2)}
+                      </span>
+                      <Badge variant={modelAvgSentiment > 0.1 ? 'success' : modelAvgSentiment < -0.1 ? 'destructive' : 'secondary'}>
+                        {modelAvgSentiment > 0.1 ? 'Pos' : modelAvgSentiment < -0.1 ? 'Neg' : 'Neu'}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Prompt ranking table */}
+                {stats.rankingRows.length > 0 && (
+                  <div className="rounded-xl border border-zinc-800 overflow-hidden">
+                    <div className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-zinc-400 bg-zinc-800/50 border-b border-zinc-800">
+                      Ranking position per prompt
+                    </div>
+                    <div className="max-h-64 overflow-auto">
+                      <table className="w-full">
+                        <thead className="bg-zinc-800/30 border-b border-zinc-800">
+                          <tr>
+                            <th className="px-4 py-2.5 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Prompt</th>
+                            <th className="px-4 py-2.5 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Status</th>
+                            <th className="px-4 py-2.5 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Position</th>
+                            <th className="px-4 py-2.5 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Percentile</th>
+                            <th className="px-4 py-2.5 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Accuracy</th>
+                            <th className="px-4 py-2.5 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Sentiment</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-800/50 text-xs">
+                          {stats.rankingRows.slice(0, 8).map((row: any, i: number) => {
+                            const percentile = stats.percentilesByPrompt[row.prompt]
+                            return (
+                              <tr key={i} className="hover:bg-zinc-800/50 transition-colors">
+                                <td className="px-4 py-2.5 text-zinc-300 max-w-xs truncate" title={row.prompt}>
+                                  {row.prompt}
+                                </td>
+                                <td className="px-4 py-2.5">
+                                  <span className="text-xs text-zinc-400">
+                                    {row.mention_status ?? (row.position != null ? 'Cited' : 'Not Mentioned')}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-2.5">
+                                  {row.position != null ? (
+                                    <span className="font-medium text-white">#{row.position}</span>
+                                  ) : (
+                                    <span className="text-zinc-600">&#8212;</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-2.5">
+                                  {percentile != null ? (
+                                    <Badge variant={getPercentileBadgeColor(percentile)}>{percentile}%</Badge>
+                                  ) : (
+                                    <span className="text-zinc-600">&#8212;</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-2.5">
+                                  {row.accuracy_score != null ? (
+                                    <Badge variant={row.accuracy_score >= 80 ? 'success' : row.accuracy_score >= 50 ? 'warning' : 'destructive'}>
+                                      {row.accuracy_score.toFixed(0)}%
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-zinc-600">&#8212;</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-2.5">
+                                  {row.sentiment_score != null ? (
+                                    <Badge variant={row.sentiment_score > 0.3 ? 'success' : row.sentiment_score < -0.3 ? 'destructive' : 'secondary'}>
+                                      {row.sentiment_score > 0.3 ? 'Positive' : row.sentiment_score < -0.3 ? 'Negative' : 'Neutral'}
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-zinc-600">&#8212;</span>
+                                  )}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
-
-      {/* No Results */}
-      {/* ... (omitted since we show info text instead) */}
     </div>
   )
 }

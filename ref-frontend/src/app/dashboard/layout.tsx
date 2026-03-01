@@ -14,11 +14,10 @@ export default function DashboardLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
   
-  // Check if we're on a session page or job progress page (full-screen experiences)
+  // Session pages and job progress pages get full-screen experiences (no dashboard chrome)
   const isSessionPage = pathname?.includes('/sessions/')
   const isJobProgressPage = pathname?.includes('/jobs/') && pathname?.includes('/progress')
 
-  // If on session page or job progress page, render without dashboard chrome
   if (isSessionPage || isJobProgressPage) {
     return (
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>

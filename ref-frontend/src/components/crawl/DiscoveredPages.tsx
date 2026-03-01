@@ -6,18 +6,18 @@ interface DiscoveredPagesProps {
 
 export function DiscoveredPages({ pages }: DiscoveredPagesProps) {
   return (
-    <div className="rounded-lg border border-white/20 bg-white/10 backdrop-blur-xl overflow-hidden h-full flex flex-col">
-      <div className="bg-white/5 px-4 py-3 border-b border-white/10 shrink-0">
+    <div className="rounded-lg border border-zinc-700 bg-zinc-800 overflow-hidden h-full flex flex-col">
+      <div className="bg-zinc-800/50 px-4 py-3 border-b border-zinc-800 shrink-0">
         <h3 className="text-base sm:text-lg font-semibold text-white">📄 Discovered Pages</h3>
       </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-1">
         {pages.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-white/40">
+          <div className="flex items-center justify-center h-full text-zinc-500">
             No pages discovered yet...
           </div>
         ) : (
           pages.slice().reverse().map((page, idx) => (
-            <div key={idx} className="hover:bg-white/5 p-2 rounded transition-colors">
+            <div key={idx} className="hover:bg-zinc-800/50 p-2 rounded transition-colors">
               <a
                 href={page}
                 target="_blank"

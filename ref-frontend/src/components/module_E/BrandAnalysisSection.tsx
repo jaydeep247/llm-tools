@@ -3,7 +3,6 @@
 import { useMemo, useState, useEffect, useCallback } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { Loader2, TrendingUp, TrendingDown, Minus, Globe, Play, CheckCircle2, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useGetModuleEResultQuery, useRunBrandAnalysisMutation } from '@/store/api/module_E/moduleEApi'
@@ -192,17 +191,17 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
       </div>
 
       {!brandAnalysis && !isRunning && (
-        <Card className="rounded-xl border p-6">
-          <p className="text-sm text-muted-foreground">
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-800/50 p-6">
+          <p className="text-sm text-zinc-400">
             No brand analysis results yet. Click "Run Analysis" to generate insights.
           </p>
-        </Card>
+        </div>
       )}
 
       {(brandAnalysis || isRunning) && (
         <>
           {/* Main Brand Card */}
-          <Card className={cn('rounded-xl border p-6', getSentimentBg(sentiment.label))}>
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-800/50 p-6">
             <div className="space-y-4">
               {/* Header */}
               <div className="flex items-start justify-between">
@@ -216,8 +215,8 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
               {/* Total Mentions */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Mentions */}
-                <div className="rounded-lg bg-background/50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+                <div className="rounded-xl bg-zinc-800/50 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">
                     Total Mentions
                   </p>
                   <p className="text-4xl font-bold text-foreground">
@@ -231,8 +230,8 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
                 </div>
 
                 {/* Sentiment Label */}
-                <div className="rounded-lg bg-background/50 p-4 flex flex-col justify-center">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                <div className="rounded-xl bg-zinc-800/50 p-4 flex flex-col justify-center">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
                     Overall Sentiment
                   </p>
                   <Badge className={cn('w-fit text-sm font-semibold', getSentimentColor(sentiment.label))}>
@@ -241,9 +240,9 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
                 </div>
 
                 {/* Trend */}
-                <div className="rounded-lg bg-background/50 p-4 flex items-center justify-center">
+                <div className="rounded-xl bg-zinc-800/50 p-4 flex items-center justify-center">
                   <div className="text-center">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
                       12M Trend
                     </p>
                     <div className="flex items-center gap-2 justify-center">
@@ -267,7 +266,7 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
               {/* Sentiment Distribution */}
               {totalSentiment > 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
                     Sentiment Distribution
                   </p>
                   <div className="space-y-2">
@@ -278,7 +277,7 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
                           <span className="text-xs text-emerald-400 font-semibold">Positive</span>
                           <span className="text-xs text-muted-foreground">{sentimentPercentages.positive}%</span>
                         </div>
-                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
                           <div
                             className="h-full bg-emerald-400"
                             style={{ width: `${sentimentPercentages.positive}%` }}
@@ -292,9 +291,9 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-xs text-rose-400 font-semibold">Negative</span>
-                          <span className="text-xs text-muted-foreground">{sentimentPercentages.negative}%</span>
+                          <span className="text-xs text-zinc-400">{sentimentPercentages.negative}%</span>
                         </div>
-                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
                           <div
                             className="h-full bg-rose-400"
                             style={{ width: `${sentimentPercentages.negative}%` }}
@@ -308,9 +307,9 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-xs text-amber-400 font-semibold">Neutral</span>
-                          <span className="text-xs text-muted-foreground">{sentimentPercentages.neutral}%</span>
+                          <span className="text-xs text-zinc-400">{sentimentPercentages.neutral}%</span>
                         </div>
-                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
                           <div
                             className="h-full bg-amber-400"
                             style={{ width: `${sentimentPercentages.neutral}%` }}
@@ -322,13 +321,13 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
                 </div>
               )}
             </div>
-          </Card>
+          </div>
 
           {/* Frequency Trend (last 12 months) */}
           {totalMentions > 0 && last12MonthsTrend.length > 0 && (
-            <Card className="rounded-xl border p-6">
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-800/50 p-6">
               <div className="space-y-4">
-                <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground">
+                <h4 className="text-sm font-semibold uppercase tracking-wider text-white">
                   Monthly Mention Frequency
                 </h4>
                 <div className="overflow-x-auto">
@@ -356,7 +355,7 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
                           {/* Bar */}
                           <div className="w-full flex items-end justify-center" style={{ height: '120px' }}>
                             <div
-                              className="w-full bg-linear-to-t from-cyan-500 via-cyan-400 to-blue-500 rounded-t-md transition-all hover:from-cyan-400 hover:via-cyan-300 hover:to-blue-400 cursor-pointer shadow-lg"
+                              className="w-full bg-cyan-500 rounded-t-md transition-all hover:bg-cyan-400 cursor-pointer"
                               style={{ height: `${heightPx}px` }}
                             />
                           </div>
@@ -371,16 +370,16 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
                   </div>
                 </div>
               </div>
-            </Card>
+            </div>
           )}
 
           {/* Top Sources */}
           {topSources.length > 0 && (
-            <Card className="rounded-xl border p-6">
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-800/50 p-6">
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <Globe className="w-4 h-4 text-foreground" />
-                  <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground">
+                  <Globe className="w-4 h-4 text-white" />
+                  <h4 className="text-sm font-semibold uppercase tracking-wider text-white">
                     Top Source Domains
                   </h4>
                 </div>
@@ -410,7 +409,7 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
                   )}
                 </div>
               </div>
-            </Card>
+            </div>
           )}
         </>
       )}

@@ -133,21 +133,21 @@ export default function ImprovementActions({ jobId, url = '' }: ImprovementActio
       case 'High':
         return {
           border: 'border-l-red-500',
-          bg: 'bg-white/[0.05]',
+          bg: 'bg-zinc-800/50',
           text: 'text-red-400',
           badge: 'bg-red-500/20 text-red-300 border-red-500/30'
         }
       case 'Medium':
         return {
           border: 'border-l-amber-500',
-          bg: 'bg-white/[0.05]',
+          bg: 'bg-zinc-800/50',
           text: 'text-amber-400',
           badge: 'bg-amber-500/20 text-amber-300 border-amber-500/30'
         }
       default:
         return {
           border: 'border-l-emerald-500',
-          bg: 'bg-white/[0.05]',
+          bg: 'bg-zinc-800/50',
           text: 'text-emerald-400',
           badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
         }
@@ -160,7 +160,7 @@ export default function ImprovementActions({ jobId, url = '' }: ImprovementActio
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold text-white">Improvement Actions</h2>
-          <p className="text-sm text-white/50 mt-1">
+          <p className="text-sm text-zinc-400 mt-1">
             Prioritized recommendations to improve your AI visibility
           </p>
         </div>
@@ -169,7 +169,7 @@ export default function ImprovementActions({ jobId, url = '' }: ImprovementActio
           variant="outline"
           size="sm"
           disabled={isLoading}
-          className="bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white"
+          className="bg-zinc-800/50 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white"
         >
           <RefreshCw className={cn("w-4 h-4 mr-2", isLoading && "animate-spin")} />
           Refresh
@@ -179,7 +179,7 @@ export default function ImprovementActions({ jobId, url = '' }: ImprovementActio
       {/* Loading State */}
       {isLoading && (
         <div className="flex items-center justify-center p-12">
-          <Loader2 className="w-8 h-8 animate-spin text-white/60" />
+          <Loader2 className="w-8 h-8 animate-spin text-zinc-400" />
         </div>
       )}
 
@@ -189,7 +189,7 @@ export default function ImprovementActions({ jobId, url = '' }: ImprovementActio
           {/* Hero Stats Section */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
             {/* Potential Improvement Card */}
-            <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-emerald-500/30">
+            <div className="bg-zinc-800/50 rounded-2xl p-6 border border-emerald-500/30">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-2 mb-2">
@@ -201,7 +201,7 @@ export default function ImprovementActions({ jobId, url = '' }: ImprovementActio
                   <div className="text-4xl font-bold text-white">
                     +{actionableInsights.improvement ?? 0}
                   </div>
-                  <p className="text-xs text-white/50 mt-1">points improvement</p>
+                  <p className="text-xs text-zinc-400 mt-1">points improvement</p>
                 </div>
                 <ImprovementGauge value={actionableInsights.improvement ?? 0} />
               </div>
@@ -211,17 +211,17 @@ export default function ImprovementActions({ jobId, url = '' }: ImprovementActio
             <div 
               onClick={() => setPriorityFilter(priorityFilter === 'High' ? 'all' : 'High')}
               className={cn(
-                "bg-white/5 backdrop-blur-xl rounded-2xl p-5 border cursor-pointer transition-all",
+                "bg-zinc-800/50 rounded-2xl p-5 border cursor-pointer transition-all",
                 priorityFilter === 'High' 
                   ? "border-red-500/50" 
-                  : "border-white/10 hover:border-white/15"
+                  : "border-zinc-800 hover:border-zinc-700"
               )}
             >
               <div className="flex items-center gap-3 mb-3">
                 <div className="p-2.5 bg-red-500/20 rounded-xl">
                   <AlertTriangle className="w-5 h-5 text-red-400" />
                 </div>
-                <span className="text-sm text-white/70">High Priority</span>
+                <span className="text-sm text-zinc-300">High Priority</span>
               </div>
               <div className="flex items-end justify-between">
                 <span className="text-3xl font-bold text-white">{priorityStats.high}</span>
@@ -235,17 +235,17 @@ export default function ImprovementActions({ jobId, url = '' }: ImprovementActio
             <div 
               onClick={() => setPriorityFilter(priorityFilter === 'Medium' ? 'all' : 'Medium')}
               className={cn(
-                "bg-white/5 backdrop-blur-xl rounded-2xl p-5 border cursor-pointer transition-all",
+                "bg-zinc-800/50 rounded-2xl p-5 border cursor-pointer transition-all",
                 priorityFilter === 'Medium' 
                   ? "border-amber-500/50" 
-                  : "border-white/10 hover:border-white/15"
+                  : "border-zinc-800 hover:border-zinc-700"
               )}
             >
               <div className="flex items-center gap-3 mb-3">
                 <div className="p-2.5 bg-amber-500/20 rounded-xl">
                   <TrendingUp className="w-5 h-5 text-amber-400" />
                 </div>
-                <span className="text-sm text-white/70">Medium Priority</span>
+                <span className="text-sm text-zinc-300">Medium Priority</span>
               </div>
               <div className="flex items-end justify-between">
                 <span className="text-3xl font-bold text-white">{priorityStats.medium}</span>
@@ -259,17 +259,17 @@ export default function ImprovementActions({ jobId, url = '' }: ImprovementActio
             <div 
               onClick={() => setPriorityFilter(priorityFilter === 'Low' ? 'all' : 'Low')}
               className={cn(
-                "bg-white/5 backdrop-blur-xl rounded-2xl p-5 border cursor-pointer transition-all",
+                "bg-zinc-800/50 rounded-2xl p-5 border cursor-pointer transition-all",
                 priorityFilter === 'Low' 
                   ? "border-emerald-500/50" 
-                  : "border-white/10 hover:border-white/15"
+                  : "border-zinc-800 hover:border-zinc-700"
               )}
             >
               <div className="flex items-center gap-3 mb-3">
                 <div className="p-2.5 bg-emerald-500/20 rounded-xl">
                   <CheckCircle2 className="w-5 h-5 text-emerald-400" />
                 </div>
-                <span className="text-sm text-white/70">Low Priority</span>
+                <span className="text-sm text-zinc-300">Low Priority</span>
               </div>
               <div className="flex items-end justify-between">
                 <span className="text-3xl font-bold text-white">{priorityStats.low}</span>
@@ -282,15 +282,15 @@ export default function ImprovementActions({ jobId, url = '' }: ImprovementActio
 
           {/* Actions List */}
           {actionableInsights.actions && actionableInsights.actions.length > 0 && (
-            <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
+            <div className="bg-zinc-800/50 rounded-2xl border border-zinc-800 overflow-hidden">
               {/* List Header */}
-              <div className="p-4 border-b border-white/10 flex items-center justify-between">
+              <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Target className="w-4 h-4 text-white/50" />
+                  <Target className="w-4 h-4 text-zinc-400" />
                   <span className="text-sm font-medium text-white">
                     {priorityFilter === 'all' ? 'All Actions' : `${priorityFilter} Priority Actions`}
                   </span>
-                  <Badge className="bg-white/10 text-white/70 border-0">
+                  <Badge className="bg-zinc-800 text-zinc-300 border-0">
                     {filteredActions.length}
                   </Badge>
                 </div>
@@ -299,7 +299,7 @@ export default function ImprovementActions({ jobId, url = '' }: ImprovementActio
                     variant="ghost"
                     size="sm"
                     onClick={() => setPriorityFilter('all')}
-                    className="text-xs text-white/50 hover:text-white"
+                    className="text-xs text-zinc-400 hover:text-white"
                   >
                     Clear Filter
                   </Button>
@@ -307,7 +307,7 @@ export default function ImprovementActions({ jobId, url = '' }: ImprovementActio
               </div>
 
               {/* Actions Cards */}
-              <div className="divide-y divide-white/5">
+              <div className="divide-y divide-zinc-800/50">
                 {filteredActions.map((action, i) => {
                   const styles = getPriorityStyles(action.priority || 'Low')
                   const isExpanded = expandedAction === i
@@ -321,7 +321,7 @@ export default function ImprovementActions({ jobId, url = '' }: ImprovementActio
                       )}
                     >
                       <div 
-                        className="p-4 cursor-pointer hover:bg-white/5 transition-all"
+                        className="p-4 cursor-pointer hover:bg-zinc-800/50 transition-all"
                         onClick={() => setExpandedAction(isExpanded ? null : i)}
                       >
                         <div className="flex items-start justify-between gap-4">
@@ -334,12 +334,12 @@ export default function ImprovementActions({ jobId, url = '' }: ImprovementActio
                                 {action.priority}
                               </Badge>
                               {action.category && (
-                                <Badge variant="outline" className="text-white/50 border-white/10 text-xs">
+                                <Badge variant="outline" className="text-zinc-400 border-zinc-800 text-xs">
                                   {action.category}
                                 </Badge>
                               )}
                             </div>
-                            <p className="text-sm text-white/60 leading-relaxed">
+                            <p className="text-sm text-zinc-400 leading-relaxed">
                               {action.description}
                             </p>
                           </div>
@@ -350,7 +350,7 @@ export default function ImprovementActions({ jobId, url = '' }: ImprovementActio
                               </span>
                             </div>
                             <ChevronDown className={cn(
-                              "w-4 h-4 text-white/40 transition-transform duration-200",
+                              "w-4 h-4 text-zinc-500 transition-transform duration-200",
                               isExpanded && "rotate-180"
                             )} />
                           </div>
@@ -359,34 +359,34 @@ export default function ImprovementActions({ jobId, url = '' }: ImprovementActio
                       
                       {/* Expanded Content */}
                       {isExpanded && (
-                        <div className="px-4 pb-4 pt-0 border-t border-white/5 bg-white/2">
+                        <div className="px-4 pb-4 pt-0 border-t border-zinc-800/50 bg-zinc-900/20">
                           <div className="mt-4 space-y-4">
                             {/* Implementation Details */}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                              <div className="bg-white/5 rounded-lg p-3">
-                                <span className="text-xs text-white/40 uppercase tracking-wider">Priority Level</span>
+                              <div className="bg-zinc-800/50 rounded-lg p-3">
+                                <span className="text-xs text-zinc-500 uppercase tracking-wider">Priority Level</span>
                                 <p className={cn("text-sm font-medium mt-1", styles.text)}>
                                   {action.priority}
                                 </p>
                               </div>
-                              <div className="bg-white/5 rounded-lg p-3">
-                                <span className="text-xs text-white/40 uppercase tracking-wider">Expected Impact</span>
+                              <div className="bg-zinc-800/50 rounded-lg p-3">
+                                <span className="text-xs text-zinc-500 uppercase tracking-wider">Expected Impact</span>
                                 <p className="text-sm font-medium mt-1 text-emerald-400">
                                   +{action.impact ?? 0} points
                                 </p>
                               </div>
-                              <div className="bg-white/5 rounded-lg p-3">
-                                <span className="text-xs text-white/40 uppercase tracking-wider">Category</span>
-                                <p className="text-sm font-medium mt-1 text-white/70">
+                              <div className="bg-zinc-800/50 rounded-lg p-3">
+                                <span className="text-xs text-zinc-500 uppercase tracking-wider">Category</span>
+                                <p className="text-sm font-medium mt-1 text-zinc-300">
                                   {action.category || 'General'}
                                 </p>
                               </div>
                             </div>
                             
                             {/* Full Description */}
-                            <div className="bg-white/5 rounded-lg p-4">
-                              <span className="text-xs text-white/40 uppercase tracking-wider">Action Required</span>
-                              <p className="text-sm text-white/70 mt-2 leading-relaxed">
+                            <div className="bg-zinc-800/50 rounded-lg p-4">
+                              <span className="text-xs text-zinc-500 uppercase tracking-wider">Action Required</span>
+                              <p className="text-sm text-zinc-300 mt-2 leading-relaxed">
                                 {action.description}
                               </p>
                             </div>
@@ -398,7 +398,7 @@ export default function ImprovementActions({ jobId, url = '' }: ImprovementActio
                 })}
                 {filteredActions.length === 0 && (
                   <div className="p-8 text-center">
-                    <p className="text-sm text-white/50">No actions found matching your filter.</p>
+                    <p className="text-sm text-zinc-400">No actions found matching your filter.</p>
                   </div>
                 )}
               </div>
@@ -406,12 +406,12 @@ export default function ImprovementActions({ jobId, url = '' }: ImprovementActio
           )}
         </>
       ) : !isLoading ? (
-        <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-12 text-center">
-          <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Lightbulb className="w-8 h-8 text-white/30" />
+        <div className="bg-zinc-800/50 rounded-2xl border border-zinc-800 p-12 text-center">
+          <div className="w-16 h-16 bg-zinc-800/50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <Lightbulb className="w-8 h-8 text-zinc-600" />
           </div>
           <h3 className="text-lg font-semibold text-white mb-2">No Improvement Actions</h3>
-          <p className="text-sm text-white/50 mb-6 max-w-md mx-auto">
+          <p className="text-sm text-zinc-400 mb-6 max-w-md mx-auto">
             Run an AI Visibility analysis to get prioritized recommendations for improvement.
           </p>
           <Button

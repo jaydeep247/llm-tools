@@ -207,7 +207,7 @@ export default function BrokenLinkChecker({
                 </Badge>
               )}
               {checkResults.totalChecked !== undefined && (
-                <span className="text-sm text-white/60">
+                <span className="text-sm text-zinc-400">
                   Checked: {checkResults.totalChecked}
                 </span>
               )}
@@ -216,18 +216,18 @@ export default function BrokenLinkChecker({
         </div>
 
         <div className="relative w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
           <Input
             type="text"
             placeholder="Search broken links..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/40"
+            className="pl-10 bg-zinc-800/50 border-zinc-800 text-white placeholder:text-zinc-500"
           />
           {searchTerm && (
             <button
               onClick={() => setSearchTerm('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/60"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-400"
             >
               <X className="w-4 h-4" />
             </button>
@@ -251,7 +251,7 @@ export default function BrokenLinkChecker({
               className={`p-4 rounded-lg border transition-all ${
                 selectedCategories.includes(key)
                   ? color
-                  : 'bg-white/5 border-white/10 text-white/40'
+                  : 'bg-zinc-800/50 border-zinc-800 text-zinc-500'
               }`}
             >
               <div className="flex items-center justify-between mb-2">
@@ -266,17 +266,17 @@ export default function BrokenLinkChecker({
 
       {/* Table */}
       {checkResults && sortedLinks.length > 0 ? (
-        <div className="flex-1 rounded-lg border border-white/10 bg-white/5 backdrop-blur-xl overflow-hidden">
+        <div className="flex-1 rounded-lg border border-zinc-800 bg-zinc-800/50 overflow-hidden">
           <div className="overflow-x-auto overflow-y-auto max-h-125">
             <table className="w-full">
-              <thead className="bg-white/10 sticky top-0 z-10">
+              <thead className="bg-zinc-800 sticky top-0 z-10">
                 <tr>
                   <th className="w-8 px-4 py-3"></th>
                   <th 
-                    className="px-4 py-3 text-left cursor-pointer hover:bg-white/5 transition-colors"
+                    className="px-4 py-3 text-left cursor-pointer hover:bg-zinc-800/50 transition-colors"
                     onClick={() => handleSort('url')}
                   >
-                    <div className="flex items-center gap-2 text-sm font-semibold text-white/90">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
                       Broken Link
                       {sortField === 'url' && (
                         sortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
@@ -284,10 +284,10 @@ export default function BrokenLinkChecker({
                     </div>
                   </th>
                   <th 
-                    className="px-4 py-3 text-left cursor-pointer hover:bg-white/5 transition-colors"
+                    className="px-4 py-3 text-left cursor-pointer hover:bg-zinc-800/50 transition-colors"
                     onClick={() => handleSort('sourceUrl')}
                   >
-                    <div className="flex items-center gap-2 text-sm font-semibold text-white/90">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
                       Source Page
                       {sortField === 'sourceUrl' && (
                         sortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
@@ -295,10 +295,10 @@ export default function BrokenLinkChecker({
                     </div>
                   </th>
                   <th 
-                    className="px-4 py-3 text-left cursor-pointer hover:bg-white/5 transition-colors"
+                    className="px-4 py-3 text-left cursor-pointer hover:bg-zinc-800/50 transition-colors"
                     onClick={() => handleSort('statusCode')}
                   >
-                    <div className="flex items-center gap-2 text-sm font-semibold text-white/90">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
                       Status
                       {sortField === 'statusCode' && (
                         sortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
@@ -306,13 +306,13 @@ export default function BrokenLinkChecker({
                     </div>
                   </th>
                   <th className="px-4 py-3 text-left">
-                    <div className="text-sm font-semibold text-white/90">Category</div>
+                    <div className="text-sm font-semibold text-zinc-100">Category</div>
                   </th>
                   <th 
-                    className="px-4 py-3 text-left cursor-pointer hover:bg-white/5 transition-colors"
+                    className="px-4 py-3 text-left cursor-pointer hover:bg-zinc-800/50 transition-colors"
                     onClick={() => handleSort('errorType')}
                   >
-                    <div className="flex items-center gap-2 text-sm font-semibold text-white/90">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
                       Error Type
                       {sortField === 'errorType' && (
                         sortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
@@ -329,12 +329,12 @@ export default function BrokenLinkChecker({
                   return (
                     <tr
                       key={rowKey}
-                      className="border-t border-white/5 hover:bg-white/5 transition-colors"
+                      className="border-t border-zinc-800/50 hover:bg-zinc-800/50 transition-colors"
                     >
                       <td className="px-4 py-3">
                         <button
                           onClick={() => toggleRowExpansion(rowKey)}
-                          className="text-white/60 hover:text-white/90 transition-colors"
+                          className="text-zinc-400 hover:text-zinc-100 transition-colors"
                         >
                           <ChevronRight className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                         </button>
@@ -369,7 +369,7 @@ export default function BrokenLinkChecker({
                             <ExternalLink className="w-3 h-3 shrink-0" />
                           </a>
                         ) : (
-                          <span className="text-sm text-white/40">-</span>
+                          <span className="text-sm text-zinc-500">-</span>
                         )}
                       </td>
                       <td className="px-4 py-3">
@@ -382,10 +382,10 @@ export default function BrokenLinkChecker({
                         </Badge>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="text-sm text-white/70">{link.categoryLabel}</span>
+                        <span className="text-sm text-zinc-300">{link.categoryLabel}</span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="text-sm text-white/70">
+                        <span className="text-sm text-zinc-300">
                           {link.errorType || link.missingType || '-'}
                         </span>
                       </td>
@@ -397,25 +397,25 @@ export default function BrokenLinkChecker({
           </div>
         </div>
       ) : checkResults ? (
-        <div className="flex-1 flex items-center justify-center rounded-lg border border-white/10 bg-white/5 backdrop-blur-xl">
+        <div className="flex-1 flex items-center justify-center rounded-lg border border-zinc-800 bg-zinc-800/50">
           <div className="text-center p-8">
             <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
-            <p className="text-white/90 font-medium mb-1">No Broken Links Found</p>
-            <p className="text-white/60 text-sm">All links are working correctly</p>
+            <p className="text-zinc-100 font-medium mb-1">No Broken Links Found</p>
+            <p className="text-zinc-400 text-sm">All links are working correctly</p>
           </div>
         </div>
       ) : (
-        <div className="flex-1 flex items-center justify-center rounded-lg border border-white/10 bg-white/5 backdrop-blur-xl">
+        <div className="flex-1 flex items-center justify-center rounded-lg border border-zinc-800 bg-zinc-800/50">
           <div className="text-center p-8">
-            <LinkIcon className="w-12 h-12 text-white/40 mx-auto mb-3" />
-            <p className="text-white/60">Click "Check Links" to analyze all links in this session</p>
+            <LinkIcon className="w-12 h-12 text-zinc-500 mx-auto mb-3" />
+            <p className="text-zinc-400">Click "Check Links" to analyze all links in this session</p>
           </div>
         </div>
       )}
 
       {/* Results Summary */}
       {sortedLinks.length > 0 && (
-        <div className="text-sm text-white/60 px-1">
+        <div className="text-sm text-zinc-400 px-1">
           Showing {sortedLinks.length} broken link{sortedLinks.length !== 1 ? 's' : ''}
           {searchTerm && ` matching "${searchTerm}"`}
         </div>

@@ -85,7 +85,7 @@ function CircularProgress({
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-3xl font-bold text-white">{value.toFixed(0)}</span>
-        <span className="text-xs text-white/50">/ 100</span>
+        <span className="text-xs text-zinc-400">/ 100</span>
       </div>
     </div>
   )
@@ -113,25 +113,25 @@ function ScoreCard({ title, score, icon, color, trend, subStats, error, isLoadin
 
   if (isLoading) {
     return (
-      <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10 animate-pulse">
+      <div className="bg-zinc-800/50 rounded-2xl p-5 border border-zinc-800 animate-pulse">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-white/10" />
-          <div className="h-4 w-24 bg-white/10 rounded" />
+          <div className="w-10 h-10 rounded-xl bg-zinc-800" />
+          <div className="h-4 w-24 bg-zinc-800 rounded" />
         </div>
-        <div className="h-12 w-20 bg-white/10 rounded mt-4" />
+        <div className="h-12 w-20 bg-zinc-800 rounded mt-4" />
       </div>
     )
   }
 
   return (
-    <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10 hover:bg-white/5 transition-all duration-300 group">
+    <div className="bg-zinc-800/50 rounded-2xl p-5 border border-zinc-800 hover:bg-zinc-800/50 transition-all duration-300 group">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className={cn("p-2.5 rounded-xl", color)}>
             {icon}
           </div>
-          <span className="text-sm font-medium text-white/80">{title}</span>
+          <span className="text-sm font-medium text-zinc-200">{title}</span>
         </div>
         {score !== null && !error && (
           <span className={cn(
@@ -154,10 +154,10 @@ function ScoreCard({ title, score, icon, color, trend, subStats, error, isLoadin
           ) : score !== null ? (
             <div className="flex items-baseline gap-1">
               <span className="text-4xl font-bold text-white">{score.toFixed(1)}</span>
-              <span className="text-sm text-white/40">/100</span>
+              <span className="text-sm text-zinc-500">/100</span>
             </div>
           ) : (
-            <span className="text-3xl font-bold text-white/30">--</span>
+            <span className="text-3xl font-bold text-zinc-600">--</span>
           )}
           
           {/* Trend */}
@@ -177,7 +177,7 @@ function ScoreCard({ title, score, icon, color, trend, subStats, error, isLoadin
           <div className="flex gap-3">
             {subStats.slice(0, 2).map((stat, i) => (
               <div key={i} className="text-right">
-                <div className="text-xs text-white/40">{stat.label}</div>
+                <div className="text-xs text-zinc-500">{stat.label}</div>
                 <div className="text-sm font-semibold text-white">{stat.value}</div>
               </div>
             ))}
@@ -254,7 +254,7 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisi
       {/* Header */}
       <div>
         <h2 className="text-xl font-semibold text-white">AI Visibility Scorecards</h2>
-        <p className="text-sm text-white/50 mt-1">
+        <p className="text-sm text-zinc-400 mt-1">
           Comprehensive AEO analysis scores for your website
         </p>
       </div>
@@ -275,7 +275,7 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisi
 
       {/* Main Score Hero Card */}
       {hasData && (
-        <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
+        <div className="bg-zinc-800/50 rounded-2xl p-6 border border-zinc-800">
           <div className="flex flex-col lg:flex-row gap-8 items-center">
             {/* Score Circle */}
             <div className="shrink-0">
@@ -285,11 +285,11 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisi
             {/* Score Details */}
             <div className="flex-1 text-center lg:text-left">
               <h3 className="text-lg font-semibold text-white mb-2">Overall AI Visibility Score</h3>
-              <p className="text-sm text-white/50 mb-4">Combined score across all analysis modules</p>
+              <p className="text-sm text-zinc-400 mb-4">Combined score across all analysis modules</p>
               
               {/* Progress Bar */}
               <div className="mb-4">
-                <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
                   <div 
                     className={cn(
                       "h-full rounded-full transition-all duration-700",
@@ -325,17 +325,17 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisi
             {/* Key Metrics */}
             {actionableInsights && (
               <div className="grid grid-cols-3 gap-4 shrink-0">
-                <div className="bg-white/5 rounded-xl p-4 text-center min-w-25">
+                <div className="bg-zinc-800/50 rounded-xl p-4 text-center min-w-25">
                   <div className="text-2xl font-bold text-white">{actionableInsights.currentScore ?? '--'}</div>
-                  <div className="text-xs text-white/50 mt-1">Current</div>
+                  <div className="text-xs text-zinc-400 mt-1">Current</div>
                 </div>
-                <div className="bg-white/5 rounded-xl p-4 text-center min-w-25">
+                <div className="bg-zinc-800/50 rounded-xl p-4 text-center min-w-25">
                   <div className="text-2xl font-bold text-emerald-400">{actionableInsights.predictedScore ?? '--'}</div>
-                  <div className="text-xs text-white/50 mt-1">Predicted</div>
+                  <div className="text-xs text-zinc-400 mt-1">Predicted</div>
                 </div>
-                <div className="bg-white/5 rounded-xl p-4 text-center min-w-25">
+                <div className="bg-zinc-800/50 rounded-xl p-4 text-center min-w-25">
                   <div className="text-2xl font-bold text-emerald-400">+{actionableInsights.improvement ?? 0}</div>
-                  <div className="text-xs text-white/50 mt-1">Potential</div>
+                  <div className="text-xs text-zinc-400 mt-1">Potential</div>
                 </div>
               </div>
             )}
@@ -349,8 +349,8 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisi
         <ScoreCard
           title="AI Presence"
           score={aiPresence?.score ?? null}
-          icon={<Brain className="w-5 h-5 text-purple-400" />}
-          color="bg-purple-500/20"
+          icon={<Brain className="w-5 h-5 text-blue-400" />}
+          color="bg-blue-500/20"
           isLoading={isLoadingData}
           subStats={aiPresence ? [
             { label: 'Robots', value: aiPresence.robots_checks ? Object.values(aiPresence.robots_checks).filter(Boolean).length + '/' + Object.keys(aiPresence.robots_checks).length : '--' },
@@ -415,20 +415,20 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisi
       {hasData && aiPresence && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Robot Accessibility */}
-          <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-5">
+          <div className="bg-zinc-800/50 rounded-2xl border border-zinc-800 p-5">
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-purple-500/20 rounded-xl">
-                <Shield className="w-5 h-5 text-purple-400" />
+              <div className="p-2 bg-blue-500/20 rounded-xl">
+                <Shield className="w-5 h-5 text-blue-400" />
               </div>
               <span className="text-sm font-medium text-white">Robot Accessibility</span>
-              <Badge className="bg-white/10 text-white/60 border-0 ml-auto text-xs">
+              <Badge className="bg-zinc-800 text-zinc-400 border-0 ml-auto text-xs">
                 {aiPresence.robots_checks ? Object.values(aiPresence.robots_checks).filter(Boolean).length : 0}/{aiPresence.robots_checks ? Object.keys(aiPresence.robots_checks).length : 0} checks
               </Badge>
             </div>
             <div className="space-y-2">
-              <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
+              <div className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-xl">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-white/70">GPTBot Access</span>
+                  <span className="text-sm text-zinc-300">GPTBot Access</span>
                 </div>
                 {aiPresence.robots_checks?.robots_gptbot ? (
                   <div className="flex items-center gap-1 text-emerald-400">
@@ -442,8 +442,8 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisi
                   </div>
                 )}
               </div>
-              <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
-                <span className="text-sm text-white/70">Google Extended</span>
+              <div className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-xl">
+                <span className="text-sm text-zinc-300">Google Extended</span>
                 {aiPresence.robots_checks?.robots_google_extended ? (
                   <div className="flex items-center gap-1 text-emerald-400">
                     <CheckCircle className="w-4 h-4" />
@@ -456,8 +456,8 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisi
                   </div>
                 )}
               </div>
-              <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
-                <span className="text-sm text-white/70">ClaudeBot Access</span>
+              <div className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-xl">
+                <span className="text-sm text-zinc-300">ClaudeBot Access</span>
                 {aiPresence.robots_checks?.robots_claudebot ? (
                   <div className="flex items-center gap-1 text-emerald-400">
                     <CheckCircle className="w-4 h-4" />
@@ -470,8 +470,8 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisi
                   </div>
                 )}
               </div>
-              <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
-                <span className="text-sm text-white/70">Sitemap Present</span>
+              <div className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-xl">
+                <span className="text-sm text-zinc-300">Sitemap Present</span>
                 {aiPresence.robots_checks?.sitemap_present ? (
                   <div className="flex items-center gap-1 text-emerald-400">
                     <CheckCircle className="w-4 h-4" />
@@ -488,19 +488,19 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisi
           </div>
 
           {/* Content Signals */}
-          <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-5">
+          <div className="bg-zinc-800/50 rounded-2xl border border-zinc-800 p-5">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 bg-blue-500/20 rounded-xl">
                 <Globe className="w-5 h-5 text-blue-400" />
               </div>
               <span className="text-sm font-medium text-white">Content Signals</span>
-              <Badge className="bg-white/10 text-white/60 border-0 ml-auto text-xs">
+              <Badge className="bg-zinc-800 text-zinc-400 border-0 ml-auto text-xs">
                 {aiPresence.content_checks ? Object.values(aiPresence.content_checks).filter(v => v === true).length : 0} found
               </Badge>
             </div>
             <div className="space-y-2">
-              <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
-                <span className="text-sm text-white/70">Organization Schema</span>
+              <div className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-xl">
+                <span className="text-sm text-zinc-300">Organization Schema</span>
                 {aiPresence.content_checks?.org_schema_present ? (
                   <div className="flex items-center gap-1 text-emerald-400">
                     <CheckCircle className="w-4 h-4" />
@@ -513,8 +513,8 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisi
                   </div>
                 )}
               </div>
-              <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
-                <span className="text-sm text-white/70">Organization Logo</span>
+              <div className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-xl">
+                <span className="text-sm text-zinc-300">Organization Logo</span>
                 {aiPresence.content_checks?.org_logo_present ? (
                   <div className="flex items-center gap-1 text-emerald-400">
                     <CheckCircle className="w-4 h-4" />
@@ -527,8 +527,8 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisi
                   </div>
                 )}
               </div>
-              <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
-                <span className="text-sm text-white/70">Wikipedia/Wikidata Link</span>
+              <div className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-xl">
+                <span className="text-sm text-zinc-300">Wikipedia/Wikidata Link</span>
                 {aiPresence.content_checks?.sameas_wikidata_or_wikipedia ? (
                   <div className="flex items-center gap-1 text-emerald-400">
                     <CheckCircle className="w-4 h-4" />
@@ -541,8 +541,8 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisi
                   </div>
                 )}
               </div>
-              <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
-                <span className="text-sm text-white/70">Open Graph Tags</span>
+              <div className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-xl">
+                <span className="text-sm text-zinc-300">Open Graph Tags</span>
                 {aiPresence.content_checks?.open_graph_present ? (
                   <div className="flex items-center gap-1 text-emerald-400">
                     <CheckCircle className="w-4 h-4" />
@@ -555,8 +555,8 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisi
                   </div>
                 )}
               </div>
-              <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
-                <span className="text-sm text-white/70">Twitter Card</span>
+              <div className="flex items-center justify-between p-3 bg-zinc-800/50 rounded-xl">
+                <span className="text-sm text-zinc-300">Twitter Card</span>
                 {aiPresence.content_checks?.twitter_card_present ? (
                   <div className="flex items-center gap-1 text-emerald-400">
                     <CheckCircle className="w-4 h-4" />
@@ -576,7 +576,7 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisi
 
       {/* Answerability Breakdown */}
       {hasData && answerability?.metrics && (
-        <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-5">
+        <div className="bg-zinc-800/50 rounded-2xl border border-zinc-800 p-5">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 bg-blue-500/20 rounded-xl">
               <MessageCircle className="w-5 h-5 text-blue-400" />
@@ -584,30 +584,30 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisi
             <span className="text-sm font-medium text-white">Answerability Metrics</span>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-white/5 rounded-xl p-4 text-center">
+            <div className="bg-zinc-800/50 rounded-xl p-4 text-center">
               <div className="text-2xl font-bold text-white">{answerability.metrics.question_count ?? 0}</div>
-              <div className="text-xs text-white/50 mt-1">Questions Found</div>
+              <div className="text-xs text-zinc-400 mt-1">Questions Found</div>
             </div>
-            <div className="bg-white/5 rounded-xl p-4 text-center">
+            <div className="bg-zinc-800/50 rounded-xl p-4 text-center">
               <div className="text-2xl font-bold text-emerald-400">{answerability.metrics.answer_count ?? 0}</div>
-              <div className="text-xs text-white/50 mt-1">Answers Found</div>
+              <div className="text-xs text-zinc-400 mt-1">Answers Found</div>
             </div>
-            <div className="bg-white/5 rounded-xl p-4 text-center">
+            <div className="bg-zinc-800/50 rounded-xl p-4 text-center">
               <div className="text-2xl font-bold text-white">{((answerability.metrics.qa_balance ?? 0) * 100).toFixed(0)}%</div>
-              <div className="text-xs text-white/50 mt-1">Q&A Balance</div>
+              <div className="text-xs text-zinc-400 mt-1">Q&A Balance</div>
             </div>
-            <div className="bg-white/5 rounded-xl p-4 text-center">
+            <div className="bg-zinc-800/50 rounded-xl p-4 text-center">
               <div className="text-2xl font-bold text-cyan-400">{answerability.metrics.percent_questions_answered ?? 0}%</div>
-              <div className="text-xs text-white/50 mt-1">Questions Answered</div>
+              <div className="text-xs text-zinc-400 mt-1">Questions Answered</div>
             </div>
           </div>
           
           {/* Missing Answers/Gaps */}
           {answerability.ai_analysis?.missing_answers_gaps && answerability.ai_analysis.missing_answers_gaps.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-white/10">
+            <div className="mt-4 pt-4 border-t border-zinc-800">
               <div className="flex items-center gap-2 mb-3">
                 <AlertCircle className="w-4 h-4 text-amber-400" />
-                <span className="text-xs text-white/50 uppercase tracking-wider">Missing Answer Gaps</span>
+                <span className="text-xs text-zinc-400 uppercase tracking-wider">Missing Answer Gaps</span>
               </div>
               <div className="space-y-2">
                 {answerability.ai_analysis.missing_answers_gaps.slice(0, 5).map((gap, i) => (
@@ -623,12 +623,12 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisi
 
       {/* No Data State */}
       {!hasData && !isLoadingData && jobId && (
-        <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-12 text-center">
-          <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Brain className="w-8 h-8 text-white/30" />
+        <div className="bg-zinc-800/50 rounded-2xl border border-zinc-800 p-12 text-center">
+          <div className="w-16 h-16 bg-zinc-800/50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <Brain className="w-8 h-8 text-zinc-600" />
           </div>
           <h3 className="text-lg font-semibold text-white mb-2">No Analysis Data Yet</h3>
-          <p className="text-sm text-white/50 mb-6 max-w-md mx-auto">
+          <p className="text-sm text-zinc-400 mb-6 max-w-md mx-auto">
             Run an AI Visibility analysis to see comprehensive scorecards for your website.
           </p>
           <Button

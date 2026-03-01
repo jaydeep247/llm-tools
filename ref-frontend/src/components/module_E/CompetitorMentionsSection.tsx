@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Users, MessageSquare, Play, Loader2, RefreshCw, CheckCircle2 } from 'lucide-react'
@@ -168,8 +167,8 @@ export default function CompetitorMentionsSection({ jobId, mentionsData: initial
 
             <div className="grid grid-cols-1 gap-4">
                 {/* Mentions Table Card */}
-                <Card className="p-0 overflow-hidden border">
-                    <div className="p-4 border-b bg-muted/30 flex justify-between items-center">
+                <div className="rounded-2xl border border-zinc-800 bg-zinc-800/50 overflow-hidden">
+                    <div className="p-4 border-b border-zinc-800 bg-zinc-800/50 flex justify-between items-center">
                         <div className="flex items-center gap-2">
                             <MessageSquare className="w-4 h-4 text-muted-foreground" />
                             <span className="text-sm font-semibold">Web Mention Trends</span>
@@ -185,13 +184,13 @@ export default function CompetitorMentionsSection({ jobId, mentionsData: initial
                                     <th className="p-3 font-medium">12M Trend</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-border/50">
+                            <tbody className="divide-y divide-zinc-800">
                                 {(mentionsData?.data?.length ?? 0) > 1 ? (
                                     mentionsData?.data
                                         // Hide the brand's own domain row — it's used for SOV % but not shown as a competitor
                                         ?.filter((_, i) => i !== 0)
                                         .map((item, i) => (
-                                            <tr key={i} className="hover:bg-muted/30 transition-colors">
+                                            <tr key={i} className="hover:bg-zinc-800/50 transition-colors">
                                                 <td className="p-3 border-r font-medium text-foreground truncate max-w-30">{item.name}</td>
                                                 <td className="p-3 border-r font-mono">{(item.mentions ?? 0).toLocaleString()}</td>
                                                 <td className="p-3 border-r">
@@ -218,7 +217,7 @@ export default function CompetitorMentionsSection({ jobId, mentionsData: initial
                             </tbody>
                         </table>
                     </div>
-                </Card>
+                </div>
             </div>
         </div>
     )
@@ -342,13 +341,13 @@ export function ShareOfVoiceSection({ jobId }: ShareOfVoiceSectionProps) {
     const brandKnownBy: string[] = aiSov.brand_known_by_models ?? []
 
     const tierColor: Record<string, string> = {
-        'Not yet AI-indexed': 'bg-zinc-100 text-zinc-600 border-zinc-300',
-        'Minimally Indexed': 'bg-blue-50 text-blue-700 border-blue-200',
-        'Emerging': 'bg-amber-50 text-amber-700 border-amber-200',
-        'Recognized': 'bg-green-50 text-green-700 border-green-200',
-        'Established': 'bg-emerald-50 text-emerald-800 border-emerald-300',
+        'Not yet AI-indexed': 'bg-zinc-800 text-zinc-400 border-zinc-800',
+        'Minimally Indexed': 'bg-blue-500/15 text-blue-400 border-blue-500/20',
+        'Emerging': 'bg-amber-500/15 text-amber-400 border-amber-500/20',
+        'Recognized': 'bg-green-500/15 text-green-400 border-green-500/20',
+        'Established': 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
     }
-    const tierClass = tierColor[visibilityTier] ?? 'bg-zinc-100 text-zinc-600 border-zinc-300'
+    const tierClass = tierColor[visibilityTier] ?? 'bg-zinc-800 text-zinc-400 border-zinc-800'
 
     return (
         <div className="space-y-4">
@@ -375,7 +374,7 @@ export function ShareOfVoiceSection({ jobId }: ShareOfVoiceSectionProps) {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card className="p-4 flex flex-col justify-between border">
+                <div className="rounded-2xl border border-zinc-800 bg-zinc-800/50 p-4 flex flex-col justify-between">
                     <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium text-muted-foreground">Overall AI SOV</span>
                         <Badge variant="outline" className="text-[10px] px-2 py-0.5">
@@ -400,16 +399,16 @@ export function ShareOfVoiceSection({ jobId }: ShareOfVoiceSectionProps) {
                             </p>
                         )}
                     </div>
-                </Card>
+                </div>
 
-                <Card className="p-4 md:col-span-2 border">
+                <div className="rounded-2xl border border-zinc-800 bg-zinc-800/50 p-4 md:col-span-2">
                     <div className="flex items-center justify-between mb-3">
                         <span className="text-sm font-medium text-muted-foreground">By Model</span>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-xs text-left">
                             <thead>
-                                <tr className="border-b bg-background/50 text-muted-foreground">
+                                <tr className="border-b bg-zinc-800/50 text-zinc-400">
                                     <th className="p-2 font-medium">Model</th>
                                     <th className="p-2 font-medium text-right">SOV %</th>
                                     <th className="p-2 font-medium text-right">Brand mentions</th>
@@ -417,7 +416,7 @@ export function ShareOfVoiceSection({ jobId }: ShareOfVoiceSectionProps) {
                                     <th className="p-2 font-medium text-right">Brand known</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-border/50">
+                            <tbody className="divide-y divide-zinc-800">
                                 {byModelEntries.map(([model, stats]) => {
                                     const s = stats as any
                                     const sov = s.sov ?? 0
@@ -425,7 +424,7 @@ export function ShareOfVoiceSection({ jobId }: ShareOfVoiceSectionProps) {
                                     const competitorMentions = s.competitor_mentions ?? 0
                                     const brandKnown = s.brand_known === true
                                     return (
-                                        <tr key={model} className="hover:bg-muted/30 transition-colors">
+                                        <tr key={model} className="hover:bg-zinc-800/50 transition-colors">
                                             <td className="p-2 font-medium text-foreground capitalize">{model}</td>
                                             <td className="p-2 text-right font-mono">{sov.toFixed(1)}%</td>
                                             <td className="p-2 text-right font-mono">{brandMentions}</td>
@@ -434,8 +433,8 @@ export function ShareOfVoiceSection({ jobId }: ShareOfVoiceSectionProps) {
                                                 <span className={cn(
                                                     'text-[10px] font-semibold px-1.5 py-0.5 rounded border',
                                                     brandKnown
-                                                        ? 'bg-green-50 text-green-700 border-green-200'
-                                                        : 'bg-zinc-100 text-zinc-500 border-zinc-200'
+                                                        ? 'bg-green-500/15 text-green-400 border-green-500/20'
+                                                        : 'bg-zinc-800 text-zinc-400 border-zinc-800'
                                                 )}>
                                                     {brandKnown ? 'Yes' : 'No'}
                                                 </span>
@@ -446,7 +445,7 @@ export function ShareOfVoiceSection({ jobId }: ShareOfVoiceSectionProps) {
                             </tbody>
                         </table>
                     </div>
-                </Card>
+                </div>
             </div>
         </div>
     )

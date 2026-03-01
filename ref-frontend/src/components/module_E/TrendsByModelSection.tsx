@@ -2,7 +2,6 @@
 
 import { useMemo, useState, useEffect } from 'react'
 import { useGetModuleEResultQuery, useRunRankingAnalysisMutation } from '@/store/api/module_E/moduleEApi'
-import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -297,7 +296,7 @@ export default function TrendsByModelSection({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-gradient-to-br from-sky-500 to-indigo-600">
+          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-zinc-800/50 border border-zinc-800">
             <LineChart className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -333,9 +332,9 @@ export default function TrendsByModelSection({
               : 'secondary'
 
           return (
-            <Card
+            <div
               key={m.model}
-              className="p-4 border bg-background/60 backdrop-blur"
+              className="rounded-2xl border border-zinc-800 bg-zinc-800/50 p-4"
             >
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -371,7 +370,7 @@ export default function TrendsByModelSection({
                     </span>
                   </div>
 
-                  <div className="flex h-2.5 rounded-full overflow-hidden bg-muted">
+                  <div className="flex h-2.5 rounded-full overflow-hidden bg-zinc-800">
                     <div
                       className="bg-emerald-500"
                       style={{ width: `${citedRate}%` }}
@@ -448,7 +447,7 @@ export default function TrendsByModelSection({
                   </span>
                 </div>
               </div>
-            </Card>
+            </div>
           )
         })}
       </div>

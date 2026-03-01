@@ -147,7 +147,7 @@ export default function AIIntelligenceModule({ url, sessionId, jobId }: AIIntell
       {/* Header Section with Tabs */}
       <div className="space-y-6">
         {/* Mode Tabs */}
-        <div className="flex items-center gap-2 border-white/10 bg-white/5 backdrop-blur-xl p-2 rounded-lg border w-fit">
+        <div className="flex items-center gap-2 border-zinc-800 bg-zinc-800/50 p-2 rounded-lg border w-fit">
           <Button
             onClick={() => handleAuditModeChange('single')}
             variant={auditMode === 'single' ? 'default' : 'ghost'}
@@ -179,7 +179,7 @@ export default function AIIntelligenceModule({ url, sessionId, jobId }: AIIntell
 
       {/* Single Mode */}
       {auditMode === 'single' && (
-        <div className="rounded-lg border border-white/10 bg-white/5 backdrop-blur-xl p-6 space-y-6">
+        <div className="rounded-lg border border-zinc-800 bg-zinc-800/50 p-6 space-y-6">
           {/* No Job ID Warning */}
           {!jobId && (
             <div className="p-4 border border-yellow-500/50 bg-yellow-500/10 rounded-lg">
@@ -392,7 +392,7 @@ export default function AIIntelligenceModule({ url, sessionId, jobId }: AIIntell
 
       {/* Bulk Mode */}
       {auditMode === 'bulk' && (
-        <div className="rounded-lg border border-white/10 bg-white/5 backdrop-blur-xl p-6 space-y-6">
+        <div className="rounded-lg border border-zinc-800 bg-zinc-800/50 p-6 space-y-6">
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row gap-3">
               <Input
@@ -400,7 +400,7 @@ export default function AIIntelligenceModule({ url, sessionId, jobId }: AIIntell
                 placeholder="Enter Sitemap URL (e.g. https://example.com/sitemap.xml)"
                 value={sitemapUrl}
                 onChange={(e) => setSitemapUrl(e.target.value)}
-                className="flex-1 bg-background border border-white/30 h-12 text-base focus:border-primary"
+                className="flex-1 bg-background border border-zinc-600 h-12 text-base focus:border-primary"
               />
               <Button
                 onClick={handleBulkAnalyze}

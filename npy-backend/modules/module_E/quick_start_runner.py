@@ -1,7 +1,6 @@
 import asyncio
 import logging
-import os
-import sys
+import multiprocessing
 from datetime import datetime
 from typing import Any, Dict, Optional
 from urllib.parse import urlparse
@@ -15,9 +14,14 @@ from .ranking_runner import run_ranking_analysis
 logger = logging.getLogger("module_e_quick_start")
 
 
-# ---------------------------------------------------------------------------
-# helpers
-# ---------------------------------------------------------------------------
+def _mark_completed(job_id: str, session_id: str) -> None:
+    """Mark job and session as COMPLETED in Mongo + Redis immediately."""
+    try:
+        from workers.queue_worker import mark_job_completed
+        mark_job_completed(job_id, session_id)
+        logger.info(f"[QS] Job {job_id} marked COMPLETED in Mongo/Redis")
+    except Exception as exc:
+        logger.error(f"[QS] Failed to mark job {job_id} completed: {exc}", exc_info=True)
 
 def _infer_brand_name(url: str) -> str:
     """Derive a readable brand name from the URL domain."""
@@ -116,48 +120,28 @@ async def _start_crawl_and_wait_for_homepage(
     project_id: str,
     poll_interval: float = 2.0,
     poll_timeout: float = 120.0,
-) -> Optional[asyncio.subprocess.Process]:
+):
     """
-    Launches the Scrapy crawler as an asyncio subprocess so it runs in the
-    background and crawls the entire website.
+    Starts the Scrapy crawler using the exact same spawn-process path as
+    execute_crawler_job in queue_worker.py (_run_spider_subprocess + spawn_ctx).
 
-    The spider already saves the homepage HTML synchronously as soon as it
-    processes crawl_depth == 0.  We poll load_raw_html() until that file
-    appears (or poll_timeout is exceeded) before returning, ensuring that
-    the ranking runner always has real crawl data to work with.
-
-    Returns the subprocess handle so the caller can optionally await it later.
+    Polls load_raw_html() until the spider writes the homepage HTML, then
+    returns immediately so Phase 2 can run while the crawl continues.
     """
-    # Resolve the npy-backend root so the subprocess can import all modules.
-    npy_root = os.path.dirname(  # npy-backend/
-        os.path.dirname(          # modules/
-            os.path.dirname(       # module_E/
-                os.path.abspath(__file__)
-            )
-        )
+    from workers.queue_worker import spawn_ctx, _run_spider_subprocess
+    from workers.worker_config import SCRAPY_SETTINGS
+
+    manager = spawn_ctx.Manager()
+    state = manager.dict()
+    state["success"] = False
+    state["error"] = None
+
+    proc = spawn_ctx.Process(
+        target=_run_spider_subprocess,
+        args=(state, url, session_id, job_id, project_id, 0, 0, SCRAPY_SETTINGS),
     )
-
-    cmd = [
-        sys.executable, "-m", "workers.crawl_worker.crawler",
-        "--url",        url,
-        "--session-id", session_id,
-        "--job-id",     job_id,
-        "--project-id", project_id,
-        "--max-pages",  "0",   # unlimited — crawl the whole site
-        "--max-concurrency", "20",
-    ]
-
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            cwd=npy_root,
-            stdout=asyncio.subprocess.DEVNULL,
-            stderr=asyncio.subprocess.DEVNULL,
-        )
-        logger.info(f"[QS] Crawl subprocess launched for {url} (job={job_id})")
-    except Exception as exc:
-        logger.error(f"[QS] Failed to start crawl subprocess: {exc}", exc_info=True)
-        return None
+    proc.start()
+    logger.info(f"[QS] Crawl process launched (pid={proc.pid}) for {url}")
 
     # Poll until the spider writes the homepage HTML (crawl_depth == 0)
     elapsed = 0.0
@@ -170,13 +154,15 @@ async def _start_crawl_and_wait_for_homepage(
             html = ""
         if html:
             logger.info(f"[QS] Homepage HTML ready after {elapsed:.1f}s")
-            return proc
+            # Return both proc AND manager so the manager server stays alive
+            # while the subprocess is still running in the background.
+            return proc, manager
 
     logger.warning(
         f"[QS] Timed out waiting for homepage HTML after {poll_timeout}s; proceeding anyway",
         extra={"job_id": job_id},
     )
-    return proc
+    return proc, manager
 
 
 async def _run_ranking(job_id: str, url: str) -> Dict[str, Any]:
@@ -238,7 +224,7 @@ async def run_quick_start(
     # blocks only until the homepage (crawl_depth == 0) is stored — the crawl
     # then continues in the background while Phase 2 runs.
     logger.info(f"[QS] Phase 1 — brand, competitor & crawl running in parallel")
-    brand_result, competitor_result, crawl_proc = await asyncio.gather(
+    brand_result, competitor_result, crawl_tuple = await asyncio.gather(
         _run_brand(job_id, brand_name),
         _run_competitors_and_sov(job_id, url, brand_name),
         _start_crawl_and_wait_for_homepage(job_id, url, _session_id, _project_id),
@@ -253,9 +239,14 @@ async def run_quick_start(
         logger.error(f"[QS] Competitor task raised: {competitor_result}", exc_info=competitor_result)
         competitor_result = {"error": str(competitor_result)}
 
-    if isinstance(crawl_proc, Exception):
-        logger.error(f"[QS] Crawl launch raised: {crawl_proc}", exc_info=crawl_proc)
+    if isinstance(crawl_tuple, Exception):
+        logger.error(f"[QS] Crawl launch raised: {crawl_tuple}", exc_info=crawl_tuple)
         crawl_proc = None
+        crawl_manager = None
+    else:
+        # Unpack both the process and the Manager so the Manager server socket
+        # stays alive while the subprocess is still crawling in the background.
+        crawl_proc, crawl_manager = crawl_tuple
 
     # ── Phase 2: ranking (homepage HTML already written by crawler) ───────
     # The spider stored real crawled HTML at crawl_depth == 0; ranking_runner
@@ -268,10 +259,27 @@ async def run_quick_start(
         logger.error(f"[QS] Ranking task raised: {exc}", exc_info=exc)
         ranking_result = {"error": str(exc)}
 
-    # Register a background task to reap the crawl subprocess when it finishes
-    # so we don't accumulate zombie processes.
+    # ── Mark job/session COMPLETED immediately after ranking — don't wait for crawl ──
+    # The background crawl stores pages into MongoDB and continues independently.
+    # The frontend/API can now resolve all four result sections.
+    _mark_completed(job_id, _session_id)
+
+    # Reap the crawl process in the background so we don't accumulate zombies.
+    # The manager must be shut down AFTER join() so its server socket remains
+    # available to the subprocess for the entire duration of the crawl.
     if crawl_proc is not None:
-        asyncio.ensure_future(crawl_proc.wait())
+        _manager_ref = crawl_manager  # keep alive in closure
+
+        def _join_and_shutdown():
+            crawl_proc.join()
+            if _manager_ref is not None:
+                try:
+                    _manager_ref.shutdown()
+                except Exception:
+                    pass
+
+        loop = asyncio.get_event_loop()
+        asyncio.ensure_future(loop.run_in_executor(None, _join_and_shutdown))
 
     logger.info(f"[QS] Job {job_id} complete")
     return {
