@@ -514,18 +514,18 @@ export function PageMetricsTable({
   }
 
   return (
-    <div className="flex gap-4 h-full">
+    <div className="flex gap-3 h-full">
       {/* Sidebar Filter Panel */}
-      <div className={`${sidebarOpen ? 'w-70' : 'w-0'} transition-all duration-300 overflow-hidden shrink-0`}>
+      <div className={`${sidebarOpen ? 'w-68' : 'w-0'} transition-all duration-300 overflow-hidden shrink-0`}>
         {sidebarOpen && (
-          <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-4 h-[calc(100vh-120px)] overflow-y-auto custom-scrollbar">
+          <div className="bg-[#0D0D10] border border-zinc-800 rounded-xl p-4 h-full overflow-y-auto custom-scrollbar">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-white">Column Filters</h3>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setSidebarOpen(false)}
-                className="text-zinc-400 hover:text-white p-1 h-auto"
+                className="text-zinc-500 hover:text-white p-1 h-auto hover:bg-zinc-800/60"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -533,7 +533,7 @@ export function PageMetricsTable({
 
             {/* URL/Resource Filter */}
             <div className="mb-4">
-              <label className="text-xs text-zinc-400 mb-1 block">Filter by URL/Type</label>
+              <label className="text-[11px] text-zinc-500 uppercase tracking-wider mb-1.5 block">Filter by URL/Type</label>
               <Input
                 placeholder="URL or content type..."
                 value={urlFilter}
@@ -541,7 +541,7 @@ export function PageMetricsTable({
                   setUrlFilter(e.target.value)
                   setCurrentPage(1)
                 }}
-                className="bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 text-xs h-8"
+                className="bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600 text-xs h-8 rounded-lg"
               />
             </div>
 
@@ -562,13 +562,13 @@ export function PageMetricsTable({
                       {category.columns.map((column) => (
                         <label
                           key={String(column)}
-                          className="flex items-center gap-2 text-xs text-zinc-300 hover:text-white cursor-pointer"
+                          className="flex items-center gap-2 text-xs text-zinc-400 hover:text-white cursor-pointer"
                         >
                           <input
                             type="checkbox"
                             checked={visibleColumns.has(column)}
                             onChange={() => toggleColumn(column)}
-                            className="rounded border-zinc-700 bg-zinc-800/50 text-blue-500 focus:ring-blue-500/50 focus:ring-offset-0"
+                            className="rounded border-zinc-700 bg-zinc-900 text-blue-500 focus:ring-blue-500/50 focus:ring-offset-0"
                           />
                           <span className="truncate">{getColumnLabel(column)}</span>
                         </label>
@@ -583,15 +583,15 @@ export function PageMetricsTable({
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 min-w-0 flex flex-col h-[calc(100vh-120px)]">
+      <div className="flex-1 min-w-0 flex flex-col h-full">
         {/* Open Sidebar Button */}
         {!sidebarOpen && (
-          <div className="mb-4">
+          <div className="mb-3">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setSidebarOpen(true)}
-              className="bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800"
+              className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white"
             >
               <ChevronRight className="h-4 w-4 mr-2" />
               Show Filters
@@ -611,7 +611,7 @@ export function PageMetricsTable({
                   setSearchQuery(e.target.value)
                   setCurrentPage(1)
                 }}
-                className="pl-10 bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 text-sm"
+                className="pl-10 bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-500 text-sm rounded-xl"
               />
             </div>
           </div>
@@ -621,7 +621,7 @@ export function PageMetricsTable({
                 onClick={onRefresh}
                 variant="outline"
                 size="sm"
-                className="bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800"
+                className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl"
                 disabled={isLoading}
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
@@ -633,7 +633,7 @@ export function PageMetricsTable({
                 onClick={onExport}
                 variant="outline"
                 size="sm"
-                className="bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800"
+                className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl"
               >
                 <Download className="h-4 w-4 mr-2" />
                 Export
@@ -643,23 +643,23 @@ export function PageMetricsTable({
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-          <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-3">
-            <div className="text-xs text-zinc-400">Total Pages</div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
+            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Total Pages</div>
             <div className="text-xl font-bold text-white mt-1">{uniqueData.length}</div>
           </div>
-          <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-3">
-            <div className="text-xs text-zinc-400">Filtered</div>
+          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
+            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Filtered</div>
             <div className="text-xl font-bold text-white mt-1">{filteredData.length}</div>
           </div>
-          <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-3">
-            <div className="text-xs text-zinc-400">With Tables</div>
+          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
+            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">With Tables</div>
             <div className="text-xl font-bold text-white mt-1">
               {uniqueData.filter(p => p.hasTables).length}
             </div>
           </div>
-          <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-3">
-            <div className="text-xs text-zinc-400">With FAQs</div>
+          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
+            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">With FAQs</div>
             <div className="text-xl font-bold text-white mt-1">
               {uniqueData.filter(p => p.hasFaqs).length}
             </div>
@@ -667,13 +667,13 @@ export function PageMetricsTable({
         </div>
 
         {/* Table */}
-        <div className="rounded-lg border border-zinc-700 bg-zinc-800/50 overflow-hidden flex-1">
+        <div className="rounded-xl border border-zinc-800 bg-[#111113] overflow-hidden flex-1 min-h-0">
           <div 
             ref={tableContainerRef} 
             className="overflow-x-auto overflow-y-auto max-w-full h-full custom-scrollbar"
           >
             <table className="w-full text-sm">
-              <thead className="bg-gray-900 border-b border-zinc-700 sticky top-0 z-10">
+              <thead className="bg-zinc-900/80 border-b border-zinc-800 sticky top-0 z-10">
                 <tr>
                   {orderedVisibleColumns.map(column => renderTableHeader(column))}
                 </tr>
@@ -715,8 +715,8 @@ export function PageMetricsTable({
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between mt-4">
-            <div className="text-sm text-zinc-400">
+          <div className="flex items-center justify-between mt-3">
+            <div className="text-sm text-zinc-500">
               Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, sortedData.length)} of {sortedData.length} results
             </div>
             <div className="flex gap-2">
@@ -725,7 +725,7 @@ export function PageMetricsTable({
                 size="sm"
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800 disabled:opacity-50"
+                className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white disabled:opacity-40 rounded-xl"
               >
                 Previous
               </Button>
@@ -748,10 +748,10 @@ export function PageMetricsTable({
                       variant="outline"
                       size="sm"
                       onClick={() => setCurrentPage(pageNum)}
-                      className={`${
+                      className={`rounded-xl ${
                         currentPage === pageNum
-                          ? 'bg-white text-black'
-                          : 'bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800'
+                          ? 'bg-white text-black border-white'
+                          : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white'
                       }`}
                     >
                       {pageNum}
@@ -764,7 +764,7 @@ export function PageMetricsTable({
                 size="sm"
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
-                className="bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800 disabled:opacity-50"
+                className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white disabled:opacity-40 rounded-xl"
               >
                 Next
               </Button>

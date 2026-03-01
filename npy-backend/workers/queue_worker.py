@@ -116,6 +116,8 @@ def execute_crawler_job(payload: dict) -> bool:
     max_pages = payload.get("maxPages", 3000)
     timeout = payload.get("timeout", 0)
     
+    logger.info(f"[CRAWLER] ▶️  Starting crawler job: {job_id} | URL: {url[:60]}... | MaxPages: {max_pages}")
+    
     # Use spawn context Manager to capture state from subprocess
     # spawn avoids fork issues with Twisted reactor and RabbitMQ connections
     manager = spawn_ctx.Manager()
@@ -133,11 +135,12 @@ def execute_crawler_job(payload: dict) -> bool:
     
     # Check success flag first (more reliable than exit code)
     if state.get("success"):
+        logger.info(f"[CRAWLER] ✅ Completed successfully: {job_id}")
         return True
     
     # If not successful, report the error
     error_msg = state.get("error") or f"Unknown error (exit code {p.exitcode})"
-    logger.error(f"[CRAWLER] Subprocess error: {error_msg}")
+    logger.error(f"[CRAWLER] ❌ Subprocess error: {error_msg}")
     raise RuntimeError(f"Crawl process failed: {error_msg}")
 
 
@@ -146,6 +149,7 @@ def execute_schema_job(payload: dict) -> bool:
     from modules.module_B.schema_generator import SchemaGenerator
     
     configure_logger()
+    logger.info(f"[MODULE_B] ▶️  SCHEMA Processing started | Job: {payload.get('jobId', payload['sessionId'])}")
     
     session_id = payload["sessionId"]
     project_id = payload["projectId"]
@@ -179,6 +183,7 @@ def execute_schema_job(payload: dict) -> bool:
         upsert=True,
     )
     
+    logger.info(f"[MODULE_B] ✅ SCHEMA Processing completed | Job: {job_id}")
     return True
 
 
@@ -194,26 +199,60 @@ def execute_module_c_job(payload: dict) -> bool:
     job_type = payload.get("jobType", "AEO_ANALYSIS")
     source_job_id = payload.get("sourceJobId") or payload.get("config", {}).get("sourceJobId")
     query = payload.get("query") or payload.get("config", {}).get("query")
+    html_content = payload.get("htmlContent") or payload.get("html_content")  # Support both formats
     
     target_job_id = source_job_id if source_job_id else job_id
     
-    logger.info(f"[MODULE_C] Starting job {job_id} type={job_type} for {url}")
+    logger.info(f"[MODULE_C] ▶️  {job_type} Processing started | Job: {job_id} | URL: {url[:50]}...")
+    logger.info(f"[MODULE_C] 🔧 Analysis type: {job_type.replace('MODULE_C_', '')}")
+    logger.info(f"[MODULE_C] 🪣 HTML source: {('S3 bucket (target job: ' + target_job_id + ')') if not html_content else 'payload'}")
+    logger.info(f"[MODULE_C] 🔍 Query: {query if query else 'None (using default)'}")
     
-    if job_type == "MODULE_C_AI_PRESENCE":
-        asyncio.run(runner.run_submodule("ai_presence", target_job_id, url, query=query))
-    elif job_type == "MODULE_C_ANSWERABILITY":
-        asyncio.run(runner.run_submodule("answerability", target_job_id, url, query=query))
-    elif job_type == "MODULE_C_KNOWLEDGE_BASE":
-        asyncio.run(runner.run_submodule("knowledge_base", target_job_id, url, query=query))
-    elif job_type == "MODULE_C_LLM_SIMULATOR":
-        asyncio.run(runner.run_submodule("llm_simulator", target_job_id, url, query=query))
-    elif job_type == "MODULE_C_ACTIONABLE_INSIGHTS":
-        asyncio.run(runner.run_submodule("actionable_insights", target_job_id, url, query=query))
-    else:
-        # Default to full run
-        asyncio.run(run_module_c(target_job_id, url, query=query))
+    try:
+        if job_type == "MODULE_C_AI_PRESENCE":
+            logger.info(f"[MODULE_C] ⚡ Executing AI Presence submodule...")
+            result = asyncio.run(runner.run_submodule("ai_presence", target_job_id, url, html_content=html_content, query=query))
+        elif job_type == "MODULE_C_ANSWERABILITY":
+            logger.info(f"[MODULE_C] ⚡ Executing Answerability submodule...")
+            result = asyncio.run(runner.run_submodule("answerability", target_job_id, url, html_content=html_content, query=query))
+        elif job_type == "MODULE_C_KNOWLEDGE_BASE":
+            logger.info(f"[MODULE_C] ⚡ Executing Knowledge Base submodule...")
+            result = asyncio.run(runner.run_submodule("knowledge_base", target_job_id, url, html_content=html_content, query=query))
+        elif job_type == "MODULE_C_LLM_SIMULATOR":
+            logger.info(f"[MODULE_C] ⚡ Executing LLM Simulator submodule...")
+            result = asyncio.run(runner.run_submodule("llm_simulator", target_job_id, url, html_content=html_content, query=query))
+        elif job_type == "MODULE_C_ACTIONABLE_INSIGHTS":
+            logger.info(f"[MODULE_C] ⚡ Executing Actionable Insights submodule...")
+            result = asyncio.run(runner.run_submodule("actionable_insights", target_job_id, url, html_content=html_content, query=query))
+        else:
+            # Default to full run for AEO_ANALYSIS or unknown types
+            logger.info(f"[MODULE_C] ⚡ Executing full Module C analysis (default)...")
+            result = asyncio.run(run_module_c(target_job_id, url, html_content=html_content, query=query))
+        
+        # Check if result contains errors
+        if isinstance(result, dict):
+            if "error" in result:
+                error_msg = result.get('error', '')
+                logger.error(f"[MODULE_C] ⚠️  Module returned error: {error_msg}")
+                logger.info(f"[MODULE_C] 📋 Full result: {result}")
+                
+                # Check if it's a missing HTML error
+                if "HTML not found" in error_msg or "S3" in error_msg:
+                    logger.error(f"[MODULE_C] ❌ S3 HTML retrieval failed for job {target_job_id}")
+                    logger.info(f"[MODULE_C] 💡 Solution: Ensure crawler job {target_job_id} saved HTML to S3")
+                    raise RuntimeError(f"HTML not found in S3 for job {target_job_id}. Run CRAWLER first.")
+                else:
+                    raise RuntimeError(f"Module C analysis error: {error_msg}")
+            else:
+                logger.info(f"[MODULE_C] 📊 Result received with {len(result)} keys")
+                if "modules" in result:
+                    logger.info(f"[MODULE_C] 📈 Overall score: {result.get('overall_score', 'N/A')}")
 
-    return True
+        logger.info(f"[MODULE_C] ✅ {job_type} Processing completed successfully | Job: {job_id}")
+        return True
+    except Exception as e:
+        logger.error(f"[MODULE_C] ❌ {job_type} Processing failed with error: {str(e)}", exc_info=True)
+        raise
 
 
 def execute_module_d_job(payload: dict) -> bool:
@@ -232,20 +271,34 @@ def execute_module_d_job(payload: dict) -> bool:
     # Use sourceJobId to load HTML (points to crawl job that saved the HTML)
     target_job_id = source_job_id if source_job_id else job_id
     
-    logger.info(f"[MODULE_D] Starting job {job_id} type={job_type} for {url}, loading HTML from {target_job_id}")
+    logger.info(f"[MODULE_D] ▶️  {job_type} Processing started | Job: {job_id} | URL: {url[:50]}...")
+    logger.info(f"[MODULE_D] 📄 Loading HTML from: {target_job_id}")
     
     try:
+        logger.info(f"[MODULE_D] ⚡ Executing {job_type} analysis...")
         if job_type == "MODULE_D_CONTENT_METRICS" or job_type == "CONTENT_METRICS":
-            asyncio.run(run_content_metrics(target_job_id, url))
+            logger.info(f"[MODULE_D] 📈 Running Content Metrics analysis...")
+            result = asyncio.run(run_content_metrics(target_job_id, url))
         elif job_type == "MODULE_D_ENTITY_ANALYSIS":
-            asyncio.run(run_entity_analysis(target_job_id, url))
+            logger.info(f"[MODULE_D] 🏷️  Running Entity Analysis...")
+            result = asyncio.run(run_entity_analysis(target_job_id, url))
         else:
             # Default to full run
-            asyncio.run(run_module_d(target_job_id, url))
+            logger.info(f"[MODULE_D] 🔍 Running full Module D analysis (default)...")
+            result = asyncio.run(run_module_d(target_job_id, url))
+        
+        # Check if result contains errors
+        if isinstance(result, dict) and "error" in result:
+            logger.error(f"[MODULE_D] ⚠️  Module returned error: {result.get('error')}")
+            if "HTML" in str(result.get("error", "")):
+                raise RuntimeError(f"HTML not found for job {target_job_id}. Make sure sourceJobId is provided.")
+        else:
+            logger.info(f"[MODULE_D] 📊 Result received")
             
+        logger.info(f"[MODULE_D] ✅ {job_type} Processing completed successfully | Job: {job_id}")
         return True
     except Exception as e:
-        logger.error(f"[MODULE_D] Job failed: {e}", exc_info=True)
+        logger.error(f"[MODULE_D] ❌ {job_type} Processing failed: {e}", exc_info=True)
         raise
 
 
@@ -318,27 +371,35 @@ def mark_job_failed(job_id: str, session_id: str, error_message: str) -> None:
 def execute_job(payload: dict, job_type: str = "crawl") -> bool:
     """Dispatch job execution based on payload.jobType or override"""
     job_type_resolved = (payload.get("jobType") or job_type or "CRAWL").upper()
+    session_id = payload.get("sessionId", "unknown")
     
     if job_type_resolved == "CRAWL":
+        logger.info(f"[DISPATCH] 📥 Routing to MODULE_A (Crawler) | Session: {session_id}")
         return execute_crawler_job(payload)
         
     if job_type_resolved.startswith("MODULE_C") or job_type_resolved == "AEO_ANALYSIS":
+        logger.info(f"[DISPATCH] 📥 Routing to MODULE_C (AEO Analysis) | Session: {session_id}")
         return execute_module_c_job(payload)
         
     if job_type_resolved.startswith("MODULE_E"):
+        logger.info(f"[DISPATCH] 📥 Routing to MODULE_E (Brand Intelligence) | Session: {session_id}")
         return execute_module_e_job(payload)
 
     if job_type_resolved.startswith("MODULE_F"):
+        logger.info(f"[DISPATCH] 📥 Routing to MODULE_F (Competitor AI) | Session: {session_id}")
         return execute_module_f_job(payload)
         
     if job_type_resolved.startswith("MODULE_D") or job_type_resolved == "CONTENT_METRICS":
+        logger.info(f"[DISPATCH] 📥 Routing to MODULE_D (Content Analysis) | Session: {session_id}")
         return execute_module_d_job(payload)
         
     if job_type_resolved == "SCHEMA":
+        logger.info(f"[DISPATCH] 📥 Routing to MODULE_B (Schema) | Session: {session_id}")
         return execute_schema_job(payload)
         
     # Default fallback
     logger.warning(f"Unknown job type {job_type_resolved}, defaulting to Module D analysis")
+    logger.info(f"[DISPATCH] 📥 Routing to MODULE_D (Content Analysis - Default) | Session: {session_id}")
     return execute_module_d_job(payload)
 
 
@@ -356,18 +417,24 @@ def execute_module_f_job(payload: dict) -> bool:
 
     target_job_id = source_job_id if source_job_id else job_id
 
-    logger.info(f"[MODULE_F] Starting job {job_id} type={job_type} for {url}")
+    logger.info(f"[MODULE_F] ▶️  {job_type} Processing started | Job: {job_id} | URL: {url[:50]}...")
 
     try:
+        logger.info(f"[MODULE_F] ⚡ Executing Competitor AI Intelligence analysis...")
         if job_type == "MODULE_F_COMPETITOR_AI_INTELLIGENCE":
-            asyncio.run(run_module_f_competitor_ai_intelligence(target_job_id, url))
+            result = asyncio.run(run_module_f_competitor_ai_intelligence(target_job_id, url))
         else:
-            asyncio.run(run_module_f_competitor_ai_intelligence(target_job_id, url))
+            result = asyncio.run(run_module_f_competitor_ai_intelligence(target_job_id, url))
 
-        logger.info(f"[MODULE_F] Completed job {job_id}")
+        if isinstance(result, dict) and "error" in result:
+            logger.error(f"[MODULE_F] ⚠️  Module returned error: {result.get('error')}")
+        else:
+            logger.info(f"[MODULE_F] 📊 Result received")
+        
+        logger.info(f"[MODULE_F] ✅ {job_type} Processing completed successfully | Job: {job_id}")
         return True
     except Exception as e:
-        logger.error(f"[MODULE_F] Job failed: {e}", exc_info=True)
+        logger.error(f"[MODULE_F] ❌ {job_type} Processing failed: {e}", exc_info=True)
         raise
 
 
@@ -393,34 +460,48 @@ def execute_module_e_job(payload: dict) -> bool:
     # Use sourceJobId to load HTML if needed (points to crawl job)
     target_job_id = source_job_id if source_job_id else job_id
     
-    logger.info(f"[MODULE_E] Starting job {job_id} type={job_type} for {url}")
+    logger.info(f"[MODULE_E] ▶️  {job_type} Processing started | Job: {job_id} | URL: {url[:50]}...")
     
     try:
         # Execute specific sub-module based on job type
         if job_type == "MODULE_E_QUICK_START":
+            logger.info(f"[MODULE_E] ⚡ Running Quick Start (Brand Analysis + Competitor + AI SOV + Crawl)...")
             # Runs Brand Analysis + Competitor Mentions + AI SOV + full crawl in parallel
-            asyncio.run(run_quick_start(job_id, url, session_id=session_id, project_id=project_id))
+            result = asyncio.run(run_quick_start(job_id, url, session_id=session_id, project_id=project_id))
         elif job_type == "MODULE_E_CONSISTENCY":
-            asyncio.run(run_consistency_only(target_job_id, url))
+            logger.info(f"[MODULE_E] ⚡ Running Consistency Analysis...")
+            result = asyncio.run(run_consistency_only(target_job_id, url))
         elif job_type == "MODULE_E_SENTIMENT":
-            asyncio.run(run_sentiment_only(target_job_id, url))
+            logger.info(f"[MODULE_E] ⚡ Running Sentiment Analysis...")
+            result = asyncio.run(run_sentiment_only(target_job_id, url))
         elif job_type == "MODULE_E_COMPETITORS":
-            asyncio.run(run_competitor_analysis(target_job_id, url))
+            logger.info(f"[MODULE_E] ⚡ Running Competitor Analysis...")
+            result = asyncio.run(run_competitor_analysis(target_job_id, url))
         elif job_type == "MODULE_E_AI_SOV":
-            asyncio.run(run_ai_sov_analysis(target_job_id, url))
+            logger.info(f"[MODULE_E] ⚡ Running AI Share of Voice Analysis...")
+            result = asyncio.run(run_ai_sov_analysis(target_job_id, url))
         elif job_type == "MODULE_E_RANKING" or job_type == "MODULE_E_AI_CITATION_RANKING":
+            logger.info(f"[MODULE_E] ⚡ Running Ranking Analysis...")
             # Assuming AI_CITATION_RANKING uses ranking runner or similar
-            asyncio.run(run_ranking_analysis(target_job_id, url))
+            result = asyncio.run(run_ranking_analysis(target_job_id, url))
         elif job_type == "MODULE_E_BRAND":
-            asyncio.run(run_brand_only(target_job_id, url))
+            logger.info(f"[MODULE_E] ⚡ Running Brand Analysis...")
+            result = asyncio.run(run_brand_only(target_job_id, url))
         else:
+            logger.info(f"[MODULE_E] ⚡ Running full Module E analysis (default)...")
             # Default to full run or generic run
-            asyncio.run(run_module_e(target_job_id, url))
+            result = asyncio.run(run_module_e(target_job_id, url))
+        
+        if isinstance(result, dict) and "error" in result:
+            logger.error(f"[MODULE_E] ⚠️  Module returned error: {result.get('error')}")
+        else:
+            logger.info(f"[MODULE_E] 📊 Result received")
             
+        logger.info(f"[MODULE_E] ✅ {job_type} Processing completed successfully | Job: {job_id}")
         return True
         
     except Exception as e:
-        logger.error(f"[MODULE_E] Job failed: {e}", exc_info=True)
+        logger.error(f"[MODULE_E] ❌ {job_type} Processing failed: {e}", exc_info=True)
         raise
 
 
@@ -441,6 +522,8 @@ def drain_results(connection: BlockingConnection) -> None:
 
 def run_job_in_worker(payload: dict, job_type_override: str | None = None) -> None:
     job_type = (job_type_override or payload.get("jobType") or "CRAWL").upper()
+    job_id = payload.get("jobId") or f"job_{payload.get('sessionId')}"
+    logger.info(f"[WORKER] 🔨 Processing job {job_id} (Type: {job_type})")
     execute_job(payload, job_type)
 
 
@@ -495,6 +578,11 @@ def start_queue_worker() -> None:
             channel.basic_qos(prefetch_count=POOL_SIZE_PER_CATEGORY)
 
             logger.info("🐇 RabbitMQ worker connected. Waiting for messages...")
+            logger.info(f"📊 Queue Setup Summary:")
+            for cat, cfg in QUEUE_CONFIGS.items():
+                logger.info(f"   ├─ {cat.upper()}: queue={cfg.queue}, exchange={cfg.exchange}")
+            logger.info(f"   └─ Event queue: job.events.queue (JOB_COMPLETED/JOB_FAILED tracking)")
+            logger.info(f"⏳ Ready to process jobs...\n")
 
             def on_event_message(ch, method, _properties, body) -> None:
                 try:
@@ -569,6 +657,13 @@ def start_queue_worker() -> None:
 
                 session_key = f"session:{session_id}"
                 job_key = f"job:{job_id}"
+                
+                logger.info(f"\n{'='*80}")
+                logger.info(f"[QUEUE] 📨 Message received from RabbitMQ")
+                logger.info(f"[QUEUE] Session: {session_id} | Job: {job_id}")
+                logger.info(f"[QUEUE] Type: {job_type or 'CRAWL'} | URL: {url[:60]}...")
+                logger.info(f"[QUEUE] Routing key: {method.routing_key}")
+                logger.info(f"{'='*80}")
 
                 runtime_redis.hset(
                     session_key,
@@ -590,21 +685,25 @@ def start_queue_worker() -> None:
                     },
                 )
 
+                logger.info(f"[QUEUE] ⚙️  Status updated to RECEIVED in Redis")
+                logger.info(f"[QUEUE] 🚀 Submitting job to thread pool...")
                 future = executor.submit(run_job_in_worker, payload, job_type)
 
                 def when_done(f) -> None:
                     try:
                         f.result()
+                        logger.info(f"[RESULT] ✅ Job {job_id} completed successfully!")
+                        logger.info(f"[RESULT] 📤 Acknowledging message to RabbitMQ")
                         action = "ack"
                     except RetryableJobError as e:
                         logger.error(
-                            "Job execution failed with retryable error; requeueing",
+                            f"[RESULT] ⚠️  Job {job_id} failed with retryable error; requeueing",
                             exc_info=e,
                         )
                         action = "nack_requeue"
                     except Exception as e:
                         logger.error(
-                            "Job execution failed with non-retryable error; sending to DLQ",
+                            f"[RESULT] ❌ Job {job_id} failed with non-retryable error; sending to DLQ",
                             exc_info=e,
                         )
                         action = "nack_drop"

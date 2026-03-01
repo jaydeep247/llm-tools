@@ -931,8 +931,7 @@ export default function SessionDetailPage() {
 
         {/* Show Crawled Data Table on crawled-data / technical-audit tab */}
         {(activeSection === 'crawled-data' || activeSection === 'technical-audit') && (
-          <div>
-
+          <div className="h-[calc(100vh-133px)] -mx-11 md:-mx-8">
             <CrawledDataTable
               data={pagesData?.data || []}
               isLoading={isLoadingPages}
@@ -943,7 +942,7 @@ export default function SessionDetailPage() {
 
         {/* Show Page Metrics Table on page-metrics / content-audit tab */}
         {(activeSection === 'page-metrics' || activeSection === 'content-audit') && (
-          <div>
+          <div className="h-[calc(100vh-133px)] -mx-11 md:-mx-8">
             <PageMetricsTable
               data={pageMetricsData?.data || []}
               isLoading={isLoadingMetrics}
@@ -1035,13 +1034,11 @@ export default function SessionDetailPage() {
 
         {/* Show Schema Generator on schema-generator / structured-data tab */}
         {(activeSection === 'schema-generator' || activeSection === 'structured-data') && (
-          <div>
-            <SchemaGeneratorTable 
-              sessionId={sessionId}
-              jobId={jobId || null}
-              sessionStatus={crawlStatus}
-            />
-          </div>
+          <SchemaGeneratorTable 
+            sessionId={sessionId}
+            jobId={jobId || null}
+            sessionStatus={crawlStatus}
+          />
         )}
 
         {/* Show AI Intelligence Module on ai-intelligence tab */}

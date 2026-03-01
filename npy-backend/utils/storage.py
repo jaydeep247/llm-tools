@@ -1,17 +1,12 @@
 """
 Storage utilities for raw HTML and analysis results.
-Supports S3 (DigitalOcean Spaces) with fallback to local filesystem.
+Uses S3 (DigitalOcean Spaces) exclusively - NO local filesystem storage.
 """
 
-import os
-import aiofiles
 import json
 
 from utils.config import config
 from utils.logger import logger
-
-# Local storage directory (fallback)
-DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "raw_html")
 
 
 def _get_s3_client():
@@ -20,82 +15,78 @@ def _get_s3_client():
     return s3_storage
 
 
-def _is_s3_enabled() -> bool:
-    """Check if S3 storage is enabled"""
-    return config.S3_ENABLED
+def _ensure_s3_enabled() -> bool:
+    """Check if S3 storage is enabled, raise error if not"""
+    if not config.S3_ENABLED:
+        raise RuntimeError("S3 storage is required but S3_ENABLED is False. Set S3_ENABLED=true in config.")
+    
+    s3 = _get_s3_client()
+    if not s3.is_enabled:
+        raise RuntimeError("S3 storage is not properly configured. Check S3 credentials.")
+    
+    return True
 
 
 # ─── ASYNC FUNCTIONS ─────────────────────────────────────────────────────────
 
 async def save_raw_html(job_id: str, html_content: str) -> str:
     """
-    Saves raw HTML content to storage.
-    Uses S3 if enabled, otherwise falls back to local filesystem.
+    Saves raw HTML content to S3 bucket ONLY.
+    Local filesystem storage is NO LONGER SUPPORTED.
     
     Args:
         job_id: Job identifier
         html_content: HTML content to save
         
     Returns:
-        Storage path/URI of the saved file
+        S3 URI of the saved file
+        
+    Raises:
+        RuntimeError: If S3 is not enabled or configured
     """
     if not html_content:
         return ""
     
-    # Try S3 first if enabled
-    if _is_s3_enabled():
-        try:
-            s3 = _get_s3_client()
-            if s3.is_enabled:
-                uri = await s3.save(job_id, html_content)
-                return uri
-        except Exception as e:
-            logger.warning(f"S3 save failed, falling back to local: {e}")
+    _ensure_s3_enabled()
     
-    # Fallback to local filesystem
-    job_dir = os.path.join(DATA_DIR, str(job_id))
-    os.makedirs(job_dir, exist_ok=True)
-    
-    file_path = os.path.join(job_dir, "source.html")
-    
-    async with aiofiles.open(file_path, "w", encoding="utf-8") as f:
-        await f.write(html_content)
-    
-    return file_path
+    try:
+        s3 = _get_s3_client()
+        uri = await s3.save(job_id, html_content)
+        logger.info(f"[S3] ✅ HTML saved for job {job_id} ({len(html_content)} bytes)")
+        return uri
+    except Exception as e:
+        logger.error(f"[S3] ❌ Failed to save HTML to S3: {e}")
+        raise RuntimeError(f"Unable to save HTML to S3: {e}")
 
 
 async def load_raw_html(job_id: str) -> str:
     """
-    Loads raw HTML content from storage.
-    Tries S3 first if enabled, then falls back to local filesystem.
+    Loads raw HTML content from S3 bucket ONLY.
+    Local filesystem storage is NO LONGER SUPPORTED.
     
     Args:
         job_id: Job identifier
         
     Returns:
         HTML content as string, empty string if not found
+        
+    Raises:
+        RuntimeError: If S3 is not enabled or configured
     """
-    # Try S3 first if enabled
-    if _is_s3_enabled():
-        try:
-            s3 = _get_s3_client()
-            if s3.is_enabled:
-                content = await s3.load(job_id)
-                if content:
-                    return content
-        except Exception as e:
-            logger.warning(f"S3 load failed, falling back to local: {e}")
+    _ensure_s3_enabled()
     
-    # Fallback to local filesystem
-    file_path = os.path.join(DATA_DIR, str(job_id), "source.html")
-    
-    if not os.path.exists(file_path):
-        return ""
-    
-    async with aiofiles.open(file_path, "r", encoding="utf-8") as f:
-        content = await f.read()
-    
-    return content
+    try:
+        s3 = _get_s3_client()
+        content = await s3.load(job_id)
+        if content:
+            logger.info(f"[S3] ✅ HTML loaded from S3 for job {job_id} ({len(content)} bytes)")
+            return content
+        else:
+            logger.warning(f"[S3] ⚠️  HTML not found in S3 for job {job_id}")
+            return ""
+    except Exception as e:
+        logger.error(f"[S3] ❌ Failed to load HTML from S3: {e}")
+        raise RuntimeError(f"Unable to load HTML from S3: {e}")
 
 
 # ─── SYNC FUNCTIONS ──────────────────────────────────────────────────────────
@@ -103,81 +94,64 @@ async def load_raw_html(job_id: str) -> str:
 def save_raw_html_sync(job_id: str, html_content: str) -> str:
     """
     Synchronous version of save_raw_html for use in non-async contexts (e.g. Scrapy).
-    Uses S3 if enabled, otherwise falls back to local filesystem.
+    Uses S3 bucket ONLY - NO local filesystem fallback.
     
     Args:
         job_id: Job identifier
         html_content: HTML content to save
         
     Returns:
-        Storage path/URI of the saved file
+        S3 URI of the saved file
+        
+    Raises:
+        RuntimeError: If S3 is not enabled or configured
     """
     if not html_content:
         return ""
     
-    # Try S3 first if enabled
-    if _is_s3_enabled():
-        try:
-            s3 = _get_s3_client()
-            if s3.is_enabled:
-                uri = s3.save_sync(job_id, html_content)
-                return uri
-        except Exception as e:
-            logger.warning(f"S3 save failed, falling back to local: {e}")
+    _ensure_s3_enabled()
     
-    # Fallback to local filesystem
-    job_dir = os.path.join(DATA_DIR, str(job_id))
-    os.makedirs(job_dir, exist_ok=True)
-    
-    file_path = os.path.join(job_dir, "source.html")
-    
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(html_content)
-    
-    return file_path
+    try:
+        s3 = _get_s3_client()
+        uri = s3.save_sync(job_id, html_content)
+        logger.info(f"[S3] ✅ HTML saved (sync) for job {job_id} ({len(html_content)} bytes)")
+        return uri
+    except Exception as e:
+        logger.error(f"[S3] ❌ Failed to save HTML to S3 (sync): {e}")
+        raise RuntimeError(f"Unable to save HTML to S3: {e}")
 
 
 def load_raw_html_sync(job_id: str) -> str:
     """
     Synchronous version of load_raw_html.
-    Tries S3 first if enabled, then falls back to local filesystem.
+    Uses S3 bucket ONLY - NO local filesystem fallback.
     
     Args:
         job_id: Job identifier
         
     Returns:
         HTML content as string, empty string if not found
+        
+    Raises:
+        RuntimeError: If S3 is not enabled or configured
     """
-    # Try S3 first if enabled
-    if _is_s3_enabled():
-        try:
-            s3 = _get_s3_client()
-            if s3.is_enabled:
-                content = s3.load_sync(job_id)
-                if content:
-                    return content
-        except Exception as e:
-            logger.warning(f"S3 load failed, falling back to local: {e}")
+    _ensure_s3_enabled()
     
-    # Fallback to local filesystem
-    file_path = os.path.join(DATA_DIR, str(job_id), "source.html")
-    
-    if not os.path.exists(file_path):
-        return ""
-    
-    with open(file_path, "r", encoding="utf-8") as f:
-        content = f.read()
-    
-    return content
+    try:
+        s3 = _get_s3_client()
+        content = s3.load_sync(job_id)
+        if content:
+            logger.info(f"[S3] ✅ HTML loaded (sync) from S3 for job {job_id} ({len(content)} bytes)")
+            return content
+        else:
+            logger.warning(f"[S3] ⚠️  HTML not found in S3 for job {job_id}")
+            return ""
+    except Exception as e:
+        logger.error(f"[S3] ❌ Failed to load HTML from S3 (sync): {e}")
+        raise RuntimeError(f"Unable to load HTML from S3: {e}")
 
 
-# ─── UTILITY FUNCTIONS ───────────────────────────────────────────────────────
-
-def get_raw_html_path(job_id: str) -> str:
-    """Returns the expected local path for a job's raw HTML file"""
-    return os.path.join(DATA_DIR, str(job_id), "source.html")
-
-
+# ─── MONGODB STORAGE FUNCTIONS ───────────────────────────────────────────────
 async def save_job_response(job_id: str, data: dict) -> str:
     """
     Saves job results to MongoDB fields collection.

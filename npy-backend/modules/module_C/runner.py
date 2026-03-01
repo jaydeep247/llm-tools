@@ -25,22 +25,29 @@ class ModuleCRunner:
         self.actionable_insights = ActionableInsightsModule()
 
     async def _ensure_html_content(self, job_id: str, html_content: str = None, skip_save: bool = False) -> str:
-        """Helper to ensure HTML content is loaded"""
+        """Helper to ensure HTML content is loaded from S3 only"""
         if html_content:
             if not skip_save:
                 await save_raw_html(job_id, html_content)
         else:
+            # Load from S3 bucket
             html_content = await load_raw_html(job_id)
         return html_content
 
     async def run(self, job_id: str, url: str, html_content: str = None, skip_save: bool = False, query: str = None) -> Dict:
         """
         Runs complete Module C analysis.
+        HTML must be available in S3 bucket or provided directly.
         """
         html_content = await self._ensure_html_content(job_id, html_content, skip_save)
             
         if not html_content:
-            return {"error": "HTML content missing", "job_id": job_id}
+            logger.error(f"[MODULE_C] ❌ HTML not found in S3 for job {job_id}")
+            logger.info(f"[MODULE_C] 💡 Make sure:")
+            logger.info(f"[MODULE_C]    1. A CRAWLER job ran first and cached HTML to S3")
+            logger.info(f"[MODULE_C]    2. OR provide htmlContent in the request payload")
+            logger.info(f"[MODULE_C]    3. OR use sourceJobId to reference a crawler job ID")
+            return {"error": "HTML not found in S3. Run CRAWLER job first or provide htmlContent.", "job_id": job_id}
 
         # Find or Generate Query if not provided
         if not query:
@@ -120,10 +127,13 @@ class ModuleCRunner:
     async def run_submodule(self, submodule: str, job_id: str, url: str, html_content: str = None, query: str = None) -> Dict:
         """
         Run a specific sub-module of Module C.
+        HTML must be available in S3 bucket or provided directly.
         """
         html_content = await self._ensure_html_content(job_id, html_content)
+        
         if not html_content:
-            return {"error": "HTML content missing"}
+            logger.error(f"[MODULE_C] ❌ HTML not found in S3 for job {job_id} (submodule: {submodule})")
+            return {"error": "HTML not found in S3. Run CRAWLER job first or provide htmlContent."}
 
         robots_txt = "" # Basic mock
 

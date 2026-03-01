@@ -17,9 +17,14 @@ def watch_filter(change, path):
 
 
 def main():
-    print("🔄 Starting npy-backend with auto-reload...")
-    print("📁 Watching: *.py files")
-    print("🛑 Press Ctrl+C to stop\n")
+    print("\\n" + "="*80)
+    print("🔄 NPY BACKEND - Development Mode with Auto-Reload")
+    print("="*80)
+    print("📁 Watching: *.py files in npy-backend/")
+    print("🔌 Services: RabbitMQ, MongoDB, Redis (required)")
+    print("📊 Modules: A(Crawler), B(Schema), C(AEO), D(Content), E(Brand), F(Competitor)")
+    print("🛑 Press Ctrl+C to stop")
+    print("="*80 + "\\n")
 
     watch_path = Path(__file__).parent
 
