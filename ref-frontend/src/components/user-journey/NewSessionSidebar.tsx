@@ -1,5 +1,7 @@
 'use client'
 
+import { useRef, useEffect } from 'react'
+
 import Image from 'next/image'
 import {
   BarChart3,
@@ -184,6 +186,16 @@ export function SessionSidebar({
   const dashboard = sessionSections[0]
   const sectionsWithChildren = sessionSections.filter((s) => s.children.length > 0)
 
+  const navRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!navRef.current || !activeSection) return
+    const el = navRef.current.querySelector<HTMLElement>(
+      `[data-section-id="${activeSection}"]`
+    )
+    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [activeSection])
+
   return (
     <>
       {/* Mobile overlay */}
@@ -222,11 +234,12 @@ export function SessionSidebar({
         <div className="mx-5 h-px bg-zinc-800" />
 
         {/* Navigation */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide py-3">
+        <div ref={navRef} className="flex-1 overflow-y-auto scrollbar-hide py-3">
 
           {/* Dashboard – standalone clickable item */}
           <div className="px-3">
             <button
+              data-section-id={dashboard.id}
               onClick={() => { onSectionChange?.(dashboard.id); onClose?.() }}
               className={cn(
                 'flex items-center gap-3 w-full px-3 py-2 rounded-sm text-[13px] font-medium transition-colors duration-150 cursor-pointer',
@@ -262,6 +275,7 @@ export function SessionSidebar({
                   return (
                     <button
                       key={child.id}
+                      data-section-id={child.id}
                       onClick={() => { onSectionChange?.(child.id); onClose?.() }}
                       className={cn(
                         'flex items-center gap-2.5 w-full px-3 py-1.5 rounded-sm text-[12.5px] transition-colors duration-150 cursor-pointer text-left',
