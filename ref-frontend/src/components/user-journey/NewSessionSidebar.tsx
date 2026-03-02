@@ -1,7 +1,6 @@
 'use client'
 
 import { useRef, useEffect } from 'react'
-
 import Image from 'next/image'
 import {
   BarChart3,
@@ -48,6 +47,7 @@ import {
   Map,
   MousePointer,
   ArrowLeftRight,
+  PanelLeft,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -68,6 +68,8 @@ interface SessionSidebarProps {
   onSectionChange?: (section: string) => void
   isOpen?: boolean
   onClose?: () => void
+  collapsed?: boolean
+  onToggleCollapse?: () => void
 }
 
 type Child = { id: string; label: string; icon: LucideIcon }
@@ -182,6 +184,8 @@ export function SessionSidebar({
   onSectionChange,
   isOpen = true,
   onClose,
+  collapsed = false,
+  onToggleCollapse,
 }: SessionSidebarProps) {
   const dashboard = sessionSections[0]
   const sectionsWithChildren = sessionSections.filter((s) => s.children.length > 0)
@@ -189,27 +193,24 @@ export function SessionSidebar({
   const navRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!navRef.current || !activeSection) return
+    if (!navRef.current || !activeSection || collapsed) return
 
-    // For the standalone dashboard item, scroll to itself
     if (activeSection === 'dashboard') {
       const el = navRef.current.querySelector<HTMLElement>('[data-section-id="dashboard"]')
       el?.scrollIntoView({ block: 'start', behavior: 'smooth' })
       return
     }
 
-    // Find the parent section that contains this active child
     const parentSection = sessionSections.find((s) =>
       s.children.some((c) => c.id === activeSection)
     )
-
     if (parentSection) {
       const sectionEl = navRef.current.querySelector<HTMLElement>(
         `[data-parent-section-id="${parentSection.id}"]`
       )
       sectionEl?.scrollIntoView({ block: 'start', behavior: 'smooth' })
     }
-  }, [activeSection])
+  }, [activeSection, collapsed])
 
   return (
     <>
@@ -223,91 +224,188 @@ export function SessionSidebar({
 
       <aside
         className={cn(
-          'fixed left-0 top-0 h-screen w-68 bg-[#09090B] transition-transform duration-300 z-50 flex flex-col',
+          'fixed left-0 top-0 h-screen bg-[#09090B] transition-all duration-300 ease-in-out z-50 flex flex-col overflow-hidden',
+          collapsed ? 'w-14' : 'w-68',
           isOpen ? 'translate-x-0' : '-translate-x-full',
           'md:translate-x-0'
         )}
       >
-        {/* Logo */}
-        <div className="px-5 flex items-center h-18">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-zinc-800 flex items-center justify-center">
-              <div className="w-5 h-5 relative">
-                <Image
-                  src="/images/attrock_logo.png"
-                  alt="Attrock"
-                  fill
-                  className="object-contain"
-                />
+        {/* Logo + Sidebar toggle */}
+        <div className={cn(
+          'flex items-center h-18 shrink-0 px-3 gap-2 transition-all duration-300',
+          collapsed ? 'justify-center' : 'justify-between'
+        )}>
+
+          {/* COLLAPSED: Clarian logo that morphs to PanelLeft on hover */}
+          {collapsed && (
+            <button
+              onClick={onToggleCollapse}
+              title="Open sidebar"
+              className="relative group/colbtn w-9 h-9 rounded-xl bg-zinc-800 flex items-center justify-center transition-colors duration-200 hover:bg-zinc-700 shrink-0"
+            >
+              {/* Logo — visible by default, fades out on hover */}
+              <div className="absolute inset-0 flex items-center justify-center transition-opacity duration-200 group-hover/colbtn:opacity-0">
+                <div className="w-5 h-5 relative">
+                  <Image src="/images/attrock_logo.png" alt="Clarian" fill className="object-contain" />
+                </div>
               </div>
-            </div>
-            <span className="text-lg font-semibold tracking-tight text-white">Clarian</span>
-          </div>
+              {/* PanelLeft — hidden by default, fades in on hover */}
+              <div className="absolute inset-0 flex items-center justify-center transition-opacity duration-200 opacity-0 group-hover/colbtn:opacity-100">
+                <PanelLeft className="w-4 h-4 text-zinc-200" />
+              </div>
+            </button>
+          )}
+
+          {/* EXPANDED: logo + wordmark on left, PanelLeft toggle on right */}
+          {!collapsed && (
+            <>
+              <div className="flex items-center gap-3 min-w-0 overflow-hidden">
+                <div className="w-9 h-9 rounded-xl bg-zinc-800 flex items-center justify-center shrink-0">
+                  <div className="w-5 h-5 relative">
+                    <Image src="/images/attrock_logo.png" alt="Attrock" fill className="object-contain" />
+                  </div>
+                </div>
+                <span className="text-lg font-semibold tracking-tight text-white whitespace-nowrap">
+                  Clarian
+                </span>
+              </div>
+              <button
+                onClick={onToggleCollapse}
+                title="Close sidebar"
+                className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-zinc-800 transition-colors duration-200 group/toggle shrink-0"
+              >
+                <PanelLeft className="w-4 h-4 text-zinc-500 group-hover/toggle:text-zinc-300 transition-colors duration-200" />
+              </button>
+            </>
+          )}
+
         </div>
 
         {/* Divider */}
-        <div className="mx-5 h-px bg-zinc-800" />
+        <div className="mx-3 h-px bg-zinc-800 shrink-0" />
 
         {/* Navigation */}
-        <div ref={navRef} className="flex-1 overflow-y-auto scrollbar-hide py-3">
+        <div ref={navRef} className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide py-3">
 
           {/* Dashboard – standalone clickable item */}
-          <div className="px-3">
-            <button
-              data-section-id={dashboard.id}
-              onClick={() => { onSectionChange?.(dashboard.id); onClose?.() }}
-              className={cn(
-                'flex items-center gap-3 w-full px-3 py-2 rounded-sm text-[13px] font-medium transition-colors duration-150 cursor-pointer',
-                activeSection === dashboard.id
-                  ? 'bg-indigo-500/10 text-indigo-200'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
+          <div className={cn('transition-all duration-300', collapsed ? 'px-2' : 'px-3')}>
+            <div className="relative group/dash">
+              <button
+                data-section-id={dashboard.id}
+                onClick={() => { onSectionChange?.(dashboard.id); onClose?.() }}
+                className={cn(
+                  'flex items-center w-full rounded-sm text-[13px] font-medium transition-all duration-200 cursor-pointer',
+                  collapsed ? 'justify-center px-0 py-2' : 'gap-3 px-3 py-2',
+                  activeSection === dashboard.id
+                    ? 'bg-indigo-500/10 text-indigo-200'
+                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
+                )}
+              >
+                <dashboard.icon
+                  className={cn(
+                    'shrink-0 transition-all duration-200',
+                    collapsed ? 'w-5 h-5' : 'w-4 h-4',
+                    activeSection === dashboard.id ? 'text-indigo-400' : 'text-zinc-500'
+                  )}
+                />
+                <span
+                  className={cn(
+                    'whitespace-nowrap overflow-hidden transition-all duration-300',
+                    collapsed ? 'opacity-0 max-w-0' : 'opacity-100 max-w-xs'
+                  )}
+                >
+                  {dashboard.label}
+                </span>
+              </button>
+
+              {/* Hover tooltip in collapsed mode */}
+              {collapsed && (
+                <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2.5 z-50">
+                  <div className="opacity-0 group-hover/dash:opacity-100 transition-opacity duration-150 flex items-center">
+                    <div className="w-0 h-0 border-t-4 border-b-4 border-r-4 border-t-transparent border-b-transparent border-r-zinc-700" />
+                    <div className="bg-zinc-800 border border-zinc-700 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 whitespace-nowrap shadow-xl">
+                      {dashboard.label}
+                    </div>
+                  </div>
+                </div>
               )}
-            >
-              <dashboard.icon className={cn('w-4 h-4 shrink-0', activeSection === dashboard.id ? 'text-indigo-400' : 'text-zinc-500')} />
-              <span>{dashboard.label}</span>
-            </button>
+            </div>
           </div>
 
           {/* Sections with children */}
           {sectionsWithChildren.map((section) => (
             <div key={section.id} data-parent-section-id={section.id}>
-              {/* Dotted separator before each group */}
-              <div className="mx-5 my-1.5 border-t border-dashed border-zinc-800" />
+              {/* Dotted separator */}
+              <div className={cn('my-1.5 border-t border-dashed border-zinc-800 transition-all duration-300', collapsed ? 'mx-2' : 'mx-5')} />
 
-              {/* Group label – not clickable, white with icon */}
-              <div className="flex items-center gap-2 px-8 py-1">
+              {/* Group label — hidden when collapsed */}
+              <div
+                className={cn(
+                  'flex items-center gap-2 py-1 overflow-hidden transition-all duration-300',
+                  collapsed ? 'opacity-0 max-h-0 py-0' : 'opacity-100 max-h-10 px-8'
+                )}
+              >
                 <section.icon className={cn('w-3.5 h-3.5 shrink-0', sectionColors[section.id] || 'text-zinc-400')} />
-                <span className="text-[12px] font-semibold text-zinc-400 uppercase tracking-wider">
+                <span className="text-[12px] font-semibold text-zinc-400 uppercase tracking-wider whitespace-nowrap">
                   {section.label}
                 </span>
               </div>
 
-              {/* Sub-items – indented */}
-              <div className="pl-9 pr-3 space-y-0">
+              {/* Sub-items */}
+              <div className={cn('space-y-0 transition-all duration-300', collapsed ? 'px-2' : 'pl-9 pr-3')}>
                 {section.children.map((child) => {
                   const isActive = activeSection === child.id
                   const ChildIcon = child.icon
                   return (
-                    <button
-                      key={child.id}
-                      data-section-id={child.id}
-                      onClick={() => { onSectionChange?.(child.id); onClose?.() }}
-                      className={cn(
-                        'flex items-center gap-2.5 w-full px-3 py-1.5 rounded-sm text-[12.5px] transition-colors duration-150 cursor-pointer text-left',
-                        isActive
-                          ? 'bg-indigo-500/10 text-white font-medium'
-                          : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/40'
+                    <div key={child.id} className="relative group/child">
+                      <button
+                        data-section-id={child.id}
+                        onClick={() => { onSectionChange?.(child.id); onClose?.() }}
+                        className={cn(
+                          'flex items-center w-full rounded-sm text-[12.5px] transition-all duration-200 cursor-pointer text-left',
+                          collapsed ? 'justify-center px-0 py-2' : 'gap-2.5 px-3 py-1.5',
+                          isActive
+                            ? 'bg-indigo-500/10 text-white font-medium'
+                            : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/40'
+                        )}
+                      >
+                        <ChildIcon
+                          className={cn(
+                            'shrink-0 transition-all duration-200',
+                            collapsed ? 'w-5 h-5' : 'w-3.5 h-3.5',
+                            isActive ? 'text-indigo-400' : 'text-zinc-600'
+                          )}
+                        />
+                        <span
+                          className={cn(
+                            'truncate overflow-hidden transition-all duration-300',
+                            collapsed ? 'opacity-0 max-w-0' : 'opacity-100 max-w-xs'
+                          )}
+                        >
+                          {child.label}
+                        </span>
+                      </button>
+
+                      {/* Hover tooltip in collapsed mode */}
+                      {collapsed && (
+                        <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2.5 z-50">
+                          <div className="opacity-0 group-hover/child:opacity-100 transition-opacity duration-150 flex items-center">
+                            <div className="w-0 h-0 border-t-4 border-b-4 border-r-4 border-t-transparent border-b-transparent border-r-zinc-700" />
+                            <div className="bg-zinc-800 border border-zinc-700 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 whitespace-nowrap shadow-xl">
+                              {child.label}
+                            </div>
+                          </div>
+                        </div>
                       )}
-                    >
-                      <ChildIcon className={cn('w-3.5 h-3.5 shrink-0', isActive ? 'text-indigo-400' : 'text-zinc-600')} />
-                      <span className="truncate">{child.label}</span>
-                    </button>
+                    </div>
                   )
                 })}
               </div>
             </div>
           ))}
         </div>
+
+
       </aside>
     </>
   )
