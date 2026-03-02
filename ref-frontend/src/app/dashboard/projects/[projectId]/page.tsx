@@ -331,119 +331,100 @@ export default function ProjectDetailPage() {
       </div>
 
       {/* Sessions List */}
-      <div className="space-y-3 sm:space-y-4">
-        <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-white">Crawl Sessions</h2>
-        
+      <div className="space-y-3">
+        <h2 className="text-lg font-semibold text-white">Crawl Sessions</h2>
+
         {isLoadingSessions ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="rounded-2xl p-3 sm:p-4 md:p-5 border border-zinc-800 bg-[#111113] animate-pulse">
-                <div className="h-20 sm:h-24 bg-zinc-800/40 rounded"></div>
-              </div>
+          <div className="flex flex-col gap-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="rounded-sm border border-white/40 bg-[#0e0e0e] animate-pulse h-24" />
             ))}
           </div>
         ) : sessions.length === 0 ? (
-          <div className="rounded-2xl p-8 sm:p-10 md:p-12 border border-zinc-800 bg-[#111113] text-center">
-            <Globe className="h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 text-white/20 mx-auto mb-3 sm:mb-4" />
-            <h3 className="text-base sm:text-lg md:text-xl font-semibold text-white mb-1.5 sm:mb-2">No sessions yet</h3>
-            <p className="text-xs sm:text-sm text-zinc-500 mb-4 sm:mb-6">Start a new crawl to see sessions here</p>
-            <Button 
-              onClick={() => router.push('/dashboard')}
-              className="bg-white text-black hover:bg-slate-100 rounded-full text-sm cursor-pointer"
-            >
-              Start Crawling
-            </Button>
+          <div className="rounded-sm border border-white/40 bg-[#0e0e0e] flex flex-col items-center justify-center py-16 text-center">
+            <Globe className="h-12 w-12 text-white/15 mb-3" />
+            <h3 className="text-base font-semibold text-white mb-1">No sessions yet</h3>
+            <p className="text-xs text-white/40">Start a new analysis above to see sessions here</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          <div className="w-full flex flex-col gap-2.5">
             {sessions.map((session: CrawlSession) => (
               <div
                 key={session.id}
-                className="rounded-2xl p-3 sm:p-4 md:p-5 border border-zinc-800 bg-[#111113] transition-all duration-300 flex flex-col"
+                className="w-full rounded-sm border border-white/10 bg-[#0e0e0e] hover:border-white/20 hover:bg-[#131313] transition-all duration-200 cursor-pointer"
+                onClick={() => router.push(`/dashboard/projects/${projectId}/sessions/${session.id}`)}
               >
-                <div className="flex flex-col h-full">
-                  {/* Top Meta: Date and Status */}
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-[10px] sm:text-xs text-white/50">
-                      Started: {session.startedAt ? new Date(session.startedAt).toLocaleDateString() : 'N/A'}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <Badge 
-                        className={`${getStatusColor(session.status)} px-3 py-1 text-[10px] uppercase tracking-wider font-semibold border rounded-full transition-colors`}
-                      >
-                        {session.status}
-                      </Badge>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-white/40 hover:text-red-400 hover:bg-red-500/10 cursor-pointer"
-                        disabled={deletingSessionId === session.id}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          handleDeleteSession(session.id);
-                        }}
-                        title="Delete Session"
-                      >
-                        {deletingSessionId === session.id
-                          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          : <Trash2 className="h-3.5 w-3.5" />
-                        }
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Title (Start URL) */}
-                  <div className="mb-6">
-                    <h3 className="font-bold text-base sm:text-lg text-white group-hover:text-white/90 transition-colors truncate" title={session.startUrl}>
+                {/* Top row: URL + actions */}
+                <div className="flex items-center justify-between px-5 pt-4 pb-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="font-semibold text-blue-400/80 text-lg truncate" title={session.startUrl}>
                       {session.startUrl}
-                    </h3>
+                    </span>
                   </div>
 
-                  {/* Key Stats Row */}
-                  <div className="grid grid-cols-4 gap-2 mb-6">
-                    <div className="flex flex-col">
-                      <span className="text-[9px] uppercase tracking-wider text-white/40 mb-1">Pages</span>
-                      <span className="text-lg sm:text-xl font-bold text-white">{session.totalPages}</span>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-[9px] uppercase tracking-wider text-white/40 mb-1">Links</span>
-                      <span className="text-lg sm:text-xl font-bold text-white">{session.totalLinks}</span>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-[9px] uppercase tracking-wider text-white/40 mb-1">Sitemaps</span>
-                      <span className="text-lg sm:text-xl font-bold text-white">{session.totalSitemaps}</span>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-[9px] uppercase tracking-wider text-white/40 mb-1">Threads</span>
-                      <span className="text-lg sm:text-xl font-bold text-white">{session.maxConcurrency}</span>
-                    </div>
-                  </div>
-
-                  {/* Tags / Config Section */}
-                  <div className="flex flex-wrap gap-2 mb-6">
-                    <div className="px-2 py-1 rounded bg-zinc-800/40 border border-zinc-800 text-[10px] text-zinc-400">
-                      Subdomains: <span className={session.allowSubdomains ? 'text-green-400' : 'text-red-400'}>{session.allowSubdomains ? 'Yes' : 'No'}</span>
-                    </div>
-                    {session.completedAt && (
-                      <div className="px-2 py-1 rounded bg-zinc-800/40 border border-zinc-800 text-[10px] text-zinc-400">
-                        Duration: {Math.round((new Date(session.completedAt).getTime() - new Date(session.startedAt || 0).getTime()) / 1000)}s
-                      </div>
-                    )}
-                    <div className="px-2 py-1 rounded bg-zinc-800/40 border border-zinc-800 text-[10px] text-zinc-400">
-                      Resources: {session.totalResources}
-                    </div>
-                  </div>
-
-                  {/* Footer Action */}
-                  <div className="mt-auto">
+                  {/* Actions */}
+                  <div
+                    className="flex items-center gap-1 shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <a
                       href={`/dashboard/projects/${projectId}/sessions/${session.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block w-full py-2 bg-white text-black text-xs font-semibold rounded text-center opacity-90 hover:opacity-100 transition-opacity cursor-pointer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center h-7 px-2.5 text-xs text-white/50 hover:text-white/80 hover:bg-white/6 rounded-sm transition-colors cursor-pointer"
                     >
-                      View Full Session
+                      View
                     </a>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={deletingSessionId === session.id}
+                      onClick={(e) => { e.stopPropagation(); handleDeleteSession(session.id) }}
+                      className="h-7 px-3 py-4 text-xs text-red-400/60 hover:text-red-300 hover:bg-red-500/8 focus-visible:ring-0 cursor-pointer rounded-sm disabled:cursor-not-allowed"
+                    >
+                      {deletingSessionId === session.id
+                        ? <Loader2 className="h-3 w-3 animate-spin" />
+                        : <><Trash2 className="h-3 w-3 mr-1.5" /> Delete</>
+                      }
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Divider */}
+                <div className="h-px bg-white/6" />
+
+                {/* Metrics row */}
+                <div className="flex items-end gap-12 px-5 pt-3 pb-4">
+                  {/* Status */}
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] text-white/35 font-medium">Status</span>
+                    <span className={`text-sm font-semibold capitalize ${
+                      session.status === 'completed' ? 'text-emerald-400'
+                      : session.status === 'running' || session.status === 'auditing' ? 'text-blue-400'
+                      : session.status === 'failed' ? 'text-red-400'
+                      : 'text-white/40'
+                    }`}>
+                      {session.status}
+                    </span>
+                  </div>
+
+                  {/* Started at */}
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] text-white/35 font-medium">Started at</span>
+                    <span className="text-sm font-semibold text-white">
+                      {session.startedAt
+                        ? new Date(session.startedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                        : '—'}
+                    </span>
+                  </div>
+
+                  {/* Completed at / Duration */}
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] text-white/35 font-medium">Completed at</span>
+                    <span className="text-sm font-semibold text-white">
+                      {session.completedAt
+                        ? new Date(session.completedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                        : '—'}
+                    </span>
                   </div>
                 </div>
               </div>

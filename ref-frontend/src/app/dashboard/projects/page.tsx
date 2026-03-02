@@ -2,13 +2,7 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Plus, MoreVertical, ExternalLink, Trash2, FolderOpen, Clock, AlertCircle, Pencil } from 'lucide-react'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { Plus, ExternalLink, Trash2, FolderOpen, AlertCircle, Pencil } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -62,12 +56,15 @@ export default function ProjectsPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4 sm:space-y-6 md:space-y-8 animate-fade-in-hero">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+      <div className="space-y-4 animate-fade-in-hero">
+        {/* Header skeleton */}
+        <div className="flex items-center justify-between">
+          <div className="h-8 w-32 bg-white/5 rounded animate-pulse" />
+          <div className="h-9 w-36 bg-white/5 rounded-sm animate-pulse" />
+        </div>
+        <div className="flex flex-col gap-2">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="rounded-xl p-4 border border-white/10 bg-[#121212] animate-pulse">
-              <div className="h-20 bg-white/5 rounded"></div>
-            </div>
+            <div key={i} className="rounded-sm p-4 border border-white/10 bg-[#121212] animate-pulse h-16" />
           ))}
         </div>
       </div>
@@ -92,110 +89,106 @@ export default function ProjectsPage() {
   const projects = data?.projects || []
   return (
     <>
-      <div className="space-y-4 sm:space-y-6 md:space-y-8 animate-fade-in-hero">
+      <div className="space-y-4 animate-fade-in-hero">
+
+        {/* Page header — always visible */}
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-semibold text-white">Projects</h1>
+          <Button
+            onClick={() => setIsCreateDialogOpen(true)}
+            className="bg-white text-black hover:bg-slate-100 rounded-sm font-semibold px-4 text-sm h-9 cursor-pointer"
+          >
+            <Plus className="mr-2 h-4 w-4" /> New Project
+          </Button>
+        </div>
 
         {/* Empty State */}
         {projects.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 rounded-xl border border-white/10 bg-[#121212]">
+          <div className="flex flex-col items-center justify-center py-20 rounded-sm border border-white/10 bg-[#121212]">
             <FolderOpen className="h-16 w-16 text-white/20 mb-4" />
             <h2 className="text-xl font-bold text-white mb-2">No projects yet</h2>
             <p className="text-white/60 mb-6">Create your first project to get started</p>
-            <Button 
-              onClick={() => setIsCreateDialogOpen(true)}
-              className="bg-white text-black hover:bg-slate-100 rounded-full font-semibold px-6 text-sm h-10 cursor-pointer"
-            >
-              <Plus className="mr-2 h-4 w-4" /> Create Project
-            </Button>
           </div>
         ) : (
-          /* Projects Grid */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          /* Projects List */
+          <div className="w-full mt-10 flex flex-col gap-2.5">
             {projects.map((project) => (
               <div
                 key={project.id}
-                className="group rounded-xl p-3 sm:p-4 border border-white/10 bg-[#121212] hover:border-white/20 hover:bg-[#1A1A1A] transition-all duration-300 flex flex-col cursor-pointer"
+                className="w-full rounded-sm border border-white/10 bg-[#0e0e0e] hover:border-white/20 hover:bg-[#131313] transition-all duration-200 cursor-pointer"
                 onClick={() => handleViewProject(project.id)}
               >
-                <div className="space-y-2 md:space-y-3 flex-1">
-                  {/* Header */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-sm sm:text-base text-white group-hover:text-white/90 transition-colors truncate">
-                        {project.name}
-                      </h3>
-                      <p className="text-[10px] sm:text-xs text-white/60 mt-0.5 line-clamp-2">
-                        {project.description || 'No description'}
-                      </p>
+                {/* Top row: name + actions */}
+                <div className="flex items-center justify-between px-5 pt-4 pb-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                   
+                    <div className="min-w-0">
+                      <span className="font-semibold text-xl text-white truncate">{project.name}</span>
+                      {project.description && (
+                        <span className="text-white/35 text-xs ml-2 truncate">{project.description}</span>
+                      )}
                     </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="opacity-0 group-hover:opacity-100 transition-opacity text-white/60 hover:text-white/80 hover:bg-white/10 rounded-full h-7 w-7 sm:h-8 sm:w-8 cursor-pointer shrink-0"
-                        >
-                          <MoreVertical className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent 
-                        align="end" 
-                        className="bg-zinc-900 border border-white/20 rounded-lg"
-                      >
-                        <DropdownMenuItem 
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleViewProject(project.id)
-                          }}
-                          className="cursor-pointer text-white hover:bg-white/10"
-                        >
-                          <ExternalLink className="mr-2 h-4 w-4" /> View Sessions
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setProjectToEdit(project)
-                          }}
-                          className="cursor-pointer text-white hover:bg-white/10"
-                        >
-                          <Pencil className="mr-2 h-4 w-4" /> Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setProjectToDelete(project)
-                          }}
-                          className="text-red-400 cursor-pointer hover:bg-red-500/10"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" /> Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
                   </div>
 
-                  {/* Stats */}
-                  <div className="space-y-1.5 md:space-y-2">
-                    <div className="flex items-center justify-between text-[10px] sm:text-xs">
-                      <span className="text-white/60">Crawl Sessions</span>
-                      <span className="text-white font-semibold">
-                        {project._count?.sessions || 0}
-                      </span>
-                    </div>
-                    
-                    <div className="flex items-center justify-between text-[10px] sm:text-xs">
-                      <span className="text-white/60">Status</span>
-                      <span className={`font-medium px-2 py-0.5 rounded text-[9px] sm:text-[10px] ${
-                        project.status === 'ACTIVE' 
-                          ? 'bg-green-500/20 text-green-300' 
-                          : 'bg-gray-500/20 text-gray-300'
-                      }`}>
-                        {project.status === 'ACTIVE' ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                    
-                    <div className="flex items-center text-[9px] sm:text-[10px] text-white/50 pt-1">
-                      <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-1" />
-                      Created {new Date(project.createdAt).toLocaleDateString()}
-                    </div>
+                  {/* Actions */}
+                  <div
+                    className="flex items-center gap-1 shrink-0"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => { e.stopPropagation(); handleViewProject(project.id) }}
+                      className="h-7 px-2.5 text-xs text-white/50 hover:text-white/80 hover:bg-white/6 focus-visible:ring-0 cursor-pointer rounded-sm"
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1.5" /> View
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => { e.stopPropagation(); setProjectToEdit(project) }}
+                      className="h-7 px-2.5 text-xs text-amber-400/60 hover:text-amber-300 hover:bg-amber-500/8 focus-visible:ring-0 cursor-pointer rounded-sm"
+                    >
+                      <Pencil className="h-3 w-3 mr-1.5" /> Edit
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => { e.stopPropagation(); setProjectToDelete(project) }}
+                      className="h-7 px-2.5 text-xs text-red-400/60 hover:text-red-300 hover:bg-red-500/8 focus-visible:ring-0 cursor-pointer rounded-sm"
+                    >
+                      <Trash2 className="h-3 w-3 mr-1.5" /> Delete
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Divider */}
+                <div className="h-px bg-white/6" />
+
+                {/* Metrics row */}
+                <div className="flex items-end gap-12 px-5 pt-3 pb-4">
+                  {/* Sessions */}
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] text-white/35 font-medium">Sessions</span>
+                    <span className="text-sm font-semibold text-white">{project._count?.sessions || 0}</span>
+                  </div>
+
+                  {/* Status */}
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] text-white/35 font-medium">Status</span>
+                    <span className={`text-sm font-semibold ${
+                      project.status === 'ACTIVE' ? 'text-emerald-400' : 'text-white/40'
+                    }`}>
+                      {project.status === 'ACTIVE' ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+
+                  {/* Created at */}
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] text-white/35 font-medium">Created at</span>
+                    <span className="text-sm font-semibold text-white">
+                      {new Date(project.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -215,7 +208,7 @@ export default function ProjectsPage() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="name" className="text-white">Project Name</Label>
+              <Label htmlFor="name" className="text-white cursor-pointer">Project Name</Label>
               <Input
                 id="name"
                 placeholder="My Website Project"
@@ -225,7 +218,7 @@ export default function ProjectsPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="description" className="text-white">Description (optional)</Label>
+              <Label htmlFor="description" className="text-white cursor-pointer">Description (optional)</Label>
               <Textarea
                 id="description"
                 placeholder="Project description..."

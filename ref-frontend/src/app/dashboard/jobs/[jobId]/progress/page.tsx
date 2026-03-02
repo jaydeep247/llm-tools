@@ -6,6 +6,8 @@ import { Loader2, BarChart3 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import Aurora from '@/components/animations/Aurora'
 import { useGetJobSnapshotQuery, useGetJobStatusQuery } from '@/store/api/jobApi'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { updateJobProgress, clearJobProgress, selectStoredPercent } from '@/store/slices/jobProgressSlice'
 import { io, Socket } from 'socket.io-client'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -47,6 +49,11 @@ export default function JobProgressPage() {
   const params = useParams()
   const router = useRouter()
   const jobId = params.jobId as string
+
+  // ── RTK: persisted progress ──────────────────────────────────────────
+  const dispatch = useAppDispatch()
+  // Reads from sessionStorage-seeded store — available synchronously on mount
+  const storedPercent = useAppSelector(selectStoredPercent(jobId))
 
   // ── Core state ────────────────────────────────────────────────────────
   const [jobStatus, setJobStatus] = useState<JobStatus>('pending')
@@ -242,6 +249,8 @@ export default function JobProgressPage() {
     const delay = alreadyCompletedOnMountRef.current ? 0 : 1500
     const timer = setTimeout(() => {
       if (jobMeta.projectId && jobMeta.sessionId && jobStatus === 'completed') {
+        // Clean up persisted progress now that the job is fully done
+        dispatch(clearJobProgress(jobId))
         // replace so the progress page is removed from history (back button skips it)
         router.replace(`/dashboard/projects/${jobMeta.projectId}/sessions/${jobMeta.sessionId}`)
       }
@@ -264,13 +273,21 @@ export default function JobProgressPage() {
     return Math.round(((completedCount + runningCount * 0.5) / TOTAL_STEPS) * 100)
   }, [steps, completedCount, jobStatus])
 
-  // Smoothly displayed progress that inches toward target every tick
-  const [displayedProgress, setDisplayedProgress] = useState(0)
-  const displayedRef = useRef(0)
+  // Smoothly displayed progress that inches toward target every tick.
+  // Seeded from RTK store (sessionStorage) so refresh never resets to 0.
+  const [displayedProgress, setDisplayedProgress] = useState(() => storedPercent)
+  const displayedRef = useRef(storedPercent)
 
   useEffect(() => {
     displayedRef.current = displayedProgress
   }, [displayedProgress])
+
+  // ── Persist targetPercent → RTK (monotonic, race-condition safe) ──────
+  useEffect(() => {
+    if (targetPercent > 0) {
+      dispatch(updateJobProgress({ jobId, percent: targetPercent }))
+    }
+  }, [targetPercent, jobId, dispatch])
 
   useEffect(() => {
     // Tick every 80ms and move displayed value toward target
