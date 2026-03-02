@@ -2,16 +2,23 @@ import { SessionRepository } from './session.repository';
 import { SessionResponse, SessionWithProject, SessionStatus } from './session.types';
 import { ProjectService } from '../project/project.service';
 import { LimitsService } from '../limits/limits.service';
+import { JobRepository } from '../job/job.repository';
+import { JobStatus } from '../job/job.types';
+import { LiveJobService } from '../../services/live-job.service';
+import { getIo } from '../../socket';
+import { logger } from '../../shared/logger/logger';
 
 export class SessionService {
   private sessionRepository: SessionRepository;
   private projectService: ProjectService;
   private limitsService: LimitsService;
+  private jobRepository: JobRepository;
 
   constructor() {
     this.sessionRepository = new SessionRepository();
     this.projectService = new ProjectService();
     this.limitsService = new LimitsService();
+    this.jobRepository = new JobRepository();
   }
 
   /**
@@ -111,7 +118,7 @@ export class SessionService {
   }
 
   /**
-   * Delete session
+   * Delete session — stops running jobs, cleans all related data (Mongo + Redis + Socket)
    */
   async deleteSession(sessionId: string, userId: string): Promise<SessionResponse> {
     // Get session with project info
@@ -126,6 +133,54 @@ export class SessionService {
       throw new Error('Session not found or access denied');
     }
 
+    // 1. Find all jobs under this session
+    const jobs = await this.jobRepository.findBySessionId(sessionId);
+
+    // 2. Cancel any running/pending jobs — set cancel flag, mark as FAILED, notify via socket
+    for (const job of jobs) {
+      if (job.status === JobStatus.PENDING || job.status === JobStatus.RUNNING) {
+        // Set cancel flag in Redis so Python workers detect and abort
+        await LiveJobService.setCancelFlag(job.id);
+
+        try {
+          await this.jobRepository.updateStatus(
+            job.id,
+            JobStatus.FAILED,
+            undefined,
+            new Date(),
+            'Session deleted by user'
+          );
+        } catch (e) {
+          logger.warn(`Failed to mark job ${job.id} as failed during session delete:`, e);
+        }
+
+        // Emit cancellation via socket so the progress page redirects immediately
+        try {
+          const io = getIo();
+          const cancelEvent = {
+            jobId: job.id,
+            eventType: 'JOB_FAILED',
+            payload: {
+              status: 'failed',
+              reason: 'Session deleted by user',
+              sessionId,
+              projectId: job.projectId,
+            },
+            timestamp: Date.now(),
+          };
+          io.to(`job:${job.id}`).emit('job:event', cancelEvent);
+          io.to(`job:${job.id}`).emit('job:failed', cancelEvent);
+        } catch (e) {
+          logger.warn(`Socket emit error during session delete for job ${job.id}:`, e);
+        }
+      }
+    }
+
+    // 3. Clean up Redis session hash
+    await LiveJobService.cleanupSession(sessionId);
+
+    // 4. Cascade delete all jobs + related Mongo collections + Redis job keys
+    //    (handled by repository.delete → jobRepository.deleteBySessionId)
     return this.sessionRepository.delete(sessionId);
   }
 

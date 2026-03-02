@@ -56,17 +56,35 @@ class NonRetryableJobError(Exception):
     pass
 
 
+class JobCancelledError(Exception):
+    """Raised when a job has been cancelled (session deleted)"""
+    pass
+
+
 # ============ UTILITIES ============
+
+def is_job_cancelled(job_id: str) -> bool:
+    """Check if a job has been cancelled by looking at Redis flag."""
+    try:
+        r = redis.from_url(config.REDIS_URL)
+        val = r.get(f"job:{job_id}:cancelled")
+        return val is not None and val.decode("utf-8") == "true"
+    except Exception:
+        return False
 
 def get_mongo_client() -> MongoClient:
     """Get MongoDB client"""
     return MongoClient(config.MONGO_URI, serverSelectionTimeoutMS=5000)
 
 
-def _run_spider_subprocess(state_dict, url, session_id, job_id, project_id, max_pages, timeout, scrapy_settings):
+def _run_spider_subprocess(state_dict, url, session_id, job_id, project_id, max_pages, timeout, scrapy_settings, suppress_completion_events=False):
     """
     Run Scrapy spider in subprocess.
     This function is at module level to be picklable for spawn multiprocessing.
+    
+    When suppress_completion_events=True the spider will NOT emit JOB_COMPLETED /
+    JOB_FAILED / JOB_STARTED events via RabbitMQ.  Used by quick_start_runner's
+    fire-and-forget crawl so the spider doesn't overwrite the real job status.
     """
     import traceback
     from scrapy.crawler import CrawlerProcess
@@ -89,18 +107,25 @@ def _run_spider_subprocess(state_dict, url, session_id, job_id, project_id, max_
             max_pages=max_pages,
             timeout=timeout,
             allow_discovery=True,
+            suppress_completion_events=suppress_completion_events,
         )
         process.start()
         
         # If we reach here, crawl completed (Scrapy finished)
-        state_dict["success"] = True
+        try:
+            state_dict["success"] = True
+        except Exception:
+            pass  # Manager may have been shut down (fire-and-forget caller)
         
         # Clean up publisher connection
         publisher.close()
         
     except Exception as e:
-        state_dict["error"] = f"{type(e).__name__}: {str(e)}\n{traceback.format_exc()}"
-        state_dict["success"] = False
+        try:
+            state_dict["error"] = f"{type(e).__name__}: {str(e)}\n{traceback.format_exc()}"
+            state_dict["success"] = False
+        except Exception:
+            pass  # Manager may have been shut down (fire-and-forget caller)
 
 
 # ============ JOB EXECUTORS ============
@@ -131,7 +156,23 @@ def execute_crawler_job(payload: dict) -> bool:
         args=(state, url, session_id, job_id, project_id, max_pages, timeout, SCRAPY_SETTINGS)
     )
     p.start()
-    p.join()
+
+    # Poll with cancellation check instead of a blocking join()
+    while p.is_alive():
+        p.join(timeout=2.0)
+        if p.is_alive() and is_job_cancelled(job_id):
+            logger.info(f"[CRAWLER] 🛑 Job {job_id} cancelled — terminating crawler subprocess")
+            p.terminate()
+            p.join(timeout=5)
+            if p.is_alive():
+                p.kill()
+                p.join(timeout=3)
+            try:
+                manager.shutdown()
+            except Exception:
+                pass
+            logger.info(f"[CRAWLER] 🛑 Crawler subprocess terminated for cancelled job {job_id}")
+            return True
     
     # Check success flag first (more reliable than exit code)
     if state.get("success"):
@@ -463,11 +504,21 @@ def execute_module_e_job(payload: dict) -> bool:
     logger.info(f"[MODULE_E] ▶️  {job_type} Processing started | Job: {job_id} | URL: {url[:50]}...")
     
     try:
+        # Check cancellation before starting
+        if is_job_cancelled(job_id):
+            logger.info(f"[MODULE_E] 🛑 Job {job_id} cancelled before execution — skipping")
+            return True
+
         # Execute specific sub-module based on job type
         if job_type == "MODULE_E_QUICK_START":
             logger.info(f"[MODULE_E] ⚡ Running Quick Start (Brand Analysis + Competitor + AI SOV + Crawl)...")
             # Runs Brand Analysis + Competitor Mentions + AI SOV + full crawl in parallel
             result = asyncio.run(run_quick_start(job_id, url, session_id=session_id, project_id=project_id))
+
+            # Check if quick_start returned early due to cancellation
+            if isinstance(result, dict) and result.get("cancelled"):
+                logger.info(f"[MODULE_E] 🛑 Quick Start job {job_id} was cancelled — not marking completed")
+                return True
         elif job_type == "MODULE_E_CONSISTENCY":
             logger.info(f"[MODULE_E] ⚡ Running Consistency Analysis...")
             result = asyncio.run(run_consistency_only(target_job_id, url))
@@ -523,6 +574,14 @@ def drain_results(connection: BlockingConnection) -> None:
 def run_job_in_worker(payload: dict, job_type_override: str | None = None) -> None:
     job_type = (job_type_override or payload.get("jobType") or "CRAWL").upper()
     job_id = payload.get("jobId") or f"job_{payload.get('sessionId')}"
+    session_id = payload.get("sessionId", "unknown")
+
+    # Check if already cancelled before even starting
+    if is_job_cancelled(job_id):
+        logger.info(f"[WORKER] 🛑 Job {job_id} was cancelled before execution — skipping")
+        mark_job_failed(job_id, session_id, "Cancelled: session deleted by user")
+        return
+
     logger.info(f"[WORKER] 🔨 Processing job {job_id} (Type: {job_type})")
     execute_job(payload, job_type)
 

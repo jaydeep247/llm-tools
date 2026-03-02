@@ -67,6 +67,7 @@ export interface JobSnapshot {
   projectId?: string;
   sessionId?: string;
   pagesCrawled?: number;
+  steps?: Record<string, string>;  // Step statuses for quick-start jobs
 }
 
 export interface RedirectAuditSummary {

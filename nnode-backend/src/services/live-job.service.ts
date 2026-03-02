@@ -19,6 +19,7 @@ export interface JobSnapshot {
   projectId?: string;
   sessionId?: string;
   pagesCrawled?: number;  // Final count from completion event
+  steps?: Record<string, string>;  // Step statuses for quick-start jobs (e.g. { brand_analysis: 'completed' })
 }
 
 const REDIS_TTL = 3600 * 24; // 24 hours
@@ -103,8 +104,8 @@ export class LiveJobService {
       }
 
       // 2. Append Logs (Only meaningful progress events - NOT link_found)
-      // Filter to: log, JOB_STARTED, JOB_COMPLETED, JOB_FAILED, page_crawled
-      const logEventTypes = ['log', 'JOB_STARTED', 'JOB_COMPLETED', 'JOB_FAILED', 'page_crawled'];
+      // Filter to: log, JOB_STARTED, JOB_COMPLETED, JOB_FAILED, page_crawled, QS_STEP_UPDATE
+      const logEventTypes = ['log', 'JOB_STARTED', 'JOB_COMPLETED', 'JOB_FAILED', 'page_crawled', 'QS_STEP_UPDATE'];
       if (logEventTypes.includes(eventType)) {
           pipeline.rpush(logsKey, JSON.stringify(event));
           pipeline.ltrim(logsKey, -MAX_LOGS, -1);
@@ -122,6 +123,13 @@ export class LiveJobService {
           // Increment the real-time counter
           pipeline.incr(pagesCountKey);
           pipeline.expire(pagesCountKey, REDIS_TTL);
+      }
+
+      // 3b. Store quick-start step statuses in a dedicated hash
+      const stepsKey = `job:${jobId}:steps`;
+      if (eventType === 'QS_STEP_UPDATE' && payload?.step && payload?.stepStatus) {
+          pipeline.hset(stepsKey, payload.step, payload.stepStatus);
+          pipeline.expire(stepsKey, REDIS_TTL);
       }
 
       // 4. Append Links (discovered URLs - kept for legacy/reference but not shown in UI count)
@@ -171,17 +179,19 @@ export class LiveJobService {
     const startedAtKey = `job:${jobId}:startedAt`;
     const metaKey = `job:${jobId}:meta`;
     const pagesCountKey = `job:${jobId}:pages_count`;
+    const stepsKey = `job:${jobId}:steps`;  // Quick-start step statuses
 
     try {
       // Execute in parallel
-      const [status, logsRaw, pagesRaw, completed, startedAt, metaRaw, pagesCountRaw] = await Promise.all([
+      const [status, logsRaw, pagesRaw, completed, startedAt, metaRaw, pagesCountRaw, stepsRaw] = await Promise.all([
         redis.get(statusKey),
         redis.lrange(logsKey, 0, -1),
         redis.lrange(pagesKey, 0, -1),  // Get crawled pages instead of discovered links
         redis.get(completedKey),
         redis.get(startedAtKey),
         redis.get(metaKey),
-        redis.get(pagesCountKey)
+        redis.get(pagesCountKey),
+        redis.hgetall(stepsKey),  // Get all step statuses
       ]);
 
       // Parse metadata
@@ -275,7 +285,8 @@ export class LiveJobService {
         snapshotAt,
         projectId,
         sessionId,
-        pagesCrawled
+        pagesCrawled,
+        steps: stepsRaw && Object.keys(stepsRaw).length > 0 ? stepsRaw : undefined,
       };
     } catch (error) {
       logger.error(`Error getting snapshot for ${jobId}:`, error);
@@ -290,5 +301,57 @@ export class LiveJobService {
           status: snap.status,
           events: [...snap.logs, ...snap.links].sort((a,b) => a.timestamp - b.timestamp)
       };
+  }
+
+  /**
+   * Set a cancellation flag in Redis so the Python worker can detect it
+   */
+  static async setCancelFlag(jobId: string): Promise<void> {
+    const redis = getRedisClient();
+    try {
+      await redis.set(`job:${jobId}:cancelled`, 'true');
+      await redis.expire(`job:${jobId}:cancelled`, REDIS_TTL);
+      logger.info(`🛑 Cancel flag set for job ${jobId}`);
+    } catch (error) {
+      logger.warn(`Failed to set cancel flag for job ${jobId}:`, error);
+    }
+  }
+
+  /**
+   * Delete all Redis keys associated with a job
+   */
+  static async cleanupJob(jobId: string): Promise<void> {
+    const redis = getRedisClient();
+    const keys = [
+      `job:${jobId}:status`,
+      `job:${jobId}:logs`,
+      `job:${jobId}:links`,
+      `job:${jobId}:completed`,
+      `job:${jobId}:startedAt`,
+      `job:${jobId}:meta`,
+      `job:${jobId}:pages`,
+      `job:${jobId}:pages_count`,
+      `job:${jobId}:steps`,
+      `job:${jobId}:cancelled`,
+    ];
+    try {
+      await redis.del(...keys);
+      logger.info(`🧹 Redis cleanup done for job ${jobId}`);
+    } catch (error) {
+      logger.warn(`Redis cleanup error for job ${jobId}:`, error);
+    }
+  }
+
+  /**
+   * Delete Redis hash for a session
+   */
+  static async cleanupSession(sessionId: string): Promise<void> {
+    const redis = getRedisClient();
+    try {
+      await redis.del(`session:${sessionId}`);
+      logger.info(`🧹 Redis cleanup done for session ${sessionId}`);
+    } catch (error) {
+      logger.warn(`Redis cleanup error for session ${sessionId}:`, error);
+    }
   }
 }

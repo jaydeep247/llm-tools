@@ -64,7 +64,11 @@ async def _prepare_context(job_id: str, url: str, html_content: str = None, sour
     top_urls = [p.get("url") for p in pages if p.get("url")]
     
     # Homepage HTML from disk (saved at crawl depth 0)
-    homepage_html = html_content or await load_raw_html(data_job_id)
+    try:
+        homepage_html = html_content or await load_raw_html(data_job_id)
+    except Exception as e:
+        logger.warning(f"[MODULE_E] Could not load HTML from S3: {e}")
+        homepage_html = html_content or ""
     homepage_text = _extract_text(homepage_html) if homepage_html else ""
     
     # Fetch top pages text (live)

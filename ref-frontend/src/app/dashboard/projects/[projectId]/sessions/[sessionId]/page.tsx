@@ -58,8 +58,9 @@ export default function SessionDetailPage() {
     const bTime = new Date(b.createdAt).getTime()
     return bTime - aTime
   })
-  const latestCrawlJob = sortedJobs.find((job) => job.type === 'CRAWL') || null
-  const jobId = latestCrawlJob?.id
+  // Use the latest job regardless of type (CRAWL, MODULE_E_QUICK_START, etc.)
+  const latestJob = sortedJobs.length > 0 ? sortedJobs[0] : null
+  const jobId = latestJob?.id
 
   // Redirect to progress page if session is running
   useEffect(() => {
@@ -74,10 +75,12 @@ export default function SessionDetailPage() {
 
   const { data: moduleEQueryData } = useGetModuleEResultQuery(jobId || '', {
     skip: !jobId,
+    refetchOnMountOrArgChange: true,
   })
   
   const { data: moduleFQueryData, isLoading: isLoadingModuleF } = useGetModuleFResultQuery(jobId || '', {
     skip: !jobId,
+    refetchOnMountOrArgChange: true,
   })
 
   // Fetch results for the job using granular endpoints

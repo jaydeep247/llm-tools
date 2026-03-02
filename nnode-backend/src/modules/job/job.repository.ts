@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { connectToMongo } from '../../config/mongo';
 import { Job, JobStatus, JobType, CreateJobDto } from './job.types';
+import { LiveJobService } from '../../services/live-job.service';
 
 export class JobRepository {
   async create(sessionId: string, projectId: string, data: CreateJobDto): Promise<Job> {
@@ -82,13 +83,18 @@ export class JobRepository {
     const jobIds = jobs.map(job => job.id);
 
     if (jobIds.length > 0) {
-      // Delete related data
+      // Delete related data from all collections
       await Promise.all([
         db.collection('pages').deleteMany({ jobId: { $in: jobIds } }),
         db.collection('links').deleteMany({ jobId: { $in: jobIds } }),
         db.collection('sitemaps').deleteMany({ jobId: { $in: jobIds } }),
         db.collection('fields').deleteMany({ jobId: { $in: jobIds } }),
         db.collection('aeo_analysis').deleteMany({ jobId: { $in: jobIds } }),
+        db.collection('module_e').deleteMany({ jobId: { $in: jobIds } }),
+        db.collection('content_metrics').deleteMany({ jobId: { $in: jobIds } }),
+        db.collection('schemas').deleteMany({ jobId: { $in: jobIds } }),
+        // Clean up Redis keys for every job
+        ...jobIds.map(id => LiveJobService.cleanupJob(id)),
       ]);
 
       // Delete jobs

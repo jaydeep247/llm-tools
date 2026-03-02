@@ -102,14 +102,24 @@ CONTENT:
     async def calculate_batch_accuracy_scores(self, reference_content: str, items: List[Dict[str, Any]], brand_name: str) -> Dict[str, Dict[str, float]]:
         """
         Calculates accuracy AND sentiment scores for multiple AI responses in a single LLM call.
-        items: [{"id": "unique_id", "text": "generated response"}, ...]
-        Returns: {"id": {"accuracy": score, "sentiment": score}, ...}
+        items: [{"id": int_index, "text": "generated response"}, ...]
+        Returns: {"str(index)": {"accuracy": score, "sentiment": score}, ...}
         """
         if not reference_content or not items:
+            logger.warning("[ACCURACY] Skipping batch accuracy: reference_content=%s items=%d",
+                           bool(reference_content), len(items))
             return {}
 
-        # Prepare the batch text
-        items_text = json.dumps([{ "id": i["id"], "response": i["text"][:1000] } for i in items], indent=2)
+        # Use string versions of the numeric IDs so the LLM key format is unambiguous
+        id_map = {str(i["id"]): i for i in items}
+        items_payload = [{"id": str(i["id"]), "response": i["text"][:1000]} for i in items]
+        items_text = json.dumps(items_payload, indent=2)
+
+        # Build sample keys from actual IDs so the LLM copies the format exactly
+        sample_keys = [str(i["id"]) for i in items[:2]]
+        example_json = "{\n" + ",\n".join(
+            f'  "{k}": {{ "accuracy": 85, "sentiment": 0.8 }}' for k in sample_keys
+        ) + "\n}"
 
         prompt = f"""
 You are a Fact-Checking & Sentiment Analysis AI.
@@ -134,12 +144,10 @@ INSTRUCTIONS:
    - 0.0: Neutral.
    - -1.0: Extremely Negative.
 
-Return ONLY a JSON object mapping IDs to their scores:
-{{
-  "item_id_1": {{ "accuracy": 85, "sentiment": 0.8 }},
-  "item_id_2": {{ "accuracy": 40, "sentiment": -0.2 }}
-}}
+Return ONLY a JSON object where keys are exactly the "id" values from ITEMS TO SCORE:
+{example_json}
 """
+        logger.info("[ACCURACY] Calling batch accuracy for %d items (brand=%s)", len(items), brand_name)
         try:
             resp = await execute_task(
                 task_name="module_e_accuracy_batch",
@@ -152,22 +160,41 @@ Return ONLY a JSON object mapping IDs to their scores:
                 },
             )
 
-            if resp.success and resp.data:
-                data = _safe_parse_json(resp.data)
-                # Ensure values are parsed correctly
-                result = {}
-                for k, v in data.items():
-                    try:
-                        acc = float(v.get("accuracy", 0.0))
-                        sent = float(v.get("sentiment", 0.0))
-                        result[str(k)] = {"accuracy": acc, "sentiment": sent}
-                    except:
-                        continue
-                return result
-            
-            return {}
+            if not resp.success:
+                logger.error("[ACCURACY] OpenAI call failed: %s", resp.error)
+                return {}
+
+            if not resp.data:
+                logger.error("[ACCURACY] OpenAI returned no data")
+                return {}
+
+            raw = _safe_parse_json(resp.data)
+
+            # If the LLM wrapped results under a single key (e.g. {"scores": {...}}),
+            # unwrap it so we get the flat id->scores mapping.
+            if raw and len(raw) == 1:
+                only_val = next(iter(raw.values()))
+                if isinstance(only_val, dict):
+                    first_inner = next(iter(only_val.values()), None)
+                    if isinstance(first_inner, dict):
+                        raw = only_val  # unwrap one level
+
+            result = {}
+            for k, v in raw.items():
+                if not isinstance(v, dict):
+                    continue
+                try:
+                    acc = float(v.get("accuracy", 0.0))
+                    sent = float(v.get("sentiment", 0.0))
+                    result[str(k)] = {"accuracy": acc, "sentiment": sent}
+                except (TypeError, ValueError):
+                    continue
+
+            logger.info("[ACCURACY] Batch accuracy result keys: %s", list(result.keys()))
+            return result
+
         except Exception as e:
-            logger.error(f"Batch accuracy/sentiment calculation failed: {e}")
+            logger.error("[ACCURACY] Batch accuracy/sentiment calculation failed: %s", e)
             return {}
 
     async def calculate_accuracy_score(self, reference_content: str, generated_response: str, brand_name: str) -> float:
@@ -352,18 +379,26 @@ CONTENT:
     async def calculate_batch_accuracy_scores(self, reference_content: str, items: List[Dict[str, Any]], brand_name: str) -> Dict[str, Dict[str, float]]:
         """
         Calculates accuracy AND sentiment scores for multiple AI responses in a single LLM call.
-        items: [{"id": "unique_id", "text": "generated response"}, ...]
-        Returns: {"id": {"accuracy": score, "sentiment": score}, ...}
+        items: [{"id": int_index, "text": "generated response"}, ...]
+        Returns: {"str(index)": {"accuracy": score, "sentiment": score}, ...}
         """
         if not items:
+            logger.warning("[ACCURACY] No items to score")
             return {}
 
         # Check if reference content is available
         has_ref = bool(reference_content and len(reference_content.strip()) > 50)
-        ref_text = reference_content[:4000] if has_ref else "REFERENCE CONTENT NOT AVAILABLE (Web scraping failed)"
-        
-        # Prepare the batch text
-        items_text = json.dumps([{ "id": i["id"], "response": i["text"][:1000] } for i in items], indent=2)
+        ref_text = reference_content[:4000] if has_ref else "REFERENCE CONTENT NOT AVAILABLE"
+
+        # Use string IDs so the LLM key format is unambiguous
+        items_payload = [{"id": str(i["id"]), "response": (i.get("text") or "")[:1000]} for i in items]
+        items_text = json.dumps(items_payload, indent=2)
+
+        # Build example keys from actual IDs so the LLM mirrors exact format
+        sample_keys = [str(i["id"]) for i in items[:2]]
+        example_json = "{\n" + ",\n".join(
+            f'  "{k}": {{ "accuracy": 85, "sentiment": 0.8 }}' for k in sample_keys
+        ) + "\n}"
 
         prompt = f"""
 You are a Fact-Checking & Sentiment Analysis AI.
@@ -376,39 +411,26 @@ BRAND NAME: {brand_name or "Unknown Brand"}
 
 INSTRUCTIONS:
 1. ACCURACY (0-100):
-   { '- Compare the AI Response against the Reference Content.' if has_ref else '- Reference content is MISSING. Return 0 for accuracy.' }
-   { '- 100 = Fully accurate, supported by reference.' if has_ref else '' }
-   { '- 50 = Partially accurate or generic.' if has_ref else '' }
-   { '- 0 = Hallucinated, false, or contradicts reference.' if has_ref else '' }
+   {'- Compare the AI Response against the Reference Content.' if has_ref else '- Reference content is MISSING. Return 0 for accuracy.'}
+   {'- 100 = Fully accurate, supported by reference.' if has_ref else ''}
+   {'- 50 = Partially accurate or generic.' if has_ref else ''}
+   {'- 0 = Hallucinated, false, or contradicts reference.' if has_ref else ''}
 
 2. SENTIMENT (-1.0 to 1.0):
    - Analyze the sentiment towards the brand "{brand_name}".
-   - 1.0 = Very Positive / Strong Endorsement / "Best".
-   - 0.5 = Positive / Recommended / Listed in Top Tools.
-   - 0.0 = Neutral / Factual / Just a Link.
+   - 1.0 = Very Positive / Strong Endorsement.
+   - 0.5 = Positive / Listed in Top Tools.
+   - 0.0 = Neutral / Factual.
    - -1.0 = Negative / Critical.
-   - If Brand Name is unknown, analyze sentiment of the overall text.
 
 ITEMS TO RATE:
 {items_text}
 
-Return ONLY a JSON object mapping IDs to their scores:
-{{
-  "item_id_1": {{ "accuracy": 85, "sentiment": 0.8 }},
-  "item_id_2": {{ "accuracy": 0, "sentiment": -0.2 }}
-}}
+Return ONLY a JSON object where keys are exactly the "id" values from ITEMS TO RATE:
+{example_json}
 """
-        try:
-            preview_items = [
-                {
-                    "id": str(i.get("id")),
-                    "text_sample": (i.get("text") or "")[:160],
-                    "text_length": len(i.get("text") or ""),
-                }
-                for i in items
-            ]
-        except Exception:
-            preview_items = []
+        logger.info("[ACCURACY] Calling batch accuracy for %d items (has_ref=%s brand=%s)",
+                    len(items), has_ref, brand_name)
 
         resp = await execute_task(
             task_name="module_e_accuracy_batch",
@@ -422,65 +444,43 @@ Return ONLY a JSON object mapping IDs to their scores:
         )
 
         if not resp.success:
-            logger.warning(
-                "Batch accuracy/sentiment calculation failed",
-                extra={
-                    "error": resp.error,
-                    "items": len(items),
-                    "has_ref": has_ref,
-                    "brand": brand_name,
-                },
-            )
+            logger.warning("[ACCURACY] Batch accuracy call failed: %s", resp.error)
             return {}
 
         try:
             data = _safe_parse_json(resp.data)
             if not isinstance(data, dict):
-                logger.warning(
-                    "Batch accuracy/sentiment JSON was not a dict",
-                    extra={
-                        "type": type(data).__name__,
-                        "items": len(items),
-                        "has_ref": has_ref,
-                        "brand": brand_name,
-                    },
-                )
+                logger.warning("[ACCURACY] Response was not a dict: type=%s", type(data).__name__)
                 return {}
+
+            # Unwrap if LLM wrapped results under a single key (e.g. {"scores": {...}})
+            if len(data) == 1:
+                only_val = next(iter(data.values()))
+                if isinstance(only_val, dict):
+                    first_inner = next(iter(only_val.values()), None)
+                    if isinstance(first_inner, dict):
+                        data = only_val
+
             result = {}
             for k, v in data.items():
-                if isinstance(v, dict):
-                    acc_raw = v.get("accuracy", 0.0)
-                    sent_raw = v.get("sentiment", 0.0)
-                    acc_val = float(acc_raw) if acc_raw is not None else 0.0
-                    sent_val = float(sent_raw) if sent_raw is not None else 0.0
+                if not isinstance(v, dict):
+                    logger.warning("[ACCURACY] Skipping non-dict entry key=%s type=%s", k, type(v).__name__)
+                    continue
+                acc_raw = v.get("accuracy", 0.0)
+                sent_raw = v.get("sentiment", 0.0)
+                try:
                     result[str(k)] = {
-                        "accuracy": acc_val,
-                        "sentiment": sent_val,
+                        "accuracy": float(acc_raw) if acc_raw is not None else 0.0,
+                        "sentiment": float(sent_raw) if sent_raw is not None else 0.0,
                     }
-                else:
-                    logger.warning(
-                        "Batch accuracy entry is not a dict",
-                        extra={
-                            "key": k,
-                            "value_type": type(v).__name__,
-                        },
-                    )
-                return {}
-            acc_values = [scores["accuracy"] for scores in result.values()]
-            sent_values = [scores["sentiment"] for scores in result.values()]
-            non_zero_acc = len([v for v in acc_values if v > 0])
-            non_zero_sent = len([v for v in sent_values if v != 0.0])
-            avg_acc = sum(acc_values) / len(acc_values) if acc_values else 0.0
-            avg_sent = sum(sent_values) / len(sent_values) if sent_values else 0.0
+                except (TypeError, ValueError) as e:
+                    logger.warning("[ACCURACY] Could not parse scores for key=%s: %s", k, e)
+                    continue
+
+            logger.info("[ACCURACY] Batch accuracy complete: %d scored out of %d items, keys=%s",
+                        len(result), len(items), list(result.keys()))
             return result
+
         except Exception as exc:
-            logger.warning(
-                "Failed to parse batch accuracy/sentiment results",
-                extra={
-                    "error": str(exc),
-                    "items": len(items),
-                    "has_ref": has_ref,
-                    "brand": brand_name,
-                },
-            )
+            logger.warning("[ACCURACY] Failed to parse batch accuracy results: %s", exc)
             return {}

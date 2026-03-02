@@ -69,32 +69,20 @@ export function HeroSection() {
       const sessionResult = await createSession(projectId).unwrap()
       const sessionId = sessionResult.session.id
 
-      // Disconnected crawling
-      /* const jobResult = await createJob({
+      const normalizedUrl = pendingUrl.trim().startsWith('http') ? pendingUrl.trim() : `https://${pendingUrl.trim()}`
+
+      const jobResult = await createJob({
         sessionId,
-        data: {
-          url: pendingUrl,
-          allowSubdomains: true,
-          runAudits: false,
-          auditDevice: 'desktop',
-          captureLinkDetails: true,
-        },
+        data: { url: normalizedUrl, jobType: 'MODULE_E_QUICK_START' },
       }).unwrap()
 
       toast({
-        title: 'Crawl Started',
-        description: `Successfully started crawling ${pendingUrl}`,
+        title: 'Analysis Started',
+        description: `Analyzing ${pendingUrl}`,
       })
 
-      // Navigate to job progress page (jobId is stable identity from URL)
-      router.push(`/dashboard/jobs/${jobResult.job.id}/progress`) */
-
-      toast({
-        title: 'Session Created',
-        description: `Session created for ${pendingUrl}`,
-      })
-      
-      router.push(`/dashboard/projects/${projectId}/sessions/${sessionId}`)
+      // Navigate to progress page — it auto-redirects to dashboard on completion
+      router.push(`/dashboard/jobs/${jobResult.job.id}/progress`)
     } catch (error: any) {
       toast({
         title: 'Failed to Start Session',

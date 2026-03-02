@@ -8,6 +8,8 @@ import json
 from utils.config import config
 from utils.logger import logger
 
+_s3_warned = False  # Log the "S3 disabled" warning only once
+
 
 def _get_s3_client():
     """Lazy import to avoid circular dependencies"""
@@ -16,13 +18,23 @@ def _get_s3_client():
 
 
 def _ensure_s3_enabled() -> bool:
-    """Check if S3 storage is enabled, raise error if not"""
+    """Check if S3 storage is enabled and ready.
+    Returns True if S3 is available, False otherwise (no exception).
+    Logs a warning only on the first call to avoid log spam.
+    """
+    global _s3_warned
     if not config.S3_ENABLED:
-        raise RuntimeError("S3 storage is required but S3_ENABLED is False. Set S3_ENABLED=true in config.")
+        if not _s3_warned:
+            logger.warning("[S3] S3_ENABLED is False — HTML will not be stored/loaded from S3.")
+            _s3_warned = True
+        return False
     
     s3 = _get_s3_client()
     if not s3.is_enabled:
-        raise RuntimeError("S3 storage is not properly configured. Check S3 credentials.")
+        if not _s3_warned:
+            logger.warning("[S3] S3 client is not properly configured — check credentials.")
+            _s3_warned = True
+        return False
     
     return True
 
@@ -39,15 +51,13 @@ async def save_raw_html(job_id: str, html_content: str) -> str:
         html_content: HTML content to save
         
     Returns:
-        S3 URI of the saved file
-        
-    Raises:
-        RuntimeError: If S3 is not enabled or configured
+        S3 URI of the saved file, or empty string if S3 is unavailable
     """
     if not html_content:
         return ""
     
-    _ensure_s3_enabled()
+    if not _ensure_s3_enabled():
+        return ""
     
     try:
         s3 = _get_s3_client()
@@ -56,7 +66,7 @@ async def save_raw_html(job_id: str, html_content: str) -> str:
         return uri
     except Exception as e:
         logger.error(f"[S3] ❌ Failed to save HTML to S3: {e}")
-        raise RuntimeError(f"Unable to save HTML to S3: {e}")
+        return ""
 
 
 async def load_raw_html(job_id: str) -> str:
@@ -68,12 +78,10 @@ async def load_raw_html(job_id: str) -> str:
         job_id: Job identifier
         
     Returns:
-        HTML content as string, empty string if not found
-        
-    Raises:
-        RuntimeError: If S3 is not enabled or configured
+        HTML content as string, or empty string if not found / S3 unavailable
     """
-    _ensure_s3_enabled()
+    if not _ensure_s3_enabled():
+        return ""
     
     try:
         s3 = _get_s3_client()
@@ -86,7 +94,7 @@ async def load_raw_html(job_id: str) -> str:
             return ""
     except Exception as e:
         logger.error(f"[S3] ❌ Failed to load HTML from S3: {e}")
-        raise RuntimeError(f"Unable to load HTML from S3: {e}")
+        return ""
 
 
 # ─── SYNC FUNCTIONS ──────────────────────────────────────────────────────────
@@ -101,15 +109,13 @@ def save_raw_html_sync(job_id: str, html_content: str) -> str:
         html_content: HTML content to save
         
     Returns:
-        S3 URI of the saved file
-        
-    Raises:
-        RuntimeError: If S3 is not enabled or configured
+        S3 URI of the saved file, or empty string if S3 is unavailable
     """
     if not html_content:
         return ""
     
-    _ensure_s3_enabled()
+    if not _ensure_s3_enabled():
+        return ""
     
     try:
         s3 = _get_s3_client()
@@ -118,7 +124,7 @@ def save_raw_html_sync(job_id: str, html_content: str) -> str:
         return uri
     except Exception as e:
         logger.error(f"[S3] ❌ Failed to save HTML to S3 (sync): {e}")
-        raise RuntimeError(f"Unable to save HTML to S3: {e}")
+        return ""
 
 
 def load_raw_html_sync(job_id: str) -> str:
@@ -130,12 +136,10 @@ def load_raw_html_sync(job_id: str) -> str:
         job_id: Job identifier
         
     Returns:
-        HTML content as string, empty string if not found
-        
-    Raises:
-        RuntimeError: If S3 is not enabled or configured
+        HTML content as string, or empty string if not found / S3 unavailable
     """
-    _ensure_s3_enabled()
+    if not _ensure_s3_enabled():
+        return ""
     
     try:
         s3 = _get_s3_client()
@@ -148,7 +152,7 @@ def load_raw_html_sync(job_id: str) -> str:
             return ""
     except Exception as e:
         logger.error(f"[S3] ❌ Failed to load HTML from S3 (sync): {e}")
-        raise RuntimeError(f"Unable to load HTML from S3: {e}")
+        return ""
 
 
 # ─── MONGODB STORAGE FUNCTIONS ───────────────────────────────────────────────

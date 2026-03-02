@@ -71,6 +71,7 @@ class WebsiteSpider(RedisSpider):
         allow_discovery: bool = True,
         start_urls: Optional[List[str]] = None,
         planned_total: Optional[int] = None,
+        suppress_completion_events: bool = False,
         *args,
         **kwargs
     ):
@@ -80,6 +81,7 @@ class WebsiteSpider(RedisSpider):
         self.session_id = session_id
         self.job_id = job_id
         self.project_id = project_id
+        self.suppress_completion_events = suppress_completion_events
         
         # Isolate job context in Redis (Crucial for repeated crawls)
         if self.job_id:
@@ -164,35 +166,40 @@ class WebsiteSpider(RedisSpider):
 
     def spider_closed(self, spider, reason):
         logger.info(f"🕷️ SPIDER_CLOSED signal received for {self.job_id}. Reason: {reason}")
-        if self.job_id:
-            # Determine status based on reason
-            # Treat closespider_ reasons (like pagecount limit) as completed
-            # Also treat 'finished' (normal completion) as completed
-            status = 'completed'
-            if reason in ['cancelled', 'shutdown'] or 'error' in reason:
-                status = 'failed'
-            
-            # Special case: if reason is 'finished', it means success
-            if reason == 'finished':
-                status = 'completed'
+        if not self.job_id:
+            return
+        if self.suppress_completion_events:
+            logger.info(f"🕷️ Skipping JOB_COMPLETED event for {self.job_id} (background crawl, suppress_completion_events=True)")
+            return
 
-            try:
-                success = publisher.emit_event(self.job_id, 'JOB_COMPLETED' if status == 'completed' else 'JOB_FAILED', {
-                    'url': self.start_url or 'distributed',
-                    'completed_at': datetime.now().isoformat(),
-                    'pages_crawled': self.pages_crawled,
-                    'links_discovered': self.links_collected,
-                    'status': status,
-                    'reason': reason,
-                    'source': 'spider_closed',
-                    'projectId': self.project_id,
-                    'sessionId': self.session_id
-                }, retries=5)
-                
-                if not success:
-                    logger.error(f"❌ Failed to emit job completion event for {self.job_id} in spider_closed")
-            except Exception as e:
-                logger.error(f"❌ Exception emitting job completion event: {e}")
+        # Determine status based on reason
+        # Treat closespider_ reasons (like pagecount limit) as completed
+        # Also treat 'finished' (normal completion) as completed
+        status = 'completed'
+        if reason in ['cancelled', 'shutdown'] or 'error' in reason:
+            status = 'failed'
+        
+        # Special case: if reason is 'finished', it means success
+        if reason == 'finished':
+            status = 'completed'
+
+        try:
+            success = publisher.emit_event(self.job_id, 'JOB_COMPLETED' if status == 'completed' else 'JOB_FAILED', {
+                'url': self.start_url or 'distributed',
+                'completed_at': datetime.now().isoformat(),
+                'pages_crawled': self.pages_crawled,
+                'links_discovered': self.links_collected,
+                'status': status,
+                'reason': reason,
+                'source': 'spider_closed',
+                'projectId': self.project_id,
+                'sessionId': self.session_id
+            }, retries=5)
+            
+            if not success:
+                logger.error(f"❌ Failed to emit job completion event for {self.job_id} in spider_closed")
+        except Exception as e:
+            logger.error(f"❌ Exception emitting job completion event: {e}")
 
     def spider_idle(self, spider):
         """Force close if idle and no requests (failsafe for SCHEDULER_IDLE_BEFORE_CLOSE)"""
@@ -333,7 +340,7 @@ class WebsiteSpider(RedisSpider):
         self.crawl_started_at = datetime.now().isoformat()
         self.crawl_started_timestamp = datetime.now().timestamp()
         
-        if self.job_id:
+        if self.job_id and not self.suppress_completion_events:
             publisher.emit_event(self.job_id, 'JOB_STARTED', {
                 'status': 'running',
                 'startedAt': self.crawl_started_at,
@@ -630,7 +637,7 @@ class WebsiteSpider(RedisSpider):
                         self.allowed_domains.append(response_domain)
 
         # Emit JOB_STARTED event for the first page
-        if crawl_depth == 0 and self.job_id:
+        if crawl_depth == 0 and self.job_id and not self.suppress_completion_events:
              publisher.emit_event(self.job_id, 'JOB_STARTED', {
                 'url': response.url,
                 'started_at': datetime.now().isoformat(),

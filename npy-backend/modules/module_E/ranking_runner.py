@@ -171,25 +171,40 @@ class RankingRunner:
         contexts = []
         try:
             tasks = task_response.get("tasks", [])
-            if not tasks: return []
-            
+            if not tasks:
+                return []
+
             result_list = tasks[0].get("result", [])
             for res_item in result_list:
-                    items = res_item.get("items", [])
-                    for item in items:
-                        sections = item.get("sections", [])
-                        for section in sections:
-                            text = section.get("text", "")
-                            anns = section.get("annotations", [])
-                            # Check if target is in annotations
-                            match = False
-                            for a in anns:
-                                if self._url_matches(target_normalized, a.get("url", "")):
-                                    match = True
-                                    break
-                            
-                            if match:
+                items = res_item.get("items", [])
+                for item in items:
+                    sections = item.get("sections", [])
+                    # Track whether the target URL appears anywhere in this item
+                    item_has_target = False
+                    item_texts = []
+
+                    for section in sections:
+                        text = section.get("text", "")
+                        anns = section.get("annotations", [])
+                        has_target = any(
+                            self._url_matches(target_normalized, a.get("url", ""))
+                            for a in anns
+                        )
+                        if has_target:
+                            item_has_target = True
+                            if text and text.strip():
                                 contexts.append(text)
+                        # Collect all section texts for fallback
+                        if text and text.strip():
+                            item_texts.append(text)
+
+                    # Fallback: if item contains the target URL but none of the matching
+                    # sections had text, use ALL section texts from that item
+                    if item_has_target and not any(
+                        s and s.strip() for s in contexts[-len(item_texts):]
+                    ):
+                        contexts.extend(item_texts)
+
         except Exception:
             pass
         return contexts
@@ -324,6 +339,7 @@ class RankingRunner:
         model_wise_rows = []
         content_quality_by_prompt_model = {}
         all_citation_contexts = []
+        all_cited_ai_texts = []   # fallback source for entity coverage
         errors = []
         batch_accuracy_items = []
         batch_indices = []
@@ -487,7 +503,19 @@ class RankingRunner:
             contexts = self._extract_citation_contexts(task_wrapper, target_normalized)
             all_citation_contexts.extend(contexts)
 
-            quality_score = self._compute_content_quality_score(contexts, prompt)
+            # Fallback for coverage: collect AI response text whenever the brand is cited/mentioned
+            # (section-level annotation matching may miss valid citations)
+            if (citation_matched or brand_text_mentioned) and ai_response_text:
+                all_cited_ai_texts.append(ai_response_text)
+
+            # Fallback for quality: if section-level contexts are empty/blank but we have the
+            # full AI response text, use it — DataForSEO may not co-locate URL annotations
+            # and section body text in the same section object.
+            effective_contexts = [c for c in contexts if c and c.strip()]
+            if not effective_contexts and ai_response_text:
+                effective_contexts = [ai_response_text]
+
+            quality_score = self._compute_content_quality_score(effective_contexts, prompt)
             content_quality_by_prompt_model[prompt][platform] = quality_score
 
             ranking_position_per_prompt.append(
@@ -516,6 +544,9 @@ class RankingRunner:
             if row:
                 row[platform] = position
 
+        logger.info("[RANKING] Batch accuracy: %d items to score out of %d total rows",
+                    len(batch_accuracy_items), len(ranking_position_per_prompt))
+
         if batch_accuracy_items:
             batch_scores = await self.consistency_module.calculate_batch_accuracy_scores(
                 aggregated_text,
@@ -523,53 +554,58 @@ class RankingRunner:
                 brand,
             )
 
+            logger.info("[RANKING] Batch scores returned: %d keys — %s",
+                        len(batch_scores), list(batch_scores.keys()))
+
             applied_indices = set()
 
+            # Primary path: scores dict keyed by str(index)
             for item_id_str, scores in batch_scores.items():
                 try:
                     idx = int(item_id_str)
                 except ValueError:
-                    logger.warning(
-                        "Batch accuracy key is not an int index",
-                        extra={"key": item_id_str, "scores": scores},
-                    )
+                    logger.warning("[RANKING] Batch accuracy key not int: %s", item_id_str)
                     continue
 
                 if 0 <= idx < len(ranking_position_per_prompt):
-                    acc_val = scores.get("accuracy", 0.0)
-                    sent_val = scores.get("sentiment", 0.0)
-                    ranking_position_per_prompt[idx]["accuracy_score"] = acc_val
-                    ranking_position_per_prompt[idx]["sentiment_score"] = sent_val
+                    ranking_position_per_prompt[idx]["accuracy_score"] = float(scores.get("accuracy", 0.0))
+                    ranking_position_per_prompt[idx]["sentiment_score"] = float(scores.get("sentiment", 0.0))
                     applied_indices.add(idx)
                 else:
-                    logger.warning(
-                        "Batch accuracy index out of range",
-                        extra={
-                            "index": idx,
-                            "rows": len(ranking_position_per_prompt),
-                            "scores": scores,
-                        },
-                    )
+                    logger.warning("[RANKING] Batch accuracy index %d out of range (rows=%d)", idx, len(ranking_position_per_prompt))
 
-            if not applied_indices and batch_indices and len(batch_scores) == len(batch_indices):
+            # Fallback path: apply by insertion order if primary keys didn't work
+            if not applied_indices:
+                logger.warning("[RANKING] Primary accuracy mapping failed, applying by order (batch_indices=%s)", batch_indices)
                 for idx, scores in zip(batch_indices, batch_scores.values()):
                     if 0 <= idx < len(ranking_position_per_prompt):
-                        acc_val = scores.get("accuracy", 0.0)
-                        sent_val = scores.get("sentiment", 0.0)
-                        ranking_position_per_prompt[idx]["accuracy_score"] = acc_val
-                        ranking_position_per_prompt[idx]["sentiment_score"] = sent_val
+                        ranking_position_per_prompt[idx]["accuracy_score"] = float(scores.get("accuracy", 0.0))
+                        ranking_position_per_prompt[idx]["sentiment_score"] = float(scores.get("sentiment", 0.0))
+                        applied_indices.add(idx)
 
-        # 4. Entity Coverage Analysis (using aggregated contexts)
-        # Get expected entities from original content
-        expected_entities = await self.entity_coverage_module.generate_expected_entities(aggregated_text)
-        
-        # Get observed entities from citation contexts
+            logger.info("[RANKING] Accuracy applied to %d rows", len(applied_indices))
+        else:
+            logger.warning("[RANKING] No ai_response_text collected — accuracy will be 0 for all rows")
+
+        # 4. Entity Coverage Analysis
+        # Use section-level citation contexts first; fall back to collected AI response texts
+        # when no section matched the target URL (common when DataForSEO annotations are item-level)
         joined_contexts = " ".join(all_citation_contexts)
+        if not joined_contexts:
+            if all_cited_ai_texts:
+                logger.info("[RANKING] Coverage: no section contexts found, falling back to %d cited AI texts", len(all_cited_ai_texts))
+                joined_contexts = " ".join(all_cited_ai_texts)
+            else:
+                logger.warning("[RANKING] Coverage: no contexts at all — entity coverage will be 0")
+
+        expected_entities = await self.entity_coverage_module.generate_expected_entities(aggregated_text)
         observed_entities = []
-        if joined_contexts:
-             observed_entities = await self.entity_coverage_module.extract_observed_entities(joined_contexts)
-        
+        if joined_contexts and len(joined_contexts.strip()) >= 100:
+            observed_entities = await self.entity_coverage_module.extract_observed_entities(joined_contexts)
+
+        logger.info("[RANKING] Entity coverage: expected=%d observed=%d", len(expected_entities), len(observed_entities))
         coverage_result = self.entity_coverage_module.compare(expected_entities, observed_entities)
+        logger.info("[RANKING] Coverage score: %s", coverage_result.get("score"))
         
         # 4. Final Aggregation
         
@@ -634,14 +670,23 @@ def _extract_text(html: str) -> str:
         return ""
 
 async def _fetch_text_simple(url: str) -> str:
+    if not url:
+        return ""
+    # Ensure the URL has a scheme — aiohttp requires it
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, timeout=10) as resp:
+        timeout = aiohttp.ClientTimeout(total=30)  # aiohttp 3.x requires ClientTimeout, not plain int
+        headers = {"User-Agent": "Mozilla/5.0 (compatible; YogreetBot/1.0)"}
+        async with aiohttp.ClientSession(headers=headers) as session:
+            async with session.get(url, timeout=timeout, allow_redirects=True) as resp:
                 if resp.status == 200:
-                    html = await resp.text()
+                    html = await resp.text(errors="replace")
                     return _extract_text(html)
-    except:
-        pass
+                else:
+                    logger.warning(f"[RANKING] Live fetch got status {resp.status} for {url}")
+    except Exception as e:
+        logger.warning(f"[RANKING] Live fetch failed for {url}: {type(e).__name__}: {e}")
     return ""
 
 async def run_ranking_analysis(job_id: str, url: str, html_content: str = None) -> Dict[str, Any]:
@@ -655,10 +700,15 @@ async def run_ranking_analysis(job_id: str, url: str, html_content: str = None) 
 
     # 1. Get Homepage Text
     if not html_content:
-        html_content = await load_raw_html(job_id)
+        try:
+            html_content = await load_raw_html(job_id)
+        except Exception as e:
+            logger.warning(f"[RANKING] Could not load HTML from S3: {e}")
+            html_content = ""
     
     # Fallback: Fetch live if missing from storage
     if not html_content and url:
+        logger.info(f"[RANKING] Fetching homepage live for {url}")
         html_content = await _fetch_text_simple(url)
 
     homepage_text = _extract_text(html_content)

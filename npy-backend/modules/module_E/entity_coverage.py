@@ -107,13 +107,31 @@ CONTENT:
             return []
 
     def compare(self, expected: List[str], observed: List[str]) -> Dict[str, Any]:
-        expected_set = {e.lower() for e in expected if e}
-        observed_set = {o.lower() for o in observed if o}
+        expected_lower = [e.lower() for e in expected if e]
+        observed_lower = [o.lower() for o in observed if o]
 
-        found = [e for e in expected if e.lower() in observed_set]
-        missing = [e for e in expected if e.lower() not in observed_set]
+        def _entity_found(exp_l: str) -> bool:
+            # 1. Exact set membership
+            if exp_l in observed_lower:
+                return True
+            # 2. Substring match: expected inside any observed, or any observed inside expected
+            for obs_l in observed_lower:
+                if exp_l in obs_l or obs_l in exp_l:
+                    return True
+            # 3. Significant-word overlap (words ≥ 4 chars)
+            exp_words = {w for w in re.findall(r'\b\w{4,}\b', exp_l)}
+            if exp_words:
+                for obs_l in observed_lower:
+                    obs_words = set(re.findall(r'\b\w{4,}\b', obs_l))
+                    if exp_words & obs_words:
+                        return True
+            return False
 
-        score = int(round((len(found) / len(expected_set)) * 100)) if expected_set else 0
+        found = [e for e, el in zip(expected, expected_lower) if _entity_found(el)]
+        missing = [e for e, el in zip(expected, expected_lower) if not _entity_found(el)]
+
+        total = len(expected_lower)
+        score = int(round((len(found) / total) * 100)) if total else 0
 
         result = {
             "score": score,
@@ -121,7 +139,7 @@ CONTENT:
             "observed": observed,
             "missing": missing,
             "found": found,
-            "total_expected": len(expected_set),
+            "total_expected": total,
         }
         return result
 

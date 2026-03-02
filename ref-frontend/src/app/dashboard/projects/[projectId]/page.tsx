@@ -21,7 +21,8 @@ export default function ProjectDetailPage() {
   const { data: sessionsData, isLoading: isLoadingSessions } = useGetProjectSessionsQuery({ projectId }, { refetchOnMountOrArgChange: true })
   const [createSession, { isLoading: isCreatingSession }] = useCreateSessionMutation()
   const [createJob, { isLoading: isCreatingJob }] = useCreateJobMutation()
-  const [deleteSession] = useDeleteSessionMutation()
+  const [deleteSession, { isLoading: isDeletingSession }] = useDeleteSessionMutation()
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null)
   const [updateProject] = useUpdateProjectMutation()
 
   const [editingName, setEditingName] = useState(false)
@@ -49,12 +50,14 @@ export default function ProjectDetailPage() {
   }
 
   const handleDeleteSession = async (sessionId: string) => {
-    if (confirm('Are you sure you want to delete this session?')) {
-        try {
-            await deleteSession(sessionId).unwrap()
-        } catch (err) {
-            console.error('Failed to delete session', err)
-        }
+    if (!confirm('Delete this session? This will stop any running analysis and permanently remove all associated data.')) return
+    setDeletingSessionId(sessionId)
+    try {
+      await deleteSession(sessionId).unwrap()
+    } catch (err) {
+      console.error('Failed to delete session', err)
+    } finally {
+      setDeletingSessionId(null)
     }
   }
 
@@ -153,13 +156,13 @@ export default function ProjectDetailPage() {
 
       // Step 2: Fire ONE quick-start job that runs Brand Analysis,
       // Competitor Mentions, and AI Share of Voice in parallel on the Python side.
-      await createJob({
+      const jobResult = await createJob({
         sessionId,
         data: { url: normalizedUrl, jobType: 'MODULE_E_QUICK_START' },
       }).unwrap()
 
-      // Step 3: Go directly to session page (no progress/crawl wait)
-      router.push(`/dashboard/projects/${projectId}/sessions/${sessionId}`)
+      // Step 3: Navigate to progress page — it auto-redirects to dashboard on completion
+      router.push(`/dashboard/jobs/${jobResult.job.id}/progress`)
     } catch (err: any) {
       setError(err?.data?.message || err?.message || 'Failed to start session')
     }
@@ -374,13 +377,17 @@ export default function ProjectDetailPage() {
                         variant="ghost"
                         size="icon"
                         className="h-6 w-6 text-white/40 hover:text-red-400 hover:bg-red-500/10 cursor-pointer"
+                        disabled={deletingSessionId === session.id}
                         onClick={(e) => {
                           e.preventDefault();
                           handleDeleteSession(session.id);
                         }}
                         title="Delete Session"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        {deletingSessionId === session.id
+                          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          : <Trash2 className="h-3.5 w-3.5" />
+                        }
                       </Button>
                     </div>
                   </div>
