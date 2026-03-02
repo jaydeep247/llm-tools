@@ -68,6 +68,8 @@ services:
       S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
       S3_BUCKET_NAME: ${S3_BUCKET_NAME:-colytics-stage}
       S3_REGION: ${S3_REGION:-sfo3}
+      # Crawl Limits
+      MAX_CRAWL_PAGES: ${MAX_CRAWL_PAGES:-10}
       # AI API Keys
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
@@ -92,6 +94,7 @@ services:
       SCRAPY_SETTINGS_MODULE: workers.crawl_worker.spiders.settings
       PYTHONPATH: /app
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASS:-admin}@rabbitmq:5672
+      MAX_CRAWL_PAGES: ${MAX_CRAWL_PAGES:-10}
     command: scrapy crawl website_spider
     deploy:
       replicas: 2

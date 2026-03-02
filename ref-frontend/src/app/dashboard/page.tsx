@@ -17,6 +17,7 @@ import {
 import { ProjectEditDialog } from '@/components/dashboard/ProjectEditDialog'
 import { ProjectDeleteDialog } from '@/components/dashboard/ProjectDeleteDialog'
 import { GreetingHeader } from '@/components/dashboard/GreetingHeader'
+import { LiveCrawlActivity } from '@/components/dashboard/LiveCrawlActivity'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -209,6 +210,11 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Live / Recent Crawl Activity */}
+      {projectsData?.projects && projectsData.projects.length > 0 && (
+        <LiveCrawlActivity projects={projectsData.projects} />
+      )}
 
       {/* Quick Actions */}
       <div className="space-y-2">

@@ -37,9 +37,11 @@ export default function SessionDetailClient() {
   const project = projectData?.project
 
   // Fetch jobs for this session to get the latest job ID
+  // Poll jobs list so latestJob.status reflects live job state (RUNNING → COMPLETED, etc.)
   const { data: jobsData, isLoading: isLoadingJobs } = useGetSessionJobsQuery(sessionId, {
     skip: !sessionId,
-    refetchOnMountOrArgChange: true
+    refetchOnMountOrArgChange: true,
+    pollingInterval: 5000,
   })
 
   // Get the latest job (assuming sorted by creation or just taking the last one for now)
@@ -48,6 +50,11 @@ export default function SessionDetailClient() {
   const jobs = jobsData?.data ? [...jobsData.data].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : []
   const latestJob = jobs.length > 0 ? jobs[0] : null
   const jobId = latestJob?.id
+
+  // Find the CRAWL-type job specifically — crawl status and crawl-page data
+  // are independent of other job types (MODULE_C, MODULE_E, etc.)
+  const crawlJob = jobs.find((j: any) => j.type === 'CRAWL' || j.jobType === 'CRAWL') ?? latestJob
+  const crawlJobId = crawlJob?.id
 
   // Check job status and redirect to progress page if job is running
   // Note: Initial redirect is handled by Server Component to prevent flash.
@@ -63,22 +70,41 @@ export default function SessionDetailClient() {
   // We removed the 'shouldRedirect' logic that was causing issues
   const skipResults = !jobId
 
+  // Determine if the job itself is actively running — use the job's own status (RUNNING/PENDING)
+  // NOT the session status, as they are independent entities
+  const isJobRunning =
+    latestJob?.status === 'RUNNING' ||
+    latestJob?.status === 'PENDING' ||
+    latestJob?.status === 'running' ||
+    latestJob?.status === 'pending'
+
+  // Separate crawl-job running state — used for snapshot polling rate and ticker
+  // crawlJob.status comes from MongoDB (RUNNING/PENDING uppercase)
+  const isCrawlJobRunning =
+    crawlJob?.status === 'RUNNING' ||
+    crawlJob?.status === 'PENDING' ||
+    crawlJob?.status === 'running' ||
+    crawlJob?.status === 'pending'
+
+  // For polling of results: also re-poll while the session says it's active
   const isSessionRunning = session?.status === 'running' || session?.status === 'auditing'
+  const shouldPollResults = isJobRunning || isCrawlJobRunning || isSessionRunning
 
   // Fetch results for the job using granular endpoints
-  // We can use the same limit/page logic or default to fetch all (or a large page) for now 
-  // until we implement full server-side pagination in the UI. 
-  // For now, let's fetch a reasonable amount to show the concept working.
-  const { data: pagesResult, isLoading: isLoadingPagesRaw, refetch: refetchPagesRaw } = useGetJobPagesQuery({ jobId: jobId!, limit: 1000 }, { skip: skipResults, refetchOnMountOrArgChange: true, pollingInterval: isSessionRunning ? 3000 : 0 })
-  const { data: linksResult, isLoading: isLoadingLinksRaw, refetch: refetchLinksRaw } = useGetJobLinksQuery({ jobId: jobId!, limit: 1000 }, { skip: skipResults, refetchOnMountOrArgChange: true, pollingInterval: isSessionRunning ? 3000 : 0 })
-  const { data: fieldsResult, isLoading: isLoadingFieldsRaw, refetch: refetchFieldsRaw } = useGetJobFieldsQuery(jobId!, { skip: skipResults, refetchOnMountOrArgChange: true, pollingInterval: isSessionRunning ? 3000 : 0 })
-  const { data: sitemapsResult, isLoading: isLoadingSitemapsRaw, refetch: refetchSitemapsRaw } = useGetJobSitemapsQuery(jobId!, { skip: skipResults, refetchOnMountOrArgChange: true, pollingInterval: isSessionRunning ? 3000 : 0 })
-  const { data: jobSummary } = useGetJobSummaryQuery(jobId!, { skip: skipResults, refetchOnMountOrArgChange: true, pollingInterval: isSessionRunning ? 3000 : 0 })
+  const { data: pagesResult, isLoading: isLoadingPagesRaw, refetch: refetchPagesRaw } = useGetJobPagesQuery({ jobId: jobId!, limit: 1000 }, { skip: skipResults, refetchOnMountOrArgChange: true, pollingInterval: shouldPollResults ? 3000 : 0 })
+  const { data: linksResult, isLoading: isLoadingLinksRaw, refetch: refetchLinksRaw } = useGetJobLinksQuery({ jobId: jobId!, limit: 1000 }, { skip: skipResults, refetchOnMountOrArgChange: true, pollingInterval: shouldPollResults ? 3000 : 0 })
+  const { data: fieldsResult, isLoading: isLoadingFieldsRaw, refetch: refetchFieldsRaw } = useGetJobFieldsQuery(jobId!, { skip: skipResults, refetchOnMountOrArgChange: true, pollingInterval: shouldPollResults ? 3000 : 0 })
+  const { data: sitemapsResult, isLoading: isLoadingSitemapsRaw, refetch: refetchSitemapsRaw } = useGetJobSitemapsQuery(jobId!, { skip: skipResults, refetchOnMountOrArgChange: true, pollingInterval: shouldPollResults ? 3000 : 0 })
+  const { data: jobSummary } = useGetJobSummaryQuery(jobId!, { skip: skipResults, refetchOnMountOrArgChange: true, pollingInterval: shouldPollResults ? 3000 : 0 })
   
-  // Real-time snapshot for accurate progress tracking
-  const { data: jobSnapshot } = useGetJobSnapshotQuery(jobId!, { 
-    skip: !jobId, 
-    pollingInterval: isSessionRunning ? 1000 : 0 
+  // Real-time snapshot — poll the CRAWL job's snapshot specifically.
+  // Crawl status (from Redis) is independent of other job types.
+  // Always poll when there is a crawlJobId so the ticker works regardless of session status.
+  // Faster interval (1.5 s) while crawl job is running, slower (5 s) otherwise.
+  const { data: jobSnapshot } = useGetJobSnapshotQuery(crawlJobId!, { 
+    skip: !crawlJobId, 
+    pollingInterval: crawlJobId ? (isCrawlJobRunning ? 1500 : 5000) : 0,
+    refetchOnMountOrArgChange: true,
   })
 
   const isLoadingResults = isLoadingPagesRaw || isLoadingLinksRaw || isLoadingFieldsRaw || isLoadingSitemapsRaw
@@ -759,11 +785,190 @@ export default function SessionDetailClient() {
       <div className="p-6 space-y-6 sm:space-y-8 animate-fade-in-hero">
         {/* Dashboard Overview — top-level summary of quick_start_runner fields */}
         {activeSection === 'dashboard' && (
-          <DashboardOverview
-            jobId={jobId}
-            url={session?.startUrl || ''}
-            onNavigate={handleSectionChange}
-          />
+          <>
+            {/* ── Live Crawl Activity Ticker ────────────────────────────────────── */}
+            {/* Show whenever there is a crawlJobId — crawl status is read from  */}
+            {/* the Redis snapshot independently of other job types.              */}
+            {(() => {
+              // Derive crawl-active state from BOTH Redis snapshot (real-time) AND MongoDB crawlJob.status
+              const snapStatus = jobSnapshot?.status ?? 'pending'
+              const crawlActive =
+                isCrawlJobRunning ||
+                snapStatus === 'JOB_STARTED' ||
+                snapStatus === 'running'
+              const crawlDone =
+                crawlJob?.status === 'COMPLETED' || crawlJob?.status === 'completed' ||
+                crawlJob?.status === 'FAILED' || crawlJob?.status === 'failed' ||
+                jobSnapshot?.completed === true ||
+                snapStatus === 'JOB_COMPLETED' || snapStatus === 'completed' ||
+                snapStatus === 'JOB_FAILED' || snapStatus === 'failed'
+              const crawledPages = jobSnapshot?.links ?? []
+              // For running: prefer snapshot counter; for done: always use DB-sourced pageCount
+              const displayPageCount = crawlDone
+                ? (pageCount || pagesResult?.pagination?.total || jobSummary?.session?.total_pages || jobSnapshot?.pagesCrawled || 0)
+                : (jobSnapshot?.pagesCrawled ?? crawledPages.length)
+
+              // ── Completed state ────────────────────────────────────────────
+              if (crawlDone) {
+                return (
+                  <div className="rounded-2xl border border-emerald-500/20 bg-[#0D0D10] overflow-hidden">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-5 py-3.5 border-b border-zinc-800/60">
+                      <div className="flex items-center gap-2.5">
+                        <CheckCircle className="h-4 w-4 text-emerald-400 shrink-0" />
+                        <span className="text-sm font-semibold text-white">Crawl completed</span>
+                        <span className="text-[10px] text-zinc-400 bg-zinc-700/40 px-2 py-0.5 rounded-full">done</span>
+                      </div>
+                      <button
+                        onClick={() => handleSectionChange('crawler')}
+                        className="text-[11px] text-zinc-400 hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
+                      >
+                        Full view <Globe className="h-3 w-3" />
+                      </button>
+                    </div>
+
+                    {/* Stats + CTA */}
+                    <div className="px-5 py-5 flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
+                          <Globe className="h-5 w-5 text-emerald-400 shrink-0" />
+                          <div>
+                            <p className="text-2xl font-bold text-white leading-none">
+                              {displayPageCount > 0 ? displayPageCount.toLocaleString() : '—'}
+                            </p>
+                            <p className="text-[11px] text-zinc-400 mt-0.5">pages found</p>
+                          </div>
+                        </div>
+                        {crawlStats && crawlStats.duration > 0 && (
+                          <div className="hidden sm:flex flex-col">
+                            <p className="text-xs font-semibold text-white">{formatDurationReadable(crawlStats.duration)}</p>
+                            <p className="text-[10px] text-zinc-500">crawl duration</p>
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleSectionChange('crawled-data')}
+                        className="flex items-center gap-1.5 text-sm font-medium px-4 py-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 hover:bg-indigo-500/20 transition-colors cursor-pointer shrink-0"
+                      >
+                        View results
+                        <CheckCircle className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                )
+              }
+
+              // ── No job yet — nothing to show ──────────────────────────────
+              if (!crawlJobId) return null
+
+              // ── Live / queued state ────────────────────────────────────────
+              return (
+                <div className="rounded-2xl border border-zinc-800 bg-[#0D0D10] overflow-hidden">
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-5 py-3.5 border-b border-zinc-800/60">
+                    <div className="flex items-center gap-2.5">
+                      {crawlActive ? (
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                        </span>
+                      ) : (
+                        <span className="h-2 w-2 rounded-full bg-amber-500/60" />
+                      )}
+                      <span className="text-sm font-semibold text-white">
+                        {crawlActive ? 'Crawling in progress' : 'Crawl queued'}
+                      </span>
+                      {crawlActive && (
+                        <span className="text-[10px] text-emerald-400 font-medium bg-emerald-500/10 px-2 py-0.5 rounded-full animate-pulse">
+                          LIVE
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {displayPageCount > 0 && (
+                        <span className="text-[11px] text-zinc-400">
+                          <span className="font-semibold text-white">{displayPageCount}</span> pages crawled
+                        </span>
+                      )}
+                      <button
+                        onClick={() => handleSectionChange('crawler')}
+                        className="text-[11px] text-zinc-400 hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
+                      >
+                        Full view <Globe className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* URL Feed */}
+                  <div className="divide-y divide-zinc-800/40 max-h-56 overflow-y-auto overflow-x-hidden">
+                    {crawledPages.length > 0 ? (
+                      [...crawledPages]
+                        .sort((a, b) => b.timestamp - a.timestamp)
+                        .slice(0, 50)
+                        .map((page, idx) => (
+                          <div
+                            key={`${page.url}-${idx}`}
+                            className="flex items-center gap-2.5 px-5 py-2 hover:bg-zinc-800/30 transition-colors group"
+                          >
+                            {idx === 0 && crawlActive ? (
+                              <span className="relative flex h-1.5 w-1.5 shrink-0">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                              </span>
+                            ) : (
+                              <span className="h-1.5 w-1.5 rounded-full bg-zinc-600 shrink-0" />
+                            )}
+                            <Globe className="h-3 w-3 text-zinc-500 shrink-0" />
+                            <span className="text-xs text-zinc-300 font-mono truncate leading-none flex-1">{page.url}</span>
+                            <a
+                              href={page.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-500 hover:text-zinc-300 shrink-0"
+                              onClick={e => e.stopPropagation()}
+                            >
+                              <CheckCircle className="h-3.5 w-3.5" />
+                            </a>
+                          </div>
+                        ))
+                    ) : (
+                      <div className="flex items-center gap-2 px-5 py-5">
+                        {crawlActive ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 text-zinc-600 animate-spin shrink-0" />
+                            <span className="text-xs text-zinc-500">Crawl started — waiting for first pages…</span>
+                          </>
+                        ) : (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 text-amber-500/60 animate-pulse shrink-0" />
+                            <span className="text-xs text-zinc-500">Crawl queued — waiting to start…</span>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Footer */}
+                  <div className="px-5 py-2 border-t border-zinc-800/60 flex items-center justify-between">
+                    <span className="text-[10px] text-zinc-500">
+                      {crawledPages.length > 0
+                        ? `${crawledPages.length} URL${crawledPages.length !== 1 ? 's' : ''} discovered${crawledPages.length > 50 ? ' · showing latest 50' : ''}`
+                        : 'Snapshot updates every 1.5 s while crawling'}
+                    </span>
+                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${crawlActive ? 'text-emerald-400 bg-emerald-500/10' : 'text-amber-400 bg-amber-500/10'}`}>
+                      {crawlActive ? 'running' : 'queued'}
+                    </span>
+                  </div>
+                </div>
+              )
+            })()}
+
+            <DashboardOverview
+              jobId={jobId}
+              url={session?.startUrl || ''}
+              onNavigate={handleSectionChange}
+            />
+          </>
         )}
 
         {/* Show Crawler Status only on crawler tab */}

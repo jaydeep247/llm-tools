@@ -47,6 +47,9 @@ ITEM_PIPELINES = {
 MONGO_URI = os.getenv('MONGO_URI')
 MONGO_DATABASE = os.getenv('MONGO_DB_NAME')
 
+# Crawl page limit (0 = unlimited)
+CLOSESPIDER_PAGECOUNT = int(os.getenv('MAX_CRAWL_PAGES', '3000'))
+
 # Enable and configure HTTP caching (optional)
 HTTPCACHE_ENABLED = False
 

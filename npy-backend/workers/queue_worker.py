@@ -138,7 +138,7 @@ def execute_crawler_job(payload: dict) -> bool:
     project_id = payload["projectId"]
     url = payload["url"]
     job_id = payload.get("jobId") or f"job_{session_id}"
-    max_pages = payload.get("maxPages", 3000)
+    max_pages = payload.get("maxPages") or config.MAX_CRAWL_PAGES
     timeout = payload.get("timeout", 0)
     
     logger.info(f"[CRAWLER] ▶️  Starting crawler job: {job_id} | URL: {url[:60]}... | MaxPages: {max_pages}")
@@ -150,10 +150,13 @@ def execute_crawler_job(payload: dict) -> bool:
     state["success"] = False
     state["error"] = None
     
+    # Build per-job settings with the correct page limit, overriding the module default
+    job_scrapy_settings = {**SCRAPY_SETTINGS, "CLOSESPIDER_PAGECOUNT": max_pages}
+
     # Use module-level function (picklable for spawn)
     p = spawn_ctx.Process(
         target=_run_spider_subprocess,
-        args=(state, url, session_id, job_id, project_id, max_pages, timeout, SCRAPY_SETTINGS)
+        args=(state, url, session_id, job_id, project_id, max_pages, timeout, job_scrapy_settings)
     )
     p.start()
 

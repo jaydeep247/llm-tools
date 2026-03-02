@@ -1,7 +1,7 @@
 
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useUpdateUserMutation } from '@/store/api/userApi'
@@ -83,9 +83,14 @@ export default function OnboardingPage() {
   const { user, isLoading: isAuthLoading } = useAuth()
   const { toast } = useToast()
 
+  // Prevent the hasNew:false guard from firing mid-onboarding after saveProfile saves the profile.
+  // saveProfile sets hasNew:false before the user reaches the action steps (4 & 5).
+  const skipGuardRedirect = useRef(false)
+
   // Guard: redirect away when auth resolves
   useEffect(() => {
     if (isAuthLoading) return
+    if (skipGuardRedirect.current) return
     // Already completed onboarding → go to dashboard
     if (user && user.hasNew === false) {
       router.replace('/dashboard')
@@ -117,6 +122,8 @@ export default function OnboardingPage() {
   // Save the user profile (called when leaving the Focus step)
   const saveProfile = async (): Promise<boolean> => {
     if (!user) return false
+    // Suppress the hasNew:false guard so the user continues to steps 4 & 5
+    skipGuardRedirect.current = true
     try {
       await updateUser({
         id: user.id,
@@ -124,6 +131,8 @@ export default function OnboardingPage() {
       }).unwrap()
       return true
     } catch (error) {
+      // Roll back the flag so the auth guard still protects on error
+      skipGuardRedirect.current = false
       console.error('Failed to update profile:', error)
       toast({
         title: "Something went wrong",
@@ -196,7 +205,8 @@ export default function OnboardingPage() {
   }
 
   // Show nothing (or a spinner) while auth is resolving / while redirecting
-  if (isAuthLoading || !user || user.hasNew === false) {
+  // Skip this gate when mid-onboarding (skipGuardRedirect is true after saveProfile)
+  if (isAuthLoading || !user || (user.hasNew === false && !skipGuardRedirect.current)) {
     return (
       <div className="h-screen w-full bg-zinc-950 flex items-center justify-center">
         <div className="w-5 h-5 rounded-full border-2 border-white/20 border-t-white animate-spin" />

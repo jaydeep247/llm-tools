@@ -15,6 +15,9 @@ class Config:
         self.RABBITMQ_URL = self._get_required('RABBITMQ_URL')
         self.REDIS_URL = self._get_required('REDIS_URL')
         self.LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
+
+        # Crawl Limits
+        self.MAX_CRAWL_PAGES = int(os.getenv('MAX_CRAWL_PAGES', '3000'))
         
         # S3/DigitalOcean Spaces Configuration (optional - falls back to local storage)
         self.S3_ENABLED = os.getenv('S3_ENABLED', 'false').lower() == 'true'
