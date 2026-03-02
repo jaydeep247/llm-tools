@@ -308,13 +308,12 @@ export default function AICitationRanking({ jobId, url, rankingData: initialData
       )}
 
       {rankingData?.errors && rankingData.errors.length > 0 && (
-        <div className="p-4 border border-rose-500/30 bg-rose-500/5 rounded-xl">
-          <h4 className="text-sm font-semibold text-rose-400 mb-2">Analysis Errors</h4>
-          <ul className="list-disc list-inside text-sm text-rose-300">
-            {rankingData.errors.map((err, i) => (
-              <li key={i}>{err}</li>
-            ))}
-          </ul>
+        <div className="p-4 border border-amber-500/30 bg-amber-500/5 rounded-xl flex items-start gap-3">
+          <AlertCircle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-amber-400">Analysis partially unavailable</p>
+            <p className="text-xs text-amber-400/70 mt-0.5">Something went wrong while fetching data from one or more AI models. Please try again later.</p>
+          </div>
         </div>
       )}
 

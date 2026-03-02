@@ -4,6 +4,7 @@ import { ReactNode, useState } from 'react'
 import { SessionNavbar } from '@/components/user-journey/NewSessionNavbar'
 import { SessionSidebar } from '@/components/user-journey/NewSessionSidebar'
 import { ThemeProvider } from '@/components/common/theme-provider'
+import { cn } from '@/lib/utils'
 
 interface SessionLayoutProps {
   children: ReactNode
@@ -25,6 +26,7 @@ export function SessionLayout({
   onSectionChange,
 }: SessionLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
 
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
@@ -34,11 +36,18 @@ export function SessionLayout({
           onSectionChange={onSectionChange}
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
+          collapsed={collapsed}
+          onToggleCollapse={() => setCollapsed((c) => !c)}
         />
 
         {/* Main content area */}
-        <main className="flex-1 transition-all duration-300 md:ml-68 p-1.5 md:p-3 h-screen overflow-hidden">
-            <div className="bg-[#0F0F11] rounded-2xl border border-zinc-800 h-full flex flex-col overflow-hidden relative">
+        <main
+          className={cn(
+            'flex-1 transition-all duration-300 ease-in-out p-1.5 md:p-3 h-screen overflow-hidden',
+            collapsed ? 'md:ml-14' : 'md:ml-68'
+          )}
+        >
+          <div className="bg-[#0F0F11] rounded-2xl border border-zinc-800 h-full flex flex-col overflow-hidden relative">
             <SessionNavbar
               projectId={projectId}
               projectName={projectName}

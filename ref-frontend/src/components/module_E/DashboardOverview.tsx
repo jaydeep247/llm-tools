@@ -45,12 +45,12 @@ function StatCard({
   onClick?: () => void
 }) {
   const accentStyles: Record<string, { iconBg: string; iconText: string; glow: string }> = {
-    blue:    { iconBg: 'bg-blue-500/15',   iconText: 'text-blue-400',   glow: 'group-hover:shadow-blue-500/10' },
+    blue: { iconBg: 'bg-blue-500/15', iconText: 'text-blue-400', glow: 'group-hover:shadow-blue-500/10' },
     emerald: { iconBg: 'bg-emerald-500/15', iconText: 'text-emerald-400', glow: 'group-hover:shadow-emerald-500/10' },
-    amber:   { iconBg: 'bg-amber-500/15',  iconText: 'text-amber-400',  glow: 'group-hover:shadow-amber-500/10' },
-    rose:    { iconBg: 'bg-rose-500/15',   iconText: 'text-rose-400',   glow: 'group-hover:shadow-rose-500/10' },
-    cyan:    { iconBg: 'bg-cyan-500/15',   iconText: 'text-cyan-400',   glow: 'group-hover:shadow-cyan-500/10' },
-    zinc:    { iconBg: 'bg-zinc-700/40',   iconText: 'text-zinc-400',   glow: 'group-hover:shadow-zinc-500/10' },
+    amber: { iconBg: 'bg-amber-500/15', iconText: 'text-amber-400', glow: 'group-hover:shadow-amber-500/10' },
+    rose: { iconBg: 'bg-rose-500/15', iconText: 'text-rose-400', glow: 'group-hover:shadow-rose-500/10' },
+    cyan: { iconBg: 'bg-cyan-500/15', iconText: 'text-cyan-400', glow: 'group-hover:shadow-cyan-500/10' },
+    zinc: { iconBg: 'bg-zinc-700/40', iconText: 'text-zinc-400', glow: 'group-hover:shadow-zinc-500/10' },
   }
   const s = accentStyles[accent] ?? accentStyles.blue
 
@@ -186,9 +186,9 @@ export default function DashboardOverview({ jobId, url, onNavigate }: DashboardO
   const avgRanking =
     ranking?.ranking_position_per_prompt && ranking.ranking_position_per_prompt.length > 0
       ? (
-          ranking.ranking_position_per_prompt.reduce((sum, r) => sum + (r.position ?? 0), 0) /
-          ranking.ranking_position_per_prompt.filter((r) => r.position != null).length
-        ).toFixed(1)
+        ranking.ranking_position_per_prompt.reduce((sum, r) => sum + (r.position ?? 0), 0) /
+        ranking.ranking_position_per_prompt.filter((r) => r.position != null).length
+      ).toFixed(1)
       : '—'
   const citedCount =
     ranking?.ranking_position_per_prompt?.filter((r) => r.mention_status === 'Cited').length ?? 0
@@ -333,7 +333,7 @@ export default function DashboardOverview({ jobId, url, onNavigate }: DashboardO
         </SectionCard>
 
         {/* Competitor Mentions preview */}
-        <SectionCard title="Competitor Landscape" onClick={() => onNavigate?.('visibility-comparision')} >
+        <SectionCard title="Competitor Landscape" onClick={() => onNavigate?.('prompt-difficulty')} >
           {competitors?.data && competitors.data.length > 0 ? (
             <div className="space-y-2">
               {competitors.data.slice(0, 5).map((comp, i) => (
@@ -371,13 +371,12 @@ export default function DashboardOverview({ jobId, url, onNavigate }: DashboardO
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span
-                      className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                        r.mention_status === 'Cited'
+                      className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${r.mention_status === 'Cited'
                           ? 'bg-emerald-500/15 text-emerald-400'
                           : r.mention_status === 'Mentioned (No Link)'
-                          ? 'bg-amber-500/15 text-amber-400'
-                          : 'bg-zinc-500/10 text-zinc-400'
-                      }`}
+                            ? 'bg-amber-500/15 text-amber-400'
+                            : 'bg-zinc-500/10 text-zinc-400'
+                        }`}
                     >
                       {r.mention_status ?? (r.position != null ? `#${r.position}` : '—')}
                     </span>
