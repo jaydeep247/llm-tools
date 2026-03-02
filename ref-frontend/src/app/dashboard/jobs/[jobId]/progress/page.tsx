@@ -2,8 +2,8 @@
 
 import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useState, useMemo, useRef } from 'react'
-import { Loader2, CheckCircle2, XCircle, Circle, Sparkles, BarChart3, Users, TrendingUp } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { Loader2, BarChart3 } from 'lucide-react'
+import { motion } from 'framer-motion'
 import Aurora from '@/components/animations/Aurora'
 import { useGetJobSnapshotQuery, useGetJobStatusQuery } from '@/store/api/jobApi'
 import { io, Socket } from 'socket.io-client'
@@ -17,7 +17,6 @@ interface StepDefinition {
   id: string
   label: string
   description: string
-  icon: React.ReactNode
 }
 
 // ─── Step Definitions (matches quick_start_runner.py phases) ──────────────
@@ -27,45 +26,20 @@ const STEP_DEFINITIONS: StepDefinition[] = [
     id: 'brand_analysis',
     label: 'Brand Analysis',
     description: 'Analyzing brand presence and sentiment across AI platforms',
-    icon: <Sparkles className="w-5 h-5" />,
   },
   {
     id: 'competitor_analysis',
     label: 'Competitor & AI Share of Voice',
     description: 'Discovering competitor mentions and measuring AI visibility',
-    icon: <Users className="w-5 h-5" />,
   },
   {
     id: 'ranking_analysis',
     label: 'Ranking Analysis',
     description: 'Checking brand ranking across AI models',
-    icon: <TrendingUp className="w-5 h-5" />,
   },
 ]
 
 const TOTAL_STEPS = STEP_DEFINITIONS.length
-
-// ─── Step Status Icon ────────────────────────────────────────────────────
-
-function StepIcon({ status }: { status: StepStatus }) {
-  switch (status) {
-    case 'completed':
-      return <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-    case 'running':
-      return (
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
-        >
-          <Loader2 className="w-5 h-5 text-blue-400" />
-        </motion.div>
-      )
-    case 'failed':
-      return <XCircle className="w-5 h-5 text-red-400" />
-    default:
-      return <Circle className="w-5 h-5 text-white/20" />
-  }
-}
 
 // ─── Main Component ─────────────────────────────────────────────────────
 
@@ -271,23 +245,51 @@ export default function JobProgressPage() {
     [steps],
   )
 
-  const progressPercent = useMemo(
-    () => {
-      const runningCount = Object.values(steps).filter(s => s === 'running').length
-      return Math.round(((completedCount + runningCount * 0.4) / TOTAL_STEPS) * 100)
-    },
-    [steps, completedCount],
-  )
+  // Target progress percent based on real step events
+  const targetPercent = useMemo(() => {
+    if (jobStatus === 'completed') return 100
+    if (jobStatus === 'failed' || jobStatus === 'cancelled') return completedCount > 0 ? Math.round((completedCount / TOTAL_STEPS) * 100) : 0
+    const runningCount = Object.values(steps).filter(s => s === 'running').length
+    return Math.round(((completedCount + runningCount * 0.5) / TOTAL_STEPS) * 100)
+  }, [steps, completedCount, jobStatus])
 
+  // Smoothly displayed progress that inches toward target every tick
+  const [displayedProgress, setDisplayedProgress] = useState(0)
+  const displayedRef = useRef(0)
+
+  useEffect(() => {
+    displayedRef.current = displayedProgress
+  }, [displayedProgress])
+
+  useEffect(() => {
+    // Tick every 80ms and move displayed value toward target
+    const interval = setInterval(() => {
+      const current = displayedRef.current
+      const target = targetPercent
+      if (current >= target) return
+      const step = jobStatus === 'completed'
+        ? Math.max(2, (target - current) * 0.15) // fast finish
+        : Math.min(0.6, Math.max(0.1, (target - current) * 0.08)) // gradual
+      const next = Math.min(target, current + step)
+      displayedRef.current = next
+      setDisplayedProgress(next)
+    }, 80)
+    return () => clearInterval(interval)
+  }, [targetPercent, jobStatus])
+
+  const isFailed = jobStatus === 'failed' || jobStatus === 'cancelled'
   const isTerminal = jobStatus === 'completed' || jobStatus === 'failed' || jobStatus === 'cancelled'
+
+  // ── Current phase label ───────────────────────────────────────────────
+  const activeStep = STEP_DEFINITIONS.find(s => steps[s.id] === 'running')
+  const phaseLabel = activeStep?.label ?? (isTerminal ? '' : 'Initializing...')
 
   // ── Loading state ─────────────────────────────────────────────────────
   if (isSnapshotLoading || snapshotAt === null) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-12 w-12 text-white animate-spin" />
-          <p className="text-white/60 text-lg">Loading session progress...</p>
+        <div className="flex flex-col items-center gap-6">
+          <Loader2 className="h-16 w-16 text-white/60 animate-spin" />
         </div>
       </div>
     )
@@ -295,7 +297,7 @@ export default function JobProgressPage() {
 
   // ── Render ────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-black flex items-center justify-center p-8 relative overflow-hidden">
       {/* Aurora background */}
       <div className="fixed inset-0 w-full h-full">
         <Aurora colorStops={['#475569', '#64748b', '#475569']} amplitude={1.2} blend={0.6} speed={0.8} />
@@ -310,141 +312,94 @@ export default function JobProgressPage() {
         }}
       />
 
-      <div className="w-full max-w-lg flex flex-col items-center gap-8 relative z-20">
-        {/* Header */}
-        <div className="flex flex-col items-center gap-3">
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.5 }}
+      <div className="w-full max-w-2xl flex flex-col items-center gap-12 relative z-20">
+
+        {/* Icon */}
+        <motion.div
+          initial={{ scale: 0.7, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
+          className={`w-24 h-24 rounded-3xl flex items-center justify-center ${
+            isFailed
+              ? 'bg-red-500/10 border border-red-500/20'
+              : jobStatus === 'completed'
+                ? 'bg-emerald-500/10 border border-emerald-500/20'
+                : 'bg-blue-500/10 border border-blue-500/20'
+          }`}
+        >
+          <BarChart3 className={`w-12 h-12 ${
+            isFailed ? 'text-red-400' : jobStatus === 'completed' ? 'text-emerald-400' : 'text-blue-400'
+          }`} />
+        </motion.div>
+
+        {/* Title */}
+        <div className="flex flex-col items-center gap-4 text-center">
+          <motion.h1
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="text-white text-4xl font-semibold tracking-tight"
           >
-            <BarChart3 className="w-10 h-10 text-blue-400" />
-          </motion.div>
-
-          <h1 className="text-white text-2xl font-semibold tracking-tight">
-            {isTerminal ? (jobStatus === 'completed' ? 'Analysis Complete' : 'Analysis Failed') : 'Analyzing Your Brand'}
-          </h1>
-          <p className="text-white/40 text-sm text-center max-w-xs">
-            {isTerminal
-              ? jobStatus === 'completed'
-                ? 'Redirecting to your dashboard...'
-                : 'Something went wrong. Please try again.'
-              : 'Running AI-powered analysis across multiple dimensions'}
-          </p>
+            {isFailed ? 'Analysis Failed' : jobStatus === 'completed' ? 'Analysis Complete' : 'Analyzing Your Brand'}
+          </motion.h1>
+          {!isTerminal && phaseLabel && (
+            <motion.p
+              key={phaseLabel}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-white/40 text-base"
+            >
+              {phaseLabel}
+            </motion.p>
+          )}
+          {isFailed && (
+            <p className="text-red-400/70 text-base">Something went wrong. Please try again.</p>
+          )}
         </div>
 
-        {/* Overall progress bar */}
-        <div className="w-full">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-white/50 text-xs font-mono uppercase tracking-wider">Progress</span>
-            <span className="text-white/70 text-sm font-mono">
-              {completedCount}/{TOTAL_STEPS}
-            </span>
-          </div>
-          <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
-            <motion.div
-              className={`h-full rounded-full ${
-                jobStatus === 'completed'
-                  ? 'bg-emerald-400'
-                  : jobStatus === 'failed'
-                    ? 'bg-red-400'
-                    : 'bg-blue-500'
-              }`}
-              initial={{ width: 0 }}
-              animate={{ width: `${jobStatus === 'completed' ? 100 : progressPercent}%` }}
-              transition={{ duration: 0.6, ease: 'easeOut' }}
-            />
-          </div>
-        </div>
-
-        {/* Steps */}
-        <div className="w-full space-y-3">
-          {STEP_DEFINITIONS.map((step, index) => {
-            const status = steps[step.id]
-            const isActive = status === 'running'
-            const isDone = status === 'completed'
-            const isFailed = status === 'failed'
-
-            return (
-              <motion.div
-                key={step.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1, duration: 0.4 }}
-                className={`relative flex items-start gap-4 p-4 rounded-xl border transition-all duration-500 ${
-                  isActive
-                    ? 'bg-blue-500/10 border-blue-500/30 shadow-lg shadow-blue-500/5'
-                    : isDone
-                      ? 'bg-emerald-500/5 border-emerald-500/20'
-                      : isFailed
-                        ? 'bg-red-500/5 border-red-500/20'
-                        : 'bg-white/5 border-white/10'
-                }`}
-              >
-                {/* Pulse glow for active step */}
-                {isActive && (
-                  <motion.div
-                    className="absolute inset-0 rounded-xl border border-blue-400/20"
-                    animate={{ opacity: [0.3, 0.6, 0.3] }}
-                    transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                  />
-                )}
-
-                {/* Icon */}
-                <div className={`mt-0.5 shrink-0 ${
-                  isActive ? 'text-blue-400' : isDone ? 'text-emerald-400' : isFailed ? 'text-red-400' : 'text-white/20'
-                }`}>
-                  {step.icon}
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className={`text-sm font-medium ${
-                      isActive ? 'text-white' : isDone ? 'text-emerald-300/90' : isFailed ? 'text-red-300/90' : 'text-white/40'
-                    }`}>
-                      {step.label}
-                    </span>
-                    <StepIcon status={status} />
-                  </div>
-                  <p className={`text-xs mt-1 ${
-                    isActive ? 'text-white/50' : isDone ? 'text-emerald-400/40' : 'text-white/20'
-                  }`}>
-                    {isActive
-                      ? step.description
-                      : isDone
-                        ? 'Completed'
-                        : isFailed
-                          ? 'Failed'
-                          : 'Waiting...'}
-                  </p>
-                </div>
-              </motion.div>
-            )
-          })}
-        </div>
-
-        {/* Completion indicator */}
-        <AnimatePresence>
-          {isTerminal && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0 }}
-              className={`px-5 py-2.5 rounded-full border ${
-                jobStatus === 'completed'
-                  ? 'bg-emerald-500/10 border-emerald-500/30'
-                  : 'bg-red-500/10 border-red-500/30'
+        {/* Progress area */}
+        <div className="w-full space-y-5">
+          {/* Percentage */}
+          <div className="flex items-end justify-between">
+            <span className="text-white/40 text-sm font-mono uppercase tracking-widest">Progress</span>
+            <motion.span
+              className={`text-5xl font-bold font-mono tabular-nums ${
+                isFailed ? 'text-red-400' : jobStatus === 'completed' ? 'text-emerald-400' : 'text-white'
               }`}
             >
-              <span className={`text-sm font-medium ${
-                jobStatus === 'completed' ? 'text-emerald-300' : 'text-red-300'
-              }`}>
-                {jobStatus === 'completed' ? 'Redirecting to dashboard...' : 'Analysis encountered an error'}
-              </span>
+              {Math.round(displayedProgress)}%
+            </motion.span>
+          </div>
+
+          {/* Progress bar */}
+          <div className="w-full h-5 bg-white/8 rounded-full overflow-hidden border border-white/5">
+            <motion.div
+              className={`h-full rounded-full transition-none ${
+                isFailed
+                  ? 'bg-red-500'
+                  : jobStatus === 'completed'
+                    ? 'bg-emerald-400'
+                    : 'bg-linear-to-r from-blue-600 via-blue-400 to-blue-300'
+              }`}
+              style={{ width: `${displayedProgress}%` }}
+            >
+              {/* Shimmer on active bar */}
+              {!isTerminal && (
+                <motion.div
+                  className="h-full w-16 bg-linear-to-r from-transparent via-white/20 to-transparent rounded-full"
+                  animate={{ x: ['-100%', '800%'] }}
+                  transition={{ duration: 2.5, repeat: Infinity, ease: 'linear', repeatDelay: 0.5 }}
+                />
+              )}
             </motion.div>
-          )}
-        </AnimatePresence>
+          </div>
+
+          {/* Track labels */}
+          <div className="flex justify-between">
+            <span className="text-white/20 text-xs font-mono">0%</span>
+            <span className="text-white/20 text-xs font-mono">100%</span>
+          </div>
+        </div>
       </div>
     </div>
   )
