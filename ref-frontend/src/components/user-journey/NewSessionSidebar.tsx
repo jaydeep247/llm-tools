@@ -1,6 +1,5 @@
 'use client'
 
-import Image from 'next/image'
 import {
   BarChart3,
   Sparkles,
@@ -203,19 +202,7 @@ export function SessionSidebar({
       >
         {/* Logo */}
         <div className="px-5 flex items-center h-18">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-zinc-800 flex items-center justify-center">
-              <div className="w-5 h-5 relative">
-                <Image
-                  src="/images/attrock_logo.png"
-                  alt="Attrock"
-                  fill
-                  className="object-contain"
-                />
-              </div>
-            </div>
-            <span className="text-lg font-semibold tracking-tight text-white">Clarian</span>
-          </div>
+          <span className="text-xl font-bold tracking-tight text-white">Contentlytics</span>
         </div>
 
         {/* Divider */}

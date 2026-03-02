@@ -14,6 +14,7 @@ interface StepFocusProps {
   onChange: (value: string) => void
   currentStep: number
   totalSteps: number
+  isLoading?: boolean
 }
 
 const FOCUS_AREAS = [
@@ -25,7 +26,7 @@ const FOCUS_AREAS = [
   { value: 'Other', label: 'Other' },
 ]
 
-export function StepFocus({ onNext, onBack, value, onChange, currentStep, totalSteps }: StepFocusProps) {
+export function StepFocus({ onNext, onBack, value, onChange, currentStep, totalSteps, isLoading = false }: StepFocusProps) {
   const [isOtherSelected, setIsOtherSelected] = useState(() => {
     if (!value) return false
     return !FOCUS_AREAS.some(r => r.value === value && r.value !== 'Other')
@@ -48,7 +49,8 @@ export function StepFocus({ onNext, onBack, value, onChange, currentStep, totalS
       onNext={onNext}
       onBack={onBack}
       canProceed={!!value}
-      nextLabel="Complete Setup"
+      isLoading={isLoading}
+      nextLabel="Continue"
       backLabel="Go Back"
       currentStep={currentStep}
       totalSteps={totalSteps}

@@ -1,8 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import {
   LayoutDashboard,
@@ -10,8 +9,11 @@ import {
   FolderOpen,
   Users,
   Settings as SettingsIcon,
+  LogOut,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/hooks/useAuth'
+import { useLogoutMutation } from '@/store/api/authApi'
 
 const navItems = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -31,11 +33,24 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
+  const { user } = useAuth()
+  const [logout] = useLogoutMutation()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     setMounted(true)
   }, [])
+
+  const handleLogout = async () => {
+    try {
+      await logout().unwrap()
+    } catch {
+      // resetApiState is dispatched in onQueryStarted regardless
+    }
+    onClose?.()
+    router.push('/')
+  }
 
   if (!mounted) return null
 
@@ -58,19 +73,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       >
         {/* Logo */}
         <div className="px-5 flex items-center h-18">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-zinc-800 flex items-center justify-center">
-              <div className="w-5 h-5 relative">
-                <Image
-                  src="/images/attrock_logo.png"
-                  alt="Attrock"
-                  fill
-                  className="object-contain"
-                />
-              </div>
-            </div>
-            <span className="text-lg font-semibold tracking-tight text-white">Clarian</span>
-          </div>
+          <span className="text-xl font-bold tracking-tight text-white">Contentlytics</span>
         </div>
 
         {/* Divider */}
@@ -125,6 +128,32 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
               </Link>
             )
           })}
+        </div>
+
+        {/* Divider */}
+        <div className="mx-5 h-px bg-zinc-800" />
+
+        {/* User info + Logout */}
+        <div className="px-4 py-4 flex items-center gap-3">
+          {/* Avatar */}
+          <div className="w-8 h-8 rounded-xl bg-linear-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-semibold shrink-0">
+            {user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
+          </div>
+
+          {/* Name + email */}
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-medium text-white truncate">{user?.name || 'User'}</p>
+            <p className="text-[11px] text-zinc-500 truncate">{user?.email}</p>
+          </div>
+
+          {/* Logout icon button */}
+          <button
+            onClick={handleLogout}
+            title="Logout"
+            className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-colors duration-150 cursor-pointer"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </aside>
     </>

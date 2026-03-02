@@ -90,14 +90,12 @@ export function GlassmorphismNav() {
   const handleLogout = async () => {
     try {
       await logout().unwrap()
-      await refreshAuth()
-      setIsProfileDropdownOpen(false)
-      router.push('/')
-    } catch (error) {
-      console.error('Logout error:', error)
-      await refreshAuth()
-      router.push('/')
+    } catch {
+      // Server call failed — resetApiState is dispatched in onQueryStarted
+      // regardless, so local auth state is still cleared.
     }
+    setIsProfileDropdownOpen(false)
+    router.push('/')
   }
 
   const handleAuthSuccess = async () => {

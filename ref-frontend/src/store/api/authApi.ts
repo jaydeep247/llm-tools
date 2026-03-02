@@ -28,7 +28,18 @@ export const authApi = baseApi.injectEndpoints({
         url: '/auth/logout',
         method: 'POST',
       }),
-      invalidatesTags: ['Auth', 'User'],
+      // After logout succeeds (or fails), wipe the entire RTK Query cache so
+      // `getMe` data is immediately cleared and every component reflects the
+      // logged-out state without waiting for a refetch.
+      async onQueryStarted(_, { dispatch, queryFulfilled }) {
+        try {
+          await queryFulfilled
+        } catch {
+          // ignore server errors — we still want to clear local state
+        } finally {
+          dispatch(baseApi.util.resetApiState())
+        }
+      },
     }),
     
     getMe: builder.query<{ user: User }, void>({

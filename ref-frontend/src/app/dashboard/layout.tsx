@@ -1,10 +1,12 @@
 'use client'
 
-import { useState } from 'react'
-import { usePathname } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 import { Navbar } from '@/components/dashboard/navbar'
 import { Sidebar } from '@/components/dashboard/sidebar'
 import { ThemeProvider } from '@/components/common/theme-provider'
+import { useAuth } from '@/hooks/useAuth'
+import { AuthModal } from '@/components/auth/auth-modal'
 
 export default function DashboardLayout({
   children,
@@ -13,10 +15,47 @@ export default function DashboardLayout({
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
-  
+  const router = useRouter()
+  const { user, isLoading: isAuthLoading } = useAuth()
+
+  // Guard: new users who haven't completed onboarding must go through it first
+  useEffect(() => {
+    if (isAuthLoading) return
+    if (user?.hasNew === true) {
+      router.replace('/onboarding')
+    }
+  }, [user, isAuthLoading, router])
+
   // Session pages and job progress pages get full-screen experiences (no dashboard chrome)
   const isSessionPage = pathname?.includes('/sessions/')
   const isJobProgressPage = pathname?.includes('/jobs/') && pathname?.includes('/progress')
+
+  // Show spinner while auth is resolving or while redirect to /onboarding is pending
+  if (isAuthLoading || user?.hasNew === true) {
+    return (
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+        <div className="h-screen w-full bg-[#09090B] flex items-center justify-center">
+          <div className="w-5 h-5 rounded-full border-2 border-white/10 border-t-white animate-spin" />
+        </div>
+      </ThemeProvider>
+    )
+  }
+
+  // User is not authenticated (e.g. after logout or expired session).
+  // Show a login modal overlay instead of hard-navigating away — the user can
+  // log back in and land right back in the dashboard.
+  if (!user) {
+    return (
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+        <div className="h-screen w-full bg-[#09090B]">
+          <AuthModal
+            isOpen={true}
+            onClose={() => { /* non-dismissible: user must log in */ }}
+          />
+        </div>
+      </ThemeProvider>
+    )
+  }
 
   if (isSessionPage || isJobProgressPage) {
     return (
