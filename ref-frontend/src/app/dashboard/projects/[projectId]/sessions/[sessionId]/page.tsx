@@ -62,16 +62,20 @@ export default function SessionDetailPage() {
   const latestJob = sortedJobs.length > 0 ? sortedJobs[0] : null
   const jobId = latestJob?.id
 
-  // Redirect to progress page if session is running
+  // Block access when session is not yet completed — redirect to progress page
   useEffect(() => {
-    if (session && jobs.length > 0 && (session.status === 'running' || session.status === 'auditing')) {
-      // Find active job
-      const activeJob = jobs.find(j => j.status === 'running' || j.status === 'pending' || j.status === 'RUNNING' || j.status === 'PENDING') || jobs[jobs.length - 1]
+    if (!session || isLoadingSession || isLoadingJobs) return
+    const blockedStatuses = ['pending', 'created', 'running', 'auditing']
+    if (blockedStatuses.includes((session.status || '').toLowerCase())) {
+      // Find the most relevant active job to send the user to
+      const activeJob =
+        jobs.find(j => ['running', 'pending', 'RUNNING', 'PENDING'].includes(j.status)) ||
+        jobs[jobs.length - 1]
       if (activeJob?.id) {
         router.replace(`/dashboard/jobs/${activeJob.id}/progress`)
       }
     }
-  }, [session, jobs, router])
+  }, [session, jobs, isLoadingSession, isLoadingJobs, router])
 
   const { data: moduleEQueryData } = useGetModuleEResultQuery(jobId || '', {
     skip: !jobId,
@@ -690,6 +694,17 @@ export default function SessionDetailPage() {
           </div>
         </div>
       </SessionLayout>
+    )
+  }
+
+  // Synchronous guard: if session is not yet complete, render nothing while the
+  // redirect useEffect fires. Prevents a single-frame flash of session content.
+  const BLOCKED_STATUSES = ['pending', 'created', 'running', 'auditing']
+  if (session && BLOCKED_STATUSES.includes((session.status || '').toLowerCase())) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <Loader2 className="h-12 w-12 text-white/40 animate-spin" />
+      </div>
     )
   }
 

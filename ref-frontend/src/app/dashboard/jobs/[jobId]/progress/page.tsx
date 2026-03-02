@@ -62,6 +62,8 @@ export default function JobProgressPage() {
   const hydratedJobIdRef = useRef<string | null>(null)
   const statusRef = useRef<JobStatus>('pending')
   const snapshotAtRef = useRef<number | null>(null)
+  // True when job was already completed when the page first loaded (back-navigation case)
+  const alreadyCompletedOnMountRef = useRef(false)
 
   useEffect(() => { statusRef.current = jobStatus }, [jobStatus])
   useEffect(() => { snapshotAtRef.current = snapshotAt }, [snapshotAt])
@@ -71,6 +73,7 @@ export default function JobProgressPage() {
     hydratedJobIdRef.current = null
     statusRef.current = 'pending'
     snapshotAtRef.current = null
+    alreadyCompletedOnMountRef.current = false
     setJobStatus('pending')
     setSnapshotAt(null)
     setJobMeta({})
@@ -105,6 +108,11 @@ export default function JobProgressPage() {
 
     const snapshotStatus = (snapshot.status || 'pending').toLowerCase() as JobStatus
     setJobStatus(snapshotStatus)
+
+    // If the job was already done when we mounted — flag it so redirect is instant
+    if (snapshotStatus === 'completed' || snapshotStatus === 'failed' || snapshotStatus === 'cancelled') {
+      alreadyCompletedOnMountRef.current = true
+    }
 
     if (snapshot.projectId || snapshot.sessionId) {
       setJobMeta({ projectId: snapshot.projectId, sessionId: snapshot.sessionId })
@@ -229,12 +237,15 @@ export default function JobProgressPage() {
       })
     }
 
-    // Short delay for visual feedback, then redirect
+    // If job was already done when the page loaded (back-navigation), skip instantly.
+    // If it just completed live, give a brief visual feedback window.
+    const delay = alreadyCompletedOnMountRef.current ? 0 : 1500
     const timer = setTimeout(() => {
-      if (jobMeta.projectId && jobMeta.sessionId) {
-        router.push(`/dashboard/projects/${jobMeta.projectId}/sessions/${jobMeta.sessionId}`)
+      if (jobMeta.projectId && jobMeta.sessionId && jobStatus === 'completed') {
+        // replace so the progress page is removed from history (back button skips it)
+        router.replace(`/dashboard/projects/${jobMeta.projectId}/sessions/${jobMeta.sessionId}`)
       }
-    }, 1500)
+    }, delay)
 
     return () => clearTimeout(timer)
   }, [jobStatus, jobMeta.projectId, jobMeta.sessionId, router])
