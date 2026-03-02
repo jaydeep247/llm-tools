@@ -190,10 +190,25 @@ export function SessionSidebar({
 
   useEffect(() => {
     if (!navRef.current || !activeSection) return
-    const el = navRef.current.querySelector<HTMLElement>(
-      `[data-section-id="${activeSection}"]`
+
+    // For the standalone dashboard item, scroll to itself
+    if (activeSection === 'dashboard') {
+      const el = navRef.current.querySelector<HTMLElement>('[data-section-id="dashboard"]')
+      el?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+      return
+    }
+
+    // Find the parent section that contains this active child
+    const parentSection = sessionSections.find((s) =>
+      s.children.some((c) => c.id === activeSection)
     )
-    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+
+    if (parentSection) {
+      const sectionEl = navRef.current.querySelector<HTMLElement>(
+        `[data-parent-section-id="${parentSection.id}"]`
+      )
+      sectionEl?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    }
   }, [activeSection])
 
   return (
@@ -255,7 +270,7 @@ export function SessionSidebar({
 
           {/* Sections with children */}
           {sectionsWithChildren.map((section) => (
-            <div key={section.id}>
+            <div key={section.id} data-parent-section-id={section.id}>
               {/* Dotted separator before each group */}
               <div className="mx-5 my-1.5 border-t border-dashed border-zinc-800" />
 
