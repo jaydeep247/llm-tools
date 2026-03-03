@@ -44,6 +44,19 @@ export class JobRepository {
       .toArray();
   }
 
+  /**
+   * Return any job in the session that is still active (PENDING or RUNNING)
+   * for the given jobType.  Used to prevent duplicate concurrent jobs.
+   */
+  async findActiveBySessionAndType(sessionId: string, jobType: JobType): Promise<Job | null> {
+    const db = await connectToMongo();
+    return db.collection<Job>('jobs').findOne({
+      sessionId,
+      jobType,
+      status: { $in: [JobStatus.PENDING, JobStatus.RUNNING] },
+    });
+  }
+
   async updateStatus(
     id: string,
     status: JobStatus,

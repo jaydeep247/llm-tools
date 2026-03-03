@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { ResponseUtil } from '../../utils/response';
 import { ModuleEService } from './moduleE.service';
 import { JobService } from '../job/job.service';
-import { JobType } from '../job/job.types';
+import { JobConflictError, JobType } from '../job/job.types';
 import { jobIdParamSchema } from './moduleE.validator';
 import { logger } from '../../shared/logger/logger';
 
@@ -13,6 +13,24 @@ export class ModuleEController {
   constructor() {
     this.moduleEService = new ModuleEService();
     this.jobService = new JobService();
+  }
+
+  /**
+   * Shared error handler for all createJob-based endpoints.
+   * Centralises JobConflictError → 409, not-found → 404, and ZodError → 400
+   * so the logic is not duplicated across every analysis method.
+   */
+  private _handleCreateError(res: Response, error: any, fallbackMessage: string): Response {
+    if (error instanceof JobConflictError) {
+      return ResponseUtil.error(res, 'Conflict: job already active', error.message, 409);
+    }
+    if (error.message?.includes('not found') || error.message?.includes('access denied')) {
+      return ResponseUtil.notFound(res, error.message);
+    }
+    if (error.name === 'ZodError') {
+      return ResponseUtil.error(res, 'Validation failed', error.errors);
+    }
+    return ResponseUtil.serverError(res, fallbackMessage);
   }
 
   getModuleEResult = async (req: Request, res: Response): Promise<Response> => {
@@ -61,13 +79,7 @@ export class ModuleEController {
       return ResponseUtil.created(res, 'Module E analysis queued', analysisJob);
     } catch (error: any) {
       logger.error('Error starting Module E analysis:', error);
-      if (error.message?.includes('not found') || error.message?.includes('access denied')) {
-        return ResponseUtil.notFound(res, error.message);
-      }
-      if (error.name === 'ZodError') {
-        return ResponseUtil.error(res, 'Validation failed', error.errors);
-      }
-      return ResponseUtil.serverError(res, 'Failed to start Module E analysis');
+      return this._handleCreateError(res, error, 'Failed to start Module E analysis');
     }
   };
 
@@ -100,13 +112,7 @@ export class ModuleEController {
       return ResponseUtil.created(res, 'Sentiment analysis queued', sentimentJob);
     } catch (error: any) {
       logger.error('Error starting sentiment analysis:', error);
-      if (error.message?.includes('not found') || error.message?.includes('access denied')) {
-        return ResponseUtil.notFound(res, error.message);
-      }
-      if (error.name === 'ZodError') {
-        return ResponseUtil.error(res, 'Validation failed', error.errors);
-      }
-      return ResponseUtil.serverError(res, 'Failed to start sentiment analysis');
+      return this._handleCreateError(res, error, 'Failed to start sentiment analysis');
     }
   };
 
@@ -139,13 +145,7 @@ export class ModuleEController {
       return ResponseUtil.created(res, 'Competitor analysis queued', competitorJob);
     } catch (error: any) {
       logger.error('Error starting competitor analysis:', error);
-      if (error.message?.includes('not found') || error.message?.includes('access denied')) {
-        return ResponseUtil.notFound(res, error.message);
-      }
-      if (error.name === 'ZodError') {
-        return ResponseUtil.error(res, 'Validation failed', error.errors);
-      }
-      return ResponseUtil.serverError(res, 'Failed to start competitor analysis');
+      return this._handleCreateError(res, error, 'Failed to start competitor analysis');
     }
   };
 
@@ -178,13 +178,7 @@ export class ModuleEController {
       return ResponseUtil.created(res, 'AI SOV analysis queued', aiSovJob);
     } catch (error: any) {
       logger.error('Error starting AI SOV analysis:', error);
-      if (error.message?.includes('not found') || error.message?.includes('access denied')) {
-        return ResponseUtil.notFound(res, error.message);
-      }
-      if (error.name === 'ZodError') {
-        return ResponseUtil.error(res, 'Validation failed', error.errors);
-      }
-      return ResponseUtil.serverError(res, 'Failed to start AI SOV analysis');
+      return this._handleCreateError(res, error, 'Failed to start AI SOV analysis');
     }
   };
 
@@ -217,13 +211,7 @@ export class ModuleEController {
       return ResponseUtil.created(res, 'Brand analysis queued', brandJob);
     } catch (error: any) {
       logger.error('Error starting brand analysis:', error);
-      if (error.message?.includes('not found') || error.message?.includes('access denied')) {
-        return ResponseUtil.notFound(res, error.message);
-      }
-      if (error.name === 'ZodError') {
-        return ResponseUtil.error(res, 'Validation failed', error.errors);
-      }
-      return ResponseUtil.serverError(res, 'Failed to start brand analysis');
+      return this._handleCreateError(res, error, 'Failed to start brand analysis');
     }
   };
 
@@ -256,13 +244,7 @@ export class ModuleEController {
       return ResponseUtil.created(res, 'Ranking analysis queued', rankingJob);
     } catch (error: any) {
       logger.error('Error starting ranking analysis:', error);
-      if (error.message?.includes('not found') || error.message?.includes('access denied')) {
-        return ResponseUtil.notFound(res, error.message);
-      }
-      if (error.name === 'ZodError') {
-        return ResponseUtil.error(res, 'Validation failed', error.errors);
-      }
-      return ResponseUtil.serverError(res, 'Failed to start ranking analysis');
+      return this._handleCreateError(res, error, 'Failed to start ranking analysis');
     }
   };
 
@@ -295,13 +277,7 @@ export class ModuleEController {
       return ResponseUtil.created(res, 'Consistency analysis queued', consistencyJob);
     } catch (error: any) {
       logger.error('Error starting consistency analysis:', error);
-      if (error.message?.includes('not found') || error.message?.includes('access denied')) {
-        return ResponseUtil.notFound(res, error.message);
-      }
-      if (error.name === 'ZodError') {
-        return ResponseUtil.error(res, 'Validation failed', error.errors);
-      }
-      return ResponseUtil.serverError(res, 'Failed to start consistency analysis');
+      return this._handleCreateError(res, error, 'Failed to start consistency analysis');
     }
   };
 }

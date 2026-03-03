@@ -1,5 +1,5 @@
 import { JobRepository } from './job.repository';
-import { CreateJobDto, Job, JobStatus, JobType, JobCategory, JOB_TYPE_TO_CATEGORY } from './job.types';
+import { CreateJobDto, Job, JobConflictError, JobStatus, JobType, JobCategory, JOB_TYPE_TO_CATEGORY } from './job.types';
 import { SessionService } from '../session/session.service';
 import { SessionStatus } from '../session/session.types';
 import { QueueService } from '../queue/queue.service';
@@ -25,6 +25,19 @@ export class JobService {
     const projectId = session.project?.id;
     if (!projectId) {
       throw new Error('Session is not associated with a project');
+    }
+
+    // Guard: reject if the same job type is already active for this session.
+    // Without this check, two requests arriving in the same window create two
+    // concurrent jobs that both write to the same Mongo document, race on
+    // JOB_COMPLETED events, and can mark the session completed prematurely.
+    const existing = await this.jobRepository.findActiveBySessionAndType(sessionId, data.jobType);
+    if (existing) {
+      throw new JobConflictError(
+        `A ${data.jobType} job (${existing.id}) is already active for this session. ` +
+        `Wait for it to finish or cancel it before starting a new one.`,
+        existing.id,
+      );
     }
 
     const job = await this.jobRepository.create(sessionId, projectId, data);

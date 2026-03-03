@@ -11,6 +11,7 @@ import { logger } from './shared/logger/logger';
 import moduleERoutes from './modules/module_E/moduleE.routes';
 import moduleCRoutes from './modules/module_C/moduleC.routes';
 import moduleFRoutes from './modules/module_F/moduleF.routes';
+import quickStartRoutes from './modules/quick_start/quickStart.routes';
 
 const router = Router();
 
@@ -84,5 +85,6 @@ router.use('/', jobRoutes);
 router.use('/', moduleERoutes);
 router.use('/', moduleCRoutes);
 router.use('/', moduleFRoutes);
+router.use('/', quickStartRoutes);
 
 export default router;

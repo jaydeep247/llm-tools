@@ -15,6 +15,7 @@ import { useGetProjectQuery } from '@/store/api/projectApi'
 import { useGetSessionQuery } from '@/store/api/sessionApi'
 import { useGetSessionJobsQuery, useGetJobPagesQuery, useGetJobLinksQuery, useGetJobSitemapsQuery, useGetJobFieldsQuery, useGetJobSiteStructureQuery, useRetryJobMutation, useGetJobSummaryQuery, useGetJobSnapshotQuery } from '@/store/api/jobApi'
 import { useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
+import { useGetQuickStartResultQuery } from '@/store/api/quick_start/quickStartApi'
 import { formatDurationHHMMSSMS, formatDurationReadable } from '@/utils/formatDuration'
 
 interface LogEntry {
@@ -55,6 +56,13 @@ export default function SessionDetailClient() {
   // are independent of other job types (MODULE_C, MODULE_E, etc.)
   const crawlJob = jobs.find((j: any) => j.type === 'CRAWL' || j.jobType === 'CRAWL') ?? latestJob
   const crawlJobId = crawlJob?.id
+
+  // Find the Quick Start job — its background crawl runs independently of the
+  // analysis phases and is tracked via `crawl_status` in the job_summaries collection.
+  const quickStartJob = jobs.find(
+    (j: any) => j.type === 'MODULE_E_QUICK_START' || j.jobType === 'MODULE_E_QUICK_START'
+  ) ?? null
+  const quickStartJobId = quickStartJob?.id ?? null
 
   // Check job status and redirect to progress page if job is running
   // Note: Initial redirect is handled by Server Component to prevent flash.
@@ -141,6 +149,24 @@ export default function SessionDetailClient() {
     pollingInterval: 5000,
     refetchOnMountOrArgChange: true,
   })
+
+  // Poll Quick Start result on the dashboard tab to track background crawl status.
+  // crawl_status transitions: running → completed | failed | cancelled
+  // Use a separate flag to stop polling once the crawl is no longer running.
+  const [qsPollingActive, setQsPollingActive] = useState(true)
+  const { data: quickStartResult } = useGetQuickStartResultQuery(quickStartJobId ?? '', {
+    skip: !quickStartJobId || activeSection !== 'dashboard',
+    pollingInterval: qsPollingActive ? 3000 : 0,
+    refetchOnMountOrArgChange: true,
+  })
+  const bgCrawlStatus = quickStartResult?.data?.crawl_status ?? null
+
+  // Stop polling once the background crawl finishes (completed | failed | cancelled)
+  useEffect(() => {
+    if (bgCrawlStatus && bgCrawlStatus !== 'running') {
+      setQsPollingActive(false)
+    }
+  }, [bgCrawlStatus])
   
   // Unified data transformation
   const rawPages = pagesResult?.data || []
@@ -962,6 +988,66 @@ export default function SessionDetailClient() {
                 </div>
               )
             })()}
+
+            {/* ── Quick Start background crawl status banner ───────────────────── */}
+            {/* Shown on the dashboard tab when the session was started via the    */}
+            {/* Quick Start flow. The analysis finishes fast; the Scrapy crawl     */}
+            {/* keeps running in the background and is tracked by crawl_status.    */}
+            {quickStartJobId && bgCrawlStatus && (
+              <div
+                className={`rounded-2xl border overflow-hidden ${
+                  bgCrawlStatus === 'running'
+                    ? 'border-amber-500/20 bg-[#0D0D10]'
+                    : bgCrawlStatus === 'completed'
+                    ? 'border-emerald-500/20 bg-[#0D0D10]'
+                    : 'border-zinc-700/40 bg-[#0D0D10]'
+                }`}
+              >
+                <div className="flex items-center justify-between px-5 py-3.5">
+                  <div className="flex items-center gap-2.5">
+                    {bgCrawlStatus === 'running' ? (
+                      <>
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
+                        </span>
+                        <span className="text-sm font-semibold text-white">Background crawl in progress</span>
+                        <span className="text-[10px] text-amber-400 font-medium bg-amber-500/10 px-2 py-0.5 rounded-full animate-pulse">
+                          LIVE
+                        </span>
+                      </>
+                    ) : bgCrawlStatus === 'completed' ? (
+                      <>
+                        <CheckCircle className="h-4 w-4 text-emerald-400 shrink-0" />
+                        <span className="text-sm font-semibold text-white">Background crawl complete</span>
+                        <span className="text-[10px] text-zinc-400 bg-zinc-700/40 px-2 py-0.5 rounded-full">done</span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="h-4 w-4 text-zinc-500 shrink-0" />
+                        <span className="text-sm font-semibold text-zinc-400">
+                          Background crawl {bgCrawlStatus}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => handleSectionChange('crawler')}
+                    className="text-[11px] text-zinc-400 hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    View pages <Globe className="h-3 w-3" />
+                  </button>
+                </div>
+                {bgCrawlStatus === 'running' && (
+                  <div className="px-5 py-2 border-t border-zinc-800/60">
+                    <p className="text-[11px] text-zinc-500">
+                      Scrapy is indexing pages in the background — analysis results are already available above.
+                      The crawler will finish independently and results will update automatically.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
             <DashboardOverview
               jobId={jobId}

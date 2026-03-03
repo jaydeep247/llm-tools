@@ -31,6 +31,7 @@ class JobType(str, Enum):
     
     # Brand Intelligence (Module E)
     MODULE_E_FULL = 'MODULE_E_FULL'
+    MODULE_E_QUICK_START = 'MODULE_E_QUICK_START'
     MODULE_E_CONSISTENCY = 'MODULE_E_CONSISTENCY'
     MODULE_E_SENTIMENT = 'MODULE_E_SENTIMENT'
     MODULE_E_COMPETITORS = 'MODULE_E_COMPETITORS'
@@ -116,6 +117,7 @@ JOB_TYPE_TO_CATEGORY: Dict[str, JobCategory] = {
     JobType.MODULE_C_LLM_SIMULATOR.value: JobCategory.MODULE_C,
     JobType.MODULE_C_BULK_AUDIT.value: JobCategory.MODULE_C,
     JobType.MODULE_E_FULL.value: JobCategory.MODULE_E,
+    JobType.MODULE_E_QUICK_START.value: JobCategory.MODULE_E,
     JobType.MODULE_E_CONSISTENCY.value: JobCategory.MODULE_E,
     JobType.MODULE_E_SENTIMENT.value: JobCategory.MODULE_E,
     JobType.MODULE_E_COMPETITORS.value: JobCategory.MODULE_E,
@@ -137,6 +139,7 @@ LEGACY_JOB_TYPE_MAP = {
     'aeo_analysis': JobType.AEO_ANALYSIS.value,
     'module_c': JobType.AEO_ANALYSIS.value,
     'module_e': JobType.MODULE_E_FULL.value,
+    'module_e_quick_start': JobType.MODULE_E_QUICK_START.value,
     'module_e_consistency': JobType.MODULE_E_CONSISTENCY.value,
     'module_e_sentiment': JobType.MODULE_E_SENTIMENT.value,
     'module_e_competitors': JobType.MODULE_E_COMPETITORS.value,

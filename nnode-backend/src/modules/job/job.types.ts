@@ -114,3 +114,16 @@ export interface CreateJobDto {
   type?: JobType;
   schemaType?: string;
 }
+
+/**
+ * Thrown by JobService.createJob when a job of the same type is already
+ * PENDING or RUNNING for the session.  Controllers should map this to 409.
+ */
+export class JobConflictError extends Error {
+  readonly existingJobId: string;
+  constructor(message: string, existingJobId: string) {
+    super(message);
+    this.name = 'JobConflictError';
+    this.existingJobId = existingJobId;
+  }
+}

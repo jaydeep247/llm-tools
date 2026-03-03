@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { ResponseUtil } from '../utils/response';
 import { logger } from '../shared/logger/logger';
 import { ZodError } from 'zod';
+import { JobConflictError } from '../modules/job/job.types';
 
 export const errorMiddleware = (
   error: Error,
@@ -10,6 +11,11 @@ export const errorMiddleware = (
   _next: NextFunction
 ): void => {
   logger.error(`Error: ${error.message}`);
+
+  if (error instanceof JobConflictError) {
+    ResponseUtil.error(res, 'Conflict: job already active', error.message, 409);
+    return;
+  }
 
   // Zod validation errors
   if (error instanceof ZodError) {

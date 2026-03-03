@@ -44,6 +44,16 @@ spawn_ctx = multiprocessing.get_context('spawn')
 
 result_queue = thread_queue.Queue()
 
+# Module-level Redis connection pool — shared across all threads, no per-call
+# connection creation.
+_redis_pool = redis.ConnectionPool.from_url(config.REDIS_URL, max_connections=20, decode_responses=True)
+
+
+def _get_redis() -> redis.Redis:
+    """Return a Redis client that draws from the shared connection pool."""
+    return redis.Redis(connection_pool=_redis_pool)
+
+
 # ============ EXCEPTIONS ============
 
 class RetryableJobError(Exception):
@@ -64,11 +74,11 @@ class JobCancelledError(Exception):
 # ============ UTILITIES ============
 
 def is_job_cancelled(job_id: str) -> bool:
-    """Check if a job has been cancelled by looking at Redis flag."""
+    """Check if a job has been cancelled by looking at Redis flag.
+    Uses the shared connection pool — never opens a new connection per call.
+    """
     try:
-        r = redis.from_url(config.REDIS_URL)
-        val = r.get(f"job:{job_id}:cancelled")
-        return val is not None and val.decode("utf-8") == "true"
+        return _get_redis().get(f"job:{job_id}:cancelled") == "true"
     except Exception:
         return False
 
@@ -347,35 +357,39 @@ def execute_module_d_job(payload: dict) -> bool:
 
 
 def mark_job_completed(job_id: str, session_id: str) -> None:
-    """Mark a job as COMPLETED in Mongo and Redis"""
+    """Mark a job as COMPLETED in Mongo and Redis.
+
+    Uses a conditional Mongo update (status not already terminal) so concurrent
+    calls from the Node.js event consumer, the Python event consumer, and any
+    direct caller are all idempotent — the first write wins, subsequent ones
+    are no-ops at the DB level.
+    """
     mongo_client = get_mongo_client()
     db = mongo_client[config.MONGO_DB_NAME]
-    r = redis.from_url(config.REDIS_URL)
+    r = _get_redis()
 
-    jobs = db.jobs
-    sessions = db.sessions
     session_key = f"session:{session_id}"
     job_key = f"job:{job_id}"
 
     try:
-        # Update status to COMPLETED
-        jobs.update_one(
-            {"id": job_id},
-            {"$set": {"status": "COMPLETED", "completedAt": datetime.utcnow()}},
+        now = datetime.utcnow()
+        # Only advance to COMPLETED if the document is not already in a
+        # terminal state — prevents racing with Node.js consumer writes.
+        db.jobs.update_one(
+            {"id": job_id, "status": {"$nin": ["COMPLETED", "FAILED"]}},
+            {"$set": {"status": "COMPLETED", "completedAt": now}},
         )
-        
-        sessions.update_one(
-            {"id": session_id},
-            {"$set": {"status": "COMPLETED", "completedAt": datetime.utcnow()}},
+        db.sessions.update_one(
+            {"id": session_id, "status": {"$nin": ["COMPLETED", "FAILED"]}},
+            {"$set": {"status": "COMPLETED", "completedAt": now}},
         )
 
         r.hset(session_key, mapping={"status": "COMPLETED"})
         r.expire(session_key, 3600)
-        
         r.hset(job_key, mapping={"status": "COMPLETED"})
         r.expire(job_key, 3600)
-        
-        logger.info(f"Marked job {job_id} as COMPLETED via event handler")
+
+        logger.info(f"Marked job {job_id} as COMPLETED")
     except Exception as e:
         logger.error(f"Failed to mark job {job_id} as completed: {e}")
     finally:
@@ -383,26 +397,28 @@ def mark_job_completed(job_id: str, session_id: str) -> None:
 
 
 def mark_job_failed(job_id: str, session_id: str, error_message: str) -> None:
-    """Mark a job as FAILED in Mongo and Redis"""
+    """Mark a job as FAILED in Mongo and Redis.
+
+    Conditional update — will not overwrite a job that already reached
+    COMPLETED (e.g., quick_start marked it completed before a cancel flag
+    arrived from a slow session-delete request).
+    """
     mongo_client = get_mongo_client()
     db = mongo_client[config.MONGO_DB_NAME]
-    r = redis.from_url(config.REDIS_URL)
+    r = _get_redis()
 
-    jobs = db.jobs
-    sessions = db.sessions
     job_key = f"job:{job_id}"
 
     try:
-        jobs.update_one(
-            {"id": job_id},
-            {"$set": {"status": "FAILED", "completedAt": datetime.utcnow(), "errorMessage": error_message}},
+        now = datetime.utcnow()
+        db.jobs.update_one(
+            {"id": job_id, "status": {"$nin": ["COMPLETED", "FAILED"]}},
+            {"$set": {"status": "FAILED", "completedAt": now, "errorMessage": error_message}},
         )
-        
-        sessions.update_one(
-            {"id": session_id},
-            {"$set": {"status": "FAILED", "completedAt": datetime.utcnow(), "errorMessage": error_message}},
+        db.sessions.update_one(
+            {"id": session_id, "status": {"$nin": ["COMPLETED", "FAILED"]}},
+            {"$set": {"status": "FAILED", "completedAt": now, "errorMessage": error_message}},
         )
-        
         r.hset(job_key, mapping={"status": "FAILED"})
         r.expire(job_key, 3600)
         logger.info(f"Marked job {job_id} as FAILED: {error_message}")
@@ -485,7 +501,7 @@ def execute_module_f_job(payload: dict) -> bool:
 def execute_module_e_job(payload: dict) -> bool:
     """Execute Module E (Brand Intelligence) job"""
     from modules.module_E.runner import run_module_e, run_consistency_only
-    from modules.module_E.quick_start_runner import run_quick_start
+    from modules.quick_start.runner import run_quick_start
     from modules.module_E.sentiment_runner import run_sentiment_only
     from modules.module_E.competitor_runner import run_competitor_analysis
     from modules.module_E.ai_sov_runner import run_ai_sov_analysis
@@ -591,200 +607,194 @@ def run_job_in_worker(payload: dict, job_type_override: str | None = None) -> No
 
 def start_queue_worker() -> None:
     executor = ThreadPoolExecutor(max_workers=POOL_SIZE_PER_CATEGORY * len(QUEUE_CONFIGS))
-    
+
+    # Shared Redis client for the pika dispatch loop.  pika callbacks are
+    # invoked synchronously inside process_data_events (single-threaded), so
+    # one pooled client is sufficient and avoids per-message connection teardown.
+    dispatch_redis = _get_redis()
+
+    # ------------------------------------------------------------------ #
+    # Callbacks — defined once, outside the reconnect loop so they are    #
+    # not redefined on every reconnection attempt.                        #
+    # ------------------------------------------------------------------ #
+
+    def on_event_message(ch, method, _properties, body) -> None:
+        """Handle JOB_COMPLETED / JOB_FAILED events published by workers.
+        Uses the shared Redis pool (no per-event connection).
+        Mongo writes are idempotent via mark_job_completed / mark_job_failed.
+        """
+        try:
+            message = json.loads(body)
+            job_id = message.get("jobId")
+            payload = message.get("payload", {})
+            session_id = payload.get("sessionId")
+
+            if not job_id:
+                ch.basic_ack(delivery_tag=method.delivery_tag)
+                return
+
+            if not session_id:
+                # Fall back to the Redis job hash written when the message was received.
+                session_id = dispatch_redis.hget(f"job:{job_id}", "sessionId")
+
+            if not session_id:
+                logger.warning(
+                    f"Event {method.routing_key} missing session_id even after Redis lookup — acking and skipping"
+                )
+                ch.basic_ack(delivery_tag=method.delivery_tag)
+                return
+
+            if "JOB_COMPLETED" in method.routing_key:
+                mark_job_completed(job_id, session_id)
+            elif "JOB_FAILED" in method.routing_key:
+                reason = payload.get("reason", "Unknown error")
+                mark_job_failed(job_id, session_id, reason)
+
+            ch.basic_ack(delivery_tag=method.delivery_tag)
+        except Exception as e:
+            logger.error(f"Error processing event: {e}", exc_info=True)
+            ch.basic_ack(delivery_tag=method.delivery_tag)
+
+    def on_message(ch, method, _properties, body) -> None:
+        """Receive a job message, update Redis, and submit to the thread pool."""
+        try:
+            payload = json.loads(body)
+        except Exception:
+            logger.error("Invalid message format received; sending to DLQ")
+            try:
+                ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+            except Exception:
+                pass
+            return
+
+        required_fields = ("sessionId", "projectId", "url")
+        missing_fields = [field for field in required_fields if field not in payload]
+        if missing_fields:
+            logger.error(
+                f"Missing required fields in message: {missing_fields}; routing key: {method.routing_key}"
+            )
+            try:
+                ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+            except Exception:
+                pass
+            return
+
+        session_id = payload["sessionId"]
+        project_id = payload["projectId"]
+        url = payload["url"]
+        job_id = payload.get("jobId") or f"job_{session_id}"
+        job_type = payload.get("jobType")
+
+        logger.info(f"\n{'='*80}")
+        logger.info(f"[QUEUE] 📨 Message received from RabbitMQ")
+        logger.info(f"[QUEUE] Session: {session_id} | Job: {job_id}")
+        logger.info(f"[QUEUE] Type: {job_type or 'CRAWL'} | URL: {url[:60]}...")
+        logger.info(f"[QUEUE] Routing key: {method.routing_key}")
+        logger.info(f"{'='*80}")
+
+        dispatch_redis.hset(
+            f"session:{session_id}",
+            mapping={"status": "RECEIVED", "url": url, "projectId": project_id},
+        )
+        dispatch_redis.hset(
+            f"job:{job_id}",
+            mapping={
+                "status": "RECEIVED",
+                "sessionId": session_id,
+                "projectId": project_id,
+                "url": url,
+                "jobType": job_type,
+            },
+        )
+
+        logger.info(f"[QUEUE] ⚙️  Status updated to RECEIVED in Redis")
+        logger.info(f"[QUEUE] 🚀 Submitting job to thread pool...")
+        future = executor.submit(run_job_in_worker, payload, job_type)
+
+        def when_done(f) -> None:
+            try:
+                f.result()
+                logger.info(f"[RESULT] ✅ Job {job_id} completed successfully!")
+                logger.info(f"[RESULT] 📤 Acknowledging message to RabbitMQ")
+                action = "ack"
+            except RetryableJobError as e:
+                logger.error(
+                    f"[RESULT] ⚠️  Job {job_id} failed with retryable error; requeueing",
+                    exc_info=e,
+                )
+                action = "nack_requeue"
+            except Exception as e:
+                logger.error(
+                    f"[RESULT] ❌ Job {job_id} failed with non-retryable error; sending to DLQ",
+                    exc_info=e,
+                )
+                action = "nack_drop"
+
+            result_queue.put((ch, method.delivery_tag, action))
+
+        future.add_done_callback(when_done)
+
+    # ------------------------------------------------------------------ #
+    # Reconnect loop                                                       #
+    # ------------------------------------------------------------------ #
     while True:
         connection: BlockingConnection | None = None
         try:
             params = pika.URLParameters(config.RABBITMQ_URL)
             connection = BlockingConnection(params)
-            channel = connection.channel()
-            runtime_redis = redis.from_url(config.REDIS_URL)
 
-            # --- Setup Queues for All Categories ---
+            # --- Infrastructure channel: declares all exchanges / queues / bindings ---
+            # Closed immediately after setup so it does not hold a prefetch slot.
+            infra_ch = connection.channel()
             for category, cfg in QUEUE_CONFIGS.items():
-                
-                # Main Exchange
-                channel.exchange_declare(exchange=cfg.exchange, exchange_type="direct", durable=True)
-                
-                # DLX Exchange
-                channel.exchange_declare(exchange=cfg.dlx, exchange_type="direct", durable=True)
-                
-                # Main Queue
-                channel.queue_declare(
-                    queue=cfg.queue,
-                    durable=True,
+                infra_ch.exchange_declare(exchange=cfg.exchange, exchange_type="direct", durable=True)
+                infra_ch.exchange_declare(exchange=cfg.dlx, exchange_type="direct", durable=True)
+                infra_ch.queue_declare(
+                    queue=cfg.queue, durable=True,
                     arguments={"x-dead-letter-exchange": cfg.dlx},
                 )
-                
-                # DLQ Queue
-                channel.queue_declare(queue=cfg.dlq, durable=True)
-                
-                # Bindings
-                channel.queue_bind(
-                    exchange=cfg.exchange,
-                    queue=cfg.queue,
-                    routing_key=cfg.routing_key,
-                )
-                channel.queue_bind(
+                infra_ch.queue_declare(queue=cfg.dlq, durable=True)
+                infra_ch.queue_bind(exchange=cfg.exchange, queue=cfg.queue, routing_key=cfg.routing_key)
+                infra_ch.queue_bind(
                     exchange=cfg.dlx,
                     queue=cfg.dlq,
                     routing_key=cfg.routing_key.replace(".job", ".failed"),
                 )
+            infra_ch.exchange_declare(exchange="job.events", exchange_type="topic", durable=True)
+            infra_ch.queue_declare(
+                queue="job.events.queue", durable=True,
+                arguments={"x-message-ttl": 86400000},
+            )
+            infra_ch.queue_bind(exchange="job.events", queue="job.events.queue", routing_key="job.#.JOB_COMPLETED")
+            infra_ch.queue_bind(exchange="job.events", queue="job.events.queue", routing_key="job.#.JOB_FAILED")
+            infra_ch.close()
 
-            # --- Event Setup (for job completion tracking) ---
-            channel.exchange_declare(exchange="job.events", exchange_type="topic", durable=True)
-            channel.queue_declare(queue="job.events.queue", durable=True, arguments={'x-message-ttl': 86400000})
-            channel.queue_bind(exchange="job.events", queue="job.events.queue", routing_key="job.#.JOB_COMPLETED")
-            channel.queue_bind(exchange="job.events", queue="job.events.queue", routing_key="job.#.JOB_FAILED")
+            # --- One consumer channel per job category (isolated prefetch budgets) ---
+            # global_qos=False (the pika default) means the limit is per-consumer,
+            # so a saturated MODULE_E channel cannot starve CRAWLER or MODULE_C.
+            consumer_channels = []
+            for category, cfg in QUEUE_CONFIGS.items():
+                ch = connection.channel()
+                ch.basic_qos(prefetch_count=POOL_SIZE_PER_CATEGORY, global_qos=False)
+                ch.basic_consume(queue=cfg.queue, on_message_callback=on_message, auto_ack=False)
+                consumer_channels.append(ch)
 
-            channel.basic_qos(prefetch_count=POOL_SIZE_PER_CATEGORY)
+            # --- Event channel (separate — does not compete with job prefetch) ---
+            event_ch = connection.channel()
+            event_ch.basic_qos(prefetch_count=20, global_qos=False)
+            event_ch.basic_consume(queue="job.events.queue", on_message_callback=on_event_message)
+            consumer_channels.append(event_ch)
 
             logger.info("🐇 RabbitMQ worker connected. Waiting for messages...")
-            logger.info(f"📊 Queue Setup Summary:")
+            logger.info("📊 Queue Setup Summary:")
             for cat, cfg in QUEUE_CONFIGS.items():
-                logger.info(f"   ├─ {cat.upper()}: queue={cfg.queue}, exchange={cfg.exchange}")
-            logger.info(f"   └─ Event queue: job.events.queue (JOB_COMPLETED/JOB_FAILED tracking)")
-            logger.info(f"⏳ Ready to process jobs...\n")
+                logger.info(f"   ├─ {cat.upper()}: queue={cfg.queue}, prefetch={POOL_SIZE_PER_CATEGORY}")
+            logger.info("   └─ Event queue: job.events.queue (JOB_COMPLETED/JOB_FAILED)")
+            logger.info("⏳ Ready to process jobs...\n")
 
-            def on_event_message(ch, method, _properties, body) -> None:
-                try:
-                    message = json.loads(body)
-                    job_id = message.get("jobId")
-                    payload = message.get("payload", {})
-                    session_id = payload.get("sessionId")
-                    
-                    if not job_id:
-                        ch.basic_ack(delivery_tag=method.delivery_tag)
-                        return
-
-                    if not session_id:
-                         # Try to get session_id from Redis if missing in payload
-                         try:
-                             r = redis.from_url(config.REDIS_URL)
-                             job_key = f"job:{job_id}"
-                             session_id_bytes = r.hget(job_key, "sessionId")
-                             if session_id_bytes:
-                                 session_id = session_id_bytes.decode('utf-8')
-                         except Exception:
-                             pass
-                    
-                    if not session_id:
-                         logger.warning(f"Event {method.routing_key} missing session_id even after lookup")
-                         ch.basic_ack(delivery_tag=method.delivery_tag)
-                         return
-
-                    if "JOB_COMPLETED" in method.routing_key:
-                        mark_job_completed(job_id, session_id)
-                    elif "JOB_FAILED" in method.routing_key:
-                        reason = payload.get("reason", "Unknown error")
-                        mark_job_failed(job_id, session_id, reason)
-                        
-                    ch.basic_ack(delivery_tag=method.delivery_tag)
-                    
-                except Exception as e:
-                    logger.error(f"Error processing event: {e}", exc_info=True)
-                    ch.basic_ack(delivery_tag=method.delivery_tag)
-
-            channel.basic_consume(queue="job.events.queue", on_message_callback=on_event_message)
-
-            def on_message(ch, method, _properties, body) -> None:
-                try:
-                    payload = json.loads(body)
-                except Exception:
-                    logger.error("Invalid message format received; sending to DLQ")
-                    try:
-                        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
-                    except Exception:
-                        pass
-                    return
-
-                required_fields = ("sessionId", "projectId", "url")
-                missing_fields = [field for field in required_fields if field not in payload]
-                if missing_fields:
-                    logger.error(
-                        f"Missing required fields in message: {missing_fields}; routing key: {method.routing_key}"
-                    )
-                    try:
-                        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
-                    except Exception:
-                        pass
-                    return
-
-                session_id = payload["sessionId"]
-                project_id = payload["projectId"]
-                url = payload["url"]
-                job_id = payload.get("jobId") or f"job_{session_id}"
-                
-                job_type = payload.get("jobType")
-
-                session_key = f"session:{session_id}"
-                job_key = f"job:{job_id}"
-                
-                logger.info(f"\n{'='*80}")
-                logger.info(f"[QUEUE] 📨 Message received from RabbitMQ")
-                logger.info(f"[QUEUE] Session: {session_id} | Job: {job_id}")
-                logger.info(f"[QUEUE] Type: {job_type or 'CRAWL'} | URL: {url[:60]}...")
-                logger.info(f"[QUEUE] Routing key: {method.routing_key}")
-                logger.info(f"{'='*80}")
-
-                runtime_redis.hset(
-                    session_key,
-                    mapping={
-                        "status": "RECEIVED",
-                        "url": url,
-                        "projectId": project_id,
-                    },
-                )
-
-                runtime_redis.hset(
-                    job_key,
-                    mapping={
-                        "status": "RECEIVED",
-                        "sessionId": session_id,
-                        "projectId": project_id,
-                        "url": url,
-                        "jobType": job_type
-                    },
-                )
-
-                logger.info(f"[QUEUE] ⚙️  Status updated to RECEIVED in Redis")
-                logger.info(f"[QUEUE] 🚀 Submitting job to thread pool...")
-                future = executor.submit(run_job_in_worker, payload, job_type)
-
-                def when_done(f) -> None:
-                    try:
-                        f.result()
-                        logger.info(f"[RESULT] ✅ Job {job_id} completed successfully!")
-                        logger.info(f"[RESULT] 📤 Acknowledging message to RabbitMQ")
-                        action = "ack"
-                    except RetryableJobError as e:
-                        logger.error(
-                            f"[RESULT] ⚠️  Job {job_id} failed with retryable error; requeueing",
-                            exc_info=e,
-                        )
-                        action = "nack_requeue"
-                    except Exception as e:
-                        logger.error(
-                            f"[RESULT] ❌ Job {job_id} failed with non-retryable error; sending to DLQ",
-                            exc_info=e,
-                        )
-                        action = "nack_drop"
-
-                    result_queue.put((ch, method.delivery_tag, action))
-
-                future.add_done_callback(when_done)
-
-            # --- Start Consuming from All Queues ---
-            for category, cfg in QUEUE_CONFIGS.items():
-                channel.basic_consume(
-                    queue=cfg.queue,
-                    on_message_callback=on_message,
-                    auto_ack=False,
-                )
-
-            logger.info("🐇 RabbitMQ worker connected and consuming...")
-
-            while channel._consumer_infos:
+            # process_data_events dispatches callbacks from ALL channels on the
+            # connection in a single-threaded loop — no locking needed here.
+            while any(ch._consumer_infos for ch in consumer_channels):
                 connection.process_data_events(time_limit=1)
                 drain_results(connection)
         except Exception as e:
