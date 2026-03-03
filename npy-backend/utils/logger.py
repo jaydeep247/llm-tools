@@ -15,6 +15,10 @@ def configure_logger():
         datefmt="%Y-%m-%d %H:%M:%S",
         stream=sys.stdout,
     )
+    # Pin root handlers to INFO so Scrapy's root-level reset (NOTSET) doesn't expose DEBUG logs
+    for _h in logging.root.handlers:
+        if _h.level < logging.INFO:
+            _h.setLevel(logging.INFO)
 
     # Give npy-backend its own handler so Scrapy's root-logger overrides
     # (which strip the CrawlFieldsFilter and raise root level to WARNING)
@@ -33,6 +37,8 @@ def configure_logger():
     npy_logger.setLevel(logging.INFO)
     npy_logger.propagate = False  # don't bubble up to root (Scrapy-controlled)
 
+    logging.getLogger("scrapy").setLevel(logging.ERROR)
+    logging.getLogger("scrapy.core.scraper").setLevel(logging.ERROR)
     logging.getLogger("twisted").setLevel(logging.ERROR)
     logging.getLogger("pika").setLevel(logging.WARNING)
     logging.getLogger("pymongo").setLevel(logging.CRITICAL)

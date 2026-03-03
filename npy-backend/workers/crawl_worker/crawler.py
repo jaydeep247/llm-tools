@@ -69,6 +69,15 @@ def main():
 
     process = CrawlerProcess(settings=crawler_settings)
 
+    # CrawlerProcess resets root logger level to NOTSET via configure_logging().
+    # Re-apply suppression so scrapy DEBUG/INFO noise doesn't bleed into stdout.
+    import logging as _logging
+    _logging.getLogger("scrapy").setLevel(_logging.ERROR)
+    _logging.getLogger("scrapy.core.scraper").setLevel(_logging.ERROR)
+    for _h in _logging.root.handlers:
+        if _h.level < _logging.INFO:
+            _h.setLevel(_logging.INFO)
+
     # Start the spider
     crawler = process.create_crawler(WebsiteSpider)
     process.crawl(crawler, 
