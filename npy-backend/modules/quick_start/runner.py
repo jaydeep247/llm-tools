@@ -148,16 +148,17 @@ def _mark_completed(job_id: str, session_id: str) -> None:
 
 
 def _update_crawl_status(job_id: str, status: str) -> None:
-    """Write crawl_status into the quick_start document for this job.
+    """Write crawl_status into the job_summaries document for this job.
 
     Possible values: 'running' | 'completed' | 'failed' | 'cancelled'.
     This is intentionally separate from the job status so the UI can show
     'Analysis complete — crawl still in progress' while pages are still
     being indexed in the background.
+    Analysis fields (brand, competitor, ranking) live in module_e.
     """
     try:
         now = datetime.utcnow()
-        mongo_manager.module_e.update_one(
+        mongo_manager.job_summaries.update_one(
             {"jobId": job_id},
             {
                 "$set": {
@@ -171,6 +172,14 @@ def _update_crawl_status(job_id: str, status: str) -> None:
         logger.info(f"[QS] crawl_status → {status!r} for job {job_id}")
     except Exception as exc:
         logger.warning(f"[QS] Failed to write crawl_status for {job_id}: {exc}")
+
+    # Broadcast live crawl status via RabbitMQ so the Node.js consumer can
+    # push a socket event to the frontend instantly (no polling required).
+    _publish_event(job_id, "CRAWL_STATUS_UPDATED", {
+        "crawl_status": status,
+        "jobId": job_id,
+        "updatedAt": datetime.utcnow().isoformat(),
+    })
 
 def _infer_brand_name(url: str) -> str:
     """Derive a readable brand name from the URL domain."""
@@ -283,7 +292,7 @@ async def _run_competitors_and_sov(job_id: str, url: str, brand_name: str) -> Di
                 "$push": {
                     "ai_sov_history": {
                         "$each":  [sov_snapshot],
-                        "$slice": -12,          # keep last 12 snapshots
+                        "$slice": -12,
                     }
                 },
             },
@@ -328,15 +337,16 @@ def _start_crawl(
     return proc, manager, state
 
 
-async def _run_ranking(job_id: str, url: str) -> Dict[str, Any]:
+async def _run_ranking(job_id: str, url: str, html_content: str = None) -> Dict[str, Any]:
     """
     Run Ranking Analysis (Trends by Model).
-    Fetches homepage live if no crawl data exists, then uses DataForSEO
-    to check brand ranking across AI models (ChatGPT, Gemini).
-    Persists `ranking_analysis` into the same quick_start document.
+    Accepts pre-fetched homepage HTML so the S3 round-trip is skipped when
+    called in parallel with the homepage fetch task.  Falls back to live
+    fetch / S3 if html_content is not provided.
+    Persists `ranking_analysis` into module_e (single source of truth).
     """
     try:
-        result = await run_ranking_analysis(job_id=job_id, url=url, html_content=None)
+        result = await run_ranking_analysis(job_id=job_id, url=url, html_content=html_content or None)
         return result
     except Exception as exc:
         logger.error(f"[QS] Ranking analysis error: {exc}", exc_info=True)
@@ -357,19 +367,26 @@ async def run_quick_start(
     """
     Entry point consumed by queue_worker.py for MODULE_E_QUICK_START jobs.
 
-    Crawl (background, fire-and-forget):
-      • Launches the full Scrapy crawl in a subprocess — stores pages to
-        MongoDB / S3 independently, never blocks any analysis phase.
+    Execution order (optimised for minimum wall-clock time):
 
-    Phase 1 (parallel):
-      • Brand Analysis        — DataForSEO brand mentions + sentiment
-      • Competitor + AI SOV   — CompetitorAnalyzer (mentions + SOV + history)
+      Step 0 — Homepage fetch   (~1-2 s, single HTTP GET)
+        • Downloads and stores the homepage HTML in S3 so ranking analysis
+          receives real content immediately — no S3 round-trip needed.
 
-    Phase 2 (sequential, after Phase 1):
-      • Ranking Analysis      — Tries S3 HTML first; if the crawl hasn't
-                                stored it yet, falls back to live HTTP fetch.
+      Crawl   (background, fire-and-forget, parallel with everything else)
+        • Launches the full Scrapy crawl in a subprocess — stores pages to
+          MongoDB / S3 independently, never blocks any analysis phase.
 
-    All results are stored under the same `jobId` in `quick_start` so that
+      Combined phase — ALL THREE in parallel (after Step 0):
+        • Brand Analysis      — DataForSEO brand mentions + sentiment
+        • Competitor + AI SOV — CompetitorAnalyzer (mentions + SOV + history)
+        • Ranking Analysis    — DataForSEO AI model ranking across ChatGPT/Gemini
+          ↳ Receives the pre-fetched HTML directly; no additional network call.
+
+      Total analysis time ≈ max(T_brand, T_competitor, T_ranking)
+      instead of the old T_brand + T_competitor + T_ranking (sequential phases).
+
+    All results are stored under the same `jobId` in `module_e` so that
     `GET /quick-start/jobs/:jobId` resolves all four frontend sections.
     """
     mongo_manager.connect()
@@ -399,15 +416,31 @@ async def run_quick_start(
         _update_crawl_status(job_id, "failed")
 
     try:
-        # ── Phase 1: homepage fetch + brand + competitor in parallel ─────
-        logger.info("[QS] Phase 1 — homepage fetch, brand & competitor analysis running in parallel")
-        _publish_event(job_id, "QS_STEP_UPDATE", {"step": "brand_analysis", "stepStatus": "running"})
-        _publish_event(job_id, "QS_STEP_UPDATE", {"step": "competitor_analysis", "stepStatus": "running"})
+        # ── Step 0: fetch homepage fast so all three analyses get real content ──
+        # This is a single lightweight HTTP GET (~1–2 s).  Everything downstream
+        # receives the HTML directly — no S3 round-trip needed.
+        logger.info("[QS] Fetching homepage (fast path before parallel analyses)")
+        html_content = await _fetch_and_store_homepage(job_id, url)
 
-        _, brand_result, competitor_result = await asyncio.gather(
-            _fetch_and_store_homepage(job_id, url),
+        if _is_cancelled(job_id):
+            logger.info(f"[QS] Job {job_id} cancelled before analyses — aborting")
+            _update_crawl_status(job_id, "cancelled")
+            return {"job_id": job_id, "success": False, "cancelled": True}
+
+        # ── Combined Phase: brand + competitor + ranking ALL in parallel ──────
+        # Ranking does NOT depend on brand or competitor results — it only
+        # needs the URL and homepage HTML, both of which are now available.
+        # Running all three concurrently cuts total wait time from
+        #   T_brand + T_competitor + T_ranking   →   max(T_brand, T_competitor, T_ranking)
+        logger.info("[QS] Starting brand, competitor & ranking analyses in parallel")
+        _publish_event(job_id, "QS_STEP_UPDATE", {"step": "brand_analysis",      "stepStatus": "running"})
+        _publish_event(job_id, "QS_STEP_UPDATE", {"step": "competitor_analysis", "stepStatus": "running"})
+        _publish_event(job_id, "QS_STEP_UPDATE", {"step": "ranking_analysis",    "stepStatus": "running"})
+
+        brand_result, competitor_result, ranking_result = await asyncio.gather(
             _run_brand(job_id, brand_name),
             _run_competitors_and_sov(job_id, url, brand_name),
+            _run_ranking(job_id, url, html_content=html_content),  # pre-fetched HTML — no extra fetch
             return_exceptions=True,
         )
 
@@ -425,24 +458,15 @@ async def run_quick_start(
         else:
             _publish_event(job_id, "QS_STEP_UPDATE", {"step": "competitor_analysis", "stepStatus": "completed"})
 
-        if _is_cancelled(job_id):
-            logger.info(f"[QS] Job {job_id} cancelled after Phase 1 — aborting")
-            _update_crawl_status(job_id, "cancelled")
-            return {"job_id": job_id, "success": False, "cancelled": True}
-
-        # ── Phase 2: ranking analysis ────────────────────────────────────
-        logger.info("[QS] Phase 2 — ranking analysis starting")
-        _publish_event(job_id, "QS_STEP_UPDATE", {"step": "ranking_analysis", "stepStatus": "running"})
-        try:
-            ranking_result = await _run_ranking(job_id, url)
-            _publish_event(job_id, "QS_STEP_UPDATE", {"step": "ranking_analysis", "stepStatus": "completed"})
-        except Exception as exc:
-            logger.error(f"[QS] Ranking task raised: {exc}", exc_info=exc)
-            ranking_result = {"error": str(exc)}
+        if isinstance(ranking_result, Exception):
+            logger.error(f"[QS] Ranking task raised: {ranking_result}", exc_info=ranking_result)
+            ranking_result = {"error": str(ranking_result)}
             _publish_event(job_id, "QS_STEP_UPDATE", {"step": "ranking_analysis", "stepStatus": "failed"})
+        else:
+            _publish_event(job_id, "QS_STEP_UPDATE", {"step": "ranking_analysis", "stepStatus": "completed"})
 
         if _is_cancelled(job_id):
-            logger.info(f"[QS] Job {job_id} cancelled after Phase 2 — aborting, killing crawler")
+            logger.info(f"[QS] Job {job_id} cancelled after analyses — aborting, killing crawler")
             _update_crawl_status(job_id, "cancelled")
             return {"job_id": job_id, "success": False, "cancelled": True}
 

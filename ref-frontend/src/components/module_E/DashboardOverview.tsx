@@ -1,5 +1,6 @@
 'use client'
 
+import { type ReactNode } from 'react'
 import { useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
 import {
   Loader2,
@@ -21,6 +22,8 @@ interface DashboardOverviewProps {
   jobId?: string | null
   url?: string
   onNavigate?: (tab: string) => void
+  /** Optional slot rendered directly after the Brand Analysis card */
+  crawlStatusSlot?: ReactNode
 }
 
 /* ------------------------------------------------------------------ */
@@ -137,7 +140,7 @@ function SentimentBadge({ label }: { label?: string }) {
 /* ------------------------------------------------------------------ */
 /*  Main component                                                    */
 /* ------------------------------------------------------------------ */
-export default function DashboardOverview({ jobId, url, onNavigate }: DashboardOverviewProps) {
+export default function DashboardOverview({ jobId, url, onNavigate, crawlStatusSlot }: DashboardOverviewProps) {
   const { data: moduleEResponse, isLoading } = useGetModuleEResultQuery(jobId ?? '', {
     skip: !jobId,
     pollingInterval: 5000,
@@ -250,7 +253,8 @@ export default function DashboardOverview({ jobId, url, onNavigate }: DashboardO
       {/* Detail sections — compact previews */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Brand Analysis preview */}
-        <SectionCard title="Brand Analysis" onClick={() => onNavigate?.('prompt-difficulty')} >
+        <div className="flex flex-col gap-4">
+          <SectionCard title="Brand Analysis" onClick={() => onNavigate?.('prompt-difficulty')} >
           {brand ? (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -286,6 +290,8 @@ export default function DashboardOverview({ jobId, url, onNavigate }: DashboardO
             <p className="text-xs text-zinc-600">Not yet available</p>
           )}
         </SectionCard>
+          {crawlStatusSlot}
+        </div>
 
         {/* AI Share of Voice preview */}
         <SectionCard title="AI Share of Voice" onClick={() => onNavigate?.('share-of-voice')} >

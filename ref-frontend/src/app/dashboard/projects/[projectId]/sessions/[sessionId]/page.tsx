@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Clock, Globe, CheckCircle, XCircle, Loader2, AlertCircle, RefreshCw } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { CrawlLogger, DiscoveredPages, CrawlStatusHeader } from '@/components/crawl'
+import { CrawlLogger, DiscoveredPages, CrawlStatusHeader, CrawlStatusBanner } from '@/components/crawl'
 import { SessionLayout } from '@/components/layout/SessionLayout'
 import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable, AuditChecker } from '@/components/module_A'
 import { AIIntelligenceModule, ContentMetricsModule, AIVisibilityScorecards, EntityGapAnalysis, AIAnswerPreview, ImprovementActions, ModelComparison } from '@/components/module_C'
@@ -17,11 +17,12 @@ import CompetitorGrowthTrends from '@/components/module_F/CompetitorGrowthTrends
 import GapOpportunities from '@/components/module_F/GapOpportunities'
 import CompetitorCitedURLs from '@/components/module_F/CompetitorCitedURLs'
 import { useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
+import { useGetQuickStartResultQuery } from '@/store/api/quick_start/quickStartApi'
 import { useGetModuleFResultQuery } from '@/store/api/module_F/moduleFApi'
 // import { useGetDataListQuery, useCheckLinksMutation, useGetLinkStatsQuery, useLazyGetPageLinksQuery } from '@/store/api/module_A/dataApi'
 import { useGetProjectQuery } from '@/store/api/projectApi'
 import { useGetSessionQuery } from '@/store/api/sessionApi'
-import { useGetSessionJobsQuery, useGetJobPagesQuery, useGetJobLinksQuery, useGetJobSitemapsQuery, useGetJobFieldsQuery, useGetJobSiteStructureQuery, useRetryJobMutation, useGetJobSummaryQuery } from '@/store/api/jobApi'
+import { useGetSessionJobsQuery, useGetJobPagesQuery, useGetJobLinksQuery, useGetJobSitemapsQuery, useGetJobFieldsQuery, useGetJobSiteStructureQuery, useRetryJobMutation, useGetJobSummaryQuery, useGetJobSnapshotQuery } from '@/store/api/jobApi'
 import { formatDurationHHMMSSMS, formatDurationReadable } from '@/utils/formatDuration'
 
 interface LogEntry {
@@ -62,6 +63,17 @@ export default function SessionDetailPage() {
   const latestJob = sortedJobs.length > 0 ? sortedJobs[0] : null
   const jobId = latestJob?.id
 
+  // Detect Quick Start job — check BOTH type AND jobType so old records
+  // (which had type:'CRAWL' but jobType:'MODULE_E_QUICK_START') are found.
+  const quickStartJob = sortedJobs.find((j: any) => {
+    const type    = (j.type    || '').toUpperCase()
+    const jobType = (j.jobType || '').toUpperCase()
+    return (
+      type    === 'MODULE_E_QUICK_START' || type.includes('QUICK_START') ||
+      jobType === 'MODULE_E_QUICK_START' || jobType.includes('QUICK_START')
+    )
+  }) ?? null
+
   // Block access when session is not yet completed — redirect to progress page
   useEffect(() => {
     if (!session || isLoadingSession || isLoadingJobs) return
@@ -79,6 +91,61 @@ export default function SessionDetailPage() {
 
   const { data: moduleEQueryData } = useGetModuleEResultQuery(jobId || '', {
     skip: !jobId,
+    refetchOnMountOrArgChange: true,
+  })
+
+  // Quick Start crawl status — reads job_summaries.
+  // Always enabled when there is a jobId (even after analysis finishes)
+  // so that the banner shows the correct final crawl_status.
+  const qsJobId = (quickStartJob as any)?.id ?? jobId ?? ''
+  const { data: quickStartResult } = useGetQuickStartResultQuery(qsJobId, {
+    skip: !qsJobId || (searchParams.get('tab') || 'dashboard') !== 'dashboard',
+    pollingInterval: 5000,
+    refetchOnMountOrArgChange: true,
+  })
+
+  const isQuickStartSession =
+    !!(moduleEQueryData as any)?.data?.brand_analysis ||
+    !!(moduleEQueryData as any)?.data?.competitor_mentions ||
+    !!(moduleEQueryData as any)?.data?.ai_share_of_voice ||
+    !!quickStartJob ||
+    !!(quickStartResult as any)?.data
+
+  const rawCrawlStatus = (quickStartResult as any)?.data?.crawl_status ?? null
+  const bgCrawlStatus: string | null =
+    rawCrawlStatus ??
+    ((quickStartJob as any)?.status === 'RUNNING' || (quickStartJob as any)?.status === 'PENDING'
+      ? 'running'
+      : (quickStartJob as any)?.status === 'COMPLETED' ? 'completed'
+      : (quickStartJob as any)?.status === 'FAILED'    ? 'failed'
+      : latestJob?.status === 'COMPLETED'              ? 'completed'
+      : latestJob?.status === 'FAILED'                 ? 'failed'
+      : null)
+
+  // ── Snapshot for live crawl progress ──────────────────────────────────
+  // Find the crawl-type job (exclude QS jobs)
+  const crawlJob = sortedJobs.find((j: any) => {
+    const type    = (j.type    || '').toUpperCase()
+    const jobType = (j.jobType || '').toUpperCase()
+    const isQS    = type.includes('QUICK_START') || jobType.includes('QUICK_START')
+    return !isQS && (type === 'CRAWL' || jobType === 'CRAWL')
+  }) ?? (quickStartJob ? null : latestJob)
+
+  const snapshotJobId = crawlJob?.id || (quickStartJob as any)?.id || null
+  // Use rawCrawlStatus (from job_summaries) as the authoritative crawl lifecycle
+  // indicator. The QS job's MongoDB status tracks the *analysis* lifecycle, NOT
+  // the background crawl. rawCrawlStatus is updated by the Python runner's
+  // _update_crawl_status() which tracks the actual crawl subprocess.
+  const isSnapshotJobRunning =
+    rawCrawlStatus === 'running' ||
+    crawlJob?.status === 'RUNNING' || crawlJob?.status === 'PENDING' ||
+    crawlJob?.status === 'running' || crawlJob?.status === 'pending' ||
+    (quickStartJob as any)?.status === 'RUNNING' || (quickStartJob as any)?.status === 'PENDING' ||
+    (quickStartJob as any)?.status === 'running' || (quickStartJob as any)?.status === 'pending'
+
+  const { data: jobSnapshot } = useGetJobSnapshotQuery(snapshotJobId!, {
+    skip: !snapshotJobId,
+    pollingInterval: snapshotJobId ? (isSnapshotJobRunning ? 1500 : 5000) : 0,
     refetchOnMountOrArgChange: true,
   })
   
@@ -746,204 +813,41 @@ export default function SessionDetailPage() {
       <div className="p-6 space-y-6 sm:space-y-8 animate-fade-in-hero">
         {/* Dashboard Overview — top-level summary of quick_start_runner fields */}
         {activeSection === 'dashboard' && (
-          <DashboardOverview
-            jobId={jobId}
-            url={session?.startUrl || ''}
-            onNavigate={handleSectionChange}
-          />
-        )}
-
-        {/* Show Crawler Status only on crawler tab */}
-        {activeSection === 'crawler' && (
           <>
-            {/* Crawling Status Header */}
-            <CrawlStatusHeader
-              crawlStatus={crawlStatus}
-              isCrawling={isCrawling}
-              pageCount={pageCount}
-              duration={getFormattedDuration()}
-              itemsPerSecond={calculateItemsPerSecond()}
+            <DashboardOverview
+              jobId={jobId}
+              url={session?.startUrl || ''}
+              onNavigate={handleSectionChange}
+              crawlStatusSlot={
+                snapshotJobId ? (
+                  <CrawlStatusBanner
+                    jobId={snapshotJobId}
+                    initialStatus={
+                      // For QS sessions, rawCrawlStatus (from job_summaries.crawl_status)
+                      // is the source of truth for the background crawl lifecycle.
+                      // The QS job's MongoDB status tracks analysis completion, NOT
+                      // the crawl — so we must NOT use quickStartJob.status here.
+                      isQuickStartSession
+                        ? (rawCrawlStatus as 'running' | 'completed' | 'failed' | 'cancelled' | null) ?? null
+                        : isSnapshotJobRunning ? 'running'
+                          : (crawlJob?.status === 'COMPLETED' || crawlJob?.status === 'completed')
+                            ? 'completed'
+                            : (crawlJob?.status === 'FAILED' || crawlJob?.status === 'failed')
+                              ? 'failed'
+                              : null
+                    }
+                    onViewPages={() => handleSectionChange('technical-audit')}
+                    pagesCrawled={jobSnapshot?.pagesCrawled ?? 0}
+                    totalPages={100}
+                    currentUrl={
+                      jobSnapshot?.links && jobSnapshot.links.length > 0
+                        ? [...jobSnapshot.links].sort((a, b) => b.timestamp - a.timestamp)[0]?.url
+                        : session?.startUrl
+                    }
+                  />
+                ) : undefined
+              }
             />
-
-            {/* Session Info */}
-            <div className="rounded-xl p-3 sm:p-4 md:p-5 border border-white/10 bg-[#121212]">
-              <h2 className="text-base sm:text-lg md:text-xl font-bold text-white mb-3 sm:mb-4">Session Details</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
-                <div className="space-y-0.5 sm:space-y-1">
-                  <p className="text-[10px] sm:text-xs text-white/60">Session ID</p>
-                  <p className="text-xs sm:text-sm text-white font-medium">#{session.id}</p>
-                </div>
-                <div className="space-y-0.5 sm:space-y-1">
-                  <p className="text-[10px] sm:text-xs text-white/60">Project ID</p>
-                  <p className="text-xs sm:text-sm text-white font-medium">{session.projectId}</p>
-                </div>
-                <div className="space-y-0.5 sm:space-y-1">
-                  <p className="text-[10px] sm:text-xs text-white/60">Start URL</p>
-                  <p className="text-xs sm:text-sm text-white font-medium truncate">{session.startUrl}</p>
-                </div>
-                <div className="space-y-0.5 sm:space-y-1">
-                  <p className="text-[10px] sm:text-xs text-white/60">Status</p>
-                  <div className="flex items-center gap-2">
-                    <Badge className={`${getStatusColor(session.status)} text-[10px] inline-flex items-center gap-1`}>
-                      {getStatusIcon(session.status)}
-                      {session.status.toUpperCase()}
-                    </Badge>
-                    {session.status === 'failed' && jobId && (
-                      <Button
-                        onClick={handleRetry}
-                        disabled={isRetrying}
-                        size="sm"
-                        variant="outline"
-                        className="h-6 px-2 text-[10px] bg-white/10 border-white/20 hover:bg-white/20"
-                      >
-                        {isRetrying ? (
-                          <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                        ) : (
-                          <RefreshCw className="h-3 w-3 mr-1" />
-                        )}
-                        Retry
-                      </Button>
-                    )}
-                  </div>
-                </div>
-                <div className="space-y-0.5 sm:space-y-1">
-                  <p className="text-[10px] sm:text-xs text-white/60">Total Pages</p>
-                  <p className="text-xs sm:text-sm font-semibold">{totalPagesCount}</p>
-                </div>
-                {(session.completedAt || jobSummary?.session?.completed_at) && (
-                  <div className="space-y-0.5 sm:space-y-1">
-                    <p className="text-[10px] sm:text-xs text-white/60">Completed</p>
-                    <p className="text-xs sm:text-sm font-semibold">
-                      {new Date(session.completedAt || jobSummary?.session?.completed_at || '').toLocaleString()}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Crawled Pages Summary Table */}
-            <div className="rounded-xl border border-white/10 bg-[#121212] overflow-hidden">
-              <div className="bg-white/5 px-4 py-3 border-b border-white/10 flex items-center justify-between">
-                <h3 className="text-base sm:text-lg font-semibold text-white">📄 Crawled Pages ({transformedPages.length})</h3>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => refetchJobResults()}
-                  className="text-white/60 hover:text-white hover:bg-white/10"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="overflow-x-auto">
-                {isLoadingResults ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-6 w-6 animate-spin text-white/60" />
-                    <span className="ml-2 text-white/60">Loading crawled pages...</span>
-                  </div>
-                ) : transformedPages.length === 0 ? (
-                  <div className="flex items-center justify-center py-12 text-white/40">
-                    No pages crawled yet
-                  </div>
-                ) : (
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-white/10 bg-white/5">
-                        <th className="px-4 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">URL</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">Status</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">Title</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">Words</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">Response</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-white/60 uppercase tracking-wider">Depth</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                      {transformedPages.slice(0, 6).map((page: any, idx: number) => {
-                        const responseTime = page.responseTime || page.response_time || 0;
-                        const wordCount = page.wordCount || page.word_count || 0;
-                        const crawlDepth = page.crawlDepth || page.crawl_depth || 0;
-                        
-                        return (
-                          <tr key={page.id || idx} className="hover:bg-white/5 transition-colors">
-                            <td className="px-4 py-3">
-                              <a 
-                                href={page.url} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="text-blue-400 hover:text-blue-300 text-sm truncate max-w-75 block"
-                                title={page.url}
-                              >
-                                {page.url?.length > 50 ? page.url.substring(0, 50) + '...' : page.url}
-                              </a>
-                            </td>
-                            <td className="px-4 py-3">
-                              <Badge className={`text-xs ${
-                                page.statusCode >= 200 && page.statusCode < 300 
-                                  ? 'bg-green-500/20 text-green-300 border-green-500/30' 
-                                  : page.statusCode >= 300 && page.statusCode < 400
-                                  ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
-                                  : 'bg-red-500/20 text-red-300 border-red-500/30'
-                              }`}>
-                                {page.statusCode || 'N/A'}
-                              </Badge>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-white/80 truncate max-w-50" title={page.title}>
-                              {page.title?.length > 40 ? page.title.substring(0, 40) + '...' : page.title || '-'}
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className={`text-sm px-2 py-0.5 rounded ${
-                                wordCount > 1000 
-                                  ? 'bg-green-500/15 text-green-300' 
-                                  : wordCount > 300 
-                                  ? 'bg-blue-500/15 text-blue-300'
-                                  : 'bg-orange-500/15 text-orange-300'
-                              }`}>
-                                {wordCount.toLocaleString()}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className={`text-sm px-2 py-0.5 rounded ${
-                                responseTime > 0 && responseTime < 500 
-                                  ? 'bg-green-500/15 text-green-300' 
-                                  : responseTime >= 500 && responseTime < 1000 
-                                  ? 'bg-yellow-500/15 text-yellow-300'
-                                  : responseTime >= 1000
-                                  ? 'bg-red-500/15 text-red-300'
-                                  : 'text-white/40'
-                              }`}>
-                                {responseTime > 0 ? `${responseTime}ms` : '-'}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className={`text-sm px-2 py-0.5 rounded ${
-                                crawlDepth === 0 
-                                  ? 'bg-purple-500/15 text-purple-300' 
-                                  : crawlDepth <= 2 
-                                  ? 'bg-blue-500/15 text-blue-300'
-                                  : 'bg-white/10 text-white/60'
-                              }`}>
-                                {crawlDepth}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                )}
-                {transformedPages.length > 6 && (
-                  <div className="px-4 py-3 border-t border-white/10 text-center">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleSectionChange('crawled-data')}
-                      className="text-blue-400 hover:text-blue-300 hover:bg-white/5"
-                    >
-                      View all {transformedPages.length} pages →
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
           </>
         )}
 

@@ -54,7 +54,36 @@ class MongoManager:
             self._db.sitemaps.create_index("jobId")
             self._db.fields.create_index("jobId")
             self._db.fields.create_index([("jobId", 1), ("url", 1)])
-            self._db.job_summaries.create_index("jobId")
+            # job_summaries: unique+sparse index on jobId.
+            # An older non-unique index with the same auto-generated name
+            # ("jobId_1") may exist from a previous deployment.  MongoDB
+            # rejects create_index when the name matches but the spec differs
+            # (code 86 IndexKeySpecsConflict), so we drop the stale index
+            # first and then recreate with the correct options.
+            try:
+                self._db.job_summaries.create_index(
+                    "jobId",
+                    unique=True,
+                    sparse=True,
+                )
+            except Exception as idx_err:
+                from pymongo.errors import OperationFailure
+                if isinstance(idx_err, OperationFailure) and idx_err.code == 86:
+                    logger.warning(
+                        "job_summaries.jobId_1 index spec conflict — dropping stale "
+                        "index and recreating with unique+sparse options."
+                    )
+                    try:
+                        self._db.job_summaries.drop_index("jobId_1")
+                    except Exception:
+                        pass
+                    self._db.job_summaries.create_index(
+                        "jobId",
+                        unique=True,
+                        sparse=True,
+                    )
+                else:
+                    raise
             self._db.module_e.create_index("jobId", unique=True)
             self._db.module_f.create_index("jobId", unique=True)
             self._db.aeo_analysis.create_index("jobId")

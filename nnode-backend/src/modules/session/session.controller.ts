@@ -33,7 +33,7 @@ export class SessionController {
       // Create crawl job
       const resolvedModules = modules && modules.length > 0 ? modules : [];
 
-      await this.jobService.createJob(session.id, userId, {
+      await this.jobService.createJob(userId, session.id, {
         url,
         jobType: JobType.CRAWL,
         config: {

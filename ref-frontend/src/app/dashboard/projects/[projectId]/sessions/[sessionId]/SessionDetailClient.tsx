@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Clock, Globe, CheckCircle, XCircle, Loader2, AlertCircle, RefreshCw } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { CrawlLogger, DiscoveredPages, CrawlStatusHeader } from '@/components/crawl'
+import { CrawlLogger, DiscoveredPages, CrawlStatusHeader, CrawlStatusBanner } from '@/components/crawl'
 import { SessionLayout } from '@/components/layout/SessionLayout'
 import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable, AuditChecker } from '@/components/module_A'
 import { AIIntelligenceModule, ContentMetricsModule } from '@/components/module_C'
@@ -52,16 +52,28 @@ export default function SessionDetailClient() {
   const latestJob = jobs.length > 0 ? jobs[0] : null
   const jobId = latestJob?.id
 
-  // Find the CRAWL-type job specifically — crawl status and crawl-page data
-  // are independent of other job types (MODULE_C, MODULE_E, etc.)
-  const crawlJob = jobs.find((j: any) => j.type === 'CRAWL' || j.jobType === 'CRAWL') ?? latestJob
-  const crawlJobId = crawlJob?.id
+  // Find the Quick Start job — check BOTH type AND jobType fields so that
+  // sessions created before the type-mirror fix (which had type:'CRAWL' but
+  // jobType:'MODULE_E_QUICK_START') are still detected correctly.
+  const quickStartJob = jobs.find((j: any) => {
+    const type    = (j.type    || '').toUpperCase()
+    const jobType = (j.jobType || '').toUpperCase()
+    return (
+      type    === 'MODULE_E_QUICK_START' || type.includes('QUICK_START') ||
+      jobType === 'MODULE_E_QUICK_START' || jobType.includes('QUICK_START')
+    )
+  }) ?? null
 
-  // Find the Quick Start job — its background crawl runs independently of the
-  // analysis phases and is tracked via `crawl_status` in the job_summaries collection.
-  const quickStartJob = jobs.find(
-    (j: any) => j.type === 'MODULE_E_QUICK_START' || j.jobType === 'MODULE_E_QUICK_START'
-  ) ?? null
+  // Find the CRAWL-type job specifically — crawl status and crawl-page data
+  // are independent of other job types (MODULE_C, MODULE_E, etc.).
+  // Explicitly exclude Quick Start jobs even if they carry type:'CRAWL' in old data.
+  const crawlJob = jobs.find((j: any) => {
+    const type    = (j.type    || '').toUpperCase()
+    const jobType = (j.jobType || '').toUpperCase()
+    const isQS    = type.includes('QUICK_START') || jobType.includes('QUICK_START')
+    return !isQS && (type === 'CRAWL' || jobType === 'CRAWL')
+  }) ?? (quickStartJob ? null : latestJob)
+  const crawlJobId = crawlJob?.id
   const quickStartJobId = quickStartJob?.id ?? null
 
   // Check job status and redirect to progress page if job is running
@@ -94,6 +106,13 @@ export default function SessionDetailClient() {
     crawlJob?.status === 'running' ||
     crawlJob?.status === 'pending'
 
+  // Quick-start job running state (needed for snapshot polling when crawlJob is null)
+  const isQsJobRunning =
+    quickStartJob?.status === 'RUNNING' ||
+    quickStartJob?.status === 'PENDING' ||
+    quickStartJob?.status === 'running' ||
+    quickStartJob?.status === 'pending'
+
   // For polling of results: also re-poll while the session says it's active
   const isSessionRunning = session?.status === 'running' || session?.status === 'auditing'
   const shouldPollResults = isJobRunning || isCrawlJobRunning || isSessionRunning
@@ -106,12 +125,13 @@ export default function SessionDetailClient() {
   const { data: jobSummary } = useGetJobSummaryQuery(jobId!, { skip: skipResults, refetchOnMountOrArgChange: true, pollingInterval: shouldPollResults ? 3000 : 0 })
   
   // Real-time snapshot — poll the CRAWL job's snapshot specifically.
-  // Crawl status (from Redis) is independent of other job types.
-  // Always poll when there is a crawlJobId so the ticker works regardless of session status.
-  // Faster interval (1.5 s) while crawl job is running, slower (5 s) otherwise.
-  const { data: jobSnapshot } = useGetJobSnapshotQuery(crawlJobId!, { 
-    skip: !crawlJobId, 
-    pollingInterval: crawlJobId ? (isCrawlJobRunning ? 1500 : 5000) : 0,
+  // For quick-start sessions crawlJobId is null; fall back to quickStartJobId
+  // so the banner still receives live pagesCrawled data.
+  const snapshotJobId = crawlJobId || quickStartJobId
+  const isSnapshotJobRunning = isCrawlJobRunning || isQsJobRunning
+  const { data: jobSnapshot } = useGetJobSnapshotQuery(snapshotJobId!, { 
+    skip: !snapshotJobId, 
+    pollingInterval: snapshotJobId ? (isSnapshotJobRunning ? 1500 : 5000) : 0,
     refetchOnMountOrArgChange: true,
   })
 
@@ -150,24 +170,75 @@ export default function SessionDetailClient() {
     refetchOnMountOrArgChange: true,
   })
 
-  // Poll Quick Start result on the dashboard tab to track background crawl status.
-  // crawl_status transitions: running → completed | failed | cancelled
-  // Use a separate flag to stop polling once the crawl is no longer running.
+  // ── Quick-start session detection ─────────────────────────────────────
+  // Fetch Module E data on the DASHBOARD tab to reliably detect whether
+  // this is a quick-start session.  DashboardOverview already shows this
+  // data, so it proves a module_e document exists for this job.
+  // Using /module-e/jobs/:jobId (NOT /quick-start/jobs) because that
+  // endpoint does NOT require crawl_status to exist — it just checks if
+  // any brand/competitor/sov data was written by the quick-start runner.
+  const { data: dashboardModuleEData } = useGetModuleEResultQuery(jobId ?? '', {
+    skip: !jobId || activeSection !== 'dashboard',
+    pollingInterval: 0,
+    refetchOnMountOrArgChange: true,
+  })
+
+  // Poll crawl_status from /quick-start/jobs — reads job_summaries in addition
+  // to module_e.  Always fetch when there is a jobId so that crawl_status is
+  // available for both isQuickStartSession detection and the banner.
   const [qsPollingActive, setQsPollingActive] = useState(true)
-  const { data: quickStartResult } = useGetQuickStartResultQuery(quickStartJobId ?? '', {
-    skip: !quickStartJobId || activeSection !== 'dashboard',
+  // Use quickStartJob.id if found (guarantees correct jobId); fall back to latestJob.
+  const qsQueryJobId = quickStartJob?.id ?? jobId ?? ''
+  const { data: quickStartResult } = useGetQuickStartResultQuery(qsQueryJobId, {
+    skip: !qsQueryJobId || activeSection !== 'dashboard',
     pollingInterval: qsPollingActive ? 3000 : 0,
     refetchOnMountOrArgChange: true,
   })
-  const bgCrawlStatus = quickStartResult?.data?.crawl_status ?? null
 
-  // Stop polling once the background crawl finishes (completed | failed | cancelled)
+  // A session is a quick-start session when module_e has data for this jobId,
+  // OR when we can identify the job type from the jobs list,
+  // OR when the quick-start API already returns a crawl_status record (the
+  // repository now returns data as soon as job_summaries is written — before
+  // the module_e analysis document exists).
+  const isQuickStartSession =
+    !!(dashboardModuleEData?.data?.brand_analysis ||
+       dashboardModuleEData?.data?.competitor_mentions ||
+       dashboardModuleEData?.data?.ai_share_of_voice) ||
+    !!quickStartJob ||
+    !!quickStartResult?.data
+
+  // Derive crawl status: prefer explicit field from job_summaries;
+  // fall back to inferred state from job status so the banner always shows.
+  const rawCrawlStatus = quickStartResult?.data?.crawl_status ?? null
+  const inferredCrawlStatus: string | null =
+    rawCrawlStatus ??
+    // Infer 'running' while the analysis job is still in progress — the
+    // background crawl is always launched first so it will always be running.
+    (quickStartJob?.status === 'RUNNING' || quickStartJob?.status === 'PENDING' ||
+     quickStartJob?.status === 'running' || quickStartJob?.status === 'pending'
+      ? 'running'
+      : quickStartJob?.status === 'COMPLETED' || quickStartJob?.status === 'completed'
+      ? 'completed'
+      : quickStartJob?.status === 'FAILED' || quickStartJob?.status === 'failed'
+      ? 'failed'
+      : latestJob?.status === 'COMPLETED' || latestJob?.status === 'completed'
+      ? 'completed'
+      : latestJob?.status === 'FAILED' || latestJob?.status === 'failed'
+      ? 'failed'
+      : null)
+  const bgCrawlStatus = inferredCrawlStatus
+
+  // Stop polling ONLY when the explicit crawl_status from the API (rawCrawlStatus)
+  // reaches a terminal value.  Using inferredCrawlStatus / bgCrawlStatus here is
+  // dangerous: once the analysis job finishes (status → COMPLETED), the inferred
+  // status jumps to 'completed' before the poll has had a chance to read the real
+  // crawl_status:'running' from job_summaries — permanently killing the poller.
   useEffect(() => {
-    if (bgCrawlStatus && bgCrawlStatus !== 'running') {
+    if (rawCrawlStatus && rawCrawlStatus !== 'running') {
       setQsPollingActive(false)
     }
-  }, [bgCrawlStatus])
-  
+  }, [rawCrawlStatus])
+
   // Unified data transformation
   const rawPages = pagesResult?.data || []
   
@@ -884,175 +955,39 @@ export default function SessionDetailClient() {
                 )
               }
 
-              // ── No job yet — nothing to show ──────────────────────────────
-              if (!crawlJobId) return null
-
-              // ── Live / queued state ────────────────────────────────────────
-              return (
-                <div className="rounded-2xl border border-zinc-800 bg-[#0D0D10] overflow-hidden">
-                  {/* Header */}
-                  <div className="flex items-center justify-between px-5 py-3.5 border-b border-zinc-800/60">
-                    <div className="flex items-center gap-2.5">
-                      {crawlActive ? (
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                        </span>
-                      ) : (
-                        <span className="h-2 w-2 rounded-full bg-amber-500/60" />
-                      )}
-                      <span className="text-sm font-semibold text-white">
-                        {crawlActive ? 'Crawling in progress' : 'Crawl queued'}
-                      </span>
-                      {crawlActive && (
-                        <span className="text-[10px] text-emerald-400 font-medium bg-emerald-500/10 px-2 py-0.5 rounded-full animate-pulse">
-                          LIVE
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      {displayPageCount > 0 && (
-                        <span className="text-[11px] text-zinc-400">
-                          <span className="font-semibold text-white">{displayPageCount}</span> pages crawled
-                        </span>
-                      )}
-                      <button
-                        onClick={() => handleSectionChange('crawler')}
-                        className="text-[11px] text-zinc-400 hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
-                      >
-                        Full view <Globe className="h-3 w-3" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* URL Feed */}
-                  <div className="divide-y divide-zinc-800/40 max-h-56 overflow-y-auto overflow-x-hidden">
-                    {crawledPages.length > 0 ? (
-                      [...crawledPages]
-                        .sort((a, b) => b.timestamp - a.timestamp)
-                        .slice(0, 50)
-                        .map((page, idx) => (
-                          <div
-                            key={`${page.url}-${idx}`}
-                            className="flex items-center gap-2.5 px-5 py-2 hover:bg-zinc-800/30 transition-colors group"
-                          >
-                            {idx === 0 && crawlActive ? (
-                              <span className="relative flex h-1.5 w-1.5 shrink-0">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
-                              </span>
-                            ) : (
-                              <span className="h-1.5 w-1.5 rounded-full bg-zinc-600 shrink-0" />
-                            )}
-                            <Globe className="h-3 w-3 text-zinc-500 shrink-0" />
-                            <span className="text-xs text-zinc-300 font-mono truncate leading-none flex-1">{page.url}</span>
-                            <a
-                              href={page.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="opacity-0 group-hover:opacity-100 transition-opacity text-zinc-500 hover:text-zinc-300 shrink-0"
-                              onClick={e => e.stopPropagation()}
-                            >
-                              <CheckCircle className="h-3.5 w-3.5" />
-                            </a>
-                          </div>
-                        ))
-                    ) : (
-                      <div className="flex items-center gap-2 px-5 py-5">
-                        {crawlActive ? (
-                          <>
-                            <Loader2 className="h-3.5 w-3.5 text-zinc-600 animate-spin shrink-0" />
-                            <span className="text-xs text-zinc-500">Crawl started — waiting for first pages…</span>
-                          </>
-                        ) : (
-                          <>
-                            <Loader2 className="h-3.5 w-3.5 text-amber-500/60 animate-pulse shrink-0" />
-                            <span className="text-xs text-zinc-500">Crawl queued — waiting to start…</span>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Footer */}
-                  <div className="px-5 py-2 border-t border-zinc-800/60 flex items-center justify-between">
-                    <span className="text-[10px] text-zinc-500">
-                      {crawledPages.length > 0
-                        ? `${crawledPages.length} URL${crawledPages.length !== 1 ? 's' : ''} discovered${crawledPages.length > 50 ? ' · showing latest 50' : ''}`
-                        : 'Snapshot updates every 1.5 s while crawling'}
-                    </span>
-                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${crawlActive ? 'text-emerald-400 bg-emerald-500/10' : 'text-amber-400 bg-amber-500/10'}`}>
-                      {crawlActive ? 'running' : 'queued'}
-                    </span>
-                  </div>
-                </div>
-              )
+              // Live / queued state — handled by CrawlStatusBanner under Brand Analysis
+              return null
             })()}
-
-            {/* ── Quick Start background crawl status banner ───────────────────── */}
-            {/* Shown on the dashboard tab when the session was started via the    */}
-            {/* Quick Start flow. The analysis finishes fast; the Scrapy crawl     */}
-            {/* keeps running in the background and is tracked by crawl_status.    */}
-            {quickStartJobId && bgCrawlStatus && (
-              <div
-                className={`rounded-2xl border overflow-hidden ${
-                  bgCrawlStatus === 'running'
-                    ? 'border-amber-500/20 bg-[#0D0D10]'
-                    : bgCrawlStatus === 'completed'
-                    ? 'border-emerald-500/20 bg-[#0D0D10]'
-                    : 'border-zinc-700/40 bg-[#0D0D10]'
-                }`}
-              >
-                <div className="flex items-center justify-between px-5 py-3.5">
-                  <div className="flex items-center gap-2.5">
-                    {bgCrawlStatus === 'running' ? (
-                      <>
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
-                        </span>
-                        <span className="text-sm font-semibold text-white">Background crawl in progress</span>
-                        <span className="text-[10px] text-amber-400 font-medium bg-amber-500/10 px-2 py-0.5 rounded-full animate-pulse">
-                          LIVE
-                        </span>
-                      </>
-                    ) : bgCrawlStatus === 'completed' ? (
-                      <>
-                        <CheckCircle className="h-4 w-4 text-emerald-400 shrink-0" />
-                        <span className="text-sm font-semibold text-white">Background crawl complete</span>
-                        <span className="text-[10px] text-zinc-400 bg-zinc-700/40 px-2 py-0.5 rounded-full">done</span>
-                      </>
-                    ) : (
-                      <>
-                        <AlertCircle className="h-4 w-4 text-zinc-500 shrink-0" />
-                        <span className="text-sm font-semibold text-zinc-400">
-                          Background crawl {bgCrawlStatus}
-                        </span>
-                      </>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => handleSectionChange('crawler')}
-                    className="text-[11px] text-zinc-400 hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
-                  >
-                    View pages <Globe className="h-3 w-3" />
-                  </button>
-                </div>
-                {bgCrawlStatus === 'running' && (
-                  <div className="px-5 py-2 border-t border-zinc-800/60">
-                    <p className="text-[11px] text-zinc-500">
-                      Scrapy is indexing pages in the background — analysis results are already available above.
-                      The crawler will finish independently and results will update automatically.
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
 
             <DashboardOverview
               jobId={jobId}
               url={session?.startUrl || ''}
               onNavigate={handleSectionChange}
+              crawlStatusSlot={
+                (snapshotJobId) ? (
+                  <CrawlStatusBanner
+                    jobId={snapshotJobId}
+                    initialStatus={
+                      isSnapshotJobRunning ? 'running'
+                        : (crawlJob?.status === 'COMPLETED' || crawlJob?.status === 'completed' ||
+                           quickStartJob?.status === 'COMPLETED' || quickStartJob?.status === 'completed')
+                          ? 'completed'
+                          : (crawlJob?.status === 'FAILED' || crawlJob?.status === 'failed' ||
+                             quickStartJob?.status === 'FAILED' || quickStartJob?.status === 'failed')
+                            ? 'failed'
+                            : (bgCrawlStatus as any) ?? null
+                    }
+                    onViewPages={() => handleSectionChange('crawler')}
+                    pagesCrawled={jobSnapshot?.pagesCrawled ?? 0}
+                    totalPages={100}
+                    currentUrl={
+                      jobSnapshot?.links && jobSnapshot.links.length > 0
+                        ? [...jobSnapshot.links].sort((a, b) => b.timestamp - a.timestamp)[0]?.url
+                        : session?.startUrl
+                    }
+                  />
+                ) : undefined
+              }
             />
           </>
         )}
@@ -1357,6 +1292,31 @@ export default function SessionDetailClient() {
             <div className="rounded-2xl p-6 border border-zinc-800 bg-[#111113]">
               <BrandAnalysisSection jobId={jobId} />
             </div>
+
+            {/* Live Crawl Progress — shown only while the crawl job is running */}
+            {snapshotJobId && (
+              <CrawlStatusBanner
+                jobId={snapshotJobId}
+                initialStatus={
+                  isSnapshotJobRunning ? 'running'
+                    : (crawlJob?.status === 'COMPLETED' || crawlJob?.status === 'completed' ||
+                       quickStartJob?.status === 'COMPLETED' || quickStartJob?.status === 'completed')
+                      ? 'completed'
+                      : (crawlJob?.status === 'FAILED' || crawlJob?.status === 'failed' ||
+                         quickStartJob?.status === 'FAILED' || quickStartJob?.status === 'failed')
+                        ? 'failed'
+                        : (bgCrawlStatus as any) ?? null
+                }
+                onViewPages={() => handleSectionChange('crawler')}
+                pagesCrawled={jobSnapshot?.pagesCrawled ?? 0}
+                totalPages={100}
+                currentUrl={
+                  jobSnapshot?.links && jobSnapshot.links.length > 0
+                    ? [...jobSnapshot.links].sort((a, b) => b.timestamp - a.timestamp)[0]?.url
+                    : session?.startUrl
+                }
+              />
+            )}
 
             {/* AI Share of Voice */}
             <div className="rounded-2xl p-6 border border-zinc-800 bg-[#111113]">

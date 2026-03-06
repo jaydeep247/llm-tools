@@ -3,48 +3,82 @@ import { connectToMongo } from '../../config/mongo';
 import type { QuickStartResult } from './quickStart.types';
 import { logger } from '../../shared/logger/logger';
 
-type QuickStartDocument = WithId<Document> & {
+type ModuleEDocument = WithId<Document> & {
   jobId: string;
   brand_analysis?: QuickStartResult['brand_analysis'];
   competitor_mentions?: QuickStartResult['competitor_mentions'];
   ai_share_of_voice?: QuickStartResult['ai_share_of_voice'];
   ai_sov_history?: QuickStartResult['ai_sov_history'];
   ranking_analysis?: QuickStartResult['ranking_analysis'];
-  crawl_status?: QuickStartResult['crawl_status'];
-  crawlUpdatedAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
 };
 
+type JobSummaryDocument = WithId<Document> & {
+  jobId: string;
+  crawl_status?: QuickStartResult['crawl_status'];
+  crawlUpdatedAt?: Date;
+};
+
 export class QuickStartRepository {
-  private async getCollection() {
+  private async getModuleECollection() {
     const db = await connectToMongo();
-    return db.collection<QuickStartDocument>('job_summaries');
+    return db.collection<ModuleEDocument>('module_e');
   }
 
-  private toQuickStartResult(doc: QuickStartDocument): QuickStartResult {
+  private async getJobSummariesCollection() {
+    const db = await connectToMongo();
+    return db.collection<JobSummaryDocument>('job_summaries');
+  }
+
+  private toQuickStartResult(
+    analysisDoc: ModuleEDocument,
+    summaryDoc: JobSummaryDocument | null,
+  ): QuickStartResult {
     return {
-      jobId: doc.jobId,
-      brand_analysis: doc.brand_analysis,
-      competitor_mentions: doc.competitor_mentions,
-      ai_share_of_voice: doc.ai_share_of_voice,
-      ai_sov_history: doc.ai_sov_history,
-      ranking_analysis: doc.ranking_analysis,
-      crawl_status: doc.crawl_status,
-      crawlUpdatedAt: doc.crawlUpdatedAt ? doc.crawlUpdatedAt.toISOString() : undefined,
-      createdAt: doc.createdAt ? doc.createdAt.toISOString() : undefined,
-      updatedAt: doc.updatedAt ? doc.updatedAt.toISOString() : undefined,
+      jobId: analysisDoc.jobId,
+      brand_analysis: analysisDoc.brand_analysis,
+      competitor_mentions: analysisDoc.competitor_mentions,
+      ai_share_of_voice: analysisDoc.ai_share_of_voice,
+      ai_sov_history: analysisDoc.ai_sov_history,
+      ranking_analysis: analysisDoc.ranking_analysis,
+      // crawl_status lives in job_summaries
+      crawl_status: summaryDoc?.crawl_status,
+      crawlUpdatedAt: summaryDoc?.crawlUpdatedAt ? summaryDoc.crawlUpdatedAt.toISOString() : undefined,
+      createdAt: analysisDoc.createdAt ? analysisDoc.createdAt.toISOString() : undefined,
+      updatedAt: analysisDoc.updatedAt ? analysisDoc.updatedAt.toISOString() : undefined,
     };
   }
 
   /**
-   * Get Quick Start result by job ID
+   * Get Quick Start result by job ID.
+   * Analysis fields come from module_e; crawl_status comes from job_summaries.
    */
   async getByJobId(jobId: string): Promise<QuickStartResult | null> {
     try {
-      const collection = await this.getCollection();
-      const doc = await collection.findOne({ jobId });
-      return doc ? this.toQuickStartResult(doc) : null;
+      const [moduleECol, summariesCol] = await Promise.all([
+        this.getModuleECollection(),
+        this.getJobSummariesCollection(),
+      ]);
+      const [analysisDoc, summaryDoc] = await Promise.all([
+        moduleECol.findOne({ jobId }),
+        summariesCol.findOne({ jobId }),
+      ]);
+      // Return a minimal result with crawl_status even before the analysis
+      // document exists — the background crawl writes crawl_status immediately
+      // (via _update_crawl_status in runner.py) whereas the module_e document
+      // is only written once the analysis phases complete (~60 s later).
+      // Without this, the frontend never sees crawl_status:'running' during
+      // the early phase and the CrawlStatusBanner stays hidden.
+      if (!analysisDoc) {
+        if (!summaryDoc?.crawl_status) return null;
+        return {
+          jobId,
+          crawl_status: summaryDoc.crawl_status,
+          crawlUpdatedAt: summaryDoc.crawlUpdatedAt ? summaryDoc.crawlUpdatedAt.toISOString() : undefined,
+        } as QuickStartResult;
+      }
+      return this.toQuickStartResult(analysisDoc, summaryDoc);
     } catch (error) {
       logger.error('Failed to get Quick Start result', { jobId, error });
       throw error;
@@ -52,13 +86,19 @@ export class QuickStartRepository {
   }
 
   /**
-   * Delete Quick Start result by job ID
+   * Delete Quick Start result by job ID (clears both collections).
    */
   async deleteByJobId(jobId: string): Promise<boolean> {
     try {
-      const collection = await this.getCollection();
-      const result = await collection.deleteOne({ jobId });
-      return result.deletedCount > 0;
+      const [moduleECol, summariesCol] = await Promise.all([
+        this.getModuleECollection(),
+        this.getJobSummariesCollection(),
+      ]);
+      const [eResult] = await Promise.all([
+        moduleECol.deleteOne({ jobId }),
+        summariesCol.deleteOne({ jobId }),
+      ]);
+      return eResult.deletedCount > 0;
     } catch (error) {
       logger.error('Failed to delete Quick Start result', { jobId, error });
       throw error;

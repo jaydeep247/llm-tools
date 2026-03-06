@@ -24,10 +24,12 @@ class JsonStoragePipeline:
         """Initialize when spider opens"""
         self.session_id = getattr(spider, 'session_id', None)
         if not self.session_id:
-            # Generate a default session ID if not provided (e.g. distributed crawl)
+            # Generate a default session ID for local JSON storage only.
+            # Do NOT write this back to spider.session_id: MongoPipeline reads
+            # that attribute in its own open_spider and would inherit the
+            # auto-generated value, causing job_summary documents to be written
+            # with jobId: null and a fake crawl_YYYYMMDD_HHMMSS session_id.
             self.session_id = f"crawl_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-            # Set it back to spider for consistency
-            spider.session_id = self.session_id
             
         self.session_path = os.path.join(self.base_path, self.session_id)
         os.makedirs(self.session_path, exist_ok=True)

@@ -18,7 +18,9 @@ export class JobRepository {
       runAudits: data.runAudits,
       auditDevice: data.auditDevice,
       captureLinkDetails: data.captureLinkDetails,
-      type: data.type ?? data.jobType ?? JobType.CRAWL,
+      // `type` is a legacy alias — always mirror `jobType` so the two fields
+      // are never out of sync (e.g. type:'CRAWL' on a MODULE_E_QUICK_START job).
+      type: data.jobType,
       schemaType: data.schemaType ?? null,
       status: JobStatus.PENDING,
       createdAt: now,
@@ -106,6 +108,8 @@ export class JobRepository {
         db.collection('module_e').deleteMany({ jobId: { $in: jobIds } }),
         db.collection('content_metrics').deleteMany({ jobId: { $in: jobIds } }),
         db.collection('schemas').deleteMany({ jobId: { $in: jobIds } }),
+        // job_summaries stores crawl_status for Quick Start jobs — must be cleaned up
+        db.collection('job_summaries').deleteMany({ jobId: { $in: jobIds } }),
         // Clean up Redis keys for every job
         ...jobIds.map(id => LiveJobService.cleanupJob(id)),
       ]);

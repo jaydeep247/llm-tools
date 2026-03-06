@@ -9,6 +9,8 @@ export const createJobSchema = z.object({
   runAudits: z.boolean().optional(),
   auditDevice: z.enum(['mobile', 'desktop']).optional(),
   captureLinkDetails: z.boolean().optional(),
-  type: z.nativeEnum(JobType).default(JobType.CRAWL),
+  // `type` is a legacy alias for `jobType` — never default it to CRAWL so that
+  // it doesn't override the actual jobType written by the frontend.
+  type: z.nativeEnum(JobType).optional(),
   schemaType: z.string().optional(),
 });

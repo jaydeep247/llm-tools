@@ -127,7 +127,10 @@ class WebsiteSpider(RedisSpider):
         
         # Crawl metadata
         self.crawl_started_at = None
-        self.crawl_started_timestamp = None
+        # Set at __init__ time (not start_requests) so the spider_idle grace period
+        # always applies — even in distributed mode where start_requests may never
+        # set this when the Redis queue is already empty on startup.
+        self.crawl_started_timestamp = datetime.now().timestamp()
         self.pages_crawled = 0
         self.links_collected = 0
         self.scheduled_count = 0  # 7.4 Crawl Progress Tracking
@@ -164,12 +167,22 @@ class WebsiteSpider(RedisSpider):
         """Handle dropped request (e.g. filtered by dupefilter)"""
         self.skipped_count += 1
 
+    @property
+    def _effective_max_pages(self) -> int:
+        """Resolve the crawl page limit from spider arg or scrapy CLOSESPIDER_PAGECOUNT setting."""
+        if self.max_pages and self.max_pages > 0:
+            return self.max_pages
+        try:
+            return int(self.crawler.settings.get('CLOSESPIDER_PAGECOUNT', 0))
+        except Exception:
+            return 0
+
     def spider_closed(self, spider, reason):
-        logger.info(f"🕷️ SPIDER_CLOSED signal received for {self.job_id}. Reason: {reason}")
+        logger.debug(f"🕷️ SPIDER_CLOSED signal received for {self.job_id}. Reason: {reason}")
         if not self.job_id:
             return
         if self.suppress_completion_events:
-            logger.info(f"🕷️ Skipping JOB_COMPLETED event for {self.job_id} (background crawl, suppress_completion_events=True)")
+            logger.debug(f"🕷️ Skipping JOB_COMPLETED event for {self.job_id} (background crawl, suppress_completion_events=True)")
             return
 
         # Determine status based on reason
@@ -203,25 +216,34 @@ class WebsiteSpider(RedisSpider):
 
     def spider_idle(self, spider):
         """Force close if idle and no requests (failsafe for SCHEDULER_IDLE_BEFORE_CLOSE)"""
-        # Grace period: Wait at least 10s after start to allow initial requests to queue
-        if self.crawl_started_timestamp:
-            elapsed = datetime.now().timestamp() - self.crawl_started_timestamp
-            if elapsed < 10:
-                raise DontCloseSpider
+        # Grace period: Wait at least 10s after start to allow initial requests to queue.
+        # crawl_started_timestamp is always set in __init__ so this guard always fires.
+        elapsed = datetime.now().timestamp() - self.crawl_started_timestamp
+        if elapsed < 10:
+            raise DontCloseSpider
 
-        # Check if queue is empty.
-        # Access the scheduler safely via the engine slot — self.scheduler is not
-        # automatically set by scrapy_redis and raises AttributeError if used directly.
-        redis_queue_empty = not self.server.exists(self.redis_key)
+        # Engine slot not yet assigned means no request has been processed yet (e.g. the
+        # Redis queue was empty at startup and the Twisted reactor called _next_request
+        # before open_spider completed).  Calling close_spider() in this state triggers
+        # engine.spider_is_idle() which raises RuntimeError("Engine slot not assigned").
+        # Raise DontCloseSpider instead and let SCHEDULER_IDLE_BEFORE_CLOSE handle shutdown.
         try:
             slot = self.crawler.engine.slot
+            if slot is None:
+                raise DontCloseSpider
             scheduler = getattr(slot, 'scheduler', None)
             has_pending = bool(scheduler and scheduler.has_pending_requests())
+        except DontCloseSpider:
+            raise
         except Exception:
-            has_pending = False
+            # Slot not ready — defer closure to SCHEDULER_IDLE_BEFORE_CLOSE
+            raise DontCloseSpider
+
+        # Check if the Redis queue is empty.
+        redis_queue_empty = not self.server.exists(self.redis_key)
 
         if redis_queue_empty and not has_pending:
-            logger.info(f"🕷️ Spider is idle and queue is empty. Forcing close for {self.job_id}")
+            logger.debug(f"🕷️ Spider is idle and queue is empty. Forcing close for {self.job_id}")
             self.crawler.engine.close_spider(self, reason='finished')
     
     def emit_link_found(self, url: str, source: str = 'crawl') -> None:
@@ -237,10 +259,12 @@ class WebsiteSpider(RedisSpider):
             return
         
         self.emitted_urls.add(normalized)
+        total = self._effective_max_pages
         publisher.emit_event(self.job_id, 'link_found', {
             'url': url,
             'source': source,
-            'count': len(self.emitted_urls)
+            'count': len(self.emitted_urls),
+            'total': total if total > 0 else None,
         })
 
     def normalize_url(self, url: str) -> str:
@@ -332,7 +356,7 @@ class WebsiteSpider(RedisSpider):
         # If no start_url is provided, assume we are running in distributed mode
         # and pulling URLs from Redis.
         if not self.start_url and not self.start_urls:
-            logger.info(f"Starting in distributed mode. Waiting for jobs on {self.redis_key}")
+            logger.debug(f"Starting in distributed mode. Waiting for jobs on {self.redis_key}")
             # Yield from Redis if available
             yield from super().start_requests()
             return
@@ -349,7 +373,7 @@ class WebsiteSpider(RedisSpider):
             })
 
         if not self.allow_discovery:
-            logger.info(f"Starting fixed URL crawl for {self.start_url}")
+            logger.debug(f"Starting fixed URL crawl for {self.start_url}")
             for url in self.start_urls:
                 yield scrapy.Request(
                     url=url,
@@ -360,7 +384,7 @@ class WebsiteSpider(RedisSpider):
                 )
             return
         
-        logger.info(f"Starting optimized SEO crawl for {self.start_url}")
+        logger.debug(f"Starting optimized SEO crawl for {self.start_url}")
         
         root_normalized = self.normalize_url(self.start_url)
         self.seen_urls.add(root_normalized)
@@ -626,7 +650,7 @@ class WebsiteSpider(RedisSpider):
             norm_response = response_domain.replace('www.', '')
             
             if norm_allowed and norm_response != norm_allowed:
-                logger.info(f"🔄 Start URL redirected to new domain: {norm_allowed} -> {norm_response}. Updating allowed_host.")
+                logger.debug(f"🔄 Start URL redirected to new domain: {norm_allowed} -> {norm_response}. Updating allowed_host.")
                 self.allowed_host = norm_response
                 
                 # Update Scrapy's allowed_domains dynamically
@@ -890,6 +914,11 @@ class WebsiteSpider(RedisSpider):
         yield page_item
         self.pages_crawled += 1
 
+        # Single visible crawl-progress log — all other spider logs are debug.
+        _total = self._effective_max_pages
+        _total_str = str(_total) if _total > 0 else '?'
+        logger.info(f"[CRAWL] 🔗 {self.pages_crawled} / {_total_str} urls crawled")
+
         # Emit page_crawled event for progress tracking
         if self.job_id:
             publisher.emit_event(self.job_id, 'page_crawled', {
@@ -901,7 +930,7 @@ class WebsiteSpider(RedisSpider):
         
         # Check if we should stop crawling
         if self.max_pages > 0 and self.pages_crawled >= self.max_pages:
-            logger.info(f"Reached max pages limit: {self.max_pages}")
+            logger.debug(f"Reached max pages limit: {self.max_pages}")
             self.should_stop = True
             # Explicitly close the spider
             self.crawler.engine.close_spider(self, reason='closespider_pagecount')
@@ -910,7 +939,7 @@ class WebsiteSpider(RedisSpider):
         if self.timeout > 0:
             elapsed = datetime.now().timestamp() - self.crawl_started_timestamp
             if elapsed >= self.timeout:
-                logger.info(f"Reached timeout limit: {self.timeout} seconds")
+                logger.debug(f"Reached timeout limit: {self.timeout} seconds")
                 self.should_stop = True
                 # Explicitly close the spider
                 self.crawler.engine.close_spider(self, reason='closespider_timeout')

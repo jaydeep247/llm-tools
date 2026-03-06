@@ -157,6 +157,19 @@ export const startJobEventsConsumer = async () => {
            logger.error(`Failed to update DB status for job ${event.jobId}:`, dbError);
         }
 
+        // 2b. Crawl status live update — emit immediately so the UI reflects
+        //     the crawl_status change without waiting for the batch flush.
+        if (event.eventType === 'CRAWL_STATUS_UPDATED') {
+          try {
+            const io = getIo();
+            io.to(`job:${event.jobId}`).emit('crawl:status', {
+              jobId: event.jobId,
+              crawl_status: event.payload?.crawl_status,
+              updatedAt: event.payload?.updatedAt,
+            });
+          } catch (e) { logger.error('Socket emit error (crawl:status):', e); }
+        }
+
         // 3. Buffer for WebSocket Broadcast (for non-terminal events)
         const jobId = event.jobId;
         

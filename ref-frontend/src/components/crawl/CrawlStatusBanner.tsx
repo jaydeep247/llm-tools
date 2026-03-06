@@ -1,0 +1,251 @@
+'use client'
+
+/**
+ * CrawlStatusBanner
+ *
+ * Shows the live crawl state for a Quick Start background crawl.
+ * Combines:
+ *   - Polling via `initialStatus` prop (parent drives the base value)
+ *   - Socket.IO `crawl:status` events from the Node.js consumer for
+ *     instant updates (no polling lag).
+ *
+ * States handled:
+ *   running   → animated pulsing indicicator, "Crawling in progress"
+ *   completed → green tick,                  "Crawling completed"
+ *   failed    → red icon,                    "Crawling failed"
+ *   cancelled → grey icon,                   "Crawling cancelled"
+ *   null      → nothing rendered
+ */
+
+import { useEffect, useRef, useState } from 'react'
+import { io, Socket } from 'socket.io-client'
+import * as ProgressPrimitive from '@radix-ui/react-progress'
+import { CheckCircle, AlertCircle, Globe, XCircle } from 'lucide-react'
+
+type CrawlStatus = 'running' | 'completed' | 'failed' | 'cancelled' | null
+
+interface CrawlStatusBannerProps {
+  /** The Quick Start job ID — used to join the correct socket room. */
+  jobId: string | null
+  /** Initial value from the last API poll. Component overrides this with
+   *  live socket data once connected. */
+  initialStatus: CrawlStatus
+  /** Optional callback for "View pages" button */
+  onViewPages?: () => void
+  /** Live pages crawled count (from jobSnapshot) */
+  pagesCrawled?: number
+  /** Total pages goal (defaults to 100) */
+  totalPages?: number
+  /** Most recently crawled URL */
+  currentUrl?: string
+}
+
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || ''
+
+export function CrawlStatusBanner({
+  jobId,
+  initialStatus,
+  onViewPages,
+  pagesCrawled = 0,
+  totalPages = 100,
+  currentUrl,
+}: CrawlStatusBannerProps) {
+  const [status, setStatus] = useState<CrawlStatus>(initialStatus)
+  const socketRef = useRef<Socket | null>(null)
+
+  // Keep local status in sync when the parent polling drives changes
+  // (e.g. on initial mount before socket connects).
+  useEffect(() => {
+    setStatus(prev => {
+      // Never downgrade a terminal status via a polling update
+      const terminal = ['completed', 'failed', 'cancelled']
+      if (prev && terminal.includes(prev)) return prev
+      return initialStatus
+    })
+  }, [initialStatus])
+
+  // Socket subscription — live crawl:status events
+  useEffect(() => {
+    if (!jobId) return
+
+    const socket = io(SOCKET_URL, {
+      path: '/socket.io',
+      // Allow polling as a fallback so the initial connection succeeds even if
+      // the WebSocket upgrade is momentarily rejected (avoids the console error
+      // the user sees on first load).  Once connected, socket.io upgrades to WS.
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: 5,
+    })
+    socketRef.current = socket
+
+    socket.on('connect', () => {
+      socket.emit('join-job', jobId)
+    })
+
+    socket.on('crawl:status', (data: { jobId: string; crawl_status: CrawlStatus }) => {
+      if (data.jobId !== jobId) return
+      setStatus(prev => {
+        // Never downgrade a terminal status via socket either
+        const terminal = ['completed', 'failed', 'cancelled']
+        if (prev && terminal.includes(prev)) return prev
+        return data.crawl_status
+      })
+    })
+
+    return () => {
+      if (socket.connected) {
+        socket.emit('leave-job', jobId)
+        socket.disconnect()
+      }
+      socketRef.current = null
+    }
+  }, [jobId])
+
+  /* ------------------------------------------------------------------ */
+  /*  Unknown / not-yet-loaded state — show a subtle neutral banner     */
+  /*  so the component is always visible once a jobId is provided.      */
+  /* ------------------------------------------------------------------ */
+  if (!status) {
+    return (
+      <div className="rounded-2xl border border-zinc-700/40 bg-[#0D0D10] overflow-hidden">
+        <div className="flex items-center gap-2.5 px-5 py-3.5">
+          <span className="h-2 w-2 rounded-full bg-zinc-600 shrink-0" />
+          <span className="text-sm font-semibold text-zinc-400">Background crawl</span>
+          <span className="text-[10px] text-zinc-500 bg-zinc-800/50 px-2 py-0.5 rounded-full select-none">
+            checking…
+          </span>
+        </div>
+      </div>
+    )
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Running state                                                       */
+  /* ------------------------------------------------------------------ */
+  if (status === 'running') {
+    const pct = Math.min(100, totalPages > 0 ? Math.round((pagesCrawled / totalPages) * 100) : 0)
+    return (
+      <div className="rounded-2xl border border-zinc-800 bg-[#111113] overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-800/60">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
+            </span>
+            <span className="text-sm font-semibold text-white">Crawling</span>
+            <span className="text-[10px] text-amber-400 font-medium bg-amber-500/10 px-1.5 py-0.5 rounded-full animate-pulse select-none">
+              LIVE
+            </span>
+          </div>
+          {onViewPages && (
+            <button
+              onClick={onViewPages}
+              className="text-[11px] text-zinc-400 hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
+            >
+              View <Globe className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+
+        {/* Live URL + progress */}
+        <div className="px-5 py-3.5 space-y-2.5">
+          {/* Current URL */}
+          {currentUrl && (
+            <div className="flex items-center gap-2 min-w-0">
+              <Globe className="h-3 w-3 text-zinc-600 shrink-0" />
+              <span className="text-[11px] text-zinc-400 font-mono truncate">
+                {currentUrl}
+              </span>
+            </div>
+          )}
+
+          {/* Pages count + Radix-style animated progress bar */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] text-zinc-500 tabular-nums">
+                <span className="font-semibold text-white">{pagesCrawled}</span>
+                <span className="text-zinc-600"> / </span>{totalPages} pages
+              </span>
+              <span className="text-[11px] text-amber-400 font-semibold tabular-nums">{pct}%</span>
+            </div>
+            <ProgressPrimitive.Root
+              className="relative h-2 w-full overflow-hidden rounded-full bg-zinc-800"
+              value={pct}
+            >
+              <ProgressPrimitive.Indicator
+                className="h-full rounded-full bg-linear-to-r from-amber-500 via-amber-400 to-amber-500 transition-all duration-700 ease-out relative overflow-hidden"
+                style={{ width: `${pct}%` }}
+              >
+                {/* Shimmer animation overlay */}
+                <span className="absolute inset-0 bg-linear-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+              </ProgressPrimitive.Indicator>
+            </ProgressPrimitive.Root>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Completed state                                                     */
+  /* ------------------------------------------------------------------ */
+  if (status === 'completed') {
+    return (
+      <div className="rounded-2xl border border-emerald-500/20 bg-[#0D0D10] overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3.5">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle className="h-4 w-4 text-emerald-400 shrink-0" />
+            <span className="text-sm font-semibold text-white">Background crawl completed</span>
+            <span className="text-[10px] text-zinc-400 bg-zinc-700/40 px-2 py-0.5 rounded-full select-none">
+              done
+            </span>
+          </div>
+          {onViewPages && (
+            <button
+              onClick={onViewPages}
+              className="text-[11px] text-zinc-400 hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
+            >
+              View pages <Globe className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+        <div className="px-5 pb-3 border-t border-zinc-800/40 pt-3">
+          <p className="text-[11px] text-zinc-500 leading-relaxed">
+            All pages have been indexed. Head to the <strong className="text-zinc-300">Crawler</strong> tab
+            to explore the full site data.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Failed state                                                        */
+  /* ------------------------------------------------------------------ */
+  if (status === 'failed') {
+    return (
+      <div className="rounded-2xl border border-rose-500/20 bg-[#0D0D10] overflow-hidden">
+        <div className="flex items-center gap-2.5 px-5 py-3.5">
+          <XCircle className="h-4 w-4 text-rose-400 shrink-0" />
+          <span className="text-sm font-semibold text-white">Background crawl failed</span>
+          <span className="text-[10px] text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full select-none">
+            failed
+          </span>
+        </div>
+      </div>
+    )
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Cancelled state                                                     */
+  /* ------------------------------------------------------------------ */
+  return (
+    <div className="rounded-2xl border border-zinc-700/40 bg-[#0D0D10] overflow-hidden">
+      <div className="flex items-center gap-2.5 px-5 py-3.5">
+        <AlertCircle className="h-4 w-4 text-zinc-500 shrink-0" />
+        <span className="text-sm font-semibold text-zinc-400">Background crawl cancelled</span>
+      </div>
+    </div>
+  )
+}

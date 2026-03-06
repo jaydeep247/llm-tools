@@ -59,53 +59,39 @@ class MongoPipeline:
                 except Exception as e:
                     logger.error(f"Error flushing {item_type} buffer: {e}")
 
-            # 2. Write Job Summary document
-            summary_doc = {
-                'jobId': self.job_id,
-                'type': 'job_summary',
-                'createdAt': datetime.utcnow(),
-                'session': {
-                    'session_id': self.session_id,
-                    'projectId': self.project_id,
-                    'jobId': self.job_id,
-                    'start_url': getattr(spider, 'start_url', None),
-                    'started_at': getattr(spider, 'crawl_started_at', None),
-                    'allow_subdomains': getattr(spider, 'allow_subdomains', True),
-                    'max_concurrency': getattr(spider, 'max_concurrency', 20),
-                    'status': 'completed',
-                    'completed_at': datetime.now().isoformat(),
-                    'total_pages': self.total_counts['pages'],
-                    'total_links': self.total_counts['links'],
-                    'total_sitemaps': self.total_counts['sitemaps'],
-                    'total_fields': self.total_counts['fields']
-                }
+            # 2. Write Job Summary document — skip if job_id is unknown.
+            # A None job_id means the spider ran without proper job context
+            # (e.g. stale distributed-mode start), so we must NOT write a
+            # summary: doing so creates a document with jobId: null that
+            # cannot be matched to any real job and pollutes the collection.
+            if not self.job_id:
+                logger.warning(
+                    "MongoPipeline.close_spider: job_id is None — skipping "
+                    "job_summary write to avoid creating an orphaned document."
+                )
+                return
+
+            # job_summaries is exclusively owned by the quick_start runner
+            # (runner.py) which writes brand, competitor, ranking and
+            # crawl_status fields.  The crawler only updates the jobs
+            # collection with lightweight page/link counts.
+            crawl_stats = {
+                'status': 'completed',
+                'completedAt': datetime.now().isoformat(),
+                'pagesCrawled': self.total_counts['pages'],
+                'linksFound': self.total_counts['links'],
             }
-            
-            def _write_summary(doc):
+
+            def _write_stats(stats):
                 try:
-                    # Ensure connection is alive
-                    if mongo_manager.job_summaries is None:
-                        mongo_manager.connect()
-                        
-                    mongo_manager.job_summaries.update_one(
-                        {'jobId': self.job_id},
-                        {'$set': doc},
-                        upsert=True
-                    )
-                    # Also update jobs collection stats
                     mongo_manager.db.jobs.update_one(
                         {'id': self.job_id},
-                        {'$set': {
-                            'status': 'completed', 
-                            'completedAt': datetime.now().isoformat(),
-                            'pagesCrawled': self.total_counts['pages'],
-                            'linksFound': self.total_counts['links']
-                        }}
+                        {'$set': stats},
                     )
                 except Exception as ex:
-                    logger.error(f"Failed to write summary/stats: {ex}")
-            
-            yield threads.deferToThread(_write_summary, summary_doc)
+                    logger.error(f"Failed to write crawl stats to jobs: {ex}")
+
+            yield threads.deferToThread(_write_stats, crawl_stats)
             
             logger.info(
                 f"Job {self.job_id} complete. Pages: {self.total_counts['pages']}, "

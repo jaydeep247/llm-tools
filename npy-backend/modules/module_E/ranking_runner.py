@@ -689,11 +689,15 @@ async def _fetch_text_simple(url: str) -> str:
         logger.warning(f"[RANKING] Live fetch failed for {url}: {type(e).__name__}: {e}")
     return ""
 
-async def run_ranking_analysis(job_id: str, url: str, html_content: str = None) -> Dict[str, Any]:
+async def run_ranking_analysis(
+    job_id: str,
+    url: str,
+    html_content: str = None,
+) -> Dict[str, Any]:
     """
     Entry point for Job Runner.
     Aggregates text from homepage + top pages (from Mongo), then runs Ranking Analysis.
-    Persists result to Module E collection.
+    Persists result to the module_e collection.
     """
     logger.info(f"[RANKING] Starting ranking analysis for {url}")
     mongo_manager.connect()
@@ -740,10 +744,10 @@ async def run_ranking_analysis(job_id: str, url: str, html_content: str = None) 
     runner = RankingRunner()
     result_data = await runner.analyze_ranking(url, aggregated_text)
 
-    # 4. Persist
+    # 4. Persist to module_e — single source of truth for all Module E data.
     if result_data and "error" not in result_data:
         try:
-             mongo_manager.module_e.update_one(
+            mongo_manager.module_e.update_one(
                 {"jobId": job_id},
                 {
                     "$set": {

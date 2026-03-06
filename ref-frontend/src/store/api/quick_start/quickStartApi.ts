@@ -63,7 +63,7 @@ export interface QuickStartResultResponse {
 export const quickStartApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getQuickStartResult: builder.query<QuickStartResultResponse, string>({
-      query: (jobId) => `/module-e/jobs/${jobId}`,
+      query: (jobId) => `/quick-start/jobs/${jobId}`,
       providesTags: (_result, _error, jobId) => [{ type: 'QuickStart' as const, id: jobId }],
     }),
   }),
