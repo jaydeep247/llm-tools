@@ -252,7 +252,7 @@ export default function DashboardOverview({ jobId, url, onNavigate, crawlStatusS
 
       {/* Detail sections — compact previews */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Brand Analysis preview */}
+        {/* Brand Analysis + AI Share of Voice (left column) */}
         <div className="flex flex-col gap-4">
           <SectionCard title="Brand Analysis" onClick={() => onNavigate?.('prompt-difficulty')} >
           {brand ? (
@@ -290,53 +290,56 @@ export default function DashboardOverview({ jobId, url, onNavigate, crawlStatusS
             <p className="text-xs text-zinc-600">Not yet available</p>
           )}
         </SectionCard>
-          {crawlStatusSlot}
-        </div>
-
-        {/* AI Share of Voice preview */}
-        <SectionCard title="AI Share of Voice" onClick={() => onNavigate?.('share-of-voice')} >
-          {sov ? (
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="flex-1">
-                  <div className="h-2 rounded-full bg-zinc-800/60 overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-linear-to-r from-blue-500 to-cyan-500 transition-all duration-500"
-                      style={{ width: `${Math.min(overallSov, 100)}%` }}
-                    />
+          {/* AI Share of Voice preview — moved here from right column */}
+          <SectionCard title="AI Share of Voice" onClick={() => onNavigate?.('share-of-voice')} >
+            {sov ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <div className="h-2 rounded-full bg-zinc-800/60 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-linear-to-r from-blue-500 to-cyan-500 transition-all duration-500"
+                        style={{ width: `${Math.min(overallSov, 100)}%` }}
+                      />
+                    </div>
                   </div>
+                  <span className="text-sm font-semibold text-white min-w-12 text-right">
+                    {overallSov}%
+                  </span>
                 </div>
-                <span className="text-sm font-semibold text-white min-w-12 text-right">
-                  {overallSov}%
-                </span>
-              </div>
-              {sov.brand_known_by_models && sov.brand_known_by_models.length > 0 && (
-                <div>
-                  <p className="text-[11px] text-zinc-500 mb-1.5">Known by Models</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {sov.brand_known_by_models.map((model, i) => (
-                      <span key={i} className="rounded-lg bg-zinc-800 border border-zinc-700/50 px-2.5 py-0.5 text-[11px] text-zinc-300">
-                        {model}
-                      </span>
+                {sov.brand_known_by_models && sov.brand_known_by_models.length > 0 && (
+                  <div>
+                    <p className="text-[11px] text-zinc-500 mb-1.5">Known by Models</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {sov.brand_known_by_models.map((model, i) => (
+                        <span key={i} className="rounded-lg bg-zinc-800 border border-zinc-700/50 px-2.5 py-0.5 text-[11px] text-zinc-300">
+                          {model}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {sov.by_model && Object.keys(sov.by_model).length > 0 && (
+                  <div className="space-y-1.5">
+                    {Object.entries(sov.by_model).slice(0, 4).map(([model, data]) => (
+                      <div key={model} className="flex items-center justify-between text-xs">
+                        <span className="text-zinc-500 truncate mr-2">{model}</span>
+                        <span className="text-zinc-300 font-medium">{data.sov}%</span>
+                      </div>
                     ))}
                   </div>
-                </div>
-              )}
-              {sov.by_model && Object.keys(sov.by_model).length > 0 && (
-                <div className="space-y-1.5">
-                  {Object.entries(sov.by_model).slice(0, 4).map(([model, data]) => (
-                    <div key={model} className="flex items-center justify-between text-xs">
-                      <span className="text-zinc-500 truncate mr-2">{model}</span>
-                      <span className="text-zinc-300 font-medium">{data.sov}%</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : (
-            <p className="text-xs text-zinc-600">Not yet available</p>
-          )}
-        </SectionCard>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-zinc-600">Not yet available</p>
+            )}
+          </SectionCard>
+        </div>
+
+        {/* Background Crawl Banner (right column) — stretched to fill card height */}
+        <div className="flex flex-col *:flex-1">
+          {crawlStatusSlot}
+        </div>
 
         {/* Competitor Mentions preview */}
         <SectionCard title="Competitor Landscape" onClick={() => onNavigate?.('prompt-difficulty')} >

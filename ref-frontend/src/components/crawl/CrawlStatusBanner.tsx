@@ -19,7 +19,6 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { io, Socket } from 'socket.io-client'
-import * as ProgressPrimitive from '@radix-ui/react-progress'
 import { CheckCircle, AlertCircle, Globe, XCircle } from 'lucide-react'
 
 type CrawlStatus = 'running' | 'completed' | 'failed' | 'cancelled' | null
@@ -107,8 +106,8 @@ export function CrawlStatusBanner({
   /* ------------------------------------------------------------------ */
   if (!status) {
     return (
-      <div className="rounded-2xl border border-zinc-700/40 bg-[#0D0D10] overflow-hidden">
-        <div className="flex items-center gap-2.5 px-5 py-3.5">
+      <div className="rounded-2xl border border-zinc-700/40 bg-[#0D0D10] overflow-hidden h-full flex flex-col">
+        <div className="flex items-center gap-2.5 px-5 py-3.5 flex-1">
           <span className="h-2 w-2 rounded-full bg-zinc-600 shrink-0" />
           <span className="text-sm font-semibold text-zinc-400">Background crawl</span>
           <span className="text-[10px] text-zinc-500 bg-zinc-800/50 px-2 py-0.5 rounded-full select-none">
@@ -125,13 +124,13 @@ export function CrawlStatusBanner({
   if (status === 'running') {
     const pct = Math.min(100, totalPages > 0 ? Math.round((pagesCrawled / totalPages) * 100) : 0)
     return (
-      <div className="rounded-2xl border border-zinc-800 bg-[#111113] overflow-hidden">
+      <div className="rounded-2xl border border-zinc-800 bg-[#111113] overflow-hidden h-full flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-800/60">
           <div className="flex items-center gap-2">
-            <span className="relative flex h-2 w-2 shrink-0">
+            <span className="relative flex h-2.5 w-2.5 shrink-0">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
             </span>
             <span className="text-sm font-semibold text-white">Crawling</span>
             <span className="text-[10px] text-amber-400 font-medium bg-amber-500/10 px-1.5 py-0.5 rounded-full animate-pulse select-none">
@@ -148,40 +147,53 @@ export function CrawlStatusBanner({
           )}
         </div>
 
-        {/* Live URL + progress */}
-        <div className="px-5 py-3.5 space-y-2.5">
-          {/* Current URL */}
+        {/* Progress area — styled like progress page */}
+        <div className="px-5 py-4 flex-1 flex flex-col justify-center space-y-4">
+          {/* Percentage + pages label */}
+          <div className="flex items-end justify-between">
+            <span className="text-zinc-500 text-xs font-mono uppercase tracking-widest">
+              Progress
+            </span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-xs text-zinc-500 tabular-nums">
+                <span className="font-semibold text-zinc-300">{pagesCrawled}</span>
+                <span className="text-zinc-600"> / </span>{totalPages} pages
+              </span>
+              <span className="text-3xl font-bold font-mono tabular-nums text-white">
+                {pct}%
+              </span>
+            </div>
+          </div>
+
+          {/* Thick progress bar with shimmer */}
+          <div className="space-y-1.5">
+            <div className="w-full h-4 bg-white/6 rounded-full overflow-hidden border border-white/5">
+              <div
+                className="h-full rounded-full bg-linear-to-r from-amber-600 via-amber-400 to-amber-300 transition-all duration-700 ease-out relative overflow-hidden"
+                style={{ width: `${pct}%` }}
+              >
+                {/* Shimmer animation */}
+                <span
+                  className="absolute inset-0 bg-linear-to-r from-transparent via-white/25 to-transparent animate-shimmer"
+                />
+              </div>
+            </div>
+            {/* Track labels */}
+            <div className="flex justify-between">
+              <span className="text-zinc-600 text-[10px] font-mono">0%</span>
+              <span className="text-zinc-600 text-[10px] font-mono">100%</span>
+            </div>
+          </div>
+
+          {/* Current URL — below the progress bar */}
           {currentUrl && (
-            <div className="flex items-center gap-2 min-w-0">
-              <Globe className="h-3 w-3 text-zinc-600 shrink-0" />
-              <span className="text-[11px] text-zinc-400 font-mono truncate">
+            <div className="flex items-center gap-2 min-w-0 pt-1">
+              <Globe className="h-3.5 w-3.5 text-zinc-600 shrink-0" />
+              <span className="text-xs text-zinc-400 font-mono truncate">
                 {currentUrl}
               </span>
             </div>
           )}
-
-          {/* Pages count + Radix-style animated progress bar */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] text-zinc-500 tabular-nums">
-                <span className="font-semibold text-white">{pagesCrawled}</span>
-                <span className="text-zinc-600"> / </span>{totalPages} pages
-              </span>
-              <span className="text-[11px] text-amber-400 font-semibold tabular-nums">{pct}%</span>
-            </div>
-            <ProgressPrimitive.Root
-              className="relative h-2 w-full overflow-hidden rounded-full bg-zinc-800"
-              value={pct}
-            >
-              <ProgressPrimitive.Indicator
-                className="h-full rounded-full bg-linear-to-r from-amber-500 via-amber-400 to-amber-500 transition-all duration-700 ease-out relative overflow-hidden"
-                style={{ width: `${pct}%` }}
-              >
-                {/* Shimmer animation overlay */}
-                <span className="absolute inset-0 bg-linear-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
-              </ProgressPrimitive.Indicator>
-            </ProgressPrimitive.Root>
-          </div>
         </div>
       </div>
     )
@@ -192,7 +204,7 @@ export function CrawlStatusBanner({
   /* ------------------------------------------------------------------ */
   if (status === 'completed') {
     return (
-      <div className="rounded-2xl border border-emerald-500/20 bg-[#0D0D10] overflow-hidden">
+      <div className="rounded-2xl border border-emerald-500/20 bg-[#0D0D10] overflow-hidden h-full flex flex-col">
         <div className="flex items-center justify-between px-5 py-3.5">
           <div className="flex items-center gap-2.5">
             <CheckCircle className="h-4 w-4 text-emerald-400 shrink-0" />
@@ -225,8 +237,8 @@ export function CrawlStatusBanner({
   /* ------------------------------------------------------------------ */
   if (status === 'failed') {
     return (
-      <div className="rounded-2xl border border-rose-500/20 bg-[#0D0D10] overflow-hidden">
-        <div className="flex items-center gap-2.5 px-5 py-3.5">
+      <div className="rounded-2xl border border-rose-500/20 bg-[#0D0D10] overflow-hidden h-full flex flex-col">
+        <div className="flex items-center gap-2.5 px-5 py-3.5 flex-1">
           <XCircle className="h-4 w-4 text-rose-400 shrink-0" />
           <span className="text-sm font-semibold text-white">Background crawl failed</span>
           <span className="text-[10px] text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full select-none">
@@ -241,8 +253,8 @@ export function CrawlStatusBanner({
   /*  Cancelled state                                                     */
   /* ------------------------------------------------------------------ */
   return (
-    <div className="rounded-2xl border border-zinc-700/40 bg-[#0D0D10] overflow-hidden">
-      <div className="flex items-center gap-2.5 px-5 py-3.5">
+    <div className="rounded-2xl border border-zinc-700/40 bg-[#0D0D10] overflow-hidden h-full flex flex-col">
+      <div className="flex items-center gap-2.5 px-5 py-3.5 flex-1">
         <AlertCircle className="h-4 w-4 text-zinc-500 shrink-0" />
         <span className="text-sm font-semibold text-zinc-400">Background crawl cancelled</span>
       </div>
