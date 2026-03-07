@@ -59,8 +59,19 @@ export default function SessionDetailPage() {
     const bTime = new Date(b.createdAt).getTime()
     return bTime - aTime
   })
-  // Use the latest job regardless of type (CRAWL, MODULE_E_QUICK_START, etc.)
-  const latestJob = sortedJobs.length > 0 ? sortedJobs[0] : null
+
+  // Primary job types that own crawl data (pages, links, sitemaps, etc.).
+  // All other job types are child/analysis jobs.
+  // Using an allowlist (not a blocklist) avoids MODULE_E_QUICK_START being
+  // misclassified because 'MODULE_E_QUICK_START'.startsWith('MODULE_E') is true.
+  const PRIMARY_JOB_TYPES = new Set(['CRAWL', 'MODULE_E_QUICK_START'])
+  const isChildJob = (j: any) => {
+    const jt = (j.jobType || j.type || '').toUpperCase()
+    return !PRIMARY_JOB_TYPES.has(jt)
+  }
+
+  // Use the latest primary job (CRAWL or QUICK_START) for pages/links/sitemaps
+  const latestJob = sortedJobs.find((j: any) => !isChildJob(j)) || sortedJobs[0] || null
   const jobId = latestJob?.id
 
   // Detect Quick Start job — check BOTH type AND jobType so old records

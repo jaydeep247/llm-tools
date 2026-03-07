@@ -465,7 +465,24 @@ export default function ModelComparison({ jobId, url = '' }: ModelComparisonProp
                     key={i} 
                     className="text-sm text-zinc-300 bg-zinc-800/50 rounded-xl px-4 py-2.5 border border-zinc-800"
                   >
-                    {gap}
+                    {typeof gap === 'string' ? gap : (
+                      <div className="space-y-1">
+                        <div className="font-medium text-zinc-200">{gap.type}</div>
+                        {gap.description && <div className="text-xs text-zinc-400">{gap.description}</div>}
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {gap.severity && (
+                            <span className={`text-xs px-1.5 py-0.5 rounded ${
+                              gap.severity === 'high' ? 'bg-red-500/20 text-red-400' :
+                              gap.severity === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
+                              'bg-zinc-700 text-zinc-400'
+                            }`}>{gap.severity}</span>
+                          )}
+                          {gap.missing_from && gap.missing_from.length > 0 && (
+                            <span className="text-xs text-red-400">Missing: {gap.missing_from.join(', ')}</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

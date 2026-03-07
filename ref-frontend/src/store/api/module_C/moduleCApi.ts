@@ -91,14 +91,14 @@ export interface ModuleCModules {
         specificity_level?: { depth_score?: number; completeness_score?: number }
         tone_analysis?: { confidence?: string; risk_posture?: string }
       }
-      coverage_gaps?: string[]
+      coverage_gaps?: (string | { type?: string; description?: string; missing_from?: string[]; present_in?: string[]; severity?: string })[]
       model_scores?: Record<string, { agreement?: number; depth?: number; overall?: number }>
     }
   }
   multi_model_insights?: {
     agreement?: Record<string, unknown>
     claim_matrix?: unknown[]
-    coverage_gaps?: string[]
+    coverage_gaps?: (string | { type?: string; description?: string; missing_from?: string[]; present_in?: string[]; severity?: string })[]
     scores?: Record<string, { agreement?: number; depth?: number; overall?: number }>
   }
   actionable_insights?: {
