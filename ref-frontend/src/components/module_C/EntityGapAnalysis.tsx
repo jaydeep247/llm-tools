@@ -84,7 +84,10 @@ export default function EntityGapAnalysis({ jobId, url = '' }: EntityGapAnalysis
     refetch 
   } = useGetModuleCResultQuery(jobId || '', { 
     skip: !jobId,
-    refetchOnMountOrArgChange: true
+    refetchOnMountOrArgChange: true,
+    refetchOnFocus: true,
+    refetchOnReconnect: true,
+    pollingInterval: 5000,
   })
 
   const [runAnalysis, { isLoading: isRunning }] = useRunModuleCAnalysisMutation()

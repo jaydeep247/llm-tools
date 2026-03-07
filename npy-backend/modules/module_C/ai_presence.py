@@ -212,16 +212,19 @@ class AIPresenceModule:
             score += min(30, robot_points)
             
             # Org/Meta pts (40)
-            if content_checks.get('org_schema_present'): score += 10
-            if content_checks.get('org_logo_present'): score += 10
-            if content_checks.get('sameas_wikidata_or_wikipedia'): score += 20
-            score += min(40, score) # Cap it properly if logic changes
+            org_meta_points = 0
+            if content_checks.get('org_schema_present'):
+                org_meta_points += 10
+            if content_checks.get('org_logo_present'):
+                org_meta_points += 10
+            if content_checks.get('sameas_wikidata_or_wikipedia'):
+                org_meta_points += 20
+            score += min(40, org_meta_points)
             
             # OG/Twitter (15)
             if content_checks.get('open_graph_present'): score += 8
             if content_checks.get('twitter_card_present'): score += 7
             
-            # AI Understanding (15)
             # AI Understanding (15)
             # Average the valid scores from allowed bots
             valid_scores = []
@@ -229,7 +232,7 @@ class AIPresenceModule:
             for label, provider in self.bot_to_provider.items():
                 if robots_checks.get(f'robots_{label.lower()}', True):
                     prov_data = ai_understanding.get(provider, {})
-                    if prov_data.get('score'):
+                    if prov_data.get('score') is not None:
                         s = prov_data['score']
                         valid_scores.append(s)
                         model_scores[provider] = s

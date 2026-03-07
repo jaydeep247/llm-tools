@@ -146,12 +146,19 @@ export class JobService {
   async startContentMetrics(userId: string, jobId: string, sourceJobId?: string): Promise<Job> {
     const job = await this.getJobById(userId, jobId);
 
-    // If sourceJobId not provided, find the CRAWL job for this session (HTML is stored under the crawl job ID)
+    // If sourceJobId is omitted, resolve the job that owns raw HTML in S3.
+    // Normal flow: CRAWL job. Quick Start flow: MODULE_E_QUICK_START job.
     let resolvedSourceJobId = sourceJobId;
     if (!resolvedSourceJobId) {
       const sessionJobs = await this.jobRepository.findBySessionId(job.sessionId);
-      const crawlJob = sessionJobs.find(j => j.jobType === JobType.CRAWL || j.type === JobType.CRAWL);
-      resolvedSourceJobId = crawlJob?.id || job.id;
+      const resolveType = (j: Job) => String(j.jobType || j.type || '').toUpperCase();
+      const crawlJob = sessionJobs.find(j => resolveType(j) === JobType.CRAWL);
+      const quickStartJob = sessionJobs.find(j => {
+        const t = resolveType(j);
+        return t === JobType.MODULE_E_QUICK_START || t.includes('QUICK_START');
+      });
+
+      resolvedSourceJobId = crawlJob?.id || quickStartJob?.id || job.id;
     }
 
     await this.queueService.publishContentMetricsJob({
