@@ -716,6 +716,15 @@ def start_queue_worker() -> None:
                 f.result()
                 logger.info(f"[RESULT] ✅ Job {job_id} completed successfully!")
                 logger.info(f"[RESULT] 📤 Acknowledging message to RabbitMQ")
+                mark_job_completed(job_id, session_id)
+                try:
+                    publisher.emit_event(job_id, "JOB_COMPLETED", {
+                        "status": "completed",
+                        "sessionId": session_id,
+                        "projectId": project_id,
+                    })
+                except Exception as pub_err:
+                    logger.warning(f"[RESULT] ⚠️  Failed to emit JOB_COMPLETED event: {pub_err}")
                 action = "ack"
             except RetryableJobError as e:
                 logger.error(
@@ -728,6 +737,16 @@ def start_queue_worker() -> None:
                     f"[RESULT] ❌ Job {job_id} failed with non-retryable error; sending to DLQ",
                     exc_info=e,
                 )
+                mark_job_failed(job_id, session_id, str(e))
+                try:
+                    publisher.emit_event(job_id, "JOB_FAILED", {
+                        "status": "failed",
+                        "sessionId": session_id,
+                        "projectId": project_id,
+                        "reason": str(e),
+                    })
+                except Exception as pub_err:
+                    logger.warning(f"[RESULT] ⚠️  Failed to emit JOB_FAILED event: {pub_err}")
                 action = "nack_drop"
 
             result_queue.put((ch, method.delivery_tag, action))
