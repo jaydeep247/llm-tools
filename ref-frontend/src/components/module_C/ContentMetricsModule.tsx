@@ -205,13 +205,26 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
     skip: !sessionIdStr,
   })
   const jobs = jobsData?.data || []
-  
-  // Find CRAWL job for sourceJobId (HTML is stored under crawl job ID)
-  const crawlJob = jobs.find((j: any) => j.type === 'CRAWL' || j.jobType === 'CRAWL')
-  const latestJob = jobs.length > 0 ? jobs[0] : null
-  // Use crawl job ID as the primary job for content metrics (HTML lives there)
-  const jobId = (crawlJob?.id || latestJob?.id) as string | undefined
-  const sourceJobId = crawlJob?.id as string | undefined
+  const sortedJobs = [...jobs].sort((a: any, b: any) => {
+    const aTime = new Date(a.createdAt || 0).getTime()
+    const bTime = new Date(b.createdAt || 0).getTime()
+    return bTime - aTime
+  })
+
+  // Resolve job that actually owns raw HTML in S3.
+  // For normal sessions it's CRAWL; for Quick Start it's MODULE_E_QUICK_START.
+  const getJobType = (j: any) => String(j?.jobType || j?.type || '').toUpperCase()
+  const crawlJob = sortedJobs.find((j: any) => getJobType(j) === 'CRAWL')
+  const quickStartJob = sortedJobs.find((j: any) => {
+    const t = getJobType(j)
+    return t === 'MODULE_E_QUICK_START' || t.includes('QUICK_START')
+  })
+  const htmlSourceJob = crawlJob || quickStartJob || null
+  const latestJob = sortedJobs.length > 0 ? sortedJobs[0] : null
+
+  // Always read/write content metrics against the HTML-source job when available.
+  const jobId = (htmlSourceJob?.id || latestJob?.id) as string | undefined
+  const sourceJobId = htmlSourceJob?.id as string | undefined
 
   const [hasTriggeredAnalysis, setHasTriggeredAnalysis] = useState(false)
 

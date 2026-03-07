@@ -58,7 +58,10 @@ export default function AIIntelligenceModule({ url, sessionId, jobId }: AIIntell
     refetch: refetchAeoResults 
   } = useGetModuleCResultQuery(jobId || '', { 
     skip: !jobId || auditMode !== 'single',
-    refetchOnMountOrArgChange: true
+    refetchOnMountOrArgChange: true,
+    refetchOnFocus: true,
+    refetchOnReconnect: true,
+    pollingInterval: 5000,
   })
 
   // Poll for analysis job status when we have an analysisJobId

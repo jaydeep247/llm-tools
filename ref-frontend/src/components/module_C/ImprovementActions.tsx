@@ -74,7 +74,10 @@ export default function ImprovementActions({ jobId, url = '' }: ImprovementActio
     refetch 
   } = useGetModuleCResultQuery(jobId || '', { 
     skip: !jobId,
-    refetchOnMountOrArgChange: true
+    refetchOnMountOrArgChange: true,
+    refetchOnFocus: true,
+    refetchOnReconnect: true,
+    pollingInterval: 5000,
   })
 
   const [runAnalysis] = useRunModuleCAnalysisMutation()

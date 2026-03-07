@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { ResponseUtil } from '../../utils/response';
 import { ModuleCService } from './moduleC.service';
 import { JobService } from '../job/job.service';
-import { JobType } from '../job/job.types';
+import { JobConflictError, JobType } from '../job/job.types';
 import { jobIdParamSchema, sessionParamSchema, runModuleCSchema } from './moduleC.validator';
 import { logger } from '../../shared/logger/logger';
 
@@ -13,6 +13,22 @@ export class ModuleCController {
   constructor() {
     this.moduleCService = new ModuleCService();
     this.jobService = new JobService();
+  }
+
+  /**
+   * Shared error handler for createJob-based Module C endpoints.
+   */
+  private handleCreateError(res: Response, error: any, fallbackMessage: string): Response {
+    if (error instanceof JobConflictError) {
+      return ResponseUtil.error(res, 'Conflict: job already active', error.message, 409);
+    }
+    if (error.message?.includes('not found') || error.message?.includes('access denied')) {
+      return ResponseUtil.notFound(res, error.message);
+    }
+    if (error.name === 'ZodError') {
+      return ResponseUtil.error(res, 'Validation failed', error.errors);
+    }
+    return ResponseUtil.serverError(res, fallbackMessage);
   }
 
   /**
@@ -110,13 +126,7 @@ export class ModuleCController {
       });
     } catch (error: any) {
       logger.error('Error starting Module C analysis:', error);
-      if (error.message?.includes('not found') || error.message?.includes('access denied')) {
-        return ResponseUtil.notFound(res, error.message);
-      }
-      if (error.name === 'ZodError') {
-        return ResponseUtil.error(res, 'Validation failed', error.errors);
-      }
-      return ResponseUtil.serverError(res, 'Failed to start Module C analysis');
+      return this.handleCreateError(res, error, 'Failed to start Module C analysis');
     }
   };
 
