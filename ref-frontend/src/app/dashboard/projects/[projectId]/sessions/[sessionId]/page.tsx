@@ -1124,7 +1124,7 @@ export default function SessionDetailPage() {
           <ContentMetricsModule
             url={session?.startUrl || ''}
             sessionId={sessionId}
-            initialTab="content-analysis"
+            section="content-analysis"
           />
         )}
 
@@ -1132,7 +1132,7 @@ export default function SessionDetailPage() {
           <ContentMetricsModule
             url={session?.startUrl || ''}
             sessionId={sessionId}
-            initialTab="intent-clusters"
+            section="intent-clusters"
           />
         )}
 
@@ -1140,7 +1140,7 @@ export default function SessionDetailPage() {
           <ContentMetricsModule
             url={session?.startUrl || ''}
             sessionId={sessionId}
-            initialTab="content-analysis"
+            section="entity-detection"
           />
         )}
 

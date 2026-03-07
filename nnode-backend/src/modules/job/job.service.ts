@@ -146,13 +146,21 @@ export class JobService {
   async startContentMetrics(userId: string, jobId: string, sourceJobId?: string): Promise<Job> {
     const job = await this.getJobById(userId, jobId);
 
+    // If sourceJobId not provided, find the CRAWL job for this session (HTML is stored under the crawl job ID)
+    let resolvedSourceJobId = sourceJobId;
+    if (!resolvedSourceJobId) {
+      const sessionJobs = await this.jobRepository.findBySessionId(job.sessionId);
+      const crawlJob = sessionJobs.find(j => j.jobType === JobType.CRAWL || j.type === JobType.CRAWL);
+      resolvedSourceJobId = crawlJob?.id || job.id;
+    }
+
     await this.queueService.publishContentMetricsJob({
       jobId: job.id,
       sessionId: job.sessionId,
       projectId: job.projectId,
       url: job.url,
-      jobType: JobType.CONTENT_METRICS,
-      sourceJobId: sourceJobId || job.id,  // Fallback to the job's own ID if no sourceJobId provided
+      jobType: JobType.MODULE_D,
+      sourceJobId: resolvedSourceJobId,
     });
 
     return job;

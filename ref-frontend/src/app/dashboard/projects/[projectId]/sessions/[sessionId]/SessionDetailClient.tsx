@@ -1366,12 +1366,28 @@ export default function SessionDetailClient() {
           <ContentMetricsModule 
             url={session?.startUrl || ''}
             sessionId={sessionId}
-            initialTab="content-analysis"
+            section="content-analysis"
+          />
+        )}
+
+        {activeSection === 'topic-clusters' && (
+          <ContentMetricsModule 
+            url={session?.startUrl || ''}
+            sessionId={sessionId}
+            section="intent-clusters"
+          />
+        )}
+
+        {activeSection === 'content-matrix' && (
+          <ContentMetricsModule 
+            url={session?.startUrl || ''}
+            sessionId={sessionId}
+            section="entity-detection"
           />
         )}
 
         {/* Placeholder for other tabs */}
-        {activeSection !== 'crawler' && activeSection !== 'crawled-data' && activeSection !== 'page-metrics' && activeSection !== 'text-quality' && activeSection !== 'wordcount' && activeSection !== 'broken-links' && activeSection !== 'audit-checker' && activeSection !== 'link-analysis' && activeSection !== 'performance' && activeSection !== 'schema-generator' && activeSection !== 'ai-intelligence' && activeSection !== 'module-e' && activeSection !== 'content-metrics' && activeSection !== 'discover-prompts' && activeSection !== 'keyword-intelligence' && (
+        {activeSection !== 'crawler' && activeSection !== 'crawled-data' && activeSection !== 'page-metrics' && activeSection !== 'text-quality' && activeSection !== 'wordcount' && activeSection !== 'broken-links' && activeSection !== 'audit-checker' && activeSection !== 'link-analysis' && activeSection !== 'performance' && activeSection !== 'schema-generator' && activeSection !== 'ai-intelligence' && activeSection !== 'module-e' && activeSection !== 'content-metrics' && activeSection !== 'discover-prompts' && activeSection !== 'topic-clusters' && activeSection !== 'content-matrix' && activeSection !== 'keyword-intelligence' && (
           <div className="rounded-2xl p-8 border border-zinc-800 bg-[#111113] text-center">
             <h2 className="text-xl font-semibold text-white mb-2">
               {activeSection.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
