@@ -1,7 +1,7 @@
 'use client'
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Clock, Globe, CheckCircle, XCircle, Loader2, AlertCircle, RefreshCw } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -158,6 +158,23 @@ export default function SessionDetailClient() {
   const tab = searchParams.get('tab') || 'dashboard'
   
   const activeSection = tab
+
+  // Refetch crawl data when switching to tabs that display it.
+  // RTK Query caches the initial (often empty) response from the dashboard tab;
+  // a soft navigation (query-param change) doesn't remount the component, so
+  // refetchOnMountOrArgChange won't fire. Explicitly refetch on tab switch.
+  const prevTabRef = useRef(activeSection)
+  useEffect(() => {
+    if (prevTabRef.current !== activeSection) {
+      prevTabRef.current = activeSection
+      const dataTabs = ['crawled-data', 'technical-audit', 'content-audit', 'page-metrics', 'text-quality', 'wordcount', 'broken-links', 'link-analysis', 'performance-audits', 'schema-generator', 'site-structure']
+      if (dataTabs.includes(activeSection) && jobId) {
+        refetchPagesRaw()
+        refetchFieldsRaw()
+        refetchLinksRaw()
+      }
+    }
+  }, [activeSection, jobId, refetchPagesRaw, refetchFieldsRaw, refetchLinksRaw])
 
   // Auto-poll module E result while on the brand-intelligence tab so all
   // 4 sections update automatically when the background job completes.
