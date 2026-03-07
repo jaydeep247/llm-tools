@@ -1,7 +1,7 @@
 'use client'
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Clock, Globe, CheckCircle, XCircle, Loader2, AlertCircle, RefreshCw } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -158,6 +158,23 @@ export default function SessionDetailClient() {
   const tab = searchParams.get('tab') || 'dashboard'
   
   const activeSection = tab
+
+  // Refetch crawl data when switching to tabs that display it.
+  // RTK Query caches the initial (often empty) response from the dashboard tab;
+  // a soft navigation (query-param change) doesn't remount the component, so
+  // refetchOnMountOrArgChange won't fire. Explicitly refetch on tab switch.
+  const prevTabRef = useRef(activeSection)
+  useEffect(() => {
+    if (prevTabRef.current !== activeSection) {
+      prevTabRef.current = activeSection
+      const dataTabs = ['crawled-data', 'technical-audit', 'content-audit', 'page-metrics', 'text-quality', 'wordcount', 'broken-links', 'link-analysis', 'performance-audits', 'schema-generator', 'site-structure']
+      if (dataTabs.includes(activeSection) && jobId) {
+        refetchPagesRaw()
+        refetchFieldsRaw()
+        refetchLinksRaw()
+      }
+    }
+  }, [activeSection, jobId, refetchPagesRaw, refetchFieldsRaw, refetchLinksRaw])
 
   // Auto-poll module E result while on the brand-intelligence tab so all
   // 4 sections update automatically when the background job completes.
@@ -1349,12 +1366,28 @@ export default function SessionDetailClient() {
           <ContentMetricsModule 
             url={session?.startUrl || ''}
             sessionId={sessionId}
-            initialTab="content-analysis"
+            section="content-analysis"
+          />
+        )}
+
+        {activeSection === 'topic-clusters' && (
+          <ContentMetricsModule 
+            url={session?.startUrl || ''}
+            sessionId={sessionId}
+            section="intent-clusters"
+          />
+        )}
+
+        {activeSection === 'content-matrix' && (
+          <ContentMetricsModule 
+            url={session?.startUrl || ''}
+            sessionId={sessionId}
+            section="entity-detection"
           />
         )}
 
         {/* Placeholder for other tabs */}
-        {activeSection !== 'crawler' && activeSection !== 'crawled-data' && activeSection !== 'page-metrics' && activeSection !== 'text-quality' && activeSection !== 'wordcount' && activeSection !== 'broken-links' && activeSection !== 'audit-checker' && activeSection !== 'link-analysis' && activeSection !== 'performance' && activeSection !== 'schema-generator' && activeSection !== 'ai-intelligence' && activeSection !== 'module-e' && activeSection !== 'content-metrics' && activeSection !== 'discover-prompts' && activeSection !== 'keyword-intelligence' && (
+        {activeSection !== 'crawler' && activeSection !== 'crawled-data' && activeSection !== 'page-metrics' && activeSection !== 'text-quality' && activeSection !== 'wordcount' && activeSection !== 'broken-links' && activeSection !== 'audit-checker' && activeSection !== 'link-analysis' && activeSection !== 'performance' && activeSection !== 'schema-generator' && activeSection !== 'ai-intelligence' && activeSection !== 'module-e' && activeSection !== 'content-metrics' && activeSection !== 'discover-prompts' && activeSection !== 'topic-clusters' && activeSection !== 'content-matrix' && activeSection !== 'keyword-intelligence' && (
           <div className="rounded-2xl p-8 border border-zinc-800 bg-[#111113] text-center">
             <h2 className="text-xl font-semibold text-white mb-2">
               {activeSection.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}

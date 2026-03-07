@@ -1,7 +1,7 @@
 'use client'
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Clock, Globe, CheckCircle, XCircle, Loader2, AlertCircle, RefreshCw } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -215,6 +215,23 @@ export default function SessionDetailPage() {
   const tab = searchParams.get('tab') || 'dashboard'
 
   const activeSection = tab
+
+  // Refetch crawl data when switching to tabs that display it.
+  // RTK Query caches the initial (often empty) response from the dashboard tab;
+  // a soft navigation (query-param change) doesn't remount the component, so
+  // refetchOnMountOrArgChange won't fire. Explicitly refetch on tab switch.
+  const prevTabRef = useRef(activeSection)
+  useEffect(() => {
+    if (prevTabRef.current !== activeSection) {
+      prevTabRef.current = activeSection
+      const dataTabs = ['crawled-data', 'technical-audit', 'content-audit', 'page-metrics', 'text-quality', 'wordcount', 'broken-links', 'link-analysis', 'performance-audits', 'schema-generator', 'site-structure']
+      if (dataTabs.includes(activeSection) && jobId) {
+        refetchPagesRaw()
+        refetchFieldsRaw()
+        refetchLinksRaw()
+      }
+    }
+  }, [activeSection, jobId, refetchPagesRaw, refetchFieldsRaw, refetchLinksRaw])
 
   // Unified data transformation
   const rawPages = pagesResult?.data || []
@@ -1118,7 +1135,7 @@ export default function SessionDetailPage() {
           <ContentMetricsModule
             url={session?.startUrl || ''}
             sessionId={sessionId}
-            initialTab="content-analysis"
+            section="content-analysis"
           />
         )}
 
@@ -1126,7 +1143,7 @@ export default function SessionDetailPage() {
           <ContentMetricsModule
             url={session?.startUrl || ''}
             sessionId={sessionId}
-            initialTab="intent-clusters"
+            section="intent-clusters"
           />
         )}
 
@@ -1134,7 +1151,7 @@ export default function SessionDetailPage() {
           <ContentMetricsModule
             url={session?.startUrl || ''}
             sessionId={sessionId}
-            initialTab="content-analysis"
+            section="entity-detection"
           />
         )}
 

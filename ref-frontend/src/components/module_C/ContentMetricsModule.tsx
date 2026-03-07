@@ -158,30 +158,41 @@ interface ContentMetricsModuleProps {
   url: string
   sessionId?: string
   initialTab?: 'content-analysis' | 'intent-clusters' | 'entity-detection'
+  /** When set, renders only this single section without the internal tab switcher. */
+  section?: 'content-analysis' | 'intent-clusters' | 'entity-detection'
 }
 
-export default function ContentMetricsModule({ url, sessionId, initialTab }: ContentMetricsModuleProps) {
+export default function ContentMetricsModule({ url, sessionId, initialTab, section }: ContentMetricsModuleProps) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
   
   const subtab = searchParams.get('subtab') || initialTab || 'content-analysis'
   const [activeTab, setActiveTab] = useState<'content-analysis' | 'intent-clusters' | 'entity-detection'>(
+    section ? section :
     subtab === 'intent-clusters' ? 'intent-clusters' : 
     subtab === 'entity-detection' ? 'entity-detection' : 
     'content-analysis'
   )
   
+  // When section is set, always lock to that section
   useEffect(() => {
-    if (!searchParams.get('subtab') && initialTab) {
+    if (section && activeTab !== section) {
+      setActiveTab(section)
+    }
+  }, [section, activeTab])
+
+  useEffect(() => {
+    if (!section && !searchParams.get('subtab') && initialTab) {
       const params = new URLSearchParams(searchParams.toString())
       params.set('subtab', initialTab)
       router.replace(`${pathname}?${params.toString()}`, { scroll: false })
     }
-  }, [searchParams, pathname, router, initialTab])
+  }, [searchParams, pathname, router, initialTab, section])
   
   // Update URL when tab changes
   const handleTabChange = (tab: 'content-analysis' | 'intent-clusters' | 'entity-detection') => {
+    if (section) return // locked to a single section
     setActiveTab(tab)
     const params = new URLSearchParams(searchParams.toString())
     params.set('subtab', tab)
@@ -198,12 +209,14 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
   // Find CRAWL job for sourceJobId (HTML is stored under crawl job ID)
   const crawlJob = jobs.find((j: any) => j.type === 'CRAWL' || j.jobType === 'CRAWL')
   const latestJob = jobs.length > 0 ? jobs[0] : null
-  const jobId = latestJob?.id as string | undefined
+  // Use crawl job ID as the primary job for content metrics (HTML lives there)
+  const jobId = (crawlJob?.id || latestJob?.id) as string | undefined
   const sourceJobId = crawlJob?.id as string | undefined
 
   const [hasTriggeredAnalysis, setHasTriggeredAnalysis] = useState(false)
 
   // Fetch content metrics from database for the latest job
+  // Poll every 5s while waiting for analysis results after user triggers it
   const {
     data: contentMetricsData,
     isLoading: isLoadingMetrics,
@@ -212,6 +225,7 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
   } = useGetContentMetricsQuery(jobId || '', {
     skip: !jobId,
     refetchOnMountOrArgChange: true,
+    pollingInterval: hasTriggeredAnalysis ? 5000 : undefined,
   })
 
   const [startContentMetrics, { isLoading: isStartingAnalysis }] = useStartContentMetricsMutation()
@@ -221,6 +235,16 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
   
   const contentMetrics = metricsResult?.content_metrics
   const entityMetrics = metricsResult?.entity_metrics
+
+  // Stop polling once data arrives
+  useEffect(() => {
+    if (hasTriggeredAnalysis && (contentMetrics || entityMetrics)) {
+      setHasTriggeredAnalysis(false)
+    }
+  }, [hasTriggeredAnalysis, contentMetrics, entityMetrics])
+
+  // Whether we're in a waiting state (analysis triggered, no data yet)
+  const isWaitingForAnalysis = hasTriggeredAnalysis && !contentMetrics && !entityMetrics && !metricsError
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'text-green-500'
@@ -239,107 +263,91 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
 
   return (
     <div className="space-y-6 p-6">
-      {/* Header Section with Tabs */}
-      <div className="space-y-6">
-        {/* Tab Navigation - Larger size */}
-        <div className="flex flex-wrap items-center gap-2 border-zinc-800 bg-[#111113] p-1.5 rounded-xl border w-fit">
-          <Button
-            onClick={() => handleTabChange('content-analysis')}
-            variant={activeTab === 'content-analysis' ? 'default' : 'ghost'}
-            size="lg"
-            className={cn(
-              "text-base font-semibold px-6 py-3 rounded-lg transition-all cursor-pointer",
-              activeTab === 'content-analysis' 
-                ? 'bg-primary text-primary-foreground shadow-lg' 
-                : 'hover:bg-muted'
-            )}
-          >
-            Content Analysis Metrics
-          </Button>
-          <Button
-            onClick={() => handleTabChange('intent-clusters')}
-            variant={activeTab === 'intent-clusters' ? 'default' : 'ghost'}
-            size="lg"
-            className={cn(
-              "text-base font-semibold px-6 py-3 rounded-lg transition-all cursor-pointer",
-              activeTab === 'intent-clusters' 
-                ? 'bg-primary text-primary-foreground shadow-lg' 
-                : 'hover:bg-muted'
-            )}
-          >
-            Prompt Intent Clusters
-          </Button>
-          <Button
-            onClick={() => handleTabChange('entity-detection')}
-            variant={activeTab === 'entity-detection' ? 'default' : 'ghost'}
-            size="lg"
-            className={cn(
-              "text-base font-semibold px-6 py-3 rounded-lg transition-all cursor-pointer",
-              activeTab === 'entity-detection' 
-                ? 'bg-primary text-primary-foreground shadow-lg' 
-                : 'hover:bg-muted'
-            )}
-          >
-            Entity Detection Metrics
-          </Button>
+      {/* Header Section with Tabs - hidden when locked to a single section */}
+      {!section && (
+        <div className="space-y-6">
+          {/* Tab Navigation - Larger size */}
+          <div className="flex flex-wrap items-center gap-2 border-zinc-800 bg-[#111113] p-1.5 rounded-xl border w-fit">
+            <Button
+              onClick={() => handleTabChange('content-analysis')}
+              variant={activeTab === 'content-analysis' ? 'default' : 'ghost'}
+              size="lg"
+              className={cn(
+                "text-base font-semibold px-6 py-3 rounded-lg transition-all cursor-pointer",
+                activeTab === 'content-analysis' 
+                  ? 'bg-primary text-primary-foreground shadow-lg' 
+                  : 'hover:bg-muted'
+              )}
+            >
+              Content Analysis Metrics
+            </Button>
+            <Button
+              onClick={() => handleTabChange('intent-clusters')}
+              variant={activeTab === 'intent-clusters' ? 'default' : 'ghost'}
+              size="lg"
+              className={cn(
+                "text-base font-semibold px-6 py-3 rounded-lg transition-all cursor-pointer",
+                activeTab === 'intent-clusters' 
+                  ? 'bg-primary text-primary-foreground shadow-lg' 
+                  : 'hover:bg-muted'
+              )}
+            >
+              Prompt Intent Clusters
+            </Button>
+            <Button
+              onClick={() => handleTabChange('entity-detection')}
+              variant={activeTab === 'entity-detection' ? 'default' : 'ghost'}
+              size="lg"
+              className={cn(
+                "text-base font-semibold px-6 py-3 rounded-lg transition-all cursor-pointer",
+                activeTab === 'entity-detection' 
+                  ? 'bg-primary text-primary-foreground shadow-lg' 
+                  : 'hover:bg-muted'
+              )}
+            >
+              Entity Detection Metrics
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Content Analysis Metrics Tab */}
       {activeTab === 'content-analysis' && (
         <div className="rounded-xl border border-zinc-800 bg-[#111113] p-6 space-y-6">
           {/* Empty State + Trigger */}
-          {!contentMetrics && !isLoadingMetrics && !metricsError && (
+          {!contentMetrics && !isLoadingMetrics && !metricsError && !isWaitingForAnalysis && !isStartingAnalysis && (
             <div className="p-6 border border-zinc-800 rounded-xl bg-[#0D0D10] space-y-4">
               <p className="text-sm text-zinc-400">
                 No content metrics available yet. Run an AEO analysis to see content insights.
               </p>
               {jobId && (
-                <div className="flex flex-col gap-2">
-                  <Button
-                    size="sm"
-                    disabled={isStartingAnalysis}
-                    onClick={async () => {
-                      try {
-                        setHasTriggeredAnalysis(true)
-                        await startContentMetrics({ jobId, sourceJobId }).unwrap()
-                        setTimeout(() => {
-                          refetch()
-                        }, 5000)
-                      } catch (e) {
-                        // no-op: error will surface via metricsError on next fetch
-                      }
-                    }}
-                    className="cursor-pointer"
-                  >
-                    {isStartingAnalysis ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Starting analysis...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                        Run Content Metrics Analysis
-                      </>
-                    )}
-                  </Button>
-                  {(isStartingAnalysis || (hasTriggeredAnalysis && isLoadingMetrics)) && (
-                    <div className="flex items-center gap-2 text-xs text-zinc-400">
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                      <span>Running analysis and loading metrics...</span>
-                    </div>
-                  )}
-                </div>
+                <Button
+                  size="sm"
+                  disabled={isStartingAnalysis}
+                  onClick={async () => {
+                    try {
+                      setHasTriggeredAnalysis(true)
+                      await startContentMetrics({ jobId, sourceJobId }).unwrap()
+                    } catch (e) {
+                      // no-op: error will surface via metricsError on next fetch
+                    }
+                  }}
+                  className="cursor-pointer"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Run Content Metrics Analysis
+                </Button>
               )}
             </div>
           )}
 
-          {/* Loading State */}
-          {isLoadingMetrics && (
+          {/* Loading / Waiting State */}
+          {(isLoadingMetrics || isWaitingForAnalysis || isStartingAnalysis) && !contentMetrics && (
             <div className="p-8 text-center border border-zinc-800 rounded-xl bg-[#0D0D10]">
               <Loader2 className="w-10 h-10 mx-auto mb-4 text-primary animate-spin" />
-              <p className="text-sm text-zinc-400">Loading content metrics...</p>
+              <p className="text-sm text-zinc-400">
+                {isStartingAnalysis ? 'Starting analysis...' : 'Running analysis — this may take a moment...'}
+              </p>
             </div>
           )}
 
@@ -429,19 +437,39 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
       {activeTab === 'intent-clusters' && (
         <div className="rounded-xl border border-zinc-800 bg-[#111113] p-6 space-y-6">
           {/* Empty State */}
-          {!contentMetrics && !isLoadingMetrics && !metricsError && (
-            <div className="p-6 border border-zinc-800 rounded-xl bg-[#0D0D10]">
-              <p className="text-sm text-zinc-400 mb-4">
+          {!contentMetrics && !isLoadingMetrics && !metricsError && !isWaitingForAnalysis && !isStartingAnalysis && (
+            <div className="p-6 border border-zinc-800 rounded-xl bg-[#0D0D10] space-y-4">
+              <p className="text-sm text-zinc-400">
                 No intent cluster data available yet. Run an AEO analysis to see prompt intent analysis.
               </p>
+              {jobId && (
+                <Button
+                  size="sm"
+                  disabled={isStartingAnalysis}
+                  onClick={async () => {
+                    try {
+                      setHasTriggeredAnalysis(true)
+                      await startContentMetrics({ jobId, sourceJobId }).unwrap()
+                    } catch (e) {
+                      // no-op
+                    }
+                  }}
+                  className="cursor-pointer"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Run Content Metrics Analysis
+                </Button>
+              )}
             </div>
           )}
 
-          {/* Loading State */}
-          {isLoadingMetrics && (
+          {/* Loading / Waiting State */}
+          {(isLoadingMetrics || isWaitingForAnalysis || isStartingAnalysis) && !contentMetrics && (
             <div className="p-8 text-center border border-zinc-800 rounded-xl bg-[#0D0D10]">
               <Loader2 className="w-10 h-10 mx-auto mb-4 text-primary animate-spin" />
-              <p className="text-sm text-zinc-400">Loading intent clusters...</p>
+              <p className="text-sm text-zinc-400">
+                {isStartingAnalysis ? 'Starting analysis...' : 'Running analysis — this may take a moment...'}
+              </p>
             </div>
           )}
 
@@ -612,19 +640,39 @@ export default function ContentMetricsModule({ url, sessionId, initialTab }: Con
       {activeTab === 'entity-detection' && (
         <div className="rounded-xl border border-zinc-800 bg-[#111113] p-6 space-y-6">
           {/* Empty State */}
-          {!entityMetrics && !isLoadingMetrics && !metricsError && (
-            <div className="p-6 border border-zinc-800 rounded-xl bg-[#0D0D10]">
-              <p className="text-sm text-zinc-400 mb-4">
+          {!entityMetrics && !isLoadingMetrics && !metricsError && !isWaitingForAnalysis && !isStartingAnalysis && (
+            <div className="p-6 border border-zinc-800 rounded-xl bg-[#0D0D10] space-y-4">
+              <p className="text-sm text-zinc-400">
                 No entity detection data available yet. Run an AEO analysis to see entity metrics.
               </p>
+              {jobId && (
+                <Button
+                  size="sm"
+                  disabled={isStartingAnalysis}
+                  onClick={async () => {
+                    try {
+                      setHasTriggeredAnalysis(true)
+                      await startContentMetrics({ jobId, sourceJobId }).unwrap()
+                    } catch (e) {
+                      // no-op
+                    }
+                  }}
+                  className="cursor-pointer"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Run Content Metrics Analysis
+                </Button>
+              )}
             </div>
           )}
 
-          {/* Loading State */}
-          {isLoadingMetrics && (
+          {/* Loading / Waiting State */}
+          {(isLoadingMetrics || isWaitingForAnalysis || isStartingAnalysis) && !entityMetrics && (
             <div className="p-8 text-center border border-zinc-800 rounded-xl bg-[#0D0D10]">
               <Loader2 className="w-10 h-10 mx-auto mb-4 text-primary animate-spin" />
-              <p className="text-sm text-zinc-400">Loading entity metrics...</p>
+              <p className="text-sm text-zinc-400">
+                {isStartingAnalysis ? 'Starting analysis...' : 'Running analysis — this may take a moment...'}
+              </p>
             </div>
           )}
 

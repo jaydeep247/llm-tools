@@ -70,7 +70,7 @@ export class QueueService {
   // ============ MODULE D JOBS (Content Analysis) ============
   async publishContentMetricsJob(payload: ContentMetricsJobPayload): Promise<void> {
     await this.publishToQueue(
-      { ...payload, jobType: JobType.CONTENT_METRICS },
+      { ...payload, jobType: JobType.MODULE_D },
       JobCategory.MODULE_D
     );
   }
