@@ -38,6 +38,7 @@ interface WordCountData {
   sectionWordCountMapping?: Record<string, number>
   sectionWordCountBreakdown?: Record<string, number>
   headingWordCountMapping?: Record<string, number>
+  wordCountDistribution?: Record<string, number>
   timestamp: string
 }
 
@@ -71,7 +72,11 @@ const COLUMN_CATEGORIES: ColumnCategory[] = [
   },
   {
     name: 'Content Quality',
-    columns: ['keywordDensity', 'thinContent', 'thinContentReason', 'duplicateContent']
+    columns: ['keywordDensity', 'thinContent', 'thinContentReason', 'duplicateContent', 'duplicateWithUrls']
+  },
+  {
+    name: 'Content Structure',
+    columns: ['sectionWordCountMapping', 'sectionWordCountBreakdown', 'headingWordCountMapping', 'wordCountDistribution']
   }
 ]
 
@@ -226,6 +231,11 @@ export function WordCountAnalysis({
       thinContent: 'Thin Content',
       thinContentReason: 'Thin Content Reason',
       duplicateContent: 'Duplicate Content',
+      duplicateWithUrls: 'Duplicate URLs',
+      sectionWordCountMapping: 'Section Word Counts',
+      sectionWordCountBreakdown: 'Section Breakdown',
+      headingWordCountMapping: 'Heading Word Counts',
+      wordCountDistribution: 'Word Count Distribution',
       timestamp: 'Timestamp'
     }
     return labels[column] || column
@@ -241,7 +251,7 @@ export function WordCountAnalysis({
   const renderTableHeader = (column: keyof WordCountData) => {
     const isSortable = sortableColumns.has(column)
     const label = getColumnLabel(column)
-    const isMinWidthColumn = ['url'].includes(column as string)
+    const isMinWidthColumn = ['url', 'duplicateWithUrls', 'sectionWordCountMapping', 'sectionWordCountBreakdown', 'headingWordCountMapping', 'wordCountDistribution'].includes(column as string)
     
     return (
       <th
@@ -305,6 +315,37 @@ export function WordCountAnalysis({
         return item.keywordDensity ? `${Number(item.keywordDensity).toFixed(2)}%` : 'N/A'
       case 'thinContentReason':
         return <span title={item.thinContentReason || ''}>{item.thinContentReason || 'N/A'}</span>
+      case 'duplicateWithUrls': {
+        const urls = item.duplicateWithUrls
+        if (!urls || urls.length === 0) return <span className="text-zinc-500">None</span>
+        return (
+          <div className="flex flex-col gap-1 max-w-xs">
+            {urls.map((u, i) => (
+              <a key={i} href={u} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 text-xs truncate flex items-center gap-1">
+                <span className="truncate">{u}</span>
+                <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+              </a>
+            ))}
+          </div>
+        )
+      }
+      case 'sectionWordCountMapping':
+      case 'sectionWordCountBreakdown':
+      case 'headingWordCountMapping':
+      case 'wordCountDistribution': {
+        const mapping = item[column] as Record<string, number> | undefined
+        if (!mapping || Object.keys(mapping).length === 0) return <span className="text-zinc-500">N/A</span>
+        return (
+          <div className="flex flex-col gap-0.5 text-xs max-w-xs">
+            {Object.entries(mapping).map(([key, count]) => (
+              <div key={key} className="flex justify-between gap-2">
+                <span className="text-zinc-400 truncate">{key}</span>
+                <span className="text-zinc-200 font-mono shrink-0">{count}</span>
+              </div>
+            ))}
+          </div>
+        )
+      }
       default:
         return value != null ? String(value) : 'N/A'
     }

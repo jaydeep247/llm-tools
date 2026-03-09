@@ -5,6 +5,7 @@ import {
 } from './queue.constants';
 import { 
   CrawlJobPayload, 
+  CrawlResumeJobPayload,
   SchemaJobPayload, 
   ContentMetricsJobPayload, 
   AnalysisJobPayload,
@@ -56,6 +57,13 @@ export class QueueService {
   async publishCrawlJob(payload: CrawlJobPayload): Promise<void> {
     await this.publishToQueue(
       { ...payload, jobType: JobType.CRAWL },
+      JobCategory.CRAWLER
+    );
+  }
+
+  async publishCrawlResumeJob(payload: CrawlResumeJobPayload): Promise<void> {
+    await this.publishToQueue(
+      { ...payload, jobType: JobType.CRAWL_RESUME },
       JobCategory.CRAWLER
     );
   }

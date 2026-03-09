@@ -14,6 +14,12 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 interface CrawledPage {
   id: number
@@ -26,6 +32,7 @@ interface CrawledPage {
   descriptionPixelWidth?: number
   contentType: string
   statusCode: number
+  status?: string
   responseTime: number
   wordCount: number
   sentenceCount?: number
@@ -71,16 +78,32 @@ interface CrawledPage {
   closestDuplicateUrl?: string
   closestDuplicateSimilarity?: number
   nearDuplicateCount: number
+  outlinks?: number
   uniqueExternalOutlinks: number
   uniqueExternalJsOutlinks: number
   uniqueOutlinks?: number
   uniqueJsOutlinks?: number
+  externalOutlinks?: number
   metaDescription?: string
   ogTitle?: string
   ogDescription?: string
   ogImage?: string
   lastModified?: string
+  urlEncodedAddress?: string
   timestamp: string
+  // Individual heading fields
+  h1_1?: string
+  h1_1Length?: number
+  h1_2?: string
+  h1_2Length?: number
+  h2_1?: string
+  h2_1Length?: number
+  h2_2?: string
+  h2_2Length?: number
+  // Inlinks
+  inlinks?: number
+  uniqueInlinks?: number
+  uniqueJsInlinks?: number
 }
 
 interface CrawledDataTableProps {
@@ -101,31 +124,35 @@ type ColumnCategory = {
 const COLUMN_CATEGORIES: ColumnCategory[] = [
   {
     name: 'Basic Info',
-    columns: ['url', 'title', 'statusCode', 'contentType', 'success', 'timestamp']
+    columns: ['url', 'title', 'statusCode', 'status', 'contentType', 'success', 'timestamp']
   },
   {
     name: 'SEO Meta',
-    columns: ['titleLength', 'titlePixelWidth', 'descriptionLength', 'descriptionPixelWidth', 'description', 'metaKeywords']
+    columns: ['titleLength', 'titlePixelWidth', 'descriptionLength', 'descriptionPixelWidth', 'description', 'metaKeywords', 'metaKeywordsLength']
   },
   {
     name: 'Content Quality',
     columns: ['wordCount', 'sentenceCount', 'averageWordsPerSentence', 'fleschReadingEase', 'readabilityLevel', 'textToHtmlRatio', 'spellingErrors', 'grammarErrors']
   },
   {
+    name: 'Heading Structure',
+    columns: ['h1_1', 'h1_1Length', 'h1_2', 'h1_2Length', 'h2_1', 'h2_1Length', 'h2_2', 'h2_2Length', 'headingTags']
+  },
+  {
     name: 'Indexability',
-    columns: ['indexable', 'indexabilityStatus', 'metaRobots', 'xRobotsTag', 'canonicalUrl']
+    columns: ['indexable', 'indexabilityStatus', 'metaRobots', 'xRobotsTag', 'metaRefresh', 'canonicalUrl']
   },
   {
     name: 'Links',
-    columns: ['uniqueExternalOutlinks', 'uniqueExternalJsOutlinks', 'uniqueOutlinks', 'linkScore']
+    columns: ['inlinks', 'uniqueInlinks', 'uniqueJsInlinks', 'outlinks', 'uniqueOutlinks', 'uniqueJsOutlinks', 'externalOutlinks', 'uniqueExternalOutlinks', 'uniqueExternalJsOutlinks', 'linkScore']
   },
   {
     name: 'Performance',
     columns: ['responseTime', 'sizeBytes', 'transferredBytes', 'totalTransferredBytes', 'co2Mg', 'carbonRating']
   },
   {
-    name: 'Semantic',
-    columns: ['semanticSimilarityScore', 'semanticRelevanceScore', 'nearDuplicateCount', 'closestDuplicateSimilarity', 'contentHash']
+    name: 'Semantic & Duplicates',
+    columns: ['semanticSimilarityScore', 'semanticRelevanceScore', 'nearDuplicateCount', 'closestDuplicateSimilarity', 'closestDuplicateUrl', 'contentHash']
   },
   {
     name: 'Open Graph',
@@ -133,11 +160,15 @@ const COLUMN_CATEGORIES: ColumnCategory[] = [
   },
   {
     name: 'Technical',
-    columns: ['crawlDepth', 'folderDepth', 'language', 'httpVersion', 'redirectUrl', 'redirectType']
+    columns: ['crawlDepth', 'folderDepth', 'language', 'httpVersion', 'redirectUrl', 'redirectType', 'cookies']
+  },
+  {
+    name: 'Pagination & Alternate',
+    columns: ['relNext', 'relPrev', 'httpRelNext', 'httpRelPrev', 'amphtmlUrl', 'mobileAlternateUrl']
   },
   {
     name: 'Other',
-    columns: ['lastModified', 'relNext', 'relPrev', 'errorMessage']
+    columns: ['lastModified', 'urlEncodedAddress', 'errorMessage']
   }
 ]
 
@@ -157,6 +188,7 @@ export function CrawledDataTable({
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [visibleColumns, setVisibleColumns] = useState<Set<keyof CrawledPage>>(DEFAULT_VISIBLE_COLUMNS)
   const tableContainerRef = useRef<HTMLDivElement>(null)
+  const [headingDialogData, setHeadingDialogData] = useState<{ url: string; headings: { level: number; tag: string; text: string }[] } | null>(null)
   const itemsPerPage = 20
 
   const uniqueData = useMemo(() => {
@@ -328,7 +360,7 @@ export function CrawledDataTable({
       uniqueExternalJsOutlinks: 'External JS Links',
       uniqueOutlinks: 'Total Outlinks',
       linkScore: 'Link Score',
-      responseTime: 'Response Time (ms)',
+      responseTime: 'Response Time (s)',
       sizeBytes: 'Size',
       transferredBytes: 'Transferred',
       totalTransferredBytes: 'Total Transferred',
@@ -351,8 +383,34 @@ export function CrawledDataTable({
       lastModified: 'Last Modified',
       relNext: 'Rel Next',
       relPrev: 'Rel Prev',
+      httpRelNext: 'HTTP Rel Next',
+      httpRelPrev: 'HTTP Rel Prev',
       errorMessage: 'Error Message',
-      metaKeywords: 'Meta Keywords'
+      metaKeywords: 'Meta Keywords',
+      metaKeywordsLength: 'Meta Keywords Length',
+      metaRefresh: 'Meta Refresh',
+      headingTags: 'Heading Tags',
+      cookies: 'Cookies',
+      amphtmlUrl: 'AMP HTML',
+      mobileAlternateUrl: 'Mobile Alternate',
+      closestDuplicateUrl: 'Nearest Duplicate URL',
+      urlEncodedAddress: 'URL Encoded Address',
+      status: 'Status',
+      outlinks: 'Outlinks',
+      externalOutlinks: 'External Outlinks',
+      uniqueJsOutlinks: 'Unique JS Outlinks',
+      h1_1: 'H1-1',
+      h1_1Length: 'H1-1 Length',
+      h1_2: 'H1-2',
+      h1_2Length: 'H1-2 Length',
+      h2_1: 'H2-1',
+      h2_1Length: 'H2-1 Length',
+      h2_2: 'H2-2',
+      h2_2Length: 'H2-2 Length',
+      inlinks: 'Inlinks',
+      uniqueInlinks: 'Unique Inlinks',
+      uniqueJsInlinks: 'Unique JS Inlinks',
+      metaDescription: 'Meta Description',
     }
     return labels[column] || column
   }
@@ -360,18 +418,19 @@ export function CrawledDataTable({
   // Columns that support sorting
   const sortableColumns: Set<keyof CrawledPage> = new Set([
     'id', 'url', 'title', 'titleLength', 'titlePixelWidth', 'descriptionLength', 'descriptionPixelWidth',
-    'contentType', 'statusCode', 'responseTime', 'wordCount', 'sentenceCount', 'averageWordsPerSentence',
+    'contentType', 'statusCode', 'status', 'responseTime', 'wordCount', 'sentenceCount', 'averageWordsPerSentence',
     'fleschReadingEase', 'readabilityLevel', 'textToHtmlRatio', 'spellingErrors', 'grammarErrors',
-    'crawlDepth', 'folderDepth', 'indexable', 'uniqueExternalOutlinks', 'uniqueExternalJsOutlinks',
-    'uniqueOutlinks', 'linkScore', 'sizeBytes', 'transferredBytes', 'totalTransferredBytes', 'co2Mg',
+    'crawlDepth', 'folderDepth', 'indexable', 'outlinks', 'uniqueExternalOutlinks', 'uniqueExternalJsOutlinks',
+    'uniqueOutlinks', 'uniqueJsOutlinks', 'externalOutlinks', 'linkScore', 'sizeBytes', 'transferredBytes', 'totalTransferredBytes', 'co2Mg',
     'semanticSimilarityScore', 'semanticRelevanceScore', 'nearDuplicateCount', 'closestDuplicateSimilarity',
-    'timestamp', 'success'
+    'metaKeywordsLength', 'timestamp', 'success', 'inlinks', 'uniqueInlinks', 'uniqueJsInlinks',
+    'h1_1Length', 'h1_2Length', 'h2_1Length', 'h2_2Length'
   ])
 
   const renderTableHeader = (column: keyof CrawledPage) => {
     const isSortable = sortableColumns.has(column)
     const label = getColumnLabel(column)
-    const isMinWidthColumn = ['url', 'description', 'canonicalUrl', 'errorMessage'].includes(column as string)
+    const isMinWidthColumn = ['url', 'description', 'canonicalUrl', 'errorMessage', 'headingTags', 'ogTitle', 'ogDescription', 'ogImage', 'cookies', 'amphtmlUrl', 'mobileAlternateUrl', 'redirectUrl', 'closestDuplicateUrl', 'urlEncodedAddress', 'metaKeywords', 'h1_1', 'h1_2', 'h2_1', 'h2_2'].includes(column as string)
     
     return (
       <th
@@ -402,7 +461,8 @@ export function CrawledDataTable({
   }
 
   const formatBytes = (bytes?: number) => {
-    if (!bytes) return 'N/A'
+    if (bytes === null || bytes === undefined) return 'N/A'
+    if (bytes === 0) return '0 B'
     if (bytes < 1024) return `${bytes} B`
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
@@ -454,23 +514,23 @@ export function CrawledDataTable({
       case 'totalTransferredBytes':
         return formatBytes(page.totalTransferredBytes ? Number(page.totalTransferredBytes) : undefined)
       case 'textToHtmlRatio':
-        return page.textToHtmlRatio ? `${Number(page.textToHtmlRatio).toFixed(2)}%` : 'N/A'
+        return page.textToHtmlRatio != null ? `${Number(page.textToHtmlRatio).toFixed(2)}%` : 'N/A'
       case 'averageWordsPerSentence':
-        return page.averageWordsPerSentence ? Number(page.averageWordsPerSentence).toFixed(1) : 'N/A'
+        return page.averageWordsPerSentence != null ? Number(page.averageWordsPerSentence).toFixed(1) : 'N/A'
       case 'fleschReadingEase':
-        return page.fleschReadingEase ? Number(page.fleschReadingEase).toFixed(1) : 'N/A'
+        return page.fleschReadingEase != null ? Number(page.fleschReadingEase).toFixed(1) : 'N/A'
       case 'linkScore':
-        return page.linkScore ? Number(page.linkScore).toFixed(2) : 'N/A'
+        return page.linkScore != null ? Number(page.linkScore).toFixed(2) : 'N/A'
       case 'co2Mg':
-        return page.co2Mg ? Number(page.co2Mg).toFixed(2) : 'N/A'
+        return page.co2Mg != null ? Number(page.co2Mg).toFixed(2) : 'N/A'
       case 'carbonRating':
         return page.carbonRating ? <Badge className="bg-green-500/20 text-green-300">{page.carbonRating}</Badge> : 'N/A'
       case 'semanticSimilarityScore':
-        return page.semanticSimilarityScore ? Number(page.semanticSimilarityScore).toFixed(2) : 'N/A'
+        return page.semanticSimilarityScore != null ? Number(page.semanticSimilarityScore).toFixed(2) : 'N/A'
       case 'semanticRelevanceScore':
-        return page.semanticRelevanceScore ? Number(page.semanticRelevanceScore).toFixed(2) : 'N/A'
+        return page.semanticRelevanceScore != null ? Number(page.semanticRelevanceScore).toFixed(2) : 'N/A'
       case 'closestDuplicateSimilarity':
-        return page.closestDuplicateSimilarity ? Number(page.closestDuplicateSimilarity).toFixed(4) : 'N/A'
+        return page.closestDuplicateSimilarity != null ? Number(page.closestDuplicateSimilarity).toFixed(4) : 'N/A'
       case 'contentHash':
         return page.contentHash ? (
           <span className="font-mono text-[10px]" title={page.contentHash}>
@@ -492,23 +552,88 @@ export function CrawledDataTable({
           <span className="text-red-300" title={page.errorMessage}>{page.errorMessage}</span>
         ) : 'N/A'
       case 'ogTitle':
-        return page.ogTitle ? <span title={page.ogTitle}>✓</span> : 'N/A'
+        return page.ogTitle ? <span title={page.ogTitle}>{page.ogTitle}</span> : 'N/A'
       case 'ogDescription':
-        return page.ogDescription ? '✓' : 'N/A'
+        return page.ogDescription ? <span title={page.ogDescription}>{page.ogDescription}</span> : 'N/A'
       case 'ogImage':
         return page.ogImage ? (
-          <a href={page.ogImage} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300">
-            ✓
+          <a href={page.ogImage} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300" title={page.ogImage}>
+            {page.ogImage}
           </a>
         ) : 'N/A'
+      case 'headingTags': {
+        if (!page.headingTags) return 'N/A'
+        try {
+          const headings = JSON.parse(page.headingTags)
+          if (!Array.isArray(headings) || headings.length === 0) return 'N/A'
+          return (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-blue-400 hover:text-blue-300 hover:bg-zinc-800/60 h-6 px-2 text-xs"
+              onClick={(e) => {
+                e.stopPropagation()
+                setHeadingDialogData({ url: page.url, headings })
+              }}
+            >
+              View ({headings.length})
+            </Button>
+          )
+        } catch { return <span title={page.headingTags}>{page.headingTags}</span> }
+      }
+      case 'h1_1':
+        return page.h1_1 ? <span title={page.h1_1}>{page.h1_1}</span> : '-'
+      case 'h1_2':
+        return page.h1_2 ? <span title={page.h1_2}>{page.h1_2}</span> : '-'
+      case 'h2_1':
+        return page.h2_1 ? <span title={page.h2_1}>{page.h2_1}</span> : '-'
+      case 'h2_2':
+        return page.h2_2 ? <span title={page.h2_2}>{page.h2_2}</span> : '-'
+      case 'h1_1Length':
+      case 'h1_2Length':
+      case 'h2_1Length':
+      case 'h2_2Length':
+        return value != null ? String(value) : '-'
+      case 'inlinks':
+      case 'uniqueInlinks':
+      case 'uniqueJsInlinks':
+        return value != null ? String(value) : '0'
+      case 'cookies':
+        return page.cookies ? <span className="text-[10px]" title={page.cookies}>{page.cookies}</span> : '-'
+      case 'amphtmlUrl':
+        return page.amphtmlUrl ? (
+          <a href={page.amphtmlUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300" title={page.amphtmlUrl}>{page.amphtmlUrl}</a>
+        ) : 'N/A'
+      case 'mobileAlternateUrl':
+        return page.mobileAlternateUrl ? (
+          <a href={page.mobileAlternateUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300" title={page.mobileAlternateUrl}>{page.mobileAlternateUrl}</a>
+        ) : 'N/A'
+      case 'closestDuplicateUrl':
+        return page.closestDuplicateUrl ? (
+          <a href={page.closestDuplicateUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300" title={page.closestDuplicateUrl}>{page.closestDuplicateUrl}</a>
+        ) : 'N/A'
+      case 'status':
+        return page.status ? <Badge className={getStatusColor(page.statusCode)}>{page.status}</Badge> : 'N/A'
+      case 'httpRelNext':
+        return page.httpRelNext || '-'
+      case 'httpRelPrev':
+        return page.httpRelPrev || '-'
+      case 'metaRefresh':
+        return page.metaRefresh || '-'
+      case 'urlEncodedAddress':
+        return page.urlEncodedAddress ? <span className="font-mono text-[10px]" title={page.urlEncodedAddress}>{page.urlEncodedAddress}</span> : 'N/A'
       case 'redirectUrl':
-        return <span title={page.redirectUrl || ''}>{page.redirectUrl || 'N/A'}</span>
+        return <span title={page.redirectUrl || ''}>{page.redirectUrl || '-'}</span>
+      case 'redirectType':
+        return <span>{page.redirectType || '-'}</span>
       case 'metaKeywords':
-        return <span title={page.metaKeywords || ''}>{page.metaKeywords || 'N/A'}</span>
+        return <span title={page.metaKeywords || ''}>{page.metaKeywords || '-'}</span>
       case 'relNext':
-        return page.relNext ? '✓' : 'N/A'
+        return page.relNext ? '✓' : '-'
       case 'relPrev':
-        return page.relPrev ? '✓' : 'N/A'
+        return page.relPrev ? '✓' : '-'
+      case 'responseTime':
+        return page.responseTime != null ? `${Number(page.responseTime).toFixed(3)}s` : 'N/A'
       default:
         return value != null ? String(value) : 'N/A'
     }
@@ -773,6 +898,60 @@ export function CrawledDataTable({
           </div>
         )}
       </div>
+
+      {/* Heading Structure Dialog */}
+      <Dialog open={!!headingDialogData} onOpenChange={(open) => { if (!open) setHeadingDialogData(null) }}>
+        <DialogContent className="bg-[#0D0D10] border-zinc-800 max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-white text-sm font-semibold">Heading Structure</DialogTitle>
+            {headingDialogData && (
+              <p className="text-zinc-400 text-xs truncate mt-1" title={headingDialogData.url}>{headingDialogData.url}</p>
+            )}
+          </DialogHeader>
+          {headingDialogData && (
+            <div className="overflow-y-auto flex-1 pr-2 custom-scrollbar py-3 space-y-3">
+              {headingDialogData.headings.map((h, i) => {
+                const textStyles: Record<number, string> = {
+                  1: 'text-2xl font-bold text-white',
+                  2: 'text-xl font-semibold text-white',
+                  3: 'text-lg font-semibold text-zinc-200',
+                  4: 'text-base font-medium text-zinc-300',
+                  5: 'text-sm font-medium text-zinc-400',
+                  6: 'text-xs font-medium text-zinc-400',
+                }
+                const tagColors: Record<number, string> = {
+                  1: 'text-blue-400',
+                  2: 'text-purple-400',
+                  3: 'text-green-400',
+                  4: 'text-yellow-400',
+                  5: 'text-orange-400',
+                  6: 'text-red-400',
+                }
+                const spacing: Record<number, string> = {
+                  1: 'mt-4 mb-2',
+                  2: 'mt-3 mb-1.5',
+                  3: 'mt-2 mb-1',
+                  4: 'mt-1.5 mb-0.5',
+                  5: 'mt-1 mb-0.5',
+                  6: 'mt-1 mb-0.5',
+                }
+                return (
+                  <div key={i} className={`px-3 ${i === 0 ? '' : spacing[h.level] || ''}`}>
+                    <div className="flex items-baseline gap-2">
+                      <span className={`${tagColors[h.level] || tagColors[6]} text-[10px] font-mono uppercase opacity-70 shrink-0`}>
+                        h{h.level}
+                      </span>
+                      <span className={textStyles[h.level] || textStyles[6]}>
+                        {h.text}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

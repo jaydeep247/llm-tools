@@ -177,6 +177,18 @@ export const startJobEventsConsumer = async () => {
           } catch (e) { logger.error('Socket emit error (crawl:status):', e); }
         }
 
+        // 2c. CRAWL_PAUSED — spider hit page limit, emit socket status immediately.
+        if (event.eventType === 'CRAWL_PAUSED') {
+          try {
+            const io = getIo();
+            io.to(`job:${event.jobId}`).emit('crawl:status', {
+              jobId: event.jobId,
+              crawl_status: 'paused',
+              updatedAt: new Date().toISOString(),
+            });
+          } catch (e) { logger.error('Socket emit error (crawl:paused):', e); }
+        }
+
         // 3. Buffer for WebSocket Broadcast (for non-terminal events)
         const jobId = event.jobId;
         

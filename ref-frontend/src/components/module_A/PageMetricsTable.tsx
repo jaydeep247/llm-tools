@@ -72,6 +72,13 @@ interface PageMetric {
   totalResourceSizeBytes?: number | null
   resourceSizeBreakdown?: string | null
   totalWordCount?: number | null
+  // Missing from spec - now added
+  metaRobots?: string | null
+  statusCode?: number | null
+  headingTags?: string | null
+  language?: string | null
+  amphtmlUrl?: string | null
+  responseTime?: number | null
 }
 
 interface PageMetricsTableProps {
@@ -92,7 +99,7 @@ type ColumnCategory = {
 const COLUMN_CATEGORIES: ColumnCategory[] = [
   {
     name: 'Basic Info',
-    columns: ['url', 'title', 'resourceType', 'contentType', 'lastModified', 'timestamp']
+    columns: ['url', 'title', 'resourceType', 'contentType', 'statusCode', 'language', 'lastModified', 'timestamp']
   },
   {
     name: 'Title Metrics',
@@ -103,12 +110,16 @@ const COLUMN_CATEGORIES: ColumnCategory[] = [
     columns: ['description', 'descriptionLength', 'descriptionPixelWidth', 'metaDescriptionStatus', 'duplicateMetaDescriptionCount']
   },
   {
-    name: 'Canonical',
-    columns: ['canonicalUrl', 'canonicalValidationStatus', 'canonicalValidationMessage']
+    name: 'SEO',
+    columns: ['metaRobots', 'canonicalUrl', 'canonicalValidationStatus', 'canonicalValidationMessage']
   },
   {
     name: 'Meta Keywords',
     columns: ['metaKeywords', 'metaKeywordsLength']
+  },
+  {
+    name: 'Heading Structure',
+    columns: ['headingTags']
   },
   {
     name: 'Tables',
@@ -135,12 +146,12 @@ const COLUMN_CATEGORIES: ColumnCategory[] = [
     columns: ['structuredDataPresent', 'structuredDataFormat', 'structuredDataTypes', 'structuredDataPriorityType']
   },
   {
-    name: 'Page Size',
-    columns: ['pageSizeBytes', 'pageSizeStatus', 'htmlSizeBytes', 'htmlSizeStatus', 'totalResourceSizeBytes', 'resourceSizeBreakdown']
+    name: 'Page Size & Performance',
+    columns: ['pageSizeBytes', 'pageSizeStatus', 'htmlSizeBytes', 'htmlSizeStatus', 'totalResourceSizeBytes', 'resourceSizeBreakdown', 'responseTime']
   },
   {
-    name: 'Content',
-    columns: ['totalWordCount']
+    name: 'Content & AMP',
+    columns: ['totalWordCount', 'amphtmlUrl']
   }
 ]
 
@@ -353,7 +364,13 @@ export function PageMetricsTable({
       htmlSizeStatus: 'HTML Size Status',
       totalResourceSizeBytes: 'Total Resources',
       resourceSizeBreakdown: 'Resource Breakdown',
-      totalWordCount: 'Word Count'
+      totalWordCount: 'Word Count',
+      metaRobots: 'Meta Robots',
+      statusCode: 'HTTP Status Code',
+      headingTags: 'Heading Tags',
+      language: 'Language',
+      amphtmlUrl: 'AMP HTML',
+      responseTime: 'Response Time (s)'
     }
     return labels[column] || column
   }
@@ -508,6 +525,60 @@ export function PageMetricsTable({
       case 'totalWordCount':
         if (value === undefined || value === null) return 'N/A'
         return Number(value).toLocaleString()
+      case 'headingTags':
+      case 'headerStructureData': {
+        if (!value) return 'N/A'
+        try {
+          const headings = JSON.parse(String(value))
+          if (!Array.isArray(headings) || headings.length === 0) return 'N/A'
+          return (
+            <div className="space-y-0.5 max-h-40 overflow-y-auto text-[10px]">
+              {headings.map((h: { level: number; tag: string; text: string }, i: number) => (
+                <div key={i} className="flex items-start gap-1" style={{ paddingLeft: `${(h.level - 1) * 8}px` }}>
+                  <Badge className="shrink-0 text-[9px] px-1 py-0 bg-zinc-700 text-zinc-300">{h.tag.toUpperCase()}</Badge>
+                  <span className="text-zinc-300 truncate" title={h.text}>{h.text}</span>
+                </div>
+              ))}
+            </div>
+          )
+        } catch { return <span title={String(value)}>{String(value)}</span> }
+      }
+      case 'headerStructureIssues': {
+        if (!value) return 'N/A'
+        try {
+          const issues = JSON.parse(String(value))
+          if (!Array.isArray(issues) || issues.length === 0) return <Badge className="bg-green-500/20 text-green-300 border-green-500/30">No Issues</Badge>
+          return (
+            <div className="space-y-0.5 max-h-40 overflow-y-auto text-[10px]">
+              {issues.map((issue: string, i: number) => (
+                <div key={i} className="text-yellow-300">⚠ {issue}</div>
+              ))}
+            </div>
+          )
+        } catch { return <span title={String(value)}>{String(value)}</span> }
+      }
+      case 'metaRobots':
+        return value ? <span title={String(value)}>{String(value)}</span> : 'N/A'
+      case 'statusCode':
+        if (!value) return 'N/A'
+        const sc = Number(value)
+        const scColor = sc >= 200 && sc < 300 ? 'bg-green-500/20 text-green-300 border-green-500/30' :
+                       sc >= 300 && sc < 400 ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
+                       'bg-red-500/20 text-red-300 border-red-500/30'
+        return <Badge className={scColor}>{sc}</Badge>
+      case 'language':
+        return value ? String(value) : 'N/A'
+      case 'amphtmlUrl':
+        if (!value) return 'N/A'
+        return (
+          <a href={String(value)} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 flex items-center gap-1">
+            <span className="truncate max-w-xs">{String(value)}</span>
+            <ExternalLink className="h-3 w-3 shrink-0" />
+          </a>
+        )
+      case 'responseTime':
+        if (!value) return 'N/A'
+        return `${Number(value).toFixed(3)}s`
       default:
         return value !== null && value !== undefined ? String(value) : 'N/A'
     }

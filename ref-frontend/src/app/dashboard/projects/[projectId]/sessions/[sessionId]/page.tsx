@@ -16,8 +16,9 @@ import CompetitorWinsLibrary from '@/components/module_F/CompetitorWinsLibrary'
 import CompetitorGrowthTrends from '@/components/module_F/CompetitorGrowthTrends'
 import GapOpportunities from '@/components/module_F/GapOpportunities'
 import CompetitorCitedURLs from '@/components/module_F/CompetitorCitedURLs'
+import { ExportsTab } from '@/components/session/exports'
 import { useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
-import { useGetQuickStartResultQuery } from '@/store/api/quick_start/quickStartApi'
+import { useGetQuickStartResultQuery, useResumeCrawlMutation } from '@/store/api/quick_start/quickStartApi'
 import { useGetModuleFResultQuery } from '@/store/api/module_F/moduleFApi'
 // import { useGetDataListQuery, useCheckLinksMutation, useGetLinkStatsQuery, useLazyGetPageLinksQuery } from '@/store/api/module_A/dataApi'
 import { useGetProjectQuery } from '@/store/api/projectApi'
@@ -114,6 +115,8 @@ export default function SessionDetailPage() {
     pollingInterval: 5000,
     refetchOnMountOrArgChange: true,
   })
+
+  const [resumeCrawl] = useResumeCrawlMutation()
 
   const isQuickStartSession =
     !!(moduleEQueryData as any)?.data?.brand_analysis ||
@@ -224,7 +227,7 @@ export default function SessionDetailPage() {
   useEffect(() => {
     if (prevTabRef.current !== activeSection) {
       prevTabRef.current = activeSection
-      const dataTabs = ['crawled-data', 'technical-audit', 'content-audit', 'page-metrics', 'text-quality', 'wordcount', 'broken-links', 'link-analysis', 'performance-audits', 'schema-generator', 'site-structure']
+      const dataTabs = ['crawled-data', 'technical-audit', 'content-audit', 'page-metrics', 'text-quality', 'wordcount', 'broken-links', 'link-analysis', 'performance-audits', 'schema-generator', 'site-structure', 'exports']
       if (dataTabs.includes(activeSection) && jobId) {
         refetchPagesRaw()
         refetchFieldsRaw()
@@ -248,6 +251,23 @@ export default function SessionDetailPage() {
     }
   });
 
+  // Build inlinks map: for each page URL, count how many links point TO it
+  const rawLinksForInlinks = linksResult?.data || [];
+  const inlinksMap = new Map<string, { total: number; unique: number; uniqueJs: number }>();
+  const inlinksByTarget = new Map<string, Set<string>>();
+  rawLinksForInlinks.forEach((link: any) => {
+    const target = link.target_url || link.href;
+    const source = link.source_url;
+    if (!target || !source) return;
+    if (!inlinksByTarget.has(target)) {
+      inlinksByTarget.set(target, new Set());
+    }
+    inlinksByTarget.get(target)!.add(source);
+  });
+  inlinksByTarget.forEach((sources, target) => {
+    inlinksMap.set(target, { total: sources.size, unique: sources.size, uniqueJs: 0 });
+  });
+
   const transformedPages = rawPages.map((page: any) => {
     // Find associated fields data
     const fieldData = fieldsMap.get(page.url) || {};
@@ -257,51 +277,62 @@ export default function SessionDetailPage() {
 
     const pageMatrix = fieldData.page_matrix || {};
 
+    // Extract nested page_matrix sub-objects
+    const pmTables = pageMatrix.tables || {};
+    const pmFaqs = pageMatrix.faqs || {};
+    const pmMixed = pageMatrix.mixedContent || {};
+    const pmViewport = pageMatrix.viewport || {};
+    const pmPageSize = pageMatrix.pageSize || {};
+    const pmStructured = pageMatrix.structuredDataDetection || {};
+
+    const statusCode = page.status_code || page.statusCode || 0;
+
     return {
       ...page,
       id: page._id || page.id || page.url || Math.random(),
-      // CrawledDataTable props
-      wordCount: page.word_count || page.wordCount || 0,
-      titleLength: page.title_length || page.titleLength || 0,
-      titlePixelWidth: page.title_pixel_width || crawlerData.title_pixel_width || 0,
-      description: page.description || page.meta_description || page.metaDescription || '',
-      descriptionLength: page.description_length || page.descriptionLength || 0,
-      descriptionPixelWidth: page.meta_description_pixel_width || crawlerData.meta_description_pixel_width || 0,
-      statusCode: page.status_code || page.statusCode || 0,
-      responseTime: page.response_time || page.responseTime || 0,
+      // --- Basic / CrawledDataTable props ---
+      wordCount: page.word_count || page.wordCount || pageMatrix.wordCount || 0,
+      titleLength: page.title_length || page.titleLength || pageMatrix.titleLength || 0,
+      titlePixelWidth: crawlerData.title_pixel_width || pageMatrix.titlePixelWidth || 0,
+      description: page.meta_description || page.metaDescription || pageMatrix.metaDescription || '',
+      descriptionLength: page.description_length || page.descriptionLength || pageMatrix.metaDescriptionLength || 0,
+      descriptionPixelWidth: crawlerData.meta_description_pixel_width || pageMatrix.metaDescriptionPixelWidth || 0,
+      statusCode,
+      responseTime: page.response_time || page.responseTime || pageMatrix.responseTime || 0,
       contentType: page.content_type || page.contentType || '',
-      sentenceCount: page.sentence_count || page.sentenceCount || 0,
-      paragraphCount: page.paragraph_count || page.paragraphCount || 0,
-      textToHtmlRatio: page.text_to_html_ratio || page.textToHtmlRatio || 0,
-      metaKeywords: Array.isArray(page.meta_keywords) ? page.meta_keywords.join(', ') : (page.meta_keywords || ''),
-      metaKeywordsLength: page.meta_keywords_length || page.metaKeywordsLength || 0,
+      sentenceCount: page.sentence_count || page.sentenceCount || wordCountData.sentenceCount || 0,
+      paragraphCount: page.paragraph_count || page.paragraphCount || wordCountData.paragraphCount || 0,
+      textToHtmlRatio: page.text_to_html_ratio || page.textToHtmlRatio || wordCountData.textToHtmlRatio || 0,
+      metaKeywords: Array.isArray(page.meta_keywords) ? page.meta_keywords.join(', ') : (page.meta_keywords || pageMatrix.metaKeywords || ''),
+      metaKeywordsLength: page.meta_keywords_length || page.metaKeywordsLength || pageMatrix.metaKeywordsLength || 0,
       crawlDepth: page.crawl_depth || page.crawlDepth || 0,
       folderDepth: page.folder_depth || page.folderDepth || 0,
-      uniqueOutlinks: page.unique_outlinks || page.uniqueOutlinks || crawlerData.unique_outlinks || 0,
-      uniqueJsOutlinks: page.unique_js_outlinks || page.uniqueJsOutlinks || crawlerData.unique_js_outlinks || 0,
-      uniqueExternalOutlinks: page.unique_external_outlinks || page.uniqueExternalOutlinks || crawlerData.unique_external_outlinks || 0,
-      uniqueExternalJsOutlinks: page.unique_external_js_outlinks || page.uniqueExternalJsOutlinks || crawlerData.unique_external_js_outlinks || 0,
-      metaDescription: page.meta_description || page.metaDescription || '',
-      canonicalUrl: page.canonical_url || page.canonicalUrl || '',
-      httpRelNext: page.http_rel_next || page.httpRelNext || crawlerData.http_rel_next || '',
-      httpRelPrev: page.http_rel_prev || page.httpRelPrev || crawlerData.http_rel_prev || '',
-      relNext: page.rel_next || page.relNext || crawlerData.rel_next || '',
-      relPrev: page.rel_prev || page.relPrev || crawlerData.rel_prev || '',
-      metaRobots: page.meta_robots || page.metaRobots || '',
+      uniqueOutlinks: crawlerData.unique_outlinks || 0,
+      uniqueJsOutlinks: crawlerData.unique_js_outlinks || 0,
+      uniqueExternalOutlinks: crawlerData.unique_external_outlinks || 0,
+      uniqueExternalJsOutlinks: crawlerData.unique_external_js_outlinks || 0,
+      metaDescription: page.meta_description || page.metaDescription || pageMatrix.metaDescription || '',
+      canonicalUrl: page.canonical_url || page.canonicalUrl || pageMatrix.canonicalUrl || '',
+      httpRelNext: page.http_rel_next || page.httpRelNext || '',
+      httpRelPrev: page.http_rel_prev || page.httpRelPrev || '',
+      relNext: page.rel_next ?? '',
+      relPrev: page.rel_prev ?? '',
+      metaRobots: page.meta_robots || page.metaRobots || pageMatrix.metaRobots || '',
       xRobotsTag: page.x_robots_tag || page.xRobotsTag || '',
-      metaRefresh: page.meta_refresh || page.metaRefresh || '',
-      lastModified: page.last_modified || page.lastModified || pageMatrix.last_modified || '',
+      metaRefresh: page.meta_refresh || page.metaRefresh || pageMatrix.metaRefresh || '',
+      lastModified: page.last_modified || page.lastModified || '',
       httpVersion: page.http_version || page.httpVersion || '',
+      success: statusCode >= 200 && statusCode < 400,
 
-      // Redirects (Check both page and fields as backup)
-      redirectUrl: page.redirect_url || page.redirectUrl || crawlerData.redirect_url || '',
-      redirectType: page.redirect_type || page.redirectType || crawlerData.redirect_type || '',
+      // Redirects
+      redirectUrl: page.redirect_url || page.redirectUrl || '',
+      redirectType: page.redirect_type || page.redirectType || '',
 
       // Error Message
-      errorMessage: page.error_message || page.errorMessage || crawlerData.error_message || '',
+      errorMessage: page.error_message || page.errorMessage || '',
 
       // Size / Carbon Attributes
-      sizeBytes: page.page_size_bytes || crawlerData.transferred_bytes || 0,
+      sizeBytes: page.page_size_bytes || pmPageSize.sizeBytes || 0,
       transferredBytes: crawlerData.transferred_bytes || 0,
       totalTransferredBytes: crawlerData.total_transferred_bytes || crawlerData.transferred_bytes || 0,
       co2Mg: crawlerData.co2_mg || 0,
@@ -311,77 +342,202 @@ export default function SessionDetailPage() {
       contentHash: page.content_hash || crawlerData.hash || '',
       nearDuplicateCount: crawlerData.no_near_duplicates || 0,
       closestDuplicateSimilarity: crawlerData.closest_near_duplicate_match || 0,
-      closestDuplicateUrl: crawlerData.closest_duplicate_url || '',
+      closestDuplicateUrl: '',
 
       // Scores
-      linkScore: page.link_score || page.linkScore || pageMatrix.link_score || 0,
-      semanticSimilarityScore: page.semantic_similarity_score || page.semanticSimilarityScore || pageMatrix.semantic_similarity_score || 0,
-      semanticRelevanceScore: page.semantic_relevance_score || page.semanticRelevanceScore || pageMatrix.semantic_relevance_score || 0,
+      linkScore: 0,
+      semanticSimilarityScore: 0,
+      semanticRelevanceScore: 0,
 
-      // Page Matrix Fields (Mapped from page_matrix in fields)
-      resourceType: pageMatrix.resource_type || 'HTML',
+      // --- Page Matrix / PageMetricsTable Fields ---
+      resourceType: 'HTML',
 
+      // Tables (from page_matrix.tables nested object)
+      hasTables: pmTables.hasTables || (page.table_count > 0) || false,
+      tableCount: pmTables.tableCount ?? page.table_count ?? 0,
+      tableData: Array.isArray(pmTables.tables) && pmTables.tables.length > 0 ? JSON.stringify(pmTables.tables) : '',
 
-      // Tables
-      hasTables: pageMatrix.has_tables || false,
-      tableCount: pageMatrix.table_count || 0,
-      tableData: pageMatrix.table_data || '',
+      // FAQs (from page_matrix.faqs nested object)
+      hasFaqs: pmFaqs.hasFaqs || page.has_faq || false,
+      faqCount: pmFaqs.faqCount ?? page.faq_count ?? 0,
+      faqScore: 0,
+      faqDetectionMethod: pmFaqs.detectionMethod || '',
+      faqSchemaPresent: false,
+      faqData: Array.isArray(pmFaqs.faqPairs) && pmFaqs.faqPairs.length > 0 ? JSON.stringify(pmFaqs.faqPairs) : '',
 
-      // FAQs
-      hasFaqs: pageMatrix.has_faqs || false,
-      faqCount: pageMatrix.faq_count || 0,
-      faqScore: pageMatrix.faq_score || 0,
-      faqDetectionMethod: pageMatrix.faq_detection_method || '',
-      faqSchemaPresent: pageMatrix.faq_schema_present || false,
-      faqData: pageMatrix.faq_data || '',
-
-      // Mixed Content
-      hasMixedContent: pageMatrix.has_mixed_content || false,
-      mixedContentSeverity: pageMatrix.mixed_content_severity || 'none',
-      activeMixedContentCount: pageMatrix.active_mixed_content_count || 0,
-      passiveMixedContentCount: pageMatrix.passive_mixed_content_count || 0,
-      totalInsecureResources: pageMatrix.total_insecure_resources || 0,
-      mixedContentData: pageMatrix.mixed_content_data || '',
+      // Mixed Content (from page_matrix.mixedContent nested object)
+      hasMixedContent: pmMixed.hasMixedContent || page.has_mixed_content || false,
+      mixedContentSeverity: (pmMixed.hasMixedContent || page.has_mixed_content) ? 'warning' : 'none',
+      activeMixedContentCount: 0,
+      passiveMixedContentCount: 0,
+      totalInsecureResources: Array.isArray(pmMixed.mixedContentResources) ? pmMixed.mixedContentResources.length : (Array.isArray(page.mixed_content_urls) ? page.mixed_content_urls.length : 0),
+      mixedContentData: (() => {
+        const resources = pmMixed.mixedContentResources || page.mixed_content_urls || [];
+        return Array.isArray(resources) && resources.length > 0 ? JSON.stringify(resources) : '';
+      })(),
 
       // Duplicate Content specifics
-      duplicateTitleCount: pageMatrix.duplicate_title_count || 0,
+      duplicateTitleCount: 0,
+      duplicateMetaDescriptionCount: 0,
 
-      // PageMetrics / TextQuality / WordCount props
-      // Map from crawlerData or other field modules if not in page
-      totalWordCount: page.word_count || page.wordCount || 0,
-      visibleWordCount: page.visible_word_count || page.visibleWordCount || (page.word_count || 0),
-      uniqueWordCount: page.unique_word_count || page.uniqueWordCount || 0,
-      averageSentenceLength: page.average_sentence_length || page.averageSentenceLength || crawlerData.average_words_per_sentence || 0,
-      averageParagraphLength: page.average_paragraph_length || page.averageParagraphLength || 0,
-      keywordDensity: page.keyword_density || page.keywordDensity || 0,
+      // Header Structure (from page_matrix)
+      headerStructureData: Array.isArray(pageMatrix.headerStructure) ? JSON.stringify(pageMatrix.headerStructure) : '',
+      headerStructureIssues: Array.isArray(pageMatrix.headerIssues) ? JSON.stringify(pageMatrix.headerIssues) : '',
 
-      // Fields from website_crawler -> Map to CrawledDataTable expected keys
+      // Viewport (from page_matrix.viewport nested object)
+      viewportPresent: pmViewport.hasViewport ?? !!page.viewport,
+      viewportContent: pmViewport.viewportContent || page.viewport || '',
+      viewportStatus: pmViewport.hasViewport ? (pmViewport.isMobileOptimized ? 'ok' : 'warning') : (page.viewport ? 'ok' : 'missing'),
+
+      // Structured Data
+      structuredDataPresent: pmStructured.hasStructuredData || page.has_structured_data || false,
+      structuredDataFormat: (() => {
+        const items = pmStructured.items || [];
+        if (!Array.isArray(items) || items.length === 0) return '';
+        const formats = [...new Set(items.map((i: any) => i.type).filter(Boolean))];
+        return formats.join(', ');
+      })(),
+      structuredDataTypes: (() => {
+        if (Array.isArray(page.structured_data_types) && page.structured_data_types.length > 0) {
+          return page.structured_data_types.join(', ');
+        }
+        const items = pmStructured.items || [];
+        if (!Array.isArray(items) || items.length === 0) return '';
+        const types = [...new Set(items.map((i: any) => i.schemaType).filter(Boolean))];
+        return types.join(', ');
+      })(),
+      structuredDataPriorityType: (() => {
+        if (Array.isArray(page.structured_data_types) && page.structured_data_types.length > 0) {
+          return page.structured_data_types[0];
+        }
+        return '';
+      })(),
+
+      // Page Size
+      pageSizeBytes: pmPageSize.sizeBytes || page.page_size_bytes || 0,
+      pageSizeStatus: (() => {
+        const bytes = pmPageSize.sizeBytes || page.page_size_bytes || 0;
+        if (bytes > 500000) return 'Large';
+        if (bytes > 100000) return 'Medium';
+        return 'Small';
+      })(),
+      htmlSizeBytes: page.html_size_bytes || 0,
+      htmlSizeStatus: (() => {
+        const bytes = page.html_size_bytes || 0;
+        if (bytes > 500000) return 'Large';
+        if (bytes > 100000) return 'Warning';
+        return 'Good';
+      })(),
+
+      // Canonical Validation (from page_matrix)
+      canonicalValidationStatus: (() => {
+        const cv = pageMatrix.canonicalValidation;
+        if (!cv) return 'Missing';
+        return cv.isValid ? 'Valid' : 'Invalid';
+      })(),
+      canonicalValidationMessage: '',
+
+      // --- Word Count / Analysis props ---
+      totalWordCount: page.word_count || page.wordCount || wordCountData.totalWordCount || 0,
+      visibleWordCount: wordCountData.visibleWordCount || page.word_count || 0,
+      uniqueWordCount: wordCountData.uniqueWordCount || 0,
+      averageSentenceLength: wordCountData.averageSentenceLength || crawlerData.average_words_per_sentence || 0,
+      averageParagraphLength: wordCountData.averageParagraphLength || 0,
+      keywordDensity: wordCountData.keywordDensity || 0,
+
+      // --- website_crawler fields ---
       fleschReadingEase: crawlerData.flesch_reading_ease_score || 0,
       readabilityLevel: crawlerData.readability || 'Unknown',
       averageWordsPerSentence: crawlerData.average_words_per_sentence || 0,
 
-      // Indexability Status (derived)
-      indexabilityStatus: (page.meta_robots?.includes('noindex') || page.x_robots_tag?.includes('noindex')) ? 'Non-Indexable' : 'Indexable',
-      indexable: !(page.meta_robots?.includes('noindex') || page.x_robots_tag?.includes('noindex')),
+      // Indexability Status
+      indexabilityStatus: page.indexability_status ||
+        ((page.meta_robots?.includes('noindex') || page.x_robots_tag?.includes('noindex')) ? 'Non-Indexable' : 'Indexable'),
+      indexable: page.indexable ?? !(page.meta_robots?.includes('noindex') || page.x_robots_tag?.includes('noindex')),
 
-    // PageMetrics Specific Statuses (derived)
-    titleStatus: (page.title_length === 0) ? 'Missing' : 'OK', // Simple derivation
-    metaDescriptionStatus: (page.description_length === 0) ? 'Missing' : 'OK',
-    
-    // Text Quality Fields
-    grammarErrors: crawlerData.grammar_errors || 0,
-    spellingErrors: crawlerData.spelling_errors || 0,
-    
-    // Other status
-    thinContent: page.thin_content || page.thinContent || false,
-    duplicateContent: page.duplicate_content || page.duplicateContent || false,
-    
-    // Ensure timestamp matches
-    timestamp: page.timestamp || new Date().toISOString(),
-    
-    // Attach full field data for components that might dig deeper
-    fields: fieldData
-  }})
+      // Title & Description Statuses (derived)
+      titleStatus: (() => {
+        const tv = pageMatrix.titleValidation;
+        if (tv && !tv.isValid) return 'Missing';
+        if (pageMatrix.hasMissingTitle) return 'Missing';
+        return (page.title_length === 0 || page.title_length === undefined) ? 'Missing' : 'OK';
+      })(),
+      metaDescriptionStatus: (() => {
+        const mv = pageMatrix.metaDescriptionValidation;
+        if (mv && !mv.isValid) return 'Missing';
+        if (pageMatrix.hasMissingMetaDescription) return 'Missing';
+        return (page.description_length === 0 || page.description_length === undefined) ? 'Missing' : 'OK';
+      })(),
+
+      // Text Quality Fields
+      grammarErrors: crawlerData.grammar_errors || 0,
+      spellingErrors: crawlerData.spelling_errors || 0,
+
+      // Content quality flags (from Wordcount_analysis)
+      thinContent: wordCountData.thinContent || false,
+      duplicateContent: wordCountData.duplicateContent || false,
+
+      // Heading structure
+      headingTags: (() => {
+        const hs = pageMatrix.headerStructure || crawlerData.heading_structure;
+        if (Array.isArray(hs) && hs.length > 0) return JSON.stringify(hs);
+        const tags: any[] = [];
+        for (let i = 1; i <= 6; i++) {
+          const arr = page[`h${i}_tags`] || [];
+          arr.forEach((t: string) => tags.push({ level: i, tag: `h${i}`, text: t }));
+        }
+        return tags.length > 0 ? JSON.stringify(tags) : '';
+      })(),
+
+      // Open Graph
+      ogTitle: page.og_title || crawlerData.og_title || '',
+      ogDescription: page.og_description || crawlerData.og_description || '',
+      ogImage: page.og_image || crawlerData.og_image || '',
+
+      // Additional fields
+      cookies: page.cookies || '',
+      amphtmlUrl: page.amphtml_link || pageMatrix.ampHtmlUrl || '',
+      mobileAlternateUrl: page.mobile_alternate_link || pageMatrix.mobileAlternateUrl || '',
+      urlEncodedAddress: crawlerData.url_encoded_address || (page.url ? encodeURI(page.url) : ''),
+      outlinks: crawlerData.outlinks || 0,
+      externalOutlinks: crawlerData.external_outlinks || 0,
+
+      // Individual heading fields (H1-1, H1-2, H2-1, H2-2)
+      h1_1: Array.isArray(page.h1_tags) && page.h1_tags.length > 0 ? page.h1_tags[0] : '',
+      h1_1Length: Array.isArray(page.h1_tags) && page.h1_tags.length > 0 ? page.h1_tags[0].length : 0,
+      h1_2: Array.isArray(page.h1_tags) && page.h1_tags.length > 1 ? page.h1_tags[1] : '',
+      h1_2Length: Array.isArray(page.h1_tags) && page.h1_tags.length > 1 ? page.h1_tags[1].length : 0,
+      h2_1: Array.isArray(page.h2_tags) && page.h2_tags.length > 0 ? page.h2_tags[0] : '',
+      h2_1Length: Array.isArray(page.h2_tags) && page.h2_tags.length > 0 ? page.h2_tags[0].length : 0,
+      h2_2: Array.isArray(page.h2_tags) && page.h2_tags.length > 1 ? page.h2_tags[1] : '',
+      h2_2Length: Array.isArray(page.h2_tags) && page.h2_tags.length > 1 ? page.h2_tags[1].length : 0,
+
+      // Inlinks (computed from raw links data)
+      inlinks: inlinksMap.get(page.url)?.total || 0,
+      uniqueInlinks: inlinksMap.get(page.url)?.unique || 0,
+      uniqueJsInlinks: inlinksMap.get(page.url)?.uniqueJs || 0,
+      status: (() => {
+        const code = statusCode;
+        const reasons: Record<number, string> = { 200: 'OK', 201: 'Created', 301: 'Moved Permanently', 302: 'Found', 304: 'Not Modified', 400: 'Bad Request', 401: 'Unauthorized', 403: 'Forbidden', 404: 'Not Found', 500: 'Internal Server Error', 502: 'Bad Gateway', 503: 'Service Unavailable' };
+        return reasons[code] || (code ? String(code) : '');
+      })(),
+      language: page.language || '',
+
+      // Word count structured fields (from Wordcount_analysis)
+      sectionWordCountMapping: wordCountData.sectionWordCountMapping || null,
+      sectionWordCountBreakdown: wordCountData.sectionWordCountBreakdown || null,
+      headingWordCountMapping: wordCountData.headingWordCountMapping || null,
+      thinContentReason: wordCountData.thinContentReason || null,
+      duplicateWithUrls: wordCountData.duplicateWithUrls || [],
+      wordCountDistribution: wordCountData.wordCountDistribution || null,
+
+      // Ensure timestamp matches
+      timestamp: page.timestamp || new Date().toISOString(),
+
+      // Attach full field data for components that might dig deeper
+      fields: fieldData
+    }
+  })
 
   const totalPagesCount =
     pagesResult?.pagination?.total ??
@@ -856,7 +1012,7 @@ export default function SessionDetailPage() {
                       // The QS job's MongoDB status tracks analysis completion, NOT
                       // the crawl — so we must NOT use quickStartJob.status here.
                       isQuickStartSession
-                        ? (rawCrawlStatus as 'running' | 'completed' | 'failed' | 'cancelled' | null) ?? null
+                        ? (rawCrawlStatus as 'running' | 'completed' | 'failed' | 'cancelled' | 'paused' | null) ?? null
                         : isSnapshotJobRunning ? 'running'
                           : (crawlJob?.status === 'COMPLETED' || crawlJob?.status === 'completed')
                             ? 'completed'
@@ -865,6 +1021,9 @@ export default function SessionDetailPage() {
                               : null
                     }
                     onViewPages={() => handleSectionChange('technical-audit')}
+                    onResume={() => {
+                      if (snapshotJobId) resumeCrawl(snapshotJobId)
+                    }}
                     pagesCrawled={jobSnapshot?.pagesCrawled ?? 0}
                     totalPages={100}
                     currentUrl={
@@ -1123,6 +1282,17 @@ export default function SessionDetailPage() {
           <AICitationRanking jobId={jobId} url={session?.startUrl || ''} />
         )}
 
+
+        {activeSection === 'exports' && (
+          <ExportsTab
+            pages={transformedPages}
+            linksMap={linksMap}
+            brokenLinks={derivedBrokenLinks}
+            jobId={jobId}
+            sessionName={session?.startUrl || 'session'}
+            isLoading={isLoadingResults}
+          />
+        )}
 
         {activeSection === 'content-metrics' && (
           <ContentMetricsModule

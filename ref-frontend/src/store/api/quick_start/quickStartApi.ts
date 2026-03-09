@@ -48,7 +48,7 @@ export interface QuickStartResult {
     }>
     [key: string]: any
   }
-  crawl_status?: 'running' | 'completed' | 'failed' | 'cancelled'
+  crawl_status?: 'running' | 'completed' | 'failed' | 'cancelled' | 'paused'
   crawlUpdatedAt?: string
   createdAt?: string
   updatedAt?: string
@@ -66,7 +66,13 @@ export const quickStartApi = baseApi.injectEndpoints({
       query: (jobId) => `/quick-start/jobs/${jobId}`,
       providesTags: (_result, _error, jobId) => [{ type: 'QuickStart' as const, id: jobId }],
     }),
+    resumeCrawl: builder.mutation<{ success: boolean }, string>({
+      query: (jobId) => ({
+        url: `/quick-start/jobs/${jobId}/resume-crawl`,
+        method: 'POST',
+      }),
+    }),
   }),
 })
 
-export const { useGetQuickStartResultQuery } = quickStartApi
+export const { useGetQuickStartResultQuery, useResumeCrawlMutation } = quickStartApi

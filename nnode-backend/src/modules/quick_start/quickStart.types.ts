@@ -42,7 +42,7 @@ export interface QuickStartResult {
     >;
   }>;
   ranking_analysis?: RankingAnalysisResult;
-  crawl_status?: 'running' | 'completed' | 'failed' | 'cancelled';
+  crawl_status?: 'running' | 'completed' | 'failed' | 'cancelled' | 'paused';
   crawlUpdatedAt?: string;
   createdAt?: string;
   updatedAt?: string;

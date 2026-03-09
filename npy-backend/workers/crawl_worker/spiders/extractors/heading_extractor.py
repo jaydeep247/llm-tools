@@ -1,6 +1,6 @@
 """
 Heading Extractor
-Extracts heading structure: H1-H6 tags
+Extracts heading structure: H1-H6 tags with full nested text and structure
 """
 
 from scrapy.http import Response
@@ -11,9 +11,19 @@ class HeadingExtractor:
     """Extracts heading structure"""
     
     @staticmethod
+    def _get_full_text(selector) -> str:
+        """Get full inner text of an element including nested elements."""
+        texts = selector.css('::text').getall()
+        raw = ' '.join(t.strip() for t in texts if t.strip())
+        # Collapse multiple spaces (from adjacent text nodes)
+        import re
+        return re.sub(r'\s+', ' ', raw).strip()
+    
+    @staticmethod
     def extract(response: Response) -> Dict[str, Any]:
         """
-        Extract heading tags
+        Extract heading tags with full inner text (handles nested elements like <h1><span>Text</span></h1>)
+        Also extracts heading_structure: ordered list of all headings with level and text.
         
         Args:
             response: Scrapy response object
@@ -21,11 +31,23 @@ class HeadingExtractor:
         Returns:
             Dictionary of heading fields
         """
-        return {
-            'h1_tags': [h.strip() for h in response.css('h1::text').getall() if h.strip()],
-            'h2_tags': [h.strip() for h in response.css('h2::text').getall() if h.strip()],
-            'h3_tags': [h.strip() for h in response.css('h3::text').getall() if h.strip()],
-            'h4_tags': [h.strip() for h in response.css('h4::text').getall() if h.strip()],
-            'h5_tags': [h.strip() for h in response.css('h5::text').getall() if h.strip()],
-            'h6_tags': [h.strip() for h in response.css('h6::text').getall() if h.strip()],
-        }
+        result = {}
+        heading_structure = []
+        
+        for level in range(1, 7):
+            tag = f'h{level}'
+            elements = response.css(tag)
+            texts = []
+            for el in elements:
+                full_text = HeadingExtractor._get_full_text(el)
+                if full_text:
+                    texts.append(full_text)
+                    heading_structure.append({
+                        'level': level,
+                        'tag': tag,
+                        'text': full_text,
+                    })
+            result[f'{tag}_tags'] = texts
+        
+        result['heading_structure'] = heading_structure
+        return result

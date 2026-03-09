@@ -45,10 +45,10 @@ export class ModuleEController {
 
       return ResponseUtil.success(res, 'Module E result retrieved', result);
     } catch (error: any) {
-      logger.error('Error fetching Module E result:', error);
       if (error.message?.includes('not found') || error.message?.includes('access denied')) {
         return ResponseUtil.notFound(res, error.message);
       }
+      logger.error('Error fetching Module E result:', error);
       if (error.name === 'ZodError') {
         return ResponseUtil.error(res, 'Validation failed', error.errors);
       }

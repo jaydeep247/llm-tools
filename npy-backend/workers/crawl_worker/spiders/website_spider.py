@@ -17,7 +17,7 @@ from io import BytesIO
 import redis
 from scrapy_redis.spiders import RedisSpider
 from scrapy import signals
-from scrapy.exceptions import DontCloseSpider
+from scrapy.exceptions import DontCloseSpider, CloseSpider
 
 from .items import PageItem, LinkItem, SitemapUrlItem
 from .extractors import (
@@ -72,6 +72,9 @@ class WebsiteSpider(RedisSpider):
         start_urls: Optional[List[str]] = None,
         planned_total: Optional[int] = None,
         suppress_completion_events: bool = False,
+        pause_on_limit: bool = False,
+        is_resume: bool = False,
+        pages_crawled_offset: int = 0,
         *args,
         **kwargs
     ):
@@ -82,8 +85,11 @@ class WebsiteSpider(RedisSpider):
         self.job_id = job_id
         self.project_id = project_id
         self.suppress_completion_events = suppress_completion_events
-        
-        # Isolate job context in Redis (Crucial for repeated crawls)
+        self.pause_on_limit = pause_on_limit
+        self.is_resume = is_resume
+        # Resume crawls start the counter from where the previous run paused
+        # so logs and frontend show cumulative pages, not per-run pages.
+        self.pages_crawled = int(pages_crawled_offset) if pages_crawled_offset else 0
         if self.job_id:
              self.name = f"website_spider_{self.job_id}"
              self.redis_key = f"{self.name}:start_urls"
@@ -131,7 +137,7 @@ class WebsiteSpider(RedisSpider):
         # always applies — even in distributed mode where start_requests may never
         # set this when the Redis queue is already empty on startup.
         self.crawl_started_timestamp = datetime.now().timestamp()
-        self.pages_crawled = 0
+        # pages_crawled is initialised above (offset for resume runs)
         self.links_collected = 0
         self.scheduled_count = 0  # 7.4 Crawl Progress Tracking
         self.skipped_count = 0    # 7.4 Crawl Progress Tracking
@@ -181,6 +187,28 @@ class WebsiteSpider(RedisSpider):
         logger.debug(f"🕷️ SPIDER_CLOSED signal received for {self.job_id}. Reason: {reason}")
         if not self.job_id:
             return
+
+        # Pause detection: page limit hit AND caller requested pause-on-limit.
+        # Set the Redis flag so the parent process and executor can read it,
+        # then emit CRAWL_PAUSED (regardless of suppress_completion_events so
+        # the Node.js consumer can push the state change to the frontend).
+        if reason == 'closespider_pagecount' and self.pause_on_limit:
+            from workers.cancellation import set_job_paused, set_pages_at_pause
+            set_job_paused(self.job_id)
+            set_pages_at_pause(self.job_id, self.pages_crawled)
+            try:
+                publisher.emit_event(self.job_id, 'CRAWL_PAUSED', {
+                    'url': self.start_url or 'distributed',
+                    'paused_at': datetime.now().isoformat(),
+                    'pages_crawled': self.pages_crawled,
+                    'projectId': self.project_id,
+                    'sessionId': self.session_id,
+                }, retries=5)
+                logger.info(f"⏸️  CRAWL_PAUSED emitted for {self.job_id} ({self.pages_crawled} pages)")
+            except Exception as e:
+                logger.error(f"❌ Failed to emit CRAWL_PAUSED for {self.job_id}: {e}")
+            return
+
         if self.suppress_completion_events:
             logger.debug(f"🕷️ Skipping JOB_COMPLETED event for {self.job_id} (background crawl, suppress_completion_events=True)")
             return
@@ -353,6 +381,14 @@ class WebsiteSpider(RedisSpider):
     
     def start_requests(self):
         """Initialize crawl with parallel sitemap discovery and homepage crawl"""
+        # Resume mode: allowed_domains already set from start_url in __init__.
+        # Pull remaining URLs from the persisted Redis scheduler queue — do NOT
+        # re-trigger robots.txt / sitemap discovery.
+        if self.is_resume:
+            logger.info(f"▶️  Resuming crawl from Redis checkpoint for {self.job_id}")
+            yield from super().start_requests()
+            return
+
         # If no start_url is provided, assume we are running in distributed mode
         # and pulling URLs from Redis.
         if not self.start_url and not self.start_urls:
@@ -615,7 +651,15 @@ class WebsiteSpider(RedisSpider):
 
     def parse(self, response: Response):
         """Main parsing logic for each page"""
-        
+
+        # Hard limit gate: when pause_on_limit is active and we're already at
+        # (or past) the target, discard this in-flight response immediately
+        # rather than processing it.  Scrapy's close_spider() is asynchronous
+        # so many responses can be mid-flight when the signal fires; without
+        # this check they all get processed, causing the overshoot seen in logs.
+        if self.pause_on_limit and self.max_pages > 0 and self.pages_crawled >= self.max_pages:
+            raise CloseSpider('closespider_pagecount')
+
         if response.url.endswith('.xml') or 'sitemap' in response.url:
             for item in self.parse_sitemap(response):
                 yield item
@@ -763,13 +807,25 @@ class WebsiteSpider(RedisSpider):
         # ==================================================================
         
         # 1. Legacy Metrics (Restored)
-        title_pixel_width = pixel_width.calculate_pixel_width(page_item.get('title', ''))
-        meta_desc_pixel_width = pixel_width.calculate_pixel_width(page_item.get('meta_description', ''))
+        title_pixel_width = pixel_width.calculate_pixel_width(page_item.get('title', ''), font_size=20)
+        meta_desc_pixel_width = pixel_width.calculate_pixel_width(page_item.get('meta_description', ''), font_size=14)
+
+        # Transferred bytes: prefer Content-Length header (compressed size on wire).
+        # Fall back to uncompressed body size if the server didn't send the header.
+        content_length_hdr = response.headers.get('Content-Length', None)
+        if content_length_hdr:
+            try:
+                transferred_bytes = int(content_length_hdr)
+            except (ValueError, TypeError):
+                transferred_bytes = len(response.body)
+        else:
+            transferred_bytes = len(response.body)
         total_bytes = page_item.get('page_size_bytes', len(response.body))
-        carbon_data = carbon.calculate_carbon(total_bytes)
-        
-        body_text_list = response.css('body ::text').getall()
-        visible_text_legacy = ' '.join([t.strip() for t in body_text_list if t.strip()])
+        carbon_data = carbon.calculate_carbon(transferred_bytes)
+
+        # Use the cleaned visible text from ContentExtractor (already excludes
+        # script/style/noscript/svg) instead of raw body ::text.
+        visible_text_legacy = ContentExtractor._extract_visible_text(response.text)
         word_count = page_item.get('word_count', 0)
         sentence_count = page_item.get('sentence_count', 0)
         
@@ -789,7 +845,7 @@ class WebsiteSpider(RedisSpider):
             word_count=page_item.get('word_count', 0),
             sentence_count=page_item.get('sentence_count', 0),
             paragraph_count=page_item.get('paragraph_count', 0),
-            heading_count=len(page_item.get('h1s', [])) + len(page_item.get('h2s', [])),
+            heading_count=len(page_item.get('h1_tags', [])) + len(page_item.get('h2_tags', [])),
             target_keyword=None 
         )
 
@@ -849,27 +905,40 @@ class WebsiteSpider(RedisSpider):
             lang_guess=page_item.get('language') or ''
         )
 
+        # HTTP status reason phrase mapping (Screaming Frog compatible)
+        HTTP_STATUS_REASONS = {
+            200: 'OK', 201: 'Created', 204: 'No Content',
+            301: 'Moved Permanently', 302: 'Found', 303: 'See Other',
+            304: 'Not Modified', 307: 'Temporary Redirect', 308: 'Permanent Redirect',
+            400: 'Bad Request', 401: 'Unauthorized', 403: 'Forbidden',
+            404: 'Not Found', 405: 'Method Not Allowed', 408: 'Request Timeout',
+            410: 'Gone', 429: 'Too Many Requests',
+            500: 'Internal Server Error', 502: 'Bad Gateway',
+            503: 'Service Unavailable', 504: 'Gateway Timeout',
+        }
+        status_reason = HTTP_STATUS_REASONS.get(response.status, str(response.status))
+
         page_item['fields'] = {
-            # Status
-            'status': 'OK' if response.status == 200 else str(response.status),
+            # Status (Screaming Frog compatible reason phrase)
+            'status': status_reason,
             
             'website_crawler': {
                 # Pixel Widths
                 'title_pixel_width': title_pixel_width,
                 'meta_description_pixel_width': meta_desc_pixel_width,
                 
-                # Carbon
-                'transferred_bytes': total_bytes, 
-                'total_transferred_bytes': total_bytes, 
+                # Carbon (based on transferred / compressed size)
+                'transferred_bytes': transferred_bytes, 
+                'total_transferred_bytes': transferred_bytes, 
                 'co2_mg': carbon_data['co2_mg'],
                 'carbon_rating': carbon_data['rating'],
                 
-                # Readability & Content (Legacy)
+                # Readability & Content
                 'average_words_per_sentence': quality_data['average_words_per_sentence'],
                 'flesch_reading_ease_score': quality_data['flesch_reading_ease_score'],
                 'readability': quality_data['readability'],
                 
-                # Outlinks (Remaining from legacy)
+                # Outlinks
                 'outlinks': outlink_stats['outlinks'],
                 'unique_outlinks': outlink_stats['unique_outlinks'],
                 'unique_js_outlinks': outlink_stats['unique_js_outlinks'],
@@ -877,15 +946,23 @@ class WebsiteSpider(RedisSpider):
                 'unique_external_outlinks': outlink_stats['unique_external_outlinks'],
                 'unique_external_js_outlinks': outlink_stats['unique_external_js_outlinks'],
                 
-                # Duplicates & Similarity (Legacy)
-                'closest_near_duplicate_match': None, 
-                'no_near_duplicates': 0, 
+                # Duplicates & Similarity
+                'closest_near_duplicate_match': None,
+                'no_near_duplicates': 0,
                 'simhash': simhash_legacy, 
                 
-                # Quality / Errors (Legacy)
+                # Quality / Errors
                 'spelling_errors': quality_data['spelling_errors'],
                 'grammar_errors': quality_data['grammar_errors'],
                 'hash': page_item.get('content_hash', ''),
+                
+                # Heading structure (full ordered list)
+                'heading_structure': page_item.get('heading_structure', []),
+                
+                # Open Graph
+                'og_title': page_item.get('og_title', ''),
+                'og_description': page_item.get('og_description', ''),
+                'og_image': page_item.get('og_image', ''),
                 
                 'url_encoded_address': response.url,
             },
@@ -896,7 +973,7 @@ class WebsiteSpider(RedisSpider):
                 html_content=response.text,
                 response_status=response.status,
                 response_headers={k.decode('utf-8'): v[0].decode('utf-8') for k, v in response.headers.items()},
-                response_time_ms=(datetime.now().timestamp() - start_time) * 1000,
+                response_time_ms=(response.meta.get('download_latency', datetime.now().timestamp() - start_time)),
                 final_url=response.url
             ),
             
@@ -932,8 +1009,12 @@ class WebsiteSpider(RedisSpider):
         if self.max_pages > 0 and self.pages_crawled >= self.max_pages:
             logger.debug(f"Reached max pages limit: {self.max_pages}")
             self.should_stop = True
-            # Explicitly close the spider
-            self.crawler.engine.close_spider(self, reason='closespider_pagecount')
+            if self.pause_on_limit:
+                # raise CloseSpider is immediate — prevents any further link
+                # extraction from being yielded from this same callback.
+                raise CloseSpider('closespider_pagecount')
+            else:
+                self.crawler.engine.close_spider(self, reason='closespider_pagecount')
             return
         
         if self.timeout > 0:

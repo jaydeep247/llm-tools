@@ -23,7 +23,7 @@ class TextQualityAnalyzer:
     def extract_visible_text(soup: BeautifulSoup) -> str:
         """Extract visible text from BeautifulSoup."""
         # Remove unwanted tags
-        for el in soup(['script', 'style', 'noscript', 'header', 'footer', 'nav', 'aside']):
+        for el in soup(['script', 'style', 'noscript']):
             el.decompose()
         
         # Simple text extraction
@@ -39,20 +39,27 @@ class TextQualityAnalyzer:
         """
         soup = BeautifulSoup(html_content, 'html.parser')
         visible_text = TextQualityAnalyzer.extract_visible_text(soup)
+
+        # Derive word/sentence counts from the SAME text used for analysis
+        # to keep Flesch formula inputs self-consistent.
+        local_words = visible_text.split()
+        local_word_count = len(local_words)
+        local_sentences = [s for s in re.split(r'(?<=[.!?])\s+', visible_text) if s.strip()]
+        local_sentence_count = max(len(local_sentences), 1)
         
         results = {}
         
-        # 1. Readability Score
-        results['readability'] = analyze_readability(visible_text, sentence_count, word_count)
+        # 1. Readability Score (use text-consistent counts)
+        results['readability'] = analyze_readability(visible_text, local_sentence_count, local_word_count)
         
         # 2. Grammar and Spelling Errors
         results['grammar_spelling'] = analyze_spelling_and_grammar(visible_text)
         
         # 3. Sentence Length / Complexity
-        results['sentence_structure'] = analyze_sentence_structure(visible_text, sentence_count, word_count)
+        results['sentence_structure'] = analyze_sentence_structure(visible_text, local_sentence_count, local_word_count)
         
         # 4. Paragraph Structure
-        results['paragraph_structure'] = analyze_paragraph_structure(word_count, paragraph_count)
+        results['paragraph_structure'] = analyze_paragraph_structure(local_word_count, paragraph_count)
         
         # 5. Keyword Usage
         results['keyword_usage'] = calculate_keyword_usage(visible_text, title, target_keyword)

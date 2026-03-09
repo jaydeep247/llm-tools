@@ -15,6 +15,8 @@ export interface CrawlJobPayload extends BaseJobPayload {
   captureLinkDetails?: boolean;
 }
 
+export interface CrawlResumeJobPayload extends BaseJobPayload {}  // resumes a paused crawl
+
 export interface SchemaJobPayload extends BaseJobPayload {
   schemaType?: string;
   sourceJobId?: string;
@@ -75,6 +77,7 @@ export interface AnalysisJobPayload {
  */
 export type AnyJobPayload = 
   | CrawlJobPayload 
+  | CrawlResumeJobPayload
   | SchemaJobPayload 
   | ContentMetricsJobPayload 
   | ModuleCJobPayload 

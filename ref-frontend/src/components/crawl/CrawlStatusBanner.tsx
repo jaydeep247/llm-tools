@@ -19,9 +19,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { io, Socket } from 'socket.io-client'
-import { CheckCircle, AlertCircle, Globe, XCircle } from 'lucide-react'
+import { CheckCircle, AlertCircle, Globe, XCircle, PauseCircle } from 'lucide-react'
 
-type CrawlStatus = 'running' | 'completed' | 'failed' | 'cancelled' | null
+type CrawlStatus = 'running' | 'completed' | 'failed' | 'cancelled' | 'paused' | null
 
 interface CrawlStatusBannerProps {
   /** The Quick Start job ID — used to join the correct socket room. */
@@ -31,6 +31,8 @@ interface CrawlStatusBannerProps {
   initialStatus: CrawlStatus
   /** Optional callback for "View pages" button */
   onViewPages?: () => void
+  /** Callback invoked when the user clicks "Continue crawl" (paused state). */
+  onResume?: () => void
   /** Live pages crawled count (from jobSnapshot) */
   pagesCrawled?: number
   /** Total pages goal (defaults to 100) */
@@ -45,6 +47,7 @@ export function CrawlStatusBanner({
   jobId,
   initialStatus,
   onViewPages,
+  onResume,
   pagesCrawled = 0,
   totalPages = 100,
   currentUrl,
@@ -56,7 +59,8 @@ export function CrawlStatusBanner({
   // (e.g. on initial mount before socket connects).
   useEffect(() => {
     setStatus(prev => {
-      // Never downgrade a terminal status via a polling update
+      // Never downgrade a truly terminal status via a polling update.
+      // 'paused' is NOT terminal — it can be overridden by 'running' on resume.
       const terminal = ['completed', 'failed', 'cancelled']
       if (prev && terminal.includes(prev)) return prev
       return initialStatus
@@ -84,7 +88,8 @@ export function CrawlStatusBanner({
     socket.on('crawl:status', (data: { jobId: string; crawl_status: CrawlStatus }) => {
       if (data.jobId !== jobId) return
       setStatus(prev => {
-        // Never downgrade a terminal status via socket either
+        // Never downgrade a truly terminal status via socket either.
+        // 'paused' is NOT terminal — socket 'running' after resume is allowed.
         const terminal = ['completed', 'failed', 'cancelled']
         if (prev && terminal.includes(prev)) return prev
         return data.crawl_status
@@ -193,6 +198,52 @@ export function CrawlStatusBanner({
                 {currentUrl}
               </span>
             </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Paused state                                                        */
+  /* ------------------------------------------------------------------ */
+  if (status === 'paused') {
+    return (
+      <div className="rounded-2xl border border-amber-500/25 bg-[#0D0D10] overflow-hidden h-full flex flex-col">
+        <div className="flex items-center justify-between px-5 py-3.5">
+          <div className="flex items-center gap-2.5">
+            <PauseCircle className="h-4 w-4 text-amber-400 shrink-0" />
+            <span className="text-sm font-semibold text-white">100 pages indexed — crawl paused</span>
+            <span className="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full select-none">
+              paused
+            </span>
+          </div>
+          {onViewPages && (
+            <button
+              onClick={onViewPages}
+              className="text-[11px] text-zinc-400 hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
+            >
+              View pages <Globe className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+        <div className="px-5 pb-3 border-t border-zinc-800/40 pt-3 flex items-center justify-between gap-3">
+          <p className="text-[11px] text-zinc-500 leading-relaxed">
+            The initial 100 pages have been indexed. Click <strong className="text-zinc-300">Continue crawl</strong> to
+            index the rest of the site.
+          </p>
+          {onResume && (
+            <button
+              onClick={() => {
+                // Optimistically transition: button disappears immediately
+                // without waiting for the socket to confirm 'running'.
+                setStatus('running')
+                onResume()
+              }}
+              className="shrink-0 text-[11px] font-semibold text-amber-400 border border-amber-500/40 hover:bg-amber-500/10 px-3 py-1 rounded-lg transition-colors cursor-pointer"
+            >
+              Continue crawl
+            </button>
           )}
         </div>
       </div>

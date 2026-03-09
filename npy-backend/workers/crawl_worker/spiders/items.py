@@ -38,6 +38,7 @@ class PageItem(scrapy.Item):
     h4_tags = scrapy.Field()
     h5_tags = scrapy.Field()
     h6_tags = scrapy.Field()
+    heading_structure = scrapy.Field()  # Full ordered heading structure with level, tag, text
     
     # URL analysis
     crawl_depth = scrapy.Field()
@@ -71,6 +72,11 @@ class PageItem(scrapy.Item):
     # Links
     amphtml_link = scrapy.Field()
     mobile_alternate_link = scrapy.Field()
+    
+    # Open Graph
+    og_title = scrapy.Field()
+    og_description = scrapy.Field()
+    og_image = scrapy.Field()
     
     # Structured data
     has_structured_data = scrapy.Field()

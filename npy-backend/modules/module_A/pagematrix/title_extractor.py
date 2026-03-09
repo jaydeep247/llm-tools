@@ -1,33 +1,10 @@
 from bs4 import BeautifulSoup
 import re
+from modules.module_A.WebsiteCrawler.metrics.pixel_width import calculate_pixel_width as _pw
 
-def calculate_pixel_width(text: str) -> int:
-    """
-    Calculate approximate pixel width of text.
-    Based on average character widths for common fonts.
-    """
-    if not text:
-        return 0
-    
-    width = 0
-    for char in text:
-        # Approximate character widths (in pixels)
-        if char == ' ':
-            width += 3
-        elif re.match(r"[iIl1\.,;:\-']", char):
-            width += 4
-        elif re.match(r"[fjtJ]", char):
-            width += 5
-        elif re.match(r"[a-z]", char):
-            width += 6
-        elif re.match(r"[A-Z]", char):
-            width += 7
-        elif re.match(r"[wWmM]", char):
-            width += 9
-        else:
-            width += 6 # default
-            
-    return round(width)
+
+def _title_pixel_width(text: str) -> int:
+    return _pw(text, font_size=20)
 
 def extract_title(soup: BeautifulSoup) -> dict:
     """
@@ -39,7 +16,7 @@ def extract_title(soup: BeautifulSoup) -> dict:
     has_missing_title = title_length == 0
     
     # Calculate pixel width
-    title_pixel_width = calculate_pixel_width(title)
+    title_pixel_width = _title_pixel_width(title)
     
     return {
         'title': title or 'No title',

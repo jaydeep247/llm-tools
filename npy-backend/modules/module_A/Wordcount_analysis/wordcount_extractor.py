@@ -6,31 +6,23 @@ from bs4.element import Tag
 from urllib.parse import urlparse
 
 def extract_visible_text(soup: BeautifulSoup) -> str:
-    texts = []
+    """Extract visible text by stripping non-visible tags, then getting text once.
+    Avoids double-counting that occurs when calling get_text() on every Tag descendant."""
+    # Work on a copy so we don't mutate the caller's soup
+    work = BeautifulSoup(str(soup), 'html.parser')
 
-    for element in soup.descendants:
-        if not isinstance(element, Tag):
-            continue
+    # Remove entirely non-visible elements
+    for tag in work.find_all(["script", "style", "noscript", "svg"]):
+        tag.decompose()
 
-        attrs = element.attrs or {}
-
-        style = attrs.get("style", "")
-        if isinstance(style, str):
-            style = style.lower()
-        else:
-            style = ""
-
+    # Remove elements hidden via inline style
+    for tag in work.find_all(style=True):
+        style = (tag.get("style") or "").lower()
         if "display:none" in style or "visibility:hidden" in style:
-            continue
+            tag.decompose()
 
-        if element.name in ("script", "style", "noscript", "svg", "header", "footer", "nav", "aside"):
-            continue
-
-        text = element.get_text(strip=True)
-        if text:
-            texts.append(text)
-
-    return " ".join(texts)
+    text = work.get_text(separator=' ')
+    return re.sub(r'\s+', ' ', text).strip()
 
 def normalize_text(text: str) -> str:
     """

@@ -20,6 +20,13 @@ from modules.module_E.ranking_runner import run_ranking_analysis
 logger = logging.getLogger("quick_start")
 
 # ---------------------------------------------------------------------------
+# Crawl configuration
+# ---------------------------------------------------------------------------
+# Number of pages to crawl before pausing. The user can then click "Continue"
+# in the frontend to resume without losing the scheduler queue in Redis.
+QUICK_START_CRAWL_PAUSE_THRESHOLD = 100
+
+# ---------------------------------------------------------------------------
 # Thread-safe background task registry
 # ---------------------------------------------------------------------------
 # run_quick_start is executed inside a ThreadPoolExecutor (one asyncio.run()
@@ -329,8 +336,9 @@ def _start_crawl(
 
     proc = spawn_ctx.Process(
         target=_run_spider_subprocess,
-        args=(state, url, session_id, job_id, project_id, 0, 0, SCRAPY_SETTINGS),
-        kwargs={"suppress_completion_events": True},
+        args=(state, url, session_id, job_id, project_id,
+              QUICK_START_CRAWL_PAUSE_THRESHOLD, 0, SCRAPY_SETTINGS),
+        kwargs={"suppress_completion_events": True, "pause_on_limit": True},
     )
     proc.start()
     logger.info(f"[QS] Crawl process launched (pid={proc.pid}) for {url} — running in background")
@@ -497,7 +505,15 @@ async def run_quick_start(
                     except Exception:
                         pass
                 # Write the final crawl status now that the subprocess is done.
-                final_crawl_status = "completed" if crawl_succeeded else "failed"
+                # If the spider hit the page limit and pause_on_limit was set,
+                # the Redis paused flag will be present — honour it.
+                from workers.cancellation import is_job_paused
+                if crawl_succeeded and is_job_paused(job_id):
+                    final_crawl_status = "paused"
+                elif crawl_succeeded:
+                    final_crawl_status = "completed"
+                else:
+                    final_crawl_status = "failed"
                 _update_crawl_status(job_id, final_crawl_status)
                 _publish_event(job_id, "QS_CRAWL_STATUS", {
                     "crawlStatus": final_crawl_status,

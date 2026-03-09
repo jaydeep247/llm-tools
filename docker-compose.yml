@@ -98,7 +98,7 @@ services:
       MAX_CRAWL_PAGES: ${MAX_CRAWL_PAGES:-10}
     command: python workers/crawl_worker/run_worker.py
     deploy:
-      replicas: 2
+      replicas: 0
     restart: unless-stopped
 
   ref-frontend:

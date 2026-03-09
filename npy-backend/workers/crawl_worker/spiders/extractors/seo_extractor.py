@@ -31,21 +31,43 @@ class SeoExtractor:
         if not meta_robots:
             meta_robots = ''
         
-        # Indexability check
+        # Indexability check (Screaming Frog compatible: checks noindex, non-200, canonical mismatch)
         indexable = True
-        indexability_status = 'indexable'
+        indexability_status = 'Indexable'
+        indexability_reasons = []
+        
+        # Check non-200 status codes
+        if response.status != 200:
+            indexable = False
+            if 300 <= response.status < 400:
+                indexability_reasons.append(f'Redirect ({response.status})')
+            elif 400 <= response.status < 500:
+                indexability_reasons.append(f'Client Error ({response.status})')
+            elif response.status >= 500:
+                indexability_reasons.append(f'Server Error ({response.status})')
         
         if meta_robots:
             robots_lower = meta_robots.lower()
             if 'noindex' in robots_lower:
                 indexable = False
-                indexability_status = 'noindex in meta robots'
+                indexability_reasons.append('Noindex')
         
         # Check X-Robots-Tag header
         x_robots = response.headers.get('X-Robots-Tag', b'').decode('utf-8', errors='ignore')
         if x_robots and 'noindex' in x_robots.lower():
             indexable = False
-            indexability_status = 'noindex in X-Robots-Tag header'
+            indexability_reasons.append('Noindex in X-Robots-Tag')
+        
+        # Check canonical mismatch (normalize trailing slash for comparison)
+        if canonical_url:
+            canon_norm = canonical_url.rstrip('/')
+            response_norm = response.url.rstrip('/')
+            if canon_norm != response_norm:
+                indexable = False
+                indexability_reasons.append('Canonicalised')
+        
+        if not indexable:
+            indexability_status = ', '.join(indexability_reasons) if indexability_reasons else 'Non-Indexable'
         
         # Pagination links
         rel_next = response.css('link[rel="next"]::attr(href)').get()

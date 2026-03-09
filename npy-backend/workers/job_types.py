@@ -11,6 +11,7 @@ class JobType(str, Enum):
     """All supported job types"""
     # Crawler Module
     CRAWL = 'CRAWL'
+    CRAWL_RESUME = 'CRAWL_RESUME'
     
     # Schema Module (Module B)
     SCHEMA = 'SCHEMA'
@@ -113,6 +114,7 @@ QUEUE_CONFIGS: Dict[JobCategory, QueueConfig] = {
 # Map job types to categories
 JOB_TYPE_TO_CATEGORY: Dict[str, JobCategory] = {
     JobType.CRAWL.value: JobCategory.CRAWLER,
+    JobType.CRAWL_RESUME.value: JobCategory.CRAWLER,
     JobType.SCHEMA.value: JobCategory.SCHEMA,
     JobType.CONTENT_METRICS.value: JobCategory.MODULE_D,
     JobType.MODULE_D.value: JobCategory.MODULE_D,

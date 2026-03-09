@@ -27,14 +27,37 @@ export class QuickStartController {
 
       return ResponseUtil.success(res, 'Quick Start result retrieved', result);
     } catch (error: any) {
+      if (error.message?.includes('not found') || error.message?.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
       logger.error('Error fetching Quick Start result:', error);
+      if (error.name === 'ZodError') {
+        return ResponseUtil.error(res, 'Validation failed', error.errors);
+      }
+      return ResponseUtil.serverError(res, 'Failed to retrieve Quick Start result');
+    }
+  };
+
+  /**
+   * POST /quick-start/jobs/:jobId/resume-crawl
+   * Resumes a paused crawl for the given job.
+   */
+  resumeCrawl = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { jobId } = jobIdParamSchema.parse(req.params);
+
+      await this.quickStartService.resumeCrawl(jobId, userId);
+      return ResponseUtil.success(res, 'Crawl resume enqueued', { jobId });
+    } catch (error: any) {
+      logger.error('Error resuming crawl:', error);
       if (error.message?.includes('not found') || error.message?.includes('access denied')) {
         return ResponseUtil.notFound(res, error.message);
       }
       if (error.name === 'ZodError') {
         return ResponseUtil.error(res, 'Validation failed', error.errors);
       }
-      return ResponseUtil.serverError(res, 'Failed to retrieve Quick Start result');
+      return ResponseUtil.serverError(res, 'Failed to enqueue crawl resume');
     }
   };
 }

@@ -19,13 +19,17 @@ class BasicExtractor:
         
         Args:
             response: Scrapy response object
-            start_time: Request start timestamp
+            start_time: Request start timestamp (fallback)
             
         Returns:
             Dictionary of basic fields
         """
-        # Calculate response time
-        response_time = int((datetime.now().timestamp() - start_time) * 1000)
+        # Response time: prefer Scrapy's download_latency (seconds, float)
+        download_latency = response.meta.get('download_latency')
+        if download_latency is not None:
+            response_time = round(download_latency, 3)  # seconds, 3 decimal places
+        else:
+            response_time = round(datetime.now().timestamp() - start_time, 3)
         
         # Extract title
         title = response.css('title::text').get()
@@ -44,11 +48,11 @@ class BasicExtractor:
         # Content type
         content_type = response.headers.get('Content-Type', b'').decode('utf-8', errors='ignore')
         
-        # Calculate content hash
+        # Content hash (MD5 – matches Screaming Frog)
         body_text = response.css('body ::text').getall()
         visible_text = ' '.join([t.strip() for t in body_text if t.strip()])
         normalized_text = visible_text.lower().replace('  ', ' ').strip()
-        content_hash = hashlib.sha256(normalized_text.encode()).hexdigest()
+        content_hash = hashlib.md5(normalized_text.encode()).hexdigest()
         
         return {
             'url': response.url,

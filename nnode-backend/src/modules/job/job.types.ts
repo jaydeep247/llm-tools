@@ -12,6 +12,7 @@ export enum JobStatus {
 export enum JobType {
   // Crawler Module
   CRAWL = 'CRAWL',
+  CRAWL_RESUME = 'CRAWL_RESUME',
   
   // Schema Module (Module B)
   SCHEMA = 'SCHEMA',
@@ -61,6 +62,7 @@ export enum JobCategory {
  */
 export const JOB_TYPE_TO_CATEGORY: Record<JobType, JobCategory> = {
   [JobType.CRAWL]: JobCategory.CRAWLER,
+  [JobType.CRAWL_RESUME]: JobCategory.CRAWLER,
   [JobType.SCHEMA]: JobCategory.SCHEMA,
   [JobType.CONTENT_METRICS]: JobCategory.MODULE_D,
   [JobType.MODULE_D]: JobCategory.MODULE_D,

@@ -49,12 +49,19 @@ class AdvancedExtractor:
         # Last Modified
         fields['last_modified'] = response.headers.get('Last-Modified', b'').decode('utf-8', errors='ignore')
         
-        # Cookies
-        set_cookie = response.headers.get('Set-Cookie', b'').decode('utf-8', errors='ignore')
-        fields['cookies'] = set_cookie
+        # Cookies (capture ALL Set-Cookie headers)
+        cookie_headers = response.headers.getlist('Set-Cookie')
+        if cookie_headers:
+            fields['cookies'] = '; '.join(c.decode('utf-8', errors='ignore') for c in cookie_headers)
+        else:
+            fields['cookies'] = ''
         
-        # HTTP Version (from response meta if available)
-        fields['http_version'] = 'HTTP/1.1'  # Default, Scrapy doesn't expose this easily
+        # HTTP Version (from response protocol if available, fallback to HTTP/1.1)
+        http_version = getattr(response, 'protocol', None)
+        if http_version:
+            fields['http_version'] = http_version if isinstance(http_version, str) else http_version.decode('utf-8', errors='ignore')
+        else:
+            fields['http_version'] = response.headers.get('X-Protocol', b'HTTP/1.1').decode('utf-8', errors='ignore')
         
         # amphtml Link
         amphtml_link = response.css('link[rel="amphtml"]::attr(href)').get()
@@ -87,9 +94,26 @@ class AdvancedExtractor:
         fields['has_mixed_content'] = mixed_content['has_mixed']
         fields['mixed_content_urls'] = mixed_content['urls']
         
-        # Redirect Info (from meta if available)
-        fields['redirect_url'] = response.meta.get('redirect_urls', [''])[-1] if response.meta.get('redirect_urls') else ''
-        fields['redirect_type'] = ''  # Will be populated by middleware if redirect occurred
+        # Redirect Info
+        redirect_urls = response.meta.get('redirect_urls', [])
+        redirect_reasons = response.meta.get('redirect_reasons', [])
+        if redirect_urls:
+            fields['redirect_url'] = redirect_urls[-1]
+            # Get redirect type from last redirect reason
+            if redirect_reasons:
+                last_reason = redirect_reasons[-1] if redirect_reasons else 0
+                fields['redirect_type'] = str(last_reason) if last_reason else ''
+            else:
+                fields['redirect_type'] = ''
+        else:
+            fields['redirect_url'] = ''
+            fields['redirect_type'] = ''
+        
+        # Open Graph Tags
+        fields['og_title'] = response.css('meta[property="og:title"]::attr(content)').get() or ''
+        fields['og_description'] = response.css('meta[property="og:description"]::attr(content)').get() or ''
+        og_image = response.css('meta[property="og:image"]::attr(content)').get()
+        fields['og_image'] = response.urljoin(og_image) if og_image else ''
         
         # Page Sizes
         fields['page_size_bytes'] = len(response.body)

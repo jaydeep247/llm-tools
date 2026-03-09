@@ -7,7 +7,7 @@ Replaces the string-prefix if/elif chain in the old execute_job() function.
 
 from typing import Callable, Dict
 
-from workers.executors.crawler import execute_crawler_job
+from workers.executors.crawler import execute_crawler_job, execute_resume_crawler_job
 from workers.executors.schema import execute_schema_job
 from workers.executors.module_c import execute_module_c_job
 from workers.executors.module_d import execute_module_d_job
@@ -19,6 +19,7 @@ ExecutorFn = Callable[[dict], bool]
 EXECUTOR_REGISTRY: Dict[str, ExecutorFn] = {
     # Crawler
     "CRAWL": execute_crawler_job,
+    "CRAWL_RESUME": execute_resume_crawler_job,
     # Schema (Module B)
     "SCHEMA": execute_schema_job,
     # Module C — AEO Analysis

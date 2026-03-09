@@ -10,12 +10,13 @@ import { SessionLayout } from '@/components/layout/SessionLayout'
 import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable, AuditChecker } from '@/components/module_A'
 import { AIIntelligenceModule, ContentMetricsModule } from '@/components/module_C'
 import { AICitationRanking, SentimentTracking, CompetitorMentionsSection, ShareOfVoiceSection, BrandAnalysisSection, TrendsByModelSection, DashboardOverview } from '@/components/module_E'
+import { ExportsTab } from '@/components/session/exports'
 // import { useGetDataListQuery, useCheckLinksMutation, useGetLinkStatsQuery, useLazyGetPageLinksQuery } from '@/store/api/module_A/dataApi'
 import { useGetProjectQuery } from '@/store/api/projectApi'
 import { useGetSessionQuery } from '@/store/api/sessionApi'
 import { useGetSessionJobsQuery, useGetJobPagesQuery, useGetJobLinksQuery, useGetJobSitemapsQuery, useGetJobFieldsQuery, useGetJobSiteStructureQuery, useRetryJobMutation, useGetJobSummaryQuery, useGetJobSnapshotQuery } from '@/store/api/jobApi'
 import { useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
-import { useGetQuickStartResultQuery } from '@/store/api/quick_start/quickStartApi'
+import { useGetQuickStartResultQuery, useResumeCrawlMutation } from '@/store/api/quick_start/quickStartApi'
 import { formatDurationHHMMSSMS, formatDurationReadable } from '@/utils/formatDuration'
 
 interface LogEntry {
@@ -200,6 +201,9 @@ export default function SessionDetailClient() {
     refetchOnMountOrArgChange: true,
   })
 
+  // Mutation for resuming a paused crawl.
+  const [resumeCrawl] = useResumeCrawlMutation()
+
   // Poll crawl_status from /quick-start/jobs — reads job_summaries in addition
   // to module_e.  Always fetch when there is a jobId so that crawl_status is
   // available for both isQuickStartSession detection and the banner.
@@ -246,12 +250,11 @@ export default function SessionDetailClient() {
   const bgCrawlStatus = inferredCrawlStatus
 
   // Stop polling ONLY when the explicit crawl_status from the API (rawCrawlStatus)
-  // reaches a terminal value.  Using inferredCrawlStatus / bgCrawlStatus here is
-  // dangerous: once the analysis job finishes (status → COMPLETED), the inferred
-  // status jumps to 'completed' before the poll has had a chance to read the real
-  // crawl_status:'running' from job_summaries — permanently killing the poller.
+  // reaches a truly terminal value.  'paused' is NOT terminal — the user can
+  // resume, and we must keep polling to detect the transition back to 'running'.
   useEffect(() => {
-    if (rawCrawlStatus && rawCrawlStatus !== 'running') {
+    const terminalStatuses = ['completed', 'failed', 'cancelled']
+    if (rawCrawlStatus && terminalStatuses.includes(rawCrawlStatus)) {
       setQsPollingActive(false)
     }
   }, [rawCrawlStatus])
@@ -292,129 +295,212 @@ export default function SessionDetailClient() {
 
     const pageMatrix = fieldData.page_matrix || {};
 
+    // Extract nested page_matrix sub-objects
+    const pmTables = pageMatrix.tables || {};
+    const pmFaqs = pageMatrix.faqs || {};
+    const pmMixed = pageMatrix.mixedContent || {};
+    const pmViewport = pageMatrix.viewport || {};
+    const pmPageSize = pageMatrix.pageSize || {};
+    const pmStructured = pageMatrix.structuredDataDetection || {};
+
+    const statusCode = page.status_code || page.statusCode || 0;
+
     return {
     ...page,
     id: page._id || page.id || page.url || Math.random(),
-    // CrawledDataTable props
-    wordCount: page.word_count || page.wordCount || 0,
-    titleLength: page.title_length || page.titleLength || 0,
-    titlePixelWidth: page.title_pixel_width || crawlerData.title_pixel_width || 0,
-    description: page.description || page.meta_description || page.metaDescription || '',
-    descriptionLength: page.description_length || page.descriptionLength || 0,
-    descriptionPixelWidth: page.meta_description_pixel_width || crawlerData.meta_description_pixel_width || 0,
-    statusCode: page.status_code || page.statusCode || 0,
-    responseTime: page.response_time || page.responseTime || 0,
+    wordCount: page.word_count || page.wordCount || pageMatrix.wordCount || 0,
+    titleLength: page.title_length || page.titleLength || pageMatrix.titleLength || 0,
+    titlePixelWidth: crawlerData.title_pixel_width || pageMatrix.titlePixelWidth || 0,
+    description: page.meta_description || page.metaDescription || pageMatrix.metaDescription || '',
+    descriptionLength: page.description_length || page.descriptionLength || pageMatrix.metaDescriptionLength || 0,
+    descriptionPixelWidth: crawlerData.meta_description_pixel_width || pageMatrix.metaDescriptionPixelWidth || 0,
+    statusCode,
+    responseTime: page.response_time || page.responseTime || pageMatrix.responseTime || 0,
     contentType: page.content_type || page.contentType || '',
-    sentenceCount: page.sentence_count || page.sentenceCount || 0,
-    paragraphCount: page.paragraph_count || page.paragraphCount || 0,
-    textToHtmlRatio: page.text_to_html_ratio || page.textToHtmlRatio || 0,
-    metaKeywords: Array.isArray(page.meta_keywords) ? page.meta_keywords.join(', ') : (page.meta_keywords || ''),
-    metaKeywordsLength: page.meta_keywords_length || page.metaKeywordsLength || 0,
+    sentenceCount: page.sentence_count || page.sentenceCount || wordCountData.sentenceCount || 0,
+    paragraphCount: page.paragraph_count || page.paragraphCount || wordCountData.paragraphCount || 0,
+    textToHtmlRatio: page.text_to_html_ratio || page.textToHtmlRatio || wordCountData.textToHtmlRatio || 0,
+    metaKeywords: Array.isArray(page.meta_keywords) ? page.meta_keywords.join(', ') : (page.meta_keywords || pageMatrix.metaKeywords || ''),
+    metaKeywordsLength: page.meta_keywords_length || page.metaKeywordsLength || pageMatrix.metaKeywordsLength || 0,
     crawlDepth: page.crawl_depth || page.crawlDepth || 0,
     folderDepth: page.folder_depth || page.folderDepth || 0,
-    uniqueOutlinks: page.unique_outlinks || page.uniqueOutlinks || crawlerData.unique_outlinks || 0,
-    uniqueJsOutlinks: page.unique_js_outlinks || page.uniqueJsOutlinks || crawlerData.unique_js_outlinks || 0,
-    uniqueExternalOutlinks: page.unique_external_outlinks || page.uniqueExternalOutlinks || crawlerData.unique_external_outlinks || 0,
-    uniqueExternalJsOutlinks: page.unique_external_js_outlinks || page.uniqueExternalJsOutlinks || crawlerData.unique_external_js_outlinks || 0,
-    metaDescription: page.meta_description || page.metaDescription || '',
-    canonicalUrl: page.canonical_url || page.canonicalUrl || '',
-    httpRelNext: page.http_rel_next || page.httpRelNext || crawlerData.http_rel_next || '',
-    httpRelPrev: page.http_rel_prev || page.httpRelPrev || crawlerData.http_rel_prev || '',
-    relNext: page.rel_next || page.relNext || crawlerData.rel_next || '',
-    relPrev: page.rel_prev || page.relPrev || crawlerData.rel_prev || '',
-    metaRobots: page.meta_robots || page.metaRobots || '',
+    uniqueOutlinks: crawlerData.unique_outlinks || 0,
+    uniqueJsOutlinks: crawlerData.unique_js_outlinks || 0,
+    uniqueExternalOutlinks: crawlerData.unique_external_outlinks || 0,
+    uniqueExternalJsOutlinks: crawlerData.unique_external_js_outlinks || 0,
+    metaDescription: page.meta_description || page.metaDescription || pageMatrix.metaDescription || '',
+    canonicalUrl: page.canonical_url || page.canonicalUrl || pageMatrix.canonicalUrl || '',
+    httpRelNext: page.http_rel_next || page.httpRelNext || '',
+    httpRelPrev: page.http_rel_prev || page.httpRelPrev || '',
+    relNext: page.rel_next ?? '',
+    relPrev: page.rel_prev ?? '',
+    metaRobots: page.meta_robots || page.metaRobots || pageMatrix.metaRobots || '',
     xRobotsTag: page.x_robots_tag || page.xRobotsTag || '',
-    metaRefresh: page.meta_refresh || page.metaRefresh || '',
-    lastModified: page.last_modified || page.lastModified || pageMatrix.last_modified || '',
+    metaRefresh: page.meta_refresh || page.metaRefresh || pageMatrix.metaRefresh || '',
+    lastModified: page.last_modified || page.lastModified || '',
     httpVersion: page.http_version || page.httpVersion || '',
-    
-    // Redirects (Check both page and fields as backup)
-    redirectUrl: page.redirect_url || page.redirectUrl || crawlerData.redirect_url || '',
-    redirectType: page.redirect_type || page.redirectType || crawlerData.redirect_type || '',
-    
-    // Error Message
-    errorMessage: page.error_message || page.errorMessage || crawlerData.error_message || '',
+    success: statusCode >= 200 && statusCode < 400,
 
-    // Size / Carbon Attributes
-    sizeBytes: page.page_size_bytes || crawlerData.transferred_bytes || 0,
+    redirectUrl: page.redirect_url || page.redirectUrl || '',
+    redirectType: page.redirect_type || page.redirectType || '',
+    errorMessage: page.error_message || page.errorMessage || '',
+
+    sizeBytes: page.page_size_bytes || pmPageSize.sizeBytes || 0,
     transferredBytes: crawlerData.transferred_bytes || 0,
     totalTransferredBytes: crawlerData.total_transferred_bytes || crawlerData.transferred_bytes || 0,
     co2Mg: crawlerData.co2_mg || 0,
     carbonRating: crawlerData.carbon_rating || 'Unknown',
 
-    // Hashes / Duplicates
     contentHash: page.content_hash || crawlerData.hash || '',
     nearDuplicateCount: crawlerData.no_near_duplicates || 0,
     closestDuplicateSimilarity: crawlerData.closest_near_duplicate_match || 0,
-    closestDuplicateUrl: crawlerData.closest_duplicate_url || '',
+    closestDuplicateUrl: '',
 
-    // Scores
-    linkScore: page.link_score || page.linkScore || pageMatrix.link_score || 0,
-    semanticSimilarityScore: page.semantic_similarity_score || page.semanticSimilarityScore || pageMatrix.semantic_similarity_score || 0,
-    semanticRelevanceScore: page.semantic_relevance_score || page.semanticRelevanceScore || pageMatrix.semantic_relevance_score || 0,
-    
-    // Page Matrix Fields (Mapped from page_matrix in fields)
-    resourceType: pageMatrix.resource_type || 'HTML',
+    linkScore: 0,
+    semanticSimilarityScore: 0,
+    semanticRelevanceScore: 0,
 
-    
-    // Tables
-    hasTables: pageMatrix.has_tables || false,
-    tableCount: pageMatrix.table_count || 0,
-    tableData: pageMatrix.table_data || '',
-    
-    // FAQs
-    hasFaqs: pageMatrix.has_faqs || false,
-    faqCount: pageMatrix.faq_count || 0,
-    faqScore: pageMatrix.faq_score || 0,
-    faqDetectionMethod: pageMatrix.faq_detection_method || '',
-    faqSchemaPresent: pageMatrix.faq_schema_present || false,
-    faqData: pageMatrix.faq_data || '',
+    resourceType: 'HTML',
 
-    // Mixed Content
-    hasMixedContent: pageMatrix.has_mixed_content || false,
-    mixedContentSeverity: pageMatrix.mixed_content_severity || 'none',
-    activeMixedContentCount: pageMatrix.active_mixed_content_count || 0,
-    passiveMixedContentCount: pageMatrix.passive_mixed_content_count || 0,
-    totalInsecureResources: pageMatrix.total_insecure_resources || 0,
-    mixedContentData: pageMatrix.mixed_content_data || '',
-    
-    // Duplicate Content specifics
-    duplicateTitleCount: pageMatrix.duplicate_title_count || 0,
+    hasTables: pmTables.hasTables || (page.table_count > 0) || false,
+    tableCount: pmTables.tableCount ?? page.table_count ?? 0,
+    tableData: Array.isArray(pmTables.tables) && pmTables.tables.length > 0 ? JSON.stringify(pmTables.tables) : '',
 
-    // PageMetrics / TextQuality / WordCount props
-    // Map from crawlerData or other field modules if not in page
-    totalWordCount: page.word_count || page.wordCount || 0,
-    visibleWordCount: page.visible_word_count || page.visibleWordCount || (page.word_count || 0), 
-    uniqueWordCount: page.unique_word_count || page.uniqueWordCount || 0,
-    averageSentenceLength: page.average_sentence_length || page.averageSentenceLength || crawlerData.average_words_per_sentence || 0,
-    averageParagraphLength: page.average_paragraph_length || page.averageParagraphLength || 0, 
-    keywordDensity: page.keyword_density || page.keywordDensity || 0, 
-    
-    // Fields from website_crawler -> Map to CrawledDataTable expected keys
+    hasFaqs: pmFaqs.hasFaqs || page.has_faq || false,
+    faqCount: pmFaqs.faqCount ?? page.faq_count ?? 0,
+    faqScore: 0,
+    faqDetectionMethod: pmFaqs.detectionMethod || '',
+    faqSchemaPresent: false,
+    faqData: Array.isArray(pmFaqs.faqPairs) && pmFaqs.faqPairs.length > 0 ? JSON.stringify(pmFaqs.faqPairs) : '',
+
+    hasMixedContent: pmMixed.hasMixedContent || page.has_mixed_content || false,
+    mixedContentSeverity: (pmMixed.hasMixedContent || page.has_mixed_content) ? 'warning' : 'none',
+    activeMixedContentCount: 0,
+    passiveMixedContentCount: 0,
+    totalInsecureResources: Array.isArray(pmMixed.mixedContentResources) ? pmMixed.mixedContentResources.length : (Array.isArray(page.mixed_content_urls) ? page.mixed_content_urls.length : 0),
+    mixedContentData: (() => {
+      const resources = pmMixed.mixedContentResources || page.mixed_content_urls || [];
+      return Array.isArray(resources) && resources.length > 0 ? JSON.stringify(resources) : '';
+    })(),
+
+    duplicateTitleCount: 0,
+    duplicateMetaDescriptionCount: 0,
+
+    headerStructureData: Array.isArray(pageMatrix.headerStructure) ? JSON.stringify(pageMatrix.headerStructure) : '',
+    headerStructureIssues: Array.isArray(pageMatrix.headerIssues) ? JSON.stringify(pageMatrix.headerIssues) : '',
+
+    viewportPresent: pmViewport.hasViewport ?? !!page.viewport,
+    viewportContent: pmViewport.viewportContent || page.viewport || '',
+    viewportStatus: pmViewport.hasViewport ? (pmViewport.isMobileOptimized ? 'ok' : 'warning') : (page.viewport ? 'ok' : 'missing'),
+
+    structuredDataPresent: pmStructured.hasStructuredData || page.has_structured_data || false,
+    structuredDataFormat: (() => {
+      const items = pmStructured.items || [];
+      if (!Array.isArray(items) || items.length === 0) return '';
+      const formats = [...new Set(items.map((i: any) => i.type).filter(Boolean))];
+      return formats.join(', ');
+    })(),
+    structuredDataTypes: (() => {
+      if (Array.isArray(page.structured_data_types) && page.structured_data_types.length > 0) return page.structured_data_types.join(', ');
+      const items = pmStructured.items || [];
+      if (!Array.isArray(items) || items.length === 0) return '';
+      return [...new Set(items.map((i: any) => i.schemaType).filter(Boolean))].join(', ');
+    })(),
+    structuredDataPriorityType: Array.isArray(page.structured_data_types) && page.structured_data_types.length > 0 ? page.structured_data_types[0] : '',
+
+    pageSizeBytes: pmPageSize.sizeBytes || page.page_size_bytes || 0,
+    pageSizeStatus: (() => {
+      const bytes = pmPageSize.sizeBytes || page.page_size_bytes || 0;
+      if (bytes > 500000) return 'Large';
+      if (bytes > 100000) return 'Medium';
+      return 'Small';
+    })(),
+    htmlSizeBytes: page.html_size_bytes || 0,
+    htmlSizeStatus: (() => {
+      const bytes = page.html_size_bytes || 0;
+      if (bytes > 500000) return 'Large';
+      if (bytes > 100000) return 'Warning';
+      return 'Good';
+    })(),
+
+    canonicalValidationStatus: (() => {
+      const cv = pageMatrix.canonicalValidation;
+      if (!cv) return 'Missing';
+      return cv.isValid ? 'Valid' : 'Invalid';
+    })(),
+    canonicalValidationMessage: '',
+
+    totalWordCount: page.word_count || page.wordCount || wordCountData.totalWordCount || 0,
+    visibleWordCount: wordCountData.visibleWordCount || page.word_count || 0,
+    uniqueWordCount: wordCountData.uniqueWordCount || 0,
+    averageSentenceLength: wordCountData.averageSentenceLength || crawlerData.average_words_per_sentence || 0,
+    averageParagraphLength: wordCountData.averageParagraphLength || 0,
+    keywordDensity: wordCountData.keywordDensity || 0,
+
     fleschReadingEase: crawlerData.flesch_reading_ease_score || 0,
     readabilityLevel: crawlerData.readability || 'Unknown',
     averageWordsPerSentence: crawlerData.average_words_per_sentence || 0,
-    
-    // Indexability Status (derived)
-    indexabilityStatus: (page.meta_robots?.includes('noindex') || page.x_robots_tag?.includes('noindex')) ? 'Non-Indexable' : 'Indexable',
-    indexable: !(page.meta_robots?.includes('noindex') || page.x_robots_tag?.includes('noindex')),
 
-    // PageMetrics Specific Statuses (derived)
-    titleStatus: (page.title_length === 0) ? 'Missing' : 'OK', // Simple derivation
-    metaDescriptionStatus: (page.description_length === 0) ? 'Missing' : 'OK',
-    
-    // Text Quality Fields
+    indexabilityStatus: page.indexability_status ||
+      ((page.meta_robots?.includes('noindex') || page.x_robots_tag?.includes('noindex')) ? 'Non-Indexable' : 'Indexable'),
+    indexable: page.indexable ?? !(page.meta_robots?.includes('noindex') || page.x_robots_tag?.includes('noindex')),
+
+    status: (() => {
+      const code = statusCode;
+      const reasons: Record<number, string> = { 200: 'OK', 201: 'Created', 301: 'Moved Permanently', 302: 'Found', 304: 'Not Modified', 400: 'Bad Request', 401: 'Unauthorized', 403: 'Forbidden', 404: 'Not Found', 500: 'Internal Server Error', 502: 'Bad Gateway', 503: 'Service Unavailable' };
+      return reasons[code] || (code ? String(code) : '');
+    })(),
+
+    titleStatus: (() => {
+      const tv = pageMatrix.titleValidation;
+      if (tv && !tv.isValid) return 'Missing';
+      if (pageMatrix.hasMissingTitle) return 'Missing';
+      return (page.title_length === 0 || page.title_length === undefined) ? 'Missing' : 'OK';
+    })(),
+    metaDescriptionStatus: (() => {
+      const mv = pageMatrix.metaDescriptionValidation;
+      if (mv && !mv.isValid) return 'Missing';
+      if (pageMatrix.hasMissingMetaDescription) return 'Missing';
+      return (page.description_length === 0 || page.description_length === undefined) ? 'Missing' : 'OK';
+    })(),
+
     grammarErrors: crawlerData.grammar_errors || 0,
     spellingErrors: crawlerData.spelling_errors || 0,
-    
-    // Other status
-    thinContent: page.thin_content || page.thinContent || false,
-    duplicateContent: page.duplicate_content || page.duplicateContent || false,
-    
-    // Ensure timestamp matches
+
+    thinContent: wordCountData.thinContent || false,
+    duplicateContent: wordCountData.duplicateContent || false,
+
+    headingTags: (() => {
+      const hs = pageMatrix.headerStructure || crawlerData.heading_structure;
+      if (Array.isArray(hs) && hs.length > 0) return JSON.stringify(hs);
+      const tags: any[] = [];
+      for (let i = 1; i <= 6; i++) {
+        const arr = page[`h${i}_tags`] || [];
+        arr.forEach((t: string) => tags.push({ level: i, tag: `h${i}`, text: t }));
+      }
+      return tags.length > 0 ? JSON.stringify(tags) : '';
+    })(),
+
+    ogTitle: page.og_title || crawlerData.og_title || '',
+    ogDescription: page.og_description || crawlerData.og_description || '',
+    ogImage: page.og_image || crawlerData.og_image || '',
+
+    cookies: page.cookies || '',
+    amphtmlUrl: page.amphtml_link || pageMatrix.ampHtmlUrl || '',
+    mobileAlternateUrl: page.mobile_alternate_link || pageMatrix.mobileAlternateUrl || '',
+    urlEncodedAddress: page.url ? encodeURI(page.url) : '',
+    outlinks: crawlerData.outlinks || 0,
+    externalOutlinks: crawlerData.external_outlinks || 0,
+    language: page.language || '',
+
+    sectionWordCountMapping: wordCountData.sectionWordCountMapping || null,
+    sectionWordCountBreakdown: wordCountData.sectionWordCountBreakdown || null,
+    headingWordCountMapping: wordCountData.headingWordCountMapping || null,
+    thinContentReason: wordCountData.thinContentReason || null,
+    duplicateWithUrls: wordCountData.duplicateWithUrls || [],
+    wordCountDistribution: wordCountData.wordCountDistribution || null,
+
     timestamp: page.timestamp || new Date().toISOString(),
-    
-    // Attach full field data for components that might dig deeper
     fields: fieldData
   }})
 
@@ -995,6 +1081,12 @@ export default function SessionDetailClient() {
                             : (bgCrawlStatus as any) ?? null
                     }
                     onViewPages={() => handleSectionChange('crawler')}
+                    onResume={() => {
+                      if (snapshotJobId) {
+                        setQsPollingActive(true)
+                        resumeCrawl(snapshotJobId)
+                      }
+                    }}
                     pagesCrawled={jobSnapshot?.pagesCrawled ?? 0}
                     totalPages={100}
                     currentUrl={
@@ -1325,6 +1417,12 @@ export default function SessionDetailClient() {
                         : (bgCrawlStatus as any) ?? null
                 }
                 onViewPages={() => handleSectionChange('crawler')}
+                onResume={() => {
+                  if (snapshotJobId) {
+                    setQsPollingActive(true)
+                    resumeCrawl(snapshotJobId)
+                  }
+                }}
                 pagesCrawled={jobSnapshot?.pagesCrawled ?? 0}
                 totalPages={100}
                 currentUrl={
@@ -1386,8 +1484,22 @@ export default function SessionDetailClient() {
           />
         )}
 
+        {/* Exports tab */}
+        {activeSection === 'exports' && (
+          <ExportsTab
+            pages={transformedPages}
+            linksMap={linksMap}
+            brokenLinks={derivedBrokenLinks}
+            jobId={jobId}
+            sessionName={session?.startUrl
+              ? new URL(session.startUrl.startsWith('http') ? session.startUrl : `https://${session.startUrl}`).hostname
+              : sessionId}
+            isLoading={isLoadingResults}
+          />
+        )}
+
         {/* Placeholder for other tabs */}
-        {activeSection !== 'crawler' && activeSection !== 'crawled-data' && activeSection !== 'page-metrics' && activeSection !== 'text-quality' && activeSection !== 'wordcount' && activeSection !== 'broken-links' && activeSection !== 'audit-checker' && activeSection !== 'link-analysis' && activeSection !== 'performance' && activeSection !== 'schema-generator' && activeSection !== 'ai-intelligence' && activeSection !== 'module-e' && activeSection !== 'content-metrics' && activeSection !== 'discover-prompts' && activeSection !== 'topic-clusters' && activeSection !== 'content-matrix' && activeSection !== 'keyword-intelligence' && (
+        {activeSection !== 'crawler' && activeSection !== 'crawled-data' && activeSection !== 'page-metrics' && activeSection !== 'text-quality' && activeSection !== 'wordcount' && activeSection !== 'broken-links' && activeSection !== 'audit-checker' && activeSection !== 'link-analysis' && activeSection !== 'performance' && activeSection !== 'schema-generator' && activeSection !== 'ai-intelligence' && activeSection !== 'module-e' && activeSection !== 'content-metrics' && activeSection !== 'discover-prompts' && activeSection !== 'topic-clusters' && activeSection !== 'content-matrix' && activeSection !== 'keyword-intelligence' && activeSection !== 'exports' && (
           <div className="rounded-2xl p-8 border border-zinc-800 bg-[#111113] text-center">
             <h2 className="text-xl font-semibold text-white mb-2">
               {activeSection.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
