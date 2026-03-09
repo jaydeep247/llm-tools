@@ -29,9 +29,12 @@ export const createApp = (): Application => {
   app.use(express.urlencoded({ extended: true }));
   app.use(cookieParser(env.COOKIE_SECRET));
 
-  // Request logging
+  // Request logging — skip high-frequency polling paths to keep logs readable
+  const POLLING_PATH_RE = /\/snapshot(?:\/|$)|\/quick-start\/jobs\/|\/module-e\/jobs\/|\/module-f\/jobs\/|\/results\/|\/site-structure(?:\/|$)|\/summary(?:\/|$)/;
   app.use((req, _res, next) => {
-    logger.http(`${req.method} ${req.path}`);
+    if (!POLLING_PATH_RE.test(req.path)) {
+      logger.http(`${req.method} ${req.path}`);
+    }
     next();
   });
 

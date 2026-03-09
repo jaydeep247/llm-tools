@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { AuthController } from './auth.controller';
 import { authMiddleware } from '../../middlewares/auth.middleware';
-import { credentialRateLimit } from '../../middlewares/rateLimit.middleware';
+import { credentialRateLimit, sessionRateLimit } from '../../middlewares/rateLimit.middleware';
 
 const router = Router();
 const authController = new AuthController();
@@ -13,6 +13,6 @@ router.post('/login', credentialRateLimit, authController.login);
 
 // Protected routes
 router.post('/logout', authMiddleware, authController.logout);
-router.get('/me', authMiddleware, authController.getCurrentUser);
+router.get('/me', sessionRateLimit, authMiddleware, authController.getCurrentUser);
 
 export default router;

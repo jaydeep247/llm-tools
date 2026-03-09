@@ -89,7 +89,7 @@ export const globalRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 1000,
   store: new RedisRateLimitStore('global', 15 * 60 * 1000),
-  skip: (req) => req.path.endsWith('/health'),
+  skip: (req) => req.path.endsWith('/health') || req.path.endsWith('/auth/me'),
   message: { success: false, message: 'Too many requests, please try again later.' },
 });
 
@@ -107,6 +107,21 @@ export const credentialRateLimit = rateLimit({
     success: false,
     message: 'Too many authentication attempts, please try again later.',
   },
+});
+
+/**
+ * SESSION guard — for lightweight session-check endpoints like /auth/me.
+ * 600 requests per user (or IP) per 15 minutes (~40 req/min average).
+ * Keyed on user ID when authenticated so IP rotation or NAT does not count
+ * against other users.
+ */
+export const sessionRateLimit = rateLimit({
+  ...shared,
+  windowMs: 15 * 60 * 1000,
+  max: 600,
+  store: new RedisRateLimitStore('session', 15 * 60 * 1000),
+  keyGenerator: userOrIpKey,
+  message: { success: false, message: 'Too many requests, please try again later.' },
 });
 
 /**

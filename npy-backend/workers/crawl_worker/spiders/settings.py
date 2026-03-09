@@ -34,7 +34,7 @@ AUTOTHROTTLE_ENABLED = False
 AUTOTHROTTLE_START_DELAY = 0.5
 AUTOTHROTTLE_MAX_DELAY = 60.0
 AUTOTHROTTLE_TARGET_CONCURRENCY = 8.0
-AUTOTHROTTLE_DEBUG = True # Show throttling stats in logs
+AUTOTHROTTLE_DEBUG = False
 
 # MongoDB Settings
 MONGO_BATCH_SIZE = 200  # Increased for high concurrency
@@ -52,6 +52,15 @@ CLOSESPIDER_PAGECOUNT = int(os.getenv('MAX_CRAWL_PAGES', '3000'))
 
 # Enable and configure HTTP caching (optional)
 HTTPCACHE_ENABLED = False
+
+# Logging — only show ERRORs; the noise-filter extension suppresses the
+# spurious 'Engine slot not assigned' Twisted panic emitted while idle.
+LOG_LEVEL = 'ERROR'
+LOG_ENABLED = True
+
+EXTENSIONS = {
+    'workers.crawl_worker.extensions.log_filter.SuppressEngineSlotNoise': 100,
+}
 
 # Set settings whose default value is deprecated to a future-proof value
 REQUEST_FINGERPRINTER_IMPLEMENTATION = '2.7'

@@ -8,7 +8,8 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-admin}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-admin}
-      RABBITMQ_LOG_LEVEL: warning
+      RABBITMQ_LOG_LEVEL: error
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "-rabbit log [{console,[{level,error}]}]"
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
@@ -95,7 +96,7 @@ services:
       PYTHONPATH: /app
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASS:-admin}@rabbitmq:5672
       MAX_CRAWL_PAGES: ${MAX_CRAWL_PAGES:-10}
-    command: scrapy crawl website_spider
+    command: python workers/crawl_worker/run_worker.py
     deploy:
       replicas: 2
     restart: unless-stopped
