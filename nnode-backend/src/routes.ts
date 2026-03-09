@@ -5,7 +5,6 @@ import userRoutes from './modules/user/user.routes';
 import projectRoutes from './modules/project/project.routes';
 import sessionRoutes from './modules/session/session.routes';
 import jobRoutes from './modules/job/job.routes';
-import { authRateLimit } from './middlewares/rateLimit.middleware';
 import moduleERoutes from './modules/module_E/moduleE.routes';
 import moduleCRoutes from './modules/module_C/moduleC.routes';
 import moduleFRoutes from './modules/module_F/moduleF.routes';
@@ -22,8 +21,7 @@ router.get('/health', (_req, res) => {
   });
 });
 
-// Auth routes carry a tighter per-IP rate limit on top of the global one
-router.use('/auth', authRateLimit, authRoutes);
+router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
 router.use('/projects', projectRoutes);
 router.use('/', sessionRoutes);

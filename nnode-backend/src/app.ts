@@ -5,7 +5,7 @@ import cookieParser from 'cookie-parser';
 import { env } from './config/env';
 import { logger } from './shared/logger/logger';
 import { errorMiddleware } from './middlewares/error.middleware';
-import { mutationRateLimit } from './middlewares/rateLimit.middleware';
+import { globalRateLimit } from './middlewares/rateLimit.middleware';
 import routes from './routes';
 
 export const createApp = (): Application => {
@@ -20,8 +20,9 @@ export const createApp = (): Application => {
     })
   );
 
-  // Rate limiting — applies to every route; auth routes add a stricter layer in routes.ts
-  app.use(mutationRateLimit);
+  // Global safety-net: 1 000 req/IP/15 min — Redis-backed, works across all instances.
+  // Credential endpoints add a tighter per-IP layer in auth.routes.ts.
+  app.use(globalRateLimit);
 
   // Body parsing middleware
   app.use(express.json());
