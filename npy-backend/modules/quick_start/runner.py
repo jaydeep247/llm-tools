@@ -319,7 +319,7 @@ def _start_crawl(
 
     Returns (proc, manager, state) so the caller can reap the process later.
     """
-    from workers.queue_worker import spawn_ctx, _run_spider_subprocess
+    from workers.executors.crawler import spawn_ctx, _run_spider_subprocess
     from workers.worker_config import SCRAPY_SETTINGS
 
     manager = spawn_ctx.Manager()

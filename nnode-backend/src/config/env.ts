@@ -20,17 +20,11 @@ const envSchema = z.object({
   COOKIE_MAX_AGE: z.string().transform(Number).pipe(z.number().positive()).default('604800000'),
 
   // CORS (comma-separated list of allowed origins)
+  // Override via CORS_ORIGINS env var in production: e.g. "https://app.example.com"
   CORS_ORIGINS: z
     .string()
-    .default('http://localhost:3000,http://localhost,http://134.122.7.161:3000,http://209.38.70.65')
+    .default('http://localhost:3000')
     .transform((val) => val.split(',').map((origin) => origin.trim())),
-
-  // Rate Limiting
-  RATE_LIMIT_WINDOW_MS: z.string().transform(Number).pipe(z.number().positive()).default('900000'),
-  RATE_LIMIT_MAX_REQUESTS: z.string().transform(Number).pipe(z.number().positive()).default('100'),
-
-  // Worker
-  WORKER_API_KEY: z.string().default('default-insecure-worker-key-change-me'),
 
   // MongoDB
   MONGO_URI: z.string().default('mongodb://localhost:27017'),

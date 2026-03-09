@@ -3,8 +3,9 @@ import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import { env } from './config/env';
+import { logger } from './shared/logger/logger';
 import { errorMiddleware } from './middlewares/error.middleware';
-import { rateLimitMiddleware } from './middlewares/rateLimit.middleware';
+import { mutationRateLimit } from './middlewares/rateLimit.middleware';
 import routes from './routes';
 
 export const createApp = (): Application => {
@@ -19,8 +20,8 @@ export const createApp = (): Application => {
     })
   );
 
-  // Rate limiting
-  app.use(rateLimitMiddleware);
+  // Rate limiting — applies to every route; auth routes add a stricter layer in routes.ts
+  app.use(mutationRateLimit);
 
   // Body parsing middleware
   app.use(express.json());
@@ -28,10 +29,10 @@ export const createApp = (): Application => {
   app.use(cookieParser(env.COOKIE_SECRET));
 
   // Request logging
-  // app.use((req, _res, next) => {
-  //   logger.http(`${req.method} ${req.path}`);
-  //   next();
-  // });
+  app.use((req, _res, next) => {
+    logger.http(`${req.method} ${req.path}`);
+    next();
+  });
 
   // API routes
   app.use(env.API_PREFIX, routes);

@@ -18,6 +18,7 @@ import { ProjectEditDialog } from '@/components/dashboard/ProjectEditDialog'
 import { ProjectDeleteDialog } from '@/components/dashboard/ProjectDeleteDialog'
 import { GreetingHeader } from '@/components/dashboard/GreetingHeader'
 import { LiveCrawlActivity } from '@/components/dashboard/LiveCrawlActivity'
+import { StatCard, StatCardGrid } from '@/components/ui/StatCard'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -43,72 +44,39 @@ export default function DashboardPage() {
       <GreetingHeader />
       
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {/* Total Projects Card */}
-        <button 
+      <StatCardGrid>
+        <StatCard
+          label="Total Projects"
+          value={totalProjects}
+          subtext="Click to manage"
+          icon={FolderOpen}
+          accent="blue"
+          trend="neutral"
           onClick={() => router.push('/dashboard/projects')}
-          className="group rounded-xl p-3 sm:p-4 border border-white/10 bg-[#121212] hover:border-blue-500/20 hover:bg-[#1A1A1A] transition-all duration-300 cursor-pointer text-left"
-        >
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-white/70">Total Projects</span>
-              <FolderOpen className="h-4 w-4 text-blue-400 group-hover:text-blue-300 transition-colors" />
-            </div>
-            <div className="space-y-1">
-              <p className="text-xl sm:text-2xl font-bold text-white">{totalProjects}</p>
-              <p className="text-[10px] text-white/60 flex items-center gap-1">
-                <TrendingUp className="h-3 w-3 text-blue-400" />
-                Click to manage
-              </p>
-            </div>
-          </div>
-        </button>
-
-        {/* Current Plan Card */}
-        <div className="group rounded-xl p-3 sm:p-4 border border-white/10 bg-[#121212] hover:border-violet-500/20 hover:bg-[#1A1A1A] transition-all duration-300 cursor-pointer">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-white/70">Current Plan</span>
-              <Zap className="h-4 w-4 text-violet-400 group-hover:text-violet-300 transition-colors" />
-            </div>
-            <div className="space-y-1">
-              <p className="text-xl sm:text-2xl font-bold text-violet-300">Pro</p>
-              <p className="text-[10px] text-white/60">Renews on Dec 15, 2024</p>
-            </div>
-          </div>
-        </div>
-
-        {/* API Usage Card */}
-        <div className="group rounded-xl p-3 sm:p-4 border border-white/10 bg-[#121212] hover:border-emerald-500/20 hover:bg-[#1A1A1A] transition-all duration-300 cursor-pointer">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-white/70">API Usage</span>
-              <TrendingUp className="h-4 w-4 text-emerald-400 group-hover:text-emerald-300 transition-colors" />
-            </div>
-            <div className="space-y-2">
-              <p className="text-xl sm:text-2xl font-bold text-white">45%</p>
-              <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
-                <div className="bg-emerald-500 h-full rounded-full w-[45%]" />
-              </div>
-              <p className="text-[10px] text-white/60">Of monthly quota</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Team Members Card */}
-        <div className="group rounded-xl p-3 sm:p-4 border border-white/10 bg-[#121212] hover:border-amber-500/20 hover:bg-[#1A1A1A] transition-all duration-300 cursor-pointer">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-white/70">Team Members</span>
-              <Users className="h-4 w-4 text-amber-400 group-hover:text-amber-300 transition-colors" />
-            </div>
-            <div className="space-y-1">
-              <p className="text-xl sm:text-2xl font-bold text-white">5</p>
-              <p className="text-[10px] text-white/60">Active members</p>
-            </div>
-          </div>
-        </div>
-      </div>
+        />
+        <StatCard
+          label="Current Plan"
+          value="Pro"
+          subtext="Renews on Dec 15, 2024"
+          icon={Zap}
+          accent="violet"
+        />
+        <StatCard
+          label="API Usage"
+          value="45%"
+          subtext="Of monthly quota"
+          icon={TrendingUp}
+          accent="emerald"
+          progress={45}
+        />
+        <StatCard
+          label="Team Members"
+          value={5}
+          subtext="Active members"
+          icon={Users}
+          accent="amber"
+        />
+      </StatCardGrid>
 
       {/* Recent Projects Section */}
       <div className="space-y-2">

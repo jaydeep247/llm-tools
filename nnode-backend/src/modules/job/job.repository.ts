@@ -68,18 +68,18 @@ export class JobRepository {
   ): Promise<Job> {
     const db = await connectToMongo();
     const update: Partial<Job> = { status };
-    if (startedAt !== undefined) {
-      update.startedAt = startedAt;
-    }
-    if (completedAt !== undefined) {
-      update.completedAt = completedAt;
-    }
-    if (errorMessage !== undefined) {
-      update.errorMessage = errorMessage;
-    }
-    await db
-      .collection<Job>('jobs')
-      .updateOne({ id }, { $set: update });
+    if (startedAt !== undefined) update.startedAt = startedAt;
+    if (completedAt !== undefined) update.completedAt = completedAt;
+    if (errorMessage !== undefined) update.errorMessage = errorMessage;
+
+    // For terminal states, guard against out-of-order event delivery:
+    // if the job already reached COMPLETED or FAILED, the first write wins.
+    const isTerminal = status === JobStatus.COMPLETED || status === JobStatus.FAILED;
+    const filter = isTerminal
+      ? { id, status: { $nin: [JobStatus.COMPLETED, JobStatus.FAILED] } }
+      : { id };
+
+    await db.collection<Job>('jobs').updateOne(filter, { $set: update });
     const job = await this.findById(id);
     if (!job) {
       throw new Error('Job not found');

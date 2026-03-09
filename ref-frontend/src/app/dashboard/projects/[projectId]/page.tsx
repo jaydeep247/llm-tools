@@ -10,6 +10,8 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { ProjectEditDialog } from '@/components/dashboard/ProjectEditDialog'
 import { ProjectDeleteDialog } from '@/components/dashboard/ProjectDeleteDialog'
+import { useConfirm } from '@/components/ui/ConfirmDialog'
+import { ProjectDetailSkeleton, TableRowSkeleton } from '@/components/ui/PageLoader'
 import type { CrawlSession } from '@/store/api/sessionApi'
 
 export default function ProjectDetailPage() {
@@ -24,6 +26,7 @@ export default function ProjectDetailPage() {
   const [deleteSession, { isLoading: isDeletingSession }] = useDeleteSessionMutation()
   const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null)
   const [updateProject] = useUpdateProjectMutation()
+  const { confirm, ConfirmUI } = useConfirm()
 
   const [editingName, setEditingName] = useState(false)
   const [editingDesc, setEditingDesc] = useState(false)
@@ -50,7 +53,13 @@ export default function ProjectDetailPage() {
   }
 
   const handleDeleteSession = async (sessionId: string) => {
-    if (!confirm('Delete this session? This will stop any running analysis and permanently remove all associated data.')) return
+    const ok = await confirm({
+      title: 'Delete session?',
+      description: 'This will stop any running analysis and permanently remove all associated data. This action cannot be undone.',
+      confirmLabel: 'Delete session',
+      destructive: true,
+    })
+    if (!ok) return
     setDeletingSessionId(sessionId)
     try {
       await deleteSession(sessionId).unwrap()
@@ -72,14 +81,7 @@ export default function ProjectDetailPage() {
   const [error, setError] = useState<string | null>(null)
 
   if (isLoadingProject) {
-    return (
-      <div className="space-y-6 sm:space-y-8 animate-fade-in-hero">
-        <div className="space-y-2">
-          <div className="h-8 sm:h-10 md:h-12 w-48 sm:w-64 bg-zinc-800/40 rounded animate-pulse"></div>
-          <div className="h-4 sm:h-5 w-32 sm:w-48 bg-zinc-800/40 rounded animate-pulse"></div>
-        </div>
-      </div>
-    )
+    return <ProjectDetailSkeleton />
   }
 
   if (projectError || !projectData) {
@@ -336,9 +338,7 @@ export default function ProjectDetailPage() {
 
         {isLoadingSessions ? (
           <div className="flex flex-col gap-2">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="rounded-sm border border-white/40 bg-[#0e0e0e] animate-pulse h-24" />
-            ))}
+            {[1, 2, 3].map((i) => <TableRowSkeleton key={i} cols={4} className="rounded-sm border border-white/10 bg-[#0e0e0e] h-24" />)}
           </div>
         ) : sessions.length === 0 ? (
           <div className="rounded-sm border border-white/40 bg-[#0e0e0e] flex flex-col items-center justify-center py-16 text-center">
@@ -445,6 +445,9 @@ export default function ProjectDetailPage() {
         onOpenChange={(open) => !open && setProjectToDelete(null)}
         onSuccess={() => router.push('/dashboard/projects')}
       />
+
+      {/* Promise-based confirm dialog (replaces window.confirm) */}
+      {ConfirmUI}
     </div>
   )
 }

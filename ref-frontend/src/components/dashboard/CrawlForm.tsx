@@ -83,7 +83,7 @@ export function CrawlForm({ onSubmit, onStop, loading = false, isCrawling = fals
                 No projects found. Create one first.
               </div>
             ) : (
-              projects.map((project) => (
+              projects.map((project: { id: string; name: string }) => (
                 <SelectItem key={project.id} value={project.id.toString()} className="text-white">
                   {project.name}
                 </SelectItem>

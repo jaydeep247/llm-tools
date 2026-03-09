@@ -20,7 +20,14 @@ export class UserRepository {
       updatedAt: now,
       hasNew: true, // Default to true for new users
     };
-    await db.collection<UserEntity>('users').insertOne(user);
+    try {
+      await db.collection<UserEntity>('users').insertOne(user);
+    } catch (error: any) {
+      if (error.code === 11000) {
+        throw new Error('A user with this email already exists');
+      }
+      throw error;
+    }
     return user;
   }
 

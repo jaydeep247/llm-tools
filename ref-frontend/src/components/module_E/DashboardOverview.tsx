@@ -2,6 +2,8 @@
 
 import { type ReactNode } from 'react'
 import { useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
+import { StatCard, StatCardGrid } from '@/components/ui/StatCard'
+import { SectionCard } from '@/components/ui/SectionCard'
 import {
   Loader2,
   TrendingUp,
@@ -15,7 +17,6 @@ import {
   Eye,
   MessageSquare,
   Target,
-  ArrowUpRight,
 } from 'lucide-react'
 
 interface DashboardOverviewProps {
@@ -24,97 +25,6 @@ interface DashboardOverviewProps {
   onNavigate?: (tab: string) => void
   /** Optional slot rendered directly after the Brand Analysis card */
   crawlStatusSlot?: ReactNode
-}
-
-/* ------------------------------------------------------------------ */
-/*  Stat Card — glass-morphism dark card with colored icon bg          */
-/* ------------------------------------------------------------------ */
-
-function StatCard({
-  label,
-  value,
-  subtext,
-  icon: Icon,
-  accent = 'blue',
-  trend,
-  onClick,
-}: {
-  label: string
-  value: string | number
-  subtext?: string
-  icon: React.ElementType
-  accent?: 'blue' | 'emerald' | 'amber' | 'rose' | 'cyan' | 'zinc'
-  trend?: 'up' | 'down' | 'neutral'
-  onClick?: () => void
-}) {
-  const accentStyles: Record<string, { iconBg: string; iconText: string; glow: string }> = {
-    blue: { iconBg: 'bg-blue-500/15', iconText: 'text-blue-400', glow: 'group-hover:shadow-blue-500/10' },
-    emerald: { iconBg: 'bg-emerald-500/15', iconText: 'text-emerald-400', glow: 'group-hover:shadow-emerald-500/10' },
-    amber: { iconBg: 'bg-amber-500/15', iconText: 'text-amber-400', glow: 'group-hover:shadow-amber-500/10' },
-    rose: { iconBg: 'bg-rose-500/15', iconText: 'text-rose-400', glow: 'group-hover:shadow-rose-500/10' },
-    cyan: { iconBg: 'bg-cyan-500/15', iconText: 'text-cyan-400', glow: 'group-hover:shadow-cyan-500/10' },
-    zinc: { iconBg: 'bg-zinc-700/40', iconText: 'text-zinc-400', glow: 'group-hover:shadow-zinc-500/10' },
-  }
-  const s = accentStyles[accent] ?? accentStyles.blue
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`group relative overflow-hidden rounded-2xl bg-[#111113] border border-zinc-800 p-5 text-left transition-all duration-300 hover:border-zinc-700 hover:shadow-xl ${s.glow} cursor-pointer w-full`}
-    >
-      <div className="flex items-start justify-between mb-4">
-        <div className={`w-10 h-10 rounded-xl ${s.iconBg} flex items-center justify-center`}>
-          <Icon className={`h-5 w-5 ${s.iconText}`} />
-        </div>
-        <ArrowUpRight className="w-4 h-4 text-zinc-600 group-hover:text-zinc-400 transition-colors" />
-      </div>
-      <div className="space-y-1">
-        <p className="text-2xl sm:text-3xl font-bold text-white tracking-tight">{value}</p>
-        <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">{label}</p>
-        {subtext && (
-          <div className="flex items-center gap-1.5 mt-2">
-            {trend === 'up' && <TrendingUp className="h-3 w-3 text-emerald-400" />}
-            {trend === 'down' && <TrendingDown className="h-3 w-3 text-rose-400" />}
-            <p className={`text-[11px] ${trend === 'up' ? 'text-emerald-400' : trend === 'down' ? 'text-rose-400' : 'text-zinc-500'}`}>{subtext}</p>
-          </div>
-        )}
-      </div>
-    </button>
-  )
-}
-
-/* ------------------------------------------------------------------ */
-/*  Section Card — dark panel with accent header                       */
-/* ------------------------------------------------------------------ */
-
-function SectionCard({
-  title,
-  children,
-  onClick,
-  actionLabel,
-}: {
-  title: string
-  children: React.ReactNode
-  onClick?: () => void
-  actionLabel?: string
-}) {
-  return (
-    <div className="rounded-2xl border border-zinc-800 bg-[#111113] overflow-hidden transition-all duration-300 hover:border-zinc-700">
-      <div className="flex items-center justify-between px-5 py-3.5 border-b border-zinc-800/60">
-        <h3 className="text-sm font-semibold text-zinc-200">{title}</h3>
-        {onClick && (
-          <button
-            onClick={onClick}
-            className="text-xs text-blue-400 hover:text-blue-300 transition-colors cursor-pointer font-medium"
-          >
-            {actionLabel ?? 'View Details →'}
-          </button>
-        )}
-      </div>
-      <div className="p-5">{children}</div>
-    </div>
-  )
 }
 
 /* ------------------------------------------------------------------ */

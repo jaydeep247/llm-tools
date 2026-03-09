@@ -50,6 +50,13 @@ export interface ModuleEJobPayload extends BaseJobPayload {
 }
 
 /**
+ * Module F (Competitor AI Intelligence) Job Payload
+ */
+export interface ModuleFJobPayload extends BaseJobPayload {
+  sourceJobId?: string;
+}
+
+/**
  * Generic Analysis Job Payload (Legacy support)
  */
 export interface AnalysisJobPayload {
@@ -73,5 +80,6 @@ export type AnyJobPayload =
   | ModuleCJobPayload 
   | ModuleDJobPayload 
   | ModuleEJobPayload 
+  | ModuleFJobPayload
   | AnalysisJobPayload;
 

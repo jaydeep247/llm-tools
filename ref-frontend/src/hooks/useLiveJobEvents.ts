@@ -89,4 +89,12 @@ export const useLiveJobEvents = (jobId: string | null) => {
       dispatch(setConnectionStatus(false));
     };
   }, [jobId, dispatch]);
+
+  // Expose relevant live state from Redux so consumers don't need separate selectors
+  const { logs, status, isConnected } = useAppSelector((s) => s.liveJob);
+  return {
+    events: logs,
+    status,
+    connected: isConnected,
+  };
 };

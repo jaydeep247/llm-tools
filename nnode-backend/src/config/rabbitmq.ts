@@ -65,6 +65,14 @@ const QUEUE_CONFIGS: QueueSetup[] = [
     dlx: 'module_e.dlx',
     dlq: 'module_e.dlq',
   },
+  // Module F (Competitor AI Intelligence)
+  {
+    exchange: 'module_f.exchange',
+    queue: 'module_f.queue',
+    routingKey: 'module_f.job',
+    dlx: 'module_f.dlx',
+    dlq: 'module_f.dlq',
+  },
 ];
 
 export const getRabbitChannel = async (): Promise<any> => {

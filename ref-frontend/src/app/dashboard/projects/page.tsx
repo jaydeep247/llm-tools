@@ -19,6 +19,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { ProjectEditDialog } from '@/components/dashboard/ProjectEditDialog'
 import { ProjectDeleteDialog } from '@/components/dashboard/ProjectDeleteDialog'
+import { ProjectsPageSkeleton } from '@/components/ui/PageLoader'
 
 export default function ProjectsPage() {
   const router = useRouter()
@@ -54,22 +55,7 @@ export default function ProjectsPage() {
     router.push(`/dashboard/projects/${projectId}`)
   }
 
-  if (isLoading) {
-    return (
-      <div className="space-y-4 animate-fade-in-hero">
-        {/* Header skeleton */}
-        <div className="flex items-center justify-between">
-          <div className="h-8 w-32 bg-white/5 rounded animate-pulse" />
-          <div className="h-9 w-36 bg-white/5 rounded-sm animate-pulse" />
-        </div>
-        <div className="flex flex-col gap-2">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="rounded-sm p-4 border border-white/10 bg-[#121212] animate-pulse h-16" />
-          ))}
-        </div>
-      </div>
-    )
-  }
+  if (isLoading) return <ProjectsPageSkeleton />
 
   if (error) {
     return (

@@ -162,7 +162,7 @@ export function ProjectSelectorDialog({ isOpen, onClose, onSelectProject, defaul
                         </div>
                         <div className="ml-4 text-right">
                           <p className="text-xs text-slate-500">
-                            {project._count?.crawlSessions || 0} sessions
+                            {project._count?.sessions || 0} sessions
                           </p>
                         </div>
                       </div>

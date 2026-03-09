@@ -40,6 +40,13 @@ export const MODULE_E_ROUTING_KEY = 'module_e.job';
 export const MODULE_E_DLX = 'module_e.dlx';
 export const MODULE_E_DLQ = 'module_e.dlq';
 
+// ============ MODULE F (Competitor AI Intelligence) ============
+export const MODULE_F_EXCHANGE = 'module_f.exchange';
+export const MODULE_F_QUEUE = 'module_f.queue';
+export const MODULE_F_ROUTING_KEY = 'module_f.job';
+export const MODULE_F_DLX = 'module_f.dlx';
+export const MODULE_F_DLQ = 'module_f.dlq';
+
 // ============ LEGACY (Backward Compatibility) ============
 export const QUEUE_EXCHANGE_CRAWL = 'crawl.exchange';
 export const QUEUE_CRAWL = 'crawl.queue';
@@ -96,6 +103,13 @@ export const QUEUE_CONFIG_BY_CATEGORY: Record<JobCategory, QueueConfig> = {
     dlx: MODULE_E_DLX,
     dlq: MODULE_E_DLQ,
   },
+  [JobCategory.MODULE_F]: {
+    exchange: MODULE_F_EXCHANGE,
+    queue: MODULE_F_QUEUE,
+    routingKey: MODULE_F_ROUTING_KEY,
+    dlx: MODULE_F_DLX,
+    dlq: MODULE_F_DLQ,
+  },
 };
 
 /**
@@ -107,4 +121,5 @@ export const ALL_QUEUES = [
   MODULE_C_QUEUE,
   MODULE_D_QUEUE,
   MODULE_E_QUEUE,
+  MODULE_F_QUEUE,
 ];

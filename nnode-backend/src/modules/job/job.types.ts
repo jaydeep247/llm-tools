@@ -53,6 +53,7 @@ export enum JobCategory {
   MODULE_C = 'MODULE_C',
   MODULE_D = 'MODULE_D',
   MODULE_E = 'MODULE_E',
+  MODULE_F = 'MODULE_F',
 }
 
 /**
@@ -80,7 +81,7 @@ export const JOB_TYPE_TO_CATEGORY: Record<JobType, JobCategory> = {
   [JobType.MODULE_E_RANKING]: JobCategory.MODULE_E,
   [JobType.MODULE_E_BRAND]: JobCategory.MODULE_E,
   [JobType.MODULE_E_AI_CITATION_RANKING]: JobCategory.MODULE_E,
-  [JobType.MODULE_F_COMPETITOR_AI_INTELLIGENCE]: JobCategory.MODULE_E,
+  [JobType.MODULE_F_COMPETITOR_AI_INTELLIGENCE]: JobCategory.MODULE_F,
 };
 
 export interface Job {

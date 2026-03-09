@@ -178,12 +178,18 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
       />
       
       {/* Modal */}
-      <div className={`relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden transition-all duration-200 ${
-        isAnimating ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-4"
-      }`}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="auth-modal-title"
+        className={`relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden transition-all duration-200 ${
+          isAnimating ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-4"
+        }`}
+      >
         {/* Close button */}
         <button
           onClick={handleClose}
+          aria-label="Close authentication dialog"
           className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors z-10 cursor-pointer"
         >
           <X className="w-6 h-6" />
@@ -195,7 +201,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
           <div className={`text-center mb-8 transition-all duration-300 ${
             isTransitioning ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"
           }`}>
-            <h2 className="text-3xl font-bold text-slate-900 mb-2">
+            <h2 id="auth-modal-title" className="text-3xl font-bold text-slate-900 mb-2">
               {isLogin ? "Welcome Back" : "Get Started"}
             </h2>
             <p className="text-slate-600">

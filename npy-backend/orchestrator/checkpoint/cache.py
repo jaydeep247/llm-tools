@@ -15,6 +15,7 @@ class CacheManager:
         project_root = os.path.dirname(os.path.dirname(current_dir)) 
         
         self.cache_file = os.path.join(project_root, "data", "cache", cache_file_name)
+        os.makedirs(os.path.dirname(self.cache_file), exist_ok=True)
         self.memory_cache = {} # Simple in-memory LRU could go here
         self._load_cache()
 

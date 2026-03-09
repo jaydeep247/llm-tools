@@ -51,6 +51,7 @@ class JobCategory(str, Enum):
     MODULE_C = 'MODULE_C'
     MODULE_D = 'MODULE_D'
     MODULE_E = 'MODULE_E'
+    MODULE_F = 'MODULE_F'
 
 
 class QueueConfig(NamedTuple):
@@ -99,6 +100,13 @@ QUEUE_CONFIGS: Dict[JobCategory, QueueConfig] = {
         dlx='module_e.dlx',
         dlq='module_e.dlq',
     ),
+    JobCategory.MODULE_F: QueueConfig(
+        exchange='module_f.exchange',
+        queue='module_f.queue',
+        routing_key='module_f.job',
+        dlx='module_f.dlx',
+        dlq='module_f.dlq',
+    ),
 }
 
 
@@ -125,7 +133,7 @@ JOB_TYPE_TO_CATEGORY: Dict[str, JobCategory] = {
     JobType.MODULE_E_RANKING.value: JobCategory.MODULE_E,
     JobType.MODULE_E_BRAND.value: JobCategory.MODULE_E,
     JobType.MODULE_E_AI_CITATION_RANKING.value: JobCategory.MODULE_E,
-    JobType.MODULE_F_COMPETITOR_AI_INTELLIGENCE.value: JobCategory.MODULE_E,
+    JobType.MODULE_F_COMPETITOR_AI_INTELLIGENCE.value: JobCategory.MODULE_F,
 }
 
 

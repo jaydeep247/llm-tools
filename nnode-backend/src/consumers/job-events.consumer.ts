@@ -93,13 +93,16 @@ export const startJobEventsConsumer = async () => {
                  logger.error(`❌ DB Update Exception for ${event.jobId}:`, e);
              }
 
-             // Update Session Status
-             if (event.payload && event.payload.sessionId) {
-                 try {
-                     await sessionService.markSessionCompleted(event.payload.sessionId);
-                 } catch (e) {
-                     logger.error(`❌ Session Update Exception:`, e);
+             // Update Session Status — sessionId is always present in Python-emitted payloads
+             try {
+                 const sessionId = event.payload?.sessionId;
+                 if (sessionId) {
+                     await sessionService.markSessionCompleted(sessionId);
+                 } else {
+                     logger.warn(`⚠️  JOB_COMPLETED for ${event.jobId} missing sessionId — session not updated`);
                  }
+             } catch (e) {
+                 logger.error(`❌ Session Update Exception:`, e);
              }
              
              // Emit Direct Socket Event (Critical for UI)
@@ -129,8 +132,12 @@ export const startJobEventsConsumer = async () => {
               const reason = event.payload?.reason || event.payload?.message || 'Unknown error';
               await jobService.markFailed(event.jobId, reason);
 
-              if (event.payload && event.payload.sessionId) {
-                  await sessionService.markSessionFailed(event.payload.sessionId);
+              // Update Session Status — sessionId is always present in Python-emitted payloads
+              const sessionId = event.payload?.sessionId;
+              if (sessionId) {
+                  await sessionService.markSessionFailed(sessionId);
+              } else {
+                  logger.warn(`⚠️  JOB_FAILED for ${event.jobId} missing sessionId — session not updated`);
               }
               
               // Emit Direct Socket Event

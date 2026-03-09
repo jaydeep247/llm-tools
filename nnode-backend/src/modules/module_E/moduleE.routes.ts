@@ -5,15 +5,16 @@ import { ModuleEController } from './moduleE.controller';
 const router = Router();
 const moduleEController = new ModuleEController();
 
+// authMiddleware applied once at router level — no per-route duplication
 router.use(authMiddleware);
 
+// GET results endpoints — canonical read paths for Module E data
 router.get('/module-e/jobs/:jobId', moduleEController.getModuleEResult);
-router.post('/module-e/jobs/:jobId/run', moduleEController.runModuleEAnalysis);
-router.post('/module-e/jobs/:jobId/run-sentiment', authMiddleware, moduleEController.runSentimentAnalysis);
-router.post('/module-e/jobs/:jobId/run-competitors', authMiddleware, moduleEController.runCompetitorAnalysis);
-router.post('/module-e/jobs/:jobId/run-ai-sov', authMiddleware, moduleEController.runAiSovAnalysis);
-router.post('/module-e/jobs/:jobId/run-brand', authMiddleware, moduleEController.runBrandAnalysis);
-router.post('/module-e/jobs/:jobId/run-ranking', authMiddleware, moduleEController.runRankingAnalysis);
-router.post('/module-e/jobs/:jobId/run-consistency', authMiddleware, moduleEController.runConsistencyAnalysis);
+
+// NOTE: run-* POST endpoints (run-sentiment, run-competitors, etc.) have been
+// consolidated into job.routes.ts as the canonical owner:
+//   POST /jobs/:id/module-e/sentiment
+//   POST /jobs/:id/module-e/competitors
+//   etc.
 
 export default router;

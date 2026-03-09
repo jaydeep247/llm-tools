@@ -111,6 +111,17 @@ export class JobService {
         });
         break;
 
+      case JobCategory.MODULE_F:
+        await this.queueService.publishModuleFJob({
+          jobId: job.id,
+          sessionId,
+          projectId,
+          url: job.url,
+          jobType: jobType as JobType,
+          sourceJobId: job.config?.sourceJobId,
+        });
+        break;
+
       default:
         // Legacy fallback - use analysis job publisher
         await this.queueService.publishAnalysisJob({

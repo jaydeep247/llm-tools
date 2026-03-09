@@ -1,6 +1,7 @@
 import type React from "react"
 import type { Metadata } from "next"
 import { Suspense } from "react"
+import { Toaster } from "sonner"
 import "./globals.css"
 import { StoreProvider } from "@/store/StoreProvider"
 
@@ -26,6 +27,7 @@ export default function RootLayout({
           <Suspense fallback={null}>
             {children}
           </Suspense>
+          <Toaster richColors position="top-right" />
         </StoreProvider>
       </body>
     </html>

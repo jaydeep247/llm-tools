@@ -7,6 +7,7 @@ export interface ModuleEResult {
     mandate?: {
       topic?: string
       audience?: string
+      tone?: string
       url?: string
       brand_name?: string
       location?: string
@@ -221,42 +222,42 @@ export const moduleEApi = baseApi.injectEndpoints({
     }),
     runSentimentAnalysis: builder.mutation<ModuleEResultResponse, string>({
       query: (jobId) => ({
-        url: `/module-e/jobs/${jobId}/run-sentiment`,
+        url: `/jobs/${jobId}/module-e/sentiment`,
         method: 'POST',
       }),
       invalidatesTags: (_result, _error, jobId) => [{ type: 'ModuleE' as const, id: jobId }],
     }),
     runConsistencyAnalysis: builder.mutation<ModuleEResultResponse, string>({
       query: (jobId) => ({
-        url: `/module-e/jobs/${jobId}/run-consistency`,
+        url: `/jobs/${jobId}/module-e/consistency`,
         method: 'POST',
       }),
       invalidatesTags: (_result, _error, jobId) => [{ type: 'ModuleE' as const, id: jobId }],
     }),
     runCompetitorAnalysis: builder.mutation<ModuleEResultResponse, string>({
       query: (jobId) => ({
-        url: `/module-e/jobs/${jobId}/run-competitors`,
+        url: `/jobs/${jobId}/module-e/competitors`,
         method: 'POST',
       }),
       invalidatesTags: (_result, _error, jobId) => [{ type: 'ModuleE' as const, id: jobId }],
     }),
     runBrandAnalysis: builder.mutation<ModuleEResultResponse, string>({
       query: (jobId) => ({
-        url: `/module-e/jobs/${jobId}/run-brand`,
+        url: `/jobs/${jobId}/module-e/brand`,
         method: 'POST',
       }),
       invalidatesTags: (_result, _error, jobId) => [{ type: 'ModuleE' as const, id: jobId }],
     }),
     runRankingAnalysis: builder.mutation<ModuleEResultResponse, string>({
       query: (jobId) => ({
-        url: `/module-e/jobs/${jobId}/run-ranking`,
+        url: `/jobs/${jobId}/module-e/ranking`,
         method: 'POST',
       }),
       invalidatesTags: (_result, _error, jobId) => [{ type: 'ModuleE' as const, id: jobId }],
     }),
     runAiSovAnalysis: builder.mutation<ModuleEResultResponse, string>({
       query: (jobId) => ({
-        url: `/module-e/jobs/${jobId}/run-ai-sov`,
+        url: `/jobs/${jobId}/module-e/ai-sov`,
         method: 'POST',
       }),
       invalidatesTags: (_result, _error, jobId) => [{ type: 'ModuleE' as const, id: jobId }],

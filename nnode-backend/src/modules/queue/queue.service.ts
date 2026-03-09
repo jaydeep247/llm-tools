@@ -11,6 +11,7 @@ import {
   ModuleCJobPayload,
   ModuleDJobPayload,
   ModuleEJobPayload,
+  ModuleFJobPayload,
   AnyJobPayload,
 } from './queue.types';
 import { JobType, JobCategory, JOB_TYPE_TO_CATEGORY } from '../job/job.types';
@@ -153,6 +154,11 @@ export class QueueService {
       { ...payload, jobType: JobType.MODULE_E_AI_CITATION_RANKING, subModule: 'ai_citation_ranking' },
       JobCategory.MODULE_E
     );
+  }
+
+  // ============ MODULE F JOBS (Competitor AI Intelligence) ============
+  async publishModuleFJob(payload: ModuleFJobPayload): Promise<void> {
+    await this.publishToQueue(payload, JobCategory.MODULE_F);
   }
 }
 
