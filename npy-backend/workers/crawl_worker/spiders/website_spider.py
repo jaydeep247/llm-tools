@@ -948,9 +948,18 @@ class WebsiteSpider(RedisSpider):
                 'unique_external_js_outlinks': outlink_stats['unique_external_js_outlinks'],
                 
                 # Duplicates & Similarity
-                'closest_near_duplicate_match': None,
+                # These stubs are overwritten by post_crawl_analysis after
+                # all pages for the job have been crawled.
+                'closest_near_duplicate_url': None,
+                'closest_near_duplicate_similarity': 0.0,
                 'no_near_duplicates': 0,
-                'simhash': simhash_legacy, 
+                'simhash': simhash_legacy,
+
+                # Semantic similarity — populated by post_crawl_analysis
+                'closest_semantically_similar_address': None,
+                'semantic_similarity_score': 0.0,
+                'no_semantically_similar': 0,
+                'semantic_relevance_score': 0.0,
                 
                 # Quality / Errors
                 'spelling_errors': quality_data['spelling_errors'],

@@ -74,6 +74,8 @@ interface CrawledPage {
   httpVersion?: string
   semanticSimilarityScore?: number
   semanticRelevanceScore?: number
+  closestSemanticallySimilarAddress?: string
+  semanticallySimilarCount?: number
   contentHash?: string
   closestDuplicateUrl?: string
   closestDuplicateSimilarity?: number
@@ -152,7 +154,7 @@ const COLUMN_CATEGORIES: ColumnCategory[] = [
   },
   {
     name: 'Semantic & Duplicates',
-    columns: ['semanticSimilarityScore', 'semanticRelevanceScore', 'nearDuplicateCount', 'closestDuplicateSimilarity', 'closestDuplicateUrl', 'contentHash']
+    columns: ['semanticSimilarityScore', 'semanticRelevanceScore', 'closestSemanticallySimilarAddress', 'semanticallySimilarCount', 'nearDuplicateCount', 'closestDuplicateSimilarity', 'closestDuplicateUrl', 'contentHash']
   },
   {
     name: 'Open Graph',
@@ -366,10 +368,12 @@ export function CrawledDataTable({
       totalTransferredBytes: 'Total Transferred',
       co2Mg: 'CO₂ (mg)',
       carbonRating: 'Carbon Rating',
-      semanticSimilarityScore: 'Semantic Score',
-      semanticRelevanceScore: 'Relevance Score',
-      nearDuplicateCount: 'Near Duplicates',
-      closestDuplicateSimilarity: 'Duplicate Similarity',
+      semanticSimilarityScore: 'Semantic Similarity Score',
+      semanticRelevanceScore: 'Semantic Relevance Score',
+      closestSemanticallySimilarAddress: 'Closest Semantically Similar',
+      semanticallySimilarCount: 'No. Semantically Similar',
+      nearDuplicateCount: 'No. Near Duplicates',
+      closestDuplicateSimilarity: 'Nearest Duplicate Similarity',
       contentHash: 'Content Hash',
       ogTitle: 'OG Title',
       ogDescription: 'OG Description',
@@ -422,7 +426,7 @@ export function CrawledDataTable({
     'fleschReadingEase', 'readabilityLevel', 'textToHtmlRatio', 'spellingErrors', 'grammarErrors',
     'crawlDepth', 'folderDepth', 'indexable', 'outlinks', 'uniqueExternalOutlinks', 'uniqueExternalJsOutlinks',
     'uniqueOutlinks', 'uniqueJsOutlinks', 'externalOutlinks', 'linkScore', 'sizeBytes', 'transferredBytes', 'totalTransferredBytes', 'co2Mg',
-    'semanticSimilarityScore', 'semanticRelevanceScore', 'nearDuplicateCount', 'closestDuplicateSimilarity',
+    'semanticSimilarityScore', 'semanticRelevanceScore', 'closestSemanticallySimilarAddress', 'semanticallySimilarCount', 'nearDuplicateCount', 'closestDuplicateSimilarity',
     'metaKeywordsLength', 'timestamp', 'success', 'inlinks', 'uniqueInlinks', 'uniqueJsInlinks',
     'h1_1Length', 'h1_2Length', 'h2_1Length', 'h2_2Length'
   ])
@@ -430,7 +434,7 @@ export function CrawledDataTable({
   const renderTableHeader = (column: keyof CrawledPage) => {
     const isSortable = sortableColumns.has(column)
     const label = getColumnLabel(column)
-    const isMinWidthColumn = ['url', 'description', 'canonicalUrl', 'errorMessage', 'headingTags', 'ogTitle', 'ogDescription', 'ogImage', 'cookies', 'amphtmlUrl', 'mobileAlternateUrl', 'redirectUrl', 'closestDuplicateUrl', 'urlEncodedAddress', 'metaKeywords', 'h1_1', 'h1_2', 'h2_1', 'h2_2'].includes(column as string)
+    const isMinWidthColumn = ['url', 'description', 'canonicalUrl', 'errorMessage', 'headingTags', 'ogTitle', 'ogDescription', 'ogImage', 'cookies', 'amphtmlUrl', 'mobileAlternateUrl', 'redirectUrl', 'closestDuplicateUrl', 'closestSemanticallySimilarAddress', 'urlEncodedAddress', 'metaKeywords', 'h1_1', 'h1_2', 'h2_1', 'h2_2'].includes(column as string)
     
     return (
       <th
@@ -529,6 +533,14 @@ export function CrawledDataTable({
         return page.semanticSimilarityScore != null ? Number(page.semanticSimilarityScore).toFixed(2) : '-'
       case 'semanticRelevanceScore':
         return page.semanticRelevanceScore != null ? Number(page.semanticRelevanceScore).toFixed(2) : '-'
+      case 'closestSemanticallySimilarAddress':
+        return page.closestSemanticallySimilarAddress ? (
+          <a href={page.closestSemanticallySimilarAddress} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300" title={page.closestSemanticallySimilarAddress}>
+            {page.closestSemanticallySimilarAddress}
+          </a>
+        ) : '-'
+      case 'semanticallySimilarCount':
+        return value != null ? String(value) : '0'
       case 'closestDuplicateSimilarity':
         return page.closestDuplicateSimilarity != null ? Number(page.closestDuplicateSimilarity).toFixed(4) : '-'
       case 'contentHash':

@@ -341,13 +341,15 @@ export default function SessionDetailPage() {
       // Hashes / Duplicates
       contentHash: page.content_hash || crawlerData.hash || '',
       nearDuplicateCount: crawlerData.no_near_duplicates || 0,
-      closestDuplicateSimilarity: crawlerData.closest_near_duplicate_match || 0,
-      closestDuplicateUrl: '',
+      closestDuplicateSimilarity: crawlerData.closest_near_duplicate_similarity || crawlerData.closest_near_duplicate_match || 0,
+      closestDuplicateUrl: crawlerData.closest_near_duplicate_url || '',
 
       // Scores
       linkScore: 0,
-      semanticSimilarityScore: 0,
-      semanticRelevanceScore: 0,
+      semanticSimilarityScore: crawlerData.semantic_similarity_score || 0,
+      semanticRelevanceScore: crawlerData.semantic_relevance_score || 0,
+      closestSemanticallySimilarAddress: crawlerData.closest_semantically_similar_address || '',
+      semanticallySimilarCount: crawlerData.no_semantically_similar || 0,
 
       // --- Page Matrix / PageMetricsTable Fields ---
       resourceType: 'HTML',

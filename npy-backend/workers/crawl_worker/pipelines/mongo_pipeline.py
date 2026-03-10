@@ -5,6 +5,7 @@ from pymongo import UpdateOne
 from utils.mongo import mongo_manager
 from utils.logger import logger
 from workers.crawl_worker.spiders.items import PageItem, LinkItem, SitemapUrlItem
+from workers.crawl_worker.pipelines.post_crawl_analysis import run_post_crawl_analysis
 
 class MongoPipeline:
     def __init__(self, mongo_uri, mongo_db, batch_size=100):
@@ -82,6 +83,11 @@ class MongoPipeline:
                 'linksFound': self.total_counts['links'],
             }
 
+            # Post-crawl analysis: near-duplicate detection + semantic similarity.
+            # Must run BEFORE setting status='completed' so the frontend always
+            # sees fully-populated data the first time it polls after completion.
+            yield threads.deferToThread(run_post_crawl_analysis, self.job_id)
+
             def _write_stats(stats):
                 try:
                     mongo_manager.db.jobs.update_one(
@@ -92,7 +98,7 @@ class MongoPipeline:
                     logger.error(f"Failed to write crawl stats to jobs: {ex}")
 
             yield threads.deferToThread(_write_stats, crawl_stats)
-            
+
             logger.info(
                 f"Job {self.job_id} complete. Pages: {self.total_counts['pages']}, "
                 f"Links: {self.total_counts['links']}, "
