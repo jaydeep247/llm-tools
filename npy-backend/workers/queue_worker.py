@@ -50,34 +50,9 @@ def run_job_in_worker(payload: dict, job_type_override: str | None = None) -> No
     job_id = payload.get("jobId") or f"job_{payload.get('sessionId')}"
     session_id = payload.get("sessionId", "unknown")
     
-    if job_type_resolved == "CRAWL":
-        logger.info(f"[DISPATCH] 📥 Routing to MODULE_A (Crawler) | Session: {session_id}")
-        return execute_crawler_job(payload)
-        
-    if job_type_resolved.startswith("MODULE_C") or job_type_resolved == "AEO_ANALYSIS":
-        logger.info(f"[DISPATCH] 📥 Routing to MODULE_C (AEO Analysis) | Session: {session_id}")
-        return execute_module_c_job(payload)
-        
-    if job_type_resolved.startswith("MODULE_E"):
-        logger.info(f"[DISPATCH] 📥 Routing to MODULE_E (Brand Intelligence) | Session: {session_id}")
-        return execute_module_e_job(payload)
-
-    if job_type_resolved.startswith("MODULE_F"):
-        logger.info(f"[DISPATCH] 📥 Routing to MODULE_F (Competitor AI) | Session: {session_id}")
-        return execute_module_f_job(payload)
-        
-    if job_type_resolved.startswith("MODULE_D") or job_type_resolved == "CONTENT_METRICS":
-        logger.info(f"[DISPATCH] 📥 Routing to MODULE_D (Content Analysis) | Session: {session_id}")
-        return execute_module_d_job(payload)
-        
-    if job_type_resolved == "SCHEMA":
-        logger.info(f"[DISPATCH] 📥 Routing to MODULE_B (Schema) | Session: {session_id}")
-        return execute_schema_job(payload)
-        
-    # Default fallback
-    logger.warning(f"Unknown job type {job_type_resolved}, defaulting to Module D analysis")
-    logger.info(f"[DISPATCH] 📥 Routing to MODULE_D (Content Analysis - Default) | Session: {session_id}")
-    return execute_module_d_job(payload)
+    logger.info(f"[DISPATCH] 📥 Routing job | Type: {job_type} | Session: {session_id} | Job: {job_id}")
+    executor = get_executor(job_type)
+    return executor(payload)
 
 
 def execute_module_f_job(payload: dict) -> bool:
