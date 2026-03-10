@@ -461,7 +461,7 @@ export function CrawledDataTable({
   }
 
   const formatBytes = (bytes?: number) => {
-    if (bytes === null || bytes === undefined) return 'N/A'
+    if (bytes === null || bytes === undefined) return '-'
     if (bytes === 0) return '0 B'
     if (bytes < 1024) return `${bytes} B`
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`
@@ -514,58 +514,58 @@ export function CrawledDataTable({
       case 'totalTransferredBytes':
         return formatBytes(page.totalTransferredBytes ? Number(page.totalTransferredBytes) : undefined)
       case 'textToHtmlRatio':
-        return page.textToHtmlRatio != null ? `${Number(page.textToHtmlRatio).toFixed(2)}%` : 'N/A'
+        return page.textToHtmlRatio != null ? `${Number(page.textToHtmlRatio).toFixed(2)}%` : '-'
       case 'averageWordsPerSentence':
-        return page.averageWordsPerSentence != null ? Number(page.averageWordsPerSentence).toFixed(1) : 'N/A'
+        return page.averageWordsPerSentence != null ? Number(page.averageWordsPerSentence).toFixed(1) : '-'
       case 'fleschReadingEase':
-        return page.fleschReadingEase != null ? Number(page.fleschReadingEase).toFixed(1) : 'N/A'
+        return page.fleschReadingEase != null ? Number(page.fleschReadingEase).toFixed(1) : '-'
       case 'linkScore':
-        return page.linkScore != null ? Number(page.linkScore).toFixed(2) : 'N/A'
+        return page.linkScore != null ? Number(page.linkScore).toFixed(2) : '-'
       case 'co2Mg':
-        return page.co2Mg != null ? Number(page.co2Mg).toFixed(2) : 'N/A'
+        return page.co2Mg != null ? Number(page.co2Mg).toFixed(2) : '-'
       case 'carbonRating':
-        return page.carbonRating ? <Badge className="bg-green-500/20 text-green-300">{page.carbonRating}</Badge> : 'N/A'
+        return page.carbonRating ? <Badge className="bg-green-500/20 text-green-300">{page.carbonRating}</Badge> : '-'
       case 'semanticSimilarityScore':
-        return page.semanticSimilarityScore != null ? Number(page.semanticSimilarityScore).toFixed(2) : 'N/A'
+        return page.semanticSimilarityScore != null ? Number(page.semanticSimilarityScore).toFixed(2) : '-'
       case 'semanticRelevanceScore':
-        return page.semanticRelevanceScore != null ? Number(page.semanticRelevanceScore).toFixed(2) : 'N/A'
+        return page.semanticRelevanceScore != null ? Number(page.semanticRelevanceScore).toFixed(2) : '-'
       case 'closestDuplicateSimilarity':
-        return page.closestDuplicateSimilarity != null ? Number(page.closestDuplicateSimilarity).toFixed(4) : 'N/A'
+        return page.closestDuplicateSimilarity != null ? Number(page.closestDuplicateSimilarity).toFixed(4) : '-'
       case 'contentHash':
         return page.contentHash ? (
           <span className="font-mono text-[10px]" title={page.contentHash}>
             {page.contentHash}
           </span>
-        ) : 'N/A'
+        ) : '-'
       case 'canonicalUrl':
         return page.canonicalUrl ? (
           <a href={page.canonicalUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300" title={page.canonicalUrl}>
             {page.canonicalUrl}
           </a>
-        ) : 'N/A'
+        ) : '-'
       case 'indexabilityStatus':
-        return <span title={page.indexabilityStatus || ''}>{page.indexabilityStatus || 'N/A'}</span>
+        return <span title={page.indexabilityStatus || ''}>{page.indexabilityStatus || '-'}</span>
       case 'description':
-        return <span title={page.description}>{page.description || 'N/A'}</span>
+        return <span title={page.description}>{page.description || '-'}</span>
       case 'errorMessage':
         return page.errorMessage ? (
           <span className="text-red-300" title={page.errorMessage}>{page.errorMessage}</span>
-        ) : 'N/A'
+        ) : '-'
       case 'ogTitle':
-        return page.ogTitle ? <span title={page.ogTitle}>{page.ogTitle}</span> : 'N/A'
+        return page.ogTitle ? <span title={page.ogTitle}>{page.ogTitle}</span> : '-'
       case 'ogDescription':
-        return page.ogDescription ? <span title={page.ogDescription}>{page.ogDescription}</span> : 'N/A'
+        return page.ogDescription ? <span title={page.ogDescription}>{page.ogDescription}</span> : '-'
       case 'ogImage':
         return page.ogImage ? (
           <a href={page.ogImage} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300" title={page.ogImage}>
             {page.ogImage}
           </a>
-        ) : 'N/A'
+        ) : '-'
       case 'headingTags': {
-        if (!page.headingTags) return 'N/A'
+        if (!page.headingTags) return '-'
         try {
           const headings = JSON.parse(page.headingTags)
-          if (!Array.isArray(headings) || headings.length === 0) return 'N/A'
+          if (!Array.isArray(headings) || headings.length === 0) return '-'
           return (
             <Button
               variant="ghost"
@@ -603,17 +603,17 @@ export function CrawledDataTable({
       case 'amphtmlUrl':
         return page.amphtmlUrl ? (
           <a href={page.amphtmlUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300" title={page.amphtmlUrl}>{page.amphtmlUrl}</a>
-        ) : 'N/A'
+        ) : '-'
       case 'mobileAlternateUrl':
         return page.mobileAlternateUrl ? (
           <a href={page.mobileAlternateUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300" title={page.mobileAlternateUrl}>{page.mobileAlternateUrl}</a>
-        ) : 'N/A'
+        ) : '-'
       case 'closestDuplicateUrl':
         return page.closestDuplicateUrl ? (
           <a href={page.closestDuplicateUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300" title={page.closestDuplicateUrl}>{page.closestDuplicateUrl}</a>
-        ) : 'N/A'
+        ) : '-'
       case 'status':
-        return page.status ? <Badge className={getStatusColor(page.statusCode)}>{page.status}</Badge> : 'N/A'
+        return page.status ? <Badge className={getStatusColor(page.statusCode)}>{page.status}</Badge> : '-'
       case 'httpRelNext':
         return page.httpRelNext || '-'
       case 'httpRelPrev':
@@ -621,7 +621,7 @@ export function CrawledDataTable({
       case 'metaRefresh':
         return page.metaRefresh || '-'
       case 'urlEncodedAddress':
-        return page.urlEncodedAddress ? <span className="font-mono text-[10px]" title={page.urlEncodedAddress}>{page.urlEncodedAddress}</span> : 'N/A'
+        return page.urlEncodedAddress ? <span className="font-mono text-[10px]" title={page.urlEncodedAddress}>{page.urlEncodedAddress}</span> : '-'
       case 'redirectUrl':
         return <span title={page.redirectUrl || ''}>{page.redirectUrl || '-'}</span>
       case 'redirectType':
@@ -632,10 +632,19 @@ export function CrawledDataTable({
         return page.relNext ? '✓' : '-'
       case 'relPrev':
         return page.relPrev ? '✓' : '-'
+      case 'metaRobots':
+        return page.metaRobots || '-'
+      case 'xRobotsTag':
+        return page.xRobotsTag || '-'
+      case 'lastModified': {
+        if (!page.lastModified) return '-'
+        const d = new Date(page.lastModified)
+        return isNaN(d.getTime()) ? page.lastModified : d.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+      }
       case 'responseTime':
-        return page.responseTime != null ? `${Number(page.responseTime).toFixed(3)}s` : 'N/A'
+        return page.responseTime != null ? `${Number(page.responseTime).toFixed(3)}s` : '-'
       default:
-        return value != null ? String(value) : 'N/A'
+        return value != null && String(value).trim() !== '' ? String(value) : '-'
     }
   }
 

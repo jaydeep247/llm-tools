@@ -24,6 +24,7 @@ const sectionLabels: Record<string, string> = {
   'link-analysis': 'Link Analysis',
   'site-structure': 'Site Structure',
   'performance': 'Performance Audits',
+  'recommendations': 'Recommendations',
   'schema-generator': 'Schema Generator',
   'module-e': 'Module E',
   'ai-intelligence': 'AI Intelligence',

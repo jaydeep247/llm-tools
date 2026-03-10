@@ -113,7 +113,7 @@ export function SessionNavbar({ projectId, projectName, sessionId, sessionUrl, a
         </Button>
 
         {/* User avatar */}
-        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-semibold ml-1 cursor-pointer hover:ring-2 hover:ring-indigo-500/50 transition-all">
+        <div className="w-8 h-8 rounded-xl bg-linear-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-semibold ml-1 cursor-pointer hover:ring-2 hover:ring-indigo-500/50 transition-all">
           U
         </div>
       </div>

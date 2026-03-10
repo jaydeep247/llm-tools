@@ -272,6 +272,45 @@ export const jobApi = baseApi.injectEndpoints({
       providesTags: (result, error, jobId) => [{ type: 'Job', id: jobId }],
     }),
 
+    getJobRecommendations: builder.query<
+      {
+        aggregate: {
+          total_pages: number;
+          avg_health_score: number;
+          critical: number;
+          warning: number;
+          info: number;
+          by_category: Record<string, number>;
+        };
+        pages: Array<{
+          url: string;
+          health_score: number | null;
+          summary: {
+            total: number;
+            critical: number;
+            warning: number;
+            info: number;
+            by_category: Record<string, number>;
+          } | null;
+          recommendations: Array<{
+            priority: number;
+            category: string;
+            severity: 'critical' | 'warning' | 'info';
+            title: string;
+            issue: string;
+            fix: string;
+            impact: string;
+            fields_affected: string[];
+          }>;
+        }>;
+      },
+      string
+    >({
+      query: (jobId) => `/jobs/${jobId}/results/recommendations`,
+      transformResponse: (response: { success: boolean; data: any }) => response.data,
+      providesTags: (result, error, jobId) => [{ type: 'Job', id: jobId }],
+    }),
+
     getJobPerformanceAudits: builder.query<
       { items: PerformanceAuditItem[] },
       { jobId: string; device?: 'all' | 'mobile' | 'desktop' }
@@ -374,6 +413,7 @@ export const {
   useGetJobSchemaQuery,
   useGetJobRedirectAuditQuery,
   useLazyGetJobRedirectAuditQuery,
+  useGetJobRecommendationsQuery,
   useGetJobPerformanceAuditsQuery,
   useStartJobPerformanceAuditsMutation,
   useGenerateJobSchemaMutation,

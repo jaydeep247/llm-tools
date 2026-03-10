@@ -22,7 +22,8 @@ import {
   TrendingUp,
   GitBranch,
   LayoutDashboard,
-  ChevronLeft
+  ChevronLeft,
+  Lightbulb
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -46,6 +47,7 @@ const menuItems = [
   { id: 'link-analysis', label: 'Link Analysis', icon: Network },
   { id: 'site-structure', label: 'Site Structure', icon: GitBranch },
   { id: 'performance', label: 'Performance Audits', icon: Gauge },
+  { id: 'recommendations', label: 'Recommendations', icon: Lightbulb },
   { id: 'schema-generator', label: 'Schema Generator', icon: Code },
   { id: 'module-e', label: 'Brand Intelligence', icon: Activity },
   { id: 'ai-intelligence', label: 'AI Intelligence', icon: Brain },

@@ -47,6 +47,7 @@ import {
   MousePointer,
   ArrowLeftRight,
   PanelLeft,
+  Lightbulb,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -99,6 +100,7 @@ export const sessionSections: Section[] = [
     children: [
       { id: 'technical-audit', label: 'Technical Audit', icon: Settings2 },
       { id: 'content-audit', label: 'Content Audit', icon: FileText },
+      { id: 'recommendations', label: 'Recommendations', icon: Lightbulb },
       { id: 'structured-data', label: 'Structured Data & AI Files', icon: Database },
       { id: 'url-explorer', label: 'URL Explorer', icon: Link },
       { id: 'exports', label: 'Exports', icon: Download },

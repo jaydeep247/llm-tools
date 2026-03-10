@@ -433,6 +433,66 @@ export class JobController {
     }
   };
 
+  getJobRecommendations = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+      await this.jobService.getJobById(userId, id);
+
+      const db = await connectToMongo();
+      const docs = await db
+        .collection('fields')
+        .find({ jobId: id }, { projection: { url: 1, recommendations: 1, createdAt: 1 } })
+        .sort({ createdAt: 1 })
+        .toArray();
+
+      // The fields collection document is FLAT (pipeline does **fields_data).
+      // recommendations lives at doc.recommendations, NOT doc.fields.recommendations.
+      const pages = docs.map((doc: any) => {
+        const rec = doc?.recommendations ?? null;
+        return {
+          url: doc.url,
+          health_score: rec?.health_score ?? null,
+          summary: rec?.summary ?? null,
+          recommendations: rec?.recommendations ?? [],
+        };
+      });
+
+      const aggregate = {
+        total_pages: pages.length,
+        avg_health_score:
+          pages.length > 0
+            ? Math.round(
+                pages.reduce((sum: number, p: any) => sum + (p.health_score ?? 100), 0) /
+                  pages.length,
+              )
+            : 100,
+        critical: pages.reduce((s: number, p: any) => s + (p.summary?.critical ?? 0), 0),
+        warning: pages.reduce((s: number, p: any) => s + (p.summary?.warning ?? 0), 0),
+        info: pages.reduce((s: number, p: any) => s + (p.summary?.info ?? 0), 0),
+        by_category: {} as Record<string, number>,
+      };
+
+      for (const page of pages) {
+        const bc = page.summary?.by_category ?? {};
+        for (const [cat, count] of Object.entries(bc)) {
+          aggregate.by_category[cat] = (aggregate.by_category[cat] ?? 0) + (count as number);
+        }
+      }
+
+      return ResponseUtil.success(res, 'Recommendations retrieved successfully', {
+        aggregate,
+        pages,
+      });
+    } catch (error: any) {
+      logger.error(`Error getting recommendations: ${error.message}`);
+      if (error.message.includes('not found') || error.message.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      return ResponseUtil.serverError(res, 'Failed to retrieve recommendations');
+    }
+  };
+
   getJobAeoAnalysis = async (req: Request, res: Response): Promise<Response> => {
     try {
       const userId = req.user!.userId;

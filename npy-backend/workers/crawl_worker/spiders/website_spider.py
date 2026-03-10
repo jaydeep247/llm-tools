@@ -44,6 +44,7 @@ from modules.module_A.Wordcount_analysis import wordcount_extractor
 from modules.module_A.Broken_links_checker import broken_link_checker
 from modules.module_A.Redirects_audit import redirect_audit
 from modules.module_A.Text_Quality_Analyzer import text_quality_analyzer
+from modules.module_A.recommendations import generate_recommendations
 from modules.module_B.keywords import Keyword, extract_keywords_from_html
 
 
@@ -986,8 +987,14 @@ class WebsiteSpider(RedisSpider):
             'Redirects_audit': redirect_audit_report,
             'Keyword_analysis': keyword_analysis
         }
-        
-        
+
+        # Generate prioritised recommendations from the assembled fields
+        rec_result = generate_recommendations(page_item)
+        page_item['fields']['recommendations'] = rec_result
+        health = rec_result.get('health_score', '?')
+        num_issues = rec_result.get('summary', {}).get('total', 0)
+        logger.debug(f"[RECOMMENDATIONS] Health: {health}/100 | Issues: {num_issues} | {response.url}")
+
         yield page_item
         self.pages_crawled += 1
 

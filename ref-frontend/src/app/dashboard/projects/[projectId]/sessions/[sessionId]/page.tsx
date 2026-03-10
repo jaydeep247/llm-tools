@@ -7,7 +7,7 @@ import { Clock, Globe, CheckCircle, XCircle, Loader2, AlertCircle, RefreshCw } f
 import { Badge } from '@/components/ui/badge'
 import { CrawlLogger, DiscoveredPages, CrawlStatusHeader, CrawlStatusBanner } from '@/components/crawl'
 import { SessionLayout } from '@/components/layout/SessionLayout'
-import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable, AuditChecker } from '@/components/module_A'
+import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable, AuditChecker, RecommendationsPanel } from '@/components/module_A'
 import { AIIntelligenceModule, ContentMetricsModule, AIVisibilityScorecards, EntityGapAnalysis, AIAnswerPreview, ImprovementActions, ModelComparison } from '@/components/module_C'
 import { SiteStructure } from '@/components/module_D/site-structure'
 import { AICitationRanking, ContentConsistencyEntityCoverage, BrandAnalysisSection, SentimentTrackingSection, CompetitorMentionsSection, SentimentTracking, ShareOfVoiceSection, TrendsByModelSection, DashboardOverview } from '@/components/module_E'
@@ -451,8 +451,7 @@ export default function SessionDetailPage() {
       averageWordsPerSentence: crawlerData.average_words_per_sentence || 0,
 
       // Indexability Status
-      indexabilityStatus: page.indexability_status ||
-        ((page.meta_robots?.includes('noindex') || page.x_robots_tag?.includes('noindex')) ? 'Non-Indexable' : 'Indexable'),
+      indexabilityStatus: page.indexability_status || '',
       indexable: page.indexable ?? !(page.meta_robots?.includes('noindex') || page.x_robots_tag?.includes('noindex')),
 
       // Title & Description Statuses (derived)
@@ -1138,6 +1137,13 @@ export default function SessionDetailPage() {
               jobId={jobId || null}
               sessionStatus={crawlStatus}
             />
+          </div>
+        )}
+
+        {/* Show Recommendations panel */}
+        {activeSection === 'recommendations' && (
+          <div>
+            <RecommendationsPanel jobId={crawlJob?.id ?? jobId ?? ''} />
           </div>
         )}
 
