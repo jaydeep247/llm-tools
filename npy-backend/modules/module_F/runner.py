@@ -58,17 +58,44 @@ def _extract_prompts_from_module_e(doc: Dict[str, Any], topic: Optional[str] = N
     return prompts
 
 
-async def run_module_f_competitor_ai_intelligence(job_id: str, url: str) -> Dict[str, Any]:
+async def run_module_f_competitor_ai_intelligence(
+    job_id: str,
+    url: str,
+    session_id: Optional[str] = None,
+    project_id: Optional[str] = None,
+) -> Dict[str, Any]:
     mongo_manager.connect()
 
-    module_e_doc = mongo_manager.module_e.find_one({"jobId": job_id}) or {}
+    if not session_id or not project_id:
+        job_doc = mongo_manager.db.jobs.find_one({"id": job_id}) or mongo_manager.db.jobs.find_one({"jobId": job_id}) or {}
+        session_id = session_id or job_doc.get("sessionId") or job_doc.get("session_id")
+        project_id = project_id or job_doc.get("projectId") or job_doc.get("project_id")
+
+    session_id = str(session_id).strip() if session_id else ""
+    project_id = str(project_id).strip() if project_id else ""
+
+    # Try to find Module E results by jobId (direct match)
+    module_e_doc = mongo_manager.module_e.find_one({"jobId": job_id})
+    
+    # Fallback: Find latest Module E result for this session if not found by jobId
+    if not module_e_doc and session_id:
+        logger.info(f"Module E data not found for jobId {job_id}, trying fallback to session {session_id}")
+        module_e_doc = mongo_manager.module_e.find_one(
+            {"sessionId": session_id},
+            sort=[("createdAt", -1)]
+        )
+
+    module_e_doc = module_e_doc or {}
     competitors = _extract_competitors_from_module_e(module_e_doc)
     brand_name = _extract_brand_name_from_module_e(module_e_doc)
     topic = _extract_topic_from_module_e(module_e_doc)
 
     if not competitors:
+        logger.warning(f"No competitors found for job {job_id} (session {session_id})")
         result = {
             "job_id": job_id,
+            "session_id": session_id,
+            "project_id": project_id,
             "url": url,
             "error": "No competitors found. Run Module E competitor analysis first.",
             "created_at": datetime.utcnow().isoformat(),
@@ -78,6 +105,8 @@ async def run_module_f_competitor_ai_intelligence(job_id: str, url: str) -> Dict
             {
                 "$set": {
                     "jobId": job_id,
+                    "sessionId": session_id,
+                    "projectId": project_id,
                     **result,
                     "updatedAt": datetime.utcnow(),
                 },
@@ -95,7 +124,8 @@ async def run_module_f_competitor_ai_intelligence(job_id: str, url: str) -> Dict
         topic=topic,
     )
 
-    prompts = _extract_prompts_from_module_e(module_e_doc, topic)
+    topic_for_prompts = (comparison or {}).get("topic") or topic
+    prompts = _extract_prompts_from_module_e(module_e_doc, topic_for_prompts)
     competitor_wins = await analyzer.analyze_competitor_prompt_wins(
         prompts=prompts,
         competitors=competitors,
@@ -110,16 +140,35 @@ async def run_module_f_competitor_ai_intelligence(job_id: str, url: str) -> Dict
 
     source_analysis = await analyzer.analyze_competitor_sources(
         competitors=competitors,
-        topic=topic
+        topic=topic_for_prompts
     )
+
+    emerging_trends: Dict[str, Any] = {}
+    try:
+        prev_doc = None
+        if session_id:
+            prev_doc = mongo_manager.db.module_f.find_one(
+                {"sessionId": session_id, "jobId": {"$ne": job_id}},
+                sort=[("createdAt", -1)]
+            )
+        emerging_trends = analyzer.compute_emerging_trends(
+            current_compare=comparison,
+            current_wins=competitor_wins,
+            prev_doc=prev_doc,
+        )
+    except Exception:
+        emerging_trends = {}
 
     result = {
         "job_id": job_id,
+        "session_id": session_id,
+        "project_id": project_id,
         "url": url,
         "compare_visibility_against_competitors": comparison,
         "competitor_wins": competitor_wins,
         "gap_opportunities": gap_opportunities,
         "source_analysis": source_analysis,
+        "emerging_trends": emerging_trends if emerging_trends else None,
         "created_at": datetime.utcnow().isoformat(),
     }
 
@@ -128,6 +177,8 @@ async def run_module_f_competitor_ai_intelligence(job_id: str, url: str) -> Dict
         {
             "$set": {
                 "jobId": job_id,
+                "sessionId": session_id,
+                "projectId": project_id,
                 **result,
                 "updatedAt": datetime.utcnow(),
             },

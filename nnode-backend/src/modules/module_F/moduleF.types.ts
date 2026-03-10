@@ -89,6 +89,27 @@ export interface ModuleFSourceAnalysis {
   }>;
 }
 
+export interface ModuleFEmergingTrends {
+  competitor_changes: Array<{
+    name: string;
+    delta_visibility: number;
+    delta_market_share: number;
+    status: 'rising' | 'falling' | 'new' | 'missing' | 'stable';
+  }>;
+  prompt_swings: Array<{
+    prompt: string;
+    from: string;
+    to: string;
+  }>;
+  model_targeting?: Record<string, string[]>;
+  summary?: {
+    trends_detected: number;
+    avg_visibility_delta: number;
+    new_prompts: number;
+    threat_level: 'low' | 'medium' | 'high';
+  };
+}
+
 export interface ModuleFResult {
   jobId: string;
   url?: string;
@@ -96,6 +117,7 @@ export interface ModuleFResult {
   competitor_wins?: ModuleFCompetitorWins;
   gap_opportunities?: ModuleFGapOpportunity[];
   source_analysis?: ModuleFSourceAnalysis;
+  emerging_trends?: ModuleFEmergingTrends | null;
   createdAt?: string;
   updatedAt?: string;
 }
