@@ -100,6 +100,7 @@ export const sessionSections: Section[] = [
     children: [
       { id: 'technical-audit', label: 'Technical Audit', icon: Settings2 },
       { id: 'content-audit', label: 'Content Audit', icon: FileText },
+      { id: 'serp-analyzer', label: 'SERP Analyzer', icon: Search },
       { id: 'recommendations', label: 'Recommendations', icon: Lightbulb },
       { id: 'structured-data', label: 'Structured Data & AI Files', icon: Database },
       { id: 'url-explorer', label: 'URL Explorer', icon: Link },

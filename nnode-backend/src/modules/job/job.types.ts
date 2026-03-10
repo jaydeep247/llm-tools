@@ -43,6 +43,9 @@ export enum JobType {
   MODULE_E_AI_CITATION_RANKING = 'MODULE_E_AI_CITATION_RANKING',
 
   MODULE_F_COMPETITOR_AI_INTELLIGENCE = 'MODULE_F_COMPETITOR_AI_INTELLIGENCE',
+
+  // SERP Analyzer (Module A)
+  MODULE_A_SERP = 'MODULE_A_SERP',
 }
 
 /**
@@ -51,6 +54,7 @@ export enum JobType {
 export enum JobCategory {
   CRAWLER = 'CRAWLER',
   SCHEMA = 'SCHEMA',
+  MODULE_A = 'MODULE_A',
   MODULE_C = 'MODULE_C',
   MODULE_D = 'MODULE_D',
   MODULE_E = 'MODULE_E',
@@ -84,6 +88,7 @@ export const JOB_TYPE_TO_CATEGORY: Record<JobType, JobCategory> = {
   [JobType.MODULE_E_BRAND]: JobCategory.MODULE_E,
   [JobType.MODULE_E_AI_CITATION_RANKING]: JobCategory.MODULE_E,
   [JobType.MODULE_F_COMPETITOR_AI_INTELLIGENCE]: JobCategory.MODULE_F,
+  [JobType.MODULE_A_SERP]: JobCategory.MODULE_A,
 };
 
 export interface Job {

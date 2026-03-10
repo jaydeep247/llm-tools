@@ -47,6 +47,13 @@ export const MODULE_F_ROUTING_KEY = 'module_f.job';
 export const MODULE_F_DLX = 'module_f.dlx';
 export const MODULE_F_DLQ = 'module_f.dlq';
 
+// ============ MODULE A (SERP Analyzer) ============
+export const MODULE_A_EXCHANGE = 'module_a.exchange';
+export const MODULE_A_QUEUE = 'module_a.queue';
+export const MODULE_A_ROUTING_KEY = 'module_a.job';
+export const MODULE_A_DLX = 'module_a.dlx';
+export const MODULE_A_DLQ = 'module_a.dlq';
+
 // ============ LEGACY (Backward Compatibility) ============
 export const QUEUE_EXCHANGE_CRAWL = 'crawl.exchange';
 export const QUEUE_CRAWL = 'crawl.queue';
@@ -109,6 +116,13 @@ export const QUEUE_CONFIG_BY_CATEGORY: Record<JobCategory, QueueConfig> = {
     routingKey: MODULE_F_ROUTING_KEY,
     dlx: MODULE_F_DLX,
     dlq: MODULE_F_DLQ,
+  },
+  [JobCategory.MODULE_A]: {
+    exchange: MODULE_A_EXCHANGE,
+    queue: MODULE_A_QUEUE,
+    routingKey: MODULE_A_ROUTING_KEY,
+    dlx: MODULE_A_DLX,
+    dlq: MODULE_A_DLQ,
   },
 };
 

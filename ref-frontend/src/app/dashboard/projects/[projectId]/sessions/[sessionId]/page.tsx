@@ -7,7 +7,7 @@ import { Clock, Globe, CheckCircle, XCircle, Loader2, AlertCircle, RefreshCw } f
 import { Badge } from '@/components/ui/badge'
 import { CrawlLogger, DiscoveredPages, CrawlStatusHeader, CrawlStatusBanner } from '@/components/crawl'
 import { SessionLayout } from '@/components/layout/SessionLayout'
-import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable, AuditChecker, RecommendationsPanel } from '@/components/module_A'
+import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable, AuditChecker, RecommendationsPanel, SerpAnalyzer } from '@/components/module_A'
 import { AIIntelligenceModule, ContentMetricsModule, AIVisibilityScorecards, EntityGapAnalysis, AIAnswerPreview, ImprovementActions, ModelComparison } from '@/components/module_C'
 import { SiteStructure } from '@/components/module_D/site-structure'
 import { AICitationRanking, ContentConsistencyEntityCoverage, BrandAnalysisSection, SentimentTrackingSection, CompetitorMentionsSection, SentimentTracking, ShareOfVoiceSection, TrendsByModelSection, DashboardOverview } from '@/components/module_E'
@@ -1331,6 +1331,11 @@ export default function SessionDetailPage() {
             sessionId={sessionId}
             section="entity-detection"
           />
+        )}
+
+        {/* SERP Analyzer */}
+        {activeSection === 'serp-analyzer' && (
+          <SerpAnalyzer jobId={jobId} sessionId={sessionId} />
         )}
 
       </div>

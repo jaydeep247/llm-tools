@@ -122,6 +122,22 @@ export class JobService {
         });
         break;
 
+      case JobCategory.MODULE_A:
+        await this.queueService.publishModuleAJob({
+          jobId: job.id,
+          sessionId,
+          projectId,
+          url: job.url,
+          jobType: jobType as JobType,
+          keywords: job.config?.keywords || [],
+          competitors: job.config?.competitors,
+          locationCode: job.config?.locationCode,
+          languageCode: job.config?.languageCode,
+          device: job.config?.device,
+          sourceJobId: job.config?.sourceJobId,
+        });
+        break;
+
       default:
         // Legacy fallback - use analysis job publisher
         await this.queueService.publishAnalysisJob({

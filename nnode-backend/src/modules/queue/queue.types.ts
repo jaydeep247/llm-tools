@@ -59,6 +59,18 @@ export interface ModuleFJobPayload extends BaseJobPayload {
 }
 
 /**
+ * Module A (SERP Analyzer) Job Payload
+ */
+export interface ModuleAJobPayload extends BaseJobPayload {
+  keywords: string[];
+  competitors?: string[];
+  locationCode?: number;
+  languageCode?: string;
+  device?: string;
+  sourceJobId?: string;
+}
+
+/**
  * Generic Analysis Job Payload (Legacy support)
  */
 export interface AnalysisJobPayload {
@@ -84,5 +96,6 @@ export type AnyJobPayload =
   | ModuleDJobPayload 
   | ModuleEJobPayload 
   | ModuleFJobPayload
+  | ModuleAJobPayload
   | AnalysisJobPayload;
 

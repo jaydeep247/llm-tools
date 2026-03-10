@@ -9,6 +9,7 @@ from typing import Callable, Dict
 
 from workers.executors.crawler import execute_crawler_job, execute_resume_crawler_job
 from workers.executors.schema import execute_schema_job
+from workers.executors.module_a import execute_module_a_job
 from workers.executors.module_c import execute_module_c_job
 from workers.executors.module_d import execute_module_d_job
 from workers.executors.module_e import execute_module_e_job
@@ -46,6 +47,8 @@ EXECUTOR_REGISTRY: Dict[str, ExecutorFn] = {
     "MODULE_E_AI_CITATION_RANKING": execute_module_e_job,
     # Module F — Competitor AI Intelligence
     "MODULE_F_COMPETITOR_AI_INTELLIGENCE": execute_module_f_job,
+    # Module A — SERP Analyzer
+    "MODULE_A_SERP": execute_module_a_job,
 }
 
 

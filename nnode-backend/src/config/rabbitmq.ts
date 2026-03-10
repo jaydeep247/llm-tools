@@ -73,6 +73,14 @@ const QUEUE_CONFIGS: QueueSetup[] = [
     dlx: 'module_f.dlx',
     dlq: 'module_f.dlq',
   },
+  // Module A (SERP Analyzer)
+  {
+    exchange: 'module_a.exchange',
+    queue: 'module_a.queue',
+    routingKey: 'module_a.job',
+    dlx: 'module_a.dlx',
+    dlq: 'module_a.dlq',
+  },
 ];
 
 export const getRabbitChannel = async (): Promise<any> => {

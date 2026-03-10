@@ -88,6 +88,8 @@ class MongoManager:
             self._db.module_f.create_index("jobId", unique=True)
             self._db.aeo_analysis.create_index("jobId")
             self._db.aeo_analysis.create_index([("jobId", 1), ("url", 1)])
+            self._db.serp_results.create_index("jobId", unique=True)
+            self._db.serp_results.create_index("sessionId")
             
             logger.info("MongoDB indexes verified")
 
@@ -144,6 +146,10 @@ class MongoManager:
     @property
     def aeo_analysis(self) -> Collection:
         return self.db.aeo_analysis
+
+    @property
+    def serp_results(self) -> Collection:
+        return self.db.serp_results
 
     def close(self):
         if self._client:

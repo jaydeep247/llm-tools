@@ -44,11 +44,15 @@ class JobType(str, Enum):
     # Competitor AI Intelligence (Module F)
     MODULE_F_COMPETITOR_AI_INTELLIGENCE = 'MODULE_F_COMPETITOR_AI_INTELLIGENCE'
 
+    # SERP Analyzer (Module A)
+    MODULE_A_SERP = 'MODULE_A_SERP'
+
 
 class JobCategory(str, Enum):
     """Job categories for queue routing"""
     CRAWLER = 'CRAWLER'
     SCHEMA = 'SCHEMA'
+    MODULE_A = 'MODULE_A'
     MODULE_C = 'MODULE_C'
     MODULE_D = 'MODULE_D'
     MODULE_E = 'MODULE_E'
@@ -108,6 +112,13 @@ QUEUE_CONFIGS: Dict[JobCategory, QueueConfig] = {
         dlx='module_f.dlx',
         dlq='module_f.dlq',
     ),
+    JobCategory.MODULE_A: QueueConfig(
+        exchange='module_a.exchange',
+        queue='module_a.queue',
+        routing_key='module_a.job',
+        dlx='module_a.dlx',
+        dlq='module_a.dlq',
+    ),
 }
 
 
@@ -136,6 +147,7 @@ JOB_TYPE_TO_CATEGORY: Dict[str, JobCategory] = {
     JobType.MODULE_E_BRAND.value: JobCategory.MODULE_E,
     JobType.MODULE_E_AI_CITATION_RANKING.value: JobCategory.MODULE_E,
     JobType.MODULE_F_COMPETITOR_AI_INTELLIGENCE.value: JobCategory.MODULE_F,
+    JobType.MODULE_A_SERP.value: JobCategory.MODULE_A,
 }
 
 

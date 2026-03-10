@@ -7,7 +7,7 @@ import { Clock, Globe, CheckCircle, XCircle, Loader2, AlertCircle, RefreshCw } f
 import { Badge } from '@/components/ui/badge'
 import { CrawlLogger, DiscoveredPages, CrawlStatusHeader, CrawlStatusBanner } from '@/components/crawl'
 import { SessionLayout } from '@/components/layout/SessionLayout'
-import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable, AuditChecker, RecommendationsPanel } from '@/components/module_A'
+import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable, AuditChecker, RecommendationsPanel, SerpAnalyzer } from '@/components/module_A'
 import { AIIntelligenceModule, ContentMetricsModule } from '@/components/module_C'
 import { AICitationRanking, SentimentTracking, CompetitorMentionsSection, ShareOfVoiceSection, BrandAnalysisSection, TrendsByModelSection, DashboardOverview } from '@/components/module_E'
 import { ExportsTab } from '@/components/session/exports'
@@ -1370,6 +1370,13 @@ export default function SessionDetailClient() {
           </div>
         )}
 
+        {/* SERP Analyzer */}
+        {activeSection === 'serp-analyzer' && (
+          <div>
+            <SerpAnalyzer jobId={jobId} sessionId={sessionId} />
+          </div>
+        )}
+
         {/* Show Recommendations panel on recommendations tab */}
         {activeSection === 'recommendations' && (
           <div>
@@ -1507,7 +1514,7 @@ export default function SessionDetailClient() {
         )}
 
         {/* Placeholder for other tabs */}
-        {activeSection !== 'crawler' && activeSection !== 'crawled-data' && activeSection !== 'page-metrics' && activeSection !== 'text-quality' && activeSection !== 'wordcount' && activeSection !== 'broken-links' && activeSection !== 'audit-checker' && activeSection !== 'link-analysis' && activeSection !== 'performance' && activeSection !== 'recommendations' && activeSection !== 'schema-generator' && activeSection !== 'ai-intelligence' && activeSection !== 'module-e' && activeSection !== 'content-metrics' && activeSection !== 'discover-prompts' && activeSection !== 'topic-clusters' && activeSection !== 'content-matrix' && activeSection !== 'keyword-intelligence' && activeSection !== 'exports' && (
+        {activeSection !== 'crawler' && activeSection !== 'crawled-data' && activeSection !== 'page-metrics' && activeSection !== 'text-quality' && activeSection !== 'wordcount' && activeSection !== 'broken-links' && activeSection !== 'audit-checker' && activeSection !== 'link-analysis' && activeSection !== 'performance' && activeSection !== 'recommendations' && activeSection !== 'schema-generator' && activeSection !== 'ai-intelligence' && activeSection !== 'module-e' && activeSection !== 'content-metrics' && activeSection !== 'discover-prompts' && activeSection !== 'topic-clusters' && activeSection !== 'content-matrix' && activeSection !== 'keyword-intelligence' && activeSection !== 'exports' && activeSection !== 'serp-analyzer' && (
           <div className="rounded-2xl p-8 border border-zinc-800 bg-[#111113] text-center">
             <h2 className="text-xl font-semibold text-white mb-2">
               {activeSection.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}

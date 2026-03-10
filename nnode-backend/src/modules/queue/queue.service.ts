@@ -13,6 +13,7 @@ import {
   ModuleDJobPayload,
   ModuleEJobPayload,
   ModuleFJobPayload,
+  ModuleAJobPayload,
   AnyJobPayload,
 } from './queue.types';
 import { JobType, JobCategory, JOB_TYPE_TO_CATEGORY } from '../job/job.types';
@@ -167,6 +168,11 @@ export class QueueService {
   // ============ MODULE F JOBS (Competitor AI Intelligence) ============
   async publishModuleFJob(payload: ModuleFJobPayload): Promise<void> {
     await this.publishToQueue(payload, JobCategory.MODULE_F);
+  }
+
+  // ============ MODULE A JOBS (SERP Analyzer) ============
+  async publishModuleAJob(payload: ModuleAJobPayload): Promise<void> {
+    await this.publishToQueue(payload, JobCategory.MODULE_A);
   }
 }
 

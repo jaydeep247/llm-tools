@@ -27,6 +27,10 @@ class Config:
         self.S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME', '')
         self.S3_REGION = os.getenv('S3_REGION', 'sfo3')
 
+        # DataForSEO credentials (required for SERP Analyzer / Module A)
+        self.DATAFORSEO_LOGIN = os.getenv('DATAFORSEO_LOGIN', '')
+        self.DATAFORSEO_PASSWORD = os.getenv('DATAFORSEO_PASSWORD', '')
+
     def _get_required(self, key):
         value = os.getenv(key)
         if value is None:
