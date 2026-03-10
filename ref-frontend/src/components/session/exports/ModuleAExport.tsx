@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { FileSpreadsheet, Download, ChevronDown, ChevronUp, Globe, Link2, AlertTriangle, FileText, Type, Hash } from 'lucide-react'
+import { FileSpreadsheet, Download, ChevronDown, ChevronUp, Globe, Link2, AlertTriangle, FileText, Type, Hash, Layers, GitMerge } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -14,6 +14,8 @@ import {
   transformWordCountForExcel,
   transformLinksForExcel,
   transformBrokenLinksForExcel,
+  transformHeadingStructureForExcel,
+  transformSemanticDuplicatesForExcel,
 } from '@/utils/excelExport'
 
 interface ModuleAExportProps {
@@ -114,13 +116,31 @@ export default function ModuleAExport({
       sheetNames: ['Broken Links'],
     },
     {
+      id: 'heading-structure',
+      label: 'Heading Structure',
+      description: 'H1 and H2 headings per page with lengths and full heading tag breakdown.',
+      icon: Layers,
+      count: pages.length,
+      color: 'text-teal-400',
+      sheetNames: ['Heading Structure'],
+    },
+    {
+      id: 'semantic-duplicates',
+      label: 'Semantic & Duplicates',
+      description: 'Near-duplicate detection (SimHash) and semantic similarity scores between pages.',
+      icon: GitMerge,
+      count: pages.length,
+      color: 'text-orange-400',
+      sheetNames: ['Semantic & Duplicates'],
+    },
+    {
       id: 'all',
       label: 'Full SEO Audit (All Sheets)',
       description: 'Download all of the above in a single Excel workbook with separate sheets.',
       icon: FileSpreadsheet,
       count: pages.length,
       color: 'text-indigo-400',
-      sheetNames: ['Crawled Pages', 'Page Metrics', 'Text Quality', 'Word Count', 'Links', 'Broken Links'],
+      sheetNames: ['Crawled Pages', 'Page Metrics', 'Text Quality', 'Word Count', 'Links', 'Broken Links', 'Heading Structure', 'Semantic & Duplicates'],
     },
   ]
 
@@ -148,6 +168,12 @@ export default function ModuleAExport({
       }
       if (optionId === 'broken-links' || optionId === 'all') {
         addSheet(wb, transformBrokenLinksForExcel(brokenLinks), 'Broken Links')
+      }
+      if (optionId === 'heading-structure' || optionId === 'all') {
+        addSheet(wb, transformHeadingStructureForExcel(pages), 'Heading Structure')
+      }
+      if (optionId === 'semantic-duplicates' || optionId === 'all') {
+        addSheet(wb, transformSemanticDuplicatesForExcel(pages), 'Semantic & Duplicates')
       }
 
       downloadWorkbook(wb, filename)

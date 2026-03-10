@@ -14,6 +14,8 @@ import {
   transformWordCountForExcel,
   transformLinksForExcel,
   transformBrokenLinksForExcel,
+  transformHeadingStructureForExcel,
+  transformSemanticDuplicatesForExcel,
 } from '@/utils/excelExport'
 import ModuleAExport from './ModuleAExport'
 import ModuleCExport from './ModuleCExport'
@@ -64,6 +66,8 @@ export default function ExportsTab({
       addSheet(wb, transformWordCountForExcel(pages), 'Word Count')
       addSheet(wb, transformLinksForExcel(linksMap), 'Links')
       addSheet(wb, transformBrokenLinksForExcel(brokenLinks), 'Broken Links')
+      addSheet(wb, transformHeadingStructureForExcel(pages), 'Heading Structure')
+      addSheet(wb, transformSemanticDuplicatesForExcel(pages), 'Semantic & Duplicates')
       downloadWorkbook(wb, `${sessionName}_full-seo-audit_${date}`)
     } catch (err) {
       console.error('Full export failed:', err)

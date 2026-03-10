@@ -66,17 +66,31 @@ export function transformCrawledDataForExcel(pages: any[]) {
     'Meta Description Length': p.descriptionLength ?? 0,
     'Meta Description Pixel Width': p.descriptionPixelWidth ?? 0,
     'Meta Description Status': p.metaDescriptionStatus || '',
-    'H1': p.h1_1 || '',
+    // Heading fields (Screaming Frog style)
+    'H1-1': p.h1_1 || '',
+    'H1-1 Length': p.h1_1Length ?? 0,
     'H1-2': p.h1_2 || '',
-    'H2': p.h2_1 || '',
+    'H1-2 Length': p.h1_2Length ?? 0,
+    'H2-1': p.h2_1 || '',
+    'H2-1 Length': p.h2_1Length ?? 0,
     'H2-2': p.h2_2 || '',
+    'H2-2 Length': p.h2_2Length ?? 0,
+    'Heading Tags': (() => {
+      try {
+        const hs = p.headingTags ? JSON.parse(p.headingTags) : []
+        return Array.isArray(hs) ? hs.length : 0
+      } catch { return 0 }
+    })(),
     'Status Code': p.statusCode ?? 0,
     'Status': p.status || '',
-    'Response Time (ms)': p.responseTime ?? 0,
+    'Response Time (s)': p.responseTime ?? 0,
     'Content Type': p.contentType || '',
     'Language': p.language || '',
     'Word Count': p.wordCount ?? 0,
     'Sentence Count': p.sentenceCount ?? 0,
+    'Average Words Per Sentence': p.averageWordsPerSentence ?? 0,
+    'Flesch Reading Ease': p.fleschReadingEase ?? 0,
+    'Text Ratio': p.textToHtmlRatio ?? 0,
     'Crawl Depth': p.crawlDepth ?? 0,
     'Folder Depth': p.folderDepth ?? 0,
     'Indexable': p.indexable ? 'Yes' : 'No',
@@ -87,12 +101,15 @@ export function transformCrawledDataForExcel(pages: any[]) {
     'HTTP Version': p.httpVersion || '',
     'Canonical URL': p.canonicalUrl || '',
     'Canonical Status': p.canonicalValidationStatus || '',
+    'Pagination Tags (rel next)': p.relNext || '',
+    'Pagination Tags (rel prev)': p.relPrev || '',
     'HTTP Rel Next': p.httpRelNext || '',
     'HTTP Rel Prev': p.httpRelPrev || '',
-    'Rel Next': p.relNext || '',
-    'Rel Prev': p.relPrev || '',
+    'amphtml Link Element': p.amphtmlUrl || '',
+    'Mobile Alternate Link': p.mobileAlternateUrl || '',
     'Redirect URL': p.redirectUrl || '',
     'Redirect Type': p.redirectType || '',
+    'Cookies': p.cookies || '',
     'Viewport Present': p.viewportPresent ? 'Yes' : 'No',
     'Viewport Content': p.viewportContent || '',
     'Viewport Status': p.viewportStatus || '',
@@ -105,24 +122,40 @@ export function transformCrawledDataForExcel(pages: any[]) {
     'OG Title': p.ogTitle || '',
     'OG Description': p.ogDescription || '',
     'OG Image': p.ogImage || '',
+    // Inlinks
     'Inlinks': p.inlinks ?? 0,
     'Unique Inlinks': p.uniqueInlinks ?? 0,
+    'Unique JS Inlinks': p.uniqueJsInlinks ?? 0,
+    // Outlinks
+    'Outlinks': p.outlinks ?? 0,
     'Unique Outlinks': p.uniqueOutlinks ?? 0,
+    'Unique JS Outlinks': p.uniqueJsOutlinks ?? 0,
+    'External Outlinks': p.externalOutlinks ?? 0,
     'Unique External Outlinks': p.uniqueExternalOutlinks ?? 0,
+    'Unique External JS Outlinks': p.uniqueExternalJsOutlinks ?? 0,
+    // Sizes
     'Size (bytes)': p.sizeBytes ?? 0,
     'HTML Size (bytes)': p.htmlSizeBytes ?? 0,
     'Transferred (bytes)': p.transferredBytes ?? 0,
+    'Total Transferred (bytes)': p.totalTransferredBytes ?? p.transferredBytes ?? 0,
     'CO2 (mg)': p.co2Mg ?? 0,
     'Carbon Rating': p.carbonRating || '',
-    'Text to HTML Ratio': p.textToHtmlRatio ?? 0,
-    'Flesch Reading Ease': p.fleschReadingEase ?? 0,
-    'Readability Level': p.readabilityLevel || '',
+    // Near duplicates
     'Content Hash': p.contentHash || '',
-    'Near Duplicate Count': p.nearDuplicateCount ?? 0,
+    'No. Near Duplicates': p.nearDuplicateCount ?? 0,
+    'Closest Near Duplicate Match': p.closestDuplicateUrl || '',
+    'Near Duplicate Similarity': p.closestDuplicateSimilarity ?? 0,
+    // Semantic similarity
+    'Closest Semantically Similar Address': p.closestSemanticallySimilarAddress || '',
+    'Semantic Similarity Score': p.semanticSimilarityScore ?? 0,
+    'No. Semantically Similar': p.semanticallySimilarCount ?? 0,
+    'Semantic Relevance Score': p.semanticRelevanceScore ?? 0,
+    // Other
     'Link Score': p.linkScore ?? 0,
     'Last Modified': p.lastModified || '',
     'Error Message': p.errorMessage || '',
-    Timestamp: p.timestamp || '',
+    'URL Encoded Address': p.urlEncodedAddress || p.url || '',
+    'Crawl Timestamp': p.timestamp || '',
   }))
 }
 
@@ -135,19 +168,39 @@ export function transformPageMetricsForExcel(pages: any[]) {
     'Meta Description': p.description || '',
     'Meta Description Length': p.descriptionLength ?? 0,
     'Meta Description Status': p.metaDescriptionStatus || '',
+    // Heading fields
+    'H1-1': p.h1_1 || '',
+    'H1-1 Length': p.h1_1Length ?? 0,
+    'H1-2': p.h1_2 || '',
+    'H1-2 Length': p.h1_2Length ?? 0,
+    'H2-1': p.h2_1 || '',
+    'H2-1 Length': p.h2_1Length ?? 0,
+    'H2-2': p.h2_2 || '',
+    'H2-2 Length': p.h2_2Length ?? 0,
+    'Heading Tags': (() => {
+      try {
+        const hs = p.headingTags ? JSON.parse(p.headingTags) : []
+        return Array.isArray(hs) ? hs.length : 0
+      } catch { return 0 }
+    })(),
     'Canonical URL': p.canonicalUrl || '',
     'Canonical Status': p.canonicalValidationStatus || '',
     'Meta Keywords': p.metaKeywords || '',
     'Meta Keywords Length': p.metaKeywordsLength ?? 0,
+    'Meta Refresh': p.metaRefresh || '',
+    'Meta Robots': p.metaRobots || '',
+    'X-Robots-Tag': p.xRobotsTag || '',
     'Content Type': p.contentType || '',
     'Resource Type': p.resourceType || '',
     'Language': p.language || '',
     'HTTP Version': p.httpVersion || '',
-    'Meta Refresh': p.metaRefresh || '',
+    'Pagination Tags (rel next)': p.relNext || '',
+    'Pagination Tags (rel prev)': p.relPrev || '',
     'HTTP Rel Next': p.httpRelNext || '',
     'HTTP Rel Prev': p.httpRelPrev || '',
-    'Rel Next': p.relNext || '',
-    'Rel Prev': p.relPrev || '',
+    'amphtml Link Element': p.amphtmlUrl || '',
+    'Mobile Alternate Link': p.mobileAlternateUrl || '',
+    'Cookies': p.cookies || '',
     'Viewport Present': p.viewportPresent ? 'Yes' : 'No',
     'Viewport Content': p.viewportContent || '',
     'Viewport Status': p.viewportStatus || '',
@@ -164,17 +217,17 @@ export function transformPageMetricsForExcel(pages: any[]) {
     'Mixed Content Severity': p.mixedContentSeverity || '',
     'Active Mixed Content': p.activeMixedContentCount ?? 0,
     'Passive Mixed Content': p.passiveMixedContentCount ?? 0,
-    'AMP HTML URL': p.amphtmlUrl || '',
-    'Mobile Alternate URL': p.mobileAlternateUrl || '',
     'OG Title': p.ogTitle || '',
     'OG Description': p.ogDescription || '',
     'OG Image': p.ogImage || '',
     'Inlinks': p.inlinks ?? 0,
     'Unique Inlinks': p.uniqueInlinks ?? 0,
+    'Unique JS Inlinks': p.uniqueJsInlinks ?? 0,
     'Page Size (bytes)': p.pageSizeBytes ?? p.sizeBytes ?? 0,
     'Total Word Count': p.totalWordCount ?? 0,
     'Last Modified': p.lastModified || '',
-    Timestamp: p.timestamp || '',
+    'URL Encoded Address': p.urlEncodedAddress || p.url || '',
+    'Crawl Timestamp': p.timestamp || '',
   }))
 }
 
@@ -331,4 +384,41 @@ export function transformTrendsByModelForExcel(trendsData: any) {
   }
 
   return rows
+}
+
+export function transformHeadingStructureForExcel(pages: any[]) {
+  return pages.map((p) => ({
+    URL: p.url || '',
+    Title: p.title || '',
+    'H1-1': p.h1_1 || '',
+    'H1-1 Length': p.h1_1Length ?? 0,
+    'H1-2': p.h1_2 || '',
+    'H1-2 Length': p.h1_2Length ?? 0,
+    'H2-1': p.h2_1 || '',
+    'H2-1 Length': p.h2_1Length ?? 0,
+    'H2-2': p.h2_2 || '',
+    'H2-2 Length': p.h2_2Length ?? 0,
+    'Heading Tags Count': (() => {
+      try {
+        const hs = p.headingTags ? JSON.parse(p.headingTags) : []
+        return Array.isArray(hs) ? hs.length : 0
+      } catch { return 0 }
+    })(),
+    'Full Heading Structure': p.headingTags || '',
+  }))
+}
+
+export function transformSemanticDuplicatesForExcel(pages: any[]) {
+  return pages.map((p) => ({
+    URL: p.url || '',
+    Title: p.title || '',
+    'Content Hash': p.contentHash || '',
+    'Near Duplicate Count': p.nearDuplicateCount ?? 0,
+    'Closest Near Duplicate URL': p.closestDuplicateUrl || '',
+    'Near Duplicate Similarity': p.closestDuplicateSimilarity ?? 0,
+    'No. Semantically Similar': p.semanticallySimilarCount ?? 0,
+    'Closest Semantically Similar Address': p.closestSemanticallySimilarAddress || '',
+    'Semantic Similarity Score': p.semanticSimilarityScore ?? 0,
+    'Semantic Relevance Score': p.semanticRelevanceScore ?? 0,
+  }))
 }
