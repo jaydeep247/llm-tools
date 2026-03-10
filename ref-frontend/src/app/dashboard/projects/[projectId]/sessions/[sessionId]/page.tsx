@@ -1256,29 +1256,21 @@ export default function SessionDetailPage() {
         )}
 
         {activeSection === 'competitor-cited-urls' && (
-          <div className="space-y-6">
-            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
-              <CompetitorCitedURLs 
-                moduleFData={moduleFQueryData?.data} 
-                isLoading={isLoadingModuleF} 
-              />
-            </div>
-          </div>
+          <CompetitorCitedURLs 
+            moduleFData={moduleFQueryData?.data} 
+            isLoading={isLoadingModuleF} 
+          />
         )}
 
         {activeSection === 'growth-trends' && (
           <div className="space-y-6">
-            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
-              <CompetitorGrowthTrends jobId={jobId || ''} />
-            </div>
+            <CompetitorGrowthTrends jobId={jobId || ''} />
           </div>
         )}
 
         {activeSection === 'gap-opportunities' && (
           <div className="space-y-6">
-            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
-              <GapOpportunities moduleFData={moduleFQueryData?.data} isLoading={isLoadingModuleF} />
-            </div>
+            <GapOpportunities moduleFData={moduleFQueryData?.data} isLoading={isLoadingModuleF} />
           </div>
         )}
 

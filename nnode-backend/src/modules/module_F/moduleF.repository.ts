@@ -5,11 +5,13 @@ import { logger } from '../../shared/logger/logger';
 
 type ModuleFDocument = WithId<Document> & {
   jobId: string;
+  sessionId?: string;
   url?: string;
   compare_visibility_against_competitors?: ModuleFResult['compare_visibility_against_competitors'];
   competitor_wins?: ModuleFResult['competitor_wins'];
   gap_opportunities?: ModuleFResult['gap_opportunities'];
   source_analysis?: ModuleFResult['source_analysis'];
+  emerging_trends?: ModuleFResult['emerging_trends'];
   createdAt?: Date;
   updatedAt?: Date;
 };
@@ -28,6 +30,7 @@ export class ModuleFRepository {
       competitor_wins: doc.competitor_wins,
       gap_opportunities: doc.gap_opportunities,
       source_analysis: doc.source_analysis,
+      emerging_trends: doc.emerging_trends,
       createdAt: doc.createdAt ? doc.createdAt.toISOString() : undefined,
       updatedAt: doc.updatedAt ? doc.updatedAt.toISOString() : undefined,
     };
@@ -42,6 +45,29 @@ export class ModuleFRepository {
     } catch (error) {
       logger.error('Failed to get Module F result', {
         jobId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  }
+
+  async getLatestModuleFResultBySessionId(sessionId: string): Promise<ModuleFResult | null> {
+    try {
+      const collection = await this.getCollection();
+      const result = await collection.findOne(
+        { sessionId },
+        {
+          sort: {
+            updatedAt: -1,
+            createdAt: -1,
+          },
+        },
+      );
+      if (!result) return null;
+      return this.toModuleFResult(result);
+    } catch (error) {
+      logger.error('Failed to get latest Module F result by sessionId', {
+        sessionId,
         error: error instanceof Error ? error.message : String(error),
       });
       throw error;

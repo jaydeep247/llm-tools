@@ -47,18 +47,18 @@ function ScoreCard({ title, score, value, icon, color, trend, subStats, error, i
 
   if (isLoading) {
     return (
-      <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10 animate-pulse h-full">
+      <div className="bg-[#111113] rounded-xl p-5 border border-zinc-800 animate-pulse h-full">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-white/10" />
-          <div className="h-4 w-24 bg-white/10 rounded" />
+          <div className="w-10 h-10 rounded-xl bg-zinc-800" />
+          <div className="h-4 w-24 bg-zinc-800 rounded" />
         </div>
-        <div className="h-12 w-20 bg-white/10 rounded mt-4" />
+        <div className="h-12 w-20 bg-zinc-800 rounded mt-4" />
       </div>
     )
   }
 
   return (
-    <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10 hover:bg-white/5 transition-all duration-300 group h-full flex flex-col">
+    <div className="bg-[#111113] rounded-xl p-5 border border-zinc-800 hover:bg-[#0D0D10] transition-all duration-300 group h-full flex flex-col">
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-start gap-3">
@@ -66,8 +66,8 @@ function ScoreCard({ title, score, value, icon, color, trend, subStats, error, i
             {icon}
           </div>
           <div>
-            <span className="text-sm font-medium text-white/80 block">{title}</span>
-            {description && <span className="text-xs text-white/50 block mt-0.5 leading-relaxed">{description}</span>}
+            <span className="text-sm font-medium text-zinc-100 block">{title}</span>
+            {description && <span className="text-xs text-zinc-400 block mt-0.5 leading-relaxed">{description}</span>}
           </div>
         </div>
         {score !== undefined && score !== null && !error && (
@@ -90,11 +90,11 @@ function ScoreCard({ title, score, value, icon, color, trend, subStats, error, i
             </div>
           ) : (
             <div className="flex items-baseline gap-1">
-              <span className="text-4xl font-bold text-white tracking-tight">
+              <span className="text-4xl font-bold text-zinc-100 tracking-tight">
                 {value ?? score ?? '-'}
               </span>
               {score !== undefined && score !== null && (
-                <span className="text-sm text-white/40 font-medium mb-1">{suffix}</span>
+                <span className="text-sm text-zinc-500 font-medium mb-1">{suffix}</span>
               )}
             </div>
           )}
@@ -112,11 +112,11 @@ function ScoreCard({ title, score, value, icon, color, trend, subStats, error, i
 
       {/* Sub Stats */}
       {subStats && subStats.length > 0 && (
-        <div className="mt-auto pt-4 border-t border-white/5 space-y-2">
+        <div className="mt-auto pt-4 border-t border-zinc-800 space-y-2">
           {subStats.map((stat, i) => (
             <div key={i} className="flex items-center justify-between text-xs">
-              <span className="text-white/40">{stat.label}</span>
-              <span className="text-white/80 font-medium">{stat.value}</span>
+              <span className="text-zinc-500">{stat.label}</span>
+              <span className="text-zinc-300 font-medium">{stat.value}</span>
             </div>
           ))}
         </div>
@@ -124,7 +124,7 @@ function ScoreCard({ title, score, value, icon, color, trend, subStats, error, i
 
       {/* Footer */}
       {footer && (
-        <div className="mt-4 pt-4 border-t border-white/5">
+        <div className="mt-4 pt-4 border-t border-zinc-800">
           {footer}
         </div>
       )}
@@ -161,11 +161,11 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading }: Compet
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Header Section */}
       <div className="flex flex-col gap-2">
-        <h2 className="text-2xl font-semibold text-white tracking-tight flex items-center gap-3">
+        <h2 className="text-2xl font-semibold text-zinc-100 tracking-tight flex items-center gap-3">
           <Trophy className="w-6 h-6 text-yellow-400" />
           Competitor Wins Library
         </h2>
-        <p className="text-white/60 text-base max-w-3xl">
+        <p className="text-zinc-400 text-base max-w-3xl">
           Analyze prompts where competitors rank higher or appear more frequently. Identify content gaps and opportunities to improve your AI visibility.
         </p>
       </div>
@@ -175,7 +175,7 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading }: Compet
         <ScoreCard
           title="Competitor Win Rate"
           value={`${summary?.competitor_win_rate ?? 0}%`}
-          icon={<Target className="w-5 h-5 text-white" />}
+          icon={<Target className="w-5 h-5 text-zinc-100" />}
           color="bg-red-500/20 text-red-400"
           description="Percentage of prompts where competitors outperform your brand."
           isLoading={isLoading}
@@ -188,7 +188,7 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading }: Compet
         <ScoreCard
           title="Brand Win Rate"
           value={`${summary?.brand_win_rate ?? 0}%`}
-          icon={<Trophy className="w-5 h-5 text-white" />}
+          icon={<Trophy className="w-5 h-5 text-zinc-100" />}
           color="bg-yellow-500/20 text-yellow-400"
           description="Percentage of prompts where your brand outperforms competitors."
           isLoading={isLoading}
@@ -201,7 +201,7 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading }: Compet
           title="Content Gap Score"
           value={summary?.avg_content_gap_score ?? 0}
           suffix="/100"
-          icon={<FileText className="w-5 h-5 text-white" />}
+          icon={<FileText className="w-5 h-5 text-zinc-100" />}
           color="bg-blue-500/20 text-blue-400"
           description="Average gap in content completeness or entity coverage."
           isLoading={isLoading}
@@ -211,7 +211,7 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading }: Compet
         <ScoreCard
           title="Market Share"
           value={`${moduleFData?.compare_visibility_against_competitors?.brand?.market_share_percent ?? 0}%`}
-          icon={<Activity className="w-5 h-5 text-white" />}
+          icon={<Activity className="w-5 h-5 text-zinc-100" />}
           color="bg-purple-500/20 text-purple-400"
           description="Your brand's share of voice across all analyzed prompts."
           isLoading={isLoading}
@@ -219,33 +219,33 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading }: Compet
       </div>
 
       {/* Detailed Analysis Section */}
-      <Card className="bg-black/20 border-white/10 backdrop-blur-xl">
+      <Card className="bg-[#111113] border-zinc-800">
         <CardHeader>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <CardTitle className="text-lg font-medium text-white">Prompt Analysis</CardTitle>
-              <CardDescription className="text-white/40">
+              <CardTitle className="text-lg font-medium text-zinc-100">Prompt Analysis</CardTitle>
+              <CardDescription className="text-zinc-400">
                 Detailed breakdown of winner and ranking for each prompt.
               </CardDescription>
             </div>
             
             <div className="flex items-center gap-2">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                 <input 
                   type="text" 
                   placeholder="Search prompts..." 
-                  className="bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 w-full md:w-64"
+                  className="bg-zinc-900/50 border border-zinc-800 rounded-lg pl-9 pr-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-zinc-700 w-full md:w-64"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
               
               <Tabs value={filter} onValueChange={(v) => setFilter(v as any)} className="w-auto">
-                <TabsList className="bg-white/5 border border-white/10">
-                  <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
-                  <TabsTrigger value="brand" className="text-xs">My Wins</TabsTrigger>
-                  <TabsTrigger value="competitor" className="text-xs">Competitor Wins</TabsTrigger>
+                <TabsList className="bg-zinc-900/50 border border-zinc-800">
+                  <TabsTrigger value="all" className="text-xs data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 text-zinc-400">All</TabsTrigger>
+                  <TabsTrigger value="brand" className="text-xs data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 text-zinc-400">My Wins</TabsTrigger>
+                  <TabsTrigger value="competitor" className="text-xs data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 text-zinc-400">Competitor Wins</TabsTrigger>
                 </TabsList>
               </Tabs>
             </div>
@@ -255,21 +255,21 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading }: Compet
           {isLoading ? (
              <div className="space-y-4">
                {[1, 2, 3].map((i) => (
-                 <div key={i} className="h-24 bg-white/5 rounded-xl animate-pulse" />
+                 <div key={i} className="h-24 bg-zinc-900/50 rounded-xl animate-pulse" />
                ))}
              </div>
           ) : filteredResults.length === 0 ? (
             <div className="text-center py-12">
-              <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
-                <Search className="w-6 h-6 text-white/20" />
+              <div className="w-12 h-12 rounded-full bg-zinc-900/50 flex items-center justify-center mx-auto mb-4">
+                <Search className="w-6 h-6 text-zinc-500" />
               </div>
-              <h3 className="text-white font-medium mb-1">No prompts found</h3>
-              <p className="text-white/40 text-sm">Try adjusting your search or filters.</p>
+              <h3 className="text-zinc-100 font-medium mb-1">No prompts found</h3>
+              <p className="text-zinc-500 text-sm">Try adjusting your search or filters.</p>
             </div>
           ) : (
             <div className="space-y-4">
               {filteredResults.map((result, idx) => (
-                <div key={idx} className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors">
+                <div key={idx} className="bg-zinc-900/30 border border-zinc-800 rounded-xl p-4 hover:bg-zinc-900 transition-colors">
                   <div className="flex flex-col md:flex-row gap-4 justify-between items-start">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2">
@@ -281,43 +281,43 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading }: Compet
                               ? "bg-green-500/20 text-green-400" 
                               : result.winner === 'competitor'
                                 ? "bg-red-500/20 text-red-400"
-                                : "bg-white/10 text-white/60"
+                                : "bg-zinc-800 text-zinc-400"
                           )}
                         >
                           {result.winner === 'brand' ? 'You Won' : result.winner === 'competitor' ? `${result.winner_name} Won` : 'No Winner'}
                         </Badge>
-                        <span className="text-xs text-white/40 font-mono">
+                        <span className="text-xs text-zinc-500 font-mono">
                           Gap Score: {result.coverage_gap_score}
                         </span>
                       </div>
-                      <h4 className="text-white font-medium mb-2 break-words">{result.prompt}</h4>
-                      <p className="text-sm text-white/60 line-clamp-2 font-light italic">
+                      <h4 className="text-zinc-100 font-medium mb-2 break-words">{result.prompt}</h4>
+                      <p className="text-sm text-zinc-400 line-clamp-2 font-light italic">
                         "{result.text_snippet}"
                       </p>
                     </div>
                     
                     <div className="flex flex-col gap-2 shrink-0 min-w-[200px]">
-                      <div className="text-xs font-medium text-white/40 uppercase tracking-wider mb-1">Rankings</div>
+                      <div className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-1">Rankings</div>
                       <div className="space-y-1.5">
                         {/* Brand Rank */}
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-white/80">Your Rank</span>
+                          <span className="text-zinc-300">Your Rank</span>
                           <span className={cn(
                             "font-mono font-medium",
-                            result.brand_rank ? "text-green-400" : "text-white/20"
+                            result.brand_rank ? "text-green-400" : "text-zinc-600"
                           )}>
                             {result.brand_rank ? `#${result.brand_rank}` : '-'}
                           </span>
                         </div>
                         
                         {/* Competitor Ranks */}
-                        {Object.entries(result.ranks)
+                        {Object.entries(result.ranks ?? {})
                           .filter(([name]) => name !== brandName) 
                           .slice(0, 3) // Show top 3
                           .map(([name, rank]) => (
                             <div key={name} className="flex items-center justify-between text-sm">
-                              <span className="text-white/60 truncate max-w-[120px]" title={name}>{name}</span>
-                              <span className="text-white/60 font-mono">#{rank}</span>
+                              <span className="text-zinc-400 truncate max-w-[120px]" title={name}>{name}</span>
+                              <span className="text-zinc-400 font-mono">#{rank}</span>
                             </div>
                           ))
                         }

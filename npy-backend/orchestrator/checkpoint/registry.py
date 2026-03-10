@@ -67,6 +67,12 @@ class TaskRegistry:
         "module_e_ranking_chat_gpt": ["dataforseo"],
         "module_e_ranking_claude": ["dataforseo"],
         "module_e_ranking_gemini": ["dataforseo"],
+
+        # Module F Tasks
+        "module_f_source_influence": ["openai", "gemini", "claude"],
+        "module_f_win_check_openai": ["openai"],
+        "module_f_win_check_gemini": ["gemini"],
+        "module_f_win_check_claude": ["claude"],
     }
 
     @classmethod

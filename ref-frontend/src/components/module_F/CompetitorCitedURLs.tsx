@@ -61,15 +61,15 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading }: Competit
     return (
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="space-y-2">
-          <div className="h-8 w-56 bg-white/5 rounded animate-pulse" />
-          <div className="h-4 w-96 bg-white/5 rounded animate-pulse" />
+          <div className="h-8 w-56 bg-zinc-800 rounded animate-pulse" />
+          <div className="h-4 w-96 bg-zinc-800 rounded animate-pulse" />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10 animate-pulse h-32" />
+            <div key={i} className="bg-[#111113] rounded-xl p-5 border border-zinc-800 animate-pulse h-32" />
           ))}
         </div>
-        <div className="h-80 bg-white/5 rounded-2xl border border-white/10 animate-pulse" />
+        <div className="h-80 bg-[#111113] rounded-xl border border-zinc-800 animate-pulse" />
       </div>
     )
   }
@@ -79,22 +79,24 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading }: Competit
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col gap-2">
-        <h2 className="text-2xl font-semibold text-white tracking-tight flex items-center gap-3">
-          <Globe className="w-6 h-6 text-purple-400" />
+        <h2 className="text-2xl font-semibold text-zinc-100 tracking-tight flex items-center gap-3">
+          <div className="p-2 bg-purple-500/10 rounded-lg">
+            <Globe className="w-6 h-6 text-purple-400" />
+          </div>
           Competitor Cited URLs
         </h2>
-        <p className="text-white/60 text-base max-w-3xl">
+        <p className="text-zinc-400 text-base max-w-3xl">
           Evaluate the authority and influence of domains cited by or associated with competitors in AI responses.
         </p>
       </div>
 
       {!hasData ? (
-        <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10">
+        <div className="bg-[#111113] rounded-xl p-6 border border-zinc-800">
           <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-white/60 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-zinc-400 mt-0.5" />
             <div>
-              <div className="text-white font-medium">No source analysis data yet</div>
-              <div className="text-white/50 text-sm mt-1">
+              <div className="text-zinc-100 font-medium">No source analysis data yet</div>
+              <div className="text-zinc-500 text-sm mt-1">
                 Run Module F to analyze competitor sources and citations.
               </div>
             </div>
@@ -103,97 +105,97 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading }: Competit
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10 h-full flex flex-col">
+            <div className="bg-[#111113] rounded-xl p-5 border border-zinc-800 h-full flex flex-col hover:bg-[#0D0D10] transition-colors">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-start gap-3">
                   <div className="p-2.5 rounded-xl shrink-0 bg-purple-500/20 text-purple-400">
-                    <ShieldCheck className="w-5 h-5 text-white" />
+                    <ShieldCheck className="w-5 h-5 text-zinc-100" />
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-white/80 block">Avg Influence Score</span>
-                    <span className="text-xs text-white/50 block mt-0.5 leading-relaxed">Overall source quality</span>
+                    <span className="text-sm font-medium text-zinc-100 block">Avg Influence Score</span>
+                    <span className="text-xs text-zinc-400 block mt-0.5 leading-relaxed">Overall source quality</span>
                   </div>
                 </div>
               </div>
               <div className="mt-auto">
                 <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-bold text-white tracking-tight">{overall.avgInfluenceScore}</span>
-                  <span className="text-sm text-white/40 font-medium mb-1">/100</span>
+                  <span className="text-4xl font-bold text-zinc-100 tracking-tight">{overall.avgInfluenceScore}</span>
+                  <span className="text-sm text-zinc-500 font-medium mb-1">/100</span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10 h-full flex flex-col">
+            <div className="bg-[#111113] rounded-xl p-5 border border-zinc-800 h-full flex flex-col hover:bg-[#0D0D10] transition-colors">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-start gap-3">
                   <div className="p-2.5 rounded-xl shrink-0 bg-blue-500/20 text-blue-400">
-                    <Globe className="w-5 h-5 text-white" />
+                    <Globe className="w-5 h-5 text-zinc-100" />
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-white/80 block">Avg Domain Authority</span>
-                    <span className="text-xs text-white/50 block mt-0.5 leading-relaxed">Authority of cited sources</span>
+                    <span className="text-sm font-medium text-zinc-100 block">Avg Domain Authority</span>
+                    <span className="text-xs text-zinc-400 block mt-0.5 leading-relaxed">Authority of cited sources</span>
                   </div>
                 </div>
               </div>
               <div className="mt-auto">
                 <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-bold text-white tracking-tight">{overall.avgDomainAuthority}</span>
-                  <span className="text-sm text-white/40 font-medium mb-1">DA</span>
+                  <span className="text-4xl font-bold text-zinc-100 tracking-tight">{overall.avgDomainAuthority}</span>
+                  <span className="text-sm text-zinc-500 font-medium mb-1">DA</span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10 h-full flex flex-col">
+            <div className="bg-[#111113] rounded-xl p-5 border border-zinc-800 h-full flex flex-col hover:bg-[#0D0D10] transition-colors">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-start gap-3">
                   <div className="p-2.5 rounded-xl shrink-0 bg-emerald-500/20 text-emerald-400">
-                    <Link2 className="w-5 h-5 text-white" />
+                    <Link2 className="w-5 h-5 text-zinc-100" />
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-white/80 block">Total Citations</span>
-                    <span className="text-xs text-white/50 block mt-0.5 leading-relaxed">Sources identified</span>
+                    <span className="text-sm font-medium text-zinc-100 block">Total Citations</span>
+                    <span className="text-xs text-zinc-400 block mt-0.5 leading-relaxed">Sources identified</span>
                   </div>
                 </div>
               </div>
               <div className="mt-auto">
                 <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-bold text-white tracking-tight">{overall.totalCitations}</span>
-                  <span className="text-sm text-white/40 font-medium mb-1">urls</span>
+                  <span className="text-4xl font-bold text-zinc-100 tracking-tight">{overall.totalCitations}</span>
+                  <span className="text-sm text-zinc-500 font-medium mb-1">urls</span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-5 border border-white/10 h-full flex flex-col">
+            <div className="bg-[#111113] rounded-xl p-5 border border-zinc-800 h-full flex flex-col hover:bg-[#0D0D10] transition-colors">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-start gap-3">
                   <div className="p-2.5 rounded-xl shrink-0 bg-amber-500/20 text-amber-400">
-                    <TrendingUp className="w-5 h-5 text-white" />
+                    <TrendingUp className="w-5 h-5 text-zinc-100" />
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-white/80 block">Top Performer</span>
-                    <span className="text-xs text-white/50 block mt-0.5 leading-relaxed">Highest source quality</span>
+                    <span className="text-sm font-medium text-zinc-100 block">Top Performer</span>
+                    <span className="text-xs text-zinc-400 block mt-0.5 leading-relaxed">Highest source quality</span>
                   </div>
                 </div>
               </div>
               <div className="mt-auto">
                 {overall.topCompetitor ? (
                   <div className="space-y-1">
-                    <div className="text-lg font-semibold text-white">{overall.topCompetitor.competitor}</div>
-                    <div className="text-sm text-white/50">Score: {overall.topCompetitor.score}/100</div>
+                    <div className="text-lg font-semibold text-zinc-100">{overall.topCompetitor.competitor}</div>
+                    <div className="text-sm text-zinc-500">Score: {overall.topCompetitor.score}/100</div>
                   </div>
                 ) : (
-                  <div className="text-white/50 text-sm">—</div>
+                  <div className="text-zinc-500 text-sm">—</div>
                 )}
               </div>
             </div>
           </div>
 
-          <Card className="bg-black/20 border-white/10 backdrop-blur-xl">
+          <Card className="bg-[#111113] border-zinc-800">
             <CardHeader>
               <div className="flex flex-col gap-4">
                 <div>
-                  <CardTitle className="text-lg font-medium text-white">Source Domain Analysis</CardTitle>
-                  <CardDescription className="text-white/40">
+                  <CardTitle className="text-lg font-medium text-zinc-100">Source Domain Analysis</CardTitle>
+                  <CardDescription className="text-zinc-400">
                     Select a competitor to view their top cited sources and domain authority.
                   </CardDescription>
                 </div>
@@ -208,22 +210,22 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading }: Competit
                           onClick={() => setSelectedCompetitor(r.competitor)}
                           className={cn(
                             'px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors',
-                            active ? 'bg-white/15 border-white/20 text-white' : 'bg-white/5 border-white/10 text-white/70 hover:text-white hover:bg-white/10'
+                            active ? 'bg-zinc-800 border-zinc-700 text-zinc-100' : 'bg-transparent border-zinc-800 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50'
                           )}
                         >
                           <span>{r.competitor}</span>
-                          <span className="ml-2 text-white/40">{r.source_domain_influence_score}</span>
+                          <span className="ml-2 text-zinc-500">{r.source_domain_influence_score}</span>
                         </button>
                       )
                     })}
                   </div>
 
                   <div className="relative w-full lg:w-80">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
                     <input
                       type="text"
                       placeholder="Search domains..."
-                      className="bg-white/5 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-white/20 w-full"
+                      className="bg-zinc-900/50 border border-zinc-800 rounded-lg pl-9 pr-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-zinc-700 w-full"
                       value={searchDomain}
                       onChange={(e) => setSearchDomain(e.target.value)}
                     />
@@ -234,30 +236,30 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading }: Competit
 
             <CardContent>
               {!activeRow ? (
-                <div className="text-white/50 text-sm">No competitor data available.</div>
+                <div className="text-zinc-500 text-sm">No competitor data available.</div>
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
                     <div className="flex items-start justify-between">
                       <div>
-                        <div className="text-white font-medium">{activeRow.competitor}</div>
-                        <div className="text-white/50 text-xs mt-1">
+                        <div className="text-zinc-100 font-medium">{activeRow.competitor}</div>
+                        <div className="text-zinc-500 text-xs mt-1">
                           {activeRow.citation_count} cited sources found
                         </div>
                       </div>
-                      <Badge className="bg-white/10 text-white border-white/10">
+                      <Badge className="bg-zinc-800 text-zinc-100 border-zinc-700 hover:bg-zinc-700">
                         Score {activeRow.source_domain_influence_score}
                       </Badge>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 mt-4">
-                      <div className="rounded-lg border border-white/10 bg-white/5 p-3">
-                        <div className="text-[10px] text-white/50">Avg DA</div>
-                        <div className="text-lg font-semibold text-white mt-1">{activeRow.average_domain_authority}</div>
+                      <div className="rounded-lg border border-zinc-800 bg-[#111113] p-3">
+                        <div className="text-[10px] text-zinc-500">Avg DA</div>
+                        <div className="text-lg font-semibold text-zinc-100 mt-1">{activeRow.average_domain_authority}</div>
                       </div>
-                      <div className="rounded-lg border border-white/10 bg-white/5 p-3">
-                        <div className="text-[10px] text-white/50">Citations</div>
-                        <div className="text-lg font-semibold text-white mt-1">{activeRow.citation_count}</div>
+                      <div className="rounded-lg border border-zinc-800 bg-[#111113] p-3">
+                        <div className="text-[10px] text-zinc-500">Citations</div>
+                        <div className="text-lg font-semibold text-zinc-100 mt-1">{activeRow.citation_count}</div>
                       </div>
                     </div>
                   </div>
@@ -268,17 +270,17 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading }: Competit
                         {filteredCitations.map((c, idx) => (
                           <div
                             key={idx}
-                            className="rounded-xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition-colors"
+                            className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4 hover:bg-zinc-900 transition-colors"
                           >
                             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                               <div className="min-w-0 flex items-start gap-3">
-                                <div className="p-2 rounded-lg bg-white/5 border border-white/10 shrink-0">
-                                    <Globe className="w-4 h-4 text-white/60" />
+                                <div className="p-2 rounded-lg bg-[#111113] border border-zinc-800 shrink-0">
+                                    <Globe className="w-4 h-4 text-zinc-400" />
                                 </div>
                                 <div>
-                                    <div className="text-white font-medium text-sm break-words">{c.domain}</div>
+                                    <div className="text-zinc-100 font-medium text-sm break-words">{c.domain}</div>
                                     {c.citation_type && (
-                                        <div className="text-white/50 text-xs mt-1 capitalize">
+                                        <div className="text-zinc-500 text-xs mt-1 capitalize">
                                             {c.citation_type.replace(/_/g, ' ')}
                                         </div>
                                     )}
@@ -294,7 +296,7 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading }: Competit
                           </div>
                         ))}
                         {filteredCitations.length === 0 && (
-                            <div className="text-white/50 text-sm text-center py-8">
+                            <div className="text-zinc-500 text-sm text-center py-8">
                                 No matching sources found.
                             </div>
                         )}

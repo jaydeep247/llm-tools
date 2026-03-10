@@ -10,8 +10,13 @@ export class ModuleFService {
   }
 
   async getModuleFResult(jobId: string, userId: string): Promise<ModuleFResult | null> {
-    await this.jobService.getJobById(userId, jobId);
-    return await moduleFRepository.getModuleFResultByJobId(jobId);
+    const job = await this.jobService.getJobById(userId, jobId);
+
+    const directResult = await moduleFRepository.getModuleFResultByJobId(jobId);
+    if (directResult) return directResult;
+
+    if (!job?.sessionId) return null;
+    return await moduleFRepository.getLatestModuleFResultBySessionId(job.sessionId);
   }
 
   async getModuleFTrends(jobId: string, userId: string): Promise<ModuleFTrends | null> {
