@@ -160,3 +160,14 @@ class MongoManager:
 
 # Global instance
 mongo_manager = MongoManager.get_instance()
+
+
+def get_db():
+    """Return the MongoDB database instance.
+
+    Convenience helper so callers can write::
+
+        from utils.mongo import get_db
+        db = get_db()
+    """
+    return mongo_manager.db

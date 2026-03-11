@@ -8,6 +8,7 @@ from .knowledge_base import KnowledgeBaseModule
 from .llm_simulator import LlmSimulatorModule
 from .multi_model_insights import MultiModelInsights
 from .actionable_insights import ActionableInsightsModule
+from .ai_visibility_report import AIVisibilityReportModule
 from utils.storage import save_raw_html, load_raw_html
 
 logger = logging.getLogger("module_c")
@@ -23,6 +24,7 @@ class ModuleCRunner:
         self.llm_simulator = LlmSimulatorModule()
         self.multi_model_insights = MultiModelInsights()
         self.actionable_insights = ActionableInsightsModule()
+        self.ai_visibility_report = AIVisibilityReportModule()
 
     async def _ensure_html_content(self, job_id: str, html_content: str = None, skip_save: bool = False) -> str:
         """Helper to ensure HTML content is loaded from S3 only"""
@@ -115,7 +117,15 @@ class ModuleCRunner:
             }
         }
 
-        # 6. Save to aeo_analysis collection
+        # 6. Generate AI Visibility Report from the aggregated result
+        try:
+            visibility_report = await self.ai_visibility_report.generate_report(result)
+            result["modules"]["ai_visibility_report"] = visibility_report
+        except Exception as e:
+            logger.error(f"[MODULE_C] AI Visibility Report generation failed: {e}")
+            result["modules"]["ai_visibility_report"] = {"error": str(e)}
+
+        # 7. Save to aeo_analysis collection
         try:
             from utils.storage import save_aeo_analysis
             await save_aeo_analysis(job_id, url, result)
@@ -153,6 +163,17 @@ class ModuleCRunner:
                 return await self.llm_simulator.simulate_answer(query, html_content)
             elif submodule == "actionable_insights":
                 return await self.actionable_insights.run_analysis(html_content, url)
+            elif submodule == "ai_visibility_report":
+                # Requires the full AEO result — load from DB if available
+                try:
+                    from utils.storage import load_aeo_analysis
+                    aeo_result = await load_aeo_analysis(job_id)
+                    if not aeo_result:
+                        return {"error": "No AEO analysis found for this job. Run full AEO analysis first."}
+                    return await self.ai_visibility_report.generate_report(aeo_result)
+                except Exception as e:
+                    logger.error(f"AI Visibility Report submodule failed: {e}")
+                    return {"error": str(e)}
             else:
                 return {"error": f"Unknown submodule: {submodule}"}
         except Exception as e:

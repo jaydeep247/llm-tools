@@ -15,6 +15,7 @@ class TaskRegistry:
         # "dataforseo_generic": ["dataforseo"],
         
         # Module C Tasks
+        "aeo_visibility_report": ["openai"],
         "aeo_ai_presence_check": ["openai", "gemini", "claude"],
         "aeo_answerability_audit": ["openai", "gemini", "claude"],
         "aeo_knowledge_base_audit": ["openai", "gemini", "claude"],

@@ -95,6 +95,17 @@ def execute_crawler_job(payload: dict) -> bool:
         f"URL: {url[:60]}... | MaxPages: {max_pages}"
     )
 
+    # Flush any stale Redis scheduler/dupefilter keys from a previous run of
+    # this same job_id so the crawler always starts completely fresh.
+    try:
+        from workers.cancellation import _get_redis
+        _r = _get_redis()
+        spider_name = f"website_spider_{job_id}"
+        _r.delete(f"{spider_name}:requests", f"{spider_name}:dupefilter")
+        logger.info(f"[CRAWLER] Cleared stale Redis keys for {job_id}")
+    except Exception as _redis_err:
+        logger.warning(f"[CRAWLER] Could not clear Redis keys for {job_id}: {_redis_err}")
+
     manager = spawn_ctx.Manager()
     state = manager.dict()
     state["success"] = False

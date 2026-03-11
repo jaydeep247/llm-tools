@@ -190,6 +190,41 @@ export interface ModuleSummaryResponse {
   }
 }
 
+export interface AIVisibilityIssue {
+  title: string
+  severity: 'High' | 'Medium' | 'Low'
+  field: string
+  explanation: string
+}
+
+export interface AIVisibilityRecommendation {
+  issue: string
+  why_it_matters: string
+  how_to_fix: string
+  example_fix: string | null
+}
+
+export interface AIVisibilityReport {
+  summary: string
+  issues: AIVisibilityIssue[]
+  recommendations: AIVisibilityRecommendation[]
+  positive_signals: string[]
+  ai_readability: string
+  priority_fixes: string[]
+  estimated_impact: string
+}
+
+export interface AIVisibilityReportResponse {
+  success: boolean
+  message: string
+  data?: {
+    jobId: string
+    url: string
+    data: AIVisibilityReport | null
+    timestamp: string
+  } | null
+}
+
 export const moduleCApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     // Get Module C result for a specific job
@@ -266,6 +301,12 @@ export const moduleCApi = baseApi.injectEndpoints({
       query: (jobId) => `/module-c/jobs/${jobId}/summary`,
       providesTags: (_result, _error, jobId) => [{ type: 'ModuleC' as const, id: `summary-${jobId}` }],
     }),
+
+    // Get AI Visibility Report
+    getVisibilityReport: builder.query<AIVisibilityReportResponse, string>({
+      query: (jobId) => `/module-c/jobs/${jobId}/visibility-report`,
+      providesTags: (_result, _error, jobId) => [{ type: 'ModuleC' as const, id: `visibility-report-${jobId}` }],
+    }),
   }),
 })
 
@@ -282,4 +323,5 @@ export const {
   useGetMultiModelInsightsQuery,
   useGetActionableInsightsQuery,
   useGetModuleSummaryQuery,
+  useGetVisibilityReportQuery,
 } = moduleCApi

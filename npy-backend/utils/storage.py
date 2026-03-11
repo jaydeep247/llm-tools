@@ -256,3 +256,31 @@ async def save_aeo_analysis(job_id: str, url: str, data: dict) -> str:
         error_type = type(e).__name__
         logger.error(f"Failed to save AEO analysis to MongoDB ({error_type})")
         raise e
+
+
+async def load_aeo_analysis(job_id: str) -> dict:
+    """
+    Loads the most recent AEO analysis result from MongoDB for a given job.
+
+    Args:
+        job_id: Job ID to look up
+
+    Returns:
+        AEO analysis dict or None if not found
+    """
+    from utils.mongo import mongo_manager
+    from utils.logger import logger
+
+    try:
+        mongo_manager.connect()
+        doc = mongo_manager.aeo_analysis.find_one(
+            {"jobId": job_id},
+            sort=[("timestamp", -1)],
+        )
+        if doc:
+            doc.pop("_id", None)
+            return doc
+        return None
+    except Exception as e:
+        logger.error(f"[STORAGE] Failed to load AEO analysis from MongoDB: {e}")
+        return None

@@ -42,4 +42,7 @@ router.get('/module-c/jobs/:jobId/actionable-insights', moduleCController.getAct
 // Overall Score Summary
 router.get('/module-c/jobs/:jobId/summary', moduleCController.getSummary);
 
+// AI Visibility Report — consultant-style insight report
+router.get('/module-c/jobs/:jobId/visibility-report', moduleCController.getVisibilityReport);
+
 export default router;

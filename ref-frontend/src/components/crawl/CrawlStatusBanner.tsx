@@ -48,11 +48,14 @@ export function CrawlStatusBanner({
   initialStatus,
   onViewPages,
   onResume,
-  pagesCrawled = 0,
+  pagesCrawled: pagesCrawledProp = 0,
   totalPages = 100,
   currentUrl,
 }: CrawlStatusBannerProps) {
   const [status, setStatus] = useState<CrawlStatus>(initialStatus)
+  // Live counter driven by crawl:progress socket events; falls back to the
+  // parent-polled prop so the value is never stale on initial mount.
+  const [livePagesCrawled, setLivePagesCrawled] = useState<number>(pagesCrawledProp)
   const socketRef = useRef<Socket | null>(null)
 
   // Keep local status in sync when the parent polling drives changes
@@ -66,6 +69,13 @@ export function CrawlStatusBanner({
       return initialStatus
     })
   }, [initialStatus])
+
+  // Keep livePagesCrawled in sync with the parent's polling value, but only
+  // if the socket hasn't already reported a higher number (avoids going
+  // backwards on a late poll response).
+  useEffect(() => {
+    setLivePagesCrawled(prev => Math.max(prev, pagesCrawledProp))
+  }, [pagesCrawledProp])
 
   // Socket subscription — live crawl:status events
   useEffect(() => {
@@ -83,6 +93,12 @@ export function CrawlStatusBanner({
 
     socket.on('connect', () => {
       socket.emit('join-job', jobId)
+    })
+
+    // Live page counter — updates the progress bar without polling lag.
+    socket.on('crawl:progress', (data: { jobId: string; pages_crawled: number }) => {
+      if (data.jobId !== jobId) return
+      setLivePagesCrawled(prev => Math.max(prev, data.pages_crawled))
     })
 
     socket.on('crawl:status', (data: { jobId: string; crawl_status: CrawlStatus }) => {
@@ -127,7 +143,7 @@ export function CrawlStatusBanner({
   /*  Running state                                                       */
   /* ------------------------------------------------------------------ */
   if (status === 'running') {
-    const pct = Math.min(100, totalPages > 0 ? Math.round((pagesCrawled / totalPages) * 100) : 0)
+    const pct = Math.min(100, totalPages > 0 ? Math.round((livePagesCrawled / totalPages) * 100) : 0)
     return (
       <div className="rounded-2xl border border-zinc-800 bg-[#111113] overflow-hidden h-full flex flex-col">
         {/* Header */}
@@ -161,7 +177,7 @@ export function CrawlStatusBanner({
             </span>
             <div className="flex items-baseline gap-2">
               <span className="text-xs text-zinc-500 tabular-nums">
-                <span className="font-semibold text-zinc-300">{pagesCrawled}</span>
+                <span className="font-semibold text-zinc-300">{livePagesCrawled}</span>
                 <span className="text-zinc-600"> / </span>{totalPages} pages
               </span>
               <span className="text-3xl font-bold font-mono tabular-nums text-white">

@@ -48,6 +48,7 @@ import {
   ArrowLeftRight,
   PanelLeft,
   Lightbulb,
+  Brain,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -117,6 +118,7 @@ export const sessionSections: Section[] = [
       { id: 'answer-completeness', label: 'AI Answer Preview', icon: MessageSquare },
       { id: 'improvement-actions', label: 'Improvement Actions', icon: Zap },
       { id: 'model-comparison', label: 'Model Comparison', icon: Layers },
+      { id: 'ai-visibility-report', label: 'AI Visibility Report', icon: Brain },
     ],
   },
   {

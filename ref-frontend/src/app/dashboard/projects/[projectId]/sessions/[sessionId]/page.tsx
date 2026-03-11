@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { CrawlLogger, DiscoveredPages, CrawlStatusHeader, CrawlStatusBanner } from '@/components/crawl'
 import { SessionLayout } from '@/components/layout/SessionLayout'
 import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable, AuditChecker, RecommendationsPanel, SerpAnalyzer } from '@/components/module_A'
-import { AIIntelligenceModule, ContentMetricsModule, AIVisibilityScorecards, EntityGapAnalysis, AIAnswerPreview, ImprovementActions, ModelComparison } from '@/components/module_C'
+import { AIIntelligenceModule, ContentMetricsModule, AIVisibilityScorecards, EntityGapAnalysis, AIAnswerPreview, ImprovementActions, ModelComparison, AIVisibilityReport } from '@/components/module_C'
 import { SiteStructure } from '@/components/module_D/site-structure'
 import { AICitationRanking, ContentConsistencyEntityCoverage, BrandAnalysisSection, SentimentTrackingSection, CompetitorMentionsSection, SentimentTracking, ShareOfVoiceSection, TrendsByModelSection, DashboardOverview } from '@/components/module_E'
 import VisibilityComparisonSection from '@/components/module_F/VisibilityComparisonSection'
@@ -1194,6 +1194,11 @@ export default function SessionDetailPage() {
         {/* Model Comparison */}
         {activeSection === 'model-comparison' && (
           <ModelComparison jobId={jobId} url={session?.startUrl || ''} />
+        )}
+
+        {/* AI Visibility Report */}
+        {activeSection === 'ai-visibility-report' && (
+          <AIVisibilityReport jobId={jobId} />
         )}
 
         {/* Show Module E on module-e tab */}

@@ -187,4 +187,41 @@ export class ModuleCService {
       throw error;
     }
   }
+
+  /**
+   * Get AI Visibility Report for a job
+   */
+  async getVisibilityReport(jobId: string): Promise<any> {
+    try {
+      const db = await connectToMongo();
+      const collection = db.collection('aeo_analysis');
+
+      const result = await collection.findOne(
+        { jobId },
+        {
+          sort: { timestamp: -1 },
+          projection: {
+            jobId: 1,
+            url: 1,
+            'modules.ai_visibility_report': 1,
+            timestamp: 1,
+          },
+        }
+      );
+
+      if (!result) {
+        return null;
+      }
+
+      return {
+        jobId: result.jobId,
+        url: result.url,
+        data: result.modules?.ai_visibility_report ?? null,
+        timestamp: result.timestamp,
+      };
+    } catch (error: any) {
+      logger.error(`Error getting AI Visibility Report: ${error.message}`);
+      throw error;
+    }
+  }
 }

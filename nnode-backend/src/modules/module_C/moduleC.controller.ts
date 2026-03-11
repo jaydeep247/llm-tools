@@ -281,6 +281,24 @@ export class ModuleCController {
   };
 
   /**
+   * Get AI Visibility Report for a job
+   */
+  getVisibilityReport = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { jobId } = jobIdParamSchema.parse(req.params);
+
+      await this.jobService.getJobById(userId, jobId);
+      const result = await this.moduleCService.getVisibilityReport(jobId);
+
+      return ResponseUtil.success(res, 'AI Visibility Report retrieved', result);
+    } catch (error: any) {
+      logger.error('Error fetching AI Visibility Report:', error);
+      return this.handleModuleError(res, error, 'AI Visibility Report');
+    }
+  };
+
+  /**
    * Helper to handle module errors consistently
    */
   private handleModuleError(res: Response, error: any, moduleName: string): Response {
