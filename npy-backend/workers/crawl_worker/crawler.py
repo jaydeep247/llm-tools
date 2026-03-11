@@ -126,6 +126,9 @@ def main():
             'projectId': args.project_id,
             'sessionId': args.session_id
         }, retries=5)
+        # Drain the publisher queue before the process exits so the
+        # JOB_COMPLETED event (and any other buffered events) are delivered.
+        publisher.close()
     except Exception as e:
         logger.error(f"❌ Crawler process failed: {e}")
         # Emit failure event
@@ -139,6 +142,7 @@ def main():
             'projectId': args.project_id,
             'sessionId': args.session_id
         }, retries=5)
+        publisher.close()
         sys.exit(1)
 
 

@@ -53,11 +53,21 @@ class WebsiteSpider(RedisSpider):
     Main spider for website crawling
     Matches functionality of Node.js crawler
     """
-    
+
     name = 'website_spider'
     redis_key = "website_spider:start_urls"
-    
+
     custom_settings = {}
+
+    # Emit a link_found event only every N unique URLs discovered.
+    # For a 15k-page crawl this reduces ~15k events down to ~600,
+    # dramatically cutting RabbitMQ message volume while still giving
+    # the frontend smooth progress updates.
+    LINK_FOUND_EMIT_INTERVAL = 25
+
+    # Emit a page_crawled event only every N pages processed.
+    # Reduces ~15k events to ~3 000 while keeping the progress bar live.
+    PAGE_CRAWLED_EMIT_INTERVAL = 5
     
     def __init__(
         self,
@@ -278,21 +288,28 @@ class WebsiteSpider(RedisSpider):
     def emit_link_found(self, url: str, source: str = 'crawl') -> None:
         """
         Emit a link_found event for live progress tracking.
-        Only emits once per unique URL.
+        Only emits once per unique URL, and only every LINK_FOUND_EMIT_INTERVAL
+        unique URLs to keep RabbitMQ message volume manageable on large crawls.
         """
         if not self.job_id:
             return
-        
+
         normalized = self.normalize_url(url)
         if normalized in self.emitted_urls:
             return
-        
+
         self.emitted_urls.add(normalized)
+        count = len(self.emitted_urls)
+
+        # Always emit the very first discovery; thereafter throttle.
+        if count != 1 and (count % self.LINK_FOUND_EMIT_INTERVAL) != 0:
+            return
+
         total = self._effective_max_pages
         publisher.emit_event(self.job_id, 'link_found', {
             'url': url,
             'source': source,
-            'count': len(self.emitted_urls),
+            'count': count,
             'total': total if total > 0 else None,
         })
 
@@ -1012,13 +1029,19 @@ class WebsiteSpider(RedisSpider):
         _total_str = str(_total) if _total > 0 else '?'
         logger.info(f"[CRAWL] 🔗 {self.pages_crawled} / {_total_str} urls crawled")
 
-        # Emit page_crawled event for progress tracking
-        if self.job_id:
+        # Emit page_crawled event for progress tracking.
+        # Throttled to every PAGE_CRAWLED_EMIT_INTERVAL pages to reduce
+        # RabbitMQ volume on large crawls; always emit the first page.
+        if self.job_id and (
+            self.pages_crawled == 1
+            or (self.pages_crawled % self.PAGE_CRAWLED_EMIT_INTERVAL) == 0
+        ):
             publisher.emit_event(self.job_id, 'page_crawled', {
                 'url': response.url,
                 'title': response.css('title::text').get() or '',
                 'crawled_at': datetime.now().isoformat(),
-                'status': response.status
+                'status': response.status,
+                'pages_crawled': self.pages_crawled,
             })
         
         # Check if we should stop crawling
