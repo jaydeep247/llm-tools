@@ -11,6 +11,12 @@ from utils.mongo import mongo_manager
 
 logger = logging.getLogger("module_d")
 
+async def run_prompt_tracking(job_id: str, url: str, prompts: list) -> Dict[str, Any]:
+    mongo_manager.connect()
+    ai_service = OpenAIService()
+    result = ai_service.calculate_prompt_tracking_metrics(job_id=job_id, url=url, prompts=prompts or [])
+    return {"success": True, "prompt_tracking": result}
+
 async def run_content_metrics(job_id: str, url: str, html_content: str = None) -> Dict[str, Any]:
     """Run only Content Metrics analysis"""
     if not html_content:

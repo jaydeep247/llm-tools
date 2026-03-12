@@ -9,7 +9,7 @@ import { CrawlLogger, DiscoveredPages, CrawlStatusHeader, CrawlStatusBanner } fr
 import { SessionLayout } from '@/components/layout/SessionLayout'
 import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable, AuditChecker, RecommendationsPanel, SerpAnalyzer } from '@/components/module_A'
 import { AIIntelligenceModule, ContentMetricsModule, AIVisibilityScorecards, EntityGapAnalysis, AIAnswerPreview, ImprovementActions, ModelComparison, AIVisibilityReport } from '@/components/module_C'
-import { SiteStructure } from '@/components/module_D/site-structure'
+import { PromptTrackingPanel, SiteStructure } from '@/components/module_D/site-structure'
 import { AICitationRanking, ContentConsistencyEntityCoverage, BrandAnalysisSection, SentimentTrackingSection, CompetitorMentionsSection, SentimentTracking, ShareOfVoiceSection, TrendsByModelSection, DashboardOverview, PromptTrackingRecommendations } from '@/components/module_E'
 import VisibilityComparisonSection from '@/components/module_F/VisibilityComparisonSection'
 import CompetitorWinsLibrary from '@/components/module_F/CompetitorWinsLibrary'
@@ -1129,8 +1129,8 @@ export default function SessionDetailPage() {
           </div>
         )}
 
-        {/* Show Site Structure on site-structure / content-brief-builder / add-to-Tracking tabs */}
-        {(activeSection === 'site-structure' || activeSection === 'content-brief-builder' || activeSection === 'add-to-Tracking') && (
+        {/* Show Site Structure on site-structure / content-brief-builder tabs */}
+        {(activeSection === 'site-structure' || activeSection === 'content-brief-builder') && (
           <div className="h-[calc(100vh-64px)] p-4 sm:p-6">
             <SiteStructure
               sessionId={sessionId}
@@ -1139,6 +1139,11 @@ export default function SessionDetailPage() {
               jobId={jobId || null}
             />
           </div>
+        )}
+
+        {/* Show Prompt Tracking on add-to-Tracking tab */}
+        {activeSection === 'add-to-Tracking' && (
+          <PromptTrackingPanel jobId={jobId || null} />
         )}
 
         {/* Show Performance Audits on performance tab */}

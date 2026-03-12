@@ -200,6 +200,43 @@ export class JobService {
     return job;
   }
 
+  async startPromptTracking(userId: string, jobId: string, trackedPrompts: string[], sourceJobId?: string): Promise<Job> {
+    const job = await this.getJobById(userId, jobId);
+
+    const cleaned = Array.isArray(trackedPrompts)
+      ? trackedPrompts.map((p) => (typeof p === 'string' ? p.trim() : '')).filter(Boolean)
+      : [];
+
+    if (cleaned.length === 0) {
+      throw new Error('No prompts provided');
+    }
+
+    let resolvedSourceJobId = sourceJobId;
+    if (!resolvedSourceJobId) {
+      const sessionJobs = await this.jobRepository.findBySessionId(job.sessionId);
+      const resolveType = (j: Job) => String(j.jobType || j.type || '').toUpperCase();
+      const crawlJob = sessionJobs.find(j => resolveType(j) === JobType.CRAWL);
+      const quickStartJob = sessionJobs.find(j => {
+        const t = resolveType(j);
+        return t === JobType.MODULE_E_QUICK_START || t.includes('QUICK_START');
+      });
+
+      resolvedSourceJobId = crawlJob?.id || quickStartJob?.id || job.id;
+    }
+
+    await this.queueService.publishModuleDJob({
+      jobId: job.id,
+      sessionId: job.sessionId,
+      projectId: job.projectId,
+      url: job.url,
+      jobType: JobType.MODULE_D_PROMPT_TRACKING,
+      sourceJobId: resolvedSourceJobId,
+      trackedPrompts: cleaned,
+    });
+
+    return job;
+  }
+
   // ============ SCHEMA (Module B) ============
   async startSchemaGeneration(userId: string, jobId: string, schemaType?: string): Promise<Job> {
     const job = await this.getJobById(userId, jobId);

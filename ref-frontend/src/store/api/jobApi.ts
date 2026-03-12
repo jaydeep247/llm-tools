@@ -56,6 +56,36 @@ export interface SeoKeywordResponse {
   cached?: boolean;
 }
 
+export interface PromptTrackingTrendPoint {
+  date: string;
+  visibility_score: number;
+  ctr_percent: number;
+  engagement_score: number;
+  traffic_estimate: number;
+}
+
+export interface PromptTrackingMetric {
+  prompt: string;
+  prompt_visibility_score: number;
+  ctr_percent: number;
+  engagement_score: number;
+  traffic_estimate: number;
+  ai_model_ranking: Record<string, number | null>;
+  linked_queries: string[];
+  visibility_change: number | null;
+  trend: PromptTrackingTrendPoint[];
+  updated_at: string;
+}
+
+export interface PromptTrackingDoc {
+  jobId: string;
+  url: string;
+  tracked_prompts: string[];
+  metrics: PromptTrackingMetric[];
+  updatedAt?: string;
+  createdAt?: string;
+}
+
 export interface JobSnapshot {
   jobId: string;
   status: string;
@@ -260,6 +290,26 @@ export const jobApi = baseApi.injectEndpoints({
       providesTags: (result, error, jobId) => [{ type: 'Job', id: jobId }],
     }),
 
+    getJobPromptTracking: builder.query<PromptTrackingDoc | null, string>({
+      query: (jobId) => `/jobs/${jobId}/results/prompt-tracking`,
+      transformResponse: (response: { success: boolean; data: PromptTrackingDoc | null }) =>
+        response.data ?? null,
+      providesTags: (result, error, jobId) => [{ type: 'Job', id: jobId }],
+    }),
+
+    startPromptTracking: builder.mutation<{ success: boolean; job: Job }, { jobId: string; prompts: string[] }>({
+      query: ({ jobId, prompts }) => ({
+        url: `/jobs/${jobId}/prompt-tracking`,
+        method: 'POST',
+        body: { prompts },
+      }),
+      transformResponse: (response: { success: boolean; data: Job }) => ({
+        success: response.success,
+        job: response.data,
+      }),
+      invalidatesTags: (result, error, { jobId }) => [{ type: 'Job', id: jobId }],
+    }),
+
     getJobRedirectAudit: builder.query<
       { sessionId: string; summary: RedirectAuditSummary; results: RedirectAuditResultItem[] } | null,
       string
@@ -411,6 +461,8 @@ export const {
   useGetJobSummaryQuery,
   useGetJobSiteStructureQuery,
   useGetJobSchemaQuery,
+  useGetJobPromptTrackingQuery,
+  useStartPromptTrackingMutation,
   useGetJobRedirectAuditQuery,
   useLazyGetJobRedirectAuditQuery,
   useGetJobRecommendationsQuery,

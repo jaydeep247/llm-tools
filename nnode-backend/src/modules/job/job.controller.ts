@@ -88,6 +88,27 @@ export class JobController {
     }
   };
 
+  startPromptTrackingForJob = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+      const { prompts, sourceJobId } = req.body || {};
+
+      const job = await this.jobService.startPromptTracking(userId, id, prompts, sourceJobId);
+
+      return ResponseUtil.success(res, 'Prompt tracking job enqueued successfully', job);
+    } catch (error: any) {
+      logger.error(`Error starting prompt tracking: ${error.message}`);
+      if (error.message.includes('not found') || error.message.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      if (error.message.includes('No prompts')) {
+        return ResponseUtil.error(res, error.message, undefined, 400);
+      }
+      return ResponseUtil.serverError(res, 'Failed to start prompt tracking');
+    }
+  };
+
   getJobSchema = async (req: Request, res: Response): Promise<Response> => {
     try {
       const userId = req.user!.userId;
@@ -135,6 +156,26 @@ export class JobController {
         return ResponseUtil.notFound(res, error.message);
       }
       return ResponseUtil.serverError(res, 'Failed to retrieve job content metrics');
+    }
+  };
+
+  getJobPromptTracking = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+      await this.jobService.getJobById(userId, id);
+
+      const db = await connectToMongo();
+      const collection = db.collection('prompt_tracking');
+      const doc = await collection.findOne({ jobId: id });
+
+      return ResponseUtil.success(res, 'Prompt tracking retrieved successfully', doc);
+    } catch (error: any) {
+      logger.error(`Error getting prompt tracking: ${error.message}`);
+      if (error.message.includes('not found') || error.message.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      return ResponseUtil.serverError(res, 'Failed to retrieve prompt tracking');
     }
   };
 

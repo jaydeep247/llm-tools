@@ -35,6 +35,7 @@ EXECUTOR_REGISTRY: Dict[str, ExecutorFn] = {
     "CONTENT_METRICS": execute_module_d_job,
     "MODULE_D": execute_module_d_job,
     "MODULE_D_ENTITY_ANALYSIS": execute_module_d_job,
+    "MODULE_D_PROMPT_TRACKING": execute_module_d_job,
     # Module E — Brand Intelligence
     "MODULE_E_FULL": execute_module_e_job,
     "MODULE_E_QUICK_START": execute_module_e_job,

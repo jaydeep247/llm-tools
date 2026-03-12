@@ -27,6 +27,8 @@ router.get('/jobs/:id/results/schema', jobController.getJobSchema);
 // Content Metrics (Module D)
 router.post('/jobs/:id/content-metrics', jobController.startContentMetricsForJob);
 router.get('/jobs/:id/results/content-metrics', jobController.getJobContentMetrics);
+router.post('/jobs/:id/prompt-tracking', jobController.startPromptTrackingForJob);
+router.get('/jobs/:id/results/prompt-tracking', jobController.getJobPromptTracking);
 
 // AEO Analysis (Module C)
 router.get('/jobs/:id/results/aeo-analysis', jobController.getJobAeoAnalysis);

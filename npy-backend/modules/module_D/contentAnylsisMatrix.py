@@ -9,7 +9,15 @@ import re
 import json
 import logging
 from typing import Dict, List, Optional
+from datetime import datetime
 from openai import OpenAI
+from utils.mongo import mongo_manager
+from utils.storage import load_raw_html_sync
+
+try:
+    from bs4 import BeautifulSoup
+except Exception:
+    BeautifulSoup = None
 
 class OpenAIService:
     """Service for OpenAI-powered content analysis"""
@@ -584,3 +592,222 @@ Scoring Guide:
         except Exception as e:
             logging.error(f"Entity relevance analysis failed: {str(e)}")
             return fallback_result
+
+    def calculate_prompt_tracking_metrics(self, job_id: str, url: str, prompts: List[str]) -> Dict:
+        mongo_manager.connect()
+
+        cleaned_prompts = []
+        for p in prompts or []:
+            if isinstance(p, str):
+                s = p.strip()
+                if s:
+                    cleaned_prompts.append(s)
+
+        prompt_tracking_col = mongo_manager.db.prompt_tracking
+        existing = prompt_tracking_col.find_one({"jobId": job_id}) or {}
+
+        existing_tracked = existing.get("tracked_prompts") or []
+        tracked_prompts = sorted(set([p for p in existing_tracked if isinstance(p, str) and p.strip()] + cleaned_prompts))
+
+        content_doc = mongo_manager.content_metrics.find_one({"jobId": job_id, "url": url}) or {}
+        content_metrics = content_doc.get("content_metrics") or {}
+        prompt_intent_details = content_metrics.get("prompt_intent_details") or {}
+        linked_queries = prompt_intent_details.get("search_queries") or []
+        if not isinstance(linked_queries, list):
+            linked_queries = []
+        linked_queries = [q for q in linked_queries if isinstance(q, str) and q.strip()]
+
+        module_e_doc = mongo_manager.module_e.find_one({"jobId": job_id}) or {}
+        ranking_analysis = module_e_doc.get("ranking_analysis") or {}
+        ranking_rows = ranking_analysis.get("ranking_position_per_prompt") or []
+        if not isinstance(ranking_rows, list):
+            ranking_rows = []
+
+        raw_html = ""
+        try:
+            raw_html = load_raw_html_sync(job_id) or ""
+        except Exception:
+            raw_html = ""
+
+        visible_text = ""
+        if raw_html and BeautifulSoup is not None:
+            try:
+                soup = BeautifulSoup(raw_html, "html.parser")
+                for tag in soup(["script", "style", "nav", "footer", "header"]):
+                    tag.decompose()
+                visible_text = soup.get_text(separator=" ", strip=True)
+                visible_text = " ".join((visible_text or "").split())
+            except Exception:
+                visible_text = ""
+
+        page_prompt_intent_match = content_metrics.get("prompt_intent_match")
+        page_visibility_impact = content_metrics.get("visibility_impact")
+        page_scores: List[float] = []
+        if isinstance(page_prompt_intent_match, (int, float)):
+            page_scores.append(float(page_prompt_intent_match))
+        if isinstance(page_visibility_impact, (int, float)):
+            page_scores.append(float(page_visibility_impact))
+        page_quality_score = round(sum(page_scores) / len(page_scores), 2) if page_scores else 50.0
+
+        stopwords = {
+            "a", "an", "the", "and", "or", "to", "of", "in", "on", "for", "with", "at", "by", "from", "as",
+            "is", "are", "was", "were", "be", "been", "being", "it", "this", "that", "these", "those",
+            "i", "you", "we", "they", "he", "she", "them", "us", "our", "your", "my", "me",
+            "what", "how", "why", "when", "where", "who", "which",
+            "best", "top", "near", "vs", "versus",
+        }
+
+        def tokenize(text: str) -> List[str]:
+            toks = re.findall(r"[a-z0-9]+", (text or "").lower())
+            return [t for t in toks if len(t) > 2 and t not in stopwords]
+
+        content_tokens = set(tokenize(visible_text[:20000])) if visible_text else set()
+        query_tokens = [set(tokenize(q)) for q in linked_queries[:50]]
+
+        def similarity_to_queries(prompt_tokens: set) -> float:
+            if not prompt_tokens:
+                return 0.0
+            best = 0.0
+            for qt in query_tokens:
+                if not qt:
+                    continue
+                inter = len(prompt_tokens.intersection(qt))
+                score = inter / max(len(prompt_tokens), 1)
+                if score > best:
+                    best = score
+            return best
+
+        def similarity_to_content(prompt_tokens: set) -> float:
+            if not prompt_tokens or not content_tokens:
+                return 0.0
+            return len(prompt_tokens.intersection(content_tokens)) / max(len(prompt_tokens), 1)
+
+        def clamp(n: float, lo: float, hi: float) -> float:
+            return max(lo, min(hi, n))
+
+        def position_to_visibility(position: Optional[float]) -> float:
+            if position is None:
+                return 0.0
+            try:
+                p = int(position)
+            except Exception:
+                return 0.0
+            if p <= 0 or p > 10:
+                return 0.0
+            return round(((11 - p) / 10) * 100, 2)
+
+        history = existing.get("history") or {}
+        if not isinstance(history, dict):
+            history = {}
+
+        now = datetime.utcnow().isoformat()
+        metrics: List[Dict] = []
+
+        for prompt in tracked_prompts:
+            rows = [r for r in ranking_rows if isinstance(r, dict) and (r.get("prompt") or "") == prompt]
+
+            model_ranking: Dict[str, Optional[int]] = {}
+            visibility_components: List[float] = []
+            engagement_components: List[float] = []
+            traffic_components: List[float] = []
+
+            for r in rows:
+                model = r.get("model")
+                if isinstance(model, str) and model:
+                    pos = r.get("position")
+                    model_ranking[model] = int(pos) if isinstance(pos, (int, float)) else None
+                visibility_components.append(position_to_visibility(r.get("position")))
+
+                cq = r.get("content_quality_score")
+                cr = r.get("credibility_score")
+                vals: List[float] = []
+                if isinstance(cq, (int, float)):
+                    vals.append(float(cq))
+                if isinstance(cr, (int, float)):
+                    vals.append(float(cr))
+                if vals:
+                    engagement_components.append(sum(vals) / len(vals))
+
+                total_cited = r.get("total_cited")
+                citation_count = r.get("citation_count")
+                if isinstance(citation_count, (int, float)):
+                    traffic_components.append(float(citation_count))
+                elif isinstance(total_cited, (int, float)):
+                    traffic_components.append(float(total_cited))
+
+            prompt_visibility_score = (
+                round(sum(visibility_components) / len(visibility_components), 2) if visibility_components else 0.0
+            )
+            engagement_score = (
+                round(sum(engagement_components) / len(engagement_components), 2) if engagement_components else page_quality_score
+            )
+            traffic_estimate = (
+                round(sum(traffic_components) / len(traffic_components), 2) if traffic_components else 0.0
+            )
+            ctr_percent = round((prompt_visibility_score / 100) * (engagement_score / 100) * 25, 2)
+
+            if not rows:
+                ptoks = set(tokenize(prompt))
+                qsim = similarity_to_queries(ptoks)
+                csim = similarity_to_content(ptoks)
+                relevance = max(qsim, csim)
+
+                prompt_visibility_score = round(clamp(15 + 85 * relevance * (0.6 + (page_quality_score / 250)), 0, 100), 2)
+                engagement_score = round(clamp(35 + 65 * ((page_quality_score / 100) * 0.55 + relevance * 0.45), 0, 100), 2)
+                traffic_estimate = round(clamp((prompt_visibility_score / 100) * (engagement_score / 100) * (5 + min(len(linked_queries), 20) / 2), 0, 25), 2)
+                ctr_percent = round(clamp((prompt_visibility_score / 100) * (engagement_score / 100) * 30, 0, 30), 2)
+
+            prompt_history = history.get(prompt) or []
+            if not isinstance(prompt_history, list):
+                prompt_history = []
+
+            trend_point = {
+                "date": now,
+                "visibility_score": prompt_visibility_score,
+                "ctr_percent": ctr_percent,
+                "engagement_score": engagement_score,
+                "traffic_estimate": traffic_estimate,
+            }
+            prompt_history.append(trend_point)
+            prompt_history = prompt_history[-60:]
+            history[prompt] = prompt_history
+
+            previous = prompt_history[-2] if len(prompt_history) >= 2 else None
+            visibility_change = None
+            if previous and isinstance(previous.get("visibility_score"), (int, float)):
+                visibility_change = round(prompt_visibility_score - float(previous["visibility_score"]), 2)
+
+            metrics.append(
+                {
+                    "prompt": prompt,
+                    "prompt_visibility_score": prompt_visibility_score,
+                    "ctr_percent": ctr_percent,
+                    "engagement_score": engagement_score,
+                    "traffic_estimate": traffic_estimate,
+                    "ai_model_ranking": model_ranking,
+                    "linked_queries": linked_queries,
+                    "visibility_change": visibility_change,
+                    "trend": prompt_history[-14:],
+                    "updated_at": now,
+                    "calculation_method": "ranking" if rows else "estimated",
+                }
+            )
+
+        doc = {
+            "jobId": job_id,
+            "url": url,
+            "tracked_prompts": tracked_prompts,
+            "metrics": metrics,
+            "history": history,
+            "updatedAt": datetime.utcnow(),
+        }
+
+        prompt_tracking_col.update_one(
+            {"jobId": job_id},
+            {"$set": doc, "$setOnInsert": {"createdAt": datetime.utcnow()}},
+            upsert=True,
+        )
+
+        doc["updatedAt"] = now
+        doc["createdAt"] = (existing.get("createdAt") or datetime.utcnow()).isoformat() if hasattr((existing.get("createdAt") or datetime.utcnow()), "isoformat") else now
+        return doc

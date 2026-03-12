@@ -6,7 +6,7 @@ from utils.logger import configure_logger, logger
 
 def execute_module_d_job(payload: dict) -> bool:
     """Execute Module D (Content Analysis) job."""
-    from modules.module_D.runner import run_module_d, run_content_metrics, run_entity_analysis
+    from modules.module_D.runner import run_module_d, run_content_metrics, run_entity_analysis, run_prompt_tracking
 
     configure_logger()
 
@@ -25,6 +25,9 @@ def execute_module_d_job(payload: dict) -> bool:
     try:
         if job_type in ("MODULE_D_CONTENT_METRICS", "CONTENT_METRICS"):
             result = asyncio.run(run_content_metrics(target_job_id, url))
+        elif job_type == "MODULE_D_PROMPT_TRACKING":
+            prompts = payload.get("trackedPrompts") or payload.get("prompts") or payload.get("config", {}).get("trackedPrompts") or []
+            result = asyncio.run(run_prompt_tracking(target_job_id, url, prompts))
         elif job_type == "MODULE_D_ENTITY_ANALYSIS":
             result = asyncio.run(run_entity_analysis(target_job_id, url))
         else:
