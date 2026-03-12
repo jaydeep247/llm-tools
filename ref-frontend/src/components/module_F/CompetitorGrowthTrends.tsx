@@ -258,6 +258,46 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
         </Card>
       </div>
 
+      <Card className="bg-[#111113] border-zinc-800">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Activity className="h-5 w-5 text-blue-400" />
+            <CardTitle className="text-zinc-100">Recommendations</CardTitle>
+          </div>
+          <CardDescription className="text-zinc-400">
+            Practical steps to improve visibility and market share across future runs.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
+              <div className="text-sm font-medium text-zinc-100 mb-2">Improve Visibility</div>
+              <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
+                <li>Publish comparison and “best for” pages that match prompt intent.</li>
+                <li>Strengthen entity signals: clear brand name, product name, and category on every key page.</li>
+                <li>Add proof: case studies, benchmarks, screenshots, pricing, and real constraints.</li>
+              </ul>
+            </div>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
+              <div className="text-sm font-medium text-zinc-100 mb-2">Increase Market Share</div>
+              <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
+                <li>Cover more prompts by expanding topical clusters and long-tail questions.</li>
+                <li>Build citations: earn mentions from high-authority industry domains.</li>
+                <li>Ship content updates regularly so outputs see fresh information.</li>
+              </ul>
+            </div>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
+              <div className="text-sm font-medium text-zinc-100 mb-2">Track Momentum</div>
+              <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
+                <li>Re-run after major content or PR changes to validate impact.</li>
+                <li>Prioritize competitors with the biggest positive visibility deltas.</li>
+                <li>Use “Emerging Trends” to react to new entrants or rising threats.</li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Trends Chart */}
       <Card className="bg-[#111113] border-zinc-800">
         <CardHeader>

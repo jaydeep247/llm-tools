@@ -161,6 +161,43 @@ export default function GapOpportunities({ moduleFData, isLoading }: GapOpportun
         </p>
       </div>
 
+      <Card className="bg-[#111113] border-zinc-800">
+        <CardHeader>
+          <CardTitle className="text-lg font-medium text-zinc-100">Recommendations</CardTitle>
+          <CardDescription className="text-zinc-400">
+            Fast ways to capture gaps and grow {brandName} visibility.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
+              <div className="text-sm font-medium text-zinc-100 mb-2">Quick Wins</div>
+              <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
+                <li>Start with prompts where competitors are missing or ranked beyond top 10.</li>
+                <li>Answer the prompt directly in the first 2–3 lines, then expand.</li>
+                <li>Add a clear callout section: pricing, features, and “best for” scenarios.</li>
+              </ul>
+            </div>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
+              <div className="text-sm font-medium text-zinc-100 mb-2">Prompt Targeting</div>
+              <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
+                <li>Group prompts by intent (comparison, purchase, “how-to”, alternatives).</li>
+                <li>Create one strong landing page per cluster and link supporting FAQs.</li>
+                <li>Use headings and lists to make extraction easy for AI outputs.</li>
+              </ul>
+            </div>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
+              <div className="text-sm font-medium text-zinc-100 mb-2">Measure Impact</div>
+              <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
+                <li>Re-run after publishing/updates and watch gap score and missing prompts drop.</li>
+                <li>Prioritize the top 10 prompts with highest opportunity scores.</li>
+                <li>Keep pages fresh: update quarterly or when offerings change.</li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {!hasData ? (
         <div className="bg-[#111113] rounded-xl p-6 border border-zinc-800">
           <div className="flex items-start gap-3">

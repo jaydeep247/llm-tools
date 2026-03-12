@@ -170,6 +170,43 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading }: Compet
         </p>
       </div>
 
+      <Card className="bg-[#111113] border-zinc-800">
+        <CardHeader>
+          <CardTitle className="text-lg font-medium text-zinc-100">Recommendations</CardTitle>
+          <CardDescription className="text-zinc-400">
+            Actions to convert competitor wins into your wins.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
+              <div className="text-sm font-medium text-zinc-100 mb-2">Win the Prompt</div>
+              <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
+                <li>Create a dedicated page for each high-value prompt with a direct, ranked answer.</li>
+                <li>Add strong differentiators: pricing model, support, integrations, limits, and use-cases.</li>
+                <li>Include an explicit “best for” section to match recommendation-style queries.</li>
+              </ul>
+            </div>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
+              <div className="text-sm font-medium text-zinc-100 mb-2">Close Content Gaps</div>
+              <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
+                <li>Expand missing entities: features, categories, locations, and industry terminology.</li>
+                <li>Improve structure: headings, lists, FAQs, tables, and short summaries at the top.</li>
+                <li>Add trust assets: case studies, testimonials, references, and compliance claims.</li>
+              </ul>
+            </div>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
+              <div className="text-sm font-medium text-zinc-100 mb-2">Defend Against Rivals</div>
+              <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
+                <li>Publish “alternatives” and “vs” pages for the top winner domains.</li>
+                <li>Target citations: get your domain referenced by the sources models rely on.</li>
+                <li>Re-run after changes to confirm the win-rate moves in your favor.</li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <ScoreCard

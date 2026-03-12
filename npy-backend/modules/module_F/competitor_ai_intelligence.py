@@ -325,11 +325,20 @@ class CompetitorAIIntelligence:
                 # Influence score = (Avg DA * 0.7) + (Count * 5) capped at 100
                 influence_score = min(100, (avg_auth * 0.8) + (len(sources) * 2))
 
+                domains = [str((s or {}).get("domain") or "").strip().lower() for s in sources if isinstance(s, dict)]
+                domains = [d for d in domains if d]
+                unique_domains = set(domains)
+                types = [str((s or {}).get("citation_type") or "").strip().lower() for s in sources if isinstance(s, dict)]
+                types = [t for t in types if t]
+                unique_types = set(types)
+
                 results.append({
                     "competitor": comp,
                     "source_domain_influence_score": round(influence_score, 1),
                     "average_domain_authority": avg_auth,
                     "citation_count": len(sources),
+                    "source_diversity": len(unique_domains),
+                    "type_diversity": len(unique_types),
                     "top_citations": sources
                 })
 

@@ -213,6 +213,42 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
         </Card>
       </div>
 
+      <Card className="bg-[#111113] rounded-xl border border-zinc-800 p-5">
+        <div className="flex items-center gap-2 mb-1">
+          <Swords className="w-4 h-4 text-blue-400" />
+          <div className="text-sm font-medium text-zinc-100">Recommendations</div>
+        </div>
+        <div className="text-xs text-zinc-400 mb-4">
+          Steps to increase your visibility score, improve rank vs competitors, and grow market share.
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
+            <div className="text-sm font-medium text-zinc-100 mb-2">Raise Visibility Score</div>
+            <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
+              <li>Make your brand easy to cite: consistent name, category, and short positioning statement.</li>
+              <li>Publish authoritative pages: “best for”, “pricing”, “features”, and “comparisons”.</li>
+              <li>Earn mentions from trusted sources so models repeatedly see your brand.</li>
+            </ul>
+          </div>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
+            <div className="text-sm font-medium text-zinc-100 mb-2">Improve Rank vs Brand</div>
+            <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
+              <li>Cover the same use-cases competitors win, but with clearer criteria and proof.</li>
+              <li>Add structured lists and tables so extraction favors your content.</li>
+              <li>Target competitor name queries: “{'{'}competitor{'}'} alternatives” and “{'{'}competitor{'}'} vs”.</li>
+            </ul>
+          </div>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
+            <div className="text-sm font-medium text-zinc-100 mb-2">Grow Market Share</div>
+            <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
+              <li>Expand prompt coverage: more topics, more formats, and more long-tail questions.</li>
+              <li>Update key pages frequently so outputs reflect your latest offering.</li>
+              <li>Re-run analysis after changes to confirm share moves in your favor.</li>
+            </ul>
+          </div>
+        </div>
+      </Card>
+
       {!comparison || competitors.length === 0 ? (
         <div className="bg-[#111113] rounded-xl border border-zinc-800 p-8 text-center">
           <div className="flex flex-col items-center gap-3">

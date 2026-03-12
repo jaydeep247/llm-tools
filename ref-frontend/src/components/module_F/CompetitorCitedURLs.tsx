@@ -90,6 +90,43 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading }: Competit
         </p>
       </div>
 
+      <Card className="bg-[#111113] border-zinc-800">
+        <CardHeader>
+          <CardTitle className="text-lg font-medium text-zinc-100">Recommendations</CardTitle>
+          <CardDescription className="text-zinc-400">
+            Actions to improve your source authority and reduce competitor influence.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
+              <div className="text-sm font-medium text-zinc-100 mb-2">Increase Authority</div>
+              <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
+                <li>Publish original data, benchmarks, or reports that others can cite.</li>
+                <li>Get referenced by high-authority industry publications and directories.</li>
+                <li>Use consistent brand naming (brand + domain) across pages and PR mentions.</li>
+              </ul>
+            </div>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
+              <div className="text-sm font-medium text-zinc-100 mb-2">Improve Diversity</div>
+              <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
+                <li>Target multiple source types: reports, reviews, communities, and documentation.</li>
+                <li>Avoid relying on only 1–2 domains; spread citations across categories.</li>
+                <li>Create linkable assets: templates, calculators, checklists, and tool pages.</li>
+              </ul>
+            </div>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
+              <div className="text-sm font-medium text-zinc-100 mb-2">Beat Competitors</div>
+              <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
+                <li>Open top competitor domains and replicate the content formats they get cited for.</li>
+                <li>Cover comparison intent: alternatives pages, pricing explainers, and “best tools” lists.</li>
+                <li>Update pages frequently so models and sources see fresh, accurate information.</li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {!hasData ? (
         <div className="bg-[#111113] rounded-xl p-6 border border-zinc-800">
           <div className="flex items-start gap-3">
