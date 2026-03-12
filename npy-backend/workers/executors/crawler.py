@@ -146,15 +146,27 @@ def execute_crawler_job(payload: dict) -> bool:
 
 def _emit_crawl_status_update(job_id: str, status: str, session_id: str = None,
                               project_id: str = None, url: str = None) -> None:
-    """Write crawl_status to MongoDB and publish CRAWL_STATUS_UPDATED event."""
+    """Write crawl_status to MongoDB and publish CRAWL_STATUS_UPDATED event.
+
+    The job_summaries document is keyed by camelCase ``jobId`` (written by
+    the Quick Start runner with upsert=True).  Using snake_case ``job_id``
+    with upsert=False causes every resume status update to silently miss the
+    document, leaving crawl_status stuck at 'paused' after a resume.
+    """
     try:
+        from datetime import datetime
         from utils.mongo import get_db
         from utils.event_publisher import publisher
         db = get_db()
         db["job_summaries"].update_one(
-            {"job_id": job_id},
-            {"$set": {"crawl_status": status}},
-            upsert=False,
+            {"jobId": job_id},
+            {
+                "$set": {
+                    "crawl_status": status,
+                    "crawlUpdatedAt": datetime.utcnow(),
+                },
+            },
+            upsert=True,
         )
         publisher.emit_event(job_id, "CRAWL_STATUS_UPDATED", {
             "crawl_status": status,

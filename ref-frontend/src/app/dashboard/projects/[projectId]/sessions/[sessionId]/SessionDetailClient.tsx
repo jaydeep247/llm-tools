@@ -206,9 +206,13 @@ export default function SessionDetailClient() {
   const [qsPollingActive, setQsPollingActive] = useState(true)
   // Use quickStartJob.id if found (guarantees correct jobId); fall back to latestJob.
   const qsQueryJobId = quickStartJob?.id ?? jobId ?? ''
-  const { data: quickStartResult } = useGetQuickStartResultQuery(qsQueryJobId, {
+  const { data: quickStartResult, refetch: refetchQuickStart } = useGetQuickStartResultQuery(qsQueryJobId, {
     skip: !qsQueryJobId || activeSection !== 'dashboard',
     refetchOnMountOrArgChange: true,
+    // Poll every 5 s while the crawl status is non-terminal (e.g. paused → running
+    // after resume, or running → completed). qsPollingActive is set to false once
+    // a terminal status (completed/failed/cancelled) is received from the API.
+    pollingInterval: qsPollingActive ? 5000 : 0,
   })
 
   // A session is a quick-start session when module_e has data for this jobId,

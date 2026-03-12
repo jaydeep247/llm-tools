@@ -110,10 +110,22 @@ export default function SessionDetailPage() {
   // Always enabled when there is a jobId (even after analysis finishes)
   // so that the banner shows the correct final crawl_status.
   const qsJobId = (quickStartJob as any)?.id ?? jobId ?? ''
+  // Poll until a terminal status is received so the banner updates live
+  // (paused → running → completed) without requiring a manual page refresh.
+  const [qsPollingActive, setQsPollingActive] = useState(true)
   const { data: quickStartResult } = useGetQuickStartResultQuery(qsJobId, {
     skip: !qsJobId || (searchParams.get('tab') || 'dashboard') !== 'dashboard',
     refetchOnMountOrArgChange: true,
+    pollingInterval: qsPollingActive ? 5000 : 0,
   })
+
+  const rawCrawlStatusForPoll = (quickStartResult as any)?.data?.crawl_status ?? null
+  useEffect(() => {
+    const terminal = ['completed', 'failed', 'cancelled']
+    if (rawCrawlStatusForPoll && terminal.includes(rawCrawlStatusForPoll)) {
+      setQsPollingActive(false)
+    }
+  }, [rawCrawlStatusForPoll])
 
   const [resumeCrawl] = useResumeCrawlMutation()
 
