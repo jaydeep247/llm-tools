@@ -2,7 +2,7 @@
 
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronLeft, AlertCircle, RefreshCw } from 'lucide-react'
+import { ChevronLeft, AlertCircle, RefreshCw, CheckCircle } from 'lucide-react'
 import {
   useAdminGetUserQuery,
   type AdminUserRole,
@@ -172,6 +172,150 @@ export default function AccountDetailPage() {
               <p className="text-sm text-zinc-600">No onboarding data</p>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Account Summary */}
+      <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6">
+        <h3 className="text-sm font-semibold text-white mb-5">Account Summary</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div>
+            <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-1">Plan Level</p>
+            <p className="text-lg font-bold text-white">—</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-1">Health Score</p>
+            <p className="text-lg font-bold text-zinc-300">—</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-1">Current MRR</p>
+            <p className="text-lg font-bold text-white">—</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-1">Status</p>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-zinc-700/40 text-zinc-400 border border-zinc-700/60">
+              —
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Usage Snapshot */}
+        <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6">
+          <h3 className="text-sm font-semibold text-white mb-5">Usage Snapshot</h3>
+          <div className="space-y-1">
+            {[
+              { label: 'Sessions (30 days)', value: '—' },
+              { label: 'Daily Active Users', value: '—' },
+              { label: 'Feature Adoption', value: '—' },
+              { label: 'Last Activity', value: '—' },
+            ].map(({ label, value }) => (
+              <div key={label} className="flex items-center justify-between py-2.5 border-b border-zinc-800/60 last:border-0">
+                <span className="text-xs text-zinc-500">{label}</span>
+                <span className="text-sm text-zinc-400">{value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* AI Quality Metrics */}
+        <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6">
+          <h3 className="text-sm font-semibold text-white mb-5">AI Quality Metrics</h3>
+          <div className="space-y-1">
+            {[
+              { label: 'Citation Rate', value: '—' },
+              { label: 'Schema Coverage', value: '—' },
+              { label: 'Recommendation Acceptance', value: '—' },
+              { label: 'Entities Used', value: '—' },
+            ].map(({ label, value }) => (
+              <div key={label} className="flex items-center justify-between py-2.5 border-b border-zinc-800/60 last:border-0">
+                <span className="text-xs text-zinc-500">{label}</span>
+                <span className="text-sm text-zinc-400">{value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Revenue Signals */}
+        <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6">
+          <h3 className="text-sm font-semibold text-white mb-5">Revenue Signals</h3>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between py-2.5 border-b border-zinc-800/60">
+              <span className="text-xs text-zinc-500">Renewal Date</span>
+              <span className="text-sm text-zinc-400">—</span>
+            </div>
+            <div className="flex items-center justify-between py-2.5 border-b border-zinc-800/60">
+              <span className="text-xs text-zinc-500">Payment Status</span>
+              <span className="text-sm text-zinc-400 flex items-center gap-1">
+                <CheckCircle className="w-3.5 h-3.5 text-zinc-600" />
+                —
+              </span>
+            </div>
+            <div className="flex items-center justify-between py-2.5 border-b border-zinc-800/60 last:border-0">
+              <span className="text-xs text-zinc-500">Annual Contract Value</span>
+              <span className="text-sm text-zinc-400">—</span>
+            </div>
+          </div>
+        </div>
+
+        {/* System Issues */}
+        <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6">
+          <h3 className="text-sm font-semibold text-white mb-5">System Issues</h3>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between py-2.5 border-b border-zinc-800/60">
+              <span className="text-xs text-zinc-500">Errors</span>
+              <span className="text-sm text-zinc-400 flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5 text-zinc-600" />
+                —
+              </span>
+            </div>
+            <div className="flex items-center justify-between py-2.5 border-b border-zinc-800/60">
+              <span className="text-xs text-zinc-500">Failed Jobs</span>
+              <span className="text-sm text-zinc-400">—</span>
+            </div>
+            <div className="flex items-center justify-between py-2.5 last:border-0">
+              <span className="text-xs text-zinc-500">Crawl Failures</span>
+              <span className="text-sm text-zinc-400">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Using Features */}
+        <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6">
+          <h3 className="text-sm font-semibold text-white mb-5">Using Features</h3>
+          <div className="flex items-center justify-center h-20">
+            <p className="text-sm text-zinc-600">No feature data</p>
+          </div>
+        </div>
+
+        {/* Top Entities */}
+        <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6">
+          <h3 className="text-sm font-semibold text-white mb-5">Top Entities</h3>
+          <div className="flex items-center justify-center h-20">
+            <p className="text-sm text-zinc-600">No entity data</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Admin Actions */}
+      <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6">
+        <h3 className="text-sm font-semibold text-white mb-5">Admin Actions</h3>
+        <div className="flex gap-3 flex-wrap">
+          <button className="px-4 py-2 rounded-xl bg-amber-500/10 text-amber-300 border border-amber-500/20 text-sm font-medium hover:bg-amber-500/20 transition-all">
+            Flag as At Risk
+          </button>
+          <button className="px-4 py-2 rounded-xl bg-blue-500/10 text-blue-300 border border-blue-500/20 text-sm font-medium hover:bg-blue-500/20 transition-all">
+            Assign to Team
+          </button>
+          <button className="px-4 py-2 rounded-xl bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 text-sm font-medium hover:bg-indigo-500/20 transition-all">
+            Trigger Outreach
+          </button>
+          <button className="px-4 py-2 rounded-xl bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-sm font-medium hover:bg-emerald-500/20 transition-all">
+            Override Recommendations
+          </button>
         </div>
       </div>
     </div>

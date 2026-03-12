@@ -196,19 +196,26 @@ export default function AccountsPage() {
                     </span>
                   </th>
                   <th className={thCls}>Onboarding</th>
+                  <th className={thCls}>Plan</th>
+                  <th className={thCls}>MRR</th>
+                  <th className={thCls}>Industry</th>
+                  <th className={thCls}>Region</th>
+                  <th className={thCls}>Active Users</th>
+                  <th className={thCls}>Adoption</th>
+                  <th className={thCls}>Churn Risk</th>
                   <th className={thCls}>
                     <span className="flex items-center gap-1 cursor-pointer hover:text-zinc-300 transition-colors" onClick={() => toggleSort('createdAt')}>
                       Joined <SortIcon active={sortKey === 'createdAt'} dir={sortDir} />
                     </span>
                   </th>
                   <th className={thCls}>Last Updated</th>
-                  <th className={thCls}>View</th>
+                  <th className={thCls}>Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-800/60">
                 {sorted.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-14 text-center text-sm text-zinc-500">No users found</td>
+                    <td colSpan={14} className="py-14 text-center text-sm text-zinc-500">No users found</td>
                   </tr>
                 ) : sorted.map((user) => (
                   <tr key={user.id} className="hover:bg-zinc-800/30 transition-colors group">
@@ -236,6 +243,27 @@ export default function AccountsPage() {
                         <span className="text-xs text-zinc-600">—</span>
                       )}
                     </td>
+                    <td className="px-4 py-3.5">
+                      <span className="text-xs text-zinc-600">—</span>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <span className="text-xs text-zinc-600">—</span>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <span className="text-xs text-zinc-600">—</span>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <span className="text-xs text-zinc-600">—</span>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <span className="text-xs text-zinc-600">—</span>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <span className="text-xs text-zinc-600">—</span>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <span className="text-xs text-zinc-600">—</span>
+                    </td>
                     <td className="px-4 py-3.5 text-xs text-zinc-400">
                       {new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </td>
@@ -245,10 +273,10 @@ export default function AccountsPage() {
                     <td className="px-4 py-3.5">
                       <Link
                         href={`/admin/accounts/${user.id}`}
-                        className="inline-flex items-center gap-1.5 p-1.5 rounded-lg text-zinc-500 hover:text-indigo-400 hover:bg-indigo-500/10 transition-all opacity-0 group-hover:opacity-100"
-                        title="View"
+                        className="inline-flex items-center gap-1.5 text-sm text-indigo-400 hover:text-indigo-300 hover:underline transition-colors"
                       >
-                        <Eye className="w-3.5 h-3.5" />
+                        <Eye className="w-4 h-4" />
+                        View
                       </Link>
                     </td>
                   </tr>
