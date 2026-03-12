@@ -8,7 +8,6 @@ interface JobStatusCheckerProps {
   projectId: string
   children: React.ReactNode
   enabled?: boolean
-  pollingInterval?: number
   onStatusChange?: (status: string | undefined) => void
 }
 
@@ -33,7 +32,6 @@ export function JobStatusChecker({
   projectId,
   children,
   enabled = true,
-  pollingInterval = 5000,
   onStatusChange
 }: JobStatusCheckerProps) {
   useJobRedirect({
@@ -41,7 +39,6 @@ export function JobStatusChecker({
     sessionId,
     projectId,
     enabled,
-    pollingInterval,
     onStatusChange
   })
 

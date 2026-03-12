@@ -77,7 +77,6 @@ export default function ImprovementActions({ jobId, url = '' }: ImprovementActio
     refetchOnMountOrArgChange: true,
     refetchOnFocus: true,
     refetchOnReconnect: true,
-    pollingInterval: 5000,
   })
 
   const [runAnalysis] = useRunModuleCAnalysisMutation()

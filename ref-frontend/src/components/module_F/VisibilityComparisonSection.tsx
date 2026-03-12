@@ -249,7 +249,7 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
                   const isBetter = delta !== null && delta !== undefined ? delta < 0 : false
                   return (
                     <tr key={`${row.name}-${i}`} className="hover:bg-zinc-900/50 transition-colors">
-                      <td className="p-3 font-medium text-zinc-100 truncate max-w-[220px]">{row.name}</td>
+                      <td className="p-3 font-medium text-zinc-100 truncate max-w-55">{row.name}</td>
                       <td className="p-3">
                         <div className="flex items-center gap-2">
                           <span className={cn('font-semibold', getVisibilityColor(row.visibility_score ?? 0))}>

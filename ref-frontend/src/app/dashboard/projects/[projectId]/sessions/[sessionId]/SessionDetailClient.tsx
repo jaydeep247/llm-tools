@@ -43,7 +43,6 @@ export default function SessionDetailClient() {
   const { data: jobsData, isLoading: isLoadingJobs } = useGetSessionJobsQuery(sessionId, {
     skip: !sessionId,
     refetchOnMountOrArgChange: true,
-    pollingInterval: 5000,
   })
 
   // Get the latest job (assuming sorted by creation or just taking the last one for now)
@@ -119,11 +118,11 @@ export default function SessionDetailClient() {
   const shouldPollResults = isJobRunning || isCrawlJobRunning || isSessionRunning
 
   // Fetch results for the job using granular endpoints
-  const { data: pagesResult, isLoading: isLoadingPagesRaw, refetch: refetchPagesRaw } = useGetJobPagesQuery({ jobId: jobId!, limit: 1000 }, { skip: skipResults, refetchOnMountOrArgChange: true, pollingInterval: shouldPollResults ? 3000 : 0 })
-  const { data: linksResult, isLoading: isLoadingLinksRaw, refetch: refetchLinksRaw } = useGetJobLinksQuery({ jobId: jobId!, limit: 1000 }, { skip: skipResults, refetchOnMountOrArgChange: true, pollingInterval: shouldPollResults ? 3000 : 0 })
-  const { data: fieldsResult, isLoading: isLoadingFieldsRaw, refetch: refetchFieldsRaw } = useGetJobFieldsQuery(jobId!, { skip: skipResults, refetchOnMountOrArgChange: true, pollingInterval: shouldPollResults ? 3000 : 0 })
-  const { data: sitemapsResult, isLoading: isLoadingSitemapsRaw, refetch: refetchSitemapsRaw } = useGetJobSitemapsQuery(jobId!, { skip: skipResults, refetchOnMountOrArgChange: true, pollingInterval: shouldPollResults ? 3000 : 0 })
-  const { data: jobSummary } = useGetJobSummaryQuery(jobId!, { skip: skipResults, refetchOnMountOrArgChange: true, pollingInterval: shouldPollResults ? 3000 : 0 })
+  const { data: pagesResult, isLoading: isLoadingPagesRaw, refetch: refetchPagesRaw } = useGetJobPagesQuery({ jobId: jobId!, limit: 1000 }, { skip: skipResults, refetchOnMountOrArgChange: true })
+  const { data: linksResult, isLoading: isLoadingLinksRaw, refetch: refetchLinksRaw } = useGetJobLinksQuery({ jobId: jobId!, limit: 1000 }, { skip: skipResults, refetchOnMountOrArgChange: true })
+  const { data: fieldsResult, isLoading: isLoadingFieldsRaw, refetch: refetchFieldsRaw } = useGetJobFieldsQuery(jobId!, { skip: skipResults, refetchOnMountOrArgChange: true })
+  const { data: sitemapsResult, isLoading: isLoadingSitemapsRaw, refetch: refetchSitemapsRaw } = useGetJobSitemapsQuery(jobId!, { skip: skipResults, refetchOnMountOrArgChange: true })
+  const { data: jobSummary } = useGetJobSummaryQuery(jobId!, { skip: skipResults, refetchOnMountOrArgChange: true })
   
   // Real-time snapshot — poll the CRAWL job's snapshot specifically.
   // For quick-start sessions crawlJobId is null; fall back to quickStartJobId
@@ -132,7 +131,6 @@ export default function SessionDetailClient() {
   const isSnapshotJobRunning = isCrawlJobRunning || isQsJobRunning
   const { data: jobSnapshot } = useGetJobSnapshotQuery(snapshotJobId!, { 
     skip: !snapshotJobId, 
-    pollingInterval: snapshotJobId ? (isSnapshotJobRunning ? 1500 : 5000) : 0,
     refetchOnMountOrArgChange: true,
   })
 
@@ -184,7 +182,6 @@ export default function SessionDetailClient() {
   // all receive live data without any user interaction.
   const { data: moduleEPolled } = useGetModuleEResultQuery(jobId ?? '', {
     skip: !jobId || activeSection !== 'module-e',
-    pollingInterval: 5000,
     refetchOnMountOrArgChange: true,
   })
 
@@ -197,7 +194,6 @@ export default function SessionDetailClient() {
   // any brand/competitor/sov data was written by the quick-start runner.
   const { data: dashboardModuleEData } = useGetModuleEResultQuery(jobId ?? '', {
     skip: !jobId || activeSection !== 'dashboard',
-    pollingInterval: 0,
     refetchOnMountOrArgChange: true,
   })
 
@@ -212,7 +208,6 @@ export default function SessionDetailClient() {
   const qsQueryJobId = quickStartJob?.id ?? jobId ?? ''
   const { data: quickStartResult } = useGetQuickStartResultQuery(qsQueryJobId, {
     skip: !qsQueryJobId || activeSection !== 'dashboard',
-    pollingInterval: qsPollingActive ? 3000 : 0,
     refetchOnMountOrArgChange: true,
   })
 

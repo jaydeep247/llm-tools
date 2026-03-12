@@ -238,7 +238,6 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
   } = useGetContentMetricsQuery(jobId || '', {
     skip: !jobId,
     refetchOnMountOrArgChange: true,
-    pollingInterval: hasTriggeredAnalysis ? 5000 : undefined,
   })
 
   const [startContentMetrics, { isLoading: isStartingAnalysis }] = useStartContentMetricsMutation()

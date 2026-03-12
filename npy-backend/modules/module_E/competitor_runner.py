@@ -4,6 +4,7 @@ from typing import Dict, Any, List
 from utils.mongo import mongo_manager
 from utils.storage import load_raw_html
 from .competitor_analyzer import CompetitorAnalyzer
+from .recommendations import generate_sov_recommendations
 
 logger = logging.getLogger("module_e_competitors")
 
@@ -38,6 +39,21 @@ async def run_competitor_analysis(job_id: str, url: str, html_content: str = Non
         results = await analyzer.analyze(url, brand_name=brand_name)
 
         ai_sov = results.get("ai_sov") or {}
+        competitor_mentions_data = results.get("mentions") or {}
+
+        # Generate SOV recommendations
+        existing_history = []
+        try:
+            existing_doc = mongo_manager.module_e.find_one({"jobId": job_id}, {"ai_sov_history": 1})
+            if existing_doc:
+                existing_history = existing_doc.get("ai_sov_history", [])
+        except Exception:
+            pass
+        sov_recommendations = generate_sov_recommendations(
+            ai_sov=ai_sov,
+            competitor_mentions=competitor_mentions_data,
+            sov_history=existing_history,
+        )
 
         # Build a timestamped snapshot for the history array
         sov_snapshot = {
@@ -56,6 +72,7 @@ async def run_competitor_analysis(job_id: str, url: str, html_content: str = Non
                     "jobId": job_id,
                     "competitor_mentions": results.get("mentions"),
                     "ai_share_of_voice": ai_sov,
+                    "sov_recommendations": sov_recommendations,
                     "updatedAt": datetime.utcnow(),
                     "createdAt": datetime.utcnow(),
                 },

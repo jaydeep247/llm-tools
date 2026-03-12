@@ -53,7 +53,6 @@ function SentimentBadge({ label }: { label?: string }) {
 export default function DashboardOverview({ jobId, url, onNavigate, crawlStatusSlot }: DashboardOverviewProps) {
   const { data: moduleEResponse, isLoading } = useGetModuleEResultQuery(jobId ?? '', {
     skip: !jobId,
-    pollingInterval: 5000,
     refetchOnMountOrArgChange: true,
   })
 

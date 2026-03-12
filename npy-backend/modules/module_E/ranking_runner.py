@@ -12,6 +12,10 @@ from orchestrator.checkpoint.executor import execute_task
 
 from .content_consistency import ContentConsistencyModule
 from .entity_coverage import EntityCoverageModule
+from .recommendations import (
+    generate_tracked_prompts_recommendations,
+    generate_citations_recommendations,
+)
 
 logger = logging.getLogger("module_e_ranking_runner")
 
@@ -648,7 +652,15 @@ class RankingRunner:
             "generated_prompts": prompts,
             "errors": errors if errors else None
         }
-        
+
+        # Generate recommendations only when real data exists (generators return None otherwise)
+        tracked_rec = generate_tracked_prompts_recommendations(result_payload)
+        citations_rec = generate_citations_recommendations(result_payload)
+        if tracked_rec is not None:
+            result_payload["tracked_prompts_recommendations"] = tracked_rec
+        if citations_rec is not None:
+            result_payload["citations_recommendations"] = citations_rec
+
         return result_payload
 
 
@@ -747,14 +759,36 @@ async def run_ranking_analysis(
     # 4. Persist to module_e — single source of truth for all Module E data.
     if result_data and "error" not in result_data:
         try:
+            # Build root-level entity_coverage from ranking_analysis so the
+            # ContentConsistencyEntityCoverage display widget reads correct values.
+            ec = result_data.get("entity_coverage") or {}
+            cq = result_data.get("content_quality") or {}
+
+            set_doc: dict = {
+                "jobId": job_id,
+                "ranking_analysis": result_data,
+                # Root-level fields consumed by ContentConsistencyEntityCoverage
+                "entity_coverage": {
+                    "score": ec.get("score", 0),
+                    "missing": ec.get("missing_entities", []),
+                    "found": ec.get("found_entities", []),
+                    "total_expected": ec.get("total_expected", 0),
+                },
+                "content_consistency": {
+                    "score": cq.get("overall_score", 0),
+                },
+                "updatedAt": datetime.utcnow(),
+            }
+            # Only persist recommendations when they were actually computed
+            if result_data.get("tracked_prompts_recommendations") is not None:
+                set_doc["tracked_prompts_recommendations"] = result_data["tracked_prompts_recommendations"]
+            if result_data.get("citations_recommendations") is not None:
+                set_doc["citations_recommendations"] = result_data["citations_recommendations"]
+
             mongo_manager.module_e.update_one(
                 {"jobId": job_id},
                 {
-                    "$set": {
-                        "jobId": job_id,
-                        "ranking_analysis": result_data,
-                        "updatedAt": datetime.utcnow(),
-                    },
+                    "$set": set_doc,
                     "$setOnInsert": {
                         "createdAt": datetime.utcnow(),
                     },

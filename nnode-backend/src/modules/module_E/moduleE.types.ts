@@ -160,8 +160,37 @@ export interface ModuleEResult {
     >;
   }>;
   ranking_analysis?: RankingAnalysisResult;
+
+  /** Recommendations for the Tracked Prompts section */
+  tracked_prompts_recommendations?: ModuleERecommendationBlock;
+
+  /** Recommendations for the Citations Tracker section */
+  citations_recommendations?: ModuleERecommendationBlock;
+
+  /** Recommendations for the Share of Voice section */
+  sov_recommendations?: ModuleERecommendationBlock;
+
   createdAt?: string;
   updatedAt?: string;
+}
+
+/** A single actionable improvement recommendation */
+export interface ModuleERecommendation {
+  priority: number;
+  category: string;
+  severity: 'critical' | 'warning' | 'info';
+  title: string;
+  issue: string;
+  fix: string;
+  impact: string;
+  fields_affected: string[];
+}
+
+/** The full recommendation block returned for a section */
+export interface ModuleERecommendationBlock {
+  recommendations: ModuleERecommendation[];
+  health_score: number;
+  summary: string;
 }
 
 export interface RankingAnalysisResult {

@@ -61,7 +61,6 @@ export default function AIIntelligenceModule({ url, sessionId, jobId }: AIIntell
     refetchOnMountOrArgChange: true,
     refetchOnFocus: true,
     refetchOnReconnect: true,
-    pollingInterval: 5000,
   })
 
   // Poll for analysis job status when we have an analysisJobId
@@ -70,7 +69,7 @@ export default function AIIntelligenceModule({ url, sessionId, jobId }: AIIntell
     isLoading: isLoadingAnalysisJob 
   } = useGetJobStatusQuery(analysisJobId || '', {
     skip: !analysisJobId,
-    pollingInterval: analysisJobId ? 2000 : 0, // Poll every 2 seconds while job is running
+    pollingInterval: analysisJobId ? 2000 : 0,
   })
 
   // Check if analysis job is complete and refetch results

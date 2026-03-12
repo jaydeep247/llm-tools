@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Dict, Any
 from utils.mongo import mongo_manager
 from .competitor_analyzer import CompetitorAnalyzer
+from .recommendations import generate_sov_recommendations
 
 logger = logging.getLogger("module_e_ai_sov")
 
@@ -94,11 +95,21 @@ async def run_ai_sov_analysis(job_id: str, url: str, html_content: str = None) -
             "by_model": ai_sov.get("by_model", {}),
         }
 
+        # 6. Generate SOV recommendations (using existing competitor_mentions for context)
+        existing_history = existing.get("ai_sov_history", [])
+        competitor_mentions = existing.get("competitor_mentions") or {}
+        sov_recommendations = generate_sov_recommendations(
+            ai_sov=ai_sov,
+            competitor_mentions=competitor_mentions,
+            sov_history=existing_history,
+        )
+
         mongo_manager.module_e.update_one(
             {"jobId": job_id},
             {
                 "$set": {
                     "ai_share_of_voice": ai_sov,
+                    "sov_recommendations": sov_recommendations,
                     "updatedAt": datetime.utcnow(),
                 },
                 "$push": {
@@ -110,7 +121,7 @@ async def run_ai_sov_analysis(job_id: str, url: str, html_content: str = None) -
             },
         )
 
-        return {"ai_sov": ai_sov, "snapshot": sov_snapshot}
+        return {"ai_sov": ai_sov, "snapshot": sov_snapshot, "sov_recommendations": sov_recommendations}
 
     except Exception as e:
         logger.error(f"AI SOV runner failed for job {job_id}: {e}", exc_info=True)

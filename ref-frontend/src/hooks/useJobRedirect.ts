@@ -7,7 +7,6 @@ export interface UseJobRedirectOptions {
   sessionId: string
   projectId: string
   enabled?: boolean
-  pollingInterval?: number
   onStatusChange?: (status: string | undefined) => void
   redirectOnStatus?: string[]
   skipRedirect?: boolean
@@ -23,7 +22,6 @@ export const useJobRedirect = ({
   sessionId,
   projectId,
   enabled = true,
-  pollingInterval = 5000,
   onStatusChange,
   redirectOnStatus = ['running', 'auditing'],
   skipRedirect = false
@@ -33,7 +31,6 @@ export const useJobRedirect = ({
 
   const { data: job, isLoading, error, refetch } = useGetJobStatusQuery(jobId!, {
     skip: !enabled || !jobId,
-    pollingInterval,
   })
 
   useEffect(() => {
@@ -105,7 +102,6 @@ export const useMultipleJobsRedirect = (
   const jobResults = jobs.map(({ jobId, sessionId, projectId }) => 
     useGetJobStatusQuery(jobId!, {
       skip: !jobId,
-      pollingInterval: options?.pollingInterval || 5000,
     })
   )
 

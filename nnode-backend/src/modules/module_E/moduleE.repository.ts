@@ -15,6 +15,9 @@ type ModuleEDocument = WithId<Document> & {
   ai_sov_history?: ModuleEResult['ai_sov_history'];
   score_history?: ModuleEResult['score_history'];
   master_analysis?: ModuleEResult['master_analysis'];
+  tracked_prompts_recommendations?: ModuleEResult['tracked_prompts_recommendations'];
+  citations_recommendations?: ModuleEResult['citations_recommendations'];
+  sov_recommendations?: ModuleEResult['sov_recommendations'];
   createdAt?: Date;
   updatedAt?: Date;
 };
@@ -38,6 +41,9 @@ export class ModuleERepository {
       ai_sov_history: doc.ai_sov_history,
       score_history: doc.score_history,
       master_analysis: doc.master_analysis,
+      tracked_prompts_recommendations: doc.tracked_prompts_recommendations,
+      citations_recommendations: doc.citations_recommendations,
+      sov_recommendations: doc.sov_recommendations,
       createdAt: doc.createdAt ? doc.createdAt.toISOString() : undefined,
       updatedAt: doc.updatedAt ? doc.updatedAt.toISOString() : undefined,
     };

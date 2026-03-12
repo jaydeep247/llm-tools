@@ -10,7 +10,7 @@ import { SessionLayout } from '@/components/layout/SessionLayout'
 import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable, AuditChecker, RecommendationsPanel, SerpAnalyzer } from '@/components/module_A'
 import { AIIntelligenceModule, ContentMetricsModule, AIVisibilityScorecards, EntityGapAnalysis, AIAnswerPreview, ImprovementActions, ModelComparison, AIVisibilityReport } from '@/components/module_C'
 import { SiteStructure } from '@/components/module_D/site-structure'
-import { AICitationRanking, ContentConsistencyEntityCoverage, BrandAnalysisSection, SentimentTrackingSection, CompetitorMentionsSection, SentimentTracking, ShareOfVoiceSection, TrendsByModelSection, DashboardOverview } from '@/components/module_E'
+import { AICitationRanking, ContentConsistencyEntityCoverage, BrandAnalysisSection, SentimentTrackingSection, CompetitorMentionsSection, SentimentTracking, ShareOfVoiceSection, TrendsByModelSection, DashboardOverview, PromptTrackingRecommendations } from '@/components/module_E'
 import VisibilityComparisonSection from '@/components/module_F/VisibilityComparisonSection'
 import CompetitorWinsLibrary from '@/components/module_F/CompetitorWinsLibrary'
 import CompetitorGrowthTrends from '@/components/module_F/CompetitorGrowthTrends'
@@ -112,7 +112,6 @@ export default function SessionDetailPage() {
   const qsJobId = (quickStartJob as any)?.id ?? jobId ?? ''
   const { data: quickStartResult } = useGetQuickStartResultQuery(qsJobId, {
     skip: !qsJobId || (searchParams.get('tab') || 'dashboard') !== 'dashboard',
-    pollingInterval: 5000,
     refetchOnMountOrArgChange: true,
   })
 
@@ -159,7 +158,6 @@ export default function SessionDetailPage() {
 
   const { data: jobSnapshot } = useGetJobSnapshotQuery(snapshotJobId!, {
     skip: !snapshotJobId,
-    pollingInterval: snapshotJobId ? (isSnapshotJobRunning ? 1500 : 5000) : 0,
     refetchOnMountOrArgChange: true,
   })
   
@@ -1234,7 +1232,10 @@ export default function SessionDetailPage() {
         )}
 
         {activeSection === 'share-of-voice' && (
-          <ShareOfVoiceSection jobId={jobId} />
+          <div className="space-y-6">
+            <ShareOfVoiceSection jobId={jobId} />
+            <PromptTrackingRecommendations jobId={jobId} section="sov_recommendations" />
+          </div>
         )}
 
         {activeSection === 'trends-by-model' && (
@@ -1280,11 +1281,17 @@ export default function SessionDetailPage() {
         )}
 
         {activeSection === 'keyword-intelligence' && (
-          <ContentConsistencyEntityCoverage jobId={jobId} />
+          <div className="space-y-6">
+            <ContentConsistencyEntityCoverage jobId={jobId} />
+            <PromptTrackingRecommendations jobId={jobId} section="tracked_prompts_recommendations" />
+          </div>
         )}
 
         {activeSection === 'prompt-opportunities' && (
-          <AICitationRanking jobId={jobId} url={session?.startUrl || ''} />
+          <div className="space-y-6">
+            <AICitationRanking jobId={jobId} url={session?.startUrl || ''} />
+            <PromptTrackingRecommendations jobId={jobId} section="citations_recommendations" />
+          </div>
         )}
 
 

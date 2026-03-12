@@ -178,7 +178,7 @@ export function SerpAnalyzer({ jobId, sessionId }: SerpAnalyzerProps) {
   // 2. After running a new job, poll by jobId until result lands
   const { data: newJobResult } = useGetSerpResultQuery(pendingSerpJobId!, {
     skip: !pendingSerpJobId,
-    pollingInterval: isPolling ? 2000 : 0,
+    pollingInterval: pendingSerpJobId ? 2000 : 0,
   })
 
   // Stop polling once result arrives

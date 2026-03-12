@@ -87,12 +87,11 @@ export default function EntityGapAnalysis({ jobId, url = '' }: EntityGapAnalysis
     refetchOnMountOrArgChange: true,
     refetchOnFocus: true,
     refetchOnReconnect: true,
-    pollingInterval: 5000,
   })
 
   const [runAnalysis, { isLoading: isRunning }] = useRunModuleCAnalysisMutation()
 
-  // Poll for analysis job status
+  // Refetch analysis job status
   const { data: analysisJobData } = useGetJobStatusQuery(analysisJobId || '', {
     skip: !analysisJobId,
     pollingInterval: analysisJobId ? 2000 : 0,

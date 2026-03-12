@@ -7,3 +7,5 @@ export { default as CompetitorLandscapeSection } from './CompetitorLandscapeSect
 export { default as CompetitorMentionsSection, ShareOfVoiceSection } from './CompetitorMentionsSection'
 export { default as TrendsByModelSection } from './TrendsByModelSection'
 export { default as DashboardOverview } from './DashboardOverview'
+export { default as PromptTrackingRecommendations } from './PromptTrackingRecommendations'
+export type { RecommendationSection } from './PromptTrackingRecommendations'

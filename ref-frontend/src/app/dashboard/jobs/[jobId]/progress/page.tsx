@@ -102,7 +102,6 @@ export default function JobProgressPage() {
 
   const { data: polledStatus } = useGetJobStatusQuery(jobId, {
     skip: !jobId,
-    pollingInterval: jobStatus === 'running' || jobStatus === 'pending' ? 3000 : 0,
     refetchOnMountOrArgChange: true,
   })
 

@@ -21,7 +21,7 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
   // Fetch Module E result which includes brand_analysis
   const { data, isLoading } = useGetModuleEResultQuery(jobId || '', {
     skip: !jobId,
-    pollingInterval: isPolling ? 3000 : 0, // Poll only when running analysis
+    pollingInterval: isPolling ? 3000 : 0,
   })
   
   const [runBrandAnalysis, { isLoading: isTriggering }] = useRunBrandAnalysisMutation()

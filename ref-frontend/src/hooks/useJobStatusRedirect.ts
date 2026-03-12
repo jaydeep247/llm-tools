@@ -19,7 +19,6 @@ export const useJobStatusRedirect = ({
 
   const { data: job, isLoading, error } = useGetJobStatusQuery(jobId!, {
     skip: !enabled || !jobId,
-    pollingInterval: 5000, // Poll every 5 seconds
   })
 
   useEffect(() => {
