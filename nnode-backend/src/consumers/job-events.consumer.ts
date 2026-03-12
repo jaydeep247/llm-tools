@@ -5,6 +5,7 @@ import { LiveJobService, JobEvent } from '../services/live-job.service';
 import { JobService } from '../modules/job/job.service';
 import { SessionService } from '../modules/session/session.service';
 import { getIo } from '../socket';
+import { getRedisClient } from '../config/redis';
 
 const EXCHANGE_NAME = 'job.events';
 const QUEUE_NAME = 'job.events.queue.v3'; // Bump version to force fresh queue binding
@@ -164,7 +165,25 @@ export const startJobEventsConsumer = async () => {
            logger.error(`Failed to update DB status for job ${event.jobId}:`, dbError);
         }
 
-        // 2b. Crawl status live update — emit immediately so the UI reflects
+        // 2b. page_crawled — update Redis pages_count live and push crawl:progress
+        //     to the socket so CrawlStatusBanner reflects the real count immediately
+        //     (including the offset supplied for resumed crawls).
+        if (event.eventType === 'page_crawled' && event.payload?.pages_crawled !== undefined) {
+          const pagesCrawled = Number(event.payload.pages_crawled);
+          try {
+            const redis = getRedisClient();
+            await redis.set(`job:${event.jobId}:pages_count`, pagesCrawled, 'EX', 86400);
+          } catch (e) { logger.warn('Redis pages_count update failed:', e); }
+          try {
+            const io = getIo();
+            io.to(`job:${event.jobId}`).emit('crawl:progress', {
+              jobId: event.jobId,
+              pages_crawled: pagesCrawled,
+            });
+          } catch (e) { logger.error('Socket emit error (crawl:progress):', e); }
+        }
+
+        // 2c. Crawl status live update — emit immediately so the UI reflects
         //     the crawl_status change without waiting for the batch flush.
         if (event.eventType === 'CRAWL_STATUS_UPDATED') {
           try {
@@ -177,7 +196,7 @@ export const startJobEventsConsumer = async () => {
           } catch (e) { logger.error('Socket emit error (crawl:status):', e); }
         }
 
-        // 2c. CRAWL_PAUSED — spider hit page limit, emit socket status immediately.
+        // 2d. CRAWL_PAUSED — spider hit page limit, emit socket status immediately.
         if (event.eventType === 'CRAWL_PAUSED') {
           try {
             const io = getIo();

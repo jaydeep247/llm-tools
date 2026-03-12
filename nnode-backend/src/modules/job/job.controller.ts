@@ -301,14 +301,19 @@ export class JobController {
       const statusKey = `job:${id}:status`;
       const redisStatus = await this.redis.get(statusKey);
 
+      // Normalize to uppercase to match JobStatus enum values.
+      // Python workers emit payload.status as lowercase ('completed', 'failed')
+      // which gets stored in Redis as-is, causing a mismatch with 'COMPLETED'/'FAILED'.
+      const normalizedRedisStatus = redisStatus?.toUpperCase() ?? null;
+
       // If Redis has a more recent status (e.g. completed), overlay it
-      if (redisStatus && redisStatus !== job.status) {
-          (job as any).status = redisStatus;
+      if (normalizedRedisStatus && normalizedRedisStatus !== job.status) {
+          (job as any).status = normalizedRedisStatus;
       }
 
       return ResponseUtil.success(res, 'Job runtime status retrieved', {
         job,
-        runtime: redisStatus ? { status: redisStatus } : null,
+        runtime: normalizedRedisStatus ? { status: normalizedRedisStatus } : null,
       });
     } catch (error: any) {
       logger.error(`Error getting job runtime status: ${error.message}`);

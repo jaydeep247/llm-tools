@@ -218,10 +218,11 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisi
 
   // Check if analysis job is complete
   useEffect(() => {
-    if (analysisJobData?.status === 'COMPLETED') {
+    const status = analysisJobData?.status?.toUpperCase()
+    if (status === 'COMPLETED') {
       setAnalysisJobId(null)
       refetchData()
-    } else if (analysisJobData?.status === 'FAILED') {
+    } else if (status === 'FAILED') {
       setAnalysisJobId(null)
     }
   }, [analysisJobData, refetchData])

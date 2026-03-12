@@ -71,6 +71,9 @@ export const quickStartApi = baseApi.injectEndpoints({
         url: `/quick-start/jobs/${jobId}/resume-crawl`,
         method: 'POST',
       }),
+      // Invalidate the cached QuickStart result so the parent re-fetches
+      // crawl_status from MongoDB (transitions paused → running) after resume.
+      invalidatesTags: (_result, _error, jobId) => [{ type: 'QuickStart' as const, id: jobId }],
     }),
   }),
 })
