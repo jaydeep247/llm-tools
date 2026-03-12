@@ -10,3 +10,4 @@ export const cookieConfig: CookieOptions = {
 } as const;
 
 export const COOKIE_NAME = 'access_token';
+export const ADMIN_COOKIE_NAME = 'admin_token';

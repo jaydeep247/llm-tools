@@ -10,13 +10,13 @@ export const createUserSchema = z.object({
     .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
     .regex(/[0-9]/, 'Password must contain at least one number'),
   name: z.string().min(2, 'Name must be at least 2 characters'),
-  role: z.enum([UserRole.CXO, UserRole.CMO, UserRole.SEO_MANAGER, UserRole.CONTENT_MANAGER, UserRole.ANALYST, UserRole.ADMIN]).optional(),
+  role: z.enum([UserRole.CXO, UserRole.CMO, UserRole.SEO_MANAGER, UserRole.CONTENT_MANAGER, UserRole.ANALYST]).optional(),
 });
 
 export const updateUserSchema = z.object({
   email: z.string().email('Invalid email address').optional(),
   name: z.string().min(2, 'Name must be at least 2 characters').optional(),
-  role: z.enum([UserRole.CXO, UserRole.CMO, UserRole.SEO_MANAGER, UserRole.CONTENT_MANAGER, UserRole.ANALYST, UserRole.ADMIN]).optional(),
+  role: z.enum([UserRole.CXO, UserRole.CMO, UserRole.SEO_MANAGER, UserRole.CONTENT_MANAGER, UserRole.ANALYST]).optional(),
   hasNew: z.boolean().optional(),
   onboardingData: z.object({
     role: z.string().optional(),

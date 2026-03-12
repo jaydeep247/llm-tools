@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { env } from './config/env';
 import authRoutes from './modules/auth/auth.routes';
+import adminAuthRoutes from './modules/auth/admin-auth.routes';
+import adminUsersRoutes from './modules/admin/admin-users.routes';
 import userRoutes from './modules/user/user.routes';
 import projectRoutes from './modules/project/project.routes';
 import sessionRoutes from './modules/session/session.routes';
@@ -23,6 +25,8 @@ router.get('/health', (_req, res) => {
 });
 
 router.use('/auth', authRoutes);
+router.use('/auth/admin', adminAuthRoutes);
+router.use('/admin/users', adminUsersRoutes);
 router.use('/users', userRoutes);
 router.use('/projects', projectRoutes);
 router.use('/', sessionRoutes);

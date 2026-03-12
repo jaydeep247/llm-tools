@@ -1,250 +1,177 @@
-"use client"
+'use client'
 
-import { useParams } from "next/navigation"
-import Link from "next/link"
-import { ChevronLeft, AlertCircle, CheckCircle } from "lucide-react"
+import { useParams } from 'next/navigation'
+import Link from 'next/link'
+import { ChevronLeft, AlertCircle, RefreshCw } from 'lucide-react'
+import {
+  useAdminGetUserQuery,
+  type AdminUserRole,
+} from '@/store/api/admin/adminUsersApi'
 
-// Mock account details
-const accountDetails: Record<string, {
-  name: string
-  plan: string
-  status: string
-  signupDate: string
-  healthScore: number
-  churnRisk: string
-  mrr: number
-  dau: number
-  adoption: number
-  sessions30d: number
-  features: string[]
-  entities: string[]
-  citationRate: number
-  schemaUsage: number
-  recommendationAcceptance: number
-  lastActivity: string
-  renewalDate: string
-  paymentStatus: string
-  acv: number
-  errors: number
-  failedJobs: number
-  crawlFailures: number
-}> = {
-  1: {
-    name: "Acme Corp",
-    plan: "Enterprise",
-    status: "Active",
-    signupDate: "2021-03-15",
-    healthScore: 94,
-    churnRisk: "Low",
-    mrr: 5200,
-    dau: 234,
-    adoption: 94,
-    sessions30d: 2841,
-    features: ["Advanced Search", "Analytics", "API Access", "Custom Reports"],
-    entities: ["Company", "Product", "Person", "Location"],
-    citationRate: 87,
-    schemaUsage: 94,
-    recommendationAcceptance: 79,
-    lastActivity: "2024-02-19",
-    renewalDate: "2024-03-15",
-    paymentStatus: "OK",
-    acv: 62400,
-    errors: 3,
-    failedJobs: 0,
-    crawlFailures: 1,
-  },
+const ROLE_LABEL: Record<AdminUserRole, string> = {
+  CXO: 'CXO',
+  CMO: 'CMO',
+  SEO_MANAGER: 'SEO Manager',
+  CONTENT_MANAGER: 'Content Manager',
+  ANALYST: 'Analyst',
+}
+
+const ROLE_BADGE: Record<AdminUserRole, string> = {
+  CXO: 'bg-amber-500/15 text-amber-300 border-amber-500/25',
+  CMO: 'bg-blue-500/15 text-blue-300 border-blue-500/25',
+  SEO_MANAGER: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/25',
+  CONTENT_MANAGER: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/25',
+  ANALYST: 'bg-zinc-500/15 text-zinc-300 border-zinc-500/25',
+}
+
+function fmt(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    month: 'long', day: 'numeric', year: 'numeric',
+  })
 }
 
 export default function AccountDetailPage() {
   const params = useParams()
-  const accountId = params?.id as string | undefined
-  const account = accountId ? accountDetails[accountId] : undefined
+  const id = params?.id as string
 
-  if (!account) {
+  const { data: user, isLoading, error, refetch } = useAdminGetUserQuery(id, { skip: !id })
+
+  // ── Loading ──
+  if (isLoading) {
     return (
-      <div className="p-6">
-        <div className="bg-white dark:bg-[#0F0F12] border border-gray-200 dark:border-[#1F1F23] rounded-lg p-6 text-center">
-          <p className="text-gray-600 dark:text-gray-400">Account not found</p>
-          <Link href="/admin/accounts" className="text-blue-600 dark:text-blue-400 hover:underline mt-4 inline-block">
-            Back to accounts
-          </Link>
+      <div className="py-10 space-y-4 animate-pulse">
+        <div className="h-6 bg-zinc-800 rounded w-40" />
+        <div className="h-36 bg-zinc-900/60 border border-zinc-800 rounded-2xl" />
+        <div className="grid grid-cols-2 gap-4">
+          <div className="h-48 bg-zinc-900/60 border border-zinc-800 rounded-2xl" />
+          <div className="h-48 bg-zinc-900/60 border border-zinc-800 rounded-2xl" />
         </div>
       </div>
     )
   }
 
-  return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link href="/admin/accounts" className="p-2 hover:bg-gray-100 dark:hover:bg-[#1F1F23] rounded-lg">
-          <ChevronLeft className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+  // ── Error / not found ──
+  if (error || !user) {
+    return (
+      <div className="py-10 flex flex-col items-center gap-3">
+        <AlertCircle className="w-8 h-8 text-red-400" />
+        <p className="text-sm text-zinc-400">User not found</p>
+        <Link href="/admin/accounts" className="text-sm text-indigo-400 hover:text-indigo-300 underline">
+          ← Back to accounts
         </Link>
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{account.name}</h1>
-          <p className="text-gray-600 dark:text-gray-400">Enterprise Account Details</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-5 py-6">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/accounts"
+            className="p-2 rounded-xl border border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-600 transition-all"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-white">{user.name}</h1>
+            <p className="text-xs text-zinc-500">{user.email}</p>
+          </div>
         </div>
+        <button
+          onClick={() => refetch()}
+          className="p-2 rounded-xl border border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-600 transition-all"
+        >
+          <RefreshCw className="w-4 h-4" />
+        </button>
       </div>
 
-      {/* Top Summary Card */}
-      <div className="bg-white dark:bg-[#0F0F12] border border-gray-200 dark:border-[#1F1F23] rounded-lg p-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div>
-            <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Plan Level</h3>
-            <p className="text-xl font-bold text-gray-900 dark:text-white">{account.plan}</p>
+      {/* Profile Card */}
+      <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6">
+        <div className="flex items-start gap-5">
+          <div className="w-14 h-14 rounded-2xl bg-indigo-500/20 border border-indigo-500/20 flex items-center justify-center text-xl font-bold text-indigo-300 shrink-0">
+            {user.name.charAt(0).toUpperCase()}
           </div>
-          <div>
-            <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Health Score</h3>
-            <p className="text-xl font-bold text-green-600 dark:text-green-400">{account.healthScore}/100</p>
-          </div>
-          <div>
-            <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Current MRR</h3>
-            <p className="text-xl font-bold text-gray-900 dark:text-white">${account.mrr.toLocaleString()}</p>
-          </div>
-          <div>
-            <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Status</h3>
-            <span className="inline-block px-3 py-1 rounded-full text-sm font-medium bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300">
-              {account.status}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Usage Snapshot */}
-        <div className="bg-white dark:bg-[#0F0F12] border border-gray-200 dark:border-[#1F1F23] rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Usage Snapshot</h2>
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-400">Sessions (30 days)</span>
-              <span className="font-medium text-gray-900 dark:text-white">{account.sessions30d}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-400">Daily Active Users</span>
-              <span className="font-medium text-gray-900 dark:text-white">{account.dau}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-400">Feature Adoption</span>
-              <span className="font-medium text-gray-900 dark:text-white">{account.adoption}%</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-400">Last Activity</span>
-              <span className="font-medium text-gray-900 dark:text-white">{account.lastActivity}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* AI Quality Snapshot */}
-        <div className="bg-white dark:bg-[#0F0F12] border border-gray-200 dark:border-[#1F1F23] rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">AI Quality Metrics</h2>
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-400">Citation Rate</span>
-              <span className="font-medium text-gray-900 dark:text-white">{account.citationRate}%</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-400">Schema Coverage</span>
-              <span className="font-medium text-gray-900 dark:text-white">{account.schemaUsage}%</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-400">Recommendation Acceptance</span>
-              <span className="font-medium text-gray-900 dark:text-white">{account.recommendationAcceptance}%</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-400">Entities Used</span>
-              <span className="font-medium text-gray-900 dark:text-white">{account.entities.length}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Revenue Signals */}
-        <div className="bg-white dark:bg-[#0F0F12] border border-gray-200 dark:border-[#1F1F23] rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Revenue Signals</h2>
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-400">Renewal Date</span>
-              <span className="font-medium text-gray-900 dark:text-white">{account.renewalDate}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-400">Payment Status</span>
-              <span className="font-medium text-green-600 dark:text-green-400 flex items-center gap-1">
-                <CheckCircle className="h-4 w-4" /> {account.paymentStatus}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h2 className="text-lg font-semibold text-white">{user.name}</h2>
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border ${ROLE_BADGE[user.role]}`}>
+                {ROLE_LABEL[user.role]}
               </span>
+              {user.hasNew && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
+                  New
+                </span>
+              )}
             </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-400">Annual Contract Value</span>
-              <span className="font-medium text-gray-900 dark:text-white">${account.acv.toLocaleString()}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* System Issues */}
-        <div className="bg-white dark:bg-[#0F0F12] border border-gray-200 dark:border-[#1F1F23] rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">System Issues</h2>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600 dark:text-gray-400">Errors</span>
-              <span className={`font-medium flex items-center gap-1 ${account.errors > 0 ? "text-yellow-600 dark:text-yellow-400" : "text-green-600 dark:text-green-400"}`}>
-                {account.errors > 0 && <AlertCircle className="h-4 w-4" />}
-                {account.errors}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-400">Failed Jobs</span>
-              <span className="font-medium text-green-600 dark:text-green-400">{account.failedJobs}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm text-gray-600 dark:text-gray-400">Crawl Failures</span>
-              <span className="font-medium text-gray-900 dark:text-white">{account.crawlFailures}</span>
+            <p className="text-sm text-zinc-400 mt-1">{user.email}</p>
+            <div className="flex gap-6 mt-3">
+              <div>
+                <p className="text-[10px] text-zinc-600 uppercase tracking-wider">Joined</p>
+                <p className="text-xs text-zinc-300 mt-0.5">{fmt(user.createdAt)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-zinc-600 uppercase tracking-wider">Last Updated</p>
+                <p className="text-xs text-zinc-300 mt-0.5">{fmt(user.updatedAt)}</p>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Features & Entities */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-[#0F0F12] border border-gray-200 dark:border-[#1F1F23] rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Using Features</h2>
-          <div className="space-y-2">
-            {account.features.map((feature) => (
-              <div key={feature} className="flex items-center gap-2 p-2 rounded bg-gray-50 dark:bg-[#1F1F23]">
-                <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-                <span className="text-sm text-gray-700 dark:text-gray-300">{feature}</span>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Profile Details */}
+        <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6">
+          <h3 className="text-sm font-semibold text-white mb-5">Profile Details</h3>
+          <div className="space-y-1">
+            {[
+              { label: 'Full Name', value: user.name },
+              { label: 'Email', value: user.email },
+              { label: 'Role', value: ROLE_LABEL[user.role] },
+              { label: 'Has New', value: user.hasNew ? 'Yes' : 'No' },
+            ].map(({ label, value }) => (
+              <div key={label} className="flex items-center justify-between py-2.5 border-b border-zinc-800/60 last:border-0">
+                <span className="text-xs text-zinc-500">{label}</span>
+                <span className="text-sm text-zinc-200">{value}</span>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#0F0F12] border border-gray-200 dark:border-[#1F1F23] rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Top Entities</h2>
-          <div className="space-y-2">
-            {account.entities.map((entity) => (
-              <div key={entity} className="flex items-center gap-2 p-2 rounded bg-gray-50 dark:bg-[#1F1F23]">
-                <CheckCircle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                <span className="text-sm text-gray-700 dark:text-gray-300">{entity}</span>
+        {/* Onboarding Data */}
+        <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-6">
+          <h3 className="text-sm font-semibold text-white mb-5">Onboarding Data</h3>
+          {user.onboardingData && Object.keys(user.onboardingData).length > 0 ? (
+            <div className="space-y-3">
+              {user.onboardingData.role && (
+                <div className="flex items-center justify-between py-2.5 border-b border-zinc-800/60">
+                  <span className="text-xs text-zinc-500">Self-reported Role</span>
+                  <span className="text-sm text-zinc-200">{user.onboardingData.role}</span>
+                </div>
+              )}
+              {user.onboardingData.organizationType && (
+                <div className="flex items-center justify-between py-2.5 border-b border-zinc-800/60">
+                  <span className="text-xs text-zinc-500">Organization Type</span>
+                  <span className="text-sm text-zinc-200">{user.onboardingData.organizationType}</span>
+                </div>
+              )}
+              {user.onboardingData.focusArea && (
+                <div className="flex items-center justify-between py-2.5 border-b border-zinc-800/60">
+                  <span className="text-xs text-zinc-500">Focus Area</span>
+                  <span className="text-sm text-zinc-200">{user.onboardingData.focusArea}</span>
+                </div>
+              )}
+              <div className="mt-3 p-3 bg-zinc-900/80 border border-zinc-800 rounded-xl">
+                <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-2">Raw JSON</p>
+                <pre className="text-xs text-zinc-400 overflow-auto">{JSON.stringify(user.onboardingData, null, 2)}</pre>
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Admin Actions */}
-      <div className="bg-white dark:bg-[#0F0F12] border border-gray-200 dark:border-[#1F1F23] rounded-lg p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Admin Actions</h2>
-        <div className="flex gap-3 flex-wrap">
-          <button className="px-4 py-2 rounded-lg bg-yellow-100 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-300 text-sm font-medium hover:bg-yellow-200 dark:hover:bg-yellow-900">
-            Flag as At Risk
-          </button>
-          <button className="px-4 py-2 rounded-lg bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-sm font-medium hover:bg-blue-200 dark:hover:bg-blue-900">
-            Assign to Team
-          </button>
-          <button className="px-4 py-2 rounded-lg bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 text-sm font-medium hover:bg-purple-200 dark:hover:bg-purple-900">
-            Trigger Outreach
-          </button>
-          <button className="px-4 py-2 rounded-lg bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300 text-sm font-medium hover:bg-green-200 dark:hover:bg-green-900">
-            Override Recommendations
-          </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-24">
+              <p className="text-sm text-zinc-600">No onboarding data</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

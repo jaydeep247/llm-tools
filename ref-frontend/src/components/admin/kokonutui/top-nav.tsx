@@ -1,131 +1,139 @@
-"use client"
+'use client'
 
-import Image from "next/image"
-import { Bell, ChevronRight, Search, Calendar } from "lucide-react"
-import Link from "next/link"
-import { ThemeToggle } from "../theme-toggle"
-import { useState } from "react"
+import { ChevronRight, Menu, Search, Bell, Settings, LogOut } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import { adminSections } from './sidebar'
+import { useState } from 'react'
 
-interface BreadcrumbItem {
-  label: string
-  href?: string
+interface AdminNavbarProps {
+  onMenuToggle?: () => void
+  onLogout?: () => void
 }
 
-export default function AdminTopNav() {
-  const [environment, setEnvironment] = useState<"production" | "staging">("production")
-  const [showProfileMenu, setShowProfileMenu] = useState(false)
-  const dateRange = { from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), to: new Date() }
+const sectionLabels: Record<string, { parent: string; label: string }> = (() => {
+  const map: Record<string, { parent: string; label: string }> = {}
+  for (const group of adminSections) {
+    if (!group.children || group.children.length === 0) {
+      if (group.href) map[group.href] = { parent: 'Admin', label: group.label }
+      continue
+    }
+    for (const child of group.children) {
+      map[child.href] = { parent: group.label, label: child.label }
+    }
+  }
+  return map
+})()
 
-  const breadcrumbs: BreadcrumbItem[] = [
-    { label: "Admin Portal", href: "/admin" },
-    { label: "Dashboard", href: "/admin/overview" },
-  ]
+export default function AdminNavbar({ onMenuToggle, onLogout }: AdminNavbarProps) {
+  const pathname = usePathname()
+  const [showProfileMenu, setShowProfileMenu] = useState(false)
+
+  const current = Object.entries(sectionLabels).find(
+    ([href]) => pathname === href || pathname.startsWith(href + '/')
+  )?.[1]
 
   return (
-    <nav className="px-3 sm:px-6 flex items-center justify-between bg-white dark:bg-[#0F0F12] border-b border-gray-200 dark:border-[#1F1F23] h-full gap-4">
-      <div className="font-medium text-sm hidden sm:flex items-center space-x-1 truncate max-w-75">
-        {breadcrumbs.map((item, index) => (
-          <div key={item.label} className="flex items-center">
-            {index > 0 && <ChevronRight className="h-4 w-4 text-gray-500 dark:text-gray-400 mx-1" />}
-            {item.href ? (
-              <Link
-                href={item.href}
-                className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
-              >
-                {item.label}
-              </Link>
-            ) : (
-              <span className="text-gray-900 dark:text-gray-100">{item.label}</span>
-            )}
-          </div>
-        ))}
+    <header className="flex h-15 shrink-0 items-center justify-between px-6 py-3 border-b border-white/4">
+      <div className="flex items-center gap-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onMenuToggle}
+          className="md:hidden h-8 w-8"
+        >
+          <Menu className="h-4 w-4" />
+        </Button>
+
+        {/* Breadcrumb */}
+        <nav className="flex items-center gap-1.5 text-sm">
+          <Link
+            href="/admin/overview"
+            className="text-zinc-500 hover:text-zinc-300 transition-colors duration-200"
+          >
+            Admin
+          </Link>
+
+          {current && (
+            <>
+              <ChevronRight className="h-3 w-3 text-zinc-600" />
+              <span className="text-zinc-500">{current.parent}</span>
+              <ChevronRight className="h-3 w-3 text-zinc-600" />
+              <span className="text-white font-medium">{current.label}</span>
+            </>
+          )}
+        </nav>
       </div>
 
-      <div className="flex-1 max-w-xs hidden md:block">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+      {/* Right side */}
+      <div className="flex items-center gap-2">
+        {/* Search */}
+        <div className="hidden md:flex items-center gap-2 bg-zinc-800/50 border border-zinc-700/50 rounded-xl px-3 py-1.5 w-55 focus-within:border-zinc-600 focus-within:bg-zinc-800/80 transition-all duration-200">
+          <Search className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
           <input
             type="text"
-            placeholder="Search users, accounts..."
-            className="w-full pl-10 pr-4 py-2 text-sm rounded-lg bg-gray-50 dark:bg-[#1F1F23] border border-gray-200 dark:border-[#2B2B30] text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:border-blue-500 dark:focus:border-blue-500"
+            placeholder="Search..."
+            className="bg-transparent text-sm text-zinc-300 placeholder:text-zinc-600 outline-none w-full"
           />
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2 sm:gap-3 ml-auto">
-        <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-50 dark:bg-[#1F1F23] border border-gray-200 dark:border-[#2B2B30]">
-          <Calendar className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-          <span className="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">
-            {dateRange.from.toLocaleDateString("en-US", { month: "short", day: "numeric" })} -{" "}
-            {dateRange.to.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-          </span>
+          <kbd className="hidden lg:inline-flex items-center gap-0.5 rounded-md bg-white/6 px-1.5 py-0.5 text-[10px] text-zinc-500 font-mono">
+            ⌘K
+          </kbd>
         </div>
 
-        <select
-          value={environment}
-          onChange={(e) => setEnvironment(e.target.value as "production" | "staging")}
-          className={`hidden sm:inline-flex px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
-            environment === "production"
-              ? "bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300"
-              : "bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800 text-yellow-700 dark:text-yellow-300"
-          }`}
+        {/* Notification bell */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 rounded-xl text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60 relative"
         >
-          <option value="production">Production</option>
-          <option value="staging">Staging</option>
-        </select>
+          <Bell className="h-4 w-4" />
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-blue-500 ring-2 ring-[#0F0F12]" />
+        </Button>
 
-        <button
-          type="button"
-          className="p-1.5 sm:p-2 hover:bg-gray-100 dark:hover:bg-[#1F1F23] rounded-full transition-colors"
+        {/* Settings */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 rounded-xl text-zinc-500 hover:text-indigo-400 hover:bg-zinc-800/60"
         >
-          <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600 dark:text-gray-300" />
-        </button>
+          <Settings className="h-4 w-4" />
+        </Button>
 
-        <ThemeToggle />
-
+        {/* User avatar + dropdown */}
         <div className="relative">
           <button
-            onClick={() => setShowProfileMenu(!showProfileMenu)}
-            className="focus:outline-none"
+            onClick={() => setShowProfileMenu((s) => !s)}
+            className="w-8 h-8 rounded-xl bg-linear-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-semibold ml-1 cursor-pointer hover:ring-2 hover:ring-indigo-500/50 transition-all"
           >
-            <Image
-              src="https://ferf1mheo22r9ira.public.blob.vercel-storage.com/avatar-01-n0x8HFv8EUetf9z6ht0wScJKoTHqf8.png"
-              alt="User avatar"
-              width={28}
-              height={28}
-              className="rounded-full ring-2 ring-gray-200 dark:ring-[#2B2B30] sm:w-8 sm:h-8 cursor-pointer"
-            />
+            A
           </button>
+
           {showProfileMenu && (
-            <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-[#0F0F12] border border-gray-200 dark:border-[#1F1F23] rounded-lg shadow-lg p-4 z-50">
-              <div className="flex items-center gap-3 pb-4 border-b border-gray-200 dark:border-[#1F1F23]">
-                <Image
-                  src="https://ferf1mheo22r9ira.public.blob.vercel-storage.com/avatar-01-n0x8HFv8EUetf9z6ht0wScJKoTHqf8.png"
-                  alt="User avatar"
-                  width={40}
-                  height={40}
-                  className="rounded-full"
-                />
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-white">Admin User</p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">admin@example.com</p>
+            <>
+              {/* Backdrop */}
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setShowProfileMenu(false)}
+              />
+              <div className="absolute right-0 mt-2 w-44 bg-zinc-900 border border-zinc-700/60 rounded-xl shadow-xl z-50 overflow-hidden">
+                <div className="px-3 py-2.5 border-b border-zinc-800">
+                  <p className="text-xs font-medium text-white">System Admin</p>
+                  <p className="text-[11px] text-zinc-500 truncate">admin@llm.com</p>
                 </div>
-              </div>
-              <div className="mt-4 space-y-2">
-                <button className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#1F1F23] rounded">
-                  Profile Settings
-                </button>
-                <button className="w-full text-left px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#1F1F23] rounded">
-                  Preferences
-                </button>
-                <button className="w-full text-left px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 rounded">
-                  Sign Out
+                <button
+                  onClick={() => { setShowProfileMenu(false); onLogout?.() }}
+                  className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  Sign out
                 </button>
               </div>
-            </div>
+            </>
           )}
         </div>
       </div>
-    </nav>
+    </header>
   )
 }
+
