@@ -7,6 +7,7 @@ SAFE MODE: Returns fallback data if API Quota is exceeded.
 import os
 import re
 import json
+import math
 import logging
 from typing import Dict, List, Optional
 from datetime import datetime
@@ -630,15 +631,27 @@ Scoring Guide:
             raw_html = ""
 
         visible_text = ""
+        heading_text = ""
         if raw_html and BeautifulSoup is not None:
             try:
                 soup = BeautifulSoup(raw_html, "html.parser")
                 for tag in soup(["script", "style", "nav", "footer", "header"]):
                     tag.decompose()
+                title_text = ""
+                try:
+                    title_text = soup.title.get_text(" ", strip=True) if soup.title else ""
+                except Exception:
+                    title_text = ""
+                try:
+                    h_nodes = soup.find_all(["h1", "h2"], limit=8)
+                    heading_text = " ".join([h.get_text(" ", strip=True) for h in h_nodes if h])
+                except Exception:
+                    heading_text = ""
                 visible_text = soup.get_text(separator=" ", strip=True)
                 visible_text = " ".join((visible_text or "").split())
             except Exception:
                 visible_text = ""
+                heading_text = ""
 
         page_prompt_intent_match = content_metrics.get("prompt_intent_match")
         page_visibility_impact = content_metrics.get("visibility_impact")
@@ -661,7 +674,9 @@ Scoring Guide:
             toks = re.findall(r"[a-z0-9]+", (text or "").lower())
             return [t for t in toks if len(t) > 2 and t not in stopwords]
 
-        content_tokens = set(tokenize(visible_text[:20000])) if visible_text else set()
+        content_token_list = tokenize(visible_text[:30000]) if visible_text else []
+        content_tokens = set(content_token_list) if content_token_list else set()
+        heading_tokens = set(tokenize(heading_text)) if heading_text else set()
         query_tokens = [set(tokenize(q)) for q in linked_queries[:50]]
 
         def similarity_to_queries(prompt_tokens: set) -> float:
@@ -677,10 +692,32 @@ Scoring Guide:
                     best = score
             return best
 
-        def similarity_to_content(prompt_tokens: set) -> float:
-            if not prompt_tokens or not content_tokens:
+        content_counts: Dict[str, int] = {}
+        for t in content_token_list:
+            content_counts[t] = content_counts.get(t, 0) + 1
+        total_terms = len(content_token_list)
+        max_idf = (math.log(total_terms + 1) + 1.0) if total_terms > 0 else 1.0
+
+        def idf_norm(tf: int) -> float:
+            return (math.log((total_terms + 1) / (tf + 1)) + 1.0) / max_idf if max_idf > 0 else 0.0
+
+        def content_relevance(prompt_tokens: List[str]) -> float:
+            toks = sorted(set(prompt_tokens))
+            if not toks:
                 return 0.0
-            return len(prompt_tokens.intersection(content_tokens)) / max(len(prompt_tokens), 1)
+            denom = float(len(toks))
+            tf_cap = 8
+            strength_den = math.log(1 + tf_cap)
+            s = 0.0
+            for tok in toks:
+                tf = content_counts.get(tok, 0)
+                if tf <= 0:
+                    continue
+                strength = math.log(1 + tf) / strength_den if strength_den > 0 else 0.0
+                if strength > 1.0:
+                    strength = 1.0
+                s += idf_norm(tf) * strength
+            return s / denom
 
         def clamp(n: float, lo: float, hi: float) -> float:
             return max(lo, min(hi, n))
@@ -747,13 +784,29 @@ Scoring Guide:
             ctr_percent = round((prompt_visibility_score / 100) * (engagement_score / 100) * 25, 2)
 
             if not rows:
-                ptoks = set(tokenize(prompt))
-                qsim = similarity_to_queries(ptoks)
-                csim = similarity_to_content(ptoks)
-                relevance = max(qsim, csim)
+                ptok_list = tokenize(prompt)
+                ptok_set = set(ptok_list)
+                qsim = similarity_to_queries(ptok_set)
+                csim = content_relevance(ptok_list)
+                hsim = (len(ptok_set.intersection(heading_tokens)) / max(len(ptok_set), 1)) if heading_tokens and ptok_set else 0.0
 
-                prompt_visibility_score = round(clamp(15 + 85 * relevance * (0.6 + (page_quality_score / 250)), 0, 100), 2)
-                engagement_score = round(clamp(35 + 65 * ((page_quality_score / 100) * 0.55 + relevance * 0.45), 0, 100), 2)
+                phrase_bonus = 0.0
+                if visible_text and prompt and len(prompt.split()) >= 2:
+                    try:
+                        phrase_bonus = 0.15 if prompt.lower() in visible_text.lower() else 0.0
+                    except Exception:
+                        phrase_bonus = 0.0
+
+                relevance = clamp((0.6 * csim) + (0.25 * qsim) + (0.15 * hsim) + phrase_bonus, 0, 1)
+                if len(ptok_set) == 1:
+                    single = next(iter(ptok_set), "")
+                    tf = content_counts.get(single, 0)
+                    if tf > 0 and idf_norm(tf) < 0.18:
+                        relevance = min(relevance, 0.35)
+                    relevance *= 0.75
+
+                prompt_visibility_score = round(clamp(10 + 90 * relevance * (0.55 + (page_quality_score / 220)), 0, 100), 2)
+                engagement_score = round(clamp(30 + 70 * ((page_quality_score / 100) * 0.6 + relevance * 0.4), 0, 100), 2)
                 traffic_estimate = round(clamp((prompt_visibility_score / 100) * (engagement_score / 100) * (5 + min(len(linked_queries), 20) / 2), 0, 25), 2)
                 ctr_percent = round(clamp((prompt_visibility_score / 100) * (engagement_score / 100) * 30, 0, 30), 2)
 

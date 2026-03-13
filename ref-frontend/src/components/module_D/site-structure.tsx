@@ -255,21 +255,29 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
   const [promptText, setPromptText] = useState<string>('')
   const [isPromptPolling, setIsPromptPolling] = useState(false)
   const [promptPollCount, setPromptPollCount] = useState(0)
+  const [pendingPrompts, setPendingPrompts] = useState<string[]>([])
   const [selectedTrackedPrompt, setSelectedTrackedPrompt] = useState<string | null>(null)
   const [startPromptTracking, { isLoading: isStartingPromptTracking }] = useStartPromptTrackingMutation()
 
-  const { data: promptTrackingDoc, isFetching: isFetchingPromptTracking } = useGetJobPromptTrackingQuery(jobId ?? '', {
+  const { data: promptTrackingDoc, isFetching: isFetchingPromptTracking, refetch: refetchPromptTracking } = useGetJobPromptTrackingQuery(jobId ?? '', {
     skip: !jobId,
     pollingInterval: isPromptPolling ? 3000 : 0,
     refetchOnMountOrArgChange: true,
   })
 
   useEffect(() => {
-    if (isPromptPolling && (promptTrackingDoc?.metrics?.length ?? 0) > 0) {
+    if (!isPromptPolling) return
+    if (!pendingPrompts.length) return
+
+    const metrics = promptTrackingDoc?.metrics || []
+    const metricPrompts = new Set(metrics.map((m: any) => (m?.prompt ? String(m.prompt) : '')).filter(Boolean))
+    const allPresent = pendingPrompts.every((p) => metricPrompts.has(p))
+    if (allPresent) {
       setIsPromptPolling(false)
       setPromptPollCount(0)
+      setPendingPrompts([])
     }
-  }, [isPromptPolling, promptTrackingDoc?.metrics?.length])
+  }, [isPromptPolling, pendingPrompts, promptTrackingDoc?.metrics])
 
   useEffect(() => {
     if (!isPromptPolling) return
@@ -281,6 +289,7 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
     if (isPromptPolling && promptPollCount > 40) {
       setIsPromptPolling(false)
       setPromptPollCount(0)
+      setPendingPrompts([])
     }
   }, [isPromptPolling, promptPollCount])
 
@@ -319,9 +328,14 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
     if (prompts.length === 0) return
 
     await startPromptTracking({ jobId, prompts }).unwrap()
+    setPromptText('')
+    setPendingPrompts(Array.from(new Set(prompts)))
     setIsPromptPolling(true)
     setPromptPollCount(0)
-  }, [jobId, promptText, startPromptTracking])
+    try {
+      refetchPromptTracking()
+    } catch {}
+  }, [jobId, promptText, refetchPromptTracking, startPromptTracking])
 
   return (
     <div className="h-[calc(100vh-64px)] p-4 sm:p-6">
