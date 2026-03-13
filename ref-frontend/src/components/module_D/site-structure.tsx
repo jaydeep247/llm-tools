@@ -2,6 +2,10 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { SectionHeader } from '@/components/ui/SectionHeader'
+import { StatCard, StatCardGrid } from '@/components/ui/StatCard'
+import { SectionCard } from '@/components/ui/SectionCard'
 import { 
   Brain, 
   Target, 
@@ -16,7 +20,10 @@ import {
   Maximize2,
   Table,
   Split,
-  Search
+  Search,
+  Eye,
+  MousePointerClick,
+  Activity
 } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { format } from 'date-fns'
@@ -319,6 +326,27 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
       .filter((p) => p.date)
   }, [selectedPromptMetric?.trend])
 
+  const summary = useMemo(() => {
+    const metrics = (promptTrackingDoc?.metrics || []) as any[]
+    const trackedCount = (promptTrackingDoc?.tracked_prompts?.length ?? metrics.length) as number
+
+    const avg = (key: string) => {
+      const vals = metrics
+        .map((m) => (typeof m?.[key] === 'number' ? Number(m[key]) : null))
+        .filter((v) => v != null) as number[]
+      if (!vals.length) return null
+      return vals.reduce((a, b) => a + b, 0) / vals.length
+    }
+
+    return {
+      trackedCount,
+      avgVisibility: avg('prompt_visibility_score'),
+      avgCtr: avg('ctr_percent'),
+      avgEngagement: avg('engagement_score'),
+      avgTraffic: avg('traffic_estimate'),
+    }
+  }, [promptTrackingDoc?.metrics, promptTrackingDoc?.tracked_prompts?.length])
+
   const addPromptsToTracking = useCallback(async () => {
     if (!jobId) return
     const prompts = promptText
@@ -338,124 +366,169 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
   }, [jobId, promptText, refetchPromptTracking, startPromptTracking])
 
   return (
-    <div className="h-[calc(100vh-64px)] p-4 sm:p-6">
-      <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-5 text-xs text-white/80 shadow-[0_18px_45px_rgba(15,23,42,0.9)] space-y-4">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <div className="text-[10px] uppercase tracking-wider text-white/40">Add to Tracking</div>
-            <div className="text-sm font-semibold text-white leading-tight">Prompt Tracking</div>
-          </div>
-          <div className="text-[10px] text-white/40">
-            {promptTrackingDoc?.tracked_prompts?.length ?? 0} tracked
-          </div>
-        </div>
+    <div className="space-y-4">
+      <SectionHeader
+        icon={Target}
+        title="Add to Tracking"
+        description="Prompt Tracking"
+        action={
+          <Badge variant="outline" className="text-[11px] border-zinc-800 text-zinc-300">
+            {summary.trackedCount} tracked
+          </Badge>
+        }
+      />
 
-        <div className="bg-white/5 rounded-2xl p-4 border border-white/10">
-          <div className="text-[10px] uppercase tracking-wider text-white/40 mb-2">Add Prompts</div>
+      <StatCardGrid>
+        <StatCard
+          label="Tracked Prompts"
+          value={summary.trackedCount}
+          subtext={pendingPrompts.length ? `${pendingPrompts.length} updating` : undefined}
+          icon={Target}
+          accent="violet"
+        />
+        <StatCard
+          label="Avg Visibility"
+          value={summary.avgVisibility != null ? summary.avgVisibility.toFixed(1) : '—'}
+          subtext="0–100"
+          icon={Eye}
+          accent="cyan"
+        />
+        <StatCard
+          label="Avg CTR"
+          value={summary.avgCtr != null ? `${summary.avgCtr.toFixed(2)}%` : '—'}
+          subtext="estimated"
+          icon={MousePointerClick}
+          accent="emerald"
+        />
+        <StatCard
+          label="Avg Engagement"
+          value={summary.avgEngagement != null ? summary.avgEngagement.toFixed(1) : '—'}
+          subtext={summary.avgTraffic != null ? `Traffic: ${summary.avgTraffic.toFixed(1)}` : undefined}
+          icon={Activity}
+          accent="amber"
+        />
+      </StatCardGrid>
+
+      <SectionCard title="Add Prompts">
+        <div className="space-y-3">
           <textarea
             value={promptText}
             onChange={(e) => setPromptText(e.target.value)}
             rows={4}
-            className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[12px] text-white/90 placeholder:text-white/30 outline-hidden focus:ring-2 focus:ring-fuchsia-500/30 focus:border-fuchsia-500/30"
+            className={cn(
+              'w-full rounded-xl border border-zinc-800/70 bg-zinc-900/30 px-3 py-2',
+              'text-[12px] text-zinc-100 placeholder:text-zinc-600 outline-hidden',
+              'focus:ring-2 focus:ring-violet-500/30 focus:border-violet-500/40'
+            )}
             placeholder={'One prompt per line\nExample: best running shoes for flat feet'}
           />
-          <div className="mt-3 flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Button
               size="sm"
-              className="rounded-xl bg-fuchsia-500/20 text-fuchsia-200 hover:bg-fuchsia-500/30 border border-fuchsia-500/20"
+              className="rounded-xl bg-violet-600 hover:bg-violet-500 text-white"
               disabled={!jobId || !promptText.trim() || isStartingPromptTracking}
               onClick={addPromptsToTracking}
             >
               {isStartingPromptTracking ? 'Tracking…' : 'Add to Tracking'}
             </Button>
             {(isFetchingPromptTracking || isPromptPolling) && (
-              <div className="text-[11px] text-white/50">Updating…</div>
+              <span className="text-xs text-zinc-500">Updating…</span>
             )}
           </div>
         </div>
+      </SectionCard>
 
-        {promptTrackingDoc?.metrics?.length ? (
-          <div className="rounded-2xl border border-white/10 overflow-hidden bg-white/5 flex flex-col">
-            <div className="overflow-auto custom-scrollbar">
-              <table className="w-full text-left border-collapse">
-                <thead className="bg-white/5 sticky top-0 z-10 backdrop-blur-md border-b border-white/10">
-                  <tr>
-                    <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider">Prompt</th>
-                    <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right">Vis</th>
-                    <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right">CTR</th>
-                    <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right">Eng</th>
-                    <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right">Traffic</th>
-                    <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right">Δ</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {promptTrackingDoc.metrics.map((m, idx) => {
-                    const selected = selectedPromptMetric?.prompt === m.prompt
-                    return (
-                      <tr
-                        key={idx}
-                        className={cn(
-                          'hover:bg-white/5 transition-all duration-200 cursor-pointer',
-                          selected && 'bg-white/5'
+      {promptTrackingDoc?.metrics?.length ? (
+        <SectionCard title="Prompt Metrics" contentClassName="p-0">
+          <div className="overflow-auto custom-scrollbar">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-zinc-900/40 sticky top-0 z-10 border-b border-zinc-800/60">
+                <tr>
+                  <th className="px-5 py-3 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Prompt</th>
+                  <th className="px-5 py-3 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider text-right">Vis</th>
+                  <th className="px-5 py-3 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider text-right">CTR</th>
+                  <th className="px-5 py-3 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider text-right">Eng</th>
+                  <th className="px-5 py-3 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider text-right">Traffic</th>
+                  <th className="px-5 py-3 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider text-right">Δ</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-800/60">
+                {promptTrackingDoc.metrics.map((m, idx) => {
+                  const selected = selectedPromptMetric?.prompt === m.prompt
+                  return (
+                    <tr
+                      key={idx}
+                      className={cn(
+                        'hover:bg-zinc-900/30 transition-colors cursor-pointer',
+                        selected && 'bg-zinc-900/30'
+                      )}
+                      onClick={() => setSelectedTrackedPrompt(m.prompt)}
+                    >
+                      <td className="px-5 py-3 text-sm text-zinc-200 font-medium">
+                        <div className="truncate max-w-[680px]" title={m.prompt}>{m.prompt}</div>
+                      </td>
+                      <td className="px-5 py-3 text-right text-xs font-mono text-zinc-300">{Number(m.prompt_visibility_score ?? 0).toFixed(1)}</td>
+                      <td className="px-5 py-3 text-right text-xs font-mono text-zinc-300">{Number(m.ctr_percent ?? 0).toFixed(2)}%</td>
+                      <td className="px-5 py-3 text-right text-xs font-mono text-zinc-300">{Number(m.engagement_score ?? 0).toFixed(1)}</td>
+                      <td className="px-5 py-3 text-right text-xs font-mono text-zinc-300">{Number(m.traffic_estimate ?? 0).toFixed(1)}</td>
+                      <td className="px-5 py-3 text-right text-xs font-mono text-zinc-300">
+                        {typeof m.visibility_change === 'number' ? (
+                          <span className={cn(m.visibility_change >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
+                            {m.visibility_change >= 0 ? '+' : ''}{m.visibility_change.toFixed(2)}
+                          </span>
+                        ) : (
+                          <span className="text-zinc-600">—</span>
                         )}
-                        onClick={() => setSelectedTrackedPrompt(m.prompt)}
-                      >
-                        <td className="px-4 py-3 text-xs text-white/90 font-medium">
-                          <div className="truncate max-w-[520px]" title={m.prompt}>{m.prompt}</div>
-                        </td>
-                        <td className="px-4 py-3 text-right text-xs font-mono text-white/80">{Number(m.prompt_visibility_score ?? 0).toFixed(1)}</td>
-                        <td className="px-4 py-3 text-right text-xs font-mono text-white/80">{Number(m.ctr_percent ?? 0).toFixed(2)}%</td>
-                        <td className="px-4 py-3 text-right text-xs font-mono text-white/80">{Number(m.engagement_score ?? 0).toFixed(1)}</td>
-                        <td className="px-4 py-3 text-right text-xs font-mono text-white/80">{Number(m.traffic_estimate ?? 0).toFixed(1)}</td>
-                        <td className="px-4 py-3 text-right text-xs font-mono text-white/80">
-                          {typeof m.visibility_change === 'number' ? (
-                            <span className={cn(m.visibility_change >= 0 ? 'text-emerald-300' : 'text-rose-300')}>
-                              {m.visibility_change >= 0 ? '+' : ''}{m.visibility_change.toFixed(2)}
-                            </span>
-                          ) : (
-                            <span className="text-white/40">—</span>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {selectedPromptMetric && selectedPromptTrend.length > 1 && (
-              <div className="border-t border-white/10 p-4">
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className="text-[10px] uppercase tracking-wider text-white/40">Performance Trend</div>
-                  <div className="text-[10px] text-white/40 truncate max-w-[520px]" title={selectedPromptMetric.prompt}>
-                    {selectedPromptMetric.prompt}
-                  </div>
-                </div>
-                <div className="h-52">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={selectedPromptTrend}>
-                      <CartesianGrid stroke="rgba(255,255,255,0.07)" vertical={false} />
-                      <XAxis dataKey="date" tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 10 }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 10 }} axisLine={false} tickLine={false} width={30} />
-                      <Tooltip
-                        contentStyle={{ background: 'rgba(15,23,42,0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12 }}
-                        labelStyle={{ color: 'rgba(255,255,255,0.8)', fontSize: 11 }}
-                        itemStyle={{ color: 'rgba(255,255,255,0.8)', fontSize: 11 }}
-                      />
-                      <Line type="monotone" dataKey="visibility" stroke="#a855f7" strokeWidth={2} dot={false} />
-                      <Line type="monotone" dataKey="ctr" stroke="#22c55e" strokeWidth={2} dot={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
-        ) : (
-          <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 px-6 py-10 text-center text-xs text-white/50">
+        </SectionCard>
+      ) : (
+        <SectionCard title="Prompt Metrics">
+          <div className="text-sm text-zinc-500">
             Add prompts to start tracking visibility, CTR, and performance trends.
           </div>
+        </SectionCard>
+      )}
+
+      <SectionCard title="Performance Trend">
+        {selectedPromptMetric && selectedPromptTrend.length > 1 ? (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-xs text-zinc-500 truncate">
+                {selectedPromptMetric.prompt}
+              </div>
+              <Badge variant="outline" className="text-[11px] border-zinc-800 text-zinc-300">
+                {selectedPromptTrend.length} points
+              </Badge>
+            </div>
+            <div className="h-60">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={selectedPromptTrend}>
+                  <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fill: 'rgba(161,161,170,0.9)', fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: 'rgba(161,161,170,0.9)', fontSize: 10 }} axisLine={false} tickLine={false} width={30} />
+                  <Tooltip
+                    contentStyle={{ background: 'rgba(17,17,19,0.98)', border: '1px solid rgba(63,63,70,0.8)', borderRadius: 12 }}
+                    labelStyle={{ color: 'rgba(244,244,245,0.9)', fontSize: 11 }}
+                    itemStyle={{ color: 'rgba(244,244,245,0.85)', fontSize: 11 }}
+                  />
+                  <Line type="monotone" dataKey="visibility" stroke="#a78bfa" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="ctr" stroke="#34d399" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        ) : (
+          <div className="text-sm text-zinc-500">
+            Select a prompt to view its trend.
+          </div>
         )}
-      </div>
+      </SectionCard>
     </div>
   )
 }

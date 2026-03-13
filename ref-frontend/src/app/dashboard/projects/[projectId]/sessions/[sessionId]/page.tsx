@@ -1143,7 +1143,9 @@ export default function SessionDetailPage() {
 
         {/* Show Prompt Tracking on add-to-Tracking tab */}
         {activeSection === 'add-to-Tracking' && (
-          <PromptTrackingPanel jobId={jobId || null} />
+          <div className="h-[calc(100vh-64px)] p-4 sm:p-6">
+            <PromptTrackingPanel jobId={jobId || null} />
+          </div>
         )}
 
         {/* Show Performance Audits on performance tab */}
