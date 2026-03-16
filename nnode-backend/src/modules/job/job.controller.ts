@@ -18,6 +18,17 @@ export class JobController {
     this.jobService = new JobService();
   }
 
+  private normalizeUrl = (raw?: string): string | undefined => {
+    const trimmed = (raw || '').trim();
+    if (!trimmed) {
+      return undefined;
+    }
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    return `https://${trimmed}`;
+  };
+
   getJobSnapshot = async (req: Request, res: Response): Promise<Response> => {
     try {
         const { id } = sessionIdSchema.parse({ id: req.params.id });
@@ -57,8 +68,9 @@ export class JobController {
       const userId = req.user!.userId;
       const { id } = sessionIdSchema.parse({ id: req.params.id });
       const schemaType = (req.body && typeof req.body.schemaType === 'string') ? req.body.schemaType : undefined;
+      const targetUrl = (req.body && typeof req.body.url === 'string') ? this.normalizeUrl(req.body.url) : undefined;
 
-      const job = await this.jobService.startSchemaGeneration(userId, id, schemaType);
+      const job = await this.jobService.startSchemaGeneration(userId, id, schemaType, targetUrl);
 
       return ResponseUtil.success(res, 'Schema generation job enqueued successfully', job);
     } catch (error: any) {
@@ -115,14 +127,17 @@ export class JobController {
       const { id } = sessionIdSchema.parse({ id: req.params.id });
       await this.jobService.getJobById(userId, id);
 
+      const queryUrl = typeof req.query.url === 'string' ? this.normalizeUrl(req.query.url) : undefined;
       const db = await connectToMongo();
       const collection = db.collection('schemas');
-      const docs = await collection
-        .find({ jobId: id })
-        .sort({ createdAt: 1 })
-        .toArray();
+      const filter: any = { jobId: id };
+      if (queryUrl) {
+        const withSlash = queryUrl.endsWith('/') ? queryUrl : `${queryUrl}/`;
+        const withoutSlash = queryUrl.endsWith('/') ? queryUrl.slice(0, -1) : queryUrl;
+        filter.url = { $in: Array.from(new Set([queryUrl, withSlash, withoutSlash])).filter(Boolean) };
+      }
 
-      const latest = docs.length > 0 ? docs[docs.length - 1] : null;
+      const latest = await collection.find(filter).sort({ createdAt: -1 }).limit(1).next();
 
       return ResponseUtil.success(res, 'Job schema retrieved successfully', latest);
     } catch (error: any) {

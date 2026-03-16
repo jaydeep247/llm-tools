@@ -16,6 +16,17 @@ export class JobService {
     this.queueService = new QueueService();
   }
 
+  private normalizeUrl = (raw?: string): string | undefined => {
+    const trimmed = (raw || '').trim();
+    if (!trimmed) {
+      return undefined;
+    }
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    return `https://${trimmed}`;
+  };
+
   /**
    * Create and queue a job based on its type
    * Each job type is routed to its isolated queue
@@ -238,14 +249,20 @@ export class JobService {
   }
 
   // ============ SCHEMA (Module B) ============
-  async startSchemaGeneration(userId: string, jobId: string, schemaType?: string): Promise<Job> {
+  async startSchemaGeneration(
+    userId: string,
+    jobId: string,
+    schemaType?: string,
+    targetUrl?: string,
+  ): Promise<Job> {
     const job = await this.getJobById(userId, jobId);
+    const resolvedUrl = this.normalizeUrl(targetUrl) || job.url;
 
     await this.queueService.publishSchemaJob({
       jobId: job.id,
       sessionId: job.sessionId,
       projectId: job.projectId,
-      url: job.url,
+      url: resolvedUrl,
       jobType: JobType.SCHEMA,
       schemaType: schemaType || job.schemaType || undefined,
     });
