@@ -82,9 +82,15 @@ export default function CompetitorLandscapeSection({ jobId, landscapeData: initi
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <Shield className="w-5 h-5 text-primary" />
-                    <h3 className="text-lg font-semibold text-foreground">Competitor Landscape</h3>
+                <div>
+                    <div className="flex items-center gap-2">
+                        <Shield className="w-5 h-5 text-primary" />
+                        <h3 className="text-lg font-semibold text-foreground">Competitor Landscape</h3>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1 max-w-3xl">
+                        Evaluate your authority, backlink strength, and domain diversity against the competitive market.
+                        Use this section to identify structural SEO gaps and prioritize off-page actions that improve AI and search visibility.
+                    </p>
                 </div>
                 <Button
                     size="sm"

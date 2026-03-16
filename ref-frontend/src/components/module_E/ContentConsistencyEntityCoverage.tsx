@@ -198,7 +198,10 @@ export default function ContentConsistencyEntityCoverage({ jobId }: ContentConsi
           </div>
           <div>
             <h3 className="text-lg font-semibold text-foreground">Consistency & Coverage</h3>
-            <p className="text-sm text-muted-foreground">Content mandate fit and entity depth</p>
+            <p className="text-sm text-muted-foreground max-w-3xl">
+              Measure how closely AI responses follow your content mandate and whether critical entities are consistently present.
+              Use this section to spot missing topics, improve completeness, and strengthen response reliability across models.
+            </p>
           </div>
         </div>
         <div className="flex gap-2">

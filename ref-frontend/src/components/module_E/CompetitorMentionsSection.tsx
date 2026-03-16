@@ -168,9 +168,15 @@ export default function CompetitorMentionsSection({ jobId, mentionsData: initial
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <Users className="w-5 h-5 text-primary" />
-                    <h3 className="text-lg font-semibold text-foreground">Competitor Mentions</h3>
+                <div>
+                    <div className="flex items-center gap-2">
+                        <Users className="w-5 h-5 text-primary" />
+                        <h3 className="text-lg font-semibold text-foreground">Competitor Mentions</h3>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1 max-w-3xl">
+                        Track which competitors are appearing in AI and web conversations, how often they are mentioned, and the tone around them.
+                        Use this section to benchmark your competitive presence and monitor momentum shifts over time.
+                    </p>
                 </div>
                 {RunButton}
             </div>
@@ -364,8 +370,9 @@ export function ShareOfVoiceSection({ jobId }: ShareOfVoiceSectionProps) {
                         <Users className="w-5 h-5 text-primary" />
                         <h3 className="text-lg font-semibold text-foreground">AI Share of Voice</h3>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                        How often your brand is mentioned vs competitors across AI models.
+                    <p className="text-xs text-muted-foreground mt-1 max-w-3xl">
+                        Compare your brand's mention share against competitors across OpenAI, Gemini, and Claude.
+                        Use this section to evaluate discoverability, identify model gaps, and track progress in unprompted brand recognition.
                     </p>
                 </div>
                 {RunButton}

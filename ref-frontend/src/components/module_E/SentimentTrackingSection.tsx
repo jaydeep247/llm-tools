@@ -251,8 +251,9 @@ export default function SentimentTrackingSection({ jobId, sentimentData: initial
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-lg font-semibold text-foreground">AI Sentiment &amp; Visibility Tracking</h3>
-            <p className="text-xs text-muted-foreground">
-              Measure how AI models perceive and recommend your brand
+            <p className="text-xs text-muted-foreground max-w-3xl">
+              Understand how AI models perceive your brand, how visible it is in discovery prompts, and where sentiment is improving or declining.
+              Use this section to validate brand trust signals and guide messaging updates that increase positive mentions.
             </p>
           </div>
           {RunButton}
@@ -339,7 +340,11 @@ export default function SentimentTrackingSection({ jobId, sentimentData: initial
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold text-foreground">AI Sentiment &amp; Visibility Tracking</h3>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground max-w-3xl">
+            Understand how AI models perceive your brand, how visible it is in discovery prompts, and where sentiment is improving or declining.
+            Use this section to validate brand trust signals and guide messaging updates that increase positive mentions.
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
             Brand: {brand_name} • Industry: {industry} • Service: {service_type}
           </p>
         </div>

@@ -279,7 +279,10 @@ export default function AICitationRanking({ jobId, url, rankingData: initialData
           </div>
           <div>
             <h3 className="text-lg font-semibold text-foreground">AI Citation Ranking</h3>
-            <p className="text-sm text-muted-foreground">Analyze how your URL ranks across AI models</p>
+            <p className="text-sm text-muted-foreground max-w-3xl">
+              See how often your URL is cited, where it ranks, and how each model positions your brand in answers.
+              Use this section to find prompt-level wins, weak spots, and opportunities to improve citation visibility.
+            </p>
           </div>
         </div>
 

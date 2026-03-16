@@ -166,7 +166,10 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold text-foreground">Brand Analysis</h3>
-          <p className="text-xs text-muted-foreground">Run Module E on demand</p>
+          <p className="text-xs text-muted-foreground max-w-3xl">
+            Understand how your brand is discussed across AI-visible sources, including mention volume, sentiment mix, and trend direction.
+            Use this view to validate brand perception and prioritize channels where positive coverage is growing.
+          </p>
         </div>
         <Button
           type="button"

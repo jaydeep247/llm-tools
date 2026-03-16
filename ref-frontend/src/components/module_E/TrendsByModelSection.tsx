@@ -283,8 +283,9 @@ export default function TrendsByModelSection({
             <h3 className="text-lg font-semibold text-foreground">
               Trends by Model
             </h3>
-            <p className="text-sm text-muted-foreground">
-              Compare how each AI model cites, mentions, and represents your brand.
+            <p className="text-sm text-muted-foreground max-w-3xl">
+              Compare citation rate, mention behavior, and sentiment signals model by model to see where your brand performs best.
+              Use these trends to prioritize optimization work for specific models and prompts with the highest impact.
             </p>
           </div>
         </div>

@@ -17,6 +17,7 @@ import {
   Eye,
   MessageSquare,
   Target,
+  ArrowUpRight,
 } from 'lucide-react'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 
@@ -173,7 +174,13 @@ export default function DashboardOverview({ jobId, url, onNavigate, crawlStatusS
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Brand Analysis + AI Share of Voice (left column) */}
         <div className="flex flex-col gap-4">
-          <SectionCard title="Brand Analysis" onClick={() => onNavigate?.('prompt-difficulty')} >
+          <SectionCard
+            title="Brand Analysis"
+            description="Understand how your brand is discussed across AI-visible sources, including mention volume, sentiment mix, and trend direction. Use this view to validate brand perception and prioritize channels where positive coverage is growing."
+            onClick={() => onNavigate?.('prompt-difficulty')}
+            actionLabel="View details"
+            actionIcon={ArrowUpRight}
+          >
           {brand ? (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -210,7 +217,13 @@ export default function DashboardOverview({ jobId, url, onNavigate, crawlStatusS
           )}
         </SectionCard>
           {/* AI Share of Voice preview — moved here from right column */}
-          <SectionCard title="AI Share of Voice" onClick={() => onNavigate?.('share-of-voice')} >
+          <SectionCard
+            title="AI Share of Voice"
+            description="Compare your brand's mention share against competitors across OpenAI, Gemini, and Claude. Use this section to evaluate discoverability, identify model gaps, and track progress in unprompted brand recognition."
+            onClick={() => onNavigate?.('share-of-voice')}
+            actionLabel="View details"
+            actionIcon={ArrowUpRight}
+          >
             {sov ? (
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
@@ -261,7 +274,13 @@ export default function DashboardOverview({ jobId, url, onNavigate, crawlStatusS
         </div>
 
         {/* Competitor Mentions preview */}
-        <SectionCard title="Competitor Landscape" onClick={() => onNavigate?.('prompt-difficulty')} >
+        <SectionCard
+          title="Competitor Landscape"
+          description="Track which competitors are appearing in AI and web conversations, how often they are mentioned, and the tone around them. Use this section to benchmark your competitive presence and monitor momentum shifts over time."
+          onClick={() => onNavigate?.('prompt-difficulty')}
+          actionLabel="View details"
+          actionIcon={ArrowUpRight}
+        >
           {competitors?.data && competitors.data.length > 0 ? (
             <div className="space-y-2">
               {competitors.data.slice(0, 5).map((comp, i) => (
@@ -288,7 +307,13 @@ export default function DashboardOverview({ jobId, url, onNavigate, crawlStatusS
         </SectionCard>
 
         {/* Ranking Analysis preview */}
-        <SectionCard title="Trends by Model" onClick={() => onNavigate?.('trends-by-model')} >
+        <SectionCard
+          title="Trends by Model"
+          description="Compare citation rate, mention behavior, and sentiment signals model by model to see where your brand performs best. Use these trends to prioritize optimization work for specific models and prompts with the highest impact."
+          onClick={() => onNavigate?.('trends-by-model')}
+          actionLabel="View details"
+          actionIcon={ArrowUpRight}
+        >
           {ranking?.ranking_position_per_prompt && ranking.ranking_position_per_prompt.length > 0 ? (
             <div className="space-y-2">
               {ranking.ranking_position_per_prompt.slice(0, 4).map((r, i) => (

@@ -39,29 +39,37 @@ export function SectionHeader({ icon: Icon, title, description, action, classNam
 /** Compact card-header variant — title + border-b divider + optional action link */
 export function CardHeader({
   title,
+  description,
   onAction,
   actionLabel = 'View all →',
+  actionIcon: ActionIcon,
   className,
 }: {
   title: string
+  description?: string
   onAction?: () => void
   actionLabel?: string
+  actionIcon?: LucideIcon
   className?: string
 }) {
   return (
     <div
       className={cn(
-        'flex items-center justify-between px-5 py-3.5 border-b border-zinc-800/60',
+        'flex items-start justify-between gap-4 px-5 py-3.5 border-b border-zinc-800/60',
         className,
       )}
     >
-      <h3 className="text-sm font-semibold text-zinc-200">{title}</h3>
+      <div className="min-w-0">
+        <h3 className="text-sm font-semibold text-zinc-200">{title}</h3>
+        {description && <p className="text-xs text-zinc-500 mt-1 leading-relaxed">{description}</p>}
+      </div>
       {onAction && (
         <button
           onClick={onAction}
-          className="text-xs text-blue-400 hover:text-blue-300 transition-colors cursor-pointer font-medium"
+          className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors cursor-pointer font-medium shrink-0"
         >
           {actionLabel}
+          {ActionIcon && <ActionIcon className="w-3.5 h-3.5" />}
         </button>
       )}
     </div>

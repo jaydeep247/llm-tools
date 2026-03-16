@@ -1,13 +1,16 @@
 import { cn } from '@/lib/utils'
 import { CardHeader } from '@/components/ui/SectionHeader'
+import { type LucideIcon } from 'lucide-react'
 
 export interface SectionCardProps {
   title: string
+  description?: string
   children: React.ReactNode
   onAction?: () => void
   /** Alias for onAction — accepted for compatibility */
   onClick?: () => void
   actionLabel?: string
+  actionIcon?: LucideIcon
   className?: string
   /** Extra classes for the inner content area */
   contentClassName?: string
@@ -19,10 +22,12 @@ export interface SectionCardProps {
  */
 export function SectionCard({
   title,
+  description,
   children,
   onAction,
   onClick,
   actionLabel,
+  actionIcon,
   className,
   contentClassName,
 }: SectionCardProps) {
@@ -34,7 +39,13 @@ export function SectionCard({
         className,
       )}
     >
-      <CardHeader title={title} onAction={onAction ?? onClick} actionLabel={actionLabel} />
+      <CardHeader
+        title={title}
+        description={description}
+        onAction={onAction ?? onClick}
+        actionLabel={actionLabel}
+        actionIcon={actionIcon}
+      />
       <div className={cn('p-5', contentClassName)}>{children}</div>
     </div>
   )
