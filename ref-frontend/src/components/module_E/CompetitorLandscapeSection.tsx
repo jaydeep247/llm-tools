@@ -8,6 +8,10 @@ import { TrendingUp, Shield, Globe, Loader2, RefreshCw, CheckCircle2, Target, Al
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
 import { useRunCompetitorAnalysisMutation, useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
+import { FieldTooltip } from '@/components/module_A/FieldTooltip'
+
+const COMPETITOR_LANDSCAPE_SECTION_DESCRIPTION =
+    'Evaluate your authority, backlink strength, and domain diversity against the competitive market. Use this section to identify structural SEO gaps and prioritize off-page actions that improve AI and search visibility.'
 
 interface CompetitorLandscapeProps {
     jobId?: string
@@ -86,11 +90,8 @@ export default function CompetitorLandscapeSection({ jobId, landscapeData: initi
                     <div className="flex items-center gap-2">
                         <Shield className="w-5 h-5 text-primary" />
                         <h3 className="text-lg font-semibold text-foreground">Competitor Landscape</h3>
+                        <FieldTooltip description={COMPETITOR_LANDSCAPE_SECTION_DESCRIPTION} />
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1 max-w-3xl">
-                        Evaluate your authority, backlink strength, and domain diversity against the competitive market.
-                        Use this section to identify structural SEO gaps and prioritize off-page actions that improve AI and search visibility.
-                    </p>
                 </div>
             </div>
 

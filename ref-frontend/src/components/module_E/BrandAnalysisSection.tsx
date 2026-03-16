@@ -7,10 +7,14 @@ import { Loader2, TrendingUp, TrendingDown, Minus, Globe, Play, CheckCircle2, Re
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
 import { useGetModuleEResultQuery, useRunBrandAnalysisMutation } from '@/store/api/module_E/moduleEApi'
+import { FieldTooltip } from '@/components/module_A/FieldTooltip'
 
 interface BrandAnalysisSectionProps {
   jobId?: string | null
 }
+
+const BRAND_ANALYSIS_SECTION_DESCRIPTION =
+  'Understand how your brand is discussed across AI-visible sources, including mention volume, sentiment mix, and trend direction. Use this view to validate brand perception and prioritize channels where positive coverage is growing.'
 
 export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProps) {
   const [expandedSources, setExpandedSources] = useState(false)
@@ -165,11 +169,10 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-foreground">Brand Analysis</h3>
-          <p className="text-xs text-muted-foreground max-w-3xl">
-            Understand how your brand is discussed across AI-visible sources, including mention volume, sentiment mix, and trend direction.
-            Use this view to validate brand perception and prioritize channels where positive coverage is growing.
-          </p>
+          <div className="flex items-center gap-1.5">
+            <h3 className="text-lg font-semibold text-foreground">Brand Analysis</h3>
+            <FieldTooltip description={BRAND_ANALYSIS_SECTION_DESCRIPTION} />
+          </div>
         </div>
       </div>
 

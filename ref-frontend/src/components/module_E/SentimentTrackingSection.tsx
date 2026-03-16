@@ -7,6 +7,10 @@ import { Button } from '@/components/ui/button'
 import { TrendingUp, Eye, Brain, AlertCircle, Play, Loader2, RefreshCw, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useRunSentimentAnalysisMutation, useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
+import { FieldTooltip } from '@/components/module_A/FieldTooltip'
+
+const SENTIMENT_VISIBILITY_SECTION_DESCRIPTION =
+  'Understand how AI models perceive your brand, how visible it is in discovery prompts, and where sentiment is improving or declining. Use this section to validate brand trust signals and guide messaging updates that increase positive mentions.'
 
 interface SentimentTrackingProps {
   jobId?: string
@@ -250,11 +254,10 @@ export default function SentimentTrackingSection({ jobId, sentimentData: initial
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-foreground">AI Sentiment &amp; Visibility Tracking</h3>
-            <p className="text-xs text-muted-foreground max-w-3xl">
-              Understand how AI models perceive your brand, how visible it is in discovery prompts, and where sentiment is improving or declining.
-              Use this section to validate brand trust signals and guide messaging updates that increase positive mentions.
-            </p>
+            <div className="flex items-center gap-1.5">
+              <h3 className="text-lg font-semibold text-foreground">AI Sentiment &amp; Visibility Tracking</h3>
+              <FieldTooltip description={SENTIMENT_VISIBILITY_SECTION_DESCRIPTION} />
+            </div>
           </div>
         </div>
 
@@ -338,11 +341,10 @@ export default function SentimentTrackingSection({ jobId, sentimentData: initial
       {/* Section Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-foreground">AI Sentiment &amp; Visibility Tracking</h3>
-          <p className="text-xs text-muted-foreground max-w-3xl">
-            Understand how AI models perceive your brand, how visible it is in discovery prompts, and where sentiment is improving or declining.
-            Use this section to validate brand trust signals and guide messaging updates that increase positive mentions.
-          </p>
+          <div className="flex items-center gap-1.5">
+            <h3 className="text-lg font-semibold text-foreground">AI Sentiment &amp; Visibility Tracking</h3>
+            <FieldTooltip description={SENTIMENT_VISIBILITY_SECTION_DESCRIPTION} />
+          </div>
           <p className="text-xs text-muted-foreground mt-1">
             Brand: {brand_name} • Industry: {industry} • Service: {service_type}
           </p>

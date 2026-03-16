@@ -24,6 +24,12 @@ const AI_SOV_FIELD_DESCRIPTIONS: Record<string, string> = {
     'Brand known': 'Whether the model seems to recognize your brand without being explicitly told.',
 }
 
+const COMPETITOR_MENTIONS_SECTION_DESCRIPTION =
+    'Track which competitors are appearing in AI and web conversations, how often they are mentioned, and the tone around them. Use this section to benchmark your competitive presence and monitor momentum shifts over time.'
+
+const AI_SOV_SECTION_DESCRIPTION =
+    "Compare your brand's mention share against competitors across OpenAI, Gemini, and Claude. Use this section to evaluate discoverability, identify model gaps, and track progress in unprompted brand recognition."
+
 interface CompetitorMentionsProps {
     jobId?: string
     mentionsData?: {
@@ -172,11 +178,8 @@ export default function CompetitorMentionsSection({ jobId, mentionsData: initial
                     <div className="flex items-center gap-2">
                         <Users className="w-5 h-5 text-primary" />
                         <h3 className="text-lg font-semibold text-foreground">Competitor Mentions</h3>
+                        <FieldTooltip description={COMPETITOR_MENTIONS_SECTION_DESCRIPTION} />
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1 max-w-3xl">
-                        Track which competitors are appearing in AI and web conversations, how often they are mentioned, and the tone around them.
-                        Use this section to benchmark your competitive presence and monitor momentum shifts over time.
-                    </p>
                 </div>
             </div>
 
@@ -368,11 +371,8 @@ export function ShareOfVoiceSection({ jobId }: ShareOfVoiceSectionProps) {
                     <div className="flex items-center gap-2">
                         <Users className="w-5 h-5 text-primary" />
                         <h3 className="text-lg font-semibold text-foreground">AI Share of Voice</h3>
+                        <FieldTooltip description={AI_SOV_SECTION_DESCRIPTION} />
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1 max-w-3xl">
-                        Compare your brand's mention share against competitors across OpenAI, Gemini, and Claude.
-                        Use this section to evaluate discoverability, identify model gaps, and track progress in unprompted brand recognition.
-                    </p>
                 </div>
             </div>
 

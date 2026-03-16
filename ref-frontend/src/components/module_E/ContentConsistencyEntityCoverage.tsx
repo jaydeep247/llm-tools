@@ -16,6 +16,9 @@ const MODEL_PERF_FIELD_DESCRIPTIONS: Record<string, string> = {
   Performance: 'Overall score used to compare models side-by-side.',
 }
 
+const CONSISTENCY_COVERAGE_SECTION_DESCRIPTION =
+  'Measure how closely AI responses follow your content mandate and whether critical entities are consistently present. Use this section to spot missing topics, improve completeness, and strengthen response reliability across models.'
+
 interface ContentConsistencyEntityCoverageProps {
   jobId?: string | null
 }
@@ -197,11 +200,10 @@ export default function ContentConsistencyEntityCoverage({ jobId }: ContentConsi
             <Gauge className="w-5 h-5 text-cyan-400" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-foreground">Consistency & Coverage</h3>
-            <p className="text-sm text-muted-foreground max-w-3xl">
-              Measure how closely AI responses follow your content mandate and whether critical entities are consistently present.
-              Use this section to spot missing topics, improve completeness, and strengthen response reliability across models.
-            </p>
+            <div className="flex items-center gap-1.5">
+              <h3 className="text-lg font-semibold text-foreground">Consistency & Coverage</h3>
+              <FieldTooltip description={CONSISTENCY_COVERAGE_SECTION_DESCRIPTION} />
+            </div>
           </div>
         </div>
         <div className="flex gap-2">

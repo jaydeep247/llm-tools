@@ -1,6 +1,7 @@
-import { type LucideIcon } from 'lucide-react'
+import { Info, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 export interface SectionHeaderProps {
   /** Lucide icon rendered in a pill */
@@ -60,8 +61,31 @@ export function CardHeader({
       )}
     >
       <div className="min-w-0">
-        <h3 className="text-sm font-semibold text-zinc-200">{title}</h3>
-        {description && <p className="text-xs text-zinc-500 mt-1 leading-relaxed">{description}</p>}
+        <div className="flex items-center gap-1.5">
+          <h3 className="text-sm font-semibold text-zinc-200">{title}</h3>
+          {description && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center text-zinc-500 hover:text-zinc-200 transition-colors focus:outline-none shrink-0 cursor-help"
+                  onClick={(e) => e.stopPropagation()}
+                  aria-label="Section description"
+                >
+                  <Info className="h-3 w-3" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent
+                side="top"
+                align="start"
+                sideOffset={10}
+                className="max-w-57.5 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5"
+              >
+                {description}
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </div>
       </div>
       {onAction && (
         <button

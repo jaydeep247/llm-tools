@@ -24,6 +24,9 @@ const PROMPT_RANKING_FIELD_DESCRIPTIONS: Record<string, string> = {
   Sentiment: 'The tone of the mention (positive, neutral, or negative).',
 }
 
+const AI_CITATION_SECTION_DESCRIPTION =
+  'See how often your URL is cited, where it ranks, and how each model positions your brand in answers. Use this section to find prompt-level wins, weak spots, and opportunities to improve citation visibility.'
+
 function ChatGPTLogo(props: any) {
   return (
     <svg
@@ -278,11 +281,10 @@ export default function AICitationRanking({ jobId, url, rankingData: initialData
             <Trophy className="w-5 h-5 text-amber-400" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-foreground">AI Citation Ranking</h3>
-            <p className="text-sm text-muted-foreground max-w-3xl">
-              See how often your URL is cited, where it ranks, and how each model positions your brand in answers.
-              Use this section to find prompt-level wins, weak spots, and opportunities to improve citation visibility.
-            </p>
+            <div className="flex items-center gap-1.5">
+              <h3 className="text-lg font-semibold text-foreground">AI Citation Ranking</h3>
+              <FieldTooltip description={AI_CITATION_SECTION_DESCRIPTION} />
+            </div>
           </div>
         </div>
       </div>
