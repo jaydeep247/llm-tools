@@ -172,7 +172,6 @@ export default function CompetitorMentionsSection({ jobId, mentionsData: initial
                     <Users className="w-5 h-5 text-primary" />
                     <h3 className="text-lg font-semibold text-foreground">Competitor Mentions</h3>
                 </div>
-                {RunButton}
             </div>
 
             <div className="grid grid-cols-1 gap-4">
@@ -368,7 +367,6 @@ export function ShareOfVoiceSection({ jobId }: ShareOfVoiceSectionProps) {
                         How often your brand is mentioned vs competitors across AI models.
                     </p>
                 </div>
-                {RunButton}
             </div>
 
             {isRunning && (

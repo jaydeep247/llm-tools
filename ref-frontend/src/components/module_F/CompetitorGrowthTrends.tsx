@@ -1,6 +1,6 @@
 'use client'
 
-import { useGetModuleFTrendsQuery, useGetModuleFResultQuery } from '@/store/api/module_F/moduleFApi'
+import { useGetModuleFTrendsQuery, useGetModuleFResultQuery, useRunModuleFAnalysisMutation } from '@/store/api/module_F/moduleFApi'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
@@ -47,6 +47,12 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
   const trends = response?.data
   const history = trends?.history || []
   const [hidden, setHidden] = useState<Record<string, boolean>>({})
+  const [runModuleFAnalysis, { isLoading: isTriggering }] = useRunModuleFAnalysisMutation()
+
+  const handleRunAnalysis = useCallback(async () => {
+    if (!jobId) return
+    try { await runModuleFAnalysis(jobId).unwrap() } catch {}
+  }, [jobId, runModuleFAnalysis])
 
   const toggleSeries = useCallback((seriesKey: string) => {
     setHidden((prev) => ({ ...prev, [seriesKey]: !prev[seriesKey] }))
@@ -163,6 +169,10 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
         icon={<LineChartIcon className="w-8 h-8 text-zinc-400" />}
         title="No Trend Data Available"
         description="Run the analysis multiple times to start tracking growth trends over time."
+        onRunAnalysis={handleRunAnalysis}
+        isAnalyzing={isTriggering}
+        disabled={!jobId}
+        buttonLabel="Run Module F Analysis"
       />
     )
   }

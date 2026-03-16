@@ -86,21 +86,6 @@ export default function CompetitorLandscapeSection({ jobId, landscapeData: initi
                     <Shield className="w-5 h-5 text-primary" />
                     <h3 className="text-lg font-semibold text-foreground">Competitor Landscape</h3>
                 </div>
-                <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleRunAnalysis}
-                    disabled={isRunning}
-                    className={cn("gap-2 text-xs", justCompleted && "border-emerald-500 text-emerald-500")}
-                >
-                    {isRunning ? (
-                        <><Loader2 className="w-3 h-3 animate-spin" /> Running...</>
-                    ) : justCompleted ? (
-                        <><CheckCircle2 className="w-3 h-3" /> Updated</>
-                    ) : (
-                        <><RefreshCw className="w-3 h-3" /> Refresh Data</>
-                    )}
-                </Button>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

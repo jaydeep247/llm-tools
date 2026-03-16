@@ -28,6 +28,7 @@ import {
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
+import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import D3TidyTree, { TreeNode as TidyTreeNode } from './D3TidyTree'
 import { useGetJobFieldsQuery, useGetJobPromptTrackingQuery, useGetSeoKeywordsForUrlMutation, useStartPromptTrackingMutation } from '@/store/api/jobApi'
 
@@ -365,6 +366,8 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
     } catch {}
   }, [jobId, promptText, refetchPromptTracking, startPromptTracking])
 
+  const hasTrackedPrompts = (promptTrackingDoc?.metrics?.length ?? 0) > 0
+
   return (
     <div className="space-y-4">
       <SectionHeader
@@ -378,36 +381,44 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
         }
       />
 
-      <StatCardGrid>
-        <StatCard
-          label="Tracked Prompts"
-          value={summary.trackedCount}
-          subtext={pendingPrompts.length ? `${pendingPrompts.length} updating` : undefined}
-          icon={Target}
-          accent="violet"
+      {hasTrackedPrompts ? (
+        <StatCardGrid>
+          <StatCard
+            label="Tracked Prompts"
+            value={summary.trackedCount}
+            subtext={pendingPrompts.length ? `${pendingPrompts.length} updating` : undefined}
+            icon={Target}
+            accent="violet"
+          />
+          <StatCard
+            label="Avg Visibility"
+            value={summary.avgVisibility != null ? summary.avgVisibility.toFixed(1) : '—'}
+            subtext="0–100"
+            icon={Eye}
+            accent="cyan"
+          />
+          <StatCard
+            label="Avg CTR"
+            value={summary.avgCtr != null ? `${summary.avgCtr.toFixed(2)}%` : '—'}
+            subtext="estimated"
+            icon={MousePointerClick}
+            accent="emerald"
+          />
+          <StatCard
+            label="Avg Engagement"
+            value={summary.avgEngagement != null ? summary.avgEngagement.toFixed(1) : '—'}
+            subtext={summary.avgTraffic != null ? `Traffic: ${summary.avgTraffic.toFixed(1)}` : undefined}
+            icon={Activity}
+            accent="amber"
+          />
+        </StatCardGrid>
+      ) : (
+        <AnalysisEmptyState
+          icon={<Target className="w-8 h-8 text-zinc-400" />}
+          title="No Prompts Tracked Yet"
+          description="Add prompts below to start tracking their visibility, CTR, and engagement across AI models."
         />
-        <StatCard
-          label="Avg Visibility"
-          value={summary.avgVisibility != null ? summary.avgVisibility.toFixed(1) : '—'}
-          subtext="0–100"
-          icon={Eye}
-          accent="cyan"
-        />
-        <StatCard
-          label="Avg CTR"
-          value={summary.avgCtr != null ? `${summary.avgCtr.toFixed(2)}%` : '—'}
-          subtext="estimated"
-          icon={MousePointerClick}
-          accent="emerald"
-        />
-        <StatCard
-          label="Avg Engagement"
-          value={summary.avgEngagement != null ? summary.avgEngagement.toFixed(1) : '—'}
-          subtext={summary.avgTraffic != null ? `Traffic: ${summary.avgTraffic.toFixed(1)}` : undefined}
-          icon={Activity}
-          accent="amber"
-        />
-      </StatCardGrid>
+      )}
 
       <SectionCard title="Add Prompts">
         <div className="space-y-3">
@@ -465,7 +476,7 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
                       onClick={() => setSelectedTrackedPrompt(m.prompt)}
                     >
                       <td className="px-5 py-3 text-sm text-zinc-200 font-medium">
-                        <div className="truncate max-w-[680px]" title={m.prompt}>{m.prompt}</div>
+                        <div className="truncate max-w-170" title={m.prompt}>{m.prompt}</div>
                       </td>
                       <td className="px-5 py-3 text-right text-xs font-mono text-zinc-300">{Number(m.prompt_visibility_score ?? 0).toFixed(1)}</td>
                       <td className="px-5 py-3 text-right text-xs font-mono text-zinc-300">{Number(m.ctr_percent ?? 0).toFixed(2)}%</td>
@@ -1159,7 +1170,7 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
                              <td className="px-4 py-3 text-xs text-white/90 font-medium">
                                <div className="flex items-center gap-2">
                                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-400/50 group-hover:bg-indigo-400 transition-colors"></div>
-                                 <div className="truncate max-w-[120px] sm:max-w-[150px]" title={kw.text}>{kw.text}</div>
+                                 <div className="truncate max-w-30 sm:max-w-37.5" title={kw.text}>{kw.text}</div>
                                </div>
                              </td>
                              <td className="px-4 py-3 text-right">
@@ -1167,7 +1178,7 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
                                  <span className="text-xs font-mono text-white/90 font-medium">{kw.score != null ? Number(kw.score).toFixed(1) : '-'}</span>
                                  <div className="w-12 h-1 bg-white/10 rounded-full overflow-hidden">
                                    <div 
-                                     className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full"
+                                     className="h-full bg-linear-to-r from-indigo-500 to-purple-500 rounded-full"
                                      style={{ width: `${Math.min(100, (Number(kw.score) || 0) * 10)}%` }}
                                    />
                                  </div>

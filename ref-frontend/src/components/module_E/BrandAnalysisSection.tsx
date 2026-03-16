@@ -168,27 +168,6 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
           <h3 className="text-lg font-semibold text-foreground">Brand Analysis</h3>
           <p className="text-xs text-muted-foreground">Run Module E on demand</p>
         </div>
-        <Button
-          type="button"
-          onClick={handleRunAnalysis}
-          disabled={!jobId || isRunning}
-          className={cn(
-            "gap-2 min-w-35",
-            justCompleted && "bg-green-600 hover:bg-green-700 text-white"
-          )}
-        >
-          {isTriggering ? (
-            <><Loader2 className="w-4 h-4 animate-spin" /> Queuing...</>
-          ) : isPolling ? (
-            <><Loader2 className="w-4 h-4 animate-spin" /> Analyzing...</>
-          ) : justCompleted ? (
-            <><CheckCircle2 className="w-4 h-4" /> Done!</>
-          ) : brandAnalysis ? (
-            <><RefreshCw className="w-4 h-4" /> Re-run Analysis</>
-          ) : (
-            <><Play className="w-4 h-4" /> Run Analysis</>
-          )}
-        </Button>
       </div>
 
       {!brandAnalysis && !isRunning && (
