@@ -105,6 +105,13 @@ export default function DashboardOverview({ jobId, url, onNavigate, crawlStatusS
     ranking?.ranking_position_per_prompt?.filter((r) => r.mention_status === 'Cited').length ?? 0
   const totalPrompts = ranking?.generated_prompts?.length ?? ranking?.ranking_position_per_prompt?.length ?? 0
 
+  const DASHBOARD_FIELD_DESCRIPTIONS: Record<string, string> = {
+    'Brand Mentions': 'How many times your brand was mentioned across the prompts we checked.',
+    'AI Share of Voice': 'How much of the AI conversation is about you vs competitors (higher is better).',
+    'Competitors Tracked': 'How many competitor brands/domains were included in this run.',
+    'Avg. Ranking': 'Average citation position for your URL when it was cited (lower is better).',
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -128,6 +135,7 @@ export default function DashboardOverview({ jobId, url, onNavigate, crawlStatusS
           label="Brand Mentions"
           value={totalMentions}
           subtext={sentimentLabel ? `Sentiment: ${sentimentLabel}` : undefined}
+          description={DASHBOARD_FIELD_DESCRIPTIONS['Brand Mentions']}
           icon={MessageSquare}
           accent="blue"
           onClick={() => onNavigate?.('prompt-difficulty')}
@@ -136,6 +144,7 @@ export default function DashboardOverview({ jobId, url, onNavigate, crawlStatusS
           label="AI Share of Voice"
           value={`${overallSov}%`}
           subtext={visibilityTier}
+          description={DASHBOARD_FIELD_DESCRIPTIONS['AI Share of Voice']}
           icon={Eye}
           accent="cyan"
           onClick={() => onNavigate?.('share-of-voice')}
@@ -144,6 +153,7 @@ export default function DashboardOverview({ jobId, url, onNavigate, crawlStatusS
           label="Competitors Tracked"
           value={competitorCount}
           subtext={competitors?.overall_sov != null ? `Market SOV: ${competitors.overall_sov}%` : undefined}
+          description={DASHBOARD_FIELD_DESCRIPTIONS['Competitors Tracked']}
           icon={Users}
           accent="amber"
           onClick={() => onNavigate?.('visibility-comparision')}
@@ -152,6 +162,7 @@ export default function DashboardOverview({ jobId, url, onNavigate, crawlStatusS
           label="Avg. Ranking"
           value={avgRanking}
           subtext={totalPrompts > 0 ? `${citedCount}/${totalPrompts} cited` : undefined}
+          description={DASHBOARD_FIELD_DESCRIPTIONS['Avg. Ranking']}
           icon={Award}
           accent="emerald"
           onClick={() => onNavigate?.('trends-by-model')}

@@ -1,5 +1,6 @@
 import { type LucideIcon, ArrowUpRight, TrendingUp, TrendingDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { FieldTooltip } from '@/components/module_A/FieldTooltip'
 
 type Accent = 'blue' | 'emerald' | 'amber' | 'rose' | 'violet' | 'cyan' | 'zinc'
 
@@ -17,6 +18,8 @@ export interface StatCardProps {
   label: string
   value: string | number
   subtext?: string
+  /** Tooltip shown next to the top-right arrow icon */
+  description?: string
   icon: LucideIcon
   accent?: Accent
   trend?: 'up' | 'down' | 'neutral'
@@ -34,6 +37,7 @@ export function StatCard({
   label,
   value,
   subtext,
+  description,
   icon: Icon,
   accent = 'zinc',
   trend,
@@ -64,7 +68,10 @@ export function StatCard({
           <Icon className={cn('h-5 w-5', s.iconText)} />
         </div>
         {onClick && (
-          <ArrowUpRight className="w-4 h-4 text-zinc-600 group-hover:text-zinc-400 transition-colors" />
+          <div className="flex items-center gap-1">
+            <ArrowUpRight className="w-4 h-4 text-zinc-600 group-hover:text-zinc-400 transition-colors" />
+            <FieldTooltip description={description ?? ''} />
+          </div>
         )}
       </div>
 

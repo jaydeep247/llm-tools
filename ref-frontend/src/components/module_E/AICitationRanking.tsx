@@ -11,8 +11,18 @@ import {
   type ModuleEResult
 } from '@/store/api/module_E/moduleEApi'
 import { cn } from '@/lib/utils'
+import { FieldTooltip } from '@/components/module_A/FieldTooltip'
 
 const MODELS = ['chat_gpt', 'gemini', 'claude'] as const
+
+const PROMPT_RANKING_FIELD_DESCRIPTIONS: Record<string, string> = {
+  Prompt: 'The question we asked the AI model.',
+  Status: 'Whether your brand/URL showed up for this prompt.',
+  Position: 'Where your URL appeared in the citations (1 is best).',
+  Percentile: 'How strong your result is compared to others for this prompt (higher is better).',
+  Accuracy: 'How well the answer matched your criteria (0–100%).',
+  Sentiment: 'The tone of the mention (positive, neutral, or negative).',
+}
 
 function ChatGPTLogo(props: any) {
   return (
@@ -418,12 +428,14 @@ export default function AICitationRanking({ jobId, url, rankingData: initialData
                       <table className="w-full">
                         <thead className="bg-zinc-800/30 border-b border-zinc-800">
                           <tr>
-                            <th className="px-4 py-2.5 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Prompt</th>
-                            <th className="px-4 py-2.5 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Status</th>
-                            <th className="px-4 py-2.5 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Position</th>
-                            <th className="px-4 py-2.5 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Percentile</th>
-                            <th className="px-4 py-2.5 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Accuracy</th>
-                            <th className="px-4 py-2.5 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Sentiment</th>
+                            {(['Prompt', 'Status', 'Position', 'Percentile', 'Accuracy', 'Sentiment'] as const).map((h) => (
+                              <th key={h} className="px-4 py-2.5 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider">
+                                <div className="flex items-center gap-1">
+                                  <span>{h}</span>
+                                  <FieldTooltip description={PROMPT_RANKING_FIELD_DESCRIPTIONS[h] ?? ''} />
+                                </div>
+                              </th>
+                            ))}
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-800/50 text-xs">

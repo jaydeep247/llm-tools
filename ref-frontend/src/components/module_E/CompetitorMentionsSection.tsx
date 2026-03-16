@@ -7,6 +7,22 @@ import { Users, MessageSquare, Play, Loader2, RefreshCw, CheckCircle2 } from 'lu
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
 import { useRunCompetitorAnalysisMutation, useRunAiSovAnalysisMutation, useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
+import { FieldTooltip } from '@/components/module_A/FieldTooltip'
+
+const WEB_MENTION_FIELD_DESCRIPTIONS: Record<string, string> = {
+    Competitor: 'The competitor we found mentions for (domain or brand name).',
+    Mentions: 'How many times this competitor was mentioned.',
+    Sentiment: 'The overall tone of those mentions (positive, neutral, or negative).',
+    '12M Trend': 'How mentions changed over the last 12 months.',
+}
+
+const AI_SOV_FIELD_DESCRIPTIONS: Record<string, string> = {
+    Model: 'Which AI model we checked (ChatGPT, Gemini, Claude).',
+    'SOV %': 'Your share of voice in this model — higher means your brand is mentioned more than competitors.',
+    'Brand mentions': 'How many times the model mentioned your brand.',
+    'Competitor mentions': 'How many times the model mentioned competitors (total).',
+    'Brand known': 'Whether the model seems to recognize your brand without being explicitly told.',
+}
 
 interface CompetitorMentionsProps {
     jobId?: string
@@ -172,10 +188,14 @@ export default function CompetitorMentionsSection({ jobId, mentionsData: initial
                         <table className="w-full text-xs text-left">
                             <thead>
                                 <tr className="border-b bg-background/50 text-muted-foreground">
-                                    <th className="p-3 font-medium">Competitor</th>
-                                    <th className="p-3 font-medium">Mentions</th>
-                                    <th className="p-3 font-medium">Sentiment</th>
-                                    <th className="p-3 font-medium">12M Trend</th>
+                                    {(['Competitor', 'Mentions', 'Sentiment', '12M Trend'] as const).map((h) => (
+                                        <th key={h} className="p-3 font-medium">
+                                            <div className="flex items-center gap-1">
+                                                <span>{h}</span>
+                                                <FieldTooltip description={WEB_MENTION_FIELD_DESCRIPTIONS[h] ?? ''} />
+                                            </div>
+                                        </th>
+                                    ))}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-800">
@@ -396,11 +416,20 @@ export function ShareOfVoiceSection({ jobId }: ShareOfVoiceSectionProps) {
                         <table className="w-full text-xs text-left">
                             <thead>
                                 <tr className="border-b bg-zinc-800/50 text-zinc-400">
-                                    <th className="p-2 font-medium">Model</th>
-                                    <th className="p-2 font-medium text-right">SOV %</th>
-                                    <th className="p-2 font-medium text-right">Brand mentions</th>
-                                    <th className="p-2 font-medium text-right">Competitor mentions</th>
-                                    <th className="p-2 font-medium text-right">Brand known</th>
+                                    {([
+                                        { key: 'Model', align: 'text-left' },
+                                        { key: 'SOV %', align: 'text-right' },
+                                        { key: 'Brand mentions', align: 'text-right' },
+                                        { key: 'Competitor mentions', align: 'text-right' },
+                                        { key: 'Brand known', align: 'text-right' },
+                                    ] as const).map((col) => (
+                                        <th key={col.key} className={cn('p-2 font-medium', col.align)}>
+                                            <div className={cn('flex items-center gap-1', col.align === 'text-right' ? 'justify-end' : 'justify-start')}>
+                                                <span>{col.key}</span>
+                                                <FieldTooltip description={AI_SOV_FIELD_DESCRIPTIONS[col.key] ?? ''} />
+                                            </div>
+                                        </th>
+                                    ))}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-zinc-800">

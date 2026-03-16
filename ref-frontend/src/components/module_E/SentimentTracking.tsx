@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Loader2, Heart, TrendingUp, Activity } from 'lucide-react'
+import { FieldTooltip } from '@/components/module_A/FieldTooltip'
 // import { useTrackSentimentMutation, useGetSentimentHistoryQuery } from '@/store/api/module_E/sentimentApi'
 
 interface SentimentTrackingProps {
@@ -47,6 +48,13 @@ interface SentimentResult {
 }
 
 const NOT_CONFIGURED = 'not configured'
+
+const MODEL_VIS_FIELD_DESCRIPTIONS: Record<string, string> = {
+  Model: 'Which AI model the result comes from.',
+  Distribution: 'How many responses were positive vs neutral vs negative.',
+  Sentiment: 'Average sentiment score (higher is more positive).',
+  Visibility: 'How often your brand shows up, and how prominent it is in the answers.',
+}
 
 export default function SentimentTracking({ brandName }: SentimentTrackingProps) {
   const normalizedBrand = (brandName || '').trim()
@@ -456,18 +464,30 @@ export default function SentimentTracking({ brandName }: SentimentTrackingProps)
                   <table className="w-full text-sm">
                     <thead className="bg-muted/50 border-b border-border">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                          Model
-                        </th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                          Distribution
-                        </th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                          Sentiment
-                        </th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                          Visibility
-                        </th>
+                        {([
+                          { key: 'Model', align: 'text-left' },
+                          { key: 'Distribution', align: 'text-right' },
+                          { key: 'Sentiment', align: 'text-right' },
+                          { key: 'Visibility', align: 'text-right' },
+                        ] as const).map((col) => (
+                          <th
+                            key={col.key}
+                            className={cn(
+                              'px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider',
+                              col.align
+                            )}
+                          >
+                            <div
+                              className={cn(
+                                'flex items-center gap-1',
+                                col.align === 'text-right' ? 'justify-end' : 'justify-start'
+                              )}
+                            >
+                              <span>{col.key}</span>
+                              <FieldTooltip description={MODEL_VIS_FIELD_DESCRIPTIONS[col.key] ?? ''} />
+                            </div>
+                          </th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody className="bg-background divide-y divide-border">

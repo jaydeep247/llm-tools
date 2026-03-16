@@ -7,6 +7,14 @@ import { Loader2, Gauge, Layers, RefreshCw } from 'lucide-react'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
 import { useGetModuleEResultQuery, useRunConsistencyAnalysisMutation } from '@/store/api/module_E/moduleEApi'
+import { FieldTooltip } from '@/components/module_A/FieldTooltip'
+
+const MODEL_PERF_FIELD_DESCRIPTIONS: Record<string, string> = {
+  Model: 'Which AI model was tested (ChatGPT, Gemini, etc.).',
+  Accuracy: 'How often the model’s answers matched what you expected.',
+  Consistency: 'How consistently the model follows your content rules across prompts (0–100).',
+  Performance: 'Overall score used to compare models side-by-side.',
+}
 
 interface ContentConsistencyEntityCoverageProps {
   jobId?: string | null
@@ -315,10 +323,19 @@ export default function ContentConsistencyEntityCoverage({ jobId }: ContentConsi
                 <table className="min-w-full text-xs">
                   <thead>
                     <tr className="border-b border-border">
-                      <th className="text-left py-2 pr-4 font-medium text-muted-foreground">Model</th>
-                      <th className="text-right py-2 px-4 font-medium text-muted-foreground">Accuracy</th>
-                      <th className="text-right py-2 px-4 font-medium text-muted-foreground">Consistency</th>
-                      <th className="text-right py-2 pl-4 font-medium text-muted-foreground">Performance</th>
+                      {([
+                        { key: 'Model', align: 'text-left', pad: 'py-2 pr-4' },
+                        { key: 'Accuracy', align: 'text-right', pad: 'py-2 px-4' },
+                        { key: 'Consistency', align: 'text-right', pad: 'py-2 px-4' },
+                        { key: 'Performance', align: 'text-right', pad: 'py-2 pl-4' },
+                      ] as const).map((col) => (
+                        <th key={col.key} className={cn(col.align, col.pad, 'font-medium text-muted-foreground')}>
+                          <div className={cn('flex items-center gap-1', col.align === 'text-right' ? 'justify-end' : 'justify-start')}>
+                            <span>{col.key}</span>
+                            <FieldTooltip description={MODEL_PERF_FIELD_DESCRIPTIONS[col.key] ?? ''} />
+                          </div>
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
