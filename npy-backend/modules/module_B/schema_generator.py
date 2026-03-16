@@ -7,6 +7,7 @@ import os
 import json
 import logging
 import re
+import hashlib
 from typing import Dict, Any
 
 try:
@@ -15,6 +16,11 @@ try:
 except ImportError:
     OPENAI_AVAILABLE = False
     logging.warning("OpenAI not available for schema generation")
+
+try:
+    from bs4 import BeautifulSoup
+except Exception:
+    BeautifulSoup = None
 
 
 class SchemaGenerator:
@@ -39,20 +45,78 @@ class SchemaGenerator:
         """
         if not html_content:
             return ""
-            
-        # Remove scripts and styles
-        cleaned = re.sub(r'<script[\s\S]*?</script>', '', html_content, flags=re.IGNORECASE)
-        cleaned = re.sub(r'<style[\s\S]*?</style>', '', cleaned, flags=re.IGNORECASE)
-        cleaned = re.sub(r'<noscript[\s\S]*?</noscript>', '', cleaned, flags=re.IGNORECASE)
-        
-        # Remove HTML tags (keep just text)
-        cleaned = re.sub(r'<[^>]+>', ' ', cleaned)
-        
-        # Remove extra whitespace
-        cleaned = re.sub(r'\s+', ' ', cleaned).strip()
-        
-        return cleaned
+
+        if BeautifulSoup is not None:
+            try:
+                soup = BeautifulSoup(html_content, "html.parser")
+                for tag in soup(["script", "style", "noscript"]):
+                    tag.decompose()
+
+                parts = []
+                for el in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6", "p", "li", "dt", "dd", "summary", "button"]):
+                    text = el.get_text(" ", strip=True)
+                    if text:
+                        text = re.sub(r"\s+", " ", text).strip()
+                        parts.append(text)
+
+                if not parts:
+                    text = soup.get_text(separator=" ", strip=True)
+                    return re.sub(r"\s+", " ", text).strip()
+
+                deduped_parts = []
+                last = None
+                for p in parts:
+                    if p != last:
+                        deduped_parts.append(p)
+                    last = p
+                return "\n".join(deduped_parts).strip()
+            except Exception:
+                pass
+
+        cleaned = re.sub(r"<script[\s\S]*?</script>", "", html_content, flags=re.IGNORECASE)
+        cleaned = re.sub(r"<style[\s\S]*?</style>", "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"<noscript[\s\S]*?</noscript>", "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"<[^>]+>", " ", cleaned)
+        return re.sub(r"\s+", " ", cleaned).strip()
     # --- OUR ADDED CODE END ---
+
+    def _stable_seed(self, url: str, schema_type: str) -> int:
+        raw = f"{url}::{schema_type}".encode("utf-8", errors="ignore")
+        digest = hashlib.sha256(raw).digest()
+        return int.from_bytes(digest[:4], "big", signed=False)
+
+    def _call_openai_json(self, messages: list, seed: int) -> str:
+        try:
+            return self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=0,
+                top_p=1,
+                presence_penalty=0,
+                frequency_penalty=0,
+                seed=seed,
+                response_format={"type": "json_object"},
+            ).choices[0].message.content
+        except Exception:
+            try:
+                return self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    temperature=0,
+                    top_p=1,
+                    presence_penalty=0,
+                    frequency_penalty=0,
+                    seed=seed,
+                ).choices[0].message.content
+            except Exception:
+                return self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    temperature=0,
+                    top_p=1,
+                    presence_penalty=0,
+                    frequency_penalty=0,
+                ).choices[0].message.content
 
     def generate_schema_with_ai(self, url: str, html: str, schema_type: str = 'auto') -> Dict[str, Any]:
         """Use OpenAI GPT to analyze website HTML and generate schema markup"""
@@ -92,27 +156,27 @@ class SchemaGenerator:
                 )
                 
             prompt = f"""
-            Generate Schema.org JSON-LD markup for the following webpage content.
-            URL: {url}
-            
-            {type_instruction}
-            
-            Content:
-            {content_sample}
-            
-            Return ONLY the valid JSON-LD code within a code block. Do not include explanations.
-            """
-            
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are an expert SEO specialist and web developer proficient in Schema.org structured data."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.3,
-            )
-            
-            content = response.choices[0].message.content
+Generate Schema.org JSON-LD markup for the following webpage content.
+URL: {url}
+
+{type_instruction}
+
+Rules:
+- Use ONLY facts explicitly present in the provided content. Do NOT guess or invent founding dates, addresses, phone numbers, emails, ratings, prices, or social links.
+- If a field is not present, omit it rather than filling with a placeholder.
+- Output MUST be a single valid JSON object (no markdown, no code fences, no extra text).
+- Always include "@context": "https://schema.org".
+
+Content:
+{content_sample}
+""".strip()
+
+            messages = [
+                {"role": "system", "content": "You generate Schema.org JSON-LD deterministically and output strict JSON only."},
+                {"role": "user", "content": prompt},
+            ]
+
+            content = self._call_openai_json(messages, seed=self._stable_seed(url, schema_type or "auto"))
             
             # Extract JSON from code block (Other Developer's Regex Logic - PRESERVED)
             json_match = re.search(r'```json\n(.*?)\n```', content, re.DOTALL)

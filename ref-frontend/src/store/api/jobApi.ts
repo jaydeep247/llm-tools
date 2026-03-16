@@ -390,12 +390,12 @@ export const jobApi = baseApi.injectEndpoints({
 
     generateJobSchema: builder.mutation<
       { success: boolean; job: Job },
-      { jobId: string; schemaType?: string }
+      { jobId: string; schemaType?: string; url?: string }
     >({
-      query: ({ jobId, schemaType }) => ({
+      query: ({ jobId, schemaType, url }) => ({
         url: `/jobs/${jobId}/generate-schema`,
         method: 'POST',
-        body: schemaType ? { schemaType } : {},
+        body: (schemaType || url) ? { ...(schemaType ? { schemaType } : {}), ...(url ? { url } : {}) } : {},
       }),
       transformResponse: (response: { success: boolean; data: Job }) => ({
         success: response.success,

@@ -8,6 +8,7 @@ import {
   AlertCircle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { useGetSessionQuery } from '@/store/api/sessionApi'
 import { useGetJobSchemaQuery, useGenerateJobSchemaMutation } from '@/store/api/jobApi'
 import {
@@ -41,6 +42,7 @@ export function SchemaGeneratorTable({
   const [copiedSchema, setCopiedSchema] = useState(false)
   const [schemaFormat, setSchemaFormat] = useState<'json-ld' | 'rdfa'>('json-ld')
   const [selectedSchemaType, setSelectedSchemaType] = useState<string>('auto')
+  const [customUrl, setCustomUrl] = useState<string>('')
   const [schemaJobId, setSchemaJobId] = useState<string | null>(null)
   const [lastSchemaCreatedAt, setLastSchemaCreatedAt] = useState<string | null>(null)
 
@@ -68,6 +70,7 @@ export function SchemaGeneratorTable({
       await generateJobSchema({
         jobId,
         schemaType: selectedSchemaType === 'auto' ? undefined : selectedSchemaType,
+        url: customUrl.trim() ? customUrl.trim() : undefined,
       }).unwrap()
 
       setSchemaJobId(jobId)
@@ -236,6 +239,36 @@ export function SchemaGeneratorTable({
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      {/* Add URL */}
+      <div className="bg-[#111113] border border-zinc-800 rounded-xl p-4">
+        <label htmlFor="schema-url" className="block text-sm font-medium text-zinc-300 mb-2">
+          Add URL (optional):
+        </label>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Input
+            id="schema-url"
+            type="text"
+            placeholder={session?.startUrl ? `e.g. ${session.startUrl}` : 'e.g. https://example.com/page'}
+            value={customUrl}
+            onChange={(e) => setCustomUrl(e.target.value)}
+            disabled={schemaLoading}
+            className="flex-1 bg-zinc-900 border-zinc-700 text-white rounded-xl text-sm"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setCustomUrl(session?.startUrl || '')}
+            disabled={schemaLoading || !session?.startUrl}
+            className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl cursor-pointer"
+          >
+            Use Start URL
+          </Button>
+        </div>
+        <p className="text-xs text-zinc-500 mt-2">
+          Leave blank to generate schema for the session start URL. Add a blog/service URL to generate schema for that specific page.
+        </p>
       </div>
 
       {/* Error State */}
