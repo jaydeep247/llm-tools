@@ -83,10 +83,17 @@ class MongoPipeline:
                 'linksFound': self.total_counts['links'],
             }
 
-            # Post-crawl analysis: near-duplicate detection + semantic similarity.
-            # Must run BEFORE setting status='completed' so the frontend always
-            # sees fully-populated data the first time it polls after completion.
-            yield threads.deferToThread(run_post_crawl_analysis, self.job_id)
+            # Run heavy post-crawl analysis in background so completion status is
+            # visible immediately and does not block the request lifecycle.
+            def _log_post_analysis_error(failure):
+                logger.error(
+                    f"Post-crawl analysis failed for job {self.job_id}: {failure}"
+                )
+                return failure
+
+            threads.deferToThread(run_post_crawl_analysis, self.job_id).addErrback(
+                _log_post_analysis_error
+            )
 
             def _write_stats(stats):
                 try:

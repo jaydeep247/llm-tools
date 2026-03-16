@@ -89,14 +89,8 @@ export class ProjectService {
       throw new Error('Project not found or access denied');
     }
 
-    // Find all sessions for the project
-    const sessions = await this.sessionRepository.findByProjectId(projectId);
-
-    // Delete jobs and related data for each session
-    // We can do this in parallel for better performance
-    await Promise.all(
-      sessions.map(session => this.jobRepository.deleteBySessionId(session.id))
-    );
+    // Delete all jobs and related collections for the entire project in one batched pass.
+    await this.jobRepository.deleteByProjectId(projectId);
 
     // Delete all sessions for the project
     await this.sessionRepository.deleteByProjectId(projectId);

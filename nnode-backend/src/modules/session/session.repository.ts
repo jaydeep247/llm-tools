@@ -1,7 +1,10 @@
 import { randomUUID } from 'crypto';
 import { connectToMongo } from '../../config/mongo';
-import { SessionFilters, SessionWithProject, Session, SessionStatus } from './session.types';
+import { SessionFilters, SessionWithProject, Session, SessionStatus, SessionListResponse } from './session.types';
 import { JobRepository } from '../job/job.repository';
+
+const DEFAULT_SESSION_PAGE_SIZE = 50;
+const MAX_SESSION_PAGE_SIZE = 200;
 
 export class SessionRepository {
   private jobRepository: JobRepository;
@@ -96,18 +99,24 @@ export class SessionRepository {
   /**
    * Find all sessions for a project
    */
-  async findByProjectId(projectId: string, filters?: SessionFilters): Promise<Session[]> {
+  async findByProjectId(projectId: string, filters?: SessionFilters): Promise<SessionListResponse> {
     const db = await connectToMongo();
     const query: any = { projectId };
     if (filters?.status) {
       query.status = filters.status;
     }
+    const limit = Math.max(1, Math.min(filters?.limit ?? DEFAULT_SESSION_PAGE_SIZE, MAX_SESSION_PAGE_SIZE));
+    const offset = Math.max(0, filters?.offset ?? 0);
+    const includeTotal = filters?.includeTotal === true;
+    const fetchLimit = includeTotal ? limit : limit + 1;
     
-    return db
+    const sessions = (await db
       .collection<Session>('sessions')
       .aggregate([
         { $match: query },
         { $sort: { createdAt: -1 } },
+        { $skip: offset },
+        { $limit: fetchLimit },
         {
           $lookup: {
             from: 'jobs',
@@ -121,45 +130,29 @@ export class SessionRepository {
             job: { $arrayElemAt: ['$jobs', 0] }
           }
         },
-        // Count pages
+        // Pull precomputed totals from job_summaries instead of counting multiple collections.
         {
           $lookup: {
-            from: 'pages',
+            from: 'job_summaries',
             let: { jobId: '$job.id' },
             pipeline: [
               { $match: { $expr: { $eq: ['$jobId', '$$jobId'] } } },
-              { $count: 'count' }
+              {
+                $project: {
+                  _id: 0,
+                  total_pages: 1,
+                  total_links: 1,
+                  total_sitemaps: 1,
+                },
+              },
             ],
-            as: 'pagesCount'
-          }
-        },
-        // Count links
-        {
-          $lookup: {
-            from: 'links',
-            let: { jobId: '$job.id' },
-            pipeline: [
-              { $match: { $expr: { $eq: ['$jobId', '$$jobId'] } } },
-              { $count: 'count' }
-            ],
-            as: 'linksCount'
-          }
-        },
-        // Count sitemaps
-        {
-          $lookup: {
-            from: 'sitemaps',
-            let: { jobId: '$job.id' },
-            pipeline: [
-              { $match: { $expr: { $eq: ['$jobId', '$$jobId'] } } },
-              { $count: 'count' }
-            ],
-            as: 'sitemapsCount'
+            as: 'jobSummary'
           }
         },
         {
           $addFields: {
             startUrl: '$job.url',
+            summary: { $arrayElemAt: ['$jobSummary', 0] },
             status: {
               $cond: {
                 if: { $eq: ['$job.status', 'PENDING'] },
@@ -171,23 +164,38 @@ export class SessionRepository {
             startedAt: '$job.startedAt',
             completedAt: '$job.completedAt',
             maxConcurrency: 4, // Default for now
-            totalPages: { $ifNull: [{ $arrayElemAt: ['$pagesCount.count', 0] }, 0] },
-            totalLinks: { $ifNull: [{ $arrayElemAt: ['$linksCount.count', 0] }, 0] },
-            totalSitemaps: { $ifNull: [{ $arrayElemAt: ['$sitemapsCount.count', 0] }, 0] },
-            totalResources: { $ifNull: [{ $arrayElemAt: ['$pagesCount.count', 0] }, 0] } // Legacy
+            totalPages: { $ifNull: ['$summary.total_pages', 0] },
+            totalLinks: { $ifNull: ['$summary.total_links', 0] },
+            totalSitemaps: { $ifNull: ['$summary.total_sitemaps', 0] },
+            totalResources: { $ifNull: ['$summary.total_pages', 0] } // Legacy
           }
         },
         {
           $project: {
             jobs: 0,
             job: 0,
-            pagesCount: 0,
-            linksCount: 0,
-            sitemapsCount: 0
+            jobSummary: 0,
+            summary: 0
           }
         }
       ])
-      .toArray() as Promise<Session[]>;
+      .toArray()) as Session[];
+
+    const hasNext = !includeTotal && sessions.length > limit;
+    const data = hasNext ? sessions.slice(0, limit) : sessions;
+    const total = includeTotal
+      ? await db.collection<Session>('sessions').countDocuments(query)
+      : undefined;
+
+    return {
+      sessions: data,
+      pagination: {
+        limit,
+        offset,
+        total,
+        hasNext,
+      },
+    };
   }
 
   /**

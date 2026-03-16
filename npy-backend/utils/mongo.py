@@ -28,7 +28,16 @@ class MongoManager:
         if self._client is None:
             try:
                 logger.info(f"Connecting to MongoDB at {self.mongo_uri}...")
-                self._client = MongoClient(self.mongo_uri, serverSelectionTimeoutMS=5000)
+                self._client = MongoClient(
+                    self.mongo_uri,
+                    serverSelectionTimeoutMS=5000,
+                    connectTimeoutMS=10000,
+                    socketTimeoutMS=45000,
+                    maxPoolSize=config.MONGO_MAX_POOL_SIZE,
+                    minPoolSize=config.MONGO_MIN_POOL_SIZE,
+                    maxIdleTimeMS=config.MONGO_MAX_IDLE_TIME_MS,
+                    waitQueueTimeoutMS=config.MONGO_WAIT_QUEUE_TIMEOUT_MS,
+                )
                 self._db = self._client[self.db_name]
                 
                 # Check connection
@@ -49,11 +58,19 @@ class MongoManager:
             pages.create_index("jobId")
             pages.create_index("url")
             pages.create_index([("jobId", 1), ("url", 1)])
+            pages.create_index([("jobId", 1), ("createdAt", 1)])
 
             self._db.links.create_index("jobId")
+            self._db.links.create_index([("jobId", 1), ("createdAt", 1)])
             self._db.sitemaps.create_index("jobId")
+            self._db.sitemaps.create_index([("jobId", 1), ("createdAt", 1)])
             self._db.fields.create_index("jobId")
             self._db.fields.create_index([("jobId", 1), ("url", 1)])
+            self._db.fields.create_index([("jobId", 1), ("createdAt", 1)])
+            self._db.sessions.create_index([("projectId", 1), ("createdAt", -1)])
+            self._db.sessions.create_index([("projectId", 1), ("status", 1), ("createdAt", -1)])
+            self._db.jobs.create_index([("sessionId", 1), ("createdAt", -1)])
+            self._db.projects.create_index([("userId", 1), ("status", 1), ("createdAt", -1)])
             # job_summaries: unique+sparse index on jobId.
             # An older non-unique index with the same auto-generated name
             # ("jobId_1") may exist from a previous deployment.  MongoDB
@@ -86,8 +103,11 @@ class MongoManager:
                     raise
             self._db.module_e.create_index("jobId", unique=True)
             self._db.module_f.create_index("jobId", unique=True)
+            self._db.module_f.create_index([("sessionId", 1), ("updatedAt", -1)])
             self._db.aeo_analysis.create_index("jobId")
             self._db.aeo_analysis.create_index([("jobId", 1), ("url", 1)])
+            self._db.aeo_analysis.create_index([("jobId", 1), ("timestamp", -1)])
+            self._db.performance_audits.create_index([("jobId", 1), ("device", 1), ("runAt", -1)])
             self._db.serp_results.create_index("jobId", unique=True)
             self._db.serp_results.create_index("sessionId")
             

@@ -153,6 +153,8 @@ proxy/storage/
 *.swo
 *~
 
+fix*
+
 # OS generated files
 .DS_Store
 .DS_Store?
@@ -249,3 +251,4 @@ web_modules/
 .vuepress/dist
 
 admin-dashboard-design/
+

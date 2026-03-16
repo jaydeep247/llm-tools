@@ -203,11 +203,15 @@ export interface JobSummary {
 export const jobApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     // Get job snapshot for live updates
-    getJobSnapshot: builder.query<JobSnapshot, string>({
-      query: (jobId) => `/jobs/${jobId}/snapshot`,
+    getJobSnapshot: builder.query<JobSnapshot, string | { jobId: string; limit?: number }>({
+      query: (arg) => {
+        const jobId = typeof arg === 'string' ? arg : arg.jobId;
+        const limit = typeof arg === 'string' ? 200 : (arg.limit ?? 200);
+        return `/jobs/${jobId}/snapshot?limit=${limit}`;
+      },
       transformResponse: (response: { success: boolean; data: JobSnapshot }) => response.data,
-      providesTags: (result, error, jobId) => [{ type: 'Job', id: jobId }],
-      keepUnusedDataFor: 0, // Never cache - always fetch fresh snapshot to prevent cross-session contamination
+      providesTags: (result, error, arg) => [{ type: 'Job', id: typeof arg === 'string' ? arg : arg.jobId }],
+      keepUnusedDataFor: 10,
     }),
 
     // Get job status by jobId
@@ -229,7 +233,7 @@ export const jobApi = baseApi.injectEndpoints({
         { type: 'Session', id: sessionId },
         'Job',
       ],
-      keepUnusedDataFor: 0, // Never cache - fetch fresh jobs list on session change
+      keepUnusedDataFor: 15,
     }),
 
     // Get crawl results for a job
@@ -241,32 +245,44 @@ export const jobApi = baseApi.injectEndpoints({
     }),
 
     // Granular endpoints
-    getJobPages: builder.query<{ data: any[], pagination: any }, { jobId: string, page?: number, limit?: number }>({
-      query: ({ jobId, page = 1, limit = 100 }) => `/jobs/${jobId}/results/pages?page=${page}&limit=${limit}`,
+    getJobPages: builder.query<{ data: any[], pagination: any }, { jobId: string, page?: number, limit?: number, includeTotal?: boolean }>({
+      query: ({ jobId, page = 1, limit = 100, includeTotal = false }) => `/jobs/${jobId}/results/pages?page=${page}&limit=${limit}&includeTotal=${includeTotal}`,
       transformResponse: (response: { success: boolean; data: { data: any[]; pagination: any } }) =>
         response.data,
       providesTags: (result, error, { jobId }) => [{ type: 'Job', id: jobId }],
     }),
 
-    getJobLinks: builder.query<{ data: any[], pagination: any }, { jobId: string, page?: number, limit?: number }>({
-      query: ({ jobId, page = 1, limit = 100 }) => `/jobs/${jobId}/results/links?page=${page}&limit=${limit}`,
+    getJobLinks: builder.query<{ data: any[], pagination: any }, { jobId: string, page?: number, limit?: number, includeTotal?: boolean }>({
+      query: ({ jobId, page = 1, limit = 100, includeTotal = false }) => `/jobs/${jobId}/results/links?page=${page}&limit=${limit}&includeTotal=${includeTotal}`,
       transformResponse: (response: { success: boolean; data: { data: any[]; pagination: any } }) =>
         response.data,
       providesTags: (result, error, { jobId }) => [{ type: 'Job', id: jobId }],
     }),
 
-    getJobSitemaps: builder.query<{ data: any[] }, string>({
-      query: (jobId) => `/jobs/${jobId}/results/sitemaps`,
-      transformResponse: (response: { success: boolean; data: { data: any[] } }) =>
+    getJobSitemaps: builder.query<{ data: any[]; pagination: any }, string | { jobId: string; page?: number; limit?: number; includeTotal?: boolean }>({
+      query: (arg) => {
+        const jobId = typeof arg === 'string' ? arg : arg.jobId;
+        const page = typeof arg === 'string' ? 1 : (arg.page ?? 1);
+        const limit = typeof arg === 'string' ? 100 : (arg.limit ?? 100);
+        const includeTotal = typeof arg === 'string' ? false : (arg.includeTotal ?? false);
+        return `/jobs/${jobId}/results/sitemaps?page=${page}&limit=${limit}&includeTotal=${includeTotal}`;
+      },
+      transformResponse: (response: { success: boolean; data: { data: any[]; pagination: any } }) =>
         response.data,
-      providesTags: (result, error, jobId) => [{ type: 'Job', id: jobId }],
+      providesTags: (result, error, arg) => [{ type: 'Job', id: typeof arg === 'string' ? arg : arg.jobId }],
     }),
 
-    getJobFields: builder.query<{ data: any[] }, string>({
-      query: (jobId) => `/jobs/${jobId}/results/fields`,
-      transformResponse: (response: { success: boolean; data: { data: any[] } }) =>
+    getJobFields: builder.query<{ data: any[]; pagination: any }, string | { jobId: string; page?: number; limit?: number; includeTotal?: boolean }>({
+      query: (arg) => {
+        const jobId = typeof arg === 'string' ? arg : arg.jobId;
+        const page = typeof arg === 'string' ? 1 : (arg.page ?? 1);
+        const limit = typeof arg === 'string' ? 100 : (arg.limit ?? 100);
+        const includeTotal = typeof arg === 'string' ? false : (arg.includeTotal ?? false);
+        return `/jobs/${jobId}/results/fields?page=${page}&limit=${limit}&includeTotal=${includeTotal}`;
+      },
+      transformResponse: (response: { success: boolean; data: { data: any[]; pagination: any } }) =>
         response.data,
-      providesTags: (result, error, jobId) => [{ type: 'Job', id: jobId }],
+      providesTags: (result, error, arg) => [{ type: 'Job', id: typeof arg === 'string' ? arg : arg.jobId }],
     }),
 
     getJobSummary: builder.query<JobSummary | null, string>({

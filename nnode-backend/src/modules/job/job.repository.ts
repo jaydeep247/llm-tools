@@ -4,6 +4,40 @@ import { Job, JobStatus, JobType, CreateJobDto } from './job.types';
 import { LiveJobService } from '../../services/live-job.service';
 
 export class JobRepository {
+  private async deleteBySessionIds(sessionIds: string[]): Promise<void> {
+    if (sessionIds.length === 0) {
+      return;
+    }
+
+    const db = await connectToMongo();
+    const jobs = await db
+      .collection<Job>('jobs')
+      .find(
+        { sessionId: { $in: sessionIds } },
+        { projection: { id: 1, sessionId: 1 } },
+      )
+      .toArray();
+    const jobIds = jobs.map((job) => job.id);
+
+    if (jobIds.length === 0) {
+      return;
+    }
+
+    await Promise.all([
+      db.collection('pages').deleteMany({ jobId: { $in: jobIds } }),
+      db.collection('links').deleteMany({ jobId: { $in: jobIds } }),
+      db.collection('sitemaps').deleteMany({ jobId: { $in: jobIds } }),
+      db.collection('fields').deleteMany({ jobId: { $in: jobIds } }),
+      db.collection('aeo_analysis').deleteMany({ jobId: { $in: jobIds } }),
+      db.collection('module_e').deleteMany({ jobId: { $in: jobIds } }),
+      db.collection('content_metrics').deleteMany({ jobId: { $in: jobIds } }),
+      db.collection('schemas').deleteMany({ jobId: { $in: jobIds } }),
+      db.collection('job_summaries').deleteMany({ jobId: { $in: jobIds } }),
+      db.collection<Job>('jobs').deleteMany({ sessionId: { $in: sessionIds } }),
+      ...jobIds.map((id) => LiveJobService.cleanupJob(id)),
+    ]);
+  }
+
   async create(sessionId: string, projectId: string, data: CreateJobDto): Promise<Job> {
     const db = await connectToMongo();
     const now = new Date();
@@ -91,31 +125,16 @@ export class JobRepository {
    * Delete jobs by session ID and all related data (pages, links, sitemaps, fields)
    */
   async deleteBySessionId(sessionId: string): Promise<void> {
+    await this.deleteBySessionIds([sessionId]);
+  }
+
+  async deleteByProjectId(projectId: string): Promise<void> {
     const db = await connectToMongo();
+    const sessions = await db
+      .collection('sessions')
+      .find({ projectId }, { projection: { id: 1 } })
+      .toArray();
 
-    // Find all jobs for this session
-    const jobs = await this.findBySessionId(sessionId);
-    const jobIds = jobs.map(job => job.id);
-
-    if (jobIds.length > 0) {
-      // Delete related data from all collections
-      await Promise.all([
-        db.collection('pages').deleteMany({ jobId: { $in: jobIds } }),
-        db.collection('links').deleteMany({ jobId: { $in: jobIds } }),
-        db.collection('sitemaps').deleteMany({ jobId: { $in: jobIds } }),
-        db.collection('fields').deleteMany({ jobId: { $in: jobIds } }),
-        db.collection('aeo_analysis').deleteMany({ jobId: { $in: jobIds } }),
-        db.collection('module_e').deleteMany({ jobId: { $in: jobIds } }),
-        db.collection('content_metrics').deleteMany({ jobId: { $in: jobIds } }),
-        db.collection('schemas').deleteMany({ jobId: { $in: jobIds } }),
-        // job_summaries stores crawl_status for Quick Start jobs — must be cleaned up
-        db.collection('job_summaries').deleteMany({ jobId: { $in: jobIds } }),
-        // Clean up Redis keys for every job
-        ...jobIds.map(id => LiveJobService.cleanupJob(id)),
-      ]);
-
-      // Delete jobs
-      await db.collection<Job>('jobs').deleteMany({ sessionId });
-    }
+    await this.deleteBySessionIds(sessions.map((session: any) => String(session.id)));
   }
 }

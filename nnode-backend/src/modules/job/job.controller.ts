@@ -14,8 +14,64 @@ export class JobController {
   private jobService: JobService;
   private redis = getRedisClient();
 
+  private static readonly DEFAULT_PAGE_SIZE = 100;
+  private static readonly MAX_PAGE_SIZE = 250;
+  private static readonly DEFAULT_RECOMMENDATION_PAGE_SIZE = 250;
+  private static readonly MAX_RECOMMENDATION_PAGE_SIZE = 500;
+  private static readonly DEFAULT_AEO_PAGE_SIZE = 100;
+  private static readonly MAX_AEO_PAGE_SIZE = 250;
+  private static readonly DEFAULT_SITE_STRUCTURE_PAGE_SIZE = 1000;
+  private static readonly MAX_SITE_STRUCTURE_PAGE_SIZE = 2000;
+  private static readonly DEFAULT_AUDIT_PAGE_SIZE = 250;
+  private static readonly MAX_AUDIT_PAGE_SIZE = 500;
+
   constructor() {
     this.jobService = new JobService();
+  }
+
+  private parsePagination(
+    req: Request,
+    defaults: { defaultLimit: number; maxLimit: number },
+  ): {
+    page: number;
+    limit: number;
+    skip: number;
+    includeTotal: boolean;
+    fetchLimit: number;
+  } {
+    const rawPage = req.query.page ? parseInt(String(req.query.page), 10) : 1;
+    const rawLimit = req.query.limit ? parseInt(String(req.query.limit), 10) : defaults.defaultLimit;
+    const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
+    const boundedLimit = Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : defaults.defaultLimit;
+    const limit = Math.min(boundedLimit, defaults.maxLimit);
+    const includeTotal = String(req.query.includeTotal || 'false').toLowerCase() === 'true';
+
+    return {
+      page,
+      limit,
+      skip: (page - 1) * limit,
+      includeTotal,
+      fetchLimit: includeTotal ? limit : limit + 1,
+    };
+  }
+
+  private buildPaginatedPayload<T>(
+    rows: T[],
+    pagination: { page: number; limit: number; includeTotal: boolean },
+    total?: number,
+  ): { data: T[]; pagination: { page: number; limit: number; total?: number; hasNext: boolean } } {
+    const hasNext = !pagination.includeTotal && rows.length > pagination.limit;
+    const data = hasNext ? rows.slice(0, pagination.limit) : rows;
+
+    return {
+      data,
+      pagination: {
+        page: pagination.page,
+        limit: pagination.limit,
+        total,
+        hasNext,
+      },
+    };
   }
 
   private normalizeUrl = (raw?: string): string | undefined => {
@@ -32,7 +88,8 @@ export class JobController {
   getJobSnapshot = async (req: Request, res: Response): Promise<Response> => {
     try {
         const { id } = sessionIdSchema.parse({ id: req.params.id });
-        const snapshot = await LiveJobService.getSnapshot(id);
+        const rawLimit = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined;
+        const snapshot = await LiveJobService.getSnapshot(id, Number.isFinite(rawLimit) ? rawLimit : undefined);
         
         return ResponseUtil.success(res, 'Job snapshot retrieved', snapshot);
     } catch (error: any) {
@@ -386,24 +443,24 @@ export class JobController {
       const { id } = sessionIdSchema.parse({ id: req.params.id });
       await this.jobService.getJobById(userId, id);
 
-      const page = req.query.page ? parseInt(String(req.query.page), 10) || 1 : 1;
-      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) || 100 : 100;
+      const pagination = this.parsePagination(req, {
+        defaultLimit: JobController.DEFAULT_PAGE_SIZE,
+        maxLimit: JobController.MAX_PAGE_SIZE,
+      });
 
       const db = await connectToMongo();
       const collection = db.collection('pages');
       const filter = { jobId: id };
-      const total = await collection.countDocuments(filter);
-      const skip = (page - 1) * limit;
-      const data = await collection
+      const rows = await collection
         .find(filter)
         .sort({ createdAt: 1 })
-        .skip(skip)
-        .limit(limit)
+        .skip(pagination.skip)
+        .limit(pagination.fetchLimit)
         .toArray();
+      const total = pagination.includeTotal ? await collection.countDocuments(filter) : undefined;
 
       return ResponseUtil.success(res, 'Job pages retrieved successfully', {
-        data,
-        pagination: { page, limit, total },
+        ...this.buildPaginatedPayload(rows, pagination, total),
       });
     } catch (error: any) {
       logger.error(`Error getting job pages: ${error.message}`);
@@ -420,24 +477,24 @@ export class JobController {
       const { id } = sessionIdSchema.parse({ id: req.params.id });
       await this.jobService.getJobById(userId, id);
 
-      const page = req.query.page ? parseInt(String(req.query.page), 10) || 1 : 1;
-      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) || 100 : 100;
+      const pagination = this.parsePagination(req, {
+        defaultLimit: JobController.DEFAULT_PAGE_SIZE,
+        maxLimit: JobController.MAX_PAGE_SIZE,
+      });
 
       const db = await connectToMongo();
       const collection = db.collection('links');
       const filter = { jobId: id };
-      const total = await collection.countDocuments(filter);
-      const skip = (page - 1) * limit;
-      const data = await collection
+      const rows = await collection
         .find(filter)
         .sort({ createdAt: 1 })
-        .skip(skip)
-        .limit(limit)
+        .skip(pagination.skip)
+        .limit(pagination.fetchLimit)
         .toArray();
+      const total = pagination.includeTotal ? await collection.countDocuments(filter) : undefined;
 
       return ResponseUtil.success(res, 'Job links retrieved successfully', {
-        data,
-        pagination: { page, limit, total },
+        ...this.buildPaginatedPayload(rows, pagination, total),
       });
     } catch (error: any) {
       logger.error(`Error getting job links: ${error.message}`);
@@ -454,14 +511,25 @@ export class JobController {
       const { id } = sessionIdSchema.parse({ id: req.params.id });
       await this.jobService.getJobById(userId, id);
 
+      const pagination = this.parsePagination(req, {
+        defaultLimit: JobController.DEFAULT_PAGE_SIZE,
+        maxLimit: JobController.MAX_PAGE_SIZE,
+      });
+
       const db = await connectToMongo();
       const collection = db.collection('sitemaps');
-      const data = await collection
-        .find({ jobId: id })
+      const filter = { jobId: id };
+      const rows = await collection
+        .find(filter)
         .sort({ createdAt: 1 })
+        .skip(pagination.skip)
+        .limit(pagination.fetchLimit)
         .toArray();
+      const total = pagination.includeTotal ? await collection.countDocuments(filter) : undefined;
 
-      return ResponseUtil.success(res, 'Job sitemaps retrieved successfully', { data });
+      return ResponseUtil.success(res, 'Job sitemaps retrieved successfully', {
+        ...this.buildPaginatedPayload(rows, pagination, total),
+      });
     } catch (error: any) {
       logger.error(`Error getting job sitemaps: ${error.message}`);
       if (error.message.includes('not found') || error.message.includes('access denied')) {
@@ -477,14 +545,25 @@ export class JobController {
       const { id } = sessionIdSchema.parse({ id: req.params.id });
       await this.jobService.getJobById(userId, id);
 
+      const pagination = this.parsePagination(req, {
+        defaultLimit: JobController.DEFAULT_PAGE_SIZE,
+        maxLimit: JobController.MAX_PAGE_SIZE,
+      });
+
       const db = await connectToMongo();
       const collection = db.collection('fields');
-      const data = await collection
-        .find({ jobId: id })
+      const filter = { jobId: id };
+      const rows = await collection
+        .find(filter)
         .sort({ createdAt: 1 })
+        .skip(pagination.skip)
+        .limit(pagination.fetchLimit)
         .toArray();
+      const total = pagination.includeTotal ? await collection.countDocuments(filter) : undefined;
 
-      return ResponseUtil.success(res, 'Job fields retrieved successfully', { data });
+      return ResponseUtil.success(res, 'Job fields retrieved successfully', {
+        ...this.buildPaginatedPayload(rows, pagination, total),
+      });
     } catch (error: any) {
       logger.error(`Error getting job fields: ${error.message}`);
       if (error.message.includes('not found') || error.message.includes('access denied')) {
@@ -500,12 +579,61 @@ export class JobController {
       const { id } = sessionIdSchema.parse({ id: req.params.id });
       await this.jobService.getJobById(userId, id);
 
+      const pagination = this.parsePagination(req, {
+        defaultLimit: JobController.DEFAULT_RECOMMENDATION_PAGE_SIZE,
+        maxLimit: JobController.MAX_RECOMMENDATION_PAGE_SIZE,
+      });
       const db = await connectToMongo();
-      const docs = await db
-        .collection('fields')
-        .find({ jobId: id }, { projection: { url: 1, recommendations: 1, createdAt: 1 } })
-        .sort({ createdAt: 1 })
-        .toArray();
+      const collection = db.collection('fields');
+
+      const [docs, aggregateRows, categoryRows] = await Promise.all([
+        collection
+          .find(
+            { jobId: id },
+            { projection: { url: 1, recommendations: 1, createdAt: 1 } },
+          )
+          .sort({ createdAt: 1 })
+          .skip(pagination.skip)
+          .limit(pagination.fetchLimit)
+          .toArray(),
+        collection
+          .aggregate([
+            { $match: { jobId: id } },
+            {
+              $project: {
+                health_score: { $ifNull: ['$recommendations.health_score', 100] },
+                critical: { $ifNull: ['$recommendations.summary.critical', 0] },
+                warning: { $ifNull: ['$recommendations.summary.warning', 0] },
+                info: { $ifNull: ['$recommendations.summary.info', 0] },
+              },
+            },
+            {
+              $group: {
+                _id: null,
+                total_pages: { $sum: 1 },
+                avg_health_score: { $avg: '$health_score' },
+                critical: { $sum: '$critical' },
+                warning: { $sum: '$warning' },
+                info: { $sum: '$info' },
+              },
+            },
+          ])
+          .toArray(),
+        collection
+          .aggregate([
+            { $match: { jobId: id } },
+            {
+              $project: {
+                pairs: {
+                  $objectToArray: { $ifNull: ['$recommendations.summary.by_category', {}] },
+                },
+              },
+            },
+            { $unwind: '$pairs' },
+            { $group: { _id: '$pairs.k', count: { $sum: '$pairs.v' } } },
+          ])
+          .toArray(),
+      ]);
 
       // The fields collection document is FLAT (pipeline does **fields_data).
       // recommendations lives at doc.recommendations, NOT doc.fields.recommendations.
@@ -519,31 +647,29 @@ export class JobController {
         };
       });
 
+      const aggregateDoc = aggregateRows[0] as any;
       const aggregate = {
-        total_pages: pages.length,
-        avg_health_score:
-          pages.length > 0
-            ? Math.round(
-                pages.reduce((sum: number, p: any) => sum + (p.health_score ?? 100), 0) /
-                  pages.length,
-              )
-            : 100,
-        critical: pages.reduce((s: number, p: any) => s + (p.summary?.critical ?? 0), 0),
-        warning: pages.reduce((s: number, p: any) => s + (p.summary?.warning ?? 0), 0),
-        info: pages.reduce((s: number, p: any) => s + (p.summary?.info ?? 0), 0),
-        by_category: {} as Record<string, number>,
+        total_pages: aggregateDoc?.total_pages ?? 0,
+        avg_health_score: Math.round(aggregateDoc?.avg_health_score ?? 100),
+        critical: aggregateDoc?.critical ?? 0,
+        warning: aggregateDoc?.warning ?? 0,
+        info: aggregateDoc?.info ?? 0,
+        by_category: Object.fromEntries(
+          categoryRows.map((row: any) => [String(row._id), Number(row.count) || 0]),
+        ) as Record<string, number>,
       };
 
-      for (const page of pages) {
-        const bc = page.summary?.by_category ?? {};
-        for (const [cat, count] of Object.entries(bc)) {
-          aggregate.by_category[cat] = (aggregate.by_category[cat] ?? 0) + (count as number);
-        }
-      }
+      const hasNext = docs.length > pagination.limit;
 
       return ResponseUtil.success(res, 'Recommendations retrieved successfully', {
         aggregate,
-        pages,
+        pages: hasNext ? pages.slice(0, pagination.limit) : pages,
+        pagination: {
+          page: pagination.page,
+          limit: pagination.limit,
+          total: aggregate.total_pages,
+          hasNext,
+        },
       });
     } catch (error: any) {
       logger.error(`Error getting recommendations: ${error.message}`);
@@ -560,14 +686,25 @@ export class JobController {
       const { id } = sessionIdSchema.parse({ id: req.params.id });
       await this.jobService.getJobById(userId, id);
 
+      const pagination = this.parsePagination(req, {
+        defaultLimit: JobController.DEFAULT_AEO_PAGE_SIZE,
+        maxLimit: JobController.MAX_AEO_PAGE_SIZE,
+      });
       const db = await connectToMongo();
       const collection = db.collection('aeo_analysis');
-      const data = await collection
+      const rows = await collection
         .find({ jobId: id })
         .sort({ timestamp: -1 })
+        .skip(pagination.skip)
+        .limit(pagination.fetchLimit)
         .toArray();
+      const total = pagination.includeTotal
+        ? await collection.countDocuments({ jobId: id })
+        : undefined;
 
-      return ResponseUtil.success(res, 'Job AEO analysis retrieved successfully', { data });
+      return ResponseUtil.success(res, 'Job AEO analysis retrieved successfully', {
+        ...this.buildPaginatedPayload(rows, pagination, total),
+      });
     } catch (error: any) {
       logger.error(`Error getting job AEO analysis: ${error.message}`);
       if (error.message.includes('not found') || error.message.includes('access denied')) {
@@ -603,20 +740,31 @@ export class JobController {
       const { id } = sessionIdSchema.parse({ id: req.params.id });
       const job = await this.jobService.getJobById(userId, id);
 
+      const pagination = this.parsePagination(req, {
+        defaultLimit: JobController.DEFAULT_SITE_STRUCTURE_PAGE_SIZE,
+        maxLimit: JobController.MAX_SITE_STRUCTURE_PAGE_SIZE,
+      });
       const db = await connectToMongo();
       const pagesCollection = db.collection('pages');
-      const pages = await pagesCollection
+      const rows = await pagesCollection
         .find({ jobId: id })
         .project({ url: 1, _id: 0 })
         .sort({ createdAt: 1 })
+        .skip(pagination.skip)
+        .limit(pagination.fetchLimit)
         .toArray();
+      const total = pagination.includeTotal
+        ? await pagesCollection.countDocuments({ jobId: id })
+        : undefined;
+      const payload = this.buildPaginatedPayload(rows, pagination, total);
 
       return ResponseUtil.success(res, 'Job site structure retrieved successfully', {
         jobId: id,
         sessionId: job.sessionId,
         projectId: job.projectId,
         startUrl: job.url,
-        pages,
+        pages: payload.data,
+        pagination: payload.pagination,
       });
     } catch (error: any) {
       logger.error(`Error getting job site structure: ${error.message}`);
@@ -731,6 +879,10 @@ export class JobController {
 
       await this.jobService.getJobById(userId, id);
 
+      const pagination = this.parsePagination(req, {
+        defaultLimit: JobController.DEFAULT_AUDIT_PAGE_SIZE,
+        maxLimit: JobController.MAX_AUDIT_PAGE_SIZE,
+      });
       const db = await connectToMongo();
       const collection = db.collection('performance_audits');
 
@@ -739,7 +891,26 @@ export class JobController {
         filter.device = deviceFilter;
       }
 
-      const docs = await collection.find(filter).sort({ runAt: -1 }).toArray();
+      const docs = await collection
+        .find(filter)
+        .project({
+          url: 1,
+          device: 1,
+          runAt: 1,
+          createdAt: 1,
+          LCP_ms: 1,
+          TBT_ms: 1,
+          CLS: 1,
+          FCP_ms: 1,
+          TTFB_ms: 1,
+          performanceScore: 1,
+          psiReportUrl: 1,
+        })
+        .sort({ runAt: -1 })
+        .skip(pagination.skip)
+        .limit(pagination.fetchLimit)
+        .toArray();
+      const total = pagination.includeTotal ? await collection.countDocuments(filter) : undefined;
 
       const items = docs.map((doc: any) => ({
         id: String(doc._id),
@@ -755,10 +926,20 @@ export class JobController {
         psiReportUrl: doc.psiReportUrl,
       }));
 
+      const hasNext = items.length > pagination.limit;
+
       return ResponseUtil.success(
         res,
         'Job performance audits retrieved successfully',
-        { items },
+        {
+          items: hasNext ? items.slice(0, pagination.limit) : items,
+          pagination: {
+            page: pagination.page,
+            limit: pagination.limit,
+            total,
+            hasNext,
+          },
+        },
       );
     } catch (error: any) {
       logger.error(`Error getting job performance audits: ${error.message}`);

@@ -5,7 +5,7 @@ import { useEffect, useState, useMemo, useRef } from 'react'
 import { Loader2, BarChart3 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import Aurora from '@/components/animations/Aurora'
-import { useGetJobSnapshotQuery, useGetJobStatusQuery } from '@/store/api/jobApi'
+import { useGetJobSnapshotQuery } from '@/store/api/jobApi'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { updateJobProgress, clearJobProgress, selectStoredPercent } from '@/store/slices/jobProgressSlice'
 import { io, Socket } from 'socket.io-client'
@@ -95,14 +95,13 @@ export default function JobProgressPage() {
     isSuccess: isSnapshotSuccess,
     isLoading: isSnapshotLoading,
     isFetching: isSnapshotFetching,
-  } = useGetJobSnapshotQuery(jobId, {
+  } = useGetJobSnapshotQuery({ jobId, limit: 150 }, {
     skip: !jobId,
     refetchOnMountOrArgChange: true,
-  })
-
-  const { data: polledStatus } = useGetJobStatusQuery(jobId, {
-    skip: !jobId,
-    refetchOnMountOrArgChange: true,
+    pollingInterval:
+      jobStatus === 'completed' || jobStatus === 'failed' || jobStatus === 'cancelled'
+        ? 0
+        : 3000,
   })
 
   // ── Snapshot hydration (once per job) ─────────────────────────────────
@@ -137,22 +136,6 @@ export default function JobProgressPage() {
       })
     }
   }, [isSnapshotSuccess, isSnapshotFetching, snapshot, jobId])
-
-  // ── Polling fallback for metadata + status ────────────────────────────
-  useEffect(() => {
-    if (!polledStatus) return
-    setJobMeta(prev => ({
-      ...prev,
-      projectId: (polledStatus as any).projectId || prev.projectId,
-      sessionId: (polledStatus as any).sessionId || prev.sessionId,
-    }))
-
-    const status = (polledStatus.status || '').toLowerCase() as JobStatus
-    if (status && status !== jobStatus) {
-      if ((jobStatus === 'completed' || jobStatus === 'failed' || jobStatus === 'cancelled') && status === 'running') return
-      setJobStatus(status)
-    }
-  }, [polledStatus])
 
   // ── Socket subscription ───────────────────────────────────────────────
   useEffect(() => {

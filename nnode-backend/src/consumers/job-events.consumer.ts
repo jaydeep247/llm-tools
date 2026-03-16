@@ -5,12 +5,12 @@ import { LiveJobService, JobEvent } from '../services/live-job.service';
 import { JobService } from '../modules/job/job.service';
 import { SessionService } from '../modules/session/session.service';
 import { getIo } from '../socket';
-import { getRedisClient } from '../config/redis';
 
 const EXCHANGE_NAME = 'job.events';
 const QUEUE_NAME = 'job.events.queue.v3'; // Bump version to force fresh queue binding
 const ROUTING_KEY_PATTERN = 'job.#';
 const BATCH_INTERVAL_MS = 500;
+const PREFETCH_COUNT = 50;
 
 // Buffer for batching events: jobId -> events[]
 const eventBuffers = new Map<string, JobEvent[]>();
@@ -52,6 +52,7 @@ export const startJobEventsConsumer = async () => {
 
     // Bind Queue
     await channel.bindQueue(QUEUE_NAME, EXCHANGE_NAME, ROUTING_KEY_PATTERN);
+    await channel.prefetch(PREFETCH_COUNT);
 
     logger.info(`✅ Job Events Consumer connected to ${EXCHANGE_NAME} (Queue: ${QUEUE_NAME})`);
 
@@ -76,38 +77,30 @@ export const startJobEventsConsumer = async () => {
         // 2. Update MongoDB Status for critical events
         try {
           if (event.eventType === 'JOB_STARTED') {
-             const job = await jobService.markRunning(event.jobId);
-             if (!job) logger.error(`❌ Failed to mark job ${event.jobId} as RUNNING - Job not found`);
+           const jobPromise = jobService.markRunning(event.jobId);
              
              // Emit direct socket event for start
-             try {
+           const socketPromise = (async () => {
                  const io = getIo();
                  io.to(`job:${event.jobId}`).emit('job:started', event);
-             } catch (e) { logger.error('Socket emit error:', e); }
+           })();
+
+           const [jobResult] = await Promise.allSettled([jobPromise, socketPromise]);
+           if (jobResult.status === 'fulfilled' && !jobResult.value) {
+             logger.error(`❌ Failed to mark job ${event.jobId} as RUNNING - Job not found`);
+           }
 
           } else if (event.eventType === 'JOB_COMPLETED' || (event.payload && event.payload.status === 'completed')) {
-             // Update Job Status
-             try {
-                 const job = await jobService.markCompleted(event.jobId);
-                 if (!job) logger.error(`❌ DB Update Failed: Job ${event.jobId} not found`);
-             } catch (e) {
-                 logger.error(`❌ DB Update Exception for ${event.jobId}:`, e);
-             }
-
-             // Update Session Status — sessionId is always present in Python-emitted payloads
-             try {
-                 const sessionId = event.payload?.sessionId;
-                 if (sessionId) {
-                     await sessionService.markSessionCompleted(sessionId);
-                 } else {
-                     logger.warn(`⚠️  JOB_COMPLETED for ${event.jobId} missing sessionId — session not updated`);
-                 }
-             } catch (e) {
-                 logger.error(`❌ Session Update Exception:`, e);
-             }
+           const sessionId = event.payload?.sessionId;
+           const jobPromise = jobService.markCompleted(event.jobId);
+           const sessionPromise = sessionId
+             ? sessionService.markSessionCompleted(sessionId)
+             : Promise.resolve();
+           if (!sessionId) {
+             logger.warn(`⚠️  JOB_COMPLETED for ${event.jobId} missing sessionId — session not updated`);
+           }
              
-             // Emit Direct Socket Event (Critical for UI)
-             try {
+           const socketPromise = (async () => {
                  const io = getIo();
                  io.to(`job:${event.jobId}`).emit('job:completed', {
                      jobId: event.jobId,
@@ -115,9 +108,9 @@ export const startJobEventsConsumer = async () => {
                      completedAt: new Date().toISOString(),
                      payload: event.payload
                  });
-             } catch (e) {
-                 logger.error(`❌ Socket emit error:`, e);
-             }
+           })();
+
+           await Promise.allSettled([jobPromise, sessionPromise, socketPromise]);
 
              // Flush Buffer immediately
              const existingTimer = flushTimers.get(event.jobId);
@@ -131,18 +124,17 @@ export const startJobEventsConsumer = async () => {
              
           } else if (event.eventType === 'JOB_FAILED' || (event.payload && event.payload.status === 'failed')) {
               const reason = event.payload?.reason || event.payload?.message || 'Unknown error';
-              await jobService.markFailed(event.jobId, reason);
-
-              // Update Session Status — sessionId is always present in Python-emitted payloads
               const sessionId = event.payload?.sessionId;
-              if (sessionId) {
-                  await sessionService.markSessionFailed(sessionId);
-              } else {
-                  logger.warn(`⚠️  JOB_FAILED for ${event.jobId} missing sessionId — session not updated`);
+              const jobPromise = jobService.markFailed(event.jobId, reason);
+              const sessionPromise = sessionId
+                ? sessionService.markSessionFailed(sessionId)
+                : Promise.resolve();
+              if (!sessionId) {
+                logger.warn(`⚠️  JOB_FAILED for ${event.jobId} missing sessionId — session not updated`);
               }
               
               // Emit Direct Socket Event
-              try {
+              const socketPromise = (async () => {
                  const io = getIo();
                  io.to(`job:${event.jobId}`).emit('job:failed', {
                      jobId: event.jobId,
@@ -150,7 +142,9 @@ export const startJobEventsConsumer = async () => {
                      error: reason,
                      payload: event.payload
                  });
-              } catch (e) { logger.error('Socket emit error:', e); }
+              })();
+
+              await Promise.allSettled([jobPromise, sessionPromise, socketPromise]);
 
               // Flush Buffer
               const existingTimer = flushTimers.get(event.jobId);
@@ -165,15 +159,10 @@ export const startJobEventsConsumer = async () => {
            logger.error(`Failed to update DB status for job ${event.jobId}:`, dbError);
         }
 
-        // 2b. page_crawled — update Redis pages_count live and push crawl:progress
-        //     to the socket so CrawlStatusBanner reflects the real count immediately
-        //     (including the offset supplied for resumed crawls).
+        // 2b. page_crawled — push crawl:progress directly to socket.
+        // pages_count is already persisted in LiveJobService.saveEvent().
         if (event.eventType === 'page_crawled' && event.payload?.pages_crawled !== undefined) {
           const pagesCrawled = Number(event.payload.pages_crawled);
-          try {
-            const redis = getRedisClient();
-            await redis.set(`job:${event.jobId}:pages_count`, pagesCrawled, 'EX', 86400);
-          } catch (e) { logger.warn('Redis pages_count update failed:', e); }
           try {
             const io = getIo();
             io.to(`job:${event.jobId}`).emit('crawl:progress', {

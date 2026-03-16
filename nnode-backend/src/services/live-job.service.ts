@@ -25,6 +25,8 @@ export interface JobSnapshot {
 const REDIS_TTL = 3600 * 24; // 24 hours
 const MAX_LOGS = 1000;
 const MAX_LINKS = 1000;
+const SNAPSHOT_DEFAULT_LIMIT = 200;
+const SNAPSHOT_MAX_LIMIT = 500;
 
 export class LiveJobService {
   /**
@@ -169,8 +171,9 @@ export class LiveJobService {
    * - Logs: { message, timestamp }
    * - Links: { url, timestamp }
    */
-  static async getSnapshot(jobId: string): Promise<JobSnapshot> {
+  static async getSnapshot(jobId: string, limit = SNAPSHOT_DEFAULT_LIMIT): Promise<JobSnapshot> {
     const redis = getRedisClient();
+    const boundedLimit = Math.max(25, Math.min(limit, SNAPSHOT_MAX_LIMIT));
     
     const statusKey = `job:${jobId}:status`;
     const logsKey = `job:${jobId}:logs`;
@@ -185,8 +188,8 @@ export class LiveJobService {
       // Execute in parallel
       const [status, logsRaw, pagesRaw, completed, startedAt, metaRaw, pagesCountRaw, stepsRaw] = await Promise.all([
         redis.get(statusKey),
-        redis.lrange(logsKey, 0, -1),
-        redis.lrange(pagesKey, 0, -1),  // Get crawled pages instead of discovered links
+        redis.lrange(logsKey, -boundedLimit, -1),
+        redis.lrange(pagesKey, -boundedLimit, -1),  // Get crawled pages instead of discovered links
         redis.get(completedKey),
         redis.get(startedAtKey),
         redis.get(metaKey),

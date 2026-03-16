@@ -29,7 +29,7 @@ function ProjectCrawlWatcher({
 }) {
   const { data: sessionsData } = useGetProjectSessionsQuery(
     { projectId: project.id, limit: 10 },
-    { refetchOnMountOrArgChange: true }
+    { pollingInterval: 10000 }
   )
 
   const runningSession = sessionsData?.sessions?.find(
@@ -82,7 +82,7 @@ function ProjectCrawlWatcher({
 // ─── Snapshot feeder ──────────────────────────────────────────────────────────
 
 function SnapshotFeeder({ jobId, onLinks }: { jobId: string; onLinks: (jobId: string, links: string[]) => void }) {
-  const { data: snapshot } = useGetJobSnapshotQuery(jobId, { refetchOnMountOrArgChange: true })
+  const { data: snapshot } = useGetJobSnapshotQuery({ jobId, limit: 60 }, { pollingInterval: 5000 })
 
   useEffect(() => {
     if (!snapshot) return
@@ -97,7 +97,7 @@ function SnapshotFeeder({ jobId, onLinks }: { jobId: string; onLinks: (jobId: st
 // ─── Completed job summary fetcher ────────────────────────────────────────────
 
 function CompletedJobSummaryFetcher({ jobId, onSummary }: { jobId: string; onSummary: (jobId: string, pages: number) => void }) {
-  const { data: summary } = useGetJobSummaryQuery(jobId, { refetchOnMountOrArgChange: true })
+  const { data: summary } = useGetJobSummaryQuery(jobId)
 
   useEffect(() => {
     if (!summary) return

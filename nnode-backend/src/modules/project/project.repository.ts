@@ -62,31 +62,33 @@ export class ProjectRepository {
 
     const projects = await db
       .collection<Project>('projects')
+      .find(query)
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    if (projects.length === 0) {
+      return [];
+    }
+
+    const projectIds = projects.map((project) => project.id);
+    const sessionCounts = await db
+      .collection('sessions')
       .aggregate([
-        { $match: query },
-        { $sort: { createdAt: -1 } },
-        {
-          $lookup: {
-            from: 'sessions',
-            localField: 'id',
-            foreignField: 'projectId',
-            as: 'sessions'
-          }
-        },
-        {
-          $addFields: {
-            '_count.sessions': { $size: '$sessions' }
-          }
-        },
-        {
-          $project: {
-            sessions: 0
-          }
-        }
+        { $match: { projectId: { $in: projectIds } } },
+        { $group: { _id: '$projectId', sessions: { $sum: 1 } } },
       ])
       .toArray();
 
-    return projects as ProjectWithSessionCount[];
+    const sessionCountByProjectId = new Map(
+      sessionCounts.map((entry: any) => [String(entry._id), Number(entry.sessions) || 0]),
+    );
+
+    return projects.map((project) => ({
+      ...project,
+      _count: {
+        sessions: sessionCountByProjectId.get(project.id) || 0,
+      },
+    })) as ProjectWithSessionCount[];
   }
 
   /**

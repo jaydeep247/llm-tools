@@ -32,8 +32,8 @@ export default function SessionDetailClient() {
   const sessionId = params.sessionId as string
   
   // Fetch session and project data using RTK Query
-  const { data: sessionData, isLoading: isLoadingSession, error: sessionError } = useGetSessionQuery(sessionId, { refetchOnMountOrArgChange: true })
-  const { data: projectData, isLoading: isLoadingProject } = useGetProjectQuery(projectId, { refetchOnMountOrArgChange: true })
+  const { data: sessionData, isLoading: isLoadingSession, error: sessionError } = useGetSessionQuery(sessionId)
+  const { data: projectData, isLoading: isLoadingProject } = useGetProjectQuery(projectId)
   
   const session = sessionData?.session
   const project = projectData?.project
@@ -42,7 +42,6 @@ export default function SessionDetailClient() {
   // Poll jobs list so latestJob.status reflects live job state (RUNNING → COMPLETED, etc.)
   const { data: jobsData, isLoading: isLoadingJobs } = useGetSessionJobsQuery(sessionId, {
     skip: !sessionId,
-    refetchOnMountOrArgChange: true,
   })
 
   // Get the latest job (assuming sorted by creation or just taking the last one for now)
@@ -118,21 +117,36 @@ export default function SessionDetailClient() {
   const shouldPollResults = isJobRunning || isCrawlJobRunning || isSessionRunning
 
   // Fetch results for the job using granular endpoints
-  const { data: pagesResult, isLoading: isLoadingPagesRaw, refetch: refetchPagesRaw } = useGetJobPagesQuery({ jobId: jobId!, limit: 1000 }, { skip: skipResults, refetchOnMountOrArgChange: true })
-  const { data: linksResult, isLoading: isLoadingLinksRaw, refetch: refetchLinksRaw } = useGetJobLinksQuery({ jobId: jobId!, limit: 1000 }, { skip: skipResults, refetchOnMountOrArgChange: true })
-  const { data: fieldsResult, isLoading: isLoadingFieldsRaw, refetch: refetchFieldsRaw } = useGetJobFieldsQuery(jobId!, { skip: skipResults, refetchOnMountOrArgChange: true })
-  const { data: sitemapsResult, isLoading: isLoadingSitemapsRaw, refetch: refetchSitemapsRaw } = useGetJobSitemapsQuery(jobId!, { skip: skipResults, refetchOnMountOrArgChange: true })
-  const { data: jobSummary } = useGetJobSummaryQuery(jobId!, { skip: skipResults, refetchOnMountOrArgChange: true })
+  const { data: pagesResult, isLoading: isLoadingPagesRaw, refetch: refetchPagesRaw } = useGetJobPagesQuery(
+    { jobId: jobId!, limit: 200, includeTotal: false },
+    { skip: skipResults }
+  )
+  const { data: linksResult, isLoading: isLoadingLinksRaw, refetch: refetchLinksRaw } = useGetJobLinksQuery(
+    { jobId: jobId!, limit: 200, includeTotal: false },
+    { skip: skipResults }
+  )
+  const { data: fieldsResult, isLoading: isLoadingFieldsRaw, refetch: refetchFieldsRaw } = useGetJobFieldsQuery(
+    { jobId: jobId!, limit: 200, includeTotal: false },
+    { skip: skipResults }
+  )
+  const { data: sitemapsResult, isLoading: isLoadingSitemapsRaw, refetch: refetchSitemapsRaw } = useGetJobSitemapsQuery(
+    { jobId: jobId!, limit: 100, includeTotal: false },
+    { skip: skipResults }
+  )
+  const { data: jobSummary } = useGetJobSummaryQuery(jobId!, { skip: skipResults })
   
   // Real-time snapshot — poll the CRAWL job's snapshot specifically.
   // For quick-start sessions crawlJobId is null; fall back to quickStartJobId
   // so the banner still receives live pagesCrawled data.
   const snapshotJobId = crawlJobId || quickStartJobId
   const isSnapshotJobRunning = isCrawlJobRunning || isQsJobRunning
-  const { data: jobSnapshot } = useGetJobSnapshotQuery(snapshotJobId!, { 
-    skip: !snapshotJobId, 
-    refetchOnMountOrArgChange: true,
-  })
+  const { data: jobSnapshot } = useGetJobSnapshotQuery(
+    { jobId: snapshotJobId!, limit: 120 },
+    {
+      skip: !snapshotJobId,
+      pollingInterval: isSnapshotJobRunning ? 3000 : 0,
+    }
+  )
 
   const isLoadingResults = isLoadingPagesRaw || isLoadingLinksRaw || isLoadingFieldsRaw || isLoadingSitemapsRaw
   const refetchJobResults = () => {
@@ -158,22 +172,18 @@ export default function SessionDetailClient() {
   
   const activeSection = tab
 
-  // Refetch crawl data when switching to tabs that display it.
-  // RTK Query caches the initial (often empty) response from the dashboard tab;
-  // a soft navigation (query-param change) doesn't remount the component, so
-  // refetchOnMountOrArgChange won't fire. Explicitly refetch on tab switch.
-  const prevTabRef = useRef(activeSection)
+  // Polling refresh only while jobs are active to avoid tab-switch burst traffic.
   useEffect(() => {
-    if (prevTabRef.current !== activeSection) {
-      prevTabRef.current = activeSection
-      const dataTabs = ['crawled-data', 'technical-audit', 'content-audit', 'page-metrics', 'text-quality', 'wordcount', 'broken-links', 'link-analysis', 'performance-audits', 'schema-generator', 'site-structure']
-      if (dataTabs.includes(activeSection) && jobId) {
-        refetchPagesRaw()
-        refetchFieldsRaw()
-        refetchLinksRaw()
-      }
-    }
-  }, [activeSection, jobId, refetchPagesRaw, refetchFieldsRaw, refetchLinksRaw])
+    if (!jobId || !shouldPollResults) return
+    const timer = setInterval(() => {
+      refetchPagesRaw()
+      refetchFieldsRaw()
+      refetchLinksRaw()
+      refetchSitemapsRaw()
+    }, 8000)
+
+    return () => clearInterval(timer)
+  }, [jobId, shouldPollResults, refetchPagesRaw, refetchFieldsRaw, refetchLinksRaw, refetchSitemapsRaw])
 
   // Auto-poll module E result while on the brand-intelligence tab so all
   // 4 sections update automatically when the background job completes.
@@ -182,7 +192,6 @@ export default function SessionDetailClient() {
   // all receive live data without any user interaction.
   const { data: moduleEPolled } = useGetModuleEResultQuery(jobId ?? '', {
     skip: !jobId || activeSection !== 'module-e',
-    refetchOnMountOrArgChange: true,
   })
 
   // ── Quick-start session detection ─────────────────────────────────────
@@ -194,7 +203,6 @@ export default function SessionDetailClient() {
   // any brand/competitor/sov data was written by the quick-start runner.
   const { data: dashboardModuleEData } = useGetModuleEResultQuery(jobId ?? '', {
     skip: !jobId || activeSection !== 'dashboard',
-    refetchOnMountOrArgChange: true,
   })
 
   // Mutation for resuming a paused crawl.
@@ -206,9 +214,8 @@ export default function SessionDetailClient() {
   const [qsPollingActive, setQsPollingActive] = useState(true)
   // Use quickStartJob.id if found (guarantees correct jobId); fall back to latestJob.
   const qsQueryJobId = quickStartJob?.id ?? jobId ?? ''
-  const { data: quickStartResult, refetch: refetchQuickStart } = useGetQuickStartResultQuery(qsQueryJobId, {
+  const { data: quickStartResult } = useGetQuickStartResultQuery(qsQueryJobId, {
     skip: !qsQueryJobId || activeSection !== 'dashboard',
-    refetchOnMountOrArgChange: true,
     // Poll every 5 s while the crawl status is non-terminal (e.g. paused → running
     // after resume, or running → completed). qsPollingActive is set to false once
     // a terminal status (completed/failed/cancelled) is received from the API.
@@ -754,7 +761,7 @@ export default function SessionDetailClient() {
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(Date.now())
-    }, 100) // Update every 100ms for smooth display
+    }, 1000)
     
     return () => clearInterval(timer)
   }, [])

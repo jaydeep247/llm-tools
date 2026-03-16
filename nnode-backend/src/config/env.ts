@@ -29,6 +29,10 @@ const envSchema = z.object({
   // MongoDB
   MONGO_URI: z.string().default('mongodb://localhost:27017'),
   MONGO_DB_NAME: z.string().default('seo_crawler'),
+  MONGO_MAX_POOL_SIZE: z.string().transform(Number).pipe(z.number().int().positive()).default('50'),
+  MONGO_MIN_POOL_SIZE: z.string().transform(Number).pipe(z.number().int().nonnegative()).default('5'),
+  MONGO_MAX_IDLE_TIME_MS: z.string().transform(Number).pipe(z.number().int().nonnegative()).default('30000'),
+  MONGO_WAIT_QUEUE_TIMEOUT_MS: z.string().transform(Number).pipe(z.number().int().nonnegative()).default('5000'),
 
   // Messaging
   RABBITMQ_URL: z.string().default('amqp://admin:admin@localhost:5672'),

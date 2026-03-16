@@ -31,6 +31,19 @@ export interface CreateSessionDto {
 export interface SessionFilters {
   projectId?: string;
   status?: SessionStatus;
+  limit?: number;
+  offset?: number;
+  includeTotal?: boolean;
+}
+
+export interface SessionListResponse {
+  sessions: Session[];
+  pagination: {
+    limit: number;
+    offset: number;
+    total?: number;
+    hasNext: boolean;
+  };
 }
 
 export interface SessionWithProject extends Session {

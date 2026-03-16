@@ -1,5 +1,5 @@
 import { SessionRepository } from './session.repository';
-import { SessionResponse, SessionWithProject, SessionStatus } from './session.types';
+import { SessionResponse, SessionWithProject, SessionStatus, SessionListResponse } from './session.types';
 import { ProjectService } from '../project/project.service';
 import { LimitsService } from '../limits/limits.service';
 import { JobRepository } from '../job/job.repository';
@@ -64,11 +64,15 @@ export class SessionService {
   /**
    * Get all sessions for a project
    */
-  async getProjectSessions(projectId: string, userId: string): Promise<SessionResponse[]> {
+  async getProjectSessions(
+    projectId: string,
+    userId: string,
+    options?: { limit?: number; offset?: number; includeTotal?: boolean },
+  ): Promise<SessionListResponse> {
     // Verify project ownership
     await this.projectService.verifyOwnership(projectId, userId);
 
-    return this.sessionRepository.findByProjectId(projectId);
+    return this.sessionRepository.findByProjectId(projectId, options);
   }
 
   /**
@@ -137,9 +141,12 @@ export class SessionService {
     const jobs = await this.jobRepository.findBySessionId(sessionId);
 
     // 2. Cancel any running/pending jobs — set cancel flag, mark as FAILED, notify via socket
-    for (const job of jobs) {
-      if (job.status === JobStatus.PENDING || job.status === JobStatus.RUNNING) {
-        // Set cancel flag in Redis so Python workers detect and abort
+    const activeJobs = jobs.filter(
+      (job) => job.status === JobStatus.PENDING || job.status === JobStatus.RUNNING,
+    );
+
+    await Promise.all(
+      activeJobs.map(async (job) => {
         await LiveJobService.setCancelFlag(job.id);
 
         try {
@@ -154,7 +161,6 @@ export class SessionService {
           logger.warn(`Failed to mark job ${job.id} as failed during session delete:`, e);
         }
 
-        // Emit cancellation via socket so the progress page redirects immediately
         try {
           const io = getIo();
           const cancelEvent = {
@@ -173,8 +179,8 @@ export class SessionService {
         } catch (e) {
           logger.warn(`Socket emit error during session delete for job ${job.id}:`, e);
         }
-      }
-    }
+      }),
+    );
 
     // 3. Clean up Redis session hash
     await LiveJobService.cleanupSession(sessionId);

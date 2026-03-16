@@ -67,23 +67,45 @@ async def run_module_f_competitor_ai_intelligence(
     mongo_manager.connect()
 
     if not session_id or not project_id:
-        job_doc = mongo_manager.db.jobs.find_one({"id": job_id}) or mongo_manager.db.jobs.find_one({"jobId": job_id}) or {}
+        job_doc = mongo_manager.db.jobs.find_one(
+            {"$or": [{"id": job_id}, {"jobId": job_id}]},
+            {
+                "sessionId": 1,
+                "session_id": 1,
+                "projectId": 1,
+                "project_id": 1,
+            },
+        ) or {}
         session_id = session_id or job_doc.get("sessionId") or job_doc.get("session_id")
         project_id = project_id or job_doc.get("projectId") or job_doc.get("project_id")
 
     session_id = str(session_id).strip() if session_id else ""
     project_id = str(project_id).strip() if project_id else ""
 
-    # Try to find Module E results by jobId (direct match)
-    module_e_doc = mongo_manager.module_e.find_one({"jobId": job_id})
-    
-    # Fallback: Find latest Module E result for this session if not found by jobId
+    module_e_match = [{"jobId": job_id}]
+    if session_id:
+        module_e_match.append({"sessionId": session_id})
+
+    module_e_pipeline = [
+        {"$match": {"$or": module_e_match}},
+        {
+            "$addFields": {
+                "_matchPriority": {
+                    "$cond": [{"$eq": ["$jobId", job_id]}, 0, 1]
+                }
+            }
+        },
+        {"$sort": {"_matchPriority": 1, "createdAt": -1}},
+        {"$limit": 1},
+        {
+            "$project": {
+                "_matchPriority": 0,
+            }
+        },
+    ]
+    module_e_doc = next(mongo_manager.module_e.aggregate(module_e_pipeline), {})
     if not module_e_doc and session_id:
-        logger.info(f"Module E data not found for jobId {job_id}, trying fallback to session {session_id}")
-        module_e_doc = mongo_manager.module_e.find_one(
-            {"sessionId": session_id},
-            sort=[("createdAt", -1)]
-        )
+        logger.info(f"Module E data not found for jobId {job_id}, fallback for session {session_id} returned no result")
 
     module_e_doc = module_e_doc or {}
     competitors = _extract_competitors_from_module_e(module_e_doc)

@@ -181,7 +181,7 @@ export default function DashboardPage() {
 
       {/* Live / Recent Crawl Activity */}
       {projectsData?.projects && projectsData.projects.length > 0 && (
-        <LiveCrawlActivity projects={projectsData.projects} />
+        <LiveCrawlActivity projects={projectsData.projects.slice(0, 8)} />
       )}
 
       {/* Quick Actions */}

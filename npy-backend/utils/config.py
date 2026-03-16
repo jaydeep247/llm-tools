@@ -13,6 +13,10 @@ class Config:
         
         self.MONGO_URI = self._get_required('MONGO_URI')
         self.MONGO_DB_NAME = self._get_required('MONGO_DB_NAME')
+        self.MONGO_MAX_POOL_SIZE = int(os.getenv('MONGO_MAX_POOL_SIZE', '50'))
+        self.MONGO_MIN_POOL_SIZE = int(os.getenv('MONGO_MIN_POOL_SIZE', '5'))
+        self.MONGO_MAX_IDLE_TIME_MS = int(os.getenv('MONGO_MAX_IDLE_TIME_MS', '30000'))
+        self.MONGO_WAIT_QUEUE_TIMEOUT_MS = int(os.getenv('MONGO_WAIT_QUEUE_TIMEOUT_MS', '5000'))
         self.RABBITMQ_URL = self._get_required('RABBITMQ_URL')
         self.REDIS_URL = self._get_required('REDIS_URL')
         self.LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')

@@ -94,8 +94,15 @@ export class SessionController {
     try {
       const userId = req.user!.userId;
       const { projectId } = projectIdParamSchema.parse(req.params);
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined;
+      const offset = req.query.offset ? parseInt(String(req.query.offset), 10) : undefined;
+      const includeTotal = String(req.query.includeTotal || 'false').toLowerCase() === 'true';
 
-      const sessions = await this.sessionService.getProjectSessions(projectId, userId);
+      const sessions = await this.sessionService.getProjectSessions(projectId, userId, {
+        limit: Number.isFinite(limit) ? limit : undefined,
+        offset: Number.isFinite(offset) ? offset : undefined,
+        includeTotal,
+      });
       return ResponseUtil.success(res, 'Sessions retrieved successfully', sessions);
     } catch (error: any) {
       logger.error(`Error getting sessions: ${error.message}`);
