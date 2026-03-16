@@ -255,7 +255,6 @@ export default function SentimentTrackingSection({ jobId, sentimentData: initial
               Measure how AI models perceive and recommend your brand
             </p>
           </div>
-          {RunButton}
         </div>
 
         {/* Empty state card */}
@@ -347,7 +346,6 @@ export default function SentimentTrackingSection({ jobId, sentimentData: initial
           <Badge variant="outline" className="text-xs hidden sm:flex">
             {timestampLabel}
           </Badge>
-          {RunButton}
         </div>
       </div>
 

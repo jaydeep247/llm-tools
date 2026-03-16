@@ -1,17 +1,19 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import { AlertCircle, Target, TrendingUp, Radar, Search } from 'lucide-react'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { useRunModuleFAnalysisMutation } from '@/store/api/module_F/moduleFApi'
 import type { ModuleFResult } from '@/store/api/module_F/moduleFApi'
 
 interface GapOpportunitiesProps {
   moduleFData?: ModuleFResult | null
   isLoading: boolean
+  jobId?: string | null
 }
 
 type CompetitorGapRow = {
@@ -40,9 +42,15 @@ function computeOpportunityScore(rank: number | null | undefined) {
   return clampNumber(((rank - 1) / 9) * 100, 0, 100)
 }
 
-export default function GapOpportunities({ moduleFData, isLoading }: GapOpportunitiesProps) {
+export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapOpportunitiesProps) {
   const [selectedCompetitor, setSelectedCompetitor] = useState<string | null>(null)
   const [searchPrompt, setSearchPrompt] = useState('')
+  const [runModuleFAnalysis, { isLoading: isTriggering }] = useRunModuleFAnalysisMutation()
+
+  const handleRunAnalysis = useCallback(async () => {
+    if (!jobId) return
+    try { await runModuleFAnalysis(jobId).unwrap() } catch {}
+  }, [jobId, runModuleFAnalysis])
 
   const brandName = moduleFData?.compare_visibility_against_competitors?.brand?.name || 'Brand'
   const detailedResults = moduleFData?.competitor_wins?.detailed_results || []
@@ -204,6 +212,10 @@ export default function GapOpportunities({ moduleFData, isLoading }: GapOpportun
           icon={<Target className="w-8 h-8 text-zinc-400" />}
           title="No Gap Data"
           description="Run Module F so prompt rankings and competitor coverage can be analyzed."
+          onRunAnalysis={handleRunAnalysis}
+          isAnalyzing={isTriggering}
+          disabled={!jobId}
+          buttonLabel="Run Module F Analysis"
         />
       ) : (
         <>
