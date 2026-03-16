@@ -22,6 +22,16 @@ export interface JobSnapshot {
   steps?: Record<string, string>;  // Step statuses for quick-start jobs (e.g. { brand_analysis: 'completed' })
 }
 
+interface CompactLogEntry {
+  m: string;
+  t: number;
+}
+
+interface CompactLinkEntry {
+  u: string;
+  t: number;
+}
+
 const REDIS_TTL = 3600 * 24; // 24 hours
 const MAX_LOGS = 1000;
 const MAX_LINKS = 1000;
@@ -29,6 +39,89 @@ const SNAPSHOT_DEFAULT_LIMIT = 200;
 const SNAPSHOT_MAX_LIMIT = 500;
 
 export class LiveJobService {
+  private static toCompactLogEntry(event: JobEvent): CompactLogEntry {
+    const message = event.payload?.message
+      || (event as any).message
+      || (typeof event.payload === 'string' ? event.payload : null)
+      || event.eventType
+      || 'event';
+
+    return {
+      m: String(message),
+      t: Number(event.timestamp) || Date.now(),
+    };
+  }
+
+  private static toCompactLinkEntry(event: JobEvent): CompactLinkEntry | null {
+    const url = event.payload?.url
+      || (event as any).url
+      || (typeof event.payload === 'string' ? event.payload : null);
+
+    if (!url) {
+      return null;
+    }
+
+    return {
+      u: String(url),
+      t: Number(event.timestamp) || Date.now(),
+    };
+  }
+
+  private static parseLogEntry(raw: string): { message: string; timestamp: number } {
+    try {
+      const parsed = JSON.parse(raw);
+
+      // New compact format.
+      if (parsed && typeof parsed.m === 'string') {
+        return {
+          message: parsed.m,
+          timestamp: Number(parsed.t) || Date.now(),
+        };
+      }
+
+      // Legacy full event envelope.
+      const message = parsed?.payload?.message
+        || parsed?.message
+        || (typeof parsed?.payload === 'string' ? parsed.payload : null)
+        || parsed?.eventType
+        || raw;
+
+      return {
+        message: String(message),
+        timestamp: Number(parsed?.timestamp) || Date.now(),
+      };
+    } catch {
+      return { message: raw, timestamp: Date.now() };
+    }
+  }
+
+  private static parseLinkEntry(raw: string): { url: string | null; timestamp: number } {
+    try {
+      const parsed = JSON.parse(raw);
+
+      // New compact format.
+      if (parsed && typeof parsed.u === 'string') {
+        return {
+          url: parsed.u,
+          timestamp: Number(parsed.t) || Date.now(),
+        };
+      }
+
+      // Legacy full event envelope.
+      const url = parsed?.payload?.url
+        || parsed?.url
+        || (typeof parsed?.payload === 'string' ? parsed.payload : null)
+        || null;
+
+      return {
+        url: url ? String(url) : null,
+        timestamp: Number(parsed?.timestamp) || Date.now(),
+      };
+    } catch {
+      return { url: raw || null, timestamp: Date.now() };
+    }
+  }
+
   /**
    * Save job metadata (projectId, sessionId) to Redis
    */
@@ -60,6 +153,11 @@ export class LiveJobService {
         const status = payload?.status || eventType;
         pipeline.set(statusKey, status);
         pipeline.expire(statusKey, REDIS_TTL);
+
+        // Keep a compatibility hash for Python/legacy readers while the
+        // canonical runtime path uses namespaced keys.
+        pipeline.hset(`job:${jobId}`, 'status', status, 'updatedAt', String(Date.now()));
+        pipeline.expire(`job:${jobId}`, REDIS_TTL);
         
         if (eventType === 'JOB_STARTED') {
              // ✅ CLEAR all previous job data to prevent stale state
@@ -81,6 +179,14 @@ export class LiveJobService {
                      sessionId: payload.sessionId
                  }));
                  pipeline.expire(`job:${jobId}:meta`, REDIS_TTL);
+               pipeline.hset(
+                 `job:${jobId}`,
+                 'projectId',
+                 payload.projectId,
+                 'sessionId',
+                 payload.sessionId,
+               );
+               pipeline.expire(`job:${jobId}`, REDIS_TTL);
              }
         }
         
@@ -101,6 +207,14 @@ export class LiveJobService {
                      sessionId: payload.sessionId
                  }));
                  pipeline.expire(`job:${jobId}:meta`, REDIS_TTL);
+                 pipeline.hset(
+                   `job:${jobId}`,
+                   'projectId',
+                   payload.projectId,
+                   'sessionId',
+                   payload.sessionId,
+                 );
+                 pipeline.expire(`job:${jobId}`, REDIS_TTL);
              }
         }
       }
@@ -109,7 +223,8 @@ export class LiveJobService {
       // Filter to: log, JOB_STARTED, JOB_COMPLETED, JOB_FAILED, page_crawled, QS_STEP_UPDATE
       const logEventTypes = ['log', 'JOB_STARTED', 'JOB_COMPLETED', 'JOB_FAILED', 'page_crawled', 'QS_STEP_UPDATE'];
       if (logEventTypes.includes(eventType)) {
-          pipeline.rpush(logsKey, JSON.stringify(event));
+          const compactLog = this.toCompactLogEntry(event);
+          pipeline.rpush(logsKey, JSON.stringify(compactLog));
           pipeline.ltrim(logsKey, -MAX_LOGS, -1);
           pipeline.expire(logsKey, REDIS_TTL);
       }
@@ -119,7 +234,10 @@ export class LiveJobService {
       const pagesKey = `job:${jobId}:pages`;
       const pagesCountKey = `job:${jobId}:pages_count`;
       if (eventType === 'page_crawled') {
-          pipeline.rpush(pagesKey, JSON.stringify(event));
+          const compactPage = this.toCompactLinkEntry(event);
+          if (compactPage) {
+            pipeline.rpush(pagesKey, JSON.stringify(compactPage));
+          }
           pipeline.ltrim(pagesKey, -MAX_LINKS, -1);
           pipeline.expire(pagesKey, REDIS_TTL);
           // Increment the real-time counter
@@ -141,7 +259,10 @@ export class LiveJobService {
       // - 'link' (just link)
       const linkEventTypes = ['link_found', 'LINK_FOUND', 'link'];
       if (linkEventTypes.includes(eventType) || eventType.toLowerCase().includes('link')) {
-          pipeline.rpush(linksKey, JSON.stringify(event));
+          const compactLink = this.toCompactLinkEntry(event);
+          if (compactLink) {
+            pipeline.rpush(linksKey, JSON.stringify(compactLink));
+          }
           pipeline.ltrim(linksKey, -MAX_LINKS, -1);
           pipeline.expire(linksKey, REDIS_TTL);
       }
@@ -182,20 +303,49 @@ export class LiveJobService {
     const startedAtKey = `job:${jobId}:startedAt`;
     const metaKey = `job:${jobId}:meta`;
     const pagesCountKey = `job:${jobId}:pages_count`;
+    const legacyHashKey = `job:${jobId}`;
     const stepsKey = `job:${jobId}:steps`;  // Quick-start step statuses
 
     try {
-      // Execute in parallel
-      const [status, logsRaw, pagesRaw, completed, startedAt, metaRaw, pagesCountRaw, stepsRaw] = await Promise.all([
-        redis.get(statusKey),
-        redis.lrange(logsKey, -boundedLimit, -1),
-        redis.lrange(pagesKey, -boundedLimit, -1),  // Get crawled pages instead of discovered links
-        redis.get(completedKey),
-        redis.get(startedAtKey),
-        redis.get(metaKey),
-        redis.get(pagesCountKey),
-        redis.hgetall(stepsKey),  // Get all step statuses
-      ]);
+      // Use one pipeline round-trip for snapshot reads.
+      const raw = await redis
+        .pipeline()
+        .get(statusKey)
+        .lrange(logsKey, -boundedLimit, -1)
+        .lrange(pagesKey, -boundedLimit, -1)
+        .get(completedKey)
+        .get(startedAtKey)
+        .get(metaKey)
+        .get(pagesCountKey)
+        .hgetall(stepsKey)
+        .hget(legacyHashKey, 'status')
+        .exec();
+
+      if (!raw) {
+        throw new Error('Redis pipeline returned no data');
+      }
+
+      const [
+        statusResult,
+        logsResult,
+        pagesResult,
+        completedResult,
+        startedAtResult,
+        metaResult,
+        pagesCountResult,
+        stepsResult,
+        legacyStatusResult,
+      ] = raw;
+
+      const status = statusResult[1] as string | null;
+      const logsRaw = (logsResult[1] as string[]) || [];
+      const pagesRaw = (pagesResult[1] as string[]) || [];
+      const completed = completedResult[1] as string | null;
+      const startedAt = startedAtResult[1] as string | null;
+      const metaRaw = metaResult[1] as string | null;
+      const pagesCountRaw = pagesCountResult[1] as string | null;
+      const stepsRaw = (stepsResult[1] as Record<string, string>) || {};
+      const legacyStatus = legacyStatusResult[1] as string | null;
 
       // Parse metadata
       let projectId: string | undefined;
@@ -214,49 +364,26 @@ export class LiveJobService {
       // Track max timestamp for snapshotAt boundary
       let maxTimestamp = 0;
       
-      const logs = logsRaw.map(l => {
-        try {
-          const event = JSON.parse(l);
-          // Events are stored as { jobId, eventType, payload, timestamp }
-          // Extract actual message from payload or event itself
-          const message = event.payload?.message 
-            || event.message 
-            || (typeof event.payload === 'string' ? event.payload : null)
-            || event.eventType
-            || JSON.stringify(event);
-          const ts = event.timestamp || 0;
-          if (ts > maxTimestamp) maxTimestamp = ts;
-          return {
-            message,
-            timestamp: ts || Date.now()
-          };
-        } catch (e) {
-          return { message: l, timestamp: Date.now() };
+      const logs = logsRaw.map((entry) => {
+        const parsed = this.parseLogEntry(entry);
+        if (parsed.timestamp > maxTimestamp) {
+          maxTimestamp = parsed.timestamp;
         }
+        return parsed;
       });
 
       // Transform raw event envelopes into clean page format (crawled URLs)
       // Use a Set to deduplicate URLs
       const seenUrls = new Set<string>();
       const links = pagesRaw
-        .map(l => {
-          try {
-            const event = JSON.parse(l);
-            // Events are stored as { jobId, eventType, payload: { url, ... }, timestamp }
-            const url = event.payload?.url 
-              || event.url 
-              || (typeof event.payload === 'string' ? event.payload : null);
-            const ts = event.timestamp || 0;
-            if (ts > maxTimestamp) maxTimestamp = ts;
-            return {
-              url,
-              timestamp: ts || Date.now()
-            };
-          } catch (e) {
-            return { url: l, timestamp: Date.now() };
+        .map((entry) => {
+          const parsed = this.parseLinkEntry(entry);
+          if (parsed.timestamp > maxTimestamp) {
+            maxTimestamp = parsed.timestamp;
           }
+          return parsed;
         })
-        .filter(link => {
+        .filter((link): link is { url: string; timestamp: number } => {
           // Deduplicate by URL
           if (!link.url || seenUrls.has(link.url)) return false;
           seenUrls.add(link.url);
@@ -280,7 +407,7 @@ export class LiveJobService {
 
       return {
         jobId,
-        status: status || 'pending',
+        status: status || legacyStatus || 'pending',
         logs,
         links,
         completed: !!completed,

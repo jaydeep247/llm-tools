@@ -13,6 +13,21 @@ class RedisRateLimitStore implements Store {
   private windowMs: number;
   private readonly _prefix: string;
 
+  private static readonly INCR_AND_TTL_SCRIPT = `
+local key = KEYS[1]
+local window = tonumber(ARGV[1])
+local hits = redis.call('INCR', key)
+if hits == 1 then
+  redis.call('PEXPIRE', key, window)
+end
+local ttl = redis.call('PTTL', key)
+if ttl < 0 then
+  redis.call('PEXPIRE', key, window)
+  ttl = window
+end
+return {hits, ttl}
+`;
+
   constructor(prefix: string, windowMs: number) {
     this._prefix = prefix;
     this.windowMs = windowMs;
@@ -31,20 +46,19 @@ class RedisRateLimitStore implements Store {
     const client = getRedisClient();
     const k = this.key(key);
 
-    // Atomically increment and read the remaining TTL in a single round-trip.
-    const [[, hits], [, ttl]] = (await client.pipeline().incr(k).pttl(k).exec()) as [
-      [null, number],
-      [null, number],
-    ];
+    // Single Redis command keeps per-request limiter overhead minimal.
+    const [hitsRaw, ttlRaw] = (await client.eval(
+      RedisRateLimitStore.INCR_AND_TTL_SCRIPT,
+      1,
+      k,
+      String(this.windowMs),
+    )) as [number, number];
 
-    // Set expiry on the very first hit or if it was somehow lost.
-    if ((hits as number) === 1 || (ttl as number) === -1) {
-      await client.pexpire(k, this.windowMs);
-    }
-
-    const remaining = (ttl as number) > 0 ? (ttl as number) : this.windowMs;
+    const hits = Number(hitsRaw) || 0;
+    const ttl = Number(ttlRaw) || this.windowMs;
+    const remaining = ttl > 0 ? ttl : this.windowMs;
     return {
-      totalHits: hits as number,
+      totalHits: hits,
       resetTime: new Date(Date.now() + remaining),
     };
   }

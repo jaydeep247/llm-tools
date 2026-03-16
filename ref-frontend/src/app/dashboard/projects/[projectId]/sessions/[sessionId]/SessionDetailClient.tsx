@@ -144,7 +144,7 @@ export default function SessionDetailClient() {
     { jobId: snapshotJobId!, limit: 120 },
     {
       skip: !snapshotJobId,
-      pollingInterval: isSnapshotJobRunning ? 3000 : 0,
+      pollingInterval: isSnapshotJobRunning ? 8000 : 0,
     }
   )
 
@@ -176,11 +176,14 @@ export default function SessionDetailClient() {
   useEffect(() => {
     if (!jobId || !shouldPollResults) return
     const timer = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+        return
+      }
       refetchPagesRaw()
       refetchFieldsRaw()
       refetchLinksRaw()
       refetchSitemapsRaw()
-    }, 8000)
+    }, 12000)
 
     return () => clearInterval(timer)
   }, [jobId, shouldPollResults, refetchPagesRaw, refetchFieldsRaw, refetchLinksRaw, refetchSitemapsRaw])
@@ -219,7 +222,7 @@ export default function SessionDetailClient() {
     // Poll every 5 s while the crawl status is non-terminal (e.g. paused → running
     // after resume, or running → completed). qsPollingActive is set to false once
     // a terminal status (completed/failed/cancelled) is received from the API.
-    pollingInterval: qsPollingActive ? 5000 : 0,
+    pollingInterval: qsPollingActive ? 8000 : 0,
   })
 
   // A session is a quick-start session when module_e has data for this jobId,

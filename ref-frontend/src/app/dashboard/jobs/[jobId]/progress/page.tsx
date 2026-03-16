@@ -97,11 +97,13 @@ export default function JobProgressPage() {
     isFetching: isSnapshotFetching,
   } = useGetJobSnapshotQuery({ jobId, limit: 150 }, {
     skip: !jobId,
-    refetchOnMountOrArgChange: true,
+    refetchOnMountOrArgChange: false,
     pollingInterval:
       jobStatus === 'completed' || jobStatus === 'failed' || jobStatus === 'cancelled'
         ? 0
-        : 3000,
+        : snapshotAt === null
+          ? 3000
+          : 15000,
   })
 
   // ── Snapshot hydration (once per job) ─────────────────────────────────
@@ -150,7 +152,6 @@ export default function JobProgressPage() {
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
-      forceNew: true,
     })
 
     socket.on('connect', () => {

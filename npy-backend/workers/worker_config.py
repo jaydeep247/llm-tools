@@ -3,6 +3,8 @@ Worker Configuration
 Shared settings for all workers
 """
 
+import os
+
 from utils.config import config
 
 
@@ -43,7 +45,10 @@ SCRAPY_SETTINGS = {
     "SCHEDULER": "scrapy_redis.scheduler.Scheduler",
     "DUPEFILTER_CLASS": "scrapy_redis.dupefilter.RFPDupeFilter",
     "REDIS_URL": config.REDIS_URL,
-    "SCHEDULER_PERSIST": True,
+    # Default to non-persistent scheduler state to avoid stale Redis queues
+    # accumulating indefinitely for abandoned jobs. Enable explicitly when
+    # resumable distributed crawl queues are required.
+    "SCHEDULER_PERSIST": os.getenv("SCRAPY_SCHEDULER_PERSIST", "false").lower() == "true",
     "SCHEDULER_QUEUE_CLASS": "scrapy_redis.queue.PriorityQueue",
     # Close spider if Redis queue is empty for 10 seconds to prevent hanging
     "SCHEDULER_IDLE_BEFORE_CLOSE": 10,

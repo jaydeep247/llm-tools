@@ -215,11 +215,15 @@ def start_queue_worker() -> None:
 
         logger.info(f"[QUEUE] Message received | Session: {session_id} | Job: {job_id} | Type: {job_type or 'CRAWL'}")
 
-        dispatch_redis.hset(
+        pipe = dispatch_redis.pipeline()
+        pipe.hset(
             f"session:{session_id}",
-            mapping={"status": "RECEIVED", "url": url, "projectId": project_id},
+            mapping={"status": "received", "url": url, "projectId": project_id},
         )
-        dispatch_redis.hset(
+        pipe.expire(f"session:{session_id}", 3600 * 24)
+        pipe.set(f"job:{job_id}:status", "received")
+        pipe.expire(f"job:{job_id}:status", 3600 * 24)
+        pipe.hset(
             f"job:{job_id}",
             mapping={
                 "status": "RECEIVED",
@@ -229,6 +233,8 @@ def start_queue_worker() -> None:
                 "jobType": job_type,
             },
         )
+        pipe.expire(f"job:{job_id}", 3600 * 24)
+        pipe.execute()
 
         future = executor.submit(run_job_in_worker, payload, job_type)
 

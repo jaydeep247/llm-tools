@@ -211,7 +211,7 @@ export const jobApi = baseApi.injectEndpoints({
       },
       transformResponse: (response: { success: boolean; data: JobSnapshot }) => response.data,
       providesTags: (result, error, arg) => [{ type: 'Job', id: typeof arg === 'string' ? arg : arg.jobId }],
-      keepUnusedDataFor: 10,
+      keepUnusedDataFor: 30,
     }),
 
     // Get job status by jobId

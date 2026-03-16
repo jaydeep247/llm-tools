@@ -9,7 +9,13 @@ import redis
 from utils.config import config
 
 _redis_pool = redis.ConnectionPool.from_url(
-    config.REDIS_URL, max_connections=20, decode_responses=True
+    config.REDIS_URL,
+    max_connections=80,
+    decode_responses=True,
+    socket_timeout=2,
+    socket_connect_timeout=2,
+    health_check_interval=30,
+    retry_on_timeout=True,
 )
 
 

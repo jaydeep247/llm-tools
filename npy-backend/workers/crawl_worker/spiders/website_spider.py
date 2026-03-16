@@ -220,6 +220,10 @@ class WebsiteSpider(RedisSpider):
                 logger.error(f"❌ Failed to emit CRAWL_PAUSED for {self.job_id}: {e}")
             return
 
+        # Do not keep scheduler leftovers once the crawl reached a terminal state.
+        # This prevents stale scrapy-redis queues/dupefilters from accumulating.
+        self.cleanup_scheduler_state()
+
         if self.suppress_completion_events:
             logger.debug(f"🕷️ Skipping JOB_COMPLETED event for {self.job_id} (background crawl, suppress_completion_events=True)")
             return
@@ -252,6 +256,32 @@ class WebsiteSpider(RedisSpider):
                 logger.error(f"❌ Failed to emit job completion event for {self.job_id} in spider_closed")
         except Exception as e:
             logger.error(f"❌ Exception emitting job completion event: {e}")
+
+    def cleanup_scheduler_state(self) -> None:
+        """Delete scrapy-redis scheduler artifacts for this job-specific spider."""
+        if not hasattr(self, 'server') or self.server is None:
+            return
+
+        try:
+            keys_to_delete = {
+                self.redis_key,
+                f"{self.name}:dupefilter",
+                f"{self.name}:requests",
+            }
+
+            for key in self.server.scan_iter(match=f"{self.name}:*"):
+                keys_to_delete.add(key)
+
+            if not keys_to_delete:
+                return
+
+            pipe = self.server.pipeline(transaction=False)
+            for key in keys_to_delete:
+                pipe.delete(key)
+            pipe.execute()
+            logger.debug(f"🧹 Cleaned {len(keys_to_delete)} scheduler Redis keys for {self.name}")
+        except Exception as e:
+            logger.warning(f"Failed to cleanup scheduler Redis keys for {self.name}: {e}")
 
     def spider_idle(self, spider):
         """Force close if idle and no requests (failsafe for SCHEDULER_IDLE_BEFORE_CLOSE)"""

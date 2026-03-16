@@ -70,7 +70,7 @@ FEED_EXPORT_ENCODING = 'utf-8'
 # Scrapy Redis Settings
 SCHEDULER = "scrapy_redis.scheduler.Scheduler"
 
-SCHEDULER_PERSIST = True
+SCHEDULER_PERSIST = os.getenv('SCRAPY_SCHEDULER_PERSIST', 'false').lower() == 'true'
 DUPEFILTER_CLASS = "scrapy_redis.dupefilter.RFPDupeFilter"
 # Use REDIS_URL if available (takes precedence), otherwise fallback to host/port
 REDIS_URL = os.getenv('REDIS_URL')
