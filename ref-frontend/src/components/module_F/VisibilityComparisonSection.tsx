@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { useGetModuleFResultQuery, useRunModuleFAnalysisMutation } from '@/store/api/module_F/moduleFApi'
-import { ArrowDown, ArrowUp, CheckCircle2, Eye, Loader2, Percent, Play, RefreshCw, Swords } from 'lucide-react'
+import { ArrowDown, ArrowUp, CheckCircle2, Eye, Loader2, Percent, Swords } from 'lucide-react'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 
 interface VisibilityComparisonSectionProps {
@@ -89,42 +89,6 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
 
   const topCompetitor = competitors[0] ?? null
 
-  const RunButton = (
-    <Button
-      size="sm"
-      onClick={handleRun}
-      disabled={isRunning || !jobId}
-      className={cn(
-        'gap-2 font-semibold transition-all',
-        justCompleted
-          ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-          : 'bg-primary hover:bg-primary/90 text-primary-foreground',
-      )}
-    >
-      {isTriggering ? (
-        <>
-          <Loader2 className="w-4 h-4 animate-spin" /> Queuing…
-        </>
-      ) : isPolling ? (
-        <>
-          <Loader2 className="w-4 h-4 animate-spin" /> Analysing…
-        </>
-      ) : justCompleted ? (
-        <>
-          <CheckCircle2 className="w-4 h-4" /> Done!
-        </>
-      ) : comparison ? (
-        <>
-          <RefreshCw className="w-4 h-4" /> Re-run Analysis
-        </>
-      ) : (
-        <>
-          <Play className="w-4 h-4" /> Run Analysis
-        </>
-      )}
-    </Button>
-  )
-
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
@@ -150,7 +114,6 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
               Updated: {new Date(updatedAt).toLocaleString()}
             </Badge>
           )}
-          {RunButton}
         </div>
       </div>
 
@@ -167,7 +130,19 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {!comparison && !isRunning && (
+        <AnalysisEmptyState
+          icon={<Swords className="w-8 h-8 text-zinc-400" />}
+          title="No Visibility Comparison Data"
+          description="Run the analysis to compare your brand's AI visibility score against competitors across OpenAI, Gemini & Claude."
+          onRunAnalysis={handleRun}
+          isAnalyzing={isRunning}
+          disabled={!jobId}
+          buttonLabel="Run Analysis"
+        />
+      )}
+
+      {comparison && <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="bg-[#111113] rounded-xl border border-zinc-800 p-5 hover:bg-[#0D0D10] transition-colors">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-500/20 rounded-xl">
@@ -212,7 +187,7 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
             </div>
           </div>
         </Card>
-      </div>
+      </div>}
 
       {comparison && <Card className="bg-[#111113] rounded-xl border border-zinc-800 p-5">
         <div className="flex items-center gap-2 mb-1">

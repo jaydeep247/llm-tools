@@ -256,7 +256,6 @@ export default function SentimentTrackingSection({ jobId, sentimentData: initial
               Use this section to validate brand trust signals and guide messaging updates that increase positive mentions.
             </p>
           </div>
-          {RunButton}
         </div>
 
         {/* Empty state card */}
@@ -352,7 +351,6 @@ export default function SentimentTrackingSection({ jobId, sentimentData: initial
           <Badge variant="outline" className="text-xs hidden sm:flex">
             {timestampLabel}
           </Badge>
-          {RunButton}
         </div>
       </div>
 

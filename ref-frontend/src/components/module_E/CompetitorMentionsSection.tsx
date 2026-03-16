@@ -178,7 +178,6 @@ export default function CompetitorMentionsSection({ jobId, mentionsData: initial
                         Use this section to benchmark your competitive presence and monitor momentum shifts over time.
                     </p>
                 </div>
-                {RunButton}
             </div>
 
             <div className="grid grid-cols-1 gap-4">
@@ -375,7 +374,6 @@ export function ShareOfVoiceSection({ jobId }: ShareOfVoiceSectionProps) {
                         Use this section to evaluate discoverability, identify model gaps, and track progress in unprompted brand recognition.
                     </p>
                 </div>
-                {RunButton}
             </div>
 
             {isRunning && (

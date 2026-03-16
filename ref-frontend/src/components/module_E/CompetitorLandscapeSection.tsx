@@ -92,21 +92,6 @@ export default function CompetitorLandscapeSection({ jobId, landscapeData: initi
                         Use this section to identify structural SEO gaps and prioritize off-page actions that improve AI and search visibility.
                     </p>
                 </div>
-                <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleRunAnalysis}
-                    disabled={isRunning}
-                    className={cn("gap-2 text-xs", justCompleted && "border-emerald-500 text-emerald-500")}
-                >
-                    {isRunning ? (
-                        <><Loader2 className="w-3 h-3 animate-spin" /> Running...</>
-                    ) : justCompleted ? (
-                        <><CheckCircle2 className="w-3 h-3" /> Updated</>
-                    ) : (
-                        <><RefreshCw className="w-3 h-3" /> Refresh Data</>
-                    )}
-                </Button>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

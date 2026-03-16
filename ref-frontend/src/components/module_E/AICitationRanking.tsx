@@ -285,30 +285,6 @@ export default function AICitationRanking({ jobId, url, rankingData: initialData
             </p>
           </div>
         </div>
-
-        <Button
-          onClick={handleRun}
-          disabled={!jobId || isRunning}
-          size="sm"
-          className={cn(
-            'gap-2 font-semibold transition-all',
-            justCompleted
-              ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-              : 'bg-primary hover:bg-primary/90 text-primary-foreground'
-          )}
-        >
-          {isTriggering ? (
-            <><Loader2 className="w-4 h-4 animate-spin" /> Queuing...</>
-          ) : isPolling ? (
-            <><Loader2 className="w-4 h-4 animate-spin" /> Analyzing...</>
-          ) : justCompleted ? (
-            <><CheckCircle2 className="w-4 h-4" /> Done!</>
-          ) : hasResults ? (
-            <><RefreshCw className="w-4 h-4" /> Re-run Analysis</>
-          ) : (
-            <><Play className="w-4 h-4" /> Run Analysis</>
-          )}
-        </Button>
       </div>
 
       {/* Warnings */}

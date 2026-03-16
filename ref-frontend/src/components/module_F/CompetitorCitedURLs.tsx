@@ -1,26 +1,34 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import { AlertCircle, Globe, Link2, ShieldCheck, TrendingUp, Search } from 'lucide-react'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { useRunModuleFAnalysisMutation } from '@/store/api/module_F/moduleFApi'
 import type { ModuleFResult } from '@/store/api/module_F/moduleFApi'
 
 interface CompetitorCitedURLsProps {
   moduleFData?: ModuleFResult | null
   isLoading: boolean
+  jobId?: string | null
 }
 
 function round1(value: number) {
   return Math.round(value * 10) / 10
 }
 
-export default function CompetitorCitedURLs({ moduleFData, isLoading }: CompetitorCitedURLsProps) {
+export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: CompetitorCitedURLsProps) {
   const [selectedCompetitor, setSelectedCompetitor] = useState<string | null>(null)
   const [searchDomain, setSearchDomain] = useState('')
+  const [runModuleFAnalysis, { isLoading: isTriggering }] = useRunModuleFAnalysisMutation()
+
+  const handleRunAnalysis = useCallback(async () => {
+    if (!jobId) return
+    try { await runModuleFAnalysis(jobId).unwrap() } catch {}
+  }, [jobId, runModuleFAnalysis])
 
   const sourceData = moduleFData?.source_analysis?.competitor_source_analysis || []
   
@@ -133,6 +141,10 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading }: Competit
           icon={<Link2 className="w-8 h-8 text-zinc-400" />}
           title="No Source Analysis Data"
           description="Run Module F to analyze competitor sources and citations."
+          onRunAnalysis={handleRunAnalysis}
+          isAnalyzing={isTriggering}
+          disabled={!jobId}
+          buttonLabel="Run Module F Analysis"
         />
       ) : (
         <>

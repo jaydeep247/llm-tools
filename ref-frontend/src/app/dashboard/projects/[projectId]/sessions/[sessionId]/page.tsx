@@ -1296,7 +1296,8 @@ export default function SessionDetailPage() {
         {activeSection === 'competitor-cited-urls' && (
           <CompetitorCitedURLs 
             moduleFData={moduleFQueryData?.data} 
-            isLoading={isLoadingModuleF} 
+            isLoading={isLoadingModuleF}
+            jobId={jobId || null}
           />
         )}
 
@@ -1308,7 +1309,7 @@ export default function SessionDetailPage() {
 
         {activeSection === 'gap-opportunities' && (
           <div className="space-y-6">
-            <GapOpportunities moduleFData={moduleFQueryData?.data} isLoading={isLoadingModuleF} />
+            <GapOpportunities moduleFData={moduleFQueryData?.data} isLoading={isLoadingModuleF} jobId={jobId || null} />
           </div>
         )}
 
