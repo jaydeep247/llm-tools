@@ -1,0 +1,65 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-admin}
+      RABBITMQ_LOG_LEVEL: error
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "-rabbit log [{console,[{level,error}]}]"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      retries: 5
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+  redis:
+    image: redis:7
+    container_name: redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: redis-server --appendonly yes --loglevel warning
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      retries: 5
+    volumes:
+      - redis_data:/data
+
+  nnode-backend:
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASS:-admin}@rabbitmq:5672
+      REDIS_URL: redis://redis:6379
+
+  npy-backend:
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASS:-admin}@rabbitmq:5672
+      REDIS_URL: redis://redis:6379
+
+  crawl-worker:
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASS:-admin}@rabbitmq:5672
+      REDIS_URL: redis://redis:6379
+
+volumes:
+  redis_data:
+  rabbitmq_data:

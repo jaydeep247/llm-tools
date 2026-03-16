@@ -33,12 +33,42 @@ const envSchema = z.object({
   // Messaging
   RABBITMQ_URL: z.string().default('amqp://admin:admin@localhost:5672'),
   REDIS_URL: z.string().default('redis://localhost:6379'),
+  ALLOW_LOCAL_INFRA_IN_PROD: z
+    .string()
+    .optional()
+    .transform((val) => val === 'true')
+    .default('false'),
 });
+
+const isLocalInfraUrl = (value: string): boolean => {
+  const v = value.toLowerCase();
+  return (
+    v.includes('localhost') ||
+    v.includes('127.0.0.1') ||
+    v.includes('@rabbitmq:') ||
+    v.startsWith('redis://redis:')
+  );
+};
 
 // Validate and export environment variables
 const parseEnv = () => {
   try {
-    return envSchema.parse(process.env);
+    const parsed = envSchema.parse(process.env);
+
+    // Prevent accidental production deploys tied to local Docker infra.
+    if (
+      parsed.NODE_ENV === 'production' &&
+      !parsed.ALLOW_LOCAL_INFRA_IN_PROD &&
+      (isLocalInfraUrl(parsed.RABBITMQ_URL) || isLocalInfraUrl(parsed.REDIS_URL))
+    ) {
+      console.error('❌ Unsafe production infra configuration detected:');
+      console.error('  - RABBITMQ_URL/REDIS_URL point to local/container endpoints.');
+      console.error('  - Set external service URLs for production deployment.');
+      console.error('  - If intentional, set ALLOW_LOCAL_INFRA_IN_PROD=true.');
+      process.exit(1);
+    }
+
+    return parsed;
   } catch (error) {
     if (error instanceof z.ZodError) {
       console.error('❌ Invalid environment variables:');

@@ -1,31 +1,4 @@
 services:
-  rabbitmq:
-    image: rabbitmq:3-management
-    container_name: rabbitmq
-    ports:
-      - "${RABBITMQ_PORT:-5672}:5672"
-      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-admin}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-admin}
-      RABBITMQ_LOG_LEVEL: error
-      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "-rabbit log [{console,[{level,error}]}]"
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
-      interval: 10s
-      retries: 5
-
-  redis:
-    image: redis:7
-    container_name: redis
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    command: redis-server --appendonly yes --loglevel warning
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      retries: 5
-
   nnode-backend:
     build: ./nnode-backend
     container_name: nnode-backend
@@ -33,16 +6,12 @@ services:
       - "${BACKEND_PORT:-3004}:3004"
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     environment:
       JWT_SECRET: ${JWT_SECRET}
       COOKIE_SECRET: ${COOKIE_SECRET}
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASS:-admin}@rabbitmq:5672
-      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: ${RABBITMQ_URL:-}
+      REDIS_URL: ${REDIS_URL:-}
+      ALLOW_LOCAL_INFRA_IN_PROD: ${ALLOW_LOCAL_INFRA_IN_PROD:-false}
       MONGO_URI: ${MONGO_URI:-mongodb://host.docker.internal:27017}
       MONGO_DB_NAME: ${MONGO_DB_NAME:-seo_crawler}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost,http://209.38.70.65}
@@ -52,14 +21,10 @@ services:
     container_name: npy-backend
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     environment:
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASS:-admin}@rabbitmq:5672
-      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: ${RABBITMQ_URL:-}
+      REDIS_URL: ${REDIS_URL:-}
+      ALLOW_LOCAL_INFRA_IN_PROD: ${ALLOW_LOCAL_INFRA_IN_PROD:-false}
       MONGO_URI: ${MONGO_URI:-mongodb://host.docker.internal:27017}
       MONGO_DB_NAME: ${MONGO_DB_NAME:-seo_crawler}
       # S3/DigitalOcean Spaces Configuration
@@ -83,18 +48,14 @@ services:
     build: ./npy-backend
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    depends_on:
-      redis:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
     environment:
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: ${REDIS_URL:-}
       MONGO_URI: mongodb://host.docker.internal:27017
       MONGO_DB_NAME: ${MONGO_DB_NAME:-seo_crawler}
       SCRAPY_SETTINGS_MODULE: workers.crawl_worker.spiders.settings
       PYTHONPATH: /app
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASS:-admin}@rabbitmq:5672
+      RABBITMQ_URL: ${RABBITMQ_URL:-}
+      ALLOW_LOCAL_INFRA_IN_PROD: ${ALLOW_LOCAL_INFRA_IN_PROD:-false}
       MAX_CRAWL_PAGES: ${MAX_CRAWL_PAGES:-10}
     command: python workers/crawl_worker/run_worker.py
     deploy:
