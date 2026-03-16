@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { FieldTooltip } from './FieldTooltip'
 
 interface CrawledPage {
   id: number
@@ -173,6 +174,90 @@ const COLUMN_CATEGORIES: ColumnCategory[] = [
     columns: ['lastModified', 'urlEncodedAddress', 'errorMessage']
   }
 ]
+
+const FIELD_DESCRIPTIONS: Partial<Record<keyof CrawledPage, string>> = {
+  url: 'Full web address of the crawled page. Click to open in a new tab.',
+  title: 'HTML <title> tag content shown in browser tabs and Google search results.',
+  titleLength: 'Character count of the page title. SEO ideal is 30–60 characters.',
+  titlePixelWidth: 'Rendered pixel width of the title as displayed in Google SERP. Maximum is ~600px.',
+  description: 'Meta description tag content displayed in search result snippets.',
+  descriptionLength: 'Character count of the meta description. SEO ideal is 120–160 characters.',
+  descriptionPixelWidth: 'Rendered pixel width of the description in Google SERP. Maximum is ~920px.',
+  contentType: 'MIME type of the HTTP response (e.g. text/html, application/pdf).',
+  statusCode: 'HTTP response status code. 200=OK, 301=Redirect, 404=Not Found, 500=Server Error.',
+  status: 'Human-readable HTTP status label derived from the numeric status code.',
+  responseTime: 'Time in seconds from request to full server response. Under 0.5s is ideal.',
+  wordCount: 'Total words found in visible page content, excluding navigation and boilerplate.',
+  sentenceCount: 'Number of sentences detected in the visible page body text.',
+  averageWordsPerSentence: 'Mean words per sentence. Scores under 20 are generally more readable.',
+  fleschReadingEase: 'Flesch Reading Ease score (0–100). Higher means easier to read. Target 60+.',
+  readabilityLevel: 'Descriptive readability label based on Flesch score (Very Easy → Very Difficult).',
+  textToHtmlRatio: 'Percentage of visible text vs. total HTML markup size. Higher is better.',
+  spellingErrors: 'Misspelled words detected using a common-word dictionary check.',
+  grammarErrors: 'Grammar violations detected via regex pattern matching rules.',
+  crawlDepth: 'Number of clicks deep from the crawl start URL where this page was discovered.',
+  folderDepth: 'Number of directory levels in the URL path structure.',
+  sizeBytes: 'Total HTML page size in bytes. Pages over 500 KB may slow down performance.',
+  success: 'Whether the page was successfully fetched without a fatal crawl error.',
+  errorMessage: 'Description of any error encountered while crawling this URL.',
+  linkScore: 'Quality score for the page link profile based on internal and external links.',
+  canonicalUrl: 'Canonical URL declared by the page to consolidate duplicate content signals.',
+  amphtmlUrl: 'Link to the AMP (Accelerated Mobile Pages) version of this page.',
+  mobileAlternateUrl: 'Alternate URL declared for mobile device visitors via rel="alternate".',
+  indexable: 'Whether search engines are permitted to index this page (true/false).',
+  indexabilityStatus: 'Reason why the page is or is not indexable by search engines.',
+  metaRobots: 'Content of the robots meta tag (e.g. noindex, nofollow, none).',
+  xRobotsTag: 'Robots crawl instructions delivered via HTTP response header instead of meta tag.',
+  metaRefresh: 'HTML meta refresh directive for automatic page redirect after a timed delay.',
+  transferredBytes: 'Actual bytes transferred over the network (typically gzip-compressed).',
+  totalTransferredBytes: 'Cumulative bytes transferred including all page sub-resources.',
+  co2Mg: 'Estimated CO₂ emissions in milligrams based on this page\'s data transfer size.',
+  carbonRating: 'Environmental sustainability rating for this page\'s carbon footprint.',
+  semanticSimilarityScore: 'How semantically similar this page is to others in the crawl (0–1 scale).',
+  semanticRelevanceScore: 'Content relevance relative to the target keyword context (0–1 scale).',
+  closestSemanticallySimilarAddress: 'URL of the most semantically similar page found in this crawl.',
+  semanticallySimilarCount: 'Number of pages with high semantic similarity to this page.',
+  contentHash: 'MD5 fingerprint of the page content used for exact duplicate detection.',
+  closestDuplicateUrl: 'URL of the page most similar in content to this one (near-duplicate).',
+  closestDuplicateSimilarity: 'SimHash similarity score (0–1) with the nearest duplicate page.',
+  nearDuplicateCount: 'Number of other pages with near-duplicate content similarity to this page.',
+  outlinks: 'Total number of outgoing hyperlinks found on this page.',
+  uniqueExternalOutlinks: 'Unique links to external domains, deduplicated by target URL.',
+  uniqueExternalJsOutlinks: 'Unique external links discovered via JavaScript execution.',
+  uniqueOutlinks: 'All outgoing links deduplicated including internal and external.',
+  uniqueJsOutlinks: 'Unique outgoing links found within JavaScript (not present in raw HTML).',
+  externalOutlinks: 'All outgoing links pointing to other domains before deduplication.',
+  metaDescription: 'Raw content of the <meta name="description"> tag.',
+  ogTitle: 'Open Graph title used when this page is shared on social media platforms.',
+  ogDescription: 'Open Graph description shown in social media link card previews.',
+  ogImage: 'Open Graph image URL displayed when this page is shared on social media.',
+  lastModified: 'Date and time this page was last modified per the server response header.',
+  urlEncodedAddress: 'URL with special characters percent-encoded for safe HTTP transmission.',
+  timestamp: 'Date and time when this URL was crawled and data was collected.',
+  h1_1: 'Text content of the first H1 heading found on the page.',
+  h1_1Length: 'Character count of the first H1 heading text.',
+  h1_2: 'Text of the second H1 heading if multiple H1 tags exist (an SEO issue).',
+  h1_2Length: 'Character count of the second H1 heading text.',
+  h2_1: 'Text content of the first H2 subheading found on the page.',
+  h2_1Length: 'Character count of the first H2 subheading text.',
+  h2_2: 'Text content of the second H2 subheading on the page.',
+  h2_2Length: 'Character count of the second H2 subheading text.',
+  inlinks: 'Total internal links from other crawled pages pointing to this URL.',
+  uniqueInlinks: 'Deduplicated count of internal pages that link to this URL.',
+  uniqueJsInlinks: 'Unique internal links to this page discovered via JavaScript.',
+  headingTags: 'All H1–H6 heading tags with text and hierarchy shown as structured JSON.',
+  cookies: 'Cookie names and values set by the server response for this page.',
+  language: 'Declared language of the page content (e.g. en, fr, de).',
+  httpVersion: 'HTTP protocol version used for this connection (HTTP/1.1, HTTP/2, HTTP/3).',
+  redirectUrl: 'Destination URL this page redirects to if a redirect status was returned.',
+  redirectType: 'Type of redirect (e.g. 301 Permanent, 302 Temporary, 307 Temporary).',
+  relNext: 'URL of the next page in a paginated series via rel="next" link tag.',
+  relPrev: 'URL of the previous page in a paginated series via rel="prev" link tag.',
+  httpRelNext: 'Next page URL declared via HTTP Link header instead of an HTML tag.',
+  httpRelPrev: 'Previous page URL declared via HTTP Link header instead of an HTML tag.',
+  metaKeywords: 'Meta keywords tag content. Largely ignored by Google but may affect other engines.',
+  metaKeywordsLength: 'Character count of the meta keywords tag content.',
+}
 
 const DEFAULT_VISIBLE_COLUMNS: Set<keyof CrawledPage> = new Set(['url', 'title', 'titleLength', 'contentType', 'timestamp'])
 
@@ -451,7 +536,9 @@ export function CrawledDataTable({
         onClick={isSortable ? () => handleSort(column as SortField) : undefined}
       >
         <div className="flex items-center justify-center gap-1 whitespace-nowrap">
-          {label} {isSortable && <SortIcon field={column as SortField} />}
+          {label}
+          {isSortable && <SortIcon field={column as SortField} />}
+          <FieldTooltip description={FIELD_DESCRIPTIONS[column] ?? ''} />
         </div>
       </th>
     )

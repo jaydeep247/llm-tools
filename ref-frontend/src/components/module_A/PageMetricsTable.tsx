@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { FieldTooltip } from './FieldTooltip'
 
 interface PageMetric {
   id?: string | number
@@ -154,6 +155,66 @@ const COLUMN_CATEGORIES: ColumnCategory[] = [
     columns: ['totalWordCount', 'amphtmlUrl']
   }
 ]
+
+const FIELD_DESCRIPTIONS: Partial<Record<keyof PageMetric, string>> = {
+  url: 'Full web address of the analyzed page. Click to open in a new tab.',
+  title: 'HTML <title> tag content shown in browser tabs and Google search results.',
+  titleLength: 'Character count of the page title. SEO optimal range is 30–60 characters.',
+  titlePixelWidth: 'Rendered pixel width of the title in Google SERP. Maximum is ~600px.',
+  titleStatus: 'Whether the page title is present (OK), absent (Missing), or shared with another page (Duplicate).',
+  duplicateTitleCount: 'Number of other crawled pages that share the exact same page title.',
+  resourceType: 'Type of the resource (e.g. Web Page, PDF, image) as classified by content type.',
+  description: 'Meta description tag text displayed in search result preview snippets.',
+  descriptionLength: 'Character count of the meta description. Ideal SEO range is 120–160 characters.',
+  descriptionPixelWidth: 'Rendered pixel width of the meta description in Google SERP. Maximum is ~920px.',
+  metaDescriptionStatus: 'Whether the meta description is present (OK), absent (Missing), or shared with another page (Duplicate).',
+  duplicateMetaDescriptionCount: 'Number of other crawled pages that have an identical meta description.',
+  canonicalUrl: 'Canonical URL declared to consolidate ranking signals for duplicate content.',
+  canonicalValidationStatus: 'Validation result for the canonical URL (Valid, Missing, Invalid, Redirect, etc.).',
+  canonicalValidationMessage: 'Detailed explanation of why the canonical URL passed or failed validation.',
+  metaKeywords: 'Meta keywords tag content. Largely ignored by Google but may affect other search engines.',
+  metaKeywordsLength: 'Character count of the meta keywords tag content.',
+  contentType: 'MIME type returned by the server (e.g. text/html, application/pdf).',
+  lastModified: 'Date and time the page was last modified per the server HTTP response header.',
+  timestamp: 'Date and time when this page\'s content audit data was collected.',
+  tableCount: 'Total number of HTML <table> elements found on this page.',
+  tableData: 'Structured JSON data extracted from all HTML tables present on this page.',
+  hasTables: 'Whether one or more HTML tables exist on this page.',
+  faqCount: 'Number of FAQ question-and-answer pairs detected on this page.',
+  faqData: 'Structured JSON of all detected FAQ pairs including questions and answers.',
+  hasFaqs: 'Whether FAQ-style content was detected on this page.',
+  faqScore: 'Quality score (0–100) rating how well-structured the FAQ section is for rich results.',
+  faqDetectionMethod: 'How FAQs were identified: JSON-LD schema markup or content heuristics.',
+  faqSchemaPresent: 'Whether valid FAQPage schema markup exists for search engine rich result eligibility.',
+  hasMixedContent: 'Whether this HTTPS page loads any insecure HTTP resources.',
+  mixedContentSeverity: 'Risk level of mixed content: none, warning (passive/images), or critical (active/scripts).',
+  mixedContentData: 'JSON listing all insecure HTTP resources detected on this HTTPS page.',
+  activeMixedContentCount: 'Count of active mixed content (scripts, iframes). High security risk.',
+  passiveMixedContentCount: 'Count of passive mixed content (images, CSS). Lower security risk.',
+  totalInsecureResources: 'Total number of HTTP resources loaded on this HTTPS page.',
+  headerStructureData: 'All H1–H6 heading tags with their text content and nesting level as JSON.',
+  headerStructureIssues: 'Heading hierarchy problems found (missing H1, multiple H1s, skipped levels).',
+  viewportPresent: 'Whether the page declares a viewport meta tag required for mobile responsiveness.',
+  viewportContent: 'The exact content attribute value of the viewport meta tag.',
+  viewportStatus: 'Mobile viewport compliance status (ok, warning, error, or missing).',
+  structuredDataPresent: 'Whether JSON-LD structured data schema markup exists on this page.',
+  structuredDataFormat: 'Format of structured data found (JSON-LD, Microdata, or RDFa).',
+  structuredDataTypes: 'Schema.org types detected on this page (e.g. Article, FAQPage, Product).',
+  structuredDataPriorityType: 'The highest-priority SEO-relevant schema type found on this page.',
+  pageSizeBytes: 'Total size of the HTML page document in bytes.',
+  pageSizeStatus: 'Page size classification: Small (<100 KB), Medium, or Large (>1 MB).',
+  htmlSizeBytes: 'Size of the raw HTML document only, excluding any external resources.',
+  htmlSizeStatus: 'HTML document size rating: Good, Warning, or Large.',
+  totalResourceSizeBytes: 'Combined size of all page resources including HTML, JS, CSS, and images.',
+  resourceSizeBreakdown: 'Breakdown of resource sizes by type (JS, CSS, fonts, images, etc.).',
+  totalWordCount: 'Total number of words in the visible page content, excluding hidden elements.',
+  metaRobots: 'Value of the robots meta tag (e.g. index/follow, noindex, nofollow).',
+  statusCode: 'HTTP status code returned by the server (200=OK, 301=Redirect, 404=Not Found).',
+  headingTags: 'All page headings (H1–H6) with text and hierarchy shown as structured JSON.',
+  language: 'Language declared in the HTML lang attribute or HTTP Content-Language header.',
+  amphtmlUrl: 'Link to the AMP (Accelerated Mobile Pages) version of this page.',
+  responseTime: 'Time in seconds for the server to return the full page response. Under 0.5s is ideal.',
+}
 
 const DEFAULT_VISIBLE_COLUMNS: Set<keyof PageMetric> = new Set(['url', 'title', 'titleStatus', 'metaDescriptionStatus', 'hasTables', 'hasFaqs', 'timestamp'])
 
@@ -398,7 +459,9 @@ export function PageMetricsTable({
         onClick={isSortable ? () => handleSort(column as SortField) : undefined}
       >
         <div className="flex items-center justify-center gap-1 whitespace-nowrap">
-          {label} {isSortable && <SortIcon field={column as SortField} />}
+          {label}
+          {isSortable && <SortIcon field={column as SortField} />}
+          <FieldTooltip description={FIELD_DESCRIPTIONS[column] ?? ''} />
         </div>
       </th>
     )
