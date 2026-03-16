@@ -64,7 +64,7 @@ function ConsistencyGauge({ value }: { value: number }) {
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className={cn("text-3xl font-bold", colors.text)}>{value}%</span>
+        <span className={cn("text-3xl font-bold", colors.text)}>{Math.round(value)}%</span>
         <span className="text-xs text-zinc-400">Consistency</span>
       </div>
     </div>
