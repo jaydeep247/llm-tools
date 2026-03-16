@@ -18,6 +18,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 
 export interface BrokenLink {
   url: string
@@ -405,11 +406,15 @@ export default function BrokenLinkChecker({
           </div>
         </div>
       ) : (
-        <div className="flex-1 flex items-center justify-center rounded-lg border border-zinc-800 bg-zinc-800/50">
-          <div className="text-center p-8">
-            <LinkIcon className="w-12 h-12 text-zinc-500 mx-auto mb-3" />
-            <p className="text-zinc-400">Click "Check Links" to analyze all links in this session</p>
-          </div>
+        <div className="flex-1">
+          <AnalysisEmptyState
+            icon={<LinkIcon className="w-8 h-8 text-zinc-400" />}
+            title="No Link Check Run Yet"
+            description='Click "Check Links" above to analyze all links in this session and find broken URLs, missing pages, and server errors.'
+            onRunAnalysis={handleCheckLinks}
+            isAnalyzing={isChecking}
+            buttonLabel="Check Links"
+          />
         </div>
       )}
 

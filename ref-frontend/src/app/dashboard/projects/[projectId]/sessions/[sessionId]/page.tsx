@@ -237,7 +237,7 @@ export default function SessionDetailPage() {
   useEffect(() => {
     if (prevTabRef.current !== activeSection) {
       prevTabRef.current = activeSection
-      const dataTabs = ['crawled-data', 'technical-audit', 'content-audit', 'page-metrics', 'text-quality', 'wordcount', 'broken-links', 'link-analysis', 'performance-audits', 'schema-generator', 'site-structure', 'exports']
+      const dataTabs = ['crawled-data', 'technical-audit', 'content-audit', 'page-metrics', 'text-quality', 'wordcount', 'broken-links', 'link-analysis', 'url-explorer', 'performance-audits', 'schema-generator', 'site-structure', 'exports']
       if (dataTabs.includes(activeSection) && jobId) {
         refetchPagesRaw()
         refetchFieldsRaw()
@@ -1129,6 +1129,18 @@ export default function SessionDetailPage() {
           </div>
         )}
 
+        {/* Show Broken Link Checker on url-explorer tab */}
+        {activeSection === 'url-explorer' && (
+          <div>
+            <BrokenLinkChecker
+              sessionId={sessionId}
+              onCheck={handleCheckLinks}
+              checkResults={linkCheckData?.results || null}
+              isChecking={isCheckingLinks}
+            />
+          </div>
+        )}
+
         {/* Show Site Structure on site-structure / content-brief-builder tabs */}
         {(activeSection === 'site-structure' || activeSection === 'content-brief-builder') && (
           <div className="h-[calc(100vh-64px)] p-4 sm:p-6">
@@ -1215,7 +1227,7 @@ export default function SessionDetailPage() {
 
         {/* AI Visibility Report */}
         {activeSection === 'ai-visibility-report' && (
-          <AIVisibilityReport jobId={jobId} />
+          <AIVisibilityReport jobId={jobId} url={session?.startUrl || ''} />
         )}
 
         {/* Show Module E on module-e tab */}
@@ -1275,6 +1287,7 @@ export default function SessionDetailPage() {
               <CompetitorWinsLibrary 
                 moduleFData={moduleFQueryData?.data}
                 isLoading={isLoadingModuleF}
+                jobId={jobId || null}
               />
             </div>
           </div>

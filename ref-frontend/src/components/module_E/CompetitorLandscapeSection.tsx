@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { TrendingUp, Shield, Globe, Play, Loader2, RefreshCw, CheckCircle2, Target, AlertCircle } from 'lucide-react'
+import { TrendingUp, Shield, Globe, Loader2, RefreshCw, CheckCircle2, Target, AlertCircle } from 'lucide-react'
+import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
 import { useRunCompetitorAnalysisMutation, useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
 
@@ -61,33 +62,14 @@ export default function CompetitorLandscapeSection({ jobId, landscapeData: initi
 
     if (!landscapeData) {
         return (
-            <Card className="rounded-xl border p-8 text-center bg-card/50">
-                <div className="flex flex-col items-center gap-4 max-w-sm mx-auto">
-                    <div className="p-3 rounded-full bg-primary/10">
-                        <Target className="w-8 h-8 text-primary" />
-                    </div>
-                    <div>
-                        <h3 className="text-lg font-semibold text-foreground">Competitor Landscape</h3>
-                        <p className="text-sm text-muted-foreground mt-1">
-                            Analyze your domain authority and backlink profile relative to the market.
-                        </p>
-                    </div>
-                    <Button
-                        onClick={handleRunAnalysis}
-                        disabled={isRunning}
-                        className="w-full gap-2 font-semibold"
-                    >
-                        {isRunning ? (
-                            <><Loader2 className="w-4 h-4 animate-spin" /> Analyzing...</>
-                        ) : (
-                            <><Play className="w-4 h-4" /> Run Landscape Analysis</>
-                        )}
-                    </Button>
-                    <p className="text-[10px] text-muted-foreground italic">
-                        Uses DataForSEO to fetch live backlink metrics.
-                    </p>
-                </div>
-            </Card>
+            <AnalysisEmptyState
+                icon={<Target className="w-8 h-8 text-zinc-400" />}
+                title="Competitor Landscape"
+                description="Analyze your domain authority and backlink profile relative to the market."
+                onRunAnalysis={handleRunAnalysis}
+                isAnalyzing={isRunning}
+                buttonLabel="Run Landscape Analysis"
+            />
         )
     }
 
@@ -182,7 +164,7 @@ export default function CompetitorLandscapeSection({ jobId, landscapeData: initi
                         <div className="space-y-2">
                             {(landscapeData.top_referring_domains ?? []).map((comp, i) => (
                                 <div key={i} className="flex items-center justify-between text-xs">
-                                    <span className="text-foreground/80 font-medium truncate max-w-[200px]">{comp.name}</span>
+                                    <span className="text-foreground/80 font-medium truncate max-w-50">{comp.name}</span>
                                     <span className="text-muted-foreground font-mono">{(comp.count ?? 0).toLocaleString()} domains</span>
                                 </div>
                             ))}

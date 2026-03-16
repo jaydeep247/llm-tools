@@ -19,7 +19,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ModuleFResult } from '@/store/api/module_F/moduleFApi'
+import { ModuleFResult, useRunModuleFAnalysisMutation } from '@/store/api/module_F/moduleFApi'
+import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 
 // Score Card Component
 interface ScoreCardProps {
@@ -135,11 +136,18 @@ function ScoreCard({ title, score, value, icon, color, trend, subStats, error, i
 interface CompetitorWinsLibraryProps {
   moduleFData?: ModuleFResult | null
   isLoading: boolean
+  jobId?: string | null
 }
 
-export default function CompetitorWinsLibrary({ moduleFData, isLoading }: CompetitorWinsLibraryProps) {
+export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }: CompetitorWinsLibraryProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [filter, setFilter] = useState<'all' | 'brand' | 'competitor'>('all')
+  const [runModuleFAnalysis, { isLoading: isTriggering }] = useRunModuleFAnalysisMutation()
+
+  const handleRunAnalysis = async () => {
+    if (!jobId) return
+    try { await runModuleFAnalysis(jobId).unwrap() } catch {}
+  }
 
   const winsData = moduleFData?.competitor_wins
   const summary = winsData?.summary
@@ -156,6 +164,20 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading }: Compet
         : item.winner === 'competitor'
     return matchesSearch && matchesFilter
   })
+
+  if (!moduleFData && !isLoading) {
+    return (
+      <AnalysisEmptyState
+        icon={<Trophy className="w-8 h-8 text-zinc-400" />}
+        title="No Competitor Wins Data"
+        description="Run Module F analysis to see where competitors outperform your brand and identify content gaps."
+        onRunAnalysis={handleRunAnalysis}
+        isAnalyzing={isTriggering}
+        buttonLabel="Run Module F Analysis"
+        disabled={!jobId}
+      />
+    )
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -327,13 +349,13 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading }: Compet
                           Gap Score: {result.coverage_gap_score}
                         </span>
                       </div>
-                      <h4 className="text-zinc-100 font-medium mb-2 break-words">{result.prompt}</h4>
+                      <h4 className="text-zinc-100 font-medium mb-2 wrap-break-word">{result.prompt}</h4>
                       <p className="text-sm text-zinc-400 line-clamp-2 font-light italic">
                         "{result.text_snippet}"
                       </p>
                     </div>
                     
-                    <div className="flex flex-col gap-2 shrink-0 min-w-[200px]">
+                    <div className="flex flex-col gap-2 shrink-0 min-w-50">
                       <div className="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-1">Rankings</div>
                       <div className="space-y-1.5">
                         {/* Brand Rank */}
@@ -353,7 +375,7 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading }: Compet
                           .slice(0, 3) // Show top 3
                           .map(([name, rank]) => (
                             <div key={name} className="flex items-center justify-between text-sm">
-                              <span className="text-zinc-400 truncate max-w-[120px]" title={name}>{name}</span>
+                              <span className="text-zinc-400 truncate max-w-30" title={name}>{name}</span>
                               <span className="text-zinc-400 font-mono">#{rank}</span>
                             </div>
                           ))

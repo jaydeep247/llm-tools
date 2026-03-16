@@ -13,9 +13,9 @@ import {
   Hash,
   TrendingUp,
   AlertTriangle,
-  Target,
-  Play
+  Target
 } from 'lucide-react'
+import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
 import { useGetModuleCResultQuery, useRunModuleCAnalysisMutation } from '@/store/api/module_C/moduleCApi'
 import { useGetJobStatusQuery } from '@/store/api/jobApi'
@@ -441,32 +441,14 @@ export default function EntityGapAnalysis({ jobId, url = '' }: EntityGapAnalysis
           )}
         </>
       ) : !isLoading ? (
-        <div className="bg-zinc-800/50 rounded-2xl border border-zinc-800 p-12 text-center">
-          <div className="w-16 h-16 bg-zinc-800/50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Database className="w-8 h-8 text-zinc-600" />
-          </div>
-          <h3 className="text-lg font-semibold text-white mb-2">No Entity Analysis Data</h3>
-          <p className="text-sm text-zinc-400 mb-6 max-w-md mx-auto">
-            Run an AI Visibility analysis to see entity coverage and gap analysis.
-          </p>
-          <Button
-            onClick={handleRunAnalysis}
-            disabled={!jobId || isAnalyzing}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white"
-          >
-            {isAnalyzing ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Running Analysis...
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4 mr-2" />
-                Run AI Visibility Analysis
-              </>
-            )}
-          </Button>
-        </div>
+        <AnalysisEmptyState
+          icon={<Database className="w-8 h-8 text-zinc-600" />}
+          title="No Entity Analysis Data"
+          description="Run an AI Visibility analysis to see entity coverage and gap analysis."
+          onRunAnalysis={handleRunAnalysis}
+          isAnalyzing={isAnalyzing}
+          disabled={!jobId}
+        />
       ) : null}
     </div>
   )

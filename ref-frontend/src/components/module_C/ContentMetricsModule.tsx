@@ -32,6 +32,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useGetContentMetricsQuery, useStartContentMetricsMutation } from '@/store/api/contentMetricsApi'
 import { useGetSessionJobsQuery } from '@/store/api/jobApi'
+import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 
 // Score Card Component - Adapted from AIVisibilityScorecards
 interface ScoreCardProps {
@@ -258,6 +259,16 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
   // Whether we're in a waiting state (analysis triggered, no data yet)
   const isWaitingForAnalysis = hasTriggeredAnalysis && !contentMetrics && !entityMetrics && !metricsError
 
+  const handleStartAnalysis = async () => {
+    if (!jobId) return
+    try {
+      setHasTriggeredAnalysis(true)
+      await startContentMetrics({ jobId, sourceJobId }).unwrap()
+    } catch (e) {
+      // no-op: error will surface via metricsError on next fetch
+    }
+  }
+
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'text-green-500'
     if (score >= 60) return 'text-yellow-500'
@@ -328,29 +339,15 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
         <div className="rounded-xl border border-zinc-800 bg-[#111113] p-6 space-y-6">
           {/* Empty State + Trigger */}
           {!contentMetrics && !isLoadingMetrics && !metricsError && !isWaitingForAnalysis && !isStartingAnalysis && (
-            <div className="p-6 border border-zinc-800 rounded-xl bg-[#0D0D10] space-y-4">
-              <p className="text-sm text-zinc-400">
-                No content metrics available yet. Run an AEO analysis to see content insights.
-              </p>
-              {jobId && (
-                <Button
-                  size="sm"
-                  disabled={isStartingAnalysis}
-                  onClick={async () => {
-                    try {
-                      setHasTriggeredAnalysis(true)
-                      await startContentMetrics({ jobId, sourceJobId }).unwrap()
-                    } catch (e) {
-                      // no-op: error will surface via metricsError on next fetch
-                    }
-                  }}
-                  className="cursor-pointer"
-                >
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Run Content Metrics Analysis
-                </Button>
-              )}
-            </div>
+            <AnalysisEmptyState
+              icon={<FileText className="w-8 h-8 text-zinc-600" />}
+              title="No Content Metrics Data"
+              description="No content metrics available yet. Run an analysis to see content insights."
+              onRunAnalysis={jobId ? handleStartAnalysis : undefined}
+              isAnalyzing={isStartingAnalysis}
+              disabled={!jobId}
+              buttonLabel="Run Content Metrics Analysis"
+            />
           )}
 
           {/* Loading / Waiting State */}
@@ -450,29 +447,15 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
         <div className="rounded-xl border border-zinc-800 bg-[#111113] p-6 space-y-6">
           {/* Empty State */}
           {!contentMetrics && !isLoadingMetrics && !metricsError && !isWaitingForAnalysis && !isStartingAnalysis && (
-            <div className="p-6 border border-zinc-800 rounded-xl bg-[#0D0D10] space-y-4">
-              <p className="text-sm text-zinc-400">
-                No intent cluster data available yet. Run an AEO analysis to see prompt intent analysis.
-              </p>
-              {jobId && (
-                <Button
-                  size="sm"
-                  disabled={isStartingAnalysis}
-                  onClick={async () => {
-                    try {
-                      setHasTriggeredAnalysis(true)
-                      await startContentMetrics({ jobId, sourceJobId }).unwrap()
-                    } catch (e) {
-                      // no-op
-                    }
-                  }}
-                  className="cursor-pointer"
-                >
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Run Content Metrics Analysis
-                </Button>
-              )}
-            </div>
+            <AnalysisEmptyState
+              icon={<Brain className="w-8 h-8 text-zinc-600" />}
+              title="No Intent Cluster Data"
+              description="No intent cluster data available yet. Run an analysis to see prompt intent analysis."
+              onRunAnalysis={jobId ? handleStartAnalysis : undefined}
+              isAnalyzing={isStartingAnalysis}
+              disabled={!jobId}
+              buttonLabel="Run Content Metrics Analysis"
+            />
           )}
 
           {/* Loading / Waiting State */}
@@ -653,29 +636,15 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
         <div className="rounded-xl border border-zinc-800 bg-[#111113] p-6 space-y-6">
           {/* Empty State */}
           {!entityMetrics && !isLoadingMetrics && !metricsError && !isWaitingForAnalysis && !isStartingAnalysis && (
-            <div className="p-6 border border-zinc-800 rounded-xl bg-[#0D0D10] space-y-4">
-              <p className="text-sm text-zinc-400">
-                No entity detection data available yet. Run an AEO analysis to see entity metrics.
-              </p>
-              {jobId && (
-                <Button
-                  size="sm"
-                  disabled={isStartingAnalysis}
-                  onClick={async () => {
-                    try {
-                      setHasTriggeredAnalysis(true)
-                      await startContentMetrics({ jobId, sourceJobId }).unwrap()
-                    } catch (e) {
-                      // no-op
-                    }
-                  }}
-                  className="cursor-pointer"
-                >
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Run Content Metrics Analysis
-                </Button>
-              )}
-            </div>
+            <AnalysisEmptyState
+              icon={<Database className="w-8 h-8 text-zinc-600" />}
+              title="No Entity Detection Data"
+              description="No entity detection data available yet. Run an analysis to see entity metrics."
+              onRunAnalysis={jobId ? handleStartAnalysis : undefined}
+              isAnalyzing={isStartingAnalysis}
+              disabled={!jobId}
+              buttonLabel="Run Content Metrics Analysis"
+            />
           )}
 
           {/* Loading / Waiting State */}

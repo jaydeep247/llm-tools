@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Loader2, Brain, Rocket, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react'
+import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
 import { 
   useRunModuleCAnalysisMutation, 
@@ -196,20 +197,15 @@ export default function AIIntelligenceModule({ url, sessionId, jobId }: AIIntell
 
           {/* Empty State - Show only when no data is available */}
           {jobId && !hasExistingData && !isLoadingSingleData && (
-            <div className="p-6 border border-border rounded-lg bg-muted/50">
-              <p className="text-sm text-muted-foreground mb-4">
-                Click Run Analysis to check how easily AI models can understand, trust, and use your content.
-              </p>
-              <Button
-                onClick={handleSingleAnalyze}
-                disabled={!websiteUrl || isAnalyzing}
-                size="lg"
-                className="w-full sm:w-auto px-8 cursor-pointer"
-              >
-                <Rocket className="w-5 h-5 mr-2" />
-                Run AEO Analysis
-              </Button>
-            </div>
+            <AnalysisEmptyState
+              icon={<Brain className="w-8 h-8 text-zinc-600" />}
+              title="No AEO Analysis Data"
+              description="Click Run Analysis to check how easily AI models can understand, trust, and use your content."
+              onRunAnalysis={handleSingleAnalyze}
+              isAnalyzing={isAnalyzing}
+              disabled={!websiteUrl}
+              buttonLabel="Run AEO Analysis"
+            />
           )}
 
           {/* Loading State */}

@@ -6,6 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { TrendingUp, TrendingDown, LineChart as LineChartIcon, Activity, Calendar } from 'lucide-react'
+import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -150,23 +151,19 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Skeleton className="h-[300px] w-full rounded-xl" />
-        <Skeleton className="h-[300px] w-full rounded-xl" />
+        <Skeleton className="h-75 w-full rounded-xl" />
+        <Skeleton className="h-75 w-full rounded-xl" />
       </div>
     )
   }
 
   if (error || !trends || !history.length) {
     return (
-      <Card className="bg-[#111113] border-zinc-800">
-        <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-          <LineChartIcon className="h-12 w-12 text-zinc-500 mb-4 opacity-20" />
-          <h3 className="text-lg font-medium text-zinc-100 mb-2">No Trend Data Available</h3>
-          <p className="text-sm text-zinc-400 max-w-sm">
-            Run the analysis multiple times to start tracking growth trends over time.
-          </p>
-        </CardContent>
-      </Card>
+      <AnalysisEmptyState
+        icon={<LineChartIcon className="w-8 h-8 text-zinc-400" />}
+        title="No Trend Data Available"
+        description="Run the analysis multiple times to start tracking growth trends over time."
+      />
     )
   }
 
@@ -325,7 +322,7 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
                   type="button"
                 >
                   <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color }} />
-                  <span className="max-w-[180px] truncate">{s.label}</span>
+                  <span className="max-w-45 truncate">{s.label}</span>
                 </button>
               ))}
             </div>
@@ -343,7 +340,7 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
             </TabsList>
 
             <TabsContent value="visibility" className="mt-4">
-              <div className="h-[380px] w-full">
+              <div className="h-95 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData} margin={{ top: 8, right: 16, left: 4, bottom: 8 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
@@ -388,7 +385,7 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
             </TabsContent>
 
             <TabsContent value="share" className="mt-4">
-              <div className="h-[380px] w-full">
+              <div className="h-95 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData} margin={{ top: 8, right: 16, left: 4, bottom: 8 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />

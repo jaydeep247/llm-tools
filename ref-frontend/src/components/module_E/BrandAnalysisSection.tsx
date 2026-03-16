@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect, useCallback } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Loader2, TrendingUp, TrendingDown, Minus, Globe, Play, CheckCircle2, RefreshCw } from 'lucide-react'
+import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
 import { useGetModuleEResultQuery, useRunBrandAnalysisMutation } from '@/store/api/module_E/moduleEApi'
 
@@ -191,11 +192,14 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
       </div>
 
       {!brandAnalysis && !isRunning && (
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-800/50 p-6">
-          <p className="text-sm text-zinc-400">
-            No brand analysis results yet. Click "Run Analysis" to generate insights.
-          </p>
-        </div>
+        <AnalysisEmptyState
+          icon={<Globe className="w-8 h-8 text-zinc-400" />}
+          title="No Brand Analysis Data"
+          description='No brand analysis results yet. Click "Run Analysis" to generate insights.'
+          onRunAnalysis={handleRunAnalysis}
+          isAnalyzing={isRunning}
+          buttonLabel="Run Analysis"
+        />
       )}
 
       {(brandAnalysis || isRunning) && (

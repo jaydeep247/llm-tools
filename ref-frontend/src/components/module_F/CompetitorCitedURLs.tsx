@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { AlertCircle, Globe, Link2, ShieldCheck, TrendingUp, Search } from 'lucide-react'
+import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -128,17 +129,11 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading }: Competit
       </Card>
 
       {!hasData ? (
-        <div className="bg-[#111113] rounded-xl p-6 border border-zinc-800">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-zinc-400 mt-0.5" />
-            <div>
-              <div className="text-zinc-100 font-medium">No source analysis data yet</div>
-              <div className="text-zinc-500 text-sm mt-1">
-                Run Module F to analyze competitor sources and citations.
-              </div>
-            </div>
-          </div>
-        </div>
+        <AnalysisEmptyState
+          icon={<Link2 className="w-8 h-8 text-zinc-400" />}
+          title="No Source Analysis Data"
+          description="Run Module F to analyze competitor sources and citations."
+        />
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -302,7 +297,7 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading }: Competit
                   </div>
 
                   <div className="lg:col-span-2">
-                    <ScrollArea className="h-[420px] pr-4">
+                    <ScrollArea className="h-105 pr-4">
                       <div className="space-y-3">
                         {filteredCitations.map((c, idx) => (
                           <div
@@ -315,7 +310,7 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading }: Competit
                                     <Globe className="w-4 h-4 text-zinc-400" />
                                 </div>
                                 <div>
-                                    <div className="text-zinc-100 font-medium text-sm break-words">{c.domain}</div>
+                                    <div className="text-zinc-100 font-medium text-sm wrap-break-word">{c.domain}</div>
                                     {c.citation_type && (
                                         <div className="text-zinc-500 text-xs mt-1 capitalize">
                                             {c.citation_type.replace(/_/g, ' ')}

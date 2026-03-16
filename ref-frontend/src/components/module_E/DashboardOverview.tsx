@@ -18,6 +18,7 @@ import {
   MessageSquare,
   Target,
 } from 'lucide-react'
+import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 
 interface DashboardOverviewProps {
   jobId?: string | null
@@ -73,13 +74,11 @@ export default function DashboardOverview({ jobId, url, onNavigate, crawlStatusS
 
   if (!d) {
     return (
-      <div className="flex flex-col items-center justify-center py-24">
-        <div className="w-16 h-16 rounded-2xl bg-zinc-800 flex items-center justify-center mb-4">
-          <Brain className="h-8 w-8 text-zinc-400" />
-        </div>
-        <p className="text-sm text-zinc-400 font-medium">No analysis data available yet</p>
-        <p className="text-xs mt-1.5 text-zinc-600">Run a Quick Start analysis to populate the dashboard.</p>
-      </div>
+      <AnalysisEmptyState
+        icon={<Brain className="w-8 h-8 text-zinc-400" />}
+        title="No Analysis Data Available"
+        description="Run a Quick Start analysis to populate the dashboard."
+      />
     )
   }
 

@@ -10,8 +10,8 @@ import {
   TrendingUp,
   ArrowUpRight,
   ArrowDownRight,
-  Play,
 } from 'lucide-react'
+import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 
 interface TrendsByModelSectionProps {
   jobId?: string
@@ -259,34 +259,14 @@ export default function TrendsByModelSection({
 
   if (!modelStats.length) {
     return (
-      <div className="p-8 border border-dashed border-border rounded-xl bg-muted/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <h3 className="text-base font-semibold text-foreground">
-            Trends by Model
-          </h3>
-          <p className="text-sm text-muted-foreground mt-1 max-w-xl">
-            Run AI citation analysis to unlock model-level trends for citations, mentions, and ranking coverage across ChatGPT, Gemini, and Claude.
-          </p>
-        </div>
-        <Button
-          size="sm"
-          onClick={handleRunAnalysis}
-          disabled={!jobId || isRunning}
-          className="inline-flex items-center gap-2"
-        >
-          {isRunning ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Analyzing…
-            </>
-          ) : (
-            <>
-              <Play className="w-4 h-4" />
-              Run Analysis
-            </>
-          )}
-        </Button>
-      </div>
+      <AnalysisEmptyState
+        icon={<LineChart className="w-8 h-8 text-zinc-400" />}
+        title="No Trends Data"
+        description="Run AI citation analysis to unlock model-level trends for citations, mentions, and ranking coverage across ChatGPT, Gemini, and Claude."
+        onRunAnalysis={handleRunAnalysis}
+        isAnalyzing={isRunning}
+        buttonLabel="Run Analysis"
+      />
     )
   }
 

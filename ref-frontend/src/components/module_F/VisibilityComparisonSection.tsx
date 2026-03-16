@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { useGetModuleFResultQuery, useRunModuleFAnalysisMutation } from '@/store/api/module_F/moduleFApi'
 import { ArrowDown, ArrowUp, CheckCircle2, Eye, Loader2, Percent, Play, RefreshCw, Swords } from 'lucide-react'
+import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 
 interface VisibilityComparisonSectionProps {
   jobId?: string | null
@@ -213,7 +214,7 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
         </Card>
       </div>
 
-      <Card className="bg-[#111113] rounded-xl border border-zinc-800 p-5">
+      {comparison && <Card className="bg-[#111113] rounded-xl border border-zinc-800 p-5">
         <div className="flex items-center gap-2 mb-1">
           <Swords className="w-4 h-4 text-blue-400" />
           <div className="text-sm font-medium text-zinc-100">Recommendations</div>
@@ -247,22 +248,9 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
             </ul>
           </div>
         </div>
-      </Card>
+      </Card>}
 
-      {!comparison || competitors.length === 0 ? (
-        <div className="bg-[#111113] rounded-xl border border-zinc-800 p-8 text-center">
-          <div className="flex flex-col items-center gap-3">
-            <div className="p-3 rounded-full bg-zinc-900 border border-zinc-800">
-              <Swords className="w-8 h-8 text-zinc-500" />
-            </div>
-            <div className="text-sm font-medium text-zinc-100">No competitor visibility data yet</div>
-            <div className="text-xs text-zinc-400 max-w-md">
-              Click Run Analysis to calculate visibility score, rank difference, and market share per competitor.
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-[#111113] rounded-xl border border-zinc-800 overflow-hidden">
+      {comparison && competitors.length > 0 && <div className="bg-[#111113] rounded-xl border border-zinc-800 overflow-hidden">
           <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
             <div className="text-sm font-medium text-zinc-100">Competitor Metrics</div>
             <Badge className="bg-zinc-900 text-zinc-400 border-zinc-800 text-xs">
@@ -319,8 +307,7 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
               </tbody>
             </table>
           </div>
-        </div>
-      )}
+        </div>}
     </div>
   )
 }

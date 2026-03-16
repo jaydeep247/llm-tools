@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Users, MessageSquare, Play, Loader2, RefreshCw, CheckCircle2 } from 'lucide-react'
+import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
 import { useRunCompetitorAnalysisMutation, useRunAiSovAnalysisMutation, useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
 
@@ -137,21 +138,14 @@ export default function CompetitorMentionsSection({ jobId, mentionsData: initial
     // Empty state
     if (!mentionsData) {
         return (
-            <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <Users className="w-5 h-5 text-primary" />
-                        <h3 className="text-lg font-semibold text-foreground">Competitor Mentions</h3>
-                    </div>
-                    {RunButton}
-                </div>
-                <div className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground text-sm">
-                    {isPolling
-                        ? 'Fetching competitor mentions data…'
-                        : <>No competitor data yet. Click <span className="font-semibold text-foreground">Run Analysis</span> to fetch competitor mentions.</>
-                    }
-                </div>
-            </div>
+            <AnalysisEmptyState
+                icon={<Users className="w-8 h-8 text-zinc-400" />}
+                title="No Competitor Mentions Data"
+                description="No competitor data yet. Click Run Analysis to fetch competitor mentions."
+                onRunAnalysis={handleRunAnalysis}
+                isAnalyzing={isRunning}
+                buttonLabel="Run Analysis"
+            />
         )
     }
 
@@ -317,21 +311,14 @@ export function ShareOfVoiceSection({ jobId }: ShareOfVoiceSectionProps) {
 
     if (!aiSov) {
         return (
-            <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <Users className="w-5 h-5 text-primary" />
-                        <h3 className="text-lg font-semibold text-foreground">AI Share of Voice</h3>
-                    </div>
-                    {RunButton}
-                </div>
-                <div className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground text-sm">
-                    {isPolling
-                        ? 'Calculating AI Share of Voice using OpenAI, Gemini, and Claude…'
-                        : <>No AI Share of Voice data yet. Click <span className="font-semibold text-foreground">Run Analysis</span> to calculate it.</>
-                    }
-                </div>
-            </div>
+            <AnalysisEmptyState
+                icon={<Users className="w-8 h-8 text-zinc-400" />}
+                title="No AI Share of Voice Data"
+                description="No AI Share of Voice data yet. Click Run Analysis to calculate it across OpenAI, Gemini, and Claude."
+                onRunAnalysis={handleRunAnalysis}
+                isAnalyzing={isRunning}
+                buttonLabel="Run Analysis"
+            />
         )
     }
 

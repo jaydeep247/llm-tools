@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Loader2, Trophy, RefreshCw, CheckCircle2, Play, AlertCircle } from 'lucide-react'
+import { Loader2, Trophy, RefreshCw, CheckCircle2, AlertCircle, Play } from 'lucide-react'
+import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import {
   useRunRankingAnalysisMutation,
   useGetModuleEResultQuery,
@@ -319,11 +320,14 @@ export default function AICitationRanking({ jobId, url, rankingData: initialData
 
       {/* Empty state */}
       {!hasResults && !isRunning && (
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-800/50 p-6 text-center">
-          <p className="text-sm text-zinc-400">
-            Click Run Analysis to see how your URL ranks in AI citations across ChatGPT, Claude, Gemini.
-          </p>
-        </div>
+        <AnalysisEmptyState
+          icon={<Trophy className="w-8 h-8 text-zinc-400" />}
+          title="No Citation Analysis Data"
+          description="Click Run Analysis to see how your URL ranks in AI citations across ChatGPT, Claude, and Gemini."
+          onRunAnalysis={handleRun}
+          isAnalyzing={isRunning}
+          buttonLabel="Run Analysis"
+        />
       )}
 
       {isPolling && (

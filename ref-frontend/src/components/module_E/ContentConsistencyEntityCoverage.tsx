@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Loader2, Gauge, Layers, RefreshCw } from 'lucide-react'
+import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
 import { useGetModuleEResultQuery, useRunConsistencyAnalysisMutation } from '@/store/api/module_E/moduleEApi'
 
@@ -236,11 +237,11 @@ export default function ContentConsistencyEntityCoverage({ jobId }: ContentConsi
       )}
 
       {!isLoading && !result && !error && jobId && (
-        <div className="p-6 border border-dashed border-border rounded-lg text-center">
-          <p className="text-sm text-muted-foreground">
-            No Module E data found yet. It runs after crawl completion.
-          </p>
-        </div>
+        <AnalysisEmptyState
+          icon={<Layers className="w-8 h-8 text-zinc-400" />}
+          title="No Content Consistency Data"
+          description="No Module E data found yet. It runs automatically after crawl completion."
+        />
       )}
 
       {result && (

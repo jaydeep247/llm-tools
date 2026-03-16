@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { AlertCircle, Target, TrendingUp, Radar, Search } from 'lucide-react'
+import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -199,17 +200,11 @@ export default function GapOpportunities({ moduleFData, isLoading }: GapOpportun
       </Card>
 
       {!hasData ? (
-        <div className="bg-[#111113] rounded-xl p-6 border border-zinc-800">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-zinc-400 mt-0.5" />
-            <div>
-              <div className="text-zinc-100 font-medium">No gap data yet</div>
-              <div className="text-zinc-500 text-sm mt-1">
-                Run Module F so prompt rankings and competitor coverage can be analyzed.
-              </div>
-            </div>
-          </div>
-        </div>
+        <AnalysisEmptyState
+          icon={<Target className="w-8 h-8 text-zinc-400" />}
+          title="No Gap Data"
+          description="Run Module F so prompt rankings and competitor coverage can be analyzed."
+        />
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -373,7 +368,7 @@ export default function GapOpportunities({ moduleFData, isLoading }: GapOpportun
                   </div>
 
                   <div className="lg:col-span-2">
-                    <ScrollArea className="h-[420px] pr-4">
+                    <ScrollArea className="h-105 pr-4">
                       <div className="space-y-3">
                         {filteredOpportunities.map((o) => {
                           const isMissing = o.rank === null || (o.rank ?? 0) > 10
@@ -384,7 +379,7 @@ export default function GapOpportunities({ moduleFData, isLoading }: GapOpportun
                             >
                               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                                 <div className="min-w-0">
-                                  <div className="text-zinc-100 font-medium text-sm break-words">{o.prompt}</div>
+                                  <div className="text-zinc-100 font-medium text-sm wrap-break-word">{o.prompt}</div>
                                   <div className="text-zinc-500 text-xs mt-1">
                                     {isMissing ? (
                                       <span>Competitor missing coverage</span>

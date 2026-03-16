@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -20,13 +20,16 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useGetVisibilityReportQuery } from '@/store/api/module_C/moduleCApi'
+import { useGetVisibilityReportQuery, useRunModuleCAnalysisMutation } from '@/store/api/module_C/moduleCApi'
+import { useGetJobStatusQuery } from '@/store/api/jobApi'
+import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import type { AIVisibilityIssue, AIVisibilityRecommendation } from '@/store/api/module_C/moduleCApi'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface AIVisibilityReportProps {
   jobId?: string | null
+  url?: string
 }
 
 // ─── Severity helpers ─────────────────────────────────────────────────────────
@@ -143,25 +146,44 @@ function RecommendationCard({ rec, index }: { rec: AIVisibilityRecommendation; i
 
 // ─── Empty / Loading states ───────────────────────────────────────────────────
 
-function EmptyState({ message }: { message: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-      <Brain className="w-12 h-12 text-muted-foreground/30" />
-      <p className="text-sm text-muted-foreground max-w-sm">{message}</p>
-    </div>
-  )
-}
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function AIVisibilityReport({ jobId }: AIVisibilityReportProps) {
-  const { data, isLoading, isFetching } = useGetVisibilityReportQuery(jobId || '', {
+export default function AIVisibilityReport({ jobId, url = '' }: AIVisibilityReportProps) {
+  const [analysisJobId, setAnalysisJobId] = useState<string | null>(null)
+
+  const { data, isLoading, isFetching, refetch } = useGetVisibilityReportQuery(jobId || '', {
     skip: !jobId,
     refetchOnMountOrArgChange: true,
   })
 
+  const [runAnalysis] = useRunModuleCAnalysisMutation()
+
+  const { data: analysisJobData } = useGetJobStatusQuery(analysisJobId || '', {
+    skip: !analysisJobId,
+    pollingInterval: analysisJobId ? 2000 : 0,
+  })
+
+  useEffect(() => {
+    if (analysisJobData?.status === 'COMPLETED' || analysisJobData?.status === 'FAILED') {
+      setAnalysisJobId(null)
+      if (analysisJobData?.status === 'COMPLETED') refetch()
+    }
+  }, [analysisJobData?.status, refetch])
+
+  const handleRunAnalysis = async () => {
+    if (!jobId) return
+    try {
+      const result = await runAnalysis({ jobId, url }).unwrap()
+      if (result.data?.analysisJobId) setAnalysisJobId(result.data.analysisJobId)
+    } catch (error) {
+      console.error('Failed to start analysis:', error)
+    }
+  }
+
+  const isAnalyzing = !!analysisJobId
+
   const report = data?.data?.data ?? null
-  const url = data?.data?.url ?? ''
+  const reportUrl = data?.data?.url ?? ''
   const timestamp = data?.data?.timestamp ?? ''
 
   // ── Loading ──
@@ -177,19 +199,24 @@ export default function AIVisibilityReport({ jobId }: AIVisibilityReportProps) {
   // ── No job ──
   if (!jobId) {
     return (
-      <EmptyState message="Please run a crawl and an AEO analysis first before viewing the AI Visibility Report." />
+      <AnalysisEmptyState
+        icon={<Brain className="w-8 h-8 text-zinc-600" />}
+        title="No Report Available"
+        description="Please run a crawl and an AEO analysis first before viewing the AI Visibility Report."
+      />
     )
   }
 
   // ── No report yet (AEO analysis hasn't run) ──
   if (!report || ('error' in report && report.error)) {
-    const errMsg = report && 'error' in report ? (report as any).error : null
     return (
-      <EmptyState
-        message={
-          errMsg ||
-          'No AI Visibility Report found for this job. Run an AEO analysis to generate the report.'
-        }
+      <AnalysisEmptyState
+        icon={<Brain className="w-8 h-8 text-zinc-600" />}
+        title="No AI Visibility Report"
+        description="No AI Visibility Report found for this job. Run an AEO analysis to generate the report."
+        onRunAnalysis={handleRunAnalysis}
+        isAnalyzing={isAnalyzing}
+        disabled={!url}
       />
     )
   }
@@ -209,9 +236,9 @@ export default function AIVisibilityReport({ jobId }: AIVisibilityReportProps) {
               AI Consultant
             </Badge>
           </div>
-          {url && (
-            <p className="text-xs text-muted-foreground truncate max-w-sm" title={url}>
-              {url}
+          {reportUrl && (
+            <p className="text-xs text-muted-foreground truncate max-w-sm" title={reportUrl}>
+              {reportUrl}
             </p>
           )}
         </div>

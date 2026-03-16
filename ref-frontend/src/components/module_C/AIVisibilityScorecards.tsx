@@ -15,12 +15,12 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  Play,
   ArrowUpRight,
   ChevronDown,
   Shield,
   Globe
 } from 'lucide-react'
+import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
 import { 
   useGetModuleCResultQuery,
@@ -347,7 +347,7 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisi
       )}
 
       {/* Module Score Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {!isLoadingData && hasData && <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* AI Presence */}
         <ScoreCard
           title="AI Presence"
@@ -412,7 +412,7 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisi
             { label: 'High', value: actionableInsights.priorityBreakdown?.high ?? 0 }
           ] : undefined}
         />
-      </div>
+      </div>}
 
       {/* AI Presence Detailed Breakdown */}
       {hasData && aiPresence && (
@@ -626,32 +626,13 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisi
 
       {/* No Data State */}
       {!hasData && !isLoadingData && jobId && (
-        <div className="bg-zinc-800/50 rounded-2xl border border-zinc-800 p-12 text-center">
-          <div className="w-16 h-16 bg-zinc-800/50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Brain className="w-8 h-8 text-zinc-600" />
-          </div>
-          <h3 className="text-lg font-semibold text-white mb-2">No Analysis Data Yet</h3>
-          <p className="text-sm text-zinc-400 mb-6 max-w-md mx-auto">
-            Run an AI Visibility analysis to see comprehensive scorecards for your website.
-          </p>
-          <Button
-            onClick={handleRunAnalysis}
-            disabled={isAnalyzing}
-            className="bg-emerald-600 hover:bg-emerald-700"
-          >
-            {isAnalyzing ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Running Analysis...
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4 mr-2" />
-                Run AI Visibility Analysis
-              </>
-            )}
-          </Button>
-        </div>
+        <AnalysisEmptyState
+          icon={<Brain className="w-8 h-8 text-zinc-600" />}
+          title="No Analysis Data Yet"
+          description="Run an AI Visibility analysis to see comprehensive scorecards for your website."
+          onRunAnalysis={handleRunAnalysis}
+          isAnalyzing={isAnalyzing}
+        />
       )}
     </div>
   )

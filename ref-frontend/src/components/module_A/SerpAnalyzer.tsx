@@ -33,6 +33,7 @@ import {
   Activity,
   XCircle,
 } from 'lucide-react'
+import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
 import {
   useGetSerpResultQuery,
@@ -481,24 +482,14 @@ export function SerpAnalyzer({ jobId, sessionId }: SerpAnalyzerProps) {
 
       {/* No results + not running */}
       {!isLoadingInitial && !isJobRunning && !result && (
-        <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
-          <div className="w-14 h-14 rounded-full bg-zinc-800/60 flex items-center justify-center">
-            <Search className="w-7 h-7 text-zinc-600" />
-          </div>
-          <div className="space-y-1.5 max-w-sm">
-            <p className="text-base font-semibold text-zinc-300">No SERP analysis yet</p>
-            <p className="text-sm text-zinc-500">
-              Click <span className="text-rose-400 font-medium">New Analysis</span> above to start tracking your keyword rankings, SERP features, and competitor positions.
-            </p>
-          </div>
-          <button
-            onClick={() => setShowForm(true)}
-            className="cursor-pointer mt-2 flex items-center gap-2 bg-rose-600 hover:bg-rose-500 text-white text-sm font-medium rounded-lg px-5 py-2.5 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Start Your First Analysis
-          </button>
-        </div>
+        <AnalysisEmptyState
+          icon={<Search className="w-8 h-8 text-zinc-400" />}
+          title="No SERP Analysis Yet"
+          description="Click New Analysis above to start tracking your keyword rankings, SERP features, and competitor positions."
+          onRunAnalysis={() => setShowForm(true)}
+          isAnalyzing={false}
+          buttonLabel="Start Your First Analysis"
+        />
       )}
 
       {/* Main content */}
