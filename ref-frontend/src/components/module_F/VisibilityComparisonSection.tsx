@@ -5,9 +5,15 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { useGetModuleFResultQuery, useRunModuleFAnalysisMutation } from '@/store/api/module_F/moduleFApi'
-import { ArrowDown, ArrowUp, CheckCircle2, Eye, Loader2, Percent, Swords } from 'lucide-react'
+import { type ModuleFMetricRecommendation, useGetModuleFResultQuery, useRunModuleFAnalysisMutation } from '@/store/api/module_F/moduleFApi'
+import { ArrowDown, ArrowUp, CheckCircle2, Eye, Loader2, Percent, Swords, Info } from 'lucide-react'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface VisibilityComparisonSectionProps {
   jobId?: string | null
@@ -24,6 +30,19 @@ function formatDelta(delta?: number | null) {
   if (delta === null || delta === undefined || Number.isNaN(delta)) return '—'
   const sign = delta > 0 ? '+' : ''
   return `${sign}${delta.toFixed(2)}`
+}
+
+function normalizeMetricRecommendation(value: unknown): ModuleFMetricRecommendation | null {
+  if (!value) return null
+  if (typeof value === 'string') return { why: '', fix: value }
+  if (typeof value === 'object') {
+    const rec = value as Partial<ModuleFMetricRecommendation>
+    const why = typeof rec.why === 'string' ? rec.why : ''
+    const fix = typeof rec.fix === 'string' ? rec.fix : ''
+    if (!why && !fix) return null
+    return { why, fix }
+  }
+  return null
 }
 
 export default function VisibilityComparisonSection({ jobId }: VisibilityComparisonSectionProps) {
@@ -43,6 +62,7 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
   const result = polledData?.data ?? null
   const updatedAt = result?.updatedAt
   const comparison = result?.compare_visibility_against_competitors
+  const recommendations = result?.recommendations ?? null
 
   useEffect(() => {
     if (!isPolling) return
@@ -88,6 +108,10 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
   const brand = comparison?.brand ?? null
 
   const topCompetitor = competitors[0] ?? null
+
+  const visibilityRec = normalizeMetricRecommendation(recommendations?.visibility_score)
+  const shareRec = normalizeMetricRecommendation(recommendations?.market_share)
+  const rankDeltaRec = normalizeMetricRecommendation(recommendations?.rank_delta)
 
   return (
     <div className="space-y-6">
@@ -149,7 +173,30 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
               <Eye className="w-4 h-4 text-blue-400" />
             </div>
             <div className="flex-1">
-              <div className="text-xs text-zinc-400">Your Visibility</div>
+              <div className="text-xs text-zinc-400 flex items-center gap-1.5">
+                Your Visibility
+                {visibilityRec && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="w-3 h-3 text-zinc-500 hover:text-zinc-300 transition-colors" />
+                      </TooltipTrigger>
+                      <TooltipContent className="bg-zinc-900 border-zinc-800 text-zinc-300 max-w-xs text-xs p-3">
+                        {visibilityRec.why && (
+                          <>
+                            <div className="font-medium text-zinc-100 mb-1">Why this score</div>
+                            <div className="text-zinc-300">{visibilityRec.why}</div>
+                          </>
+                        )}
+                        <div className={cn('font-medium text-zinc-100', visibilityRec.why ? 'mt-3 mb-1' : 'mb-1')}>
+                          How to improve
+                        </div>
+                        <div className="text-zinc-300">{visibilityRec.fix}</div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </div>
               <div className={cn('text-3xl font-bold', getVisibilityColor(brand?.visibility_score ?? 0))}>
                 {(brand?.visibility_score ?? 0).toFixed(1)}
               </div>
@@ -189,41 +236,6 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
         </Card>
       </div>}
 
-      {comparison && <Card className="bg-[#111113] rounded-xl border border-zinc-800 p-5">
-        <div className="flex items-center gap-2 mb-1">
-          <Swords className="w-4 h-4 text-blue-400" />
-          <div className="text-sm font-medium text-zinc-100">Recommendations</div>
-        </div>
-        <div className="text-xs text-zinc-400 mb-4">
-          Steps to increase your visibility score, improve rank vs competitors, and grow market share.
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
-            <div className="text-sm font-medium text-zinc-100 mb-2">Raise Visibility Score</div>
-            <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
-              <li>Make your brand easy to cite: consistent name, category, and short positioning statement.</li>
-              <li>Publish authoritative pages: “best for”, “pricing”, “features”, and “comparisons”.</li>
-              <li>Earn mentions from trusted sources so models repeatedly see your brand.</li>
-            </ul>
-          </div>
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
-            <div className="text-sm font-medium text-zinc-100 mb-2">Improve Rank vs Brand</div>
-            <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
-              <li>Cover the same use-cases competitors win, but with clearer criteria and proof.</li>
-              <li>Add structured lists and tables so extraction favors your content.</li>
-              <li>Target competitor name queries: “{'{'}competitor{'}'} alternatives” and “{'{'}competitor{'}'} vs”.</li>
-            </ul>
-          </div>
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
-            <div className="text-sm font-medium text-zinc-100 mb-2">Grow Market Share</div>
-            <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
-              <li>Expand prompt coverage: more topics, more formats, and more long-tail questions.</li>
-              <li>Update key pages frequently so outputs reflect your latest offering.</li>
-              <li>Re-run analysis after changes to confirm share moves in your favor.</li>
-            </ul>
-          </div>
-        </div>
-      </Card>}
 
       {comparison && competitors.length > 0 && <div className="bg-[#111113] rounded-xl border border-zinc-800 overflow-hidden">
           <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
@@ -237,9 +249,84 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
               <thead>
                 <tr className="border-b border-zinc-800 bg-zinc-900/50 text-zinc-400">
                   <th className="p-3 font-medium">Competitor</th>
-                  <th className="p-3 font-medium">Visibility</th>
-                  <th className="p-3 font-medium">Rank Δ vs Brand</th>
-                  <th className="p-3 font-medium">Market Share</th>
+                  <th className="p-3 font-medium">
+                    <span className="inline-flex items-center gap-1.5">
+                      Visibility
+                      {visibilityRec && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="w-3 h-3 text-zinc-500 hover:text-zinc-300 transition-colors" />
+                            </TooltipTrigger>
+                            <TooltipContent className="bg-zinc-900 border-zinc-800 text-zinc-300 max-w-xs text-xs p-3">
+                              {visibilityRec.why && (
+                                <>
+                                  <div className="font-medium text-zinc-100 mb-1">Why this score</div>
+                                  <div className="text-zinc-300">{visibilityRec.why}</div>
+                                </>
+                              )}
+                              <div className={cn('font-medium text-zinc-100', visibilityRec.why ? 'mt-3 mb-1' : 'mb-1')}>
+                                How to improve
+                              </div>
+                              <div className="text-zinc-300">{visibilityRec.fix}</div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </span>
+                  </th>
+                  <th className="p-3 font-medium">
+                    <span className="inline-flex items-center gap-1.5">
+                      Rank Δ vs Brand
+                      {rankDeltaRec && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="w-3 h-3 text-zinc-500 hover:text-zinc-300 transition-colors" />
+                            </TooltipTrigger>
+                            <TooltipContent className="bg-zinc-900 border-zinc-800 text-zinc-300 max-w-xs text-xs p-3">
+                              {rankDeltaRec.why && (
+                                <>
+                                  <div className="font-medium text-zinc-100 mb-1">Why this value</div>
+                                  <div className="text-zinc-300">{rankDeltaRec.why}</div>
+                                </>
+                              )}
+                              <div className={cn('font-medium text-zinc-100', rankDeltaRec.why ? 'mt-3 mb-1' : 'mb-1')}>
+                                How to improve
+                              </div>
+                              <div className="text-zinc-300">{rankDeltaRec.fix}</div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </span>
+                  </th>
+                  <th className="p-3 font-medium">
+                    <span className="inline-flex items-center gap-1.5">
+                      Market Share
+                      {shareRec && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="w-3 h-3 text-zinc-500 hover:text-zinc-300 transition-colors" />
+                            </TooltipTrigger>
+                            <TooltipContent className="bg-zinc-900 border-zinc-800 text-zinc-300 max-w-xs text-xs p-3">
+                              {shareRec.why && (
+                                <>
+                                  <div className="font-medium text-zinc-100 mb-1">Why this share</div>
+                                  <div className="text-zinc-300">{shareRec.why}</div>
+                                </>
+                              )}
+                              <div className={cn('font-medium text-zinc-100', shareRec.why ? 'mt-3 mb-1' : 'mb-1')}>
+                                How to improve
+                              </div>
+                              <div className="text-zinc-300">{shareRec.fix}</div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </span>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-800">

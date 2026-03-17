@@ -11,6 +11,7 @@ type ModuleFDocument = WithId<Document> & {
   competitor_wins?: ModuleFResult['competitor_wins'];
   gap_opportunities?: ModuleFResult['gap_opportunities'];
   source_analysis?: ModuleFResult['source_analysis'];
+  recommendations?: ModuleFResult['recommendations'];
   emerging_trends?: ModuleFResult['emerging_trends'];
   createdAt?: Date;
   updatedAt?: Date;
@@ -30,6 +31,7 @@ export class ModuleFRepository {
       competitor_wins: doc.competitor_wins,
       gap_opportunities: doc.gap_opportunities,
       source_analysis: doc.source_analysis,
+      recommendations: doc.recommendations,
       emerging_trends: doc.emerging_trends,
       createdAt: doc.createdAt ? doc.createdAt.toISOString() : undefined,
       updatedAt: doc.updatedAt ? doc.updatedAt.toISOString() : undefined,

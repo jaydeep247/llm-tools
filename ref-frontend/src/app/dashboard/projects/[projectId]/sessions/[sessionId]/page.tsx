@@ -173,7 +173,7 @@ export default function SessionDetailPage() {
     refetchOnMountOrArgChange: true,
   })
   
-  const { data: moduleFQueryData, isLoading: isLoadingModuleF } = useGetModuleFResultQuery(jobId || '', {
+  const { data: moduleFQueryData, isLoading: isLoadingModuleF, refetch: refetchModuleF } = useGetModuleFResultQuery(jobId || '', {
     skip: !jobId,
     refetchOnMountOrArgChange: true,
   })
@@ -243,8 +243,12 @@ export default function SessionDetailPage() {
         refetchFieldsRaw()
         refetchLinksRaw()
       }
+      const moduleFTabs = ['visibility-comparision', 'competitor-wins-library', 'competitor-cited-urls', 'gap-opportunities', 'growth-trends']
+      if (moduleFTabs.includes(activeSection) && jobId) {
+        refetchModuleF()
+      }
     }
-  }, [activeSection, jobId, refetchPagesRaw, refetchFieldsRaw, refetchLinksRaw])
+  }, [activeSection, jobId, refetchFieldsRaw, refetchLinksRaw, refetchModuleF, refetchPagesRaw])
 
   // Unified data transformation
   const rawPages = pagesResult?.data || []

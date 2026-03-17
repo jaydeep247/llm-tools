@@ -165,6 +165,13 @@ async def run_module_f_competitor_ai_intelligence(
         topic=topic_for_prompts
     )
 
+    recommendations = await analyzer.generate_metric_recommendations(
+        visibility_data=comparison,
+        win_rate_data=competitor_wins,
+        gap_data=gap_opportunities,
+        source_data=source_analysis,
+    )
+
     emerging_trends: Dict[str, Any] = {}
     try:
         prev_doc = None
@@ -190,6 +197,7 @@ async def run_module_f_competitor_ai_intelligence(
         "competitor_wins": competitor_wins,
         "gap_opportunities": gap_opportunities,
         "source_analysis": source_analysis,
+        "recommendations": recommendations,
         "emerging_trends": emerging_trends if emerging_trends else None,
         "created_at": datetime.utcnow().isoformat(),
     }

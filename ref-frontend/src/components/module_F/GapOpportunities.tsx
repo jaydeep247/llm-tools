@@ -1,14 +1,20 @@
 'use client'
 
-import { useMemo, useState, useCallback } from 'react'
-import { AlertCircle, Target, TrendingUp, Radar, Search } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { AlertCircle, Target, TrendingUp, Radar, Search, Info } from 'lucide-react'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { useRunModuleFAnalysisMutation } from '@/store/api/module_F/moduleFApi'
+import { type ModuleFMetricRecommendation, useGetModuleFResultQuery } from '@/store/api/module_F/moduleFApi'
 import type { ModuleFResult } from '@/store/api/module_F/moduleFApi'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface GapOpportunitiesProps {
   moduleFData?: ModuleFResult | null
@@ -21,6 +27,7 @@ type CompetitorGapRow = {
   gapScore: number
   missingPrompts: number
   potentialGainPercent: number
+  potentialGainMentions?: number
   opportunities: Array<{
     prompt: string
     rank: number | null
@@ -36,6 +43,19 @@ function round1(value: number) {
   return Math.round(value * 10) / 10
 }
 
+function normalizeMetricRecommendation(value: unknown): ModuleFMetricRecommendation | null {
+  if (!value) return null
+  if (typeof value === 'string') return { why: '', fix: value }
+  if (typeof value === 'object') {
+    const rec = value as Partial<ModuleFMetricRecommendation>
+    const why = typeof rec.why === 'string' ? rec.why : ''
+    const fix = typeof rec.fix === 'string' ? rec.fix : ''
+    if (!why && !fix) return null
+    return { why, fix }
+  }
+  return null
+}
+
 function computeOpportunityScore(rank: number | null | undefined) {
   if (!rank || !Number.isFinite(rank) || rank <= 0) return 100
   if (rank > 10) return 100
@@ -45,26 +65,37 @@ function computeOpportunityScore(rank: number | null | undefined) {
 export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapOpportunitiesProps) {
   const [selectedCompetitor, setSelectedCompetitor] = useState<string | null>(null)
   const [searchPrompt, setSearchPrompt] = useState('')
-  const [runModuleFAnalysis, { isLoading: isTriggering }] = useRunModuleFAnalysisMutation()
 
-  const handleRunAnalysis = useCallback(async () => {
-    if (!jobId) return
-    try { await runModuleFAnalysis(jobId).unwrap() } catch {}
-  }, [jobId, runModuleFAnalysis])
+  const normalizeKey = (value: string) => {
+    return value
+      .trim()
+      .toLowerCase()
+      .replace(/^https?:\/\//, '')
+      .replace(/^www\./, '')
+      .replace(/\/+$/, '')
+  }
 
-  const brandName = moduleFData?.compare_visibility_against_competitors?.brand?.name || 'Brand'
-  const detailedResults = moduleFData?.competitor_wins?.detailed_results || []
-  const competitors = moduleFData?.compare_visibility_against_competitors?.competitors || []
-  const totalPrompts = moduleFData?.competitor_wins?.summary?.total_prompts ?? detailedResults.length ?? 0
+  const { data: fetched, isLoading: isFetchingModuleF } = useGetModuleFResultQuery(jobId ?? '', {
+    skip: !jobId,
+    refetchOnMountOrArgChange: true,
+  })
+
+  const effectiveData: ModuleFResult | null | undefined = fetched?.data ?? moduleFData
+
+  const brandName = effectiveData?.compare_visibility_against_competitors?.brand?.name || 'Brand'
+  const detailedResults = effectiveData?.competitor_wins?.detailed_results || []
+  const competitors = effectiveData?.compare_visibility_against_competitors?.competitors || []
+  const totalPrompts = effectiveData?.competitor_wins?.summary?.total_prompts ?? detailedResults.length ?? 0
 
   const rows = useMemo((): CompetitorGapRow[] => {
     // 1. Prefer backend pre-calculated gap analysis
-    if (moduleFData?.gap_opportunities && moduleFData.gap_opportunities.length > 0) {
-      return moduleFData.gap_opportunities.map((g) => ({
+    if (effectiveData?.gap_opportunities && effectiveData.gap_opportunities.length > 0) {
+      return effectiveData.gap_opportunities.map((g) => ({
         competitor: g.competitor,
         gapScore: g.gapScore,
         missingPrompts: g.missingPrompts,
         potentialGainPercent: g.potentialGainPercent,
+        potentialGainMentions: g.potentialGainMentions,
         opportunities: g.opportunities,
       }))
     }
@@ -74,8 +105,13 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
     if (!competitorNames.length) return []
 
     return competitorNames.map((name) => {
+      const normalized = normalizeKey(name)
       const opportunities = detailedResults.map((r) => {
-        const rank = (r.ranks as Record<string, number | null | undefined> | undefined)?.[name] ?? null
+        const ranks = (r.ranks as Record<string, number | null | undefined> | undefined) ?? {}
+        const rank =
+          ranks[name] ??
+          ranks[normalized] ??
+          (Object.entries(ranks).find(([k]) => normalizeKey(k) === normalized)?.[1] ?? null)
         const opportunityScore = computeOpportunityScore(rank)
         return {
           prompt: r.prompt,
@@ -84,12 +120,12 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
         }
       })
 
-      const missingPrompts = opportunities.filter((o) => o.rank === null || o.rank > 10).length
+      const missingPrompts = opportunities.filter((o) => o.rank === null || o.rank > 3).length
       const gapScore =
         opportunities.length > 0
           ? round1(opportunities.reduce((sum, o) => sum + o.opportunityScore, 0) / opportunities.length)
           : 0
-      const potentialGainPercent = totalPrompts > 0 ? round1((missingPrompts / totalPrompts) * 100) : 0
+      const potentialGainPercent = gapScore
 
       const sortedOpportunities = [...opportunities].sort((a, b) => b.opportunityScore - a.opportunityScore)
 
@@ -98,10 +134,11 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
         gapScore,
         missingPrompts,
         potentialGainPercent,
+        potentialGainMentions: undefined,
         opportunities: sortedOpportunities,
       }
     })
-  }, [competitors, detailedResults, totalPrompts, moduleFData?.gap_opportunities])
+  }, [competitors, detailedResults, totalPrompts, effectiveData?.gap_opportunities])
 
   const overall = useMemo(() => {
     if (!rows.length) {
@@ -137,7 +174,7 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
     return base.filter((o) => o.prompt.toLowerCase().includes(needle)).slice(0, 50)
   }, [activeRow, searchPrompt])
 
-  if (isLoading) {
+  if (isLoading || isFetchingModuleF) {
     return (
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="space-y-2">
@@ -155,6 +192,7 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
   }
 
   const hasData = rows.length > 0 && totalPrompts > 0
+  const gapRec = normalizeMetricRecommendation(effectiveData?.recommendations?.content_gap_score)
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -170,52 +208,12 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
         </p>
       </div>
 
-      <Card className="bg-[#111113] border-zinc-800">
-        <CardHeader>
-          <CardTitle className="text-lg font-medium text-zinc-100">Recommendations</CardTitle>
-          <CardDescription className="text-zinc-400">
-            Fast ways to capture gaps and grow {brandName} visibility.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
-              <div className="text-sm font-medium text-zinc-100 mb-2">Quick Wins</div>
-              <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
-                <li>Start with prompts where competitors are missing or ranked beyond top 10.</li>
-                <li>Answer the prompt directly in the first 2–3 lines, then expand.</li>
-                <li>Add a clear callout section: pricing, features, and “best for” scenarios.</li>
-              </ul>
-            </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
-              <div className="text-sm font-medium text-zinc-100 mb-2">Prompt Targeting</div>
-              <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
-                <li>Group prompts by intent (comparison, purchase, “how-to”, alternatives).</li>
-                <li>Create one strong landing page per cluster and link supporting FAQs.</li>
-                <li>Use headings and lists to make extraction easy for AI outputs.</li>
-              </ul>
-            </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
-              <div className="text-sm font-medium text-zinc-100 mb-2">Measure Impact</div>
-              <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
-                <li>Re-run after publishing/updates and watch gap score and missing prompts drop.</li>
-                <li>Prioritize the top 10 prompts with highest opportunity scores.</li>
-                <li>Keep pages fresh: update quarterly or when offerings change.</li>
-              </ul>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {!hasData ? (
         <AnalysisEmptyState
           icon={<Target className="w-8 h-8 text-zinc-400" />}
           title="No Gap Data"
-          description="Run Module F so prompt rankings and competitor coverage can be analyzed."
-          onRunAnalysis={handleRunAnalysis}
-          isAnalyzing={isTriggering}
-          disabled={!jobId}
-          buttonLabel="Run Module F Analysis"
+          description="Run Module F from the Visibility Comparison tab to generate prompt rankings and competitor coverage gaps."
         />
       ) : (
         <>
@@ -227,7 +225,30 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
                     <Target className="w-5 h-5 text-zinc-100" />
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-zinc-100 block">Gap Score</span>
+                    <span className="text-sm font-medium text-zinc-100 block flex items-center gap-2">
+                      Gap Score
+                      {gapRec && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="w-3.5 h-3.5 text-zinc-500 hover:text-zinc-300 transition-colors" />
+                            </TooltipTrigger>
+                            <TooltipContent className="bg-zinc-900 border-zinc-800 text-zinc-300 max-w-xs text-xs p-3">
+                              {gapRec.why && (
+                                <>
+                                  <div className="font-medium text-zinc-100 mb-1">Why this metric</div>
+                                  <div className="text-zinc-300">{gapRec.why}</div>
+                                </>
+                              )}
+                              <div className={cn('font-medium text-zinc-100', gapRec.why ? 'mt-3 mb-1' : 'mb-1')}>
+                                How to improve
+                              </div>
+                              <div className="text-zinc-300">{gapRec.fix}</div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </span>
                     <span className="text-xs text-zinc-400 block mt-0.5 leading-relaxed">Opportunity size across competitors</span>
                   </div>
                 </div>
@@ -248,7 +269,7 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
                   </div>
                   <div>
                     <span className="text-sm font-medium text-zinc-100 block">Missing Prompts</span>
-                    <span className="text-xs text-zinc-400 block mt-0.5 leading-relaxed">Competitor coverage gaps found</span>
+                    <span className="text-xs text-zinc-400 block mt-0.5 leading-relaxed">Outside top 3 for the prompt</span>
                   </div>
                 </div>
               </div>
@@ -311,7 +332,7 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
                 <div>
                   <CardTitle className="text-lg font-medium text-zinc-100">Competitor Coverage Gaps</CardTitle>
                   <CardDescription className="text-zinc-400">
-                    Select a competitor to see their biggest prompt-level gaps (rank missing or beyond top 10).
+                    Select a competitor to see their biggest prompt-level gaps (rank missing or outside top 3).
                   </CardDescription>
                 </div>
 
@@ -359,7 +380,7 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
                       <div>
                         <div className="text-zinc-100 font-medium">{activeRow.competitor}</div>
                         <div className="text-zinc-500 text-xs mt-1">
-                          Missing in {activeRow.missingPrompts} / {totalPrompts} prompts
+                          Outside top 3 in {activeRow.missingPrompts} / {totalPrompts} prompts
                         </div>
                       </div>
                       <Badge className="bg-zinc-800 text-zinc-100 border-zinc-700 hover:bg-zinc-700">
@@ -376,6 +397,12 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
                         <div className="text-[10px] text-zinc-500">Potential Gain</div>
                         <div className="text-lg font-semibold text-zinc-100 mt-1">{activeRow.potentialGainPercent}%</div>
                       </div>
+                      {typeof activeRow.potentialGainMentions === 'number' && Number.isFinite(activeRow.potentialGainMentions) && (
+                        <div className="rounded-lg border border-zinc-800 bg-[#111113] p-3 col-span-2">
+                          <div className="text-[10px] text-zinc-500">Potential Gain (Mentions)</div>
+                          <div className="text-lg font-semibold text-zinc-100 mt-1">{round1(activeRow.potentialGainMentions)}</div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -383,7 +410,7 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
                     <ScrollArea className="h-105 pr-4">
                       <div className="space-y-3">
                         {filteredOpportunities.map((o) => {
-                          const isMissing = o.rank === null || (o.rank ?? 0) > 10
+                          const isMissing = o.rank === null || (o.rank ?? 0) > 3
                           return (
                             <div
                               key={o.prompt}
@@ -394,7 +421,7 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
                                   <div className="text-zinc-100 font-medium text-sm wrap-break-word">{o.prompt}</div>
                                   <div className="text-zinc-500 text-xs mt-1">
                                     {isMissing ? (
-                                      <span>Competitor missing coverage</span>
+                                      <span>Competitor outside top 3</span>
                                     ) : (
                                       <span>Competitor rank: {o.rank}</span>
                                     )}

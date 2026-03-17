@@ -37,6 +37,7 @@ export interface ModuleFCompetitorWins {
     brand_win_rate: number
     competitor_win_rate: number
     avg_content_gap_score: number
+    brand_prompt_mentions?: number
   }
   detailed_results: Array<{
     prompt: string
@@ -46,6 +47,32 @@ export interface ModuleFCompetitorWins {
     ranks: Record<string, number>
     text_snippet: string
     coverage_gap_score: number
+    intent_coverage?: {
+      intent_coverage_score?: number
+      has_list?: boolean
+      direct_answer?: boolean
+      reason?: string
+    }
+    winner_quality?: {
+      quality_score?: number
+      sentiment_score?: number
+      specificity_score?: number
+      context_snippet?: string
+    }
+    brand_quality?: {
+      quality_score?: number
+      sentiment_score?: number
+      specificity_score?: number
+      context_snippet?: string
+    }
+  }>
+  competitor_breakdown?: Array<{
+    competitor: string
+    competitor_key?: string
+    prompts_mentioned: number
+    prompts_won: number
+    win_percent: number
+    content_gap_score: number
   }>
 }
 
@@ -54,6 +81,7 @@ export interface ModuleFGapOpportunity {
   gapScore: number
   missingPrompts: number
   potentialGainPercent: number
+  potentialGainMentions?: number
   opportunities: Array<{
     prompt: string
     rank: number | null
@@ -66,14 +94,30 @@ export interface ModuleFSourceAnalysis {
     competitor: string
     source_domain_influence_score: number
     average_domain_authority: number
+    credibility_score?: number
     citation_count: number
+    source_diversity?: number
+    unique_domains?: number
+    citation_frequency?: Array<{
+      domain: string
+      count: number
+    }>
+    type_diversity?: number
     top_citations: Array<{
       domain: string
+      url?: string
       authority_score: number
       citation_type?: string
     }>
   }>
 }
+
+export type ModuleFMetricRecommendation = {
+  why: string
+  fix: string
+}
+
+export type ModuleFRecommendations = Record<string, string | ModuleFMetricRecommendation>
 
 export interface ModuleFEmergingTrends {
   competitor_changes: Array<{
@@ -103,6 +147,7 @@ export interface ModuleFResult {
   competitor_wins?: ModuleFCompetitorWins
   gap_opportunities?: ModuleFGapOpportunity[]
   source_analysis?: ModuleFSourceAnalysis
+  recommendations?: ModuleFRecommendations
   emerging_trends?: ModuleFEmergingTrends | null
   createdAt?: string
   updatedAt?: string

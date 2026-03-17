@@ -1,14 +1,20 @@
 'use client'
 
-import { useMemo, useState, useCallback } from 'react'
-import { AlertCircle, Globe, Link2, ShieldCheck, TrendingUp, Search } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { AlertCircle, Globe, Link2, ShieldCheck, TrendingUp, Search, Info } from 'lucide-react'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { useRunModuleFAnalysisMutation } from '@/store/api/module_F/moduleFApi'
+import { type ModuleFMetricRecommendation, useGetModuleFResultQuery } from '@/store/api/module_F/moduleFApi'
 import type { ModuleFResult } from '@/store/api/module_F/moduleFApi'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface CompetitorCitedURLsProps {
   moduleFData?: ModuleFResult | null
@@ -20,17 +26,37 @@ function round1(value: number) {
   return Math.round(value * 10) / 10
 }
 
+function formatPercentFromRatio(value: number | null | undefined) {
+  if (value === null || value === undefined) return '—'
+  if (!Number.isFinite(value)) return '—'
+  return `${round1(value * 100)}%`
+}
+
+function normalizeMetricRecommendation(value: unknown): ModuleFMetricRecommendation | null {
+  if (!value) return null
+  if (typeof value === 'string') return { why: '', fix: value }
+  if (typeof value === 'object') {
+    const rec = value as Partial<ModuleFMetricRecommendation>
+    const why = typeof rec.why === 'string' ? rec.why : ''
+    const fix = typeof rec.fix === 'string' ? rec.fix : ''
+    if (!why && !fix) return null
+    return { why, fix }
+  }
+  return null
+}
+
 export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: CompetitorCitedURLsProps) {
   const [selectedCompetitor, setSelectedCompetitor] = useState<string | null>(null)
   const [searchDomain, setSearchDomain] = useState('')
-  const [runModuleFAnalysis, { isLoading: isTriggering }] = useRunModuleFAnalysisMutation()
 
-  const handleRunAnalysis = useCallback(async () => {
-    if (!jobId) return
-    try { await runModuleFAnalysis(jobId).unwrap() } catch {}
-  }, [jobId, runModuleFAnalysis])
+  const { data: fetched, isLoading: isFetchingModuleF } = useGetModuleFResultQuery(jobId ?? '', {
+    skip: !jobId,
+    refetchOnMountOrArgChange: true,
+  })
 
-  const sourceData = moduleFData?.source_analysis?.competitor_source_analysis || []
+  const effectiveData: ModuleFResult | null | undefined = fetched?.data ?? moduleFData
+
+  const sourceData = effectiveData?.source_analysis?.competitor_source_analysis || []
   
   const overall = useMemo(() => {
     if (!sourceData.length) {
@@ -66,7 +92,7 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
     return base.filter((c) => c.domain.toLowerCase().includes(needle))
   }, [activeRow, searchDomain])
 
-  if (isLoading) {
+  if (isLoading || isFetchingModuleF) {
     return (
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="space-y-2">
@@ -84,6 +110,7 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
   }
 
   const hasData = sourceData.length > 0
+  const sourceRec = normalizeMetricRecommendation(effectiveData?.recommendations?.source_influence)
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -99,52 +126,12 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
         </p>
       </div>
 
-      <Card className="bg-[#111113] border-zinc-800">
-        <CardHeader>
-          <CardTitle className="text-lg font-medium text-zinc-100">Recommendations</CardTitle>
-          <CardDescription className="text-zinc-400">
-            Actions to improve your source authority and reduce competitor influence.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
-              <div className="text-sm font-medium text-zinc-100 mb-2">Increase Authority</div>
-              <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
-                <li>Publish original data, benchmarks, or reports that others can cite.</li>
-                <li>Get referenced by high-authority industry publications and directories.</li>
-                <li>Use consistent brand naming (brand + domain) across pages and PR mentions.</li>
-              </ul>
-            </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
-              <div className="text-sm font-medium text-zinc-100 mb-2">Improve Diversity</div>
-              <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
-                <li>Target multiple source types: reports, reviews, communities, and documentation.</li>
-                <li>Avoid relying on only 1–2 domains; spread citations across categories.</li>
-                <li>Create linkable assets: templates, calculators, checklists, and tool pages.</li>
-              </ul>
-            </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
-              <div className="text-sm font-medium text-zinc-100 mb-2">Beat Competitors</div>
-              <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
-                <li>Open top competitor domains and replicate the content formats they get cited for.</li>
-                <li>Cover comparison intent: alternatives pages, pricing explainers, and “best tools” lists.</li>
-                <li>Update pages frequently so models and sources see fresh, accurate information.</li>
-              </ul>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {!hasData ? (
         <AnalysisEmptyState
           icon={<Link2 className="w-8 h-8 text-zinc-400" />}
           title="No Source Analysis Data"
-          description="Run Module F to analyze competitor sources and citations."
-          onRunAnalysis={handleRunAnalysis}
-          isAnalyzing={isTriggering}
-          disabled={!jobId}
-          buttonLabel="Run Module F Analysis"
+          description="Run Module F from the Visibility Comparison tab to generate source analysis data for competitors."
         />
       ) : (
         <>
@@ -156,7 +143,30 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
                     <ShieldCheck className="w-5 h-5 text-zinc-100" />
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-zinc-100 block">Avg Influence Score</span>
+                    <span className="text-sm font-medium text-zinc-100 block flex items-center gap-2">
+                      Avg Influence Score
+                      {sourceRec && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="w-3.5 h-3.5 text-zinc-500 hover:text-zinc-300 transition-colors" />
+                            </TooltipTrigger>
+                            <TooltipContent className="bg-zinc-900 border-zinc-800 text-zinc-300 max-w-xs text-xs p-3">
+                              {sourceRec.why && (
+                                <>
+                                  <div className="font-medium text-zinc-100 mb-1">Why this metric</div>
+                                  <div className="text-zinc-300">{sourceRec.why}</div>
+                                </>
+                              )}
+                              <div className={cn('font-medium text-zinc-100', sourceRec.why ? 'mt-3 mb-1' : 'mb-1')}>
+                                How to improve
+                              </div>
+                              <div className="text-zinc-300">{sourceRec.fix}</div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </span>
                     <span className="text-xs text-zinc-400 block mt-0.5 leading-relaxed">Overall source quality</span>
                   </div>
                 </div>
@@ -298,14 +308,42 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
 
                     <div className="grid grid-cols-2 gap-3 mt-4">
                       <div className="rounded-lg border border-zinc-800 bg-[#111113] p-3">
-                        <div className="text-[10px] text-zinc-500">Avg DA</div>
-                        <div className="text-lg font-semibold text-zinc-100 mt-1">{activeRow.average_domain_authority}</div>
+                        <div className="text-[10px] text-zinc-500">Credibility (Avg DA)</div>
+                        <div className="text-lg font-semibold text-zinc-100 mt-1">
+                          {activeRow.credibility_score ?? activeRow.average_domain_authority}
+                        </div>
                       </div>
                       <div className="rounded-lg border border-zinc-800 bg-[#111113] p-3">
                         <div className="text-[10px] text-zinc-500">Citations</div>
                         <div className="text-lg font-semibold text-zinc-100 mt-1">{activeRow.citation_count}</div>
                       </div>
+                      <div className="rounded-lg border border-zinc-800 bg-[#111113] p-3">
+                        <div className="text-[10px] text-zinc-500">Unique Domains</div>
+                        <div className="text-lg font-semibold text-zinc-100 mt-1">
+                          {activeRow.unique_domains ?? '—'}
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-zinc-800 bg-[#111113] p-3">
+                        <div className="text-[10px] text-zinc-500">Source Diversity</div>
+                        <div className="text-lg font-semibold text-zinc-100 mt-1">
+                          {formatPercentFromRatio(activeRow.source_diversity)}
+                        </div>
+                      </div>
                     </div>
+
+                    {activeRow.citation_frequency && activeRow.citation_frequency.length > 0 && (
+                      <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-900/30 p-3">
+                        <div className="text-[10px] text-zinc-500 mb-2">Top Domains by Citation Frequency</div>
+                        <div className="space-y-1.5">
+                          {activeRow.citation_frequency.slice(0, 6).map((row) => (
+                            <div key={row.domain} className="flex items-center justify-between gap-2 text-xs">
+                              <div className="text-zinc-300 truncate" title={row.domain}>{row.domain}</div>
+                              <div className="text-zinc-400 font-mono shrink-0">{row.count}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="lg:col-span-2">

@@ -89,6 +89,11 @@ export interface ModuleFSourceAnalysis {
   }>;
 }
 
+export interface ModuleFMetricRecommendation {
+  why: string;
+  fix: string;
+}
+
 export interface ModuleFEmergingTrends {
   competitor_changes: Array<{
     name: string;
@@ -117,6 +122,7 @@ export interface ModuleFResult {
   competitor_wins?: ModuleFCompetitorWins;
   gap_opportunities?: ModuleFGapOpportunity[];
   source_analysis?: ModuleFSourceAnalysis;
+  recommendations?: Record<string, string | ModuleFMetricRecommendation>;
   emerging_trends?: ModuleFEmergingTrends | null;
   createdAt?: string;
   updatedAt?: string;

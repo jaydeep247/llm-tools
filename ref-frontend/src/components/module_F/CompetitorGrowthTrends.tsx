@@ -1,16 +1,22 @@
 'use client'
 
-import { useGetModuleFTrendsQuery, useGetModuleFResultQuery, useRunModuleFAnalysisMutation } from '@/store/api/module_F/moduleFApi'
+import { type ModuleFMetricRecommendation, useGetModuleFTrendsQuery, useGetModuleFResultQuery } from '@/store/api/module_F/moduleFApi'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { TrendingUp, TrendingDown, LineChart as LineChartIcon, Activity, Calendar } from 'lucide-react'
+import { TrendingUp, TrendingDown, LineChart as LineChartIcon, Activity, Calendar, Info } from 'lucide-react'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { useCallback, useMemo, useState } from 'react'
+import {
+  Tooltip as UiTooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 interface CompetitorGrowthTrendsProps {
   jobId: string
@@ -21,6 +27,19 @@ type TrendSeries = {
   label: string
   color: string
   kind: 'brand' | 'competitor'
+}
+
+function normalizeMetricRecommendation(value: unknown): ModuleFMetricRecommendation | null {
+  if (!value) return null
+  if (typeof value === 'string') return { why: '', fix: value }
+  if (typeof value === 'object') {
+    const rec = value as Partial<ModuleFMetricRecommendation>
+    const why = typeof rec.why === 'string' ? rec.why : ''
+    const fix = typeof rec.fix === 'string' ? rec.fix : ''
+    if (!why && !fix) return null
+    return { why, fix }
+  }
+  return null
 }
 
 function formatSigned(value: number, decimals = 1) {
@@ -47,12 +66,6 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
   const trends = response?.data
   const history = trends?.history || []
   const [hidden, setHidden] = useState<Record<string, boolean>>({})
-  const [runModuleFAnalysis, { isLoading: isTriggering }] = useRunModuleFAnalysisMutation()
-
-  const handleRunAnalysis = useCallback(async () => {
-    if (!jobId) return
-    try { await runModuleFAnalysis(jobId).unwrap() } catch {}
-  }, [jobId, runModuleFAnalysis])
 
   const toggleSeries = useCallback((seriesKey: string) => {
     setHidden((prev) => ({ ...prev, [seriesKey]: !prev[seriesKey] }))
@@ -153,6 +166,8 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
   const emerging = latestResult?.data?.emerging_trends || null
   const competitorChanges = emerging?.competitor_changes || []
   const promptSwings = emerging?.prompt_swings || []
+  const visibilityRec = normalizeMetricRecommendation(latestResult?.data?.recommendations?.visibility_score)
+  const shareRec = normalizeMetricRecommendation(latestResult?.data?.recommendations?.market_share)
 
   if (isLoading) {
     return (
@@ -168,11 +183,7 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
       <AnalysisEmptyState
         icon={<LineChartIcon className="w-8 h-8 text-zinc-400" />}
         title="No Trend Data Available"
-        description="Run the analysis multiple times to start tracking growth trends over time."
-        onRunAnalysis={handleRunAnalysis}
-        isAnalyzing={isTriggering}
-        disabled={!jobId}
-        buttonLabel="Run Module F Analysis"
+        description="Trends appear after you run Module F multiple times. Use the Visibility Comparison tab to run the analysis."
       />
     )
   }
@@ -183,7 +194,30 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="bg-[#111113] border-zinc-800">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">Visibility Change</CardTitle>
+            <CardTitle className="text-sm font-medium text-zinc-400 flex items-center gap-2">
+              Visibility Change
+              {visibilityRec && (
+                <TooltipProvider>
+                  <UiTooltip>
+                    <TooltipTrigger>
+                      <Info className="w-3 h-3 text-zinc-500 hover:text-zinc-300 transition-colors" />
+                    </TooltipTrigger>
+                    <TooltipContent className="bg-zinc-900 border-zinc-800 text-zinc-300 max-w-xs text-xs p-3">
+                      {visibilityRec.why && (
+                        <>
+                          <div className="font-medium text-zinc-100 mb-1">Why this</div>
+                          <div className="text-zinc-300">{visibilityRec.why}</div>
+                        </>
+                      )}
+                      <div className={cn('font-medium text-zinc-100', visibilityRec.why ? 'mt-3 mb-1' : 'mb-1')}>
+                        How to improve
+                      </div>
+                      <div className="text-zinc-300">{visibilityRec.fix}</div>
+                    </TooltipContent>
+                  </UiTooltip>
+                </TooltipProvider>
+              )}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
@@ -208,7 +242,30 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
 
         <Card className="bg-[#111113] border-zinc-800">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">Market Share Change</CardTitle>
+            <CardTitle className="text-sm font-medium text-zinc-400 flex items-center gap-2">
+              Market Share Change
+              {shareRec && (
+                <TooltipProvider>
+                  <UiTooltip>
+                    <TooltipTrigger>
+                      <Info className="w-3 h-3 text-zinc-500 hover:text-zinc-300 transition-colors" />
+                    </TooltipTrigger>
+                    <TooltipContent className="bg-zinc-900 border-zinc-800 text-zinc-300 max-w-xs text-xs p-3">
+                      {shareRec.why && (
+                        <>
+                          <div className="font-medium text-zinc-100 mb-1">Why this</div>
+                          <div className="text-zinc-300">{shareRec.why}</div>
+                        </>
+                      )}
+                      <div className={cn('font-medium text-zinc-100', shareRec.why ? 'mt-3 mb-1' : 'mb-1')}>
+                        How to improve
+                      </div>
+                      <div className="text-zinc-300">{shareRec.fix}</div>
+                    </TooltipContent>
+                  </UiTooltip>
+                </TooltipProvider>
+              )}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
@@ -265,45 +322,6 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
         </Card>
       </div>
 
-      <Card className="bg-[#111113] border-zinc-800">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Activity className="h-5 w-5 text-blue-400" />
-            <CardTitle className="text-zinc-100">Recommendations</CardTitle>
-          </div>
-          <CardDescription className="text-zinc-400">
-            Practical steps to improve visibility and market share across future runs.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
-              <div className="text-sm font-medium text-zinc-100 mb-2">Improve Visibility</div>
-              <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
-                <li>Publish comparison and “best for” pages that match prompt intent.</li>
-                <li>Strengthen entity signals: clear brand name, product name, and category on every key page.</li>
-                <li>Add proof: case studies, benchmarks, screenshots, pricing, and real constraints.</li>
-              </ul>
-            </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
-              <div className="text-sm font-medium text-zinc-100 mb-2">Increase Market Share</div>
-              <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
-                <li>Cover more prompts by expanding topical clusters and long-tail questions.</li>
-                <li>Build citations: earn mentions from high-authority industry domains.</li>
-                <li>Ship content updates regularly so outputs see fresh information.</li>
-              </ul>
-            </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
-              <div className="text-sm font-medium text-zinc-100 mb-2">Track Momentum</div>
-              <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
-                <li>Re-run after major content or PR changes to validate impact.</li>
-                <li>Prioritize competitors with the biggest positive visibility deltas.</li>
-                <li>Use “Emerging Trends” to react to new entrants or rising threats.</li>
-              </ul>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Trends Chart */}
       <Card className="bg-[#111113] border-zinc-800">

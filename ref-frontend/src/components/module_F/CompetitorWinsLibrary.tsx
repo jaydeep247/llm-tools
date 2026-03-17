@@ -12,15 +12,35 @@ import {
   Search, 
   BarChart, 
   FileText,
-  Activity
+  Activity,
+  Info
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ModuleFResult, useRunModuleFAnalysisMutation } from '@/store/api/module_F/moduleFApi'
+import { type ModuleFMetricRecommendation, ModuleFResult, useGetModuleFResultQuery } from '@/store/api/module_F/moduleFApi'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+
+function normalizeMetricRecommendation(value: unknown): ModuleFMetricRecommendation | null {
+  if (!value) return null
+  if (typeof value === 'string') return { why: '', fix: value }
+  if (typeof value === 'object') {
+    const rec = value as Partial<ModuleFMetricRecommendation>
+    const why = typeof rec.why === 'string' ? rec.why : ''
+    const fix = typeof rec.fix === 'string' ? rec.fix : ''
+    if (!why && !fix) return null
+    return { why, fix }
+  }
+  return null
+}
 
 // Score Card Component
 interface ScoreCardProps {
@@ -36,9 +56,10 @@ interface ScoreCardProps {
   description?: string
   footer?: React.ReactNode
   suffix?: string
+  recommendation?: string | ModuleFMetricRecommendation
 }
 
-function ScoreCard({ title, score, value, icon, color, trend, subStats, error, isLoading, description, footer, suffix = '/100' }: ScoreCardProps) {
+function ScoreCard({ title, score, value, icon, color, trend, subStats, error, isLoading, description, footer, suffix = '/100', recommendation }: ScoreCardProps) {
   const getScoreLabel = (s: number) => {
     if (s >= 80) return { text: 'Excellent', color: 'text-green-400 bg-green-500/10' }
     if (s >= 60) return { text: 'Good', color: 'text-yellow-400 bg-yellow-500/10' }
@@ -58,6 +79,8 @@ function ScoreCard({ title, score, value, icon, color, trend, subStats, error, i
     )
   }
 
+  const rec = normalizeMetricRecommendation(recommendation)
+
   return (
     <div className="bg-[#111113] rounded-xl p-5 border border-zinc-800 hover:bg-[#0D0D10] transition-all duration-300 group h-full flex flex-col">
       {/* Header */}
@@ -67,7 +90,30 @@ function ScoreCard({ title, score, value, icon, color, trend, subStats, error, i
             {icon}
           </div>
           <div>
-            <span className="text-sm font-medium text-zinc-100 block">{title}</span>
+            <span className="text-sm font-medium text-zinc-100 block flex items-center gap-2">
+              {title}
+              {rec && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Info className="w-3.5 h-3.5 text-zinc-500 hover:text-zinc-300 transition-colors" />
+                    </TooltipTrigger>
+                    <TooltipContent className="bg-zinc-900 border-zinc-800 text-zinc-300 max-w-xs text-xs p-3">
+                      {rec.why && (
+                        <>
+                          <div className="font-medium text-zinc-100 mb-1">Why this metric</div>
+                          <div className="text-zinc-300">{rec.why}</div>
+                        </>
+                      )}
+                      <div className={cn('font-medium text-zinc-100', rec.why ? 'mt-3 mb-1' : 'mb-1')}>
+                        How to improve
+                      </div>
+                      <div className="text-zinc-300">{rec.fix}</div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+            </span>
             {description && <span className="text-xs text-zinc-400 block mt-0.5 leading-relaxed">{description}</span>}
           </div>
         </div>
@@ -142,18 +188,29 @@ interface CompetitorWinsLibraryProps {
 export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }: CompetitorWinsLibraryProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [filter, setFilter] = useState<'all' | 'brand' | 'competitor'>('all')
-  const [runModuleFAnalysis, { isLoading: isTriggering }] = useRunModuleFAnalysisMutation()
 
-  const handleRunAnalysis = async () => {
-    if (!jobId) return
-    try { await runModuleFAnalysis(jobId).unwrap() } catch {}
+  const normalizeKey = (value: string) => {
+    return value
+      .trim()
+      .toLowerCase()
+      .replace(/^https?:\/\//, '')
+      .replace(/^www\./, '')
+      .replace(/\/+$/, '')
   }
 
-  const winsData = moduleFData?.competitor_wins
+  const { data: fetched, isLoading: isFetchingModuleF } = useGetModuleFResultQuery(jobId ?? '', {
+    skip: !jobId,
+    refetchOnMountOrArgChange: true,
+  })
+
+  const effectiveData: ModuleFResult | null | undefined = fetched?.data ?? moduleFData
+
+  const winsData = effectiveData?.competitor_wins
   const summary = winsData?.summary
   const detailedResults = winsData?.detailed_results || []
+  const competitorBreakdown = winsData?.competitor_breakdown || []
 
-  const brandName = moduleFData?.compare_visibility_against_competitors?.brand?.name || 'Brand'
+  const brandName = effectiveData?.compare_visibility_against_competitors?.brand?.name || 'Brand'
 
   const filteredResults = detailedResults.filter(item => {
     const matchesSearch = item.prompt.toLowerCase().includes(searchTerm.toLowerCase())
@@ -165,16 +222,12 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
     return matchesSearch && matchesFilter
   })
 
-  if (!moduleFData && !isLoading) {
+  if (!effectiveData && !isLoading && !isFetchingModuleF) {
     return (
       <AnalysisEmptyState
         icon={<Trophy className="w-8 h-8 text-zinc-400" />}
         title="No Competitor Wins Data"
-        description="Run Module F analysis to see where competitors outperform your brand and identify content gaps."
-        onRunAnalysis={handleRunAnalysis}
-        isAnalyzing={isTriggering}
-        buttonLabel="Run Module F Analysis"
-        disabled={!jobId}
+        description="Run Module F from the Visibility Comparison tab to generate competitor win data and content gap insights."
       />
     )
   }
@@ -192,42 +245,6 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
         </p>
       </div>
 
-      <Card className="bg-[#111113] border-zinc-800">
-        <CardHeader>
-          <CardTitle className="text-lg font-medium text-zinc-100">Recommendations</CardTitle>
-          <CardDescription className="text-zinc-400">
-            Actions to convert competitor wins into your wins.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
-              <div className="text-sm font-medium text-zinc-100 mb-2">Win the Prompt</div>
-              <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
-                <li>Create a dedicated page for each high-value prompt with a direct, ranked answer.</li>
-                <li>Add strong differentiators: pricing model, support, integrations, limits, and use-cases.</li>
-                <li>Include an explicit “best for” section to match recommendation-style queries.</li>
-              </ul>
-            </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
-              <div className="text-sm font-medium text-zinc-100 mb-2">Close Content Gaps</div>
-              <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
-                <li>Expand missing entities: features, categories, locations, and industry terminology.</li>
-                <li>Improve structure: headings, lists, FAQs, tables, and short summaries at the top.</li>
-                <li>Add trust assets: case studies, testimonials, references, and compliance claims.</li>
-              </ul>
-            </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
-              <div className="text-sm font-medium text-zinc-100 mb-2">Defend Against Rivals</div>
-              <ul className="list-disc pl-5 space-y-1 text-sm text-zinc-400">
-                <li>Publish “alternatives” and “vs” pages for the top winner domains.</li>
-                <li>Target citations: get your domain referenced by the sources models rely on.</li>
-                <li>Re-run after changes to confirm the win-rate moves in your favor.</li>
-              </ul>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -237,11 +254,12 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
           icon={<Target className="w-5 h-5 text-zinc-100" />}
           color="bg-red-500/20 text-red-400"
           description="Percentage of prompts where competitors outperform your brand."
-          isLoading={isLoading}
+          isLoading={isLoading || isFetchingModuleF}
           subStats={[
             { label: 'Total Prompts Analyzed', value: summary?.total_prompts ?? 0 },
             { label: 'Competitor Wins', value: summary?.competitor_wins ?? 0 },
           ]}
+          recommendation={effectiveData?.recommendations?.competitor_win_rate}
         />
         
         <ScoreCard
@@ -250,10 +268,11 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
           icon={<Trophy className="w-5 h-5 text-zinc-100" />}
           color="bg-yellow-500/20 text-yellow-400"
           description="Percentage of prompts where your brand outperforms competitors."
-          isLoading={isLoading}
+          isLoading={isLoading || isFetchingModuleF}
           subStats={[
             { label: 'Brand Wins', value: summary?.brand_wins ?? 0 },
           ]}
+          recommendation={effectiveData?.recommendations?.brand_win_rate}
         />
 
         <ScoreCard
@@ -263,8 +282,12 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
           icon={<FileText className="w-5 h-5 text-zinc-100" />}
           color="bg-blue-500/20 text-blue-400"
           description="Average gap in content completeness or entity coverage."
-          isLoading={isLoading}
+          isLoading={isLoading || isFetchingModuleF}
           score={100 - (summary?.avg_content_gap_score ?? 0)} // Higher score is better (less gap)
+          subStats={[
+            { label: 'Prompts where brand mentioned', value: summary?.brand_prompt_mentions ?? '—' },
+          ]}
+          recommendation={effectiveData?.recommendations?.content_gap_score}
         />
 
         <ScoreCard
@@ -273,9 +296,58 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
           icon={<Activity className="w-5 h-5 text-zinc-100" />}
           color="bg-purple-500/20 text-purple-400"
           description="Your brand's share of voice across all analyzed prompts."
-          isLoading={isLoading}
+          isLoading={isLoading || isFetchingModuleF}
+          recommendation={effectiveData?.recommendations?.market_share}
         />
       </div>
+
+      {competitorBreakdown.length > 0 && (
+        <Card className="bg-[#111113] border-zinc-800">
+          <CardHeader>
+            <CardTitle className="text-lg font-medium text-zinc-100">Competitor Win Breakdown</CardTitle>
+            <CardDescription className="text-zinc-400">
+              Per-competitor wins and win percentage (competitor rank better than your brand).
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-56 pr-4">
+              <div className="space-y-2">
+                {competitorBreakdown.map((row) => (
+                  <div key={row.competitor} className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="text-zinc-100 font-medium truncate" title={row.competitor}>{row.competitor}</div>
+                        <div className="text-xs text-zinc-500 mt-1">
+                          Mentioned in {row.prompts_mentioned} / {summary?.total_prompts ?? 0} prompts
+                        </div>
+                      </div>
+                      <div className="shrink-0 flex items-center gap-2">
+                        <Badge className="bg-red-500/10 text-red-300 border-red-500/30">
+                          {row.win_percent}%
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 mt-4">
+                      <div className="rounded-lg border border-zinc-800 bg-[#111113] p-3">
+                        <div className="text-[10px] text-zinc-500">Prompts Won</div>
+                        <div className="text-lg font-semibold text-zinc-100 mt-1">{row.prompts_won}</div>
+                      </div>
+                      <div className="rounded-lg border border-zinc-800 bg-[#111113] p-3">
+                        <div className="text-[10px] text-zinc-500">Win %</div>
+                        <div className="text-lg font-semibold text-zinc-100 mt-1">{row.win_percent}%</div>
+                      </div>
+                      <div className="rounded-lg border border-zinc-800 bg-[#111113] p-3">
+                        <div className="text-[10px] text-zinc-500">Content Gap</div>
+                        <div className="text-lg font-semibold text-zinc-100 mt-1">{row.content_gap_score}%</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Detailed Analysis Section */}
       <Card className="bg-[#111113] border-zinc-800">
@@ -371,7 +443,7 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
                         
                         {/* Competitor Ranks */}
                         {Object.entries(result.ranks ?? {})
-                          .filter(([name]) => name !== brandName) 
+                          .filter(([name]) => normalizeKey(name) !== normalizeKey(brandName)) 
                           .slice(0, 3) // Show top 3
                           .map(([name, rank]) => (
                             <div key={name} className="flex items-center justify-between text-sm">

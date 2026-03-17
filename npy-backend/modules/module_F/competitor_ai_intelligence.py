@@ -120,10 +120,26 @@ def _find_unique_spans(text: str, patterns: List[re.Pattern]) -> List[Tuple[int,
     return spans
 
 
-def _safe_parse_json(text: str) -> Optional[Dict[str, Any]]:
+def _safe_parse_json(text: Any) -> Optional[Dict[str, Any]]:
+    if text is None:
+        return None
+    if isinstance(text, dict):
+        return text
+    raw = str(text).strip()
+    if not raw:
+        return None
     try:
-        return json.loads(text)
+        parsed = json.loads(raw)
+        return parsed if isinstance(parsed, dict) else None
     except Exception:
+        start = raw.find("{")
+        end = raw.rfind("}")
+        if start >= 0 and end > start:
+            try:
+                parsed = json.loads(raw[start : end + 1])
+                return parsed if isinstance(parsed, dict) else None
+            except Exception:
+                return None
         return None
 
 
@@ -251,6 +267,211 @@ class CompetitorAIIntelligence:
             }
         }
 
+    async def generate_metric_recommendations(
+        self,
+        visibility_data: Dict[str, Any],
+        win_rate_data: Dict[str, Any],
+        gap_data: List[Dict[str, Any]],
+        source_data: Dict[str, Any],
+    ) -> Dict[str, Dict[str, str]]:
+        """
+        Generates specific, actionable recommendations for each key metric based on the analysis data.
+        Returns a dictionary mapping metric keys to recommendation strings.
+        """
+        
+        # Extract key metrics for the prompt
+        brand = visibility_data.get("brand") or {}
+        competitors = visibility_data.get("competitors") or []
+
+        brand_vis = brand.get("visibility_score", 0)
+        brand_share = brand.get("market_share_percent", 0)
+        brand_mentions_total = brand.get("mentions_total", 0)
+        brand_mentioned_models = brand.get("mentioned_in_models", 0)
+        brand_avg_rank = brand.get("avg_rank", None)
+        
+        summary = win_rate_data.get("summary") or {}
+        total_prompts = summary.get("total_prompts", 0)
+        brand_wins = summary.get("brand_wins", 0)
+        competitor_wins = summary.get("competitor_wins", 0)
+        brand_win_rate = summary.get("brand_win_rate", 0)
+        comp_win_rate = summary.get("competitor_win_rate", 0)
+        
+        avg_gap_score = 0
+        if gap_data:
+            avg_gap_score = sum(g.get("gapScore", 0) for g in gap_data) / len(gap_data)
+            
+        source_list = source_data.get("competitor_source_analysis") or []
+        avg_influence = 0
+        if source_list:
+            avg_influence = sum(s.get("source_domain_influence_score", 0) for s in source_list) / len(source_list)
+
+        top_comp = None
+        if competitors and isinstance(competitors, list):
+            top_comp = max(competitors, key=lambda c: (c or {}).get("visibility_score", 0))
+        top_comp_name = (top_comp or {}).get("name", "") or ""
+        top_comp_vis = (top_comp or {}).get("visibility_score", 0) if top_comp else 0
+        top_comp_share = (top_comp or {}).get("market_share_percent", 0) if top_comp else 0
+        top_comp_avg_rank = (top_comp or {}).get("avg_rank", None) if top_comp else None
+
+        prompt = (
+            "You are an expert SEO and AI visibility strategist. based on the following metrics for a brand:\n\n"
+            f"- AI Visibility Score: {brand_vis}/100\n"
+            f"- Market Share: {brand_share}%\n"
+            f"- Mentions total: {brand_mentions_total} across {brand_mentioned_models} models\n"
+            f"- Avg rank (when mentioned): {brand_avg_rank}\n"
+            f"- Brand wins: {brand_wins}/{total_prompts} ({brand_win_rate}%)\n"
+            f"- Competitor wins: {competitor_wins}/{total_prompts} ({comp_win_rate}%)\n"
+            f"- Content Gap Score (avg): {avg_gap_score}/100 (higher = bigger gap)\n"
+            f"- Competitor Source Influence (avg): {avg_influence}/100\n"
+            f"- Top competitor: {top_comp_name} (visibility {top_comp_vis}/100, share {top_comp_share}%, avg rank {top_comp_avg_rank})\n\n"
+            "For EACH metric below, write TWO parts:\n"
+            "1) why: one short sentence explaining WHY the number is where it is using the data above.\n"
+            "2) fix: 3-5 concrete actions to improve it (comma-separated or short bullets).\n\n"
+            "Metrics to return:\n"
+            "- visibility_score\n"
+            "- market_share\n"
+            "- brand_win_rate\n"
+            "- competitor_win_rate\n"
+            "- content_gap_score\n"
+            "- source_influence\n"
+            "- rank_delta (explain what Rank Δ vs Brand means and how to reduce it)\n\n"
+            "Return ONLY valid JSON in this exact structure:\n"
+            "{\n"
+            '  "visibility_score": {"why": "...", "fix": "..."},\n'
+            '  "market_share": {"why": "...", "fix": "..."},\n'
+            '  "brand_win_rate": {"why": "...", "fix": "..."},\n'
+            '  "competitor_win_rate": {"why": "...", "fix": "..."},\n'
+            '  "content_gap_score": {"why": "...", "fix": "..."},\n'
+            '  "source_influence": {"why": "...", "fix": "..."},\n'
+            '  "rank_delta": {"why": "...", "fix": "..."}\n'
+            "}\n"
+        )
+
+        task_name = "module_f_metric_recommendations"
+
+        try:
+            resp_data: Dict[str, Any] = {}
+            for provider in self.models:
+                resp = await execute_task(
+                    task_name=task_name,
+                    input_data={"messages": [{"role": "user", "content": prompt}]},
+                    provider=provider,
+                    options={
+                        "temperature": 0.3,
+                        "response_format": {"type": "json_object"},
+                        "skip_cache": True,
+                    },
+                )
+
+                if not resp.success:
+                    logger.error(f"Metric recommendations failed ({provider}): {resp.error}")
+                    continue
+
+                parsed = _safe_parse_json(resp.data) or {}
+                if parsed:
+                    resp_data = parsed
+                    break
+
+            def normalize(value: Any) -> Optional[Dict[str, str]]:
+                if value is None:
+                    return None
+                if isinstance(value, str):
+                    v = value.strip()
+                    return {"why": "", "fix": v} if v else None
+                if isinstance(value, dict):
+                    why = str(value.get("why", "") or "").strip()
+                    fix = str(value.get("fix", "") or "").strip()
+                    if not why and not fix:
+                        return None
+                    return {"why": why, "fix": fix}
+                return None
+
+            recs: Dict[str, Dict[str, str]] = {}
+
+            for k in [
+                "visibility_score",
+                "market_share",
+                "brand_win_rate",
+                "competitor_win_rate",
+                "content_gap_score",
+                "source_influence",
+                "rank_delta",
+            ]:
+                n = normalize(resp_data.get(k))
+                if n:
+                    recs[k] = n
+
+            if "visibility_score" not in recs:
+                recs["visibility_score"] = {
+                    "why": f"Visibility is {brand_vis}/100 vs {top_comp_name or 'top competitor'} at {top_comp_vis}/100; mentions are limited.",
+                    "fix": "Publish prompt-target landing pages, add comparison/alternatives sections, implement Organization/Product schema, strengthen entity consistency across site, earn citations from authoritative industry sites.",
+                }
+            if "market_share" not in recs:
+                recs["market_share"] = {
+                    "why": f"Market share is {brand_share}%; higher share usually comes from more frequent mentions and citations.",
+                    "fix": "Increase coverage on high-volume prompts, expand 'best for' use cases, build cite-worthy assets (data, studies), improve internal linking to money pages, pursue PR for top-tier citations.",
+                }
+            if "brand_win_rate" not in recs:
+                recs["brand_win_rate"] = {
+                    "why": f"Brand wins {brand_wins}/{total_prompts} prompts ({brand_win_rate}%), meaning competitors win more often.",
+                    "fix": "Prioritize top losing prompts, improve answer-first intros, add clear product fit and proof, align content to model intent, refresh pages with new examples and FAQs.",
+                }
+            if "competitor_win_rate" not in recs:
+                recs["competitor_win_rate"] = {
+                    "why": f"Competitors win {competitor_wins}/{total_prompts} prompts ({comp_win_rate}%), indicating stronger coverage or citations.",
+                    "fix": "Map winners by prompt, replicate missing page types, match competitor entities/features, earn citations from the same domains, create prompt-specific pages with structured sections.",
+                }
+            if "content_gap_score" not in recs:
+                recs["content_gap_score"] = {
+                    "why": f"Avg content gap score is {round(avg_gap_score, 1)}/100; higher means missing coverage/entities for key prompts.",
+                    "fix": "Create pages for uncovered prompts, add missing entities/features, use tables/lists for extraction, add FAQs for long-tail prompts, link related pages into a topic cluster.",
+                }
+            if "source_influence" not in recs:
+                recs["source_influence"] = {
+                    "why": f"Avg source influence is {round(avg_influence, 1)}/100; weaker citations reduce model trust signals.",
+                    "fix": "Publish original research, secure citations from high-authority domains, build partner pages and integrations, get listed in trusted directories, improve E-E-A-T signals (authors, references).",
+                }
+            if "rank_delta" not in recs:
+                recs["rank_delta"] = {
+                    "why": "Rank Δ vs Brand shows how many positions a competitor is ahead/behind your brand on average; negative means they outrank you.",
+                    "fix": "Improve answer relevance for top prompts, add comparison and alternatives content, strengthen entity/schema signals, improve topical coverage depth, increase authoritative citations to your pages.",
+                }
+
+            return recs
+
+        except Exception as e:
+            logger.exception(f"Error in generate_metric_recommendations: {e}")
+            return {
+                "visibility_score": {
+                    "why": "Visibility is low because you are mentioned less often and rank lower than top competitors.",
+                    "fix": "Publish prompt-target pages, add comparisons/alternatives, implement schema, strengthen entity consistency, earn authoritative citations.",
+                },
+                "market_share": {
+                    "why": "Market share is low because competitors receive more mentions across models and prompts.",
+                    "fix": "Expand prompt coverage, create use-case pages, build cite-worthy assets, improve internal linking, pursue PR citations.",
+                },
+                "brand_win_rate": {
+                    "why": "Win rate is low because competitors are chosen more frequently as the best answer for key prompts.",
+                    "fix": "Target losing prompts, improve answer-first content, add proof and differentiation, align to intent, refresh content regularly.",
+                },
+                "competitor_win_rate": {
+                    "why": "Competitors win more prompts due to stronger topical coverage and trust signals.",
+                    "fix": "Analyze winners by prompt, match required entities, create missing page types, earn similar citations, publish structured prompt pages.",
+                },
+                "content_gap_score": {
+                    "why": "Gap score is high because key entities, features, or prompt pages are missing or thin.",
+                    "fix": "Create missing prompt pages, add entities/features, use tables/lists/FAQs, build topic clusters, improve internal links.",
+                },
+                "source_influence": {
+                    "why": "Source influence is low because authoritative domains cite competitors more than you.",
+                    "fix": "Publish original research, earn high-authority citations, list in trusted directories, build partnerships, improve E-E-A-T signals.",
+                },
+                "rank_delta": {
+                    "why": "Rank Δ vs Brand indicates competitors appear higher than you in AI outputs for many prompts.",
+                    "fix": "Improve prompt relevance, add comparisons/alternatives, strengthen schema/entity signals, increase topical depth, earn authoritative citations.",
+                },
+            }
+
     async def analyze_competitor_sources(
         self,
         competitors: List[str],
@@ -271,45 +492,59 @@ class CompetitorAIIntelligence:
         
         prompt = (
             f"For the following companies in {topic}: {', '.join(top_competitors)}.\n"
-            "Identify the top 3 authoritative sources, publications, or domains that frequently cite them "
-            "or are considered key influencers for their brand authority.\n"
+            "For EACH company, list up to 12 external citation sources (URLs or domains) that are likely to cite them "
+            "or influence their perceived authority. Prefer well-known publications, research sites, standards bodies, "
+            "and reputable directories.\n"
             "For each source, estimate a Domain Authority (DA) score from 0-100 based on its reputation.\n\n"
             "Return ONLY valid JSON in this format:\n"
             "{\n"
             '  "competitor_sources": {\n'
             '    "Competitor Name": [\n'
-            '      {"domain": "example.com", "authority_score": 85, "citation_type": "industry_report"}\n'
+            '      {"domain": "example.com", "url": "https://example.com/some-page", "authority_score": 85, "citation_type": "industry_report"}\n'
             "    ]\n"
             "  }\n"
             "}"
         )
 
         task_name = "module_f_source_influence"
-        # Use one model (e.g. Gemini or OpenAI) for this analysis
-        provider = self.models[0]
         
         try:
-            resp = await execute_task(
-                task_name=task_name,
-                input_data={"messages": [{"role": "user", "content": prompt}]},
-                provider=provider,
-                options={
-                    "temperature": 0.2,
-                    "response_format": {"type": "json_object"},
-                    "skip_cache": True,
-                },
-            )
-            
-            if not resp.success:
-                logger.error(f"Source influence analysis failed: {resp.error}")
-                return {}
+            sources_map: Dict[str, Any] = {}
+            for provider in self.models:
+                resp = await execute_task(
+                    task_name=task_name,
+                    input_data={"messages": [{"role": "user", "content": prompt}]},
+                    provider=provider,
+                    options={
+                        "temperature": 0.2,
+                        "response_format": {"type": "json_object"},
+                        "skip_cache": True,
+                    },
+                )
 
-            data = _safe_parse_json(str(resp.data)) or {}
-            sources_map = data.get("competitor_sources", {})
+                if not resp.success:
+                    logger.error(f"Source influence analysis failed ({provider}): {resp.error}")
+                    continue
+
+                data = _safe_parse_json(resp.data) or {}
+                candidate = data.get("competitor_sources") or data.get("competitorSources") or {}
+                if isinstance(candidate, dict) and candidate:
+                    sources_map = candidate
+                    break
+                if (
+                    isinstance(data, dict)
+                    and data
+                    and all(isinstance(k, str) for k in data.keys())
+                    and all(isinstance(v, list) for v in data.values())
+                ):
+                    sources_map = data
+                    break
+
+            if not sources_map:
+                return {}
             
             # Post-process to calculate aggregate metrics
             results = []
-            all_domains = {}
 
             for comp, sources in sources_map.items():
                 if not sources:
@@ -318,16 +553,44 @@ class CompetitorAIIntelligence:
                 # Normalize competitor name
                 norm_comp = _normalize_term(comp)
                 
-                # Calculate avg authority
-                total_auth = sum(s.get("authority_score", 0) for s in sources)
-                avg_auth = round(total_auth / len(sources), 1) if sources else 0
-                
-                # Influence score = (Avg DA * 0.7) + (Count * 5) capped at 100
-                influence_score = min(100, (avg_auth * 0.8) + (len(sources) * 2))
+                domains: List[str] = []
+                authority_by_domain: Dict[str, float] = {}
+                for s in sources:
+                    if not isinstance(s, dict):
+                        continue
+                    raw_domain = str(s.get("domain") or "").strip().lower()
+                    raw_url = str(s.get("url") or "").strip()
+                    candidate = raw_url or raw_domain
+                    d = _extract_domain(candidate) if candidate else ""
+                    if not d and candidate:
+                        d = _normalize_term(candidate).split("/")[0]
+                    if not d:
+                        continue
+                    try:
+                        da = float(s.get("authority_score", 0) or 0)
+                    except Exception:
+                        da = 0.0
+                    domains.append(d)
+                    if d not in authority_by_domain:
+                        authority_by_domain[d] = da
+                    else:
+                        authority_by_domain[d] = max(authority_by_domain[d], da)
 
-                domains = [str((s or {}).get("domain") or "").strip().lower() for s in sources if isinstance(s, dict)]
-                domains = [d for d in domains if d]
-                unique_domains = set(domains)
+                citation_count = len(domains)
+                freq: Dict[str, int] = {}
+                for d in domains:
+                    freq[d] = freq.get(d, 0) + 1
+                unique_domains = set(freq.keys())
+
+                unique_domain_count = len(unique_domains)
+                avg_auth = round((sum(authority_by_domain.values()) / unique_domain_count), 1) if unique_domain_count else 0.0
+
+                total_influence = 0.0
+                for d, f in freq.items():
+                    total_influence += float(authority_by_domain.get(d, 0.0)) * float(f)
+                influence_score = round((total_influence / citation_count), 1) if citation_count else 0.0
+
+                source_diversity_ratio = round((unique_domain_count / citation_count), 3) if citation_count else 0.0
                 types = [str((s or {}).get("citation_type") or "").strip().lower() for s in sources if isinstance(s, dict)]
                 types = [t for t in types if t]
                 unique_types = set(types)
@@ -336,8 +599,11 @@ class CompetitorAIIntelligence:
                     "competitor": comp,
                     "source_domain_influence_score": round(influence_score, 1),
                     "average_domain_authority": avg_auth,
-                    "citation_count": len(sources),
-                    "source_diversity": len(unique_domains),
+                    "credibility_score": avg_auth,
+                    "citation_count": citation_count,
+                    "source_diversity": source_diversity_ratio,
+                    "unique_domains": unique_domain_count,
+                    "citation_frequency": [{"domain": d, "count": int(freq[d])} for d in sorted(freq.keys(), key=lambda k: (-freq[k], k))[:20]],
                     "type_diversity": len(unique_types),
                     "top_citations": sources
                 })
@@ -616,18 +882,23 @@ class CompetitorAIIntelligence:
                     "Return JSON with keys: present (true/false) and rank (1-10 or null). "
                     'Example: {"present": true, "rank": 7}'
                 )
-                probe_model = self.models[0]
-                resp_probe = await execute_task(
-                    task_name=f"module_f_brand_probe_{probe_model}",
-                    input_data={"messages": [{"role": "user", "content": probe_prompt}]},
-                    provider=probe_model,
-                    options={"temperature": 0.2, "skip_cache": True},
-                )
-                data = _safe_parse_json(str(resp_probe.data)) if resp_probe and resp_probe.success else None
-                present = bool((data or {}).get("present"))
-                rank_val = data.get("rank") if isinstance(data, dict) else None
+                present = False
+                rank_val = None
+                for probe_model in self.models:
+                    resp_probe = await execute_task(
+                        task_name=f"module_f_brand_probe_{probe_model}",
+                        input_data={"messages": [{"role": "user", "content": probe_prompt}]},
+                        provider=probe_model,
+                        options={"temperature": 0.2, "skip_cache": True},
+                    )
+                    data = _safe_parse_json(resp_probe.data) if resp_probe and resp_probe.success else None
+                    present = bool((data or {}).get("present"))
+                    rank_val = data.get("rank") if isinstance(data, dict) else None
+                    if present:
+                        brand_model_key = probe_model
+                        break
+
                 if present:
-                    brand_model_key = probe_model
                     aggregate[brand_key]["mentioned_in_models"] = 1
                     aggregate[brand_key]["mentions_total"] += 1
                     rp = 100.0
@@ -670,9 +941,7 @@ class CompetitorAIIntelligence:
                 if isinstance(v.get("rank"), int)
             ]
             row["avg_rank"] = round(sum(ranks) / len(ranks), 2) if ranks else None
-
-            visibility_score = round(0.6 * mention_rate + 0.4 * avg_rank_percentile, 1)
-            row["visibility_score"] = max(0.0, min(100.0, visibility_score))
+            row["visibility_score"] = round(max(0.0, min(100.0, mention_rate)), 1)
 
             if total_mentions_all_entities > 0:
                 row["market_share_percent"] = round((row["mentions_total"] / total_mentions_all_entities) * 100.0, 1)
@@ -787,25 +1056,19 @@ class CompetitorAIIntelligence:
         brand_name: Optional[str] = None,
     ) -> Dict[str, Any]:
         brand_domain = _extract_domain(url)
-        brand_terms_extra = [brand_name] if brand_name else []
+        brand_display = str(brand_name).strip() if isinstance(brand_name, str) and brand_name.strip() else brand_domain
+        brand_key = _normalize_term(brand_display)
 
-        entities: List[EntityTerms] = [
-            _make_entity_terms(brand_domain, extra_terms=brand_terms_extra),
-            *[_make_entity_terms(c) for c in competitors],
-        ]
-        
-        normalized_entities = []
-        seen = set()
-        for e in entities:
-            key = _normalize_term(e.name)
-            if not key or key in seen:
+        company_key_to_display: Dict[str, str] = {}
+        for name in [brand_display, *competitors]:
+            if not name:
                 continue
-            seen.add(key)
-            normalized_entities.append(e)
-        entities = normalized_entities
-        
-        entity_patterns = {e.name: _compile_patterns(e.terms) for e in entities}
-        brand_key = _normalize_term(entities[0].name)
+            key = _normalize_term(name)
+            if not key or key in company_key_to_display:
+                continue
+            company_key_to_display[key] = str(name).strip() or key
+
+        company_keys = list(company_key_to_display.keys())
 
         results = []
         brand_wins = 0
@@ -817,108 +1080,113 @@ class CompetitorAIIntelligence:
         prompts_to_run = prompts[:10]
 
         async def check_prompt(prompt: str) -> Dict[str, Any]:
-            # Use one capable model for speed/cost, e.g. gpt-4o or gemini-1.5-pro
-            # Or use self.models[0]
-            model = self.models[0]
-            
-            resp = await execute_task(
-                task_name=f"module_f_win_check_{model}",
-                input_data={"messages": [{"role": "user", "content": prompt}]},
-                provider=model,
-                options={"temperature": 0.4, "skip_cache": True},
-            )
-            
-            if not resp.success or not resp.data:
+            if not company_keys:
                 return {
                     "prompt": prompt,
-                    "error": resp.error or "No response",
-                    "winner": "unknown"
+                    "error": "No companies to compare",
+                    "winner": "unknown",
                 }
-            
-            text = str(resp.data).lower()
-            
-            # Check mentions and ranks
-            mentioned = []
-            for entity_name, patterns in entity_patterns.items():
-                spans = _find_unique_spans(text, patterns)
-                if spans:
-                    first_span = spans[0]
-                    mentioned.append((entity_name, first_span[0], first_span[1]))
-            
-            mentioned.sort(key=lambda x: x[1])
-            
-            ranks = {name: idx + 1 for idx, (name, _, _) in enumerate(mentioned)}
-            
+
+            companies_block = "\n".join([f"- {company_key_to_display[k]}" for k in company_keys])
+            eval_prompt = (
+                f'Query: "{prompt}"\n\n'
+                "Rank the companies below from best to worst for this query.\n"
+                "Rules:\n"
+                "- You MUST include every company exactly once.\n"
+                "- Return ONLY valid JSON.\n\n"
+                "Companies:\n"
+                f"{companies_block}\n\n"
+                'JSON format (either is acceptable):\n'
+                '{"ranking": ["Company 1", "Company 2", "..."]}\n'
+                'or {"ranking": [{"name": "Company 1"}, {"name": "Company 2"}]}\n'
+            )
+
+            parsed: Dict[str, Any] = {}
+            provider_used: Optional[str] = None
+            for provider in self.models:
+                resp = await execute_task(
+                    task_name=f"module_f_win_check_{provider}",
+                    input_data={"messages": [{"role": "user", "content": eval_prompt}]},
+                    provider=provider,
+                    options={
+                        "temperature": 0.2,
+                        "response_format": {"type": "json_object"},
+                        "skip_cache": True,
+                    },
+                )
+                if not resp.success or not resp.data:
+                    continue
+                parsed = _safe_parse_json(resp.data) or {}
+                if parsed.get("ranking"):
+                    provider_used = provider
+                    break
+
+            ranking = parsed.get("ranking") if isinstance(parsed, dict) else None
+            if not isinstance(ranking, list) or not ranking:
+                return {
+                    "prompt": prompt,
+                    "error": "Ranking not returned",
+                    "winner": "unknown",
+                }
+
+            ranks: Dict[str, int] = {}
+            rank_num = 1
+            for item in ranking:
+                name = None
+                if isinstance(item, str):
+                    name = item
+                elif isinstance(item, dict):
+                    name = item.get("name") or item.get("company")
+                if not name:
+                    continue
+                key = _normalize_term(str(name))
+                if key in company_key_to_display and key not in ranks:
+                    ranks[key] = rank_num
+                    rank_num += 1
+
             brand_rank = ranks.get(brand_key)
-            
-            # Determine winner
+
             winner = "none"
-            competitor_winner_name = None
-            
-            if brand_rank is not None:
-                # Brand is mentioned. Check if any competitor is higher (lower rank number)
-                better_competitors = [
-                    name for name, rank in ranks.items() 
-                    if name != brand_key and rank < brand_rank
-                ]
-                if better_competitors:
+            competitor_winner_key = None
+
+            competitor_keys = [k for k in company_keys if k != brand_key]
+            competitor_ranks = [(k, ranks.get(k)) for k in competitor_keys if isinstance(ranks.get(k), int)]
+            competitor_ranks.sort(key=lambda x: x[1])
+
+            if brand_rank is None:
+                if competitor_ranks:
                     winner = "competitor"
-                    better_competitors.sort(key=lambda n: ranks[n])
-                    competitor_winner_name = better_competitors[0] # The highest ranking one
+                    competitor_winner_key = competitor_ranks[0][0]
+            else:
+                better = [k for k, r in competitor_ranks if r < brand_rank]
+                if better:
+                    winner = "competitor"
+                    competitor_winner_key = better[0]
                 else:
                     winner = "brand"
+
+            total = len(company_keys)
+            if brand_rank is None:
+                coverage_gap_score = 100.0
             else:
-                # Brand not mentioned
-                # If any competitor mentioned, they win
-                mentioned_competitors = [name for name in ranks.keys() if name != brand_key]
-                if mentioned_competitors:
-                    winner = "competitor"
-                    mentioned_competitors.sort(key=lambda n: ranks[n])
-                    competitor_winner_name = mentioned_competitors[0]
-                else:
-                    winner = "none"
+                denom = float(max(1, total - 1))
+                coverage_gap_score = 100.0 * ((float(brand_rank) - 1.0) / denom)
 
-            # Gap analysis (simple entity coverage count)
-            # Count how many unique entities from our list are mentioned
-            entities_covered_count = len(mentioned)
-            total_entities_count = len(entities)
-            coverage_gap_score = 100.0 * (1.0 - (entities_covered_count / total_entities_count)) if total_entities_count > 0 else 0.0
-
-            # --- NEW METRICS: Quality and Intent ---
-            
-            # 1. Intent Coverage
-            intent_analysis = self._analyze_intent_coverage(text, prompt)
-            
-            # 2. Content Quality (of the winner vs brand)
+            intent_analysis = {"intent_coverage_score": 100.0 if len(ranks) == total else 60.0}
             winner_quality = {}
             brand_quality = {}
-            
-            # Helper to find span for a given entity name
-            def get_span_for(name):
-                for ent, start, end in mentioned:
-                    if ent == name:
-                        return (start, end)
-                return None
-
-            if brand_rank:
-                span = get_span_for(brand_key)
-                if span:
-                    brand_quality = self._analyze_mention_quality(text, span)
-            
-            if winner == "competitor" and competitor_winner_name:
-                span = get_span_for(competitor_winner_name)
-                if span:
-                    winner_quality = self._analyze_mention_quality(text, span)
-            elif winner == "brand":
-                winner_quality = brand_quality
 
             return {
                 "prompt": prompt,
                 "winner": winner,
-                "winner_name": competitor_winner_name if winner == "competitor" else (brand_key if winner == "brand" else None),
+                "winner_name": (
+                    company_key_to_display.get(competitor_winner_key)
+                    if winner == "competitor"
+                    else (company_key_to_display.get(brand_key) if winner == "brand" else None)
+                ),
                 "brand_rank": brand_rank,
                 "ranks": ranks,
-                "text_snippet": text[:200] + "...",
+                "text_snippet": ", ".join([f"{company_key_to_display.get(k, k)}={r}" for k, r in sorted(ranks.items(), key=lambda kv: kv[1])])[:200] + "...",
                 "coverage_gap_score": round(coverage_gap_score, 1),
                 "intent_coverage": intent_analysis,
                 "winner_quality": winner_quality,
@@ -944,6 +1212,44 @@ class CompetitorAIIntelligence:
         gaps = [r["coverage_gap_score"] for r in prompt_results if "coverage_gap_score" in r]
         avg_gap = sum(gaps) / len(gaps) if gaps else 0.0
 
+        competitor_map: Dict[str, str] = {}
+        for c in competitors:
+            nk = _normalize_term(c)
+            if nk and nk not in competitor_map:
+                competitor_map[nk] = c
+        competitor_keys = list(competitor_map.keys())
+        detailed_no_error = [r for r in prompt_results if isinstance(r, dict) and not r.get("error")]
+        brand_prompt_mentions = sum(1 for r in detailed_no_error if r.get("brand_rank") is not None)
+
+        breakdown: List[Dict[str, Any]] = []
+        for comp_key in competitor_keys:
+            prompts_mentioned = 0
+            prompts_won = 0
+            gap_values: List[float] = []
+            for r in detailed_no_error:
+                ranks = r.get("ranks") or {}
+                comp_rank = ranks.get(comp_key)
+                if comp_rank is None:
+                    continue
+                prompts_mentioned += 1
+                brand_rank = r.get("brand_rank")
+                if brand_rank is None or (isinstance(comp_rank, int) and isinstance(brand_rank, int) and comp_rank < brand_rank):
+                    prompts_won += 1
+                if isinstance(comp_rank, int) and isinstance(brand_rank, int):
+                    denom = float(max(1, len(competitor_keys)))
+                    gap_values.append(max(0.0, float(brand_rank - comp_rank)) / denom * 100.0)
+            win_percent = (prompts_won / total_analyzed * 100.0) if total_analyzed > 0 else 0.0
+            content_gap_score = (sum(gap_values) / len(gap_values)) if gap_values else 0.0
+            breakdown.append({
+                "competitor": competitor_map.get(comp_key, comp_key),
+                "competitor_key": comp_key,
+                "prompts_mentioned": prompts_mentioned,
+                "prompts_won": prompts_won,
+                "win_percent": round(win_percent, 1),
+                "content_gap_score": round(content_gap_score, 1),
+            })
+        breakdown.sort(key=lambda x: (int(x.get("prompts_won") or 0), int(x.get("prompts_mentioned") or 0)), reverse=True)
+
         return {
             "summary": {
                 "total_prompts": total_analyzed,
@@ -951,9 +1257,11 @@ class CompetitorAIIntelligence:
                 "competitor_wins": competitor_wins,
                 "brand_win_rate": round(win_rate, 1),
                 "competitor_win_rate": round(competitor_win_rate, 1),
-                "avg_content_gap_score": round(avg_gap, 1)
+                "avg_content_gap_score": round(avg_gap, 1),
+                "brand_prompt_mentions": brand_prompt_mentions,
             },
-            "detailed_results": prompt_results
+            "detailed_results": prompt_results,
+            "competitor_breakdown": breakdown,
         }
 
     def compute_gap_analysis(
@@ -969,43 +1277,71 @@ class CompetitorAIIntelligence:
                 comp_map[norm] = c
         
         gap_data = []
+
+        total = len(prompt_results)
+        vis_counts = []
+        for res in prompt_results:
+            ranks = res.get("ranks", {}) if isinstance(res, dict) else {}
+            if isinstance(ranks, dict):
+                vis_counts.append(len(ranks))
+        avg_visibility_per_prompt = (sum(vis_counts) / len(vis_counts)) if vis_counts else 0.0
+
+        def _clamp(value: float, min_v: float, max_v: float) -> float:
+            return max(min_v, min(max_v, value))
+
+        def _compute_opportunity_score(rank_value: Any) -> float:
+            try:
+                r = int(rank_value) if rank_value is not None else None
+            except Exception:
+                r = None
+            if r is None or r <= 0:
+                return 100.0
+            if r > 10:
+                return 100.0
+            return float(_clamp(((float(r) - 1.0) / 9.0) * 100.0, 0.0, 100.0))
         
         for comp_key, comp_name in comp_map.items():
             missing_count = 0
             opportunities = []
-            total = len(prompt_results)
             
             for res in prompt_results:
                 ranks = res.get("ranks", {})
                 # ranks keys are normalized in analyze_competitor_prompt_wins
                 rank = ranks.get(comp_key)
                 
-                # If rank is missing or > 5 (weak), it's an opportunity
-                # We assume rank 1-5 is "strong", >5 is "weak"
-                is_weak = rank is None or rank > 5
-                
-                if is_weak:
+                score = _compute_opportunity_score(rank)
+                try:
+                    rank_int = int(rank) if rank is not None and int(rank) > 0 else None
+                except Exception:
+                    rank_int = None
+
+                if rank_int is None or rank_int > 3:
                     missing_count += 1
-                    # Opportunity score: 100 if missing completely
-                    # If rank 6, score 60. If rank 10, score 80.
-                    opp_score = 100
-                    if rank is not None:
-                        opp_score = min(90, 50 + (rank * 2))
-                    
-                    opportunities.append({
-                        "prompt": res.get("prompt"),
-                        "rank": rank,
-                        "opportunityScore": opp_score
-                    })
+
+                opportunities.append({
+                    "prompt": res.get("prompt"),
+                    "rank": rank_int,
+                    "opportunityScore": round(score, 1),
+                })
             
-            gap_score = (missing_count / total * 100.0) if total > 0 else 0.0
+            gap_score = (sum(o.get("opportunityScore", 0) for o in opportunities) / len(opportunities)) if opportunities else 0.0
+            potential_gain_mentions = missing_count * avg_visibility_per_prompt
+            potential_gain_percent = gap_score
+            potential_gain_mentions = (
+                sum((float(o.get("opportunityScore") or 0.0) / 100.0) * avg_visibility_per_prompt for o in opportunities)
+                if opportunities
+                else 0.0
+            )
+
+            opportunities.sort(key=lambda x: float(x.get("opportunityScore") or 0), reverse=True)
             
             gap_data.append({
                 "competitor": comp_name,
                 "gapScore": round(gap_score, 1),
                 "missingPrompts": missing_count,
                 # Potential gain is proportional to the gap - if they are missing it, we can take it.
-                "potentialGainPercent": round(gap_score * 0.8, 1), 
+                "potentialGainPercent": round(potential_gain_percent, 1),
+                "potentialGainMentions": round(potential_gain_mentions, 1),
                 "opportunities": opportunities
             })
             
