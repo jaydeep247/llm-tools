@@ -97,6 +97,9 @@ REDIS_PARAMS = {
     "retry_on_timeout": True,
 }
 
+# Allow 4xx/5xx HTTP responses to be processed by the spider instead of errback
+HTTPERROR_ALLOW_ALL = True
+
 # Logging — WARNING suppresses scrapy.* framework startup spam;
 # application [npy-backend] logs use their own handler (see utils/logger.py)
 LOG_LEVEL = 'WARNING'

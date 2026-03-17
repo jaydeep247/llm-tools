@@ -797,28 +797,39 @@ class WebsiteSpider(RedisSpider):
         request_id = id(response.request)
         start_time = self.request_start_times.get(request_id, datetime.now().timestamp())
         
-        # Validate content type
+        # Determine content type — crawl everything except JavaScript files
         content_type = response.headers.get('Content-Type', b'').decode('utf-8').lower()
-        if 'text/html' not in content_type and 'application/xhtml+xml' not in content_type:
-            logger.warning(f"Skipping non-HTML content: {response.url} ({content_type})")
-            return
+        is_html = (
+            ('text/html' in content_type or 'application/xhtml+xml' in content_type)
+            and isinstance(response, HtmlResponse)
+        )
 
-        # Extract links
-        links_data = LinkExtractor.extract(response, self.allowed_host, self.allow_subdomains)
-
-        # Emit link_found for ALL discovered links (for progress tracking)
-        if self.job_id:
-            for link_data in links_data:
-                self.emit_link_found(link_data['target_url'], source='crawl')
-            
         # Calculate folder depth
         parsed_url = urlparse(response.url)
         folder_depth = len([p for p in parsed_url.path.split('/') if p])
-        
-        # Extract all fields using extractors
-        # Robust check: Ensure response is actually HTML before using CSS selectors
-        if not isinstance(response, HtmlResponse):
-            logger.warning(f"Response is not HtmlResponse (type: {type(response)}), skipping extraction: {response.url}")
+
+        # Extract links (only possible for HTML responses)
+        links_data = []
+        if is_html:
+            links_data = LinkExtractor.extract(response, self.allowed_host, self.allow_subdomains)
+
+        # Emit link_found for discovered links (for progress tracking)
+        if self.job_id:
+            for link_data in links_data:
+                self.emit_link_found(link_data['target_url'], source='crawl')
+
+        # For non-HTML content (images, PDFs, etc.) yield a minimal record and stop
+        if not is_html:
+            page_item = PageItem()
+            page_item['url'] = response.url
+            page_item['status_code'] = response.status
+            page_item['content_type'] = content_type
+            page_item['crawl_depth'] = crawl_depth
+            page_item['folder_depth'] = folder_depth
+            if self.job_id:
+                page_item['job_id'] = self.job_id
+            self.pages_crawled += 1
+            yield page_item
             return
             
         # ==================================================================
@@ -1108,12 +1119,16 @@ class WebsiteSpider(RedisSpider):
         
         # Follow internal links
         if not self.should_stop:
-            internal_candidates = [l for l in links_data if l['is_internal'] and not l['nofollow']]
-
             for link_data in links_data:
-                if link_data['is_internal'] and not link_data['nofollow']:
+                if link_data['is_internal']:
                     target_url = link_data['target_url']
 
+                    # Skip JavaScript files
+                    if target_url.lower().split('?')[0].endswith('.js'):
+                        self.skipped_count += 1
+                        continue
+
+                    # Skip transactional/account paths
                     if any(p in target_url for p in ['/cart', '/checkout', '/account']):
                         self.skipped_count += 1
                         continue
