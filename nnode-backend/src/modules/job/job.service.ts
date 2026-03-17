@@ -257,6 +257,8 @@ export class JobService {
   ): Promise<Job> {
     const job = await this.getJobById(userId, jobId);
     const resolvedUrl = this.normalizeUrl(targetUrl) || job.url;
+    const shouldUseStoredHtml =
+      !targetUrl || (this.normalizeUrl(targetUrl) || '').trim() === (job.url || '').trim();
 
     await this.queueService.publishSchemaJob({
       jobId: job.id,
@@ -265,6 +267,7 @@ export class JobService {
       url: resolvedUrl,
       jobType: JobType.SCHEMA,
       schemaType: schemaType || job.schemaType || undefined,
+      sourceJobId: shouldUseStoredHtml ? job.id : undefined,
     });
 
     return job;

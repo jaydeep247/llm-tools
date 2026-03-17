@@ -193,6 +193,8 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
 
   const hasData = rows.length > 0 && totalPrompts > 0
   const gapRec = normalizeMetricRecommendation(effectiveData?.recommendations?.content_gap_score)
+  const missingRec = normalizeMetricRecommendation(effectiveData?.recommendations?.missing_prompts)
+  const gainRec = normalizeMetricRecommendation(effectiveData?.recommendations?.potential_gain)
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -268,7 +270,30 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
                     <Radar className="w-5 h-5 text-zinc-100" />
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-zinc-100 block">Missing Prompts</span>
+                    <span className="text-sm font-medium text-zinc-100 block flex items-center gap-2">
+                      Missing Prompts
+                      {missingRec && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="w-3.5 h-3.5 text-zinc-500 hover:text-zinc-300 transition-colors" />
+                            </TooltipTrigger>
+                            <TooltipContent className="bg-zinc-900 border-zinc-800 text-zinc-300 max-w-xs text-xs p-3">
+                              {missingRec.why && (
+                                <>
+                                  <div className="font-medium text-zinc-100 mb-1">Why this metric</div>
+                                  <div className="text-zinc-300">{missingRec.why}</div>
+                                </>
+                              )}
+                              <div className={cn('font-medium text-zinc-100', missingRec.why ? 'mt-3 mb-1' : 'mb-1')}>
+                                How to improve
+                              </div>
+                              <div className="text-zinc-300">{missingRec.fix}</div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </span>
                     <span className="text-xs text-zinc-400 block mt-0.5 leading-relaxed">Outside top 3 for the prompt</span>
                   </div>
                 </div>
@@ -288,7 +313,30 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
                     <TrendingUp className="w-5 h-5 text-zinc-100" />
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-zinc-100 block">Potential Gain</span>
+                    <span className="text-sm font-medium text-zinc-100 block flex items-center gap-2">
+                      Potential Gain
+                      {gainRec && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="w-3.5 h-3.5 text-zinc-500 hover:text-zinc-300 transition-colors" />
+                            </TooltipTrigger>
+                            <TooltipContent className="bg-zinc-900 border-zinc-800 text-zinc-300 max-w-xs text-xs p-3">
+                              {gainRec.why && (
+                                <>
+                                  <div className="font-medium text-zinc-100 mb-1">Why this metric</div>
+                                  <div className="text-zinc-300">{gainRec.why}</div>
+                                </>
+                              )}
+                              <div className={cn('font-medium text-zinc-100', gainRec.why ? 'mt-3 mb-1' : 'mb-1')}>
+                                How to improve
+                              </div>
+                              <div className="text-zinc-300">{gainRec.fix}</div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </span>
                     <span className="text-xs text-zinc-400 block mt-0.5 leading-relaxed">Average coverage you can capture</span>
                   </div>
                 </div>
