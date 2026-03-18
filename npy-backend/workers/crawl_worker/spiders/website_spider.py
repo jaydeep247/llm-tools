@@ -869,17 +869,10 @@ class WebsiteSpider(RedisSpider):
         title_pixel_width = pixel_width.calculate_pixel_width(page_item.get('title', ''), font_size=20)
         meta_desc_pixel_width = pixel_width.calculate_pixel_width(page_item.get('meta_description', ''), font_size=14)
 
-        # Transferred bytes: prefer Content-Length header (compressed size on wire).
-        # Fall back to uncompressed body size if the server didn't send the header.
-        content_length_hdr = response.headers.get('Content-Length', None)
-        if content_length_hdr:
-            try:
-                transferred_bytes = int(content_length_hdr)
-            except (ValueError, TypeError):
-                transferred_bytes = len(response.body)
-        else:
-            transferred_bytes = len(response.body)
-        total_bytes = page_item.get('page_size_bytes', len(response.body))
+        # Transferred bytes: use the pre-decompression size captured by
+        # TransferredSizeMiddleware.  This is the actual compressed byte
+        # count on the wire, matching Screaming Frog's "Transferred (bytes)".
+        transferred_bytes = response.meta.get('transferred_size', len(response.body))
         carbon_data = carbon.calculate_carbon(transferred_bytes)
 
         # Use the cleaned visible text from ContentExtractor (already excludes
@@ -1042,7 +1035,8 @@ class WebsiteSpider(RedisSpider):
                 response_status=response.status,
                 response_headers={k.decode('utf-8'): v[0].decode('utf-8') for k, v in response.headers.items()},
                 response_time_ms=(response.meta.get('download_latency', datetime.now().timestamp() - start_time)),
-                final_url=response.url
+                final_url=response.url,
+                raw_body_size=len(response.body),
             ),
             
             # Text Quality Analyzer (New Consolidated Module)

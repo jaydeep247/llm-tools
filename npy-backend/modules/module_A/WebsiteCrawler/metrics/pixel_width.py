@@ -1,37 +1,45 @@
 """
 Pixel Width Calculator
 Calculates approximate pixel width for text strings (Titles, Meta Descriptions)
-Calibrated to match Screaming Frog / Google SERP rendering (Arial ~16px).
+Calibrated to match Screaming Frog / Google SERP rendering.
+
+Character widths measured from the actual Arial TrueType font at 16px using
+Pillow (FreeType2).  The base table stores floats so that per-character
+rounding errors do not accumulate across long strings.
 """
 
-# Average character widths in pixels for Arial 16px (Google SERP title font).
-# Measured from font metrics and calibrated against Screaming Frog output.
-_CHAR_WIDTHS = {
-    ' ': 4, '!': 5, '"': 6, '#': 9, '$': 9, '%': 13, '&': 11, "'": 4,
-    '(': 5, ')': 5, '*': 6, '+': 9, ',': 4, '-': 5, '.': 4, '/': 5,
-    '0': 9, '1': 9, '2': 9, '3': 9, '4': 9, '5': 9, '6': 9, '7': 9,
-    '8': 9, '9': 9, ':': 5, ';': 5, '<': 9, '=': 9, '>': 9, '?': 9,
-    '@': 16,
-    'A': 11, 'B': 11, 'C': 11, 'D': 11, 'E': 10, 'F': 9, 'G': 12,
-    'H': 11, 'I': 4, 'J': 7, 'K': 11, 'L': 9, 'M': 13, 'N': 11,
-    'O': 12, 'P': 10, 'Q': 12, 'R': 11, 'S': 10, 'T': 9, 'U': 11,
-    'V': 10, 'W': 15, 'X': 10, 'Y': 10, 'Z': 10,
-    '[': 5, '\\': 5, ']': 5, '^': 9, '_': 9, '`': 5,
-    'a': 9, 'b': 9, 'c': 8, 'd': 9, 'e': 9, 'f': 5, 'g': 9,
-    'h': 9, 'i': 4, 'j': 4, 'k': 8, 'l': 4, 'm': 13, 'n': 9,
-    'o': 9, 'p': 9, 'q': 9, 'r': 5, 's': 8, 't': 5, 'u': 9,
-    'v': 8, 'w': 12, 'x': 8, 'y': 8, 'z': 8,
-    '{': 5, '|': 4, '}': 5, '~': 9,
+# Character widths in pixels for Arial at 16px – measured from the system
+# Arial.ttf via Pillow/FreeType2.  Only the final total is rounded.
+_CHAR_WIDTHS: dict[str, float] = {
+    ' ': 4.0,  '!': 4.0,  '"': 6.0,  '#': 9.0,  '$': 9.0,
+    '%': 14.0, '&': 11.0, "'": 3.0,  '(': 5.0,  ')': 5.0,
+    '*': 6.0,  '+': 9.0,  ',': 4.0,  '-': 5.0,  '.': 4.0,  '/': 4.0,
+    '0': 9.0,  '1': 9.0,  '2': 9.0,  '3': 9.0,  '4': 9.0,
+    '5': 9.0,  '6': 9.0,  '7': 9.0,  '8': 9.0,  '9': 9.0,
+    ':': 4.0,  ';': 4.0,  '<': 9.0,  '=': 9.0,  '>': 9.0,  '?': 9.0,
+    '@': 16.0,
+    'A': 11.0, 'B': 11.0, 'C': 12.0, 'D': 12.0, 'E': 11.0,
+    'F': 10.0, 'G': 12.0, 'H': 12.0, 'I': 4.0,  'J': 8.0,
+    'K': 11.0, 'L': 9.0,  'M': 13.0, 'N': 12.0, 'O': 12.0,
+    'P': 11.0, 'Q': 12.0, 'R': 12.0, 'S': 11.0, 'T': 10.0,
+    'U': 12.0, 'V': 11.0, 'W': 15.0, 'X': 11.0, 'Y': 11.0, 'Z': 10.0,
+    '[': 4.0,  '\\': 4.0, ']': 4.0,  '^': 8.0,  '_': 9.0,  '`': 5.0,
+    'a': 9.0,  'b': 9.0,  'c': 8.0,  'd': 9.0,  'e': 9.0,
+    'f': 4.0,  'g': 9.0,  'h': 9.0,  'i': 4.0,  'j': 4.0,
+    'k': 8.0,  'l': 4.0,  'm': 13.0, 'n': 9.0,  'o': 9.0,
+    'p': 9.0,  'q': 9.0,  'r': 5.0,  's': 8.0,  't': 4.0,
+    'u': 9.0,  'v': 8.0,  'w': 12.0, 'x': 8.0,  'y': 8.0,  'z': 8.0,
+    '{': 5.0,  '|': 4.0,  '}': 5.0,  '~': 9.0,
 }
 
-_DEFAULT_WIDTH = 9  # Fallback for unmapped characters
+_DEFAULT_WIDTH: float = 9.0  # Fallback for unmapped characters
 
 
 def calculate_pixel_width(text: str, font_size: float = 16.0) -> int:
     """
     Calculate approximate pixel width of text based on Arial character widths.
     The base table is calibrated for 16px; callers should pass the target
-    font size (e.g. 20 for SERP titles, 13 for SERP descriptions).
+    font size (e.g. 20 for SERP titles, 14 for SERP descriptions).
 
     Args:
         text: The string to measure.

@@ -1,14 +1,19 @@
 """
 Carbon Calculator
-Calculates Carbon Footprint based on Sustainable Web Design model.
-Ported from node-backend/src/helpers/module_A/carbon/carbonCalculator.ts
+Calculates Carbon Footprint based on the Sustainable Web Design (SWD) model.
+Constants calibrated to match Screaming Frog's output.
+
+References:
+  https://sustainablewebdesign.org/calculating-digital-emissions/
+  Ember Climate – Global Electricity Review 2021
 """
 
 from typing import Dict, Any
 
-# Constants
-KWH_PER_GB = 0.81
-CARBON_INTENSITY = 442  # g per kWh
+# Constants (Screaming-Frog-compatible)
+KWH_PER_GB = 0.81              # Total system energy per GB transferred
+CARBON_INTENSITY = 473          # gCO2 per kWh (Ember 2021 global average)
+BYTES_PER_GB = 1_000_000_000   # Decimal gigabyte (SI), not binary (1024^3)
 
 
 def get_carbon_rating(co2_grams: float) -> str:
@@ -42,8 +47,8 @@ def calculate_carbon(bytes_transferred: int) -> Dict[str, Any]:
             'rating': 'A+'
         }
 
-    # Convert bytes to GB
-    gb = bytes_transferred / (1024 * 1024 * 1024)
+    # Convert bytes to GB (decimal / SI)
+    gb = bytes_transferred / BYTES_PER_GB
     
     # Energy in kWh
     energy_kwh = gb * KWH_PER_GB

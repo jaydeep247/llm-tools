@@ -1,6 +1,7 @@
 import re
 from typing import Dict, Any, List
 
+
 def analyze_sentence_structure(text: str, sentence_count: int, word_count: int) -> Dict[str, Any]:
     """
     Analyze sentence length and complexity.
@@ -14,8 +15,9 @@ def analyze_sentence_structure(text: str, sentence_count: int, word_count: int) 
     
     avg_len = round(word_count / sentence_count, 1)
     
-    # Split sentences to analyze individual length
-    sentences = [s.strip() for s in re.split(r'[.!?]+', text) if s.strip()]
+    # Split text into rough sentence segments using terminal punctuation
+    sentences = re.split(r'[.!?]+', text)
+    sentences = [s.strip() for s in sentences if s.strip()]
     long_sentences = 0
     complexity_sum = 0
     

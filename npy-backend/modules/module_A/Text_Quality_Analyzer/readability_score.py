@@ -36,6 +36,9 @@ def count_total_syllables(text: str) -> int:
 def analyze_readability(text: str, sentence_count: int, word_count: int) -> Dict[str, Any]:
     """
     Calculate Flesch Reading Ease and Flesch-Kincaid Grade Level.
+
+    sentence_count and word_count must already be computed via the
+    SF-compatible methodology (caller responsibility).
     """
     if word_count == 0:
         return {
@@ -44,10 +47,9 @@ def analyze_readability(text: str, sentence_count: int, word_count: int) -> Dict
             "readabilityLevel": "N/A"
         }
     
-    # Handle sentence count 0
+    # Treat 0 sentences as 1 to avoid division by zero
     if sentence_count == 0:
-        sentences = [s for s in re.split(r'[.!?]+', text) if s.strip()]
-        sentence_count = len(sentences) if sentences else 1
+        sentence_count = 1
         
     syllable_count = count_total_syllables(text)
     

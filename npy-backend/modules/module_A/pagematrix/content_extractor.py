@@ -1,34 +1,69 @@
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Comment
 import re
 import json
 
-def extract_visible_text(soup: BeautifulSoup) -> str:
-    """
-    Extract visible text from DOM, ignoring hidden elements.
-    """
-    # Create a copy to modify
-    # Note: BeautifulSoup modifies in-place, so we might need to parse again or be careful
-    # For performance, we'll traverse and filter instead of cloning if possible, 
-    # but cloning is safer for "destructive" extraction
-    
-    # Simple approach: remove script, style, noscript, then get text
-    for element in soup(['script', 'style', 'noscript', 'footer', 'nav', 'aside']):
+# Tags whose subtree is never visible
+_STRIP_TAGS = ['script', 'style', 'noscript', 'svg', 'iframe', 'template']
+
+# CSS classes that hide content visually (screen-reader / accessibility text)
+_HIDDEN_CLASSES = re.compile(
+    r'\b(?:screen-reader-text|sr-only|visually-hidden|'
+    r'visually-hidden-focusable|elementor-screen-only|'
+    r'clip-text|assistive-text|offscreen-text)\b',
+    re.IGNORECASE,
+)
+
+
+def _clean_soup(soup: BeautifulSoup) -> BeautifulSoup:
+    """Remove all non-visible content from a soup copy (SF-compatible)."""
+    work = BeautifulSoup(str(soup), 'lxml')
+
+    for c in work.find_all(string=lambda s: isinstance(s, Comment)):
+        c.extract()
+
+    for element in work(_STRIP_TAGS):
         element.extract()
-        
-    # Remove elements with display:none or visibility:hidden in style attribute
-    # This is rough in BS4 without a full CSS engine
-    for element in soup.find_all(style=True):
-        style = element['style'].lower()
-        if 'display:none' in style or 'display: none' in style or \
-           'visibility:hidden' in style or 'visibility: hidden' in style:
+
+    for element in work.find_all(style=True):
+        style = (getattr(element, 'attrs', None) or {}).get('style', '').lower().replace(' ', '')
+        if 'display:none' in style or 'visibility:hidden' in style:
             element.extract()
-            
-    # Remove aria-hidden="true"
-    for element in soup.find_all(attrs={'aria-hidden': 'true'}):
+
+    for element in work.find_all(attrs={'hidden': True}):
         element.extract()
-        
-    text = soup.get_text(separator=' ')
-    return text
+
+    for element in work.find_all(attrs={'aria-hidden': 'true'}):
+        element.extract()
+
+    for element in work.find_all(class_=_HIDDEN_CLASSES):
+        element.extract()
+
+    return work
+
+
+def extract_visible_text(soup: BeautifulSoup) -> str:
+    """Extract visible text (SF-compatible). Returns flat string."""
+    work = _clean_soup(soup)
+    text = work.get_text(separator=' ')
+    return re.sub(r'\s+', ' ', text).strip()
+
+
+def count_sentences_sf(text: str, block_text: str = '') -> int:
+    """Count sentences using SF-compatible block-aware methodology."""
+    source = block_text if block_text else text
+    if not source or not source.strip():
+        return 0
+    if '\n' in source:
+        count = 0
+        for line in source.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+            endings = len(re.findall(r'[.!?]+', line))
+            count += max(1, endings)
+        return max(1, count)
+    count = len(re.findall(r'[.!?]+', source))
+    return max(1, count)
 
 def normalize_text(text: str) -> str:
     """
@@ -63,7 +98,9 @@ def extract_word_count(soup: BeautifulSoup, target_keyword: str = None) -> dict:
     # 2. Visible Word Count
     # Reset clone for visible text extraction
     soup_visible = BeautifulSoup(str(soup), 'lxml')
-    visible_text = extract_visible_text(soup_visible)
+    work = _clean_soup(soup_visible)
+    block_text = work.get_text(separator='\n')
+    visible_text = re.sub(r'\s+', ' ', block_text).strip()
     visible_words = tokenize_words(normalize_text(visible_text))
     visible_word_count = len(visible_words)
     
@@ -76,11 +113,8 @@ def extract_word_count(soup: BeautifulSoup, target_keyword: str = None) -> dict:
     text_size = len(visible_text.encode('utf-8'))
     text_to_html_ratio = round((text_size / html_size) * 100, 2) if html_size > 0 else 0
     
-    # 5. Sentence Count
-    sentences = [s for s in re.split(r'[.!?]+', visible_text) if s.strip()]
-    sentence_count = len(sentences)
-    if sentence_count == 0 and visible_word_count > 0:
-        sentence_count = 1
+    # 5. Sentence Count (SF-compatible block-aware)
+    sentence_count = count_sentences_sf(visible_text, block_text=block_text)
         
     # 6. Paragraph Count
     # Count <p> tags with text

@@ -49,32 +49,29 @@ def calculate_flesch_reading_ease(text: str, sentence_count: int, word_count: in
     """
     Calculate Flesch Reading Ease score.
     Formula: 206.835 - 1.015 * (total words / total sentences) - 84.6 * (total syllables / total words)
+    
+    NOTE: sentence_count and word_count should be computed using the
+    Screaming-Frog-compatible methodology (sentence boundaries split on
+    terminal punctuation + whitespace + uppercase letter).
     """
     if not text or not text.strip():
         return 0.0
     if word_count == 0:
         return 0.0
         
-    # If sentenceCount is 0, try to detect sentences
     actual_sentence_count = sentence_count
     if actual_sentence_count == 0:
-        sentences = [s for s in re.split(r'[.!?]+', text) if s.strip()]
-        actual_sentence_count = len(sentences)
-        if actual_sentence_count == 0:
-            actual_sentence_count = 1
+        actual_sentence_count = 1
             
     syllable_count = count_total_syllables(text)
     
-    if actual_sentence_count == 0 or word_count == 0:
-        return 0.0
-        
     avg_sentence_length = word_count / actual_sentence_count
     avg_syllables_per_word = syllable_count / word_count
     
     score = 206.835 - (1.015 * avg_sentence_length) - (84.6 * avg_syllables_per_word)
     
     # Clamp between 0 and 100
-    return max(0.0, min(100.0, round(score, 1)))
+    return max(0.0, min(100.0, round(score, 2)))
 
 def get_readability_level(score: float) -> str:
     """
@@ -142,6 +139,9 @@ def check_grammar(text: str) -> int:
 def analyze_content_quality(text: str, sentence_count: int, word_count: int) -> Dict[str, Any]:
     """
     Analyze content quality: Readability, Spelling, Grammar.
+    
+    sentence_count and word_count must already be computed via the
+    SF-compatible methodology (caller responsibility).
     """
     flesch_score = calculate_flesch_reading_ease(text, sentence_count, word_count)
     readability = get_readability_level(flesch_score)
@@ -149,10 +149,12 @@ def analyze_content_quality(text: str, sentence_count: int, word_count: int) -> 
     spelling_errors = check_spelling(text)
     grammar_errors = check_grammar(text)
     
+    avg_words = round(word_count / sentence_count, 2) if sentence_count > 0 else 0
+    
     return {
         'flesch_reading_ease_score': flesch_score,
         'readability': readability,
         'spelling_errors': spelling_errors,
         'grammar_errors': grammar_errors,
-        'average_words_per_sentence': round(word_count / sentence_count, 1) if sentence_count > 0 else 0
+        'average_words_per_sentence': avg_words
     }

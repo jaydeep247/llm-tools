@@ -5,22 +5,49 @@ from bs4 import BeautifulSoup, Comment
 from bs4.element import Tag
 from urllib.parse import urlparse
 
-def extract_visible_text(soup: BeautifulSoup) -> str:
-    """Extract visible text by stripping non-visible tags, then getting text once.
-    Avoids double-counting that occurs when calling get_text() on every Tag descendant."""
-    # Work on a copy so we don't mutate the caller's soup
+# Tags whose subtree is never visible
+_STRIP_TAGS = ["script", "style", "noscript", "svg", "iframe", "template"]
+
+# CSS classes that hide content visually (screen-reader / accessibility text)
+_HIDDEN_CLASSES = re.compile(
+    r'\b(?:screen-reader-text|sr-only|visually-hidden|'
+    r'visually-hidden-focusable|elementor-screen-only|'
+    r'clip-text|assistive-text|offscreen-text)\b',
+    re.IGNORECASE,
+)
+
+
+def _clean_soup(soup: BeautifulSoup) -> BeautifulSoup:
+    """Remove all non-visible content from a soup copy (SF-compatible)."""
     work = BeautifulSoup(str(soup), 'html.parser')
 
-    # Remove entirely non-visible elements
-    for tag in work.find_all(["script", "style", "noscript", "svg"]):
+    # HTML comments
+    for c in work.find_all(string=lambda s: isinstance(s, Comment)):
+        c.extract()
+
+    for tag in work.find_all(_STRIP_TAGS):
         tag.decompose()
 
-    # Remove elements hidden via inline style
     for tag in work.find_all(style=True):
-        style = (tag.get("style") or "").lower()
+        style = (getattr(tag, 'attrs', None) or {}).get('style', '').lower().replace(' ', '')
         if "display:none" in style or "visibility:hidden" in style:
             tag.decompose()
 
+    for tag in work.find_all(attrs={'hidden': True}):
+        tag.decompose()
+
+    for tag in work.find_all(attrs={'aria-hidden': 'true'}):
+        tag.decompose()
+
+    for tag in work.find_all(class_=_HIDDEN_CLASSES):
+        tag.decompose()
+
+    return work
+
+
+def extract_visible_text(soup: BeautifulSoup) -> str:
+    """Extract visible text (SF-compatible). Returns flat whitespace-collapsed string."""
+    work = _clean_soup(soup)
     text = work.get_text(separator=' ')
     return re.sub(r'\s+', ' ', text).strip()
 
@@ -40,17 +67,33 @@ def tokenize_words(text: str) -> List[str]:
     """
     return [w for w in text.split() if w.strip()]
 
-def get_sentence_count(text: str) -> int:
+def get_sentence_count(text: str, block_text: str = '') -> int:
+    """Count sentences using SF-compatible block-aware methodology.
+
+    If *block_text* (newline-separated) is provided, each non-empty line
+    counts as at least one sentence; terminal-punctuation groups within
+    each line add additional sentence breaks.
+
+    Falls back to counting ``[.!?]+`` groups in *text* when *block_text*
+    is not supplied.
     """
-    Extract sentence count using delimiters.
-    """
-    if not text.strip():
+    source = block_text if block_text else text
+    if not source or not source.strip():
         return 0
-    sentences = re.split(r'[.!?]+', text)
-    sentences = [s.strip() for s in sentences if s.strip()]
-    if not sentences and text.strip():
-        return 1
-    return len(sentences)
+
+    if '\n' in source:
+        count = 0
+        for line in source.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+            endings = len(re.findall(r'[.!?]+', line))
+            count += max(1, endings)
+        return max(1, count)
+
+    # Flat-text fallback: count terminal punctuation groups
+    count = len(re.findall(r'[.!?]+', source))
+    return max(1, count)
 
 def get_paragraph_count(soup: BeautifulSoup) -> int:
     """
@@ -204,7 +247,10 @@ def extract_wordcount_analysis(html_content: str, url: str, target_keyword: Opti
         visible_text_size = len(visible_text.encode('utf-8'))
         ratio = (visible_text_size / html_size * 100) if html_size > 0 else 0
 
-        sentence_count = get_sentence_count(visible_text)
+        # Block-aware sentence counting
+        _block_soup = _clean_soup(soup)
+        block_text = _block_soup.get_text(separator='\n')
+        sentence_count = get_sentence_count(visible_text, block_text=block_text)
         paragraph_count = get_paragraph_count(soup)
 
         avg_sentence_len = round(visible_word_count / sentence_count, 2) if sentence_count > 0 else 0

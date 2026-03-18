@@ -62,6 +62,12 @@ EXTENSIONS = {
     'workers.crawl_worker.extensions.log_filter.SuppressEngineSlotNoise': 100,
 }
 
+# Capture raw (compressed) body size before HttpCompressionMiddleware (590)
+# decompresses it, so the spider can report accurate Transferred (bytes).
+DOWNLOADER_MIDDLEWARES = {
+    'workers.crawl_worker.middlewares.transferred_size.TransferredSizeMiddleware': 591,
+}
+
 # Set settings whose default value is deprecated to a future-proof value
 REQUEST_FINGERPRINTER_IMPLEMENTATION = '2.7'
 TWISTED_REACTOR = 'twisted.internet.asyncioreactor.AsyncioSelectorReactor'

@@ -41,6 +41,11 @@ SCRAPY_SETTINGS = {
     "REQUEST_FINGERPRINTER_IMPLEMENTATION": "2.7",
     "REACTOR_THREADPOOL_MAXSIZE": 30,
 
+    # Capture raw (compressed) body size before HttpCompressionMiddleware (590)
+    "DOWNLOADER_MIDDLEWARES": {
+        "workers.crawl_worker.middlewares.transferred_size.TransferredSizeMiddleware": 591,
+    },
+
     # Scrapy Redis Settings
     "SCHEDULER": "scrapy_redis.scheduler.Scheduler",
     "DUPEFILTER_CLASS": "scrapy_redis.dupefilter.RFPDupeFilter",

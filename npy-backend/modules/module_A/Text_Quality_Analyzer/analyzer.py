@@ -1,5 +1,5 @@
 from typing import Dict, Any, Optional
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Comment
 import re
 
 # Import sub-modules
@@ -14,21 +14,71 @@ from .tone_style import analyze_tone_style
 from .text_ratio import calculate_text_ratio
 from .information_quality import analyze_information_quality
 
+# Tags whose subtree is never visible
+_STRIP_TAGS = ['script', 'style', 'noscript', 'svg', 'iframe', 'template']
+
+# CSS classes that hide content visually (screen-reader / accessibility text)
+_HIDDEN_CLASSES = re.compile(
+    r'\b(?:screen-reader-text|sr-only|visually-hidden|'
+    r'visually-hidden-focusable|elementor-screen-only|'
+    r'clip-text|assistive-text|offscreen-text)\b',
+    re.IGNORECASE,
+)
+
+
 class TextQualityAnalyzer:
     """
     Orchestrates all text quality analysis metrics.
     """
     
     @staticmethod
-    def extract_visible_text(soup: BeautifulSoup) -> str:
-        """Extract visible text from BeautifulSoup."""
-        # Remove unwanted tags
-        for el in soup(['script', 'style', 'noscript']):
+    def _clean_soup(soup: BeautifulSoup) -> BeautifulSoup:
+        """Remove all non-visible content (SF-compatible)."""
+        for c in soup.find_all(string=lambda s: isinstance(s, Comment)):
+            c.extract()
+
+        for el in soup(_STRIP_TAGS):
             el.decompose()
-        
-        # Simple text extraction
+
+        for el in soup.find_all(style=True):
+            style = (getattr(el, 'attrs', None) or {}).get('style', '').lower().replace(' ', '')
+            if 'display:none' in style or 'visibility:hidden' in style:
+                el.decompose()
+
+        for el in soup.find_all(attrs={'hidden': True}):
+            el.decompose()
+
+        for el in soup.find_all(attrs={'aria-hidden': 'true'}):
+            el.decompose()
+
+        for el in soup.find_all(class_=_HIDDEN_CLASSES):
+            el.decompose()
+
+        return soup
+
+    @staticmethod
+    def extract_visible_text(soup: BeautifulSoup) -> str:
+        """Extract visible text from BeautifulSoup (SF-compatible)."""
+        soup = TextQualityAnalyzer._clean_soup(soup)
         text = soup.get_text(separator=' ')
         return re.sub(r'\s+', ' ', text).strip()
+
+    @staticmethod
+    def _count_sentences(block_text: str) -> int:
+        """Count sentences from block-aware text (newline-separated)."""
+        if not block_text or not block_text.strip():
+            return 0
+        if '\n' in block_text:
+            count = 0
+            for line in block_text.split('\n'):
+                line = line.strip()
+                if not line:
+                    continue
+                endings = len(re.findall(r'[.!?]+', line))
+                count += max(1, endings)
+            return max(1, count)
+        count = len(re.findall(r'[.!?]+', block_text))
+        return max(1, count)
 
     @staticmethod
     def analyze(html_content: str, url: str, title: str, 
@@ -38,14 +88,16 @@ class TextQualityAnalyzer:
         Run all analysis modules and return consolidated results.
         """
         soup = BeautifulSoup(html_content, 'html.parser')
-        visible_text = TextQualityAnalyzer.extract_visible_text(soup)
+        cleaned = TextQualityAnalyzer._clean_soup(soup)
+
+        block_text = cleaned.get_text(separator='\n')
+        visible_text = re.sub(r'\s+', ' ', block_text).strip()
 
         # Derive word/sentence counts from the SAME text used for analysis
         # to keep Flesch formula inputs self-consistent.
         local_words = visible_text.split()
         local_word_count = len(local_words)
-        local_sentences = [s for s in re.split(r'(?<=[.!?])\s+', visible_text) if s.strip()]
-        local_sentence_count = max(len(local_sentences), 1)
+        local_sentence_count = TextQualityAnalyzer._count_sentences(block_text)
         
         results = {}
         

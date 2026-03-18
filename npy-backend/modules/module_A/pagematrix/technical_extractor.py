@@ -48,7 +48,13 @@ def measure_page_size(response_content: bytes) -> dict:
     """
     Measure page size in bytes.
     """
-    size_bytes = len(response_content)
+    return measure_page_size_from_int(len(response_content))
+
+
+def measure_page_size_from_int(size_bytes: int) -> dict:
+    """
+    Build page-size dict from a pre-computed byte count.
+    """
     size_kb = round(size_bytes / 1024, 2)
     size_mb = round(size_kb / 1024, 2)
     
@@ -56,7 +62,7 @@ def measure_page_size(response_content: bytes) -> dict:
         'sizeBytes': size_bytes,
         'sizeKb': size_kb,
         'sizeMb': size_mb,
-        'isLarge': size_mb > 5 # Flag if > 5MB
+        'isLarge': size_mb > 5
     }
 
 def extract_viewport(soup: BeautifulSoup) -> dict:
