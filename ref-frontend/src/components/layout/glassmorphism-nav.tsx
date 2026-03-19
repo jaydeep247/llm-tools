@@ -1,12 +1,10 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Menu, X, ArrowRight, User, LogOut, LayoutDashboard, UserCircle, ChevronDown } from "lucide-react"
+import { Menu, X, ArrowRight } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/useAuth"
-import { useLogoutMutation } from "@/store/api/authApi"
 
 const navigation = [
   { name: "Features", href: "#features" },
@@ -16,31 +14,14 @@ const navigation = [
 ]
 
 export function GlassmorphismNav() {
-  const router = useRouter()
+  const { user } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const [isVisible, setIsVisible] = useState(true)
   const [hasLoaded, setHasLoaded] = useState(false)
-  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false)
   const lastScrollY = useRef(0)
-  const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // Use the new auth hook
-  const { isAuthenticated, user, refreshAuth } = useAuth()
-  const [logout] = useLogoutMutation()
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsProfileDropdownOpen(false)
-      }
-    }
-
-    if (isProfileDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [isProfileDropdownOpen])
+  const targetHref = user ? '/dashboard' : '/signin'
+  const targetText = user ? 'Dashboard' : 'Sign In'
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -80,21 +61,6 @@ export function GlassmorphismNav() {
 
     return () => clearTimeout(timer)
   }, []) // Removed lastScrollY dependency to prevent infinite re-renders
-
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" })
-  }
-
-  const handleLogout = async () => {
-    try {
-      await logout().unwrap()
-    } catch {
-      // Server call failed — resetApiState is dispatched in onQueryStarted
-      // regardless, so local auth state is still cleared.
-    }
-    setIsProfileDropdownOpen(false)
-    router.push('/')
-  }
 
   const scrollToSection = (href: string) => {
     if (href.startsWith("/")) {
@@ -171,75 +137,15 @@ export function GlassmorphismNav() {
                 )}
               </div>
 
-              {/* Desktop CTA Button & Profile */}
+              {/* Desktop CTA Button */}
               <div className="hidden md:flex items-center gap-3">
-                {!isAuthenticated ? (
-                  <button
-                    className="relative bg-white hover:bg-gray-50 text-black font-medium px-6 py-2 rounded-full flex items-center transition-all duration-300 hover:scale-105 hover:shadow-lg cursor-pointer group"
-                    onClick={() => router.push('/signin')}
-                  >
-                    <span className="mr-2">Get Started</span>
-                    <ArrowRight size={16} className="transition-transform duration-300 group-hover:translate-x-1" />
-                  </button>
-                ) : (
-                  <div 
-                    className="relative" 
-                    ref={dropdownRef}
-                    onMouseEnter={() => setIsProfileDropdownOpen(true)}
-                    onMouseLeave={() => setIsProfileDropdownOpen(false)}
-                  >
-                    <button
-                      className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center hover:bg-white/20 transition-all duration-300 hover:scale-105 cursor-pointer"
-                      title={user?.name || user?.email || 'Profile'}
-                    >
-                      <User className="w-5 h-5 text-white" />
-                    </button>
-
-                    {/* Dropdown Menu */}
-                    {isProfileDropdownOpen && (
-                      <div className="absolute right-0 mt-1 w-56 bg-black/90 backdrop-blur-xl border border-white/20 rounded-2xl shadow-2xl py-2 z-50 before:content-[''] before:absolute before:-top-1 before:right-0 before:w-full before:h-1 before:bg-transparent">
-                        {/* User Info */}
-                        <div className="px-4 py-3 border-b border-white/10">
-                          <p className="text-sm font-semibold text-white truncate">{user?.name || user?.email?.split('@')[0] || 'User'}</p>
-                          <p className="text-xs text-white/60 truncate">{user?.email}</p>
-                        </div>
-
-                        {/* Menu Items */}
-                        <button
-                          onClick={() => {
-                            setIsProfileDropdownOpen(false)
-                            router.push('/dashboard')
-                          }}
-                          className="w-full px-4 py-2.5 text-left text-white/90 hover:bg-white/10 transition-colors duration-200 flex items-center gap-3 cursor-pointer"
-                        >
-                          <LayoutDashboard size={18} />
-                          <span className="text-sm font-medium">Go to Dashboard</span>
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            setIsProfileDropdownOpen(false)
-                            router.push('/dashboard/settings')
-                          }}
-                          className="w-full px-4 py-2.5 text-left text-white/90 hover:bg-white/10 transition-colors duration-200 flex items-center gap-3 cursor-pointer"
-                        >
-                          <UserCircle size={18} />
-                          <span className="text-sm font-medium">Profile</span>
-                        </button>
-
-                        <div className="border-t border-white/10 my-1"></div>
-
-                        <button
-                          onClick={handleLogout}
-                          className="w-full px-4 py-2.5 text-left text-red-400 hover:bg-red-500/20 transition-colors duration-200 flex items-center gap-3 cursor-pointer"
-                        >
-                          <LogOut size={18} />
-                          <span className="text-sm font-medium">Logout</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
+                <Link
+                  href={targetHref}
+                  className="relative bg-white hover:bg-gray-50 text-black font-medium px-6 py-2 rounded-full flex items-center transition-all duration-300 hover:scale-105 hover:shadow-lg cursor-pointer group"
+                >
+                  <span className="mr-2">{targetText}</span>
+                  <ArrowRight size={16} className="transition-transform duration-300 group-hover:translate-x-1" />
+                </Link>
               </div>
 
               {/* Mobile Menu Button */}
@@ -286,71 +192,19 @@ export function GlassmorphismNav() {
               <div className="flex flex-col space-y-1">
                 <div className="h-px bg-white/10 my-2" />
                 
-                {!isAuthenticated ? (
-                  <button
-                    className={`relative bg-white hover:bg-gray-50 text-black font-medium px-6 py-3 rounded-full flex items-center transition-all duration-300 hover:scale-105 hover:shadow-lg cursor-pointer group transform ${
-                      isOpen ? "animate-mobile-menu-item" : ""
-                    }`}
-                    style={{
-                      animationDelay: isOpen ? `${navigation.length * 80 + 150}ms` : "0ms",
-                    }}
-                    onClick={() => {
-                      setIsOpen(false)
-                      router.push('/signin')
-                    }}
-                  >
-                    <span className="mr-2">Get Started</span>
-                    <ArrowRight size={16} className="transition-transform duration-300 group-hover:translate-x-1" />
-                  </button>
-                ) : (
-                  <>
-                    <button
-                      className={`w-full py-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center gap-2 hover:bg-white/20 transition-all duration-300 hover:scale-105 cursor-pointer transform ${
-                        isOpen ? "animate-mobile-menu-item" : ""
-                      }`}
-                      style={{
-                        animationDelay: isOpen ? `${navigation.length * 80 + 150}ms` : "0ms",
-                      }}
-                      onClick={() => {
-                        setIsOpen(false)
-                        router.push('/dashboard')
-                      }}
-                    >
-                      <LayoutDashboard className="w-5 h-5 text-white" />
-                      <span className="text-white font-medium">Go to Dashboard</span>
-                    </button>
-                    <button
-                      className={`w-full py-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center gap-2 hover:bg-white/20 transition-all duration-300 hover:scale-105 cursor-pointer transform ${
-                        isOpen ? "animate-mobile-menu-item" : ""
-                      }`}
-                      style={{
-                        animationDelay: isOpen ? `${navigation.length * 80 + 230}ms` : "0ms",
-                      }}
-                      onClick={() => {
-                        setIsOpen(false)
-                        router.push('/dashboard/settings')
-                      }}
-                    >
-                      <UserCircle className="w-5 h-5 text-white" />
-                      <span className="text-white font-medium">Profile</span>
-                    </button>
-                    <button
-                      className={`w-full py-3 rounded-full bg-red-500/20 backdrop-blur-md border border-red-300/30 flex items-center justify-center gap-2 hover:bg-red-500/30 transition-all duration-300 hover:scale-105 cursor-pointer transform ${
-                        isOpen ? "animate-mobile-menu-item" : ""
-                      }`}
-                      style={{
-                        animationDelay: isOpen ? `${navigation.length * 80 + 310}ms` : "0ms",
-                      }}
-                      onClick={() => {
-                        setIsOpen(false)
-                        handleLogout()
-                      }}
-                    >
-                      <LogOut className="w-5 h-5 text-white" />
-                      <span className="text-white font-medium">Logout</span>
-                    </button>
-                  </>
-                )}
+                <Link
+                  href={targetHref}
+                  className={`relative bg-white hover:bg-gray-50 text-black font-medium px-6 py-3 rounded-full flex items-center transition-all duration-300 hover:scale-105 hover:shadow-lg cursor-pointer group transform ${
+                    isOpen ? "animate-mobile-menu-item" : ""
+                  }`}
+                  style={{
+                    animationDelay: isOpen ? `${navigation.length * 80 + 150}ms` : "0ms",
+                  }}
+                  onClick={() => setIsOpen(false)}
+                >
+                  <span className="mr-2">{targetText}</span>
+                  <ArrowRight size={16} className="transition-transform duration-300 group-hover:translate-x-1" />
+                </Link>
               </div>
             </div>
           </div>

@@ -97,7 +97,7 @@ export default function OnboardingPage() {
     }
     // Not authenticated → go to home (also handled by middleware, this is a fallback)
     if (!user) {
-      router.replace('/')
+      window.location.replace('/signin')
     }
   }, [user, isAuthLoading, router])
 

@@ -20,7 +20,7 @@ export default function DashboardLayout({
   useEffect(() => {
     if (isAuthLoading) return
     if (!user) {
-      router.replace('/signin')
+      window.location.replace('/signin')
     } else if (user?.hasNew === true) {
       router.replace('/onboarding')
     }

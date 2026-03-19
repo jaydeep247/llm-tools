@@ -30,6 +30,7 @@ export function middleware(request: NextRequest) {
   const isAdmin = pathname.startsWith('/admin')
   const isOnboarding = pathname === '/onboarding'
   const isDashboard = pathname.startsWith('/dashboard')
+  const isSignin = pathname === '/signin'
 
   // ── Admin route protection ──────────────────────────────────────────────
   // All /admin/* paths (except /admin/login itself) require a valid
@@ -54,14 +55,20 @@ export function middleware(request: NextRequest) {
 
   // ── Regular user route protection ──────────────────────────────────────
   const token = request.cookies.get(AUTH_COOKIE)?.value
+
+  // If user is already authenticated and tries to visit /signin, redirect to /dashboard
+  if (token && isSignin) {
+    return NextResponse.redirect(new URL('/dashboard', request.url))
+  }
+
   if (!token && (isOnboarding || isDashboard)) {
-    return NextResponse.redirect(new URL('/', request.url))
+    return NextResponse.redirect(new URL('/signin', request.url))
   }
 
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: ['/onboarding', '/dashboard/:path*', '/admin/:path*'],
+  matcher: ['/onboarding', '/dashboard/:path*', '/admin/:path*', '/signin'],
 }
 
