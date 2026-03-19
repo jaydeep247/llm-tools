@@ -77,6 +77,7 @@ def execute_schema_job(payload: dict) -> bool:
         result = {"success": False, "error": "RAW_HTML_NOT_FOUND"}
     else:
         content_hash = hashlib.md5(html_content.encode("utf-8", errors="ignore")).hexdigest()
+        generator_version = getattr(SchemaGenerator, "GENERATOR_VERSION", "unknown")
         mongo_manager.connect()
         existing = mongo_manager.schemas.find_one({"jobId": job_id, "url": url})
         if (
@@ -84,6 +85,7 @@ def execute_schema_job(payload: dict) -> bool:
             and existing.get("success") is True
             and existing.get("schema") is not None
             and existing.get("schemaType") == schema_type_norm
+            and existing.get("generatorVersion") == generator_version
             and existing.get("contentHash") == content_hash
         ):
             result = {
@@ -93,6 +95,7 @@ def execute_schema_job(payload: dict) -> bool:
                 "schema_text": existing.get("schema_text"),
                 "rdfa_markup": existing.get("rdfa_markup", ""),
                 "cached": True,
+                "generatorVersion": generator_version,
             }
         else:
             generator = SchemaGenerator()
@@ -100,6 +103,7 @@ def execute_schema_job(payload: dict) -> bool:
             result["cached"] = False
             result["contentHash"] = content_hash
             result["schemaType"] = schema_type_norm
+            result["generatorVersion"] = generator_version
 
     mongo_manager.schemas.update_one(
         {"jobId": job_id, "url": url},

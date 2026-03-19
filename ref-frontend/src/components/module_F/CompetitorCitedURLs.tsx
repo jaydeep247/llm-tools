@@ -111,6 +111,8 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
 
   const hasData = sourceData.length > 0
   const sourceRec = normalizeMetricRecommendation(effectiveData?.recommendations?.source_influence)
+  const domainAuthorityRec = normalizeMetricRecommendation(effectiveData?.recommendations?.avg_domain_authority)
+  const citationsRec = normalizeMetricRecommendation(effectiveData?.recommendations?.total_citations)
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -186,7 +188,30 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
                     <Globe className="w-5 h-5 text-zinc-100" />
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-zinc-100 block">Avg Domain Authority</span>
+                    <span className="text-sm font-medium text-zinc-100 block flex items-center gap-2">
+                      Avg Domain Authority
+                      {domainAuthorityRec && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="w-3.5 h-3.5 text-zinc-500 hover:text-zinc-300 transition-colors" />
+                            </TooltipTrigger>
+                            <TooltipContent className="bg-zinc-900 border-zinc-800 text-zinc-300 max-w-xs text-xs p-3">
+                              {domainAuthorityRec.why && (
+                                <>
+                                  <div className="font-medium text-zinc-100 mb-1">Why this metric</div>
+                                  <div className="text-zinc-300">{domainAuthorityRec.why}</div>
+                                </>
+                              )}
+                              <div className={cn('font-medium text-zinc-100', domainAuthorityRec.why ? 'mt-3 mb-1' : 'mb-1')}>
+                                How to improve
+                              </div>
+                              <div className="text-zinc-300">{domainAuthorityRec.fix}</div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </span>
                     <span className="text-xs text-zinc-400 block mt-0.5 leading-relaxed">Authority of cited sources</span>
                   </div>
                 </div>
@@ -206,7 +231,30 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
                     <Link2 className="w-5 h-5 text-zinc-100" />
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-zinc-100 block">Total Citations</span>
+                    <span className="text-sm font-medium text-zinc-100 block flex items-center gap-2">
+                      Total Citations
+                      {citationsRec && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="w-3.5 h-3.5 text-zinc-500 hover:text-zinc-300 transition-colors" />
+                            </TooltipTrigger>
+                            <TooltipContent className="bg-zinc-900 border-zinc-800 text-zinc-300 max-w-xs text-xs p-3">
+                              {citationsRec.why && (
+                                <>
+                                  <div className="font-medium text-zinc-100 mb-1">Why this metric</div>
+                                  <div className="text-zinc-300">{citationsRec.why}</div>
+                                </>
+                              )}
+                              <div className={cn('font-medium text-zinc-100', citationsRec.why ? 'mt-3 mb-1' : 'mb-1')}>
+                                How to improve
+                              </div>
+                              <div className="text-zinc-300">{citationsRec.fix}</div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </span>
                     <span className="text-xs text-zinc-400 block mt-0.5 leading-relaxed">Sources identified</span>
                   </div>
                 </div>

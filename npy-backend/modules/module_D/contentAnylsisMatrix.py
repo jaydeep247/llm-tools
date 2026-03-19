@@ -338,7 +338,127 @@ JSON:
         except Exception as e:
             logging.error(f"OpenAI summarization failed: {str(e)}")
             return "Summary unavailable (Quota Exceeded)"
-      
+    
+    def get_metric_help(self) -> Dict:
+        """
+        Static help text for metrics used across Prompt Intelligence and Tracking.
+        Contains 'meaning' and 'improve' guidance for each metric so frontend can
+        render tooltips consistently.
+        """
+        return {
+            "discover_prompts": {
+                "content_type_accuracy": {
+                    "meaning": "How clearly the page signals its type (blog, product, FAQ, landing). Higher means layout, headings and cues make the type obvious.",
+                    "improve": "Tighten page structure: clear H1, sequential headings, consistent sectioning; add schema for the page type; keep CTAs and meta elements aligned to the type."
+                },
+                "prompt_intent_match": {
+                    "meaning": "How well the page answers the dominant user intent (informational, commercial, comparative, transactional, agent-style).",
+                    "improve": "Map content to the right journey stage. Add direct answers, comparisons or purchase paths. Use headings that echo the core questions users ask."
+                },
+                "visibility_impact": {
+                    "meaning": "Potential of the page to be surfaced by AI/search based on relevance, depth, freshness and authority signals.",
+                    "improve": "Increase topical depth, add supporting facts/entities, refresh content, strengthen internal links, add structured data and credible references."
+                },
+                "suggested_content_type": {
+                    "meaning": "Predicted page type inferred from structure and cues.",
+                    "improve": "Align layout and microcopy to the suggested type or refactor to the intended type with matching schema and UX patterns."
+                }
+            },
+            "clusters_and_intent": {
+                "clustering_accuracy": {
+                    "meaning": "Confidence that prompts were assigned to the correct intent buckets.",
+                    "improve": "Make intent cues explicit: question-style headings for informational, pricing/specs for commercial, comparison tables for comparative, clear CTAs for transactional."
+                },
+                "coverage_percentage": {
+                    "meaning": "Percent of considered prompts that could be confidently mapped to one of the five intents.",
+                    "improve": "Add sections that address missing intents. If many prompts are uncategorized, clarify the page focus and reduce mixed content."
+                },
+                "total_prompts": {
+                    "meaning": "Total number of candidate prompts inferred for the page.",
+                    "improve": "Expand topic coverage with FAQs, comparisons and how‑to sections to naturally capture more relevant prompts."
+                },
+                "intent_meanings": {
+                    "informational": "Users seek knowledge or answers. Expect questions and how‑to content.",
+                    "commercial": "Users research solutions, features and suitability. Expect specs, pricing ranges and benefits.",
+                    "comparative": "Users compare options. Expect side‑by‑side tables, pros/cons and differentiators.",
+                    "transactional": "Users want to take action. Expect CTAs, checkout/signup and trust signals.",
+                    "agent_style": "Assistant/chat style interactions where short, direct responses and structured facts matter."
+                }
+            },
+            "difficulty_and_opportunity": {
+                "difficulty_score": {
+                    "meaning": "How hard it is to win the prompt given current content strength and competition signals.",
+                    "improve": "Target sub‑prompts with clearer angles; strengthen page authority through internal links, entities and references; increase answer density."
+                },
+                "complexity_level": {
+                    "meaning": "Keyword/prompt complexity based on diversity and phrase length.",
+                    "improve": "Break complex prompts into structured sections. Use scannable headings and tables to simplify evaluation."
+                },
+                "ai_generation_feasibility": {
+                    "meaning": "Likelihood that models can produce confident answers from this page.",
+                    "improve": "Add explicit facts, definitions, step‑by‑steps and schema so models can extract reliable snippets."
+                }
+            },
+            "entity_detection": {
+                "entities_detected_count": {
+                    "meaning": "How many expected/required entities were found in the content. Higher means the page mentions more of the important concepts that search engines and AI systems use for understanding.",
+                    "improve": "Add missing entities naturally in headings, definitions, lists and FAQs. Use synonyms and related terms, and connect entities with clear relationships (e.g., features, benefits, steps, comparisons)."
+                },
+                "entity_coverage_score": {
+                    "meaning": "Percent of the required entity set that appears in the content. A higher score indicates broader topical coverage around the page's main subject.",
+                    "improve": "Review missing entities and add dedicated sections that explain them. Include supporting facts, examples, and internal links to strengthen topical completeness."
+                },
+                "entity_relevance_score": {
+                    "meaning": "How closely the entities found on the page align with the likely search intent and queries. Higher means the page entities are on-topic and reinforce the core topic.",
+                    "improve": "Remove or de-emphasize off-topic entities, tighten the page focus, and expand sections that directly answer the main user questions. Align headings and examples to the target intent."
+                }
+            },
+            "visibility_breakdown": {
+                "visibility_score_breakdown": {
+                    "meaning": "Component scores that contribute to overall visibility. Each factor highlights a different reason the page may (or may not) be surfaced by search and AI systems.",
+                    "improve": "Improve the lowest factor first. Strengthen topical alignment (keywords), depth (coverage), freshness (updates), and authority (sources and trust signals)."
+                },
+                "keyword_relevance": {
+                    "meaning": "How well the page language aligns with target queries and topic terms. Higher means the content uses the right words in the right places for the intended searches.",
+                    "improve": "Strengthen topical terms in the H1/H2s, intro, and key sections. Add related phrases and questions users ask, without keyword stuffing."
+                },
+                "content_depth": {
+                    "meaning": "How thoroughly the page covers the topic compared to what users expect. Higher means the content answers more questions with enough detail.",
+                    "improve": "Add missing subtopics, step-by-step explanations, examples, and comparison tables. Expand thin sections and ensure the page has a clear, scannable structure."
+                },
+                "freshness": {
+                    "meaning": "How up-to-date the information appears. Higher means the content reflects recent changes and current best practices.",
+                    "improve": "Update outdated stats, tools, and recommendations. Add a visible 'last updated' and refresh sections that change over time (pricing, features, regulations)."
+                },
+                "authority_signals": {
+                    "meaning": "How credible and trustworthy the page looks based on sources, expertise, and supporting signals. Higher means stronger E-E-A-T cues.",
+                    "improve": "Add expert authorship, citations to reputable sources, original data/examples, strong internal linking, and trust elements like policies, reviews, and credentials."
+                }
+            },
+            "add_to_tracking": {
+                "prompt_visibility_score": {
+                    "meaning": "Estimated visibility of the prompt in AI results (0–100). Combines position and page quality.",
+                    "improve": "Improve ranking signals: clearer intent match, richer entities, stronger internal links and citations."
+                },
+                "ctr_percent": {
+                    "meaning": "Estimated click‑through rate for the prompt given visibility and engagement.",
+                    "improve": "Increase snippet appeal: concise answers up top, compelling meta/snippet text and relevant sub‑sections."
+                },
+                "engagement_score": {
+                    "meaning": "Estimated engagement quality based on content depth and credibility.",
+                    "improve": "Add expert signals, examples, data and clear structure to keep users engaged."
+                },
+                "traffic_estimate": {
+                    "meaning": "Relative traffic potential derived from visibility, engagement and citation counts.",
+                    "improve": "Prioritize prompts with high intent and improve entry points (internal links, hub pages) to funnel traffic."
+                },
+                "visibility_change": {
+                    "meaning": "Change in visibility since previous measurement.",
+                    "improve": "Track edits vs change. Double‑down on edits that moved the metric; revert or refine ones that hurt."
+                }
+            }
+        }
+    
     def analyze_content_metrics(self, content: str, url: str) -> Dict:
         """
         Analyze three key metrics + prompt intent clustering:
@@ -517,6 +637,12 @@ Return JSON:
                 'suggested_content_type': result.get('suggested_content_type', 'Unknown'),
                 'prompt_intent_details': prompt_intent_details,
                 'visibility_factors': visibility_factors,
+                'metric_help': {
+                    **self.get_metric_help().get("discover_prompts", {}),
+                    **self.get_metric_help().get("clusters_and_intent", {}),
+                    **self.get_metric_help().get("entity_detection", {}),
+                    **self.get_metric_help().get("visibility_breakdown", {}),
+                },
             }
             
         except Exception as e:
@@ -853,6 +979,7 @@ Scoring Guide:
             "metrics": metrics,
             "history": history,
             "updatedAt": datetime.utcnow(),
+            "metric_help": self.get_metric_help().get("add_to_tracking", {}),
         }
 
         prompt_tracking_col.update_one(

@@ -297,13 +297,28 @@ class CompetitorAIIntelligence:
         comp_win_rate = summary.get("competitor_win_rate", 0)
         
         avg_gap_score = 0
+        total_missing_prompts = 0
+        avg_potential_gain_percent = 0
+        top_gap_competitor_name = ""
+        top_gap_score = 0
         if gap_data:
             avg_gap_score = sum(g.get("gapScore", 0) for g in gap_data) / len(gap_data)
+            total_missing_prompts = sum(int((g or {}).get("missingPrompts") or 0) for g in gap_data)
+            avg_potential_gain_percent = sum(float((g or {}).get("potentialGainPercent") or 0) for g in gap_data) / len(gap_data)
+            top_gap = max(gap_data, key=lambda g: float((g or {}).get("gapScore") or 0))
+            top_gap_competitor_name = str((top_gap or {}).get("competitor") or "").strip()
+            top_gap_score = float((top_gap or {}).get("gapScore") or 0)
             
         source_list = source_data.get("competitor_source_analysis") or []
         avg_influence = 0
+        avg_domain_authority = 0
+        total_citations = 0
+        avg_unique_domains = 0
         if source_list:
-            avg_influence = sum(s.get("source_domain_influence_score", 0) for s in source_list) / len(source_list)
+            avg_influence = sum(float((s or {}).get("source_domain_influence_score") or 0) for s in source_list) / len(source_list)
+            avg_domain_authority = sum(float((s or {}).get("average_domain_authority") or 0) for s in source_list) / len(source_list)
+            total_citations = sum(int(s.get("citation_count", 0) or 0) for s in source_list)
+            avg_unique_domains = sum(int(s.get("unique_domains", 0) or 0) for s in source_list) / len(source_list)
 
         top_comp = None
         if competitors and isinstance(competitors, list):
@@ -322,7 +337,13 @@ class CompetitorAIIntelligence:
             f"- Brand wins: {brand_wins}/{total_prompts} ({brand_win_rate}%)\n"
             f"- Competitor wins: {competitor_wins}/{total_prompts} ({comp_win_rate}%)\n"
             f"- Content Gap Score (avg): {avg_gap_score}/100 (higher = bigger gap)\n"
+            f"- Missing prompts (total across competitors): {total_missing_prompts}\n"
+            f"- Potential gain (avg %): {avg_potential_gain_percent}%\n"
+            f"- Top gap competitor: {top_gap_competitor_name} ({top_gap_score}/100)\n"
             f"- Competitor Source Influence (avg): {avg_influence}/100\n"
+            f"- Competitor Source Domain Authority (avg): {avg_domain_authority}/100\n"
+            f"- Competitor Source Citations (total): {total_citations}\n"
+            f"- Competitor Source Unique Domains (avg): {avg_unique_domains}\n"
             f"- Top competitor: {top_comp_name} (visibility {top_comp_vis}/100, share {top_comp_share}%, avg rank {top_comp_avg_rank})\n\n"
             "For EACH metric below, write TWO parts:\n"
             "1) why: one short sentence explaining WHY the number is where it is using the data above.\n"
@@ -333,7 +354,11 @@ class CompetitorAIIntelligence:
             "- brand_win_rate\n"
             "- competitor_win_rate\n"
             "- content_gap_score\n"
+            "- missing_prompts\n"
+            "- potential_gain\n"
             "- source_influence\n"
+            "- avg_domain_authority\n"
+            "- total_citations\n"
             "- rank_delta (explain what Rank Δ vs Brand means and how to reduce it)\n\n"
             "Return ONLY valid JSON in this exact structure:\n"
             "{\n"
@@ -342,7 +367,11 @@ class CompetitorAIIntelligence:
             '  "brand_win_rate": {"why": "...", "fix": "..."},\n'
             '  "competitor_win_rate": {"why": "...", "fix": "..."},\n'
             '  "content_gap_score": {"why": "...", "fix": "..."},\n'
+            '  "missing_prompts": {"why": "...", "fix": "..."},\n'
+            '  "potential_gain": {"why": "...", "fix": "..."},\n'
             '  "source_influence": {"why": "...", "fix": "..."},\n'
+            '  "avg_domain_authority": {"why": "...", "fix": "..."},\n'
+            '  "total_citations": {"why": "...", "fix": "..."},\n'
             '  "rank_delta": {"why": "...", "fix": "..."}\n'
             "}\n"
         )
@@ -394,7 +423,11 @@ class CompetitorAIIntelligence:
                 "brand_win_rate",
                 "competitor_win_rate",
                 "content_gap_score",
+                "missing_prompts",
+                "potential_gain",
                 "source_influence",
+                "avg_domain_authority",
+                "total_citations",
                 "rank_delta",
             ]:
                 n = normalize(resp_data.get(k))
@@ -426,10 +459,30 @@ class CompetitorAIIntelligence:
                     "why": f"Avg content gap score is {round(avg_gap_score, 1)}/100; higher means missing coverage/entities for key prompts.",
                     "fix": "Create pages for uncovered prompts, add missing entities/features, use tables/lists for extraction, add FAQs for long-tail prompts, link related pages into a topic cluster.",
                 }
+            if "missing_prompts" not in recs:
+                recs["missing_prompts"] = {
+                    "why": f"There are {int(total_missing_prompts)} missing prompt positions across competitors (rank missing or outside top 3), which signals gaps you can target.",
+                    "fix": "Prioritize prompts where top competitors are missing, publish prompt-target pages with direct answers, add comparisons/alternatives blocks, ensure internal links to these pages, and align titles/headings to the exact prompt language.",
+                }
+            if "potential_gain" not in recs:
+                recs["potential_gain"] = {
+                    "why": f"Potential gain is ~{round(avg_potential_gain_percent, 1)}% on average; bigger gaps mean more visibility you can capture with targeted content.",
+                    "fix": "Start with the highest-opportunity prompts, improve topical depth and entity coverage, add structured sections for extraction, strengthen citations and trust signals, and iterate using re-runs to confirm rank improvements.",
+                }
             if "source_influence" not in recs:
                 recs["source_influence"] = {
                     "why": f"Avg source influence is {round(avg_influence, 1)}/100; weaker citations reduce model trust signals.",
                     "fix": "Publish original research, secure citations from high-authority domains, build partner pages and integrations, get listed in trusted directories, improve E-E-A-T signals (authors, references).",
+                }
+            if "avg_domain_authority" not in recs:
+                recs["avg_domain_authority"] = {
+                    "why": f"Avg citing-domain authority is {round(avg_domain_authority, 1)}/100; higher-authority sources tend to confer stronger trust signals.",
+                    "fix": "Pitch data-backed stories to high-DA publishers, publish original benchmarks and reports, build partner/integration pages for authoritative mentions, earn .edu/.gov/community citations where relevant, improve PR targeting and newsroom assets.",
+                }
+            if "total_citations" not in recs:
+                recs["total_citations"] = {
+                    "why": f"Total competitor citations tracked is {int(total_citations)}; higher citation volume often correlates with broader brand footprint and recall.",
+                    "fix": "Increase cite-worthy assets (studies, tools, stats pages), run digital PR campaigns around unique data, expand distribution via partners/directories, refresh cornerstone pages to attract links, pursue consistent outreach to top industry publications.",
                 }
             if "rank_delta" not in recs:
                 recs["rank_delta"] = {
