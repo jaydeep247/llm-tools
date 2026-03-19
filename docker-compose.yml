@@ -44,24 +44,6 @@ services:
       DATAFORSEO_LOGIN: ${DATAFORSEO_LOGIN}
       DATAFORSEO_PASSWORD: ${DATAFORSEO_PASSWORD}
 
-  crawl-worker:
-    build: ./npy-backend
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    environment:
-      REDIS_URL: ${REDIS_URL:-}
-      MONGO_URI: mongodb://host.docker.internal:27017
-      MONGO_DB_NAME: ${MONGO_DB_NAME:-seo_crawler}
-      SCRAPY_SETTINGS_MODULE: workers.crawl_worker.spiders.settings
-      PYTHONPATH: /app
-      RABBITMQ_URL: ${RABBITMQ_URL:-}
-      ALLOW_LOCAL_INFRA_IN_PROD: ${ALLOW_LOCAL_INFRA_IN_PROD:-false}
-      MAX_CRAWL_PAGES: ${MAX_CRAWL_PAGES:-10}
-    command: python workers/crawl_worker/run_worker.py
-    deploy:
-      replicas: 0
-    restart: unless-stopped
-
   ref-frontend:
     build:
       context: ./ref-frontend

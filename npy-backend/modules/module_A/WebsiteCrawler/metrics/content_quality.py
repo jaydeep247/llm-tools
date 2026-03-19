@@ -45,33 +45,36 @@ def count_total_syllables(text: str) -> int:
         
     return total_syllables
 
-def calculate_flesch_reading_ease(text: str, sentence_count: int, word_count: int) -> float:
+def calculate_flesch_reading_ease(text: str, sentence_count: int = 0, word_count: int = 0) -> float:
     """
     Calculate Flesch Reading Ease score.
-    Formula: 206.835 - 1.015 * (total words / total sentences) - 84.6 * (total syllables / total words)
+    SF Flesch Formula: 206.835 - 1.015 * (total words / total sentences) - 84.6 * (total syllables / total words)
     
     NOTE: sentence_count and word_count should be computed using the
-    Screaming-Frog-compatible methodology (sentence boundaries split on
-    terminal punctuation + whitespace + uppercase letter).
+    Screaming Frog methodology (block-aware) and passed in.
     """
     if not text or not text.strip():
         return 0.0
-    if word_count == 0:
-        return 0.0
+
+    # Fallback if metrics aren't provided
+    if word_count <= 0:
+        word_count = len([w for w in re.split(r'\W+', text) if w])
         
-    actual_sentence_count = sentence_count
-    if actual_sentence_count == 0:
-        actual_sentence_count = 1
-            
-    syllable_count = count_total_syllables(text)
-    
-    avg_sentence_length = word_count / actual_sentence_count
-    avg_syllables_per_word = syllable_count / word_count
-    
-    score = 206.835 - (1.015 * avg_sentence_length) - (84.6 * avg_syllables_per_word)
-    
-    # Clamp between 0 and 100
-    return max(0.0, min(100.0, round(score, 2)))
+    if sentence_count <= 0:
+        from modules.module_A.Wordcount_analysis.wordcount_extractor import get_sentence_count
+        sentence_count = get_sentence_count(text)
+
+    # Calculate syllables
+    syllable_count = 0
+    words = [w for w in re.split(r'\W+', text) if w]
+    for word in words:
+        syllable_count += count_total_syllables(word)
+
+    if word_count == 0 or sentence_count == 0:
+        return 0.0
+
+    score = 206.835 - (1.015 * (word_count / sentence_count)) - (84.6 * (syllable_count / word_count))
+    return round(max(0.0, min(100.0, score)), 2)
 
 def get_readability_level(score: float) -> str:
     """

@@ -1,6 +1,7 @@
 from typing import Dict, Any, Optional
 from bs4 import BeautifulSoup, Comment
 import re
+from modules.module_A.Wordcount_analysis.wordcount_extractor import _clean_soup, _get_block_text, extract_visible_text, get_sentence_count
 
 # Import sub-modules
 from .readability_score import analyze_readability
@@ -14,90 +15,32 @@ from .tone_style import analyze_tone_style
 from .text_ratio import calculate_text_ratio
 from .information_quality import analyze_information_quality
 
-# Tags whose subtree is never visible
-_STRIP_TAGS = ['script', 'style', 'noscript', 'svg', 'iframe', 'template']
-
-# CSS classes that hide content visually (screen-reader / accessibility text)
-_HIDDEN_CLASSES = re.compile(
-    r'\b(?:screen-reader-text|sr-only|visually-hidden|'
-    r'visually-hidden-focusable|elementor-screen-only|'
-    r'clip-text|assistive-text|offscreen-text)\b',
-    re.IGNORECASE,
-)
-
-
 class TextQualityAnalyzer:
     """
     Orchestrates all text quality analysis metrics.
     """
-    
-    @staticmethod
-    def _clean_soup(soup: BeautifulSoup) -> BeautifulSoup:
-        """Remove all non-visible content (SF-compatible)."""
-        for c in soup.find_all(string=lambda s: isinstance(s, Comment)):
-            c.extract()
 
-        for el in soup(_STRIP_TAGS):
-            el.decompose()
 
-        for el in soup.find_all(style=True):
-            style = (getattr(el, 'attrs', None) or {}).get('style', '').lower().replace(' ', '')
-            if 'display:none' in style or 'visibility:hidden' in style:
-                el.decompose()
-
-        for el in soup.find_all(attrs={'hidden': True}):
-            el.decompose()
-
-        for el in soup.find_all(attrs={'aria-hidden': 'true'}):
-            el.decompose()
-
-        for el in soup.find_all(class_=_HIDDEN_CLASSES):
-            el.decompose()
-
-        return soup
-
-    @staticmethod
-    def extract_visible_text(soup: BeautifulSoup) -> str:
-        """Extract visible text from BeautifulSoup (SF-compatible)."""
-        soup = TextQualityAnalyzer._clean_soup(soup)
-        text = soup.get_text(separator=' ')
-        return re.sub(r'\s+', ' ', text).strip()
-
-    @staticmethod
-    def _count_sentences(block_text: str) -> int:
-        """Count sentences from block-aware text (newline-separated)."""
-        if not block_text or not block_text.strip():
-            return 0
-        if '\n' in block_text:
-            count = 0
-            for line in block_text.split('\n'):
-                line = line.strip()
-                if not line:
-                    continue
-                endings = len(re.findall(r'[.!?]+', line))
-                count += max(1, endings)
-            return max(1, count)
-        count = len(re.findall(r'[.!?]+', block_text))
-        return max(1, count)
-
-    @staticmethod
-    def analyze(html_content: str, url: str, title: str, 
-               word_count: int, sentence_count: int, paragraph_count: int, heading_count: int,
-               target_keyword: Optional[str] = None) -> Dict[str, Any]:
+    def analyze(self, html_content: str, url: str, title: str, 
+                word_count: Optional[int] = None, sentence_count: Optional[int] = None, paragraph_count: int = 0, heading_count: int = 0,
+                target_keyword: Optional[str] = None) -> Dict[str, Any]:
         """
-        Run all analysis modules and return consolidated results.
+        Analyze content quality. Supports pre-calculated word and sentence counts
+        to ensure Flesch score uses exactly the same metrics reported elsewhere.
         """
-        soup = BeautifulSoup(html_content, 'html.parser')
-        cleaned = TextQualityAnalyzer._clean_soup(soup)
-
-        block_text = cleaned.get_text(separator='\n')
-        visible_text = re.sub(r'\s+', ' ', block_text).strip()
-
-        # Derive word/sentence counts from the SAME text used for analysis
-        # to keep Flesch formula inputs self-consistent.
-        local_words = visible_text.split()
-        local_word_count = len(local_words)
-        local_sentence_count = TextQualityAnalyzer._count_sentences(block_text)
+        soup = BeautifulSoup(html_content, 'lxml')
+        
+        # Use centralized extraction logic that matches SF
+        work = _clean_soup(soup)
+        body = work.body if work.body else work
+        block_text = _get_block_text(body)
+        visible_text = extract_visible_text(soup)
+        
+        # Determine exact word and sentence counts for Flesch consistency
+        # SF splits words by non-word chars
+        words_list = [w for w in re.split(r'\W+', visible_text) if w]
+        local_word_count = word_count if word_count is not None else len(words_list)
+        local_sentence_count = sentence_count if sentence_count is not None else get_sentence_count('', block_text)
         
         results = {}
         
@@ -126,12 +69,45 @@ class TextQualityAnalyzer:
         results['tone_style'] = analyze_tone_style(visible_text)
         
         # 9. Text Ratio
-        results['text_ratio'] = calculate_text_ratio(html_content, visible_text)
+        # Text Ratio should NOT exclude nav/footer
+        # text_ratio module now handles its own extraction logic
+        results['text_ratio'] = calculate_text_ratio(html_content)
         
         # 10. Missing or Weak Information
         results['information_quality'] = analyze_information_quality(visible_text, heading_count)
         
         return results
+
+    def extract_metrics(self, html: str, word_count: Optional[int] = None, sentence_count: Optional[int] = None) -> Dict[str, Any]:
+        """Extract all metrics safely from HTML."""
+        if not html:
+            return {}
+            
+        try:
+            soup = BeautifulSoup(html, 'lxml')
+            
+            # Use module_A's text extraction logic which excludes nav/footer
+            work = _clean_soup(soup)
+            
+            # Generate block text for accurate sentence counting
+            body = work.body if work.body else work
+            block_text = _get_block_text(body)
+            
+            # Word Count is based on visible text
+            visible_text = extract_visible_text(soup)
+            
+            return self.analyze(
+                html_content=html,
+                url="",
+                title="",
+                word_count=word_count,
+                sentence_count=sentence_count
+            )
+            
+        except Exception as e:
+            return {"error": str(e)}
+
+
 
 # Singleton instance
 analyzer = TextQualityAnalyzer()

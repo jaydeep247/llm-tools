@@ -2,40 +2,39 @@ from bs4 import BeautifulSoup, Comment
 import re
 import json
 
-# Tags whose subtree is never visible
-_STRIP_TAGS = ['script', 'style', 'noscript', 'svg', 'iframe', 'template']
+# Tags whose subtree is never visible or should be excluded from content area
+_STRIP_TAGS = ['script', 'style', 'noscript', 'svg', 'iframe', 'template', 'nav', 'footer']
 
-# CSS classes that hide content visually (screen-reader / accessibility text)
-_HIDDEN_CLASSES = re.compile(
-    r'\b(?:screen-reader-text|sr-only|visually-hidden|'
-    r'visually-hidden-focusable|elementor-screen-only|'
-    r'clip-text|assistive-text|offscreen-text)\b',
-    re.IGNORECASE,
-)
+BLOCK_ELEMENTS = {
+    'address', 'article', 'aside', 'blockquote', 'canvas', 'dd', 'div', 'dl', 'dt',
+    'fieldset', 'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'header', 'hr', 'li', 'main', 'nav', 'noscript', 'ol', 'p', 'pre', 'section', 'table', 'tfoot', 'ul', 'video',
+    'tr', 'td', 'th', 'br'
+}
 
+def _get_block_text(element) -> str:
+    texts = []
+    for child in getattr(element, 'children', []):
+        if isinstance(child, str):
+            texts.append(child)
+        else:
+            is_block = getattr(child, 'name', '') in BLOCK_ELEMENTS
+            if is_block:
+                texts.append('\n')
+            texts.append(_get_block_text(child))
+            if is_block:
+                texts.append('\n')
+    return ''.join(texts)
 
 def _clean_soup(soup: BeautifulSoup) -> BeautifulSoup:
-    """Remove all non-visible content from a soup copy (SF-compatible)."""
+    """Remove non-content elements from a soup copy (SF-compatible).
+    Screaming Frog does NOT consider visibility (like display:none)."""
     work = BeautifulSoup(str(soup), 'lxml')
 
     for c in work.find_all(string=lambda s: isinstance(s, Comment)):
         c.extract()
 
     for element in work(_STRIP_TAGS):
-        element.extract()
-
-    for element in work.find_all(style=True):
-        style = (getattr(element, 'attrs', None) or {}).get('style', '').lower().replace(' ', '')
-        if 'display:none' in style or 'visibility:hidden' in style:
-            element.extract()
-
-    for element in work.find_all(attrs={'hidden': True}):
-        element.extract()
-
-    for element in work.find_all(attrs={'aria-hidden': 'true'}):
-        element.extract()
-
-    for element in work.find_all(class_=_HIDDEN_CLASSES):
         element.extract()
 
     return work
@@ -59,11 +58,11 @@ def count_sentences_sf(text: str, block_text: str = '') -> int:
             line = line.strip()
             if not line:
                 continue
-            endings = len(re.findall(r'[.!?]+', line))
-            count += max(1, endings)
+            chunks = [c for c in re.split(r'[.!?]+', line) if c.strip()]
+            count += max(1, len(chunks))
         return max(1, count)
-    count = len(re.findall(r'[.!?]+', source))
-    return max(1, count)
+    chunks = [c for c in re.split(r'[.!?]+', source) if c.strip()]
+    return max(1, len(chunks))
 
 def normalize_text(text: str) -> str:
     """
@@ -99,7 +98,12 @@ def extract_word_count(soup: BeautifulSoup, target_keyword: str = None) -> dict:
     # Reset clone for visible text extraction
     soup_visible = BeautifulSoup(str(soup), 'lxml')
     work = _clean_soup(soup_visible)
-    block_text = work.get_text(separator='\n')
+    
+    if work.body:
+        block_text = _get_block_text(work.body)
+    else:
+        block_text = _get_block_text(work)
+        
     visible_text = re.sub(r'\s+', ' ', block_text).strip()
     visible_words = tokenize_words(normalize_text(visible_text))
     visible_word_count = len(visible_words)
@@ -108,10 +112,21 @@ def extract_word_count(soup: BeautifulSoup, target_keyword: str = None) -> dict:
     unique_word_count = len(set(visible_words))
     
     # 4. Text to HTML Ratio
+    # Screaming Frog text ratio uses ALL body text (does not exclude nav/footer)
+    # but does exclude script, style, noscript
+    ratio_soup = BeautifulSoup(str(soup), 'lxml')
+    for el in ratio_soup(["script", "style", "noscript"]):
+        el.extract()
+    if ratio_soup.body:
+        body_text = ratio_soup.body.get_text(separator=' ')
+    else:
+        body_text = ratio_soup.get_text(separator=' ')
+    body_text_normalized = re.sub(r'\s+', ' ', body_text).strip()
+    
     html_content = str(soup)
     html_size = len(html_content.encode('utf-8'))
-    text_size = len(visible_text.encode('utf-8'))
-    text_to_html_ratio = round((text_size / html_size) * 100, 2) if html_size > 0 else 0
+    body_text_size = len(body_text_normalized.encode('utf-8'))
+    text_to_html_ratio = round((body_text_size / html_size) * 100, 2) if html_size > 0 else 0
     
     # 5. Sentence Count (SF-compatible block-aware)
     sentence_count = count_sentences_sf(visible_text, block_text=block_text)

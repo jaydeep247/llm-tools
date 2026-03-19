@@ -10,60 +10,48 @@ import re
 from bs4 import BeautifulSoup, Comment
 
 
-# Tags whose entire subtree is never rendered (Screaming Frog strips these)
-_STRIP_TAGS = {'script', 'style', 'noscript', 'svg', 'iframe', 'template'}
+# Tags whose entire subtree is never rendered or should be excluded from content area
+_STRIP_TAGS = {'script', 'style', 'noscript', 'svg', 'iframe', 'template', 'nav', 'footer'}
 
-# CSS classes that hide content visually (screen-reader / accessibility text)
-_HIDDEN_CLASSES = re.compile(
-    r'\b(?:screen-reader-text|sr-only|visually-hidden|'
-    r'visually-hidden-focusable|elementor-screen-only|'
-    r'clip-text|assistive-text|offscreen-text)\b',
-    re.IGNORECASE,
-)
-
+BLOCK_ELEMENTS = {
+    'address', 'article', 'aside', 'blockquote', 'canvas', 'dd', 'div', 'dl', 'dt',
+    'fieldset', 'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'header', 'hr', 'li', 'main', 'nav', 'noscript', 'ol', 'p', 'pre', 'section', 'table', 'tfoot', 'ul', 'video',
+    'tr', 'td', 'th', 'br'
+}
 
 class ContentExtractor:
     """Extracts content analysis fields"""
 
     @staticmethod
+    def _get_block_text(element) -> str:
+        texts = []
+        for child in getattr(element, 'children', []):
+            if isinstance(child, str):
+                texts.append(child)
+            else:
+                is_block = getattr(child, 'name', '') in BLOCK_ELEMENTS
+                if is_block:
+                    texts.append('\n')
+                texts.append(ContentExtractor._get_block_text(child))
+                if is_block:
+                    texts.append('\n')
+        return ''.join(texts)
+
+    @staticmethod
     def _clean_soup(html: str) -> BeautifulSoup:
         """
-        Parse HTML and remove all non-visible content.
-
-        Strips:
-        - Non-rendered elements (script, style, noscript, svg, iframe, template)
-        - HTML comments
-        - Elements hidden via inline style (display:none, visibility:hidden)
-        - Elements with the HTML5 ``hidden`` attribute
-        - Elements marked ``aria-hidden="true"``
-        - Elements with common visually-hidden CSS classes
+        Parse HTML and remove non-content elements.
+        Screaming Frog does NOT consider visibility (like display:none).
         """
         soup = BeautifulSoup(html, 'lxml')
 
-        # 0. Remove HTML comments (BS4 includes them in get_text by default)
+        # 0. Remove HTML comments
         for comment in soup.find_all(string=lambda s: isinstance(s, Comment)):
             comment.extract()
 
         # 1. Remove non-rendered tag subtrees
         for tag in soup.find_all(_STRIP_TAGS):
-            tag.decompose()
-
-        # 2. Remove elements hidden via inline CSS
-        for tag in soup.find_all(style=True):
-            style = (getattr(tag, 'attrs', None) or {}).get('style', '').lower().replace(' ', '')
-            if 'display:none' in style or 'visibility:hidden' in style:
-                tag.decompose()
-
-        # 3. Remove HTML5 hidden attribute
-        for tag in soup.find_all(attrs={'hidden': True}):
-            tag.decompose()
-
-        # 4. Remove aria-hidden="true"
-        for tag in soup.find_all(attrs={'aria-hidden': 'true'}):
-            tag.decompose()
-
-        # 5. Remove elements with visually-hidden CSS classes
-        for tag in soup.find_all(class_=_HIDDEN_CLASSES):
             tag.decompose()
 
         return soup
@@ -84,7 +72,9 @@ class ContentExtractor:
         sentence segments — matching Screaming Frog's methodology.
         """
         soup = ContentExtractor._clean_soup(html)
-        return soup.get_text(separator='\n')
+        if soup.body:
+            return ContentExtractor._get_block_text(soup.body)
+        return ContentExtractor._get_block_text(soup)
 
     @staticmethod
     def _count_sentences(block_text: str) -> int:
@@ -98,19 +88,17 @@ class ContentExtractor:
         """
         if not block_text or not block_text.strip():
             return 0
-
-        count = 0
-        for line in block_text.split('\n'):
-            line = line.strip()
-            if not line:
-                continue
-            # Number of sentence-ending punctuation groups in this line
-            endings = len(re.findall(r'[.!?]+', line))
-            # Each text block is at least 1 sentence; more if it has
-            # terminal punctuation within it.
-            count += max(1, endings)
-
-        return max(1, count)
+        if '\n' in block_text:
+            count = 0
+            for line in block_text.split('\n'):
+                line = line.strip()
+                if not line:
+                    continue
+                chunks = [c for c in re.split(r'[.!?]+', line) if c.strip()]
+                count += max(1, len(chunks))
+            return max(1, count)
+        chunks = [c for c in re.split(r'[.!?]+', block_text) if c.strip()]
+        return max(1, len(chunks))
 
     @staticmethod
     def extract(response: Response) -> Dict[str, Any]:
@@ -126,7 +114,11 @@ class ContentExtractor:
         # Parse and clean once, then derive both text forms
         soup = ContentExtractor._clean_soup(response.text)
 
-        block_text = soup.get_text(separator='\n')
+        if soup.body:
+            block_text = ContentExtractor._get_block_text(soup.body)
+        else:
+            block_text = ContentExtractor._get_block_text(soup)
+            
         flat_text = re.sub(r'\s+', ' ', block_text).strip()
 
         # Word count – split on whitespace (Screaming Frog methodology)
@@ -140,11 +132,20 @@ class ContentExtractor:
         paragraphs = response.css('p')
         paragraph_count = len([p for p in paragraphs if p.css('::text').get()])
 
-        # Text-to-HTML ratio (text bytes / raw body bytes * 100)
-        # Use len(response.body) for the denominator – this is the actual
-        # uncompressed HTML size, matching Screaming Frog's "Size (bytes)".
+        # Text-to-HTML ratio
+        # Screaming Frog text ratio uses ALL body text (does not exclude nav/footer)
+        # but does exclude script, style, noscript
+        ratio_soup = BeautifulSoup(response.text, 'lxml')
+        for el in ratio_soup(["script", "style", "noscript"]):
+            el.extract()
+        if ratio_soup.body:
+            body_text = ratio_soup.body.get_text(separator=' ')
+        else:
+            body_text = ratio_soup.get_text(separator=' ')
+        body_text_normalized = re.sub(r'\s+', ' ', body_text).strip()
+
         raw_html_size = len(response.body)
-        text_size = len(flat_text.encode('utf-8'))
+        text_size = len(body_text_normalized.encode('utf-8'))
         text_to_html_ratio = round((text_size / raw_html_size) * 100, 2) if raw_html_size > 0 else 0
 
         return {
