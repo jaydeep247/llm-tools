@@ -33,6 +33,7 @@ import { cn } from '@/lib/utils'
 import { useGetContentMetricsQuery, useStartContentMetricsMutation } from '@/store/api/contentMetricsApi'
 import { useGetSessionJobsQuery } from '@/store/api/jobApi'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 // Score Card Component - Adapted from AIVisibilityScorecards
 interface ScoreCardProps {
@@ -48,9 +49,10 @@ interface ScoreCardProps {
   description?: string
   footer?: React.ReactNode
   suffix?: string
+  help?: { meaning?: string; improve?: string } | null
 }
 
-function ScoreCard({ title, score, value, icon, color, trend, subStats, error, isLoading, description, footer, suffix = '/100' }: ScoreCardProps) {
+function ScoreCard({ title, score, value, icon, color, trend, subStats, error, isLoading, description, footer, suffix = '/100', help }: ScoreCardProps) {
   const getScoreLabel = (s: number) => {
     if (s >= 80) return { text: 'Excellent', color: 'text-green-400 bg-green-500/10' }
     if (s >= 60) return { text: 'Good', color: 'text-yellow-400 bg-yellow-500/10' }
@@ -78,9 +80,35 @@ function ScoreCard({ title, score, value, icon, color, trend, subStats, error, i
           <div className={cn("p-2.5 rounded-xl shrink-0", color)}>
             {icon}
           </div>
-          <div>
-            <span className="text-sm font-medium text-zinc-100 block">{title}</span>
-            {description && <span className="text-xs text-zinc-400 block mt-0.5 leading-relaxed">{description}</span>}
+          <div className="flex items-center gap-1.5">
+            <div className="min-w-0">
+              <span className="text-sm font-medium text-zinc-100 block">{title}</span>
+              {description && !help && <span className="text-xs text-zinc-400 block mt-0.5 leading-relaxed">{description}</span>}
+            </div>
+            {help && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center text-zinc-500 hover:text-zinc-200 transition-colors focus:outline-none shrink-0 cursor-help"
+                    aria-label={`${title} help`}
+                  >
+                    <AlertCircle className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="top"
+                  align="start"
+                  sideOffset={10}
+                  className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5"
+                >
+                  <div className="space-y-1.5">
+                    {help.meaning && <div><span className="font-semibold text-zinc-200">Meaning: </span><span className="text-zinc-200/90">{help.meaning}</span></div>}
+                    {help.improve && <div><span className="font-semibold text-zinc-200">Improve: </span><span className="text-zinc-200/90">{help.improve}</span></div>}
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            )}
           </div>
         </div>
         {score !== undefined && score !== null && !error && (
@@ -385,6 +413,10 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
                 subStats={[
                   { label: 'Suggested Type', value: contentMetrics.suggested_content_type || 'Unknown' }
                 ]}
+                help={contentMetrics.metric_help ? {
+                  meaning: contentMetrics.metric_help?.content_type_accuracy?.meaning,
+                  improve: contentMetrics.metric_help?.content_type_accuracy?.improve,
+                } : null}
               />
 
               {/* Prompt Intent Match */}
@@ -411,6 +443,10 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
                   },
                   { label: 'Confidence', value: `${contentMetrics.prompt_intent_details?.confidence ?? 0}%` }
                 ]}
+                help={contentMetrics.metric_help ? {
+                  meaning: contentMetrics.metric_help?.prompt_intent_match?.meaning,
+                  improve: contentMetrics.metric_help?.prompt_intent_match?.improve,
+                } : null}
               />
 
               {/* Visibility Impact */}
@@ -436,6 +472,10 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
                     )
                   }
                 ]}
+                help={contentMetrics.metric_help ? {
+                  meaning: contentMetrics.metric_help?.visibility_impact?.meaning,
+                  improve: contentMetrics.metric_help?.visibility_impact?.improve,
+                } : null}
               />
             </div>
           )}
@@ -493,6 +533,10 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
                     value={`${Math.round(100 * (contentMetrics.prompt_intent_details.cluster_metrics.clustering_accuracy ?? 0))}%`}
                     icon={<Target className="w-5 h-5 text-green-400" />}
                     color="bg-green-500/20"
+                    help={contentMetrics.metric_help ? {
+                      meaning: contentMetrics.metric_help?.clustering_accuracy?.meaning,
+                      improve: contentMetrics.metric_help?.clustering_accuracy?.improve,
+                    } : null}
                   />
                 </div>
                 
@@ -503,6 +547,10 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
                     value={contentMetrics.prompt_intent_details.cluster_metrics.total_prompts ?? 0}
                     icon={<List className="w-5 h-5 text-blue-400" />}
                     color="bg-blue-500/20"
+                    help={contentMetrics.metric_help ? {
+                      meaning: contentMetrics.metric_help?.total_prompts?.meaning,
+                      improve: contentMetrics.metric_help?.total_prompts?.improve,
+                    } : null}
                   />
                 </div>
                 
@@ -514,6 +562,10 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
                     value={`${contentMetrics.prompt_intent_details.cluster_metrics.coverage_percentage?.toFixed(1) ?? 0}%`}
                     icon={<Brain className="w-5 h-5 text-blue-400" />}
                     color="bg-blue-500/20"
+                    help={contentMetrics.metric_help ? {
+                      meaning: contentMetrics.metric_help?.coverage_percentage?.meaning,
+                      improve: contentMetrics.metric_help?.coverage_percentage?.improve,
+                    } : null}
                   />
                 </div>
               </div>
@@ -682,6 +734,7 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
                     value={entityMetrics.entities_detected_count || 0}
                     icon={<Database className="w-5 h-5 text-blue-400" />}
                     color="bg-blue-500/20"
+                    help={contentMetrics?.metric_help?.entities_detected_count ?? null}
                   />
                 </div>
 
@@ -694,6 +747,7 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
                     value={`${entityMetrics.entity_coverage_score || 0}%`}
                     icon={<BarChart className="w-5 h-5 text-emerald-400" />}
                     color="bg-emerald-500/20"
+                    help={contentMetrics?.metric_help?.entity_coverage_score ?? null}
                   />
                 </div>
 
@@ -705,6 +759,7 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
                     score={entityMetrics.entity_relevance_score || 0}
                     icon={<Target className="w-5 h-5 text-blue-400" />}
                     color="bg-blue-500/20"
+                    help={contentMetrics?.metric_help?.entity_relevance_score ?? null}
                   />
                 </div>
               </div>
@@ -779,13 +834,76 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
                       <div className="p-1.5 rounded-lg bg-emerald-500/20">
                         <BarChart className="w-4 h-4 text-emerald-400" />
                       </div>
-                      Visibility Score Breakdown
+                      <span className="flex items-center gap-2">
+                        Visibility Score Breakdown
+                        {contentMetrics?.metric_help?.visibility_score_breakdown?.meaning &&
+                          contentMetrics?.metric_help?.visibility_score_breakdown?.improve && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="text-white/35 hover:text-white/70 transition-colors"
+                                  aria-label="Visibility score breakdown help"
+                                >
+                                  <HelpCircle className="h-3.5 w-3.5" />
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent
+                                side="top"
+                                align="start"
+                                className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5"
+                              >
+                                <div className="space-y-1.5">
+                                  <div>
+                                    <span className="font-semibold">Meaning: </span>
+                                    {contentMetrics.metric_help.visibility_score_breakdown.meaning}
+                                  </div>
+                                  <div>
+                                    <span className="font-semibold">Improve: </span>
+                                    {contentMetrics.metric_help.visibility_score_breakdown.improve}
+                                  </div>
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                      </span>
                     </h4>
                     <div className="space-y-3">
                       {Object.entries(contentMetrics.visibility_factors.score_breakdown).map(([factor, score]) => (
                         <div key={factor} className="space-y-1">
                           <div className="flex items-center justify-between text-xs">
-                            <span className="text-zinc-400 capitalize">{factor.replace(/_/g, ' ')}</span>
+                            <span className="text-zinc-400 capitalize flex items-center gap-1.5">
+                              {factor.replace(/_/g, ' ')}
+                              {contentMetrics?.metric_help?.[factor]?.meaning && contentMetrics?.metric_help?.[factor]?.improve && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      type="button"
+                                      className="text-white/35 hover:text-white/70 transition-colors"
+                                      aria-label={`${factor.replace(/_/g, ' ')} help`}
+                                    >
+                                      <HelpCircle className="h-3.5 w-3.5" />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent
+                                    side="top"
+                                    align="start"
+                                    className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5"
+                                  >
+                                    <div className="space-y-1.5">
+                                      <div>
+                                        <span className="font-semibold">Meaning: </span>
+                                        {contentMetrics.metric_help[factor].meaning}
+                                      </div>
+                                      <div>
+                                        <span className="font-semibold">Improve: </span>
+                                        {contentMetrics.metric_help[factor].improve}
+                                      </div>
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                            </span>
                             <span className={`font-semibold ${getScoreColor(score as number)}`}>{score as number}</span>
                           </div>
                           <div className="h-2 bg-[#0D0D10] rounded-full overflow-hidden">

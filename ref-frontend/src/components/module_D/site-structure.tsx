@@ -23,14 +23,16 @@ import {
   Search,
   Eye,
   MousePointerClick,
-  Activity
+  Activity,
+  Info
 } from 'lucide-react'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import D3TidyTree, { TreeNode as TidyTreeNode } from './D3TidyTree'
 import { useGetJobFieldsQuery, useGetJobPromptTrackingQuery, useGetSeoKeywordsForUrlMutation, useStartPromptTrackingMutation } from '@/store/api/jobApi'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
 export type D3TreeNode = {
   name: string
@@ -382,7 +384,8 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
       />
 
       {hasTrackedPrompts ? (
-        <StatCardGrid>
+          <StatCardGrid>
+          <div className="relative">
           <StatCard
             label="Tracked Prompts"
             value={summary.trackedCount}
@@ -390,6 +393,8 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
             icon={Target}
             accent="violet"
           />
+          </div>
+          <div className="relative">
           <StatCard
             label="Avg Visibility"
             value={summary.avgVisibility != null ? summary.avgVisibility.toFixed(1) : '—'}
@@ -397,6 +402,31 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
             icon={Eye}
             accent="cyan"
           />
+          {promptTrackingDoc?.metric_help && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="absolute top-2 right-2 text-zinc-500 hover:text-zinc-200 transition-colors"
+                  aria-label="Avg Visibility help"
+                >
+                  <Info className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                <div className="space-y-1.5">
+                  {promptTrackingDoc.metric_help?.prompt_visibility_score && (
+                    <>
+                      <div><span className="font-semibold">Meaning: </span>{promptTrackingDoc.metric_help.prompt_visibility_score.meaning}</div>
+                      <div><span className="font-semibold">Improve: </span>{promptTrackingDoc.metric_help.prompt_visibility_score.improve}</div>
+                    </>
+                  )}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          </div>
+          <div className="relative">
           <StatCard
             label="Avg CTR"
             value={summary.avgCtr != null ? `${summary.avgCtr.toFixed(2)}%` : '—'}
@@ -404,6 +434,31 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
             icon={MousePointerClick}
             accent="emerald"
           />
+          {promptTrackingDoc?.metric_help && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="absolute top-2 right-2 text-zinc-500 hover:text-zinc-200 transition-colors"
+                  aria-label="Avg CTR help"
+                >
+                  <Info className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                <div className="space-y-1.5">
+                  {promptTrackingDoc.metric_help?.ctr_percent && (
+                    <>
+                      <div><span className="font-semibold">Meaning: </span>{promptTrackingDoc.metric_help.ctr_percent.meaning}</div>
+                      <div><span className="font-semibold">Improve: </span>{promptTrackingDoc.metric_help.ctr_percent.improve}</div>
+                    </>
+                  )}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          </div>
+          <div className="relative">
           <StatCard
             label="Avg Engagement"
             value={summary.avgEngagement != null ? summary.avgEngagement.toFixed(1) : '—'}
@@ -411,6 +466,37 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
             icon={Activity}
             accent="amber"
           />
+          {promptTrackingDoc?.metric_help && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="absolute top-2 right-2 text-zinc-500 hover:text-zinc-200 transition-colors"
+                  aria-label="Avg Engagement help"
+                >
+                  <Info className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                <div className="space-y-1.5">
+                  {promptTrackingDoc.metric_help?.engagement_score && (
+                    <>
+                      <div><span className="font-semibold">Meaning: </span>{promptTrackingDoc.metric_help.engagement_score.meaning}</div>
+                      <div><span className="font-semibold">Improve: </span>{promptTrackingDoc.metric_help.engagement_score.improve}</div>
+                    </>
+                  )}
+                  {promptTrackingDoc.metric_help?.traffic_estimate && (
+                    <>
+                      <div className="pt-1.5 border-t border-zinc-700/50" />
+                      <div><span className="font-semibold">Meaning: </span>{promptTrackingDoc.metric_help.traffic_estimate.meaning}</div>
+                      <div><span className="font-semibold">Improve: </span>{promptTrackingDoc.metric_help.traffic_estimate.improve}</div>
+                    </>
+                  )}
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          )}
+          </div>
         </StatCardGrid>
       ) : (
         <AnalysisEmptyState
@@ -456,11 +542,126 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
               <thead className="bg-zinc-900/40 sticky top-0 z-10 border-b border-zinc-800/60">
                 <tr>
                   <th className="px-5 py-3 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Prompt</th>
-                  <th className="px-5 py-3 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider text-right">Vis</th>
-                  <th className="px-5 py-3 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider text-right">CTR</th>
-                  <th className="px-5 py-3 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider text-right">Eng</th>
-                  <th className="px-5 py-3 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider text-right">Traffic</th>
-                  <th className="px-5 py-3 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider text-right">Δ</th>
+                  <th className="px-5 py-3 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider text-right">
+                    <span className="inline-flex items-center justify-end gap-1 w-full">
+                      Vis
+                      {promptTrackingDoc?.metric_help?.prompt_visibility_score && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              className="text-zinc-500 hover:text-zinc-200 transition-colors"
+                              aria-label="Visibility help"
+                            >
+                              <Info className="h-3.5 w-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                            <div className="space-y-1.5">
+                              <div><span className="font-semibold">Meaning: </span>{promptTrackingDoc.metric_help.prompt_visibility_score.meaning}</div>
+                              <div><span className="font-semibold">Improve: </span>{promptTrackingDoc.metric_help.prompt_visibility_score.improve}</div>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </span>
+                  </th>
+                  <th className="px-5 py-3 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider text-right">
+                    <span className="inline-flex items-center justify-end gap-1 w-full">
+                      CTR
+                      {promptTrackingDoc?.metric_help?.ctr_percent && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              className="text-zinc-500 hover:text-zinc-200 transition-colors"
+                              aria-label="CTR help"
+                            >
+                              <Info className="h-3.5 w-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                            <div className="space-y-1.5">
+                              <div><span className="font-semibold">Meaning: </span>{promptTrackingDoc.metric_help.ctr_percent.meaning}</div>
+                              <div><span className="font-semibold">Improve: </span>{promptTrackingDoc.metric_help.ctr_percent.improve}</div>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </span>
+                  </th>
+                  <th className="px-5 py-3 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider text-right">
+                    <span className="inline-flex items-center justify-end gap-1 w-full">
+                      Eng
+                      {promptTrackingDoc?.metric_help?.engagement_score && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              className="text-zinc-500 hover:text-zinc-200 transition-colors"
+                              aria-label="Engagement help"
+                            >
+                              <Info className="h-3.5 w-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                            <div className="space-y-1.5">
+                              <div><span className="font-semibold">Meaning: </span>{promptTrackingDoc.metric_help.engagement_score.meaning}</div>
+                              <div><span className="font-semibold">Improve: </span>{promptTrackingDoc.metric_help.engagement_score.improve}</div>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </span>
+                  </th>
+                  <th className="px-5 py-3 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider text-right">
+                    <span className="inline-flex items-center justify-end gap-1 w-full">
+                      Traffic
+                      {promptTrackingDoc?.metric_help?.traffic_estimate && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              className="text-zinc-500 hover:text-zinc-200 transition-colors"
+                              aria-label="Traffic help"
+                            >
+                              <Info className="h-3.5 w-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                            <div className="space-y-1.5">
+                              <div><span className="font-semibold">Meaning: </span>{promptTrackingDoc.metric_help.traffic_estimate.meaning}</div>
+                              <div><span className="font-semibold">Improve: </span>{promptTrackingDoc.metric_help.traffic_estimate.improve}</div>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </span>
+                  </th>
+                  <th className="px-5 py-3 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider text-right">
+                    <span className="inline-flex items-center justify-end gap-1 w-full">
+                      Δ
+                      {promptTrackingDoc?.metric_help?.visibility_change && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              className="text-zinc-500 hover:text-zinc-200 transition-colors"
+                              aria-label="Visibility change help"
+                            >
+                              <Info className="h-3.5 w-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                            <div className="space-y-1.5">
+                              <div><span className="font-semibold">Meaning: </span>{promptTrackingDoc.metric_help.visibility_change.meaning}</div>
+                              <div><span className="font-semibold">Improve: </span>{promptTrackingDoc.metric_help.visibility_change.improve}</div>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </span>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-800/60">
@@ -513,9 +714,33 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
               <div className="text-xs text-zinc-500 truncate">
                 {selectedPromptMetric.prompt}
               </div>
-              <Badge variant="outline" className="text-[11px] border-zinc-800 text-zinc-300">
-                {selectedPromptTrend.length} points
-              </Badge>
+              <div className="flex items-center gap-2 shrink-0">
+                {promptTrackingDoc?.metric_help?.prompt_visibility_score && promptTrackingDoc?.metric_help?.ctr_percent && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="text-zinc-500 hover:text-zinc-200 transition-colors"
+                        aria-label="Trend chart help"
+                      >
+                        <Info className="h-3.5 w-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                      <div className="space-y-1.5">
+                        <div><span className="font-semibold">Meaning: </span>{promptTrackingDoc.metric_help.prompt_visibility_score.meaning}</div>
+                        <div><span className="font-semibold">Improve: </span>{promptTrackingDoc.metric_help.prompt_visibility_score.improve}</div>
+                        <div className="pt-1.5 border-t border-zinc-700/50" />
+                        <div><span className="font-semibold">Meaning: </span>{promptTrackingDoc.metric_help.ctr_percent.meaning}</div>
+                        <div><span className="font-semibold">Improve: </span>{promptTrackingDoc.metric_help.ctr_percent.improve}</div>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                <Badge variant="outline" className="text-[11px] border-zinc-800 text-zinc-300">
+                  {selectedPromptTrend.length} points
+                </Badge>
+              </div>
             </div>
             <div className="h-60">
               <ResponsiveContainer width="100%" height="100%">
@@ -523,7 +748,7 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
                   <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
                   <XAxis dataKey="date" tick={{ fill: 'rgba(161,161,170,0.9)', fontSize: 10 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: 'rgba(161,161,170,0.9)', fontSize: 10 }} axisLine={false} tickLine={false} width={30} />
-                  <Tooltip
+                  <RechartsTooltip
                     contentStyle={{ background: 'rgba(17,17,19,0.98)', border: '1px solid rgba(63,63,70,0.8)', borderRadius: 12 }}
                     labelStyle={{ color: 'rgba(244,244,245,0.9)', fontSize: 11 }}
                     itemStyle={{ color: 'rgba(244,244,245,0.85)', fontSize: 11 }}
@@ -571,6 +796,39 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
   const [seoResult] = useState<null | any>(null)
   const [seoByUrl, setSeoByUrl] = useState<Map<string, any>>(new Map())
 
+  const defaultSeoMetricHelp = useMemo(() => {
+    return {
+      score: {
+        meaning: "Priority score for the keyword. Higher generally means it is more valuable to target.",
+        improve: "Align content tightly to the keyword, strengthen internal linking to the page, and add supporting subtopics to raise relevance and usefulness."
+      },
+      relevance_score: {
+        meaning: "How strongly the keyword aligns with the selected URL’s topic and intent (0–100).",
+        improve: "Use the keyword in H1/H2s naturally, add a focused section that answers the query, and reinforce with related entities and internal links."
+      },
+      diversity_score: {
+        meaning: "How varied the prompt/intent space is around the keyword (0–100). Higher means broader/more mixed intents.",
+        improve: "Add intent-specific sections (FAQ, comparisons, pricing, examples) and clarify the page’s main angle to cover diverse intents without confusion."
+      },
+      prompt_count: {
+        meaning: "How many prompts/queries were associated with this keyword.",
+        improve: "Expand coverage with FAQ and long-tail variations, and add internal links from related pages to strengthen the cluster."
+      },
+      difficulty_score: {
+        meaning: "How hard it is to win the keyword/prompt given competition and content strength signals (0–100). Higher means harder.",
+        improve: "Target narrower sub-queries, improve topical depth, strengthen authority signals, and add structured data and references."
+      },
+      ai_generation_feasibility: {
+        meaning: "How likely models can confidently generate answers from this page for the keyword (0–100). Higher means easier.",
+        improve: "Add explicit facts, definitions, step-by-steps and tables; use clear headings and schema so models can extract reliable snippets."
+      },
+      complexity_level: {
+        meaning: "Complexity of the keyword based on length and diversity. High usually means broader or more nuanced intent.",
+        improve: "Break the topic into clear sections, add scannable summaries, and use tables/checklists to reduce ambiguity."
+      },
+    } as const
+  }, [])
+
   const [fetchSeoKeywords] = useGetSeoKeywordsForUrlMutation()
 
   const { data: fieldsResult, isLoading: isLoadingFields, isError: isFieldsError } =
@@ -605,7 +863,8 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
 
       map.set(normalizeUrl(url), {
         parentText: keywordAnalysis.parent?.text ?? keywordAnalysis.parent ?? null,
-        topKeywords
+        topKeywords,
+        metricHelp: keywordAnalysis.metric_help ?? defaultSeoMetricHelp,
       })
     }
 
@@ -651,6 +910,7 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
   const selectedUrl = computeSelectedUrl()
   const selectedSeo = selectedUrl ? seoByUrl.get(selectedUrl) as any : null
   const selectedKeywords: any[] = selectedSeo?.topKeywords || []
+  const seoMetricHelp = (selectedSeo?.metricHelp || defaultSeoMetricHelp) as any
   const hasKeywordStats = selectedKeywords.length > 0
   const avgScore = hasKeywordStats
     ? selectedKeywords.reduce((sum, k) => sum + (Number(k.score) || 0), 0) / selectedKeywords.length
@@ -736,7 +996,8 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
           const key = normalizeUrl((data as any).url || selectedUrl)
           next.set(key, {
             parentText: (data as any).parent?.text ?? (data as any).parent ?? null,
-            topKeywords
+            topKeywords,
+            metricHelp: (data as any).metric_help ?? defaultSeoMetricHelp,
           })
           return next
         })
@@ -1112,31 +1373,94 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
                {selectedKeywords.length > 0 && (
                  <div className="grid grid-cols-1 gap-3">
                    <div className="grid grid-cols-2 gap-3">
-                      <ScoreCard 
-                        title="Difficulty"
-                        score={avgDifficulty != null ? Math.round(avgDifficulty) : '--'}
-                        subText="SEO Competition"
-                        icon={<TrendingUp className="w-5 h-5 text-rose-300" />}
-                        color="bg-rose-500/20"
-                        trend={avgDifficulty && avgDifficulty > 50 ? 12 : -5}
-                      />
-                      <ScoreCard 
-                        title="Feasibility"
-                        score={avgFeasibility != null ? Math.round(avgFeasibility) : '--'}
-                        subText="AI Generation"
-                        icon={<Zap className="w-5 h-5 text-emerald-300" />}
-                        color="bg-emerald-500/20"
-                        trend={avgFeasibility && avgFeasibility > 70 ? 8 : 2}
-                      />
+                     <div className="relative">
+                       <ScoreCard 
+                         title="Difficulty"
+                         score={avgDifficulty != null ? Math.round(avgDifficulty) : '--'}
+                         subText="SEO Competition"
+                         icon={<TrendingUp className="w-5 h-5 text-rose-300" />}
+                         color="bg-rose-500/20"
+                         trend={avgDifficulty && avgDifficulty > 50 ? 12 : -5}
+                       />
+                       {seoMetricHelp?.difficulty_score && (
+                         <Tooltip>
+                           <TooltipTrigger asChild>
+                             <button
+                               type="button"
+                               className="absolute top-2 right-2 text-white/40 hover:text-white/80 transition-colors"
+                               aria-label="Difficulty help"
+                             >
+                               <Info className="h-3.5 w-3.5" />
+                             </button>
+                           </TooltipTrigger>
+                           <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                             <div className="space-y-1.5">
+                               <div><span className="font-semibold">Meaning: </span>{seoMetricHelp.difficulty_score.meaning}</div>
+                               <div><span className="font-semibold">Improve: </span>{seoMetricHelp.difficulty_score.improve}</div>
+                             </div>
+                           </TooltipContent>
+                         </Tooltip>
+                       )}
+                     </div>
+                     <div className="relative">
+                       <ScoreCard 
+                         title="Feasibility"
+                         score={avgFeasibility != null ? Math.round(avgFeasibility) : '--'}
+                         subText="AI Generation"
+                         icon={<Zap className="w-5 h-5 text-emerald-300" />}
+                         color="bg-emerald-500/20"
+                         trend={avgFeasibility && avgFeasibility > 70 ? 8 : 2}
+                       />
+                       {seoMetricHelp?.ai_generation_feasibility && (
+                         <Tooltip>
+                           <TooltipTrigger asChild>
+                             <button
+                               type="button"
+                               className="absolute top-2 right-2 text-white/40 hover:text-white/80 transition-colors"
+                               aria-label="Feasibility help"
+                             >
+                               <Info className="h-3.5 w-3.5" />
+                             </button>
+                           </TooltipTrigger>
+                           <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                             <div className="space-y-1.5">
+                               <div><span className="font-semibold">Meaning: </span>{seoMetricHelp.ai_generation_feasibility.meaning}</div>
+                               <div><span className="font-semibold">Improve: </span>{seoMetricHelp.ai_generation_feasibility.improve}</div>
+                             </div>
+                           </TooltipContent>
+                         </Tooltip>
+                       )}
+                     </div>
                    </div>
-                   <ScoreCard 
-                     title="Complexity"
-                     score={complexityStats.main === 'High' ? 85 : complexityStats.main === 'Medium' ? 50 : 25}
-                     subText={`Distribution: ${complexityStats.low} Low, ${complexityStats.medium} Med, ${complexityStats.high} High`}
-                     icon={<Layers className="w-5 h-5 text-amber-300" />}
-                     color="bg-amber-500/20"
-                     className="col-span-1"
-                   />
+                    <div className="relative">
+                      <ScoreCard 
+                        title="Complexity"
+                        score={complexityStats.main === 'High' ? 85 : complexityStats.main === 'Medium' ? 50 : 25}
+                        subText={`Distribution: ${complexityStats.low} Low, ${complexityStats.medium} Med, ${complexityStats.high} High`}
+                        icon={<Layers className="w-5 h-5 text-amber-300" />}
+                        color="bg-amber-500/20"
+                        className="col-span-1"
+                      />
+                      {seoMetricHelp?.complexity_level && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              className="absolute top-2 right-2 text-white/40 hover:text-white/80 transition-colors"
+                              aria-label="Complexity help"
+                            >
+                              <Info className="h-3.5 w-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                            <div className="space-y-1.5">
+                              <div><span className="font-semibold">Meaning: </span>{seoMetricHelp.complexity_level.meaning}</div>
+                              <div><span className="font-semibold">Improve: </span>{seoMetricHelp.complexity_level.improve}</div>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
                  </div>
                )}
             </div>
@@ -1155,13 +1479,146 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
                        <thead className="bg-white/5 sticky top-0 z-10 backdrop-blur-md border-b border-white/10">
                          <tr>
                            <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider">Keyword</th>
-                           <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right">Score</th>
-                           <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right" title="Relevance Score">Rel</th>
-                           <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right" title="Diversity Score">Div</th>
-                           <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right" title="Prompt Count">Prompt</th>
-                           <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right" title="Difficulty">Dif</th>
-                           <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right" title="Feasibility">Feas</th>
-                           <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right" title="Complexity">Cmplx</th>
+                          <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <span>Score</span>
+                              {seoMetricHelp?.score && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button type="button" className="text-white/35 hover:text-white/80 transition-colors" aria-label="Score help">
+                                      <Info className="h-3 w-3" />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                                    <div className="space-y-1.5">
+                                      <div><span className="font-semibold">Meaning: </span>{seoMetricHelp.score.meaning}</div>
+                                      <div><span className="font-semibold">Improve: </span>{seoMetricHelp.score.improve}</div>
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                            </div>
+                          </th>
+                          <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <span>Rel</span>
+                              {seoMetricHelp?.relevance_score && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button type="button" className="text-white/35 hover:text-white/80 transition-colors" aria-label="Relevance help">
+                                      <Info className="h-3 w-3" />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                                    <div className="space-y-1.5">
+                                      <div><span className="font-semibold">Meaning: </span>{seoMetricHelp.relevance_score.meaning}</div>
+                                      <div><span className="font-semibold">Improve: </span>{seoMetricHelp.relevance_score.improve}</div>
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                            </div>
+                          </th>
+                          <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <span>Div</span>
+                              {seoMetricHelp?.diversity_score && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button type="button" className="text-white/35 hover:text-white/80 transition-colors" aria-label="Diversity help">
+                                      <Info className="h-3 w-3" />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                                    <div className="space-y-1.5">
+                                      <div><span className="font-semibold">Meaning: </span>{seoMetricHelp.diversity_score.meaning}</div>
+                                      <div><span className="font-semibold">Improve: </span>{seoMetricHelp.diversity_score.improve}</div>
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                            </div>
+                          </th>
+                          <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <span>Prompt</span>
+                              {seoMetricHelp?.prompt_count && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button type="button" className="text-white/35 hover:text-white/80 transition-colors" aria-label="Prompt count help">
+                                      <Info className="h-3 w-3" />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                                    <div className="space-y-1.5">
+                                      <div><span className="font-semibold">Meaning: </span>{seoMetricHelp.prompt_count.meaning}</div>
+                                      <div><span className="font-semibold">Improve: </span>{seoMetricHelp.prompt_count.improve}</div>
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                            </div>
+                          </th>
+                          <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <span>Dif</span>
+                              {seoMetricHelp?.difficulty_score && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button type="button" className="text-white/35 hover:text-white/80 transition-colors" aria-label="Difficulty help">
+                                      <Info className="h-3 w-3" />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                                    <div className="space-y-1.5">
+                                      <div><span className="font-semibold">Meaning: </span>{seoMetricHelp.difficulty_score.meaning}</div>
+                                      <div><span className="font-semibold">Improve: </span>{seoMetricHelp.difficulty_score.improve}</div>
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                            </div>
+                          </th>
+                          <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <span>Feas</span>
+                              {seoMetricHelp?.ai_generation_feasibility && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button type="button" className="text-white/35 hover:text-white/80 transition-colors" aria-label="Feasibility help">
+                                      <Info className="h-3 w-3" />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                                    <div className="space-y-1.5">
+                                      <div><span className="font-semibold">Meaning: </span>{seoMetricHelp.ai_generation_feasibility.meaning}</div>
+                                      <div><span className="font-semibold">Improve: </span>{seoMetricHelp.ai_generation_feasibility.improve}</div>
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                            </div>
+                          </th>
+                          <th className="px-4 py-3 text-[10px] font-semibold text-white/40 uppercase tracking-wider text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <span>Cmplx</span>
+                              {seoMetricHelp?.complexity_level && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button type="button" className="text-white/35 hover:text-white/80 transition-colors" aria-label="Complexity help">
+                                      <Info className="h-3 w-3" />
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" align="end" className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5">
+                                    <div className="space-y-1.5">
+                                      <div><span className="font-semibold">Meaning: </span>{seoMetricHelp.complexity_level.meaning}</div>
+                                      <div><span className="font-semibold">Improve: </span>{seoMetricHelp.complexity_level.improve}</div>
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                            </div>
+                          </th>
                          </tr>
                        </thead>
                        <tbody className="divide-y divide-white/5">

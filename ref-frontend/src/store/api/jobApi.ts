@@ -54,6 +54,7 @@ export interface SeoKeywordResponse {
   parent: any;
   keywords: any[];
   cached?: boolean;
+  metric_help?: Record<string, MetricHelpItem>;
 }
 
 export interface PromptTrackingTrendPoint {
@@ -77,11 +78,25 @@ export interface PromptTrackingMetric {
   updated_at: string;
 }
 
+export interface MetricHelpItem {
+  meaning: string;
+  improve: string;
+}
+
+export interface PromptTrackingMetricHelp {
+  prompt_visibility_score?: MetricHelpItem;
+  ctr_percent?: MetricHelpItem;
+  engagement_score?: MetricHelpItem;
+  traffic_estimate?: MetricHelpItem;
+  visibility_change?: MetricHelpItem;
+}
+
 export interface PromptTrackingDoc {
   jobId: string;
   url: string;
   tracked_prompts: string[];
   metrics: PromptTrackingMetric[];
+  metric_help?: PromptTrackingMetricHelp;
   updatedAt?: string;
   createdAt?: string;
 }
@@ -456,9 +471,9 @@ export const jobApi = baseApi.injectEndpoints({
       { jobId: string; url: string }
     >({
       query: ({ jobId, url }) => ({
-        url: `/jobs/${jobId}/seo/extract`,
+        url: `/seo/extract`,
         method: 'POST',
-        body: { url },
+        body: { url, jobId },
       }),
     }),
   }),
