@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import RotatingText from "../animations/RotatingText"
-import { AuthModal } from '@/components/auth/auth-modal'
 import { ProjectSelectorDialog } from '@/components/dashboard/ProjectSelectorDialog'
 import { useCreateSessionMutation, useCreateJobMutation } from '@/store/api/sessionApi'
 import { useToast } from '@/hooks/use-toast'
@@ -43,7 +42,6 @@ export function HeroSection() {
   const { isAuthenticated } = useAuth()
   const [createSession, { isLoading: isCreatingSession }] = useCreateSessionMutation()
   const [createJob, { isLoading: isCreatingJob }] = useCreateJobMutation()
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
   const [isProjectSelectorOpen, setIsProjectSelectorOpen] = useState(false)
   const [url, setUrl] = useState('')
   const [pendingUrl, setPendingUrl] = useState('')
@@ -54,8 +52,9 @@ export function HeroSection() {
 
     // Check if user is authenticated
     if (!isAuthenticated) {
-      setPendingUrl(url)
-      setIsAuthModalOpen(true)
+      // Instead of opening modal, set a cookie or query param if we want to remember the URL, 
+      // but for now let's just redirect to signin.
+      router.push('/signin')
       return
     }
 
@@ -89,13 +88,6 @@ export function HeroSection() {
         description: error?.data?.message || 'An error occurred while starting the session',
         variant: 'destructive',
       })
-    }
-  }
-
-  const handleAuthSuccess = () => {
-    // After successful auth, show project selector if there was a pending URL
-    if (pendingUrl) {
-      setIsProjectSelectorOpen(true)
     }
   }
 
@@ -211,13 +203,6 @@ export function HeroSection() {
           </div>
         </div>
       </div>
-
-      {/* Auth Modal */}
-      <AuthModal 
-        isOpen={isAuthModalOpen} 
-        onClose={() => setIsAuthModalOpen(false)}
-        onSuccess={handleAuthSuccess}
-      />
 
       {/* Project Selector Dialog */}
       <ProjectSelectorDialog

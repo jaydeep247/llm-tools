@@ -6,7 +6,6 @@ import { ArrowRight, TrendingUp, Users, Zap, FolderOpen, MoreVertical, Pencil, T
 import { Button } from '@/components/ui/button'
 import { useGetProjectsQuery, type Project } from '@/store/api/projectApi'
 import { useToast } from '@/hooks/use-toast'
-import { AuthModal } from '@/components/auth/auth-modal'
 import { useAuth } from '@/hooks/useAuth'
 import {
   DropdownMenu,
@@ -25,13 +24,8 @@ export default function DashboardPage() {
   const { toast } = useToast()
   const { isAuthenticated, refreshAuth } = useAuth()
   const { data: projectsData } = useGetProjectsQuery(undefined, { refetchOnMountOrArgChange: true })
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
   const [projectToEdit, setProjectToEdit] = useState<Project | null>(null)
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null)
-
-  const handleAuthSuccess = () => {
-    refreshAuth()
-  }
 
   const handleViewProject = (projectId: string) => {
     router.push(`/dashboard/projects/${projectId}`)
@@ -208,13 +202,6 @@ export default function DashboardPage() {
           </button>
         </div>
       </div>
-
-      {/* Auth Modal */}
-      <AuthModal 
-        isOpen={isAuthModalOpen} 
-        onClose={() => setIsAuthModalOpen(false)}
-        onSuccess={handleAuthSuccess}
-      />
 
       {/* Edit Project Dialog */}
       <ProjectEditDialog

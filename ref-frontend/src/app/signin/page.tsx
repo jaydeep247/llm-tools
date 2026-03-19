@@ -1,21 +1,15 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { X, Loader2 } from "lucide-react"
+import { useState } from "react"
+import { Loader2 } from "lucide-react"
 import { useLoginMutation, useSignupMutation } from "@/store/api/authApi"
 import { useRouter } from "next/navigation"
 import { UserRole } from "@/types/auth"
+import Link from "next/link"
 
-interface AuthModalProps {
-  isOpen: boolean
-  onClose: () => void
-  onSuccess?: () => void
-}
-
-export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
+export default function SigninPage() {
   const router = useRouter()
   const [isLogin, setIsLogin] = useState(true)
-  const [isAnimating, setIsAnimating] = useState(false)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
@@ -27,39 +21,6 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
 
   const [login, { isLoading: isLoginLoading }] = useLoginMutation()
   const [signup, { isLoading: isSignupLoading }] = useSignupMutation()
-
-  useEffect(() => {
-    if (isOpen) {
-      setIsAnimating(true)
-      // Prevent body scroll when modal is open
-      document.body.style.overflow = "hidden"
-    } else {
-      document.body.style.overflow = "unset"
-    }
-
-    return () => {
-      document.body.style.overflow = "unset"
-    }
-  }, [isOpen])
-
-  // ESC key handler
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
-        handleClose()
-      }
-    }
-
-    document.addEventListener("keydown", handleEscape)
-    return () => document.removeEventListener("keydown", handleEscape)
-  }, [isOpen])
-
-  const handleClose = () => {
-    setIsAnimating(false)
-    setTimeout(() => {
-      onClose()
-    }, 200)
-  }
 
   const toggleLoginSignup = () => {
     setIsTransitioning(true)
@@ -107,21 +68,13 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
           password: formData.password,
         }).unwrap()
 
-        // Close modal
-        handleClose()
-        
         // Check for onboarding
         if (response.user.hasNew) {
             router.push('/onboarding')
             return
         }
 
-        // Call onSuccess callback if provided, otherwise redirect
-        if (onSuccess) {
-          onSuccess()
-        } else {
-          router.push('/dashboard')
-        }
+        router.push('/dashboard')
       } else {
         // Signup
         const response = await signup({
@@ -131,21 +84,13 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
           role: formData.role,
         }).unwrap()
 
-        // Close modal
-        handleClose()
-        
         // Check for onboarding (should be true for new users)
         if (response.user.hasNew) {
             router.push('/onboarding')
             return
         }
 
-        // Call onSuccess callback if provided, otherwise redirect
-        if (onSuccess) {
-          onSuccess()
-        } else {
-          router.push('/dashboard')
-        }
+        router.push('/dashboard')
       }
     } catch (err: any) {
       const errorMessage = getErrorMessage(err)
@@ -165,46 +110,22 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
     })
   }
 
-  if (!isOpen) return null
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div 
-        className={`absolute inset-0 bg-black/30 backdrop-blur-sm transition-opacity duration-200 cursor-pointer ${
-          isAnimating ? "opacity-100" : "opacity-0"
-        }`}
-        onClick={handleClose}
-      />
-      
-      {/* Modal */}
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="auth-modal-title"
-        className={`relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden transition-all duration-200 ${
-          isAnimating ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 translate-y-4"
-        }`}
-      >
-        {/* Close button */}
-        <button
-          onClick={handleClose}
-          aria-label="Close authentication dialog"
-          className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors z-10 cursor-pointer"
-        >
-          <X className="w-6 h-6" />
-        </button>
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 sm:p-8">
+      <Link href="/" className="mb-8 text-slate-600 hover:text-slate-900 font-medium transition-colors">
+        &larr; Back to Home
+      </Link>
 
-        {/* Content */}
-        <div className="p-8">
+      <div className="w-full max-w-md bg-white rounded-2xl sm:rounded-3xl shadow-xl overflow-hidden">
+        <div className="p-6 sm:p-8">
           {/* Header */}
-          <div className={`text-center mb-8 transition-all duration-300 ${
+          <div className={`text-center mb-6 sm:mb-8 transition-all duration-300 ${
             isTransitioning ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"
           }`}>
-            <h2 id="auth-modal-title" className="text-3xl font-bold text-slate-900 mb-2">
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">
               {isLogin ? "Welcome Back" : "Get Started"}
             </h2>
-            <p className="text-slate-600">
+            <p className="text-sm sm:text-base text-slate-600">
               {isLogin 
                 ? "Sign in to access your Contentlytics dashboard" 
                 : "Create your account to start analyzing"}
@@ -212,7 +133,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
             {/* Error message */}
             {error && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
@@ -352,7 +273,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
           </div>
 
           {/* Social Login */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
               type="button"
               className="flex items-center justify-center gap-2 px-4 py-3 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all duration-200 cursor-pointer"

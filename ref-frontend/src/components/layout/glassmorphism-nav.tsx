@@ -5,7 +5,6 @@ import { Menu, X, ArrowRight, User, LogOut, LayoutDashboard, UserCircle, Chevron
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { AuthModal } from "../auth/auth-modal"
 import { useAuth } from "@/hooks/useAuth"
 import { useLogoutMutation } from "@/store/api/authApi"
 
@@ -19,7 +18,6 @@ const navigation = [
 export function GlassmorphismNav() {
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false)
   const [isVisible, setIsVisible] = useState(true)
   const [hasLoaded, setHasLoaded] = useState(false)
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false)
@@ -96,11 +94,6 @@ export function GlassmorphismNav() {
     }
     setIsProfileDropdownOpen(false)
     router.push('/')
-  }
-
-  const handleAuthSuccess = async () => {
-    await refreshAuth()
-    router.push('/dashboard')
   }
 
   const scrollToSection = (href: string) => {
@@ -183,7 +176,7 @@ export function GlassmorphismNav() {
                 {!isAuthenticated ? (
                   <button
                     className="relative bg-white hover:bg-gray-50 text-black font-medium px-6 py-2 rounded-full flex items-center transition-all duration-300 hover:scale-105 hover:shadow-lg cursor-pointer group"
-                    onClick={() => setIsAuthModalOpen(true)}
+                    onClick={() => router.push('/signin')}
                   >
                     <span className="mr-2">Get Started</span>
                     <ArrowRight size={16} className="transition-transform duration-300 group-hover:translate-x-1" />
@@ -303,7 +296,7 @@ export function GlassmorphismNav() {
                     }}
                     onClick={() => {
                       setIsOpen(false)
-                      setIsAuthModalOpen(true)
+                      router.push('/signin')
                     }}
                   >
                     <span className="mr-2">Get Started</span>
@@ -363,13 +356,6 @@ export function GlassmorphismNav() {
           </div>
         </div>
       </nav>
-      
-      {/* Auth Modal */}
-      <AuthModal 
-        isOpen={isAuthModalOpen} 
-        onClose={() => setIsAuthModalOpen(false)}
-        onSuccess={handleAuthSuccess}
-      />
     </>
   )
 }
