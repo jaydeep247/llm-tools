@@ -1302,7 +1302,7 @@ export default function SessionDetailClient() {
 
         {/* Show Page Metrics Table on page-metrics / content-audit tab */}
         {(activeSection === 'page-metrics' || activeSection === 'content-audit') && (
-          <div className="h-full">
+          <div className="h-full -mt-2">
             <MainContentAudit 
               pageMetricsData={pageMetricsData?.data || []}
               isLoadingMetrics={isLoadingMetrics}

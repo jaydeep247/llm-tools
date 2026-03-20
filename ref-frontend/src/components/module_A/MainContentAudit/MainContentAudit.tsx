@@ -35,17 +35,17 @@ export function MainContentAudit({
   ]
 
   return (
-    <div className="flex flex-col h-full gap-4">
+    <div className="flex flex-col h-full gap-3 -mt-2">
       {/* Tab Navigation */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-zinc-800 pb-2">
+      <div className="flex flex-wrap items-center gap-2 pb-1">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+            className={`px-4 py-2 text-sm font-medium rounded-full transition-colors border ${
               activeTab === tab.id
-                ? 'text-white border-b-2 border-white'
-                : 'text-zinc-400 hover:text-zinc-200'
+                ? 'bg-white text-black border-white'
+                : 'bg-[#111113] text-zinc-400 border-zinc-800 hover:text-zinc-200 hover:border-zinc-700'
             }`}
           >
             {tab.label}

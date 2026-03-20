@@ -1066,7 +1066,7 @@ export default function SessionDetailPage() {
 
         {/* Show Page Metrics Table on page-metrics / content-audit tab */}
         {(activeSection === 'page-metrics' || activeSection === 'content-audit') && (
-          <div className="h-[calc(100vh-133px)] -mx-11 md:-mx-8 p-6">
+          <div className="h-[calc(100vh-133px)] -mx-11 md:-mx-8 px-6 pb-6 pt-2">
             <MainContentAudit
               pageMetricsData={pageMetricsData?.data || []}
               isLoadingMetrics={isLoadingMetrics}
