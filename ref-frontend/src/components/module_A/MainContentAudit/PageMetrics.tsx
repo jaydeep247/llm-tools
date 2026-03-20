@@ -20,27 +20,30 @@ interface PageMetric {
   id?: string | number
   url: string
   title: string
+  description?: string
   titleLength?: number
   titlePixelWidth?: number
-  titleStatus?: 'OK' | 'Missing' | 'Duplicate'
-  duplicateTitleCount?: number
-  duplicateWith?: string[]
-  resourceType?: string
-  description: string
   descriptionLength?: number
   descriptionPixelWidth?: number
+  titleStatus?: 'OK' | 'Missing' | 'Duplicate'
   metaDescriptionStatus?: 'OK' | 'Missing' | 'Duplicate'
+  duplicateTitleCount?: number
   duplicateMetaDescriptionCount?: number
-  duplicateMetaDescriptionWith?: string[]
-  canonicalUrl?: string | null
-  canonicalValidationStatus?: 'Valid' | 'Invalid' | 'Missing' | 'Redirect' | 'Error' | 'Not Found' | 'Blocked'
-  canonicalValidationMessage?: string
-  metaKeywords?: string
-  metaKeywordsLength?: number
+  duplicateWith?: string[]
+  resourceType?: string
   contentType?: string
-  lastModified?: string | null
+  canonicalUrl?: string
+  canonicalValidationStatus?: string
+  metaKeywordsLength?: number
+  lastModified?: string
+  metaRobots?: string
+  statusCode?: number
+  headingTags?: string
+  language?: string
+  amphtmlUrl?: string
+  responseTime?: number
+  totalWordCount?: number
   timestamp: string
-  success?: boolean
   sessionId?: number
   tableCount?: number | null
   tableData?: string | null
@@ -48,38 +51,17 @@ interface PageMetric {
   faqCount?: number | null
   faqData?: string | null
   hasFaqs?: boolean | null
-  faqScore?: number | null
   faqDetectionMethod?: string | null
-  faqSchemaPresent?: boolean | null
   hasMixedContent?: boolean | null
   mixedContentSeverity?: 'none' | 'warning' | 'critical' | null
   mixedContentData?: string | null
-  activeMixedContentCount?: number | null
-  passiveMixedContentCount?: number | null
   totalInsecureResources?: number | null
-  headerStructureData?: string | null
-  headerStructureIssues?: string | null
   viewportPresent?: boolean | null
   viewportContent?: string | null
   viewportStatus?: 'ok' | 'warning' | 'error' | 'missing' | null
   structuredDataPresent?: boolean | null
   structuredDataFormat?: string | null
   structuredDataTypes?: string | null
-  structuredDataPriorityType?: string | null
-  pageSizeBytes?: number | null
-  pageSizeStatus?: 'Small' | 'Medium' | 'Large' | null
-  htmlSizeBytes?: number | null
-  htmlSizeStatus?: 'Good' | 'Warning' | 'Large' | null
-  totalResourceSizeBytes?: number | null
-  resourceSizeBreakdown?: string | null
-  totalWordCount?: number | null
-  // Missing from spec - now added
-  metaRobots?: string | null
-  statusCode?: number | null
-  headingTags?: string | null
-  language?: string | null
-  amphtmlUrl?: string | null
-  responseTime?: number | null
 }
 
 interface PageMetricsTableProps {
@@ -100,27 +82,11 @@ type ColumnCategory = {
 const COLUMN_CATEGORIES: ColumnCategory[] = [
   {
     name: 'Basic Info',
-    columns: ['url', 'title', 'resourceType', 'contentType', 'statusCode', 'language', 'lastModified', 'timestamp']
+    columns: ['url', 'title', 'resourceType', 'timestamp']
   },
   {
     name: 'Title Metrics',
     columns: ['titleLength', 'titlePixelWidth', 'titleStatus', 'duplicateTitleCount']
-  },
-  {
-    name: 'Description Metrics',
-    columns: ['description', 'descriptionLength', 'descriptionPixelWidth', 'metaDescriptionStatus', 'duplicateMetaDescriptionCount']
-  },
-  {
-    name: 'SEO',
-    columns: ['metaRobots', 'canonicalUrl', 'canonicalValidationStatus', 'canonicalValidationMessage']
-  },
-  {
-    name: 'Meta Keywords',
-    columns: ['metaKeywords', 'metaKeywordsLength']
-  },
-  {
-    name: 'Heading Structure',
-    columns: ['headingTags']
   },
   {
     name: 'Tables',
@@ -128,15 +94,11 @@ const COLUMN_CATEGORIES: ColumnCategory[] = [
   },
   {
     name: 'FAQs',
-    columns: ['hasFaqs', 'faqCount', 'faqScore', 'faqDetectionMethod', 'faqSchemaPresent', 'faqData']
+    columns: ['hasFaqs', 'faqCount', 'faqDetectionMethod', 'faqData']
   },
   {
     name: 'Mixed Content Security',
-    columns: ['hasMixedContent', 'mixedContentSeverity', 'activeMixedContentCount', 'passiveMixedContentCount', 'totalInsecureResources', 'mixedContentData']
-  },
-  {
-    name: 'Header Structure',
-    columns: ['headerStructureData', 'headerStructureIssues']
+    columns: ['hasMixedContent', 'mixedContentSeverity', 'totalInsecureResources', 'mixedContentData']
   },
   {
     name: 'Viewport',
@@ -144,15 +106,7 @@ const COLUMN_CATEGORIES: ColumnCategory[] = [
   },
   {
     name: 'Structured Data',
-    columns: ['structuredDataPresent', 'structuredDataFormat', 'structuredDataTypes', 'structuredDataPriorityType']
-  },
-  {
-    name: 'Page Size & Performance',
-    columns: ['pageSizeBytes', 'pageSizeStatus', 'htmlSizeBytes', 'htmlSizeStatus', 'totalResourceSizeBytes', 'resourceSizeBreakdown', 'responseTime']
-  },
-  {
-    name: 'Content & AMP',
-    columns: ['totalWordCount', 'amphtmlUrl']
+    columns: ['structuredDataPresent', 'structuredDataFormat', 'structuredDataTypes']
   }
 ]
 
@@ -164,18 +118,6 @@ const FIELD_DESCRIPTIONS: Partial<Record<keyof PageMetric, string>> = {
   titleStatus: 'Whether the page title is present (OK), absent (Missing), or shared with another page (Duplicate).',
   duplicateTitleCount: 'Number of other crawled pages that share the exact same page title.',
   resourceType: 'Type of the resource (e.g. Web Page, PDF, image) as classified by content type.',
-  description: 'Meta description tag text displayed in search result preview snippets.',
-  descriptionLength: 'Character count of the meta description. Ideal SEO range is 120–160 characters.',
-  descriptionPixelWidth: 'Rendered pixel width of the meta description in Google SERP. Maximum is ~920px.',
-  metaDescriptionStatus: 'Whether the meta description is present (OK), absent (Missing), or shared with another page (Duplicate).',
-  duplicateMetaDescriptionCount: 'Number of other crawled pages that have an identical meta description.',
-  canonicalUrl: 'Canonical URL declared to consolidate ranking signals for duplicate content.',
-  canonicalValidationStatus: 'Validation result for the canonical URL (Valid, Missing, Invalid, Redirect, etc.).',
-  canonicalValidationMessage: 'Detailed explanation of why the canonical URL passed or failed validation.',
-  metaKeywords: 'Meta keywords tag content. Largely ignored by Google but may affect other search engines.',
-  metaKeywordsLength: 'Character count of the meta keywords tag content.',
-  contentType: 'MIME type returned by the server (e.g. text/html, application/pdf).',
-  lastModified: 'Date and time the page was last modified per the server HTTP response header.',
   timestamp: 'Date and time when this page\'s content audit data was collected.',
   tableCount: 'Total number of HTML <table> elements found on this page.',
   tableData: 'Structured JSON data extracted from all HTML tables present on this page.',
@@ -183,40 +125,20 @@ const FIELD_DESCRIPTIONS: Partial<Record<keyof PageMetric, string>> = {
   faqCount: 'Number of FAQ question-and-answer pairs detected on this page.',
   faqData: 'Structured JSON of all detected FAQ pairs including questions and answers.',
   hasFaqs: 'Whether FAQ-style content was detected on this page.',
-  faqScore: 'Quality score (0–100) rating how well-structured the FAQ section is for rich results.',
   faqDetectionMethod: 'How FAQs were identified: JSON-LD schema markup or content heuristics.',
-  faqSchemaPresent: 'Whether valid FAQPage schema markup exists for search engine rich result eligibility.',
   hasMixedContent: 'Whether this HTTPS page loads any insecure HTTP resources.',
   mixedContentSeverity: 'Risk level of mixed content: none, warning (passive/images), or critical (active/scripts).',
   mixedContentData: 'JSON listing all insecure HTTP resources detected on this HTTPS page.',
-  activeMixedContentCount: 'Count of active mixed content (scripts, iframes). High security risk.',
-  passiveMixedContentCount: 'Count of passive mixed content (images, CSS). Lower security risk.',
   totalInsecureResources: 'Total number of HTTP resources loaded on this HTTPS page.',
-  headerStructureData: 'All H1–H6 heading tags with their text content and nesting level as JSON.',
-  headerStructureIssues: 'Heading hierarchy problems found (missing H1, multiple H1s, skipped levels).',
   viewportPresent: 'Whether the page declares a viewport meta tag required for mobile responsiveness.',
   viewportContent: 'The exact content attribute value of the viewport meta tag.',
   viewportStatus: 'Mobile viewport compliance status (ok, warning, error, or missing).',
   structuredDataPresent: 'Whether JSON-LD structured data schema markup exists on this page.',
   structuredDataFormat: 'Format of structured data found (JSON-LD, Microdata, or RDFa).',
   structuredDataTypes: 'Schema.org types detected on this page (e.g. Article, FAQPage, Product).',
-  structuredDataPriorityType: 'The highest-priority SEO-relevant schema type found on this page.',
-  pageSizeBytes: 'Total size of the HTML page document in bytes.',
-  pageSizeStatus: 'Page size classification: Small (<100 KB), Medium, or Large (>1 MB).',
-  htmlSizeBytes: 'Size of the raw HTML document only, excluding any external resources.',
-  htmlSizeStatus: 'HTML document size rating: Good, Warning, or Large.',
-  totalResourceSizeBytes: 'Combined size of all page resources including HTML, JS, CSS, and images.',
-  resourceSizeBreakdown: 'Breakdown of resource sizes by type (JS, CSS, fonts, images, etc.).',
-  totalWordCount: 'Total number of words in the visible page content, excluding hidden elements.',
-  metaRobots: 'Value of the robots meta tag (e.g. index/follow, noindex, nofollow).',
-  statusCode: 'HTTP status code returned by the server (200=OK, 301=Redirect, 404=Not Found).',
-  headingTags: 'All page headings (H1–H6) with text and hierarchy shown as structured JSON.',
-  language: 'Language declared in the HTML lang attribute or HTTP Content-Language header.',
-  amphtmlUrl: 'Link to the AMP (Accelerated Mobile Pages) version of this page.',
-  responseTime: 'Time in seconds for the server to return the full page response. Under 0.5s is ideal.',
 }
 
-const DEFAULT_VISIBLE_COLUMNS: Set<keyof PageMetric> = new Set(['url', 'title', 'titleStatus', 'metaDescriptionStatus', 'hasTables', 'hasFaqs', 'timestamp'])
+const DEFAULT_VISIBLE_COLUMNS: Set<keyof PageMetric> = new Set(['url', 'title', 'titleStatus', 'hasTables', 'hasFaqs', 'timestamp'])
 
 export function PageMetrics({ 
   data = [], 
@@ -401,30 +323,17 @@ export function PageMetrics({
       faqCount: 'FAQ Count',
       faqData: 'FAQ Data',
       hasFaqs: 'Has FAQs',
-      faqScore: 'FAQ Score',
       faqDetectionMethod: 'FAQ Detection',
-      faqSchemaPresent: 'FAQ Schema',
       hasMixedContent: 'Mixed Content',
       mixedContentSeverity: 'Mixed Content Severity',
       mixedContentData: 'Mixed Content Data',
-      activeMixedContentCount: 'Active Mixed Content',
-      passiveMixedContentCount: 'Passive Mixed Content',
       totalInsecureResources: 'Total Insecure Resources',
-      headerStructureData: 'Header Structure',
-      headerStructureIssues: 'Header Issues',
       viewportPresent: 'Viewport Present',
       viewportContent: 'Viewport Content',
       viewportStatus: 'Viewport Status',
       structuredDataPresent: 'Structured Data',
       structuredDataFormat: 'Structured Data Format',
       structuredDataTypes: 'Structured Data Types',
-      structuredDataPriorityType: 'Priority Type',
-      pageSizeBytes: 'Page Size',
-      pageSizeStatus: 'Page Size Status',
-      htmlSizeBytes: 'HTML Size',
-      htmlSizeStatus: 'HTML Size Status',
-      totalResourceSizeBytes: 'Total Resources',
-      resourceSizeBreakdown: 'Resource Breakdown',
       totalWordCount: 'Word Count',
       metaRobots: 'Meta Robots',
       statusCode: 'HTTP Status Code',
@@ -441,9 +350,9 @@ export function PageMetrics({
     'url', 'title', 'titleLength', 'titlePixelWidth', 'titleStatus', 'duplicateTitleCount',
     'descriptionLength', 'descriptionPixelWidth', 'metaDescriptionStatus', 'duplicateMetaDescriptionCount',
     'contentType', 'timestamp', 'lastModified', 'metaKeywordsLength',
-    'tableCount', 'faqCount', 'faqScore', 'activeMixedContentCount', 'passiveMixedContentCount',
+    'tableCount', 'faqCount',
     'totalInsecureResources', 'canonicalValidationStatus', 'viewportStatus',
-    'pageSizeBytes', 'pageSizeStatus', 'htmlSizeBytes', 'htmlSizeStatus', 'totalResourceSizeBytes', 'totalWordCount'
+    'totalWordCount'
   ])
 
   const renderTableHeader = (column: keyof PageMetric) => {
@@ -470,14 +379,6 @@ export function PageMetrics({
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortField !== field) return null
     return sortDirection === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
-  }
-
-  const formatBytes = (bytes: number | null | undefined): string => {
-    if (bytes === null || bytes === undefined || bytes === 0) return '0 B'
-    const k = 1024
-    const sizes = ['B', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
   const renderCellContent = (page: PageMetric, column: keyof PageMetric) => {
@@ -513,7 +414,6 @@ export function PageMetrics({
         return <Badge className={validColor}>{value}</Badge>
       case 'hasTables':
       case 'hasFaqs':
-      case 'faqSchemaPresent':
       case 'viewportPresent':
       case 'structuredDataPresent':
         if (value === undefined || value === null) return 'N/A'
@@ -539,18 +439,6 @@ export function PageMetrics({
       case 'lastModified':
         if (!value) return 'N/A'
         return new Date(String(value)).toLocaleString()
-      case 'pageSizeBytes':
-      case 'htmlSizeBytes':
-      case 'totalResourceSizeBytes':
-        if (value === null || value === undefined) return 'N/A'
-        return formatBytes(Number(value))
-      case 'pageSizeStatus':
-      case 'htmlSizeStatus':
-        if (!value) return 'N/A'
-        const sizeColor = value === 'Small' || value === 'Good' ? 'bg-green-500/20 text-green-300 border-green-500/30' :
-                         value === 'Medium' || value === 'Warning' ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
-                         'bg-red-500/20 text-red-300 border-red-500/30'
-        return <Badge className={sizeColor}>{value}</Badge>
       case 'titlePixelWidth':
       case 'descriptionPixelWidth':
         if (value === undefined || value === null) return 'N/A'
@@ -560,13 +448,6 @@ export function PageMetrics({
                           width <= maxWidth + 100 ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
                           'bg-red-500/20 text-red-300 border-red-500/30'
         return <Badge className={badgeColor}>{width}px</Badge>
-      case 'faqScore':
-        if (value === undefined || value === null) return 'N/A'
-        const faqScore = Number(value)
-        const faqColor = faqScore >= 70 ? 'bg-green-500/20 text-green-300 border-green-500/30' :
-                        faqScore >= 40 ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
-                        'bg-red-500/20 text-red-300 border-red-500/30'
-        return <Badge className={faqColor}>{faqScore}/100</Badge>
       case 'mixedContentSeverity':
         if (!value || value === 'none') return 'N/A'
         const sevColor = value === 'critical' ? 'bg-red-500/20 text-red-300 border-red-500/30' :
@@ -576,8 +457,6 @@ export function PageMetrics({
       case 'duplicateMetaDescriptionCount':
       case 'tableCount':
       case 'faqCount':
-      case 'activeMixedContentCount':
-      case 'passiveMixedContentCount':
       case 'totalInsecureResources':
         if (value === undefined || value === null) return 'N/A'
         const count = Number(value)
@@ -588,8 +467,7 @@ export function PageMetrics({
       case 'totalWordCount':
         if (value === undefined || value === null) return 'N/A'
         return Number(value).toLocaleString()
-      case 'headingTags':
-      case 'headerStructureData': {
+      case 'headingTags': {
         if (!value) return 'N/A'
         try {
           const headings = JSON.parse(String(value))
@@ -601,20 +479,6 @@ export function PageMetrics({
                   <Badge className="shrink-0 text-[9px] px-1 py-0 bg-zinc-700 text-zinc-300">{h.tag.toUpperCase()}</Badge>
                   <span className="text-zinc-300 truncate" title={h.text}>{h.text}</span>
                 </div>
-              ))}
-            </div>
-          )
-        } catch { return <span title={String(value)}>{String(value)}</span> }
-      }
-      case 'headerStructureIssues': {
-        if (!value) return 'N/A'
-        try {
-          const issues = JSON.parse(String(value))
-          if (!Array.isArray(issues) || issues.length === 0) return <Badge className="bg-green-500/20 text-green-300 border-green-500/30">No Issues</Badge>
-          return (
-            <div className="space-y-0.5 max-h-40 overflow-y-auto text-[10px]">
-              {issues.map((issue: string, i: number) => (
-                <div key={i} className="text-yellow-300">⚠ {issue}</div>
               ))}
             </div>
           )
@@ -853,7 +717,7 @@ export function PageMetrics({
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between mt-3">
+          <div className="flex items-center justify-between mt-2">
             <div className="text-sm text-zinc-500">
               Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, sortedData.length)} of {sortedData.length} results
             </div>

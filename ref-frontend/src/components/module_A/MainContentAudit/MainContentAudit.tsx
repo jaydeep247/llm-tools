@@ -42,7 +42,7 @@ export function MainContentAudit({
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 text-sm font-medium rounded-full transition-colors border ${
+            className={`px-4 py-2 text-sm font-medium rounded-full cursor-pointer transition-colors border ${
               activeTab === tab.id
                 ? 'bg-white text-black border-white'
                 : 'bg-[#111113] text-zinc-400 border-zinc-800 hover:text-zinc-200 hover:border-zinc-700'

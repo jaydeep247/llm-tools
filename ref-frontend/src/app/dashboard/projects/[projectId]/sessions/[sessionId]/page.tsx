@@ -296,7 +296,6 @@ export default function SessionDetailPage() {
     const pmFaqs = pageMatrix.faqs || {};
     const pmMixed = pageMatrix.mixedContent || {};
     const pmViewport = pageMatrix.viewport || {};
-    const pmPageSize = pageMatrix.pageSize || {};
     const pmStructured = pageMatrix.structuredDataDetection || {};
 
     const statusCode = page.status_code || page.statusCode || 0;
@@ -305,35 +304,35 @@ export default function SessionDetailPage() {
       ...page,
       id: page._id || page.id || page.url || Math.random(),
       // --- Basic / CrawledDataTable props ---
-      wordCount: page.word_count || page.wordCount || pageMatrix.wordCount || 0,
+      wordCount: page.word_count || page.wordCount || 0,
       titleLength: page.title_length || page.titleLength || pageMatrix.titleLength || 0,
       titlePixelWidth: crawlerData.title_pixel_width || pageMatrix.titlePixelWidth || 0,
-      description: page.meta_description || page.metaDescription || pageMatrix.metaDescription || '',
-      descriptionLength: page.description_length || page.descriptionLength || pageMatrix.metaDescriptionLength || 0,
-      descriptionPixelWidth: crawlerData.meta_description_pixel_width || pageMatrix.metaDescriptionPixelWidth || 0,
+      description: page.meta_description || page.metaDescription || '',
+      descriptionLength: page.description_length || page.descriptionLength || 0,
+      descriptionPixelWidth: crawlerData.meta_description_pixel_width || 0,
       statusCode,
-      responseTime: page.response_time || page.responseTime || pageMatrix.responseTime || 0,
+      responseTime: page.response_time || page.responseTime || 0,
       contentType: page.content_type || page.contentType || '',
       sentenceCount: page.sentence_count || page.sentenceCount || wordCountData.sentenceCount || 0,
       paragraphCount: page.paragraph_count || page.paragraphCount || wordCountData.paragraphCount || 0,
       textToHtmlRatio: page.text_to_html_ratio || page.textToHtmlRatio || wordCountData.textToHtmlRatio || 0,
-      metaKeywords: Array.isArray(page.meta_keywords) ? page.meta_keywords.join(', ') : (page.meta_keywords || pageMatrix.metaKeywords || ''),
-      metaKeywordsLength: page.meta_keywords_length || page.metaKeywordsLength || pageMatrix.metaKeywordsLength || 0,
+      metaKeywords: Array.isArray(page.meta_keywords) ? page.meta_keywords.join(', ') : (page.meta_keywords || ''),
+      metaKeywordsLength: page.meta_keywords_length || page.metaKeywordsLength || 0,
       crawlDepth: page.crawl_depth || page.crawlDepth || 0,
       folderDepth: page.folder_depth || page.folderDepth || 0,
       uniqueOutlinks: crawlerData.unique_outlinks || 0,
       uniqueJsOutlinks: crawlerData.unique_js_outlinks || 0,
       uniqueExternalOutlinks: crawlerData.unique_external_outlinks || 0,
       uniqueExternalJsOutlinks: crawlerData.unique_external_js_outlinks || 0,
-      metaDescription: page.meta_description || page.metaDescription || pageMatrix.metaDescription || '',
-      canonicalUrl: page.canonical_url || page.canonicalUrl || pageMatrix.canonicalUrl || '',
+      metaDescription: page.meta_description || page.metaDescription || '',
+      canonicalUrl: page.canonical_url || page.canonicalUrl || '',
       httpRelNext: page.http_rel_next || page.httpRelNext || '',
       httpRelPrev: page.http_rel_prev || page.httpRelPrev || '',
       relNext: page.rel_next ?? '',
       relPrev: page.rel_prev ?? '',
-      metaRobots: page.meta_robots || page.metaRobots || pageMatrix.metaRobots || '',
+      metaRobots: page.meta_robots || page.metaRobots || '',
       xRobotsTag: page.x_robots_tag || page.xRobotsTag || '',
-      metaRefresh: page.meta_refresh || page.metaRefresh || pageMatrix.metaRefresh || '',
+      metaRefresh: page.meta_refresh || page.metaRefresh || '',
       lastModified: page.last_modified || page.lastModified || '',
       httpVersion: page.http_version || page.httpVersion || '',
       success: statusCode >= 200 && statusCode < 400,
@@ -346,7 +345,7 @@ export default function SessionDetailPage() {
       errorMessage: page.error_message || page.errorMessage || '',
 
       // Size / Carbon Attributes
-      sizeBytes: page.page_size_bytes || pmPageSize.sizeBytes || 0,
+      sizeBytes: page.page_size_bytes || 0,
       transferredBytes: crawlerData.transferred_bytes || 0,
       totalTransferredBytes: crawlerData.total_transferred_bytes || crawlerData.transferred_bytes || 0,
       co2Mg: crawlerData.co2_mg || 0,
@@ -376,16 +375,12 @@ export default function SessionDetailPage() {
       // FAQs (from page_matrix.faqs nested object)
       hasFaqs: pmFaqs.hasFaqs || page.has_faq || false,
       faqCount: pmFaqs.faqCount ?? page.faq_count ?? 0,
-      faqScore: 0,
       faqDetectionMethod: pmFaqs.detectionMethod || '',
-      faqSchemaPresent: false,
       faqData: Array.isArray(pmFaqs.faqPairs) && pmFaqs.faqPairs.length > 0 ? JSON.stringify(pmFaqs.faqPairs) : '',
 
       // Mixed Content (from page_matrix.mixedContent nested object)
       hasMixedContent: pmMixed.hasMixedContent || page.has_mixed_content || false,
       mixedContentSeverity: (pmMixed.hasMixedContent || page.has_mixed_content) ? 'warning' : 'none',
-      activeMixedContentCount: 0,
-      passiveMixedContentCount: 0,
       totalInsecureResources: Array.isArray(pmMixed.mixedContentResources) ? pmMixed.mixedContentResources.length : (Array.isArray(page.mixed_content_urls) ? page.mixed_content_urls.length : 0),
       mixedContentData: (() => {
         const resources = pmMixed.mixedContentResources || page.mixed_content_urls || [];
@@ -397,9 +392,6 @@ export default function SessionDetailPage() {
       duplicateMetaDescriptionCount: 0,
 
       // Header Structure (from page_matrix)
-      headerStructureData: Array.isArray(pageMatrix.headerStructure) ? JSON.stringify(pageMatrix.headerStructure) : '',
-      headerStructureIssues: Array.isArray(pageMatrix.headerIssues) ? JSON.stringify(pageMatrix.headerIssues) : '',
-
       // Viewport (from page_matrix.viewport nested object)
       viewportPresent: pmViewport.hasViewport ?? !!page.viewport,
       viewportContent: pmViewport.viewportContent || page.viewport || '',
@@ -422,34 +414,17 @@ export default function SessionDetailPage() {
         const types = [...new Set(items.map((i: any) => i.schemaType).filter(Boolean))];
         return types.join(', ');
       })(),
-      structuredDataPriorityType: (() => {
-        if (Array.isArray(page.structured_data_types) && page.structured_data_types.length > 0) {
-          return page.structured_data_types[0];
-        }
-        return '';
-      })(),
-
-      // Page Size
-      pageSizeBytes: pmPageSize.sizeBytes || page.page_size_bytes || 0,
-      pageSizeStatus: (() => {
-        const bytes = pmPageSize.sizeBytes || page.page_size_bytes || 0;
-        if (bytes > 500000) return 'Large';
-        if (bytes > 100000) return 'Medium';
-        return 'Small';
-      })(),
-      htmlSizeBytes: page.html_size_bytes || 0,
-      htmlSizeStatus: (() => {
-        const bytes = page.html_size_bytes || 0;
-        if (bytes > 500000) return 'Large';
-        if (bytes > 100000) return 'Warning';
-        return 'Good';
-      })(),
-
-      // Canonical Validation (from page_matrix)
+      // Canonical Validation
       canonicalValidationStatus: (() => {
-        const cv = pageMatrix.canonicalValidation;
-        if (!cv) return 'Missing';
-        return cv.isValid ? 'Valid' : 'Invalid';
+        const canonicalUrl = page.canonical_url || page.canonicalUrl || '';
+        if (!canonicalUrl) return 'Missing';
+        // Simple validation: check if it's an absolute URL
+        try {
+          new URL(canonicalUrl);
+          return 'Valid';
+        } catch {
+          return 'Invalid';
+        }
       })(),
       canonicalValidationMessage: '',
 
@@ -478,9 +453,6 @@ export default function SessionDetailPage() {
         return (page.title_length === 0 || page.title_length === undefined) ? 'Missing' : 'OK';
       })(),
       metaDescriptionStatus: (() => {
-        const mv = pageMatrix.metaDescriptionValidation;
-        if (mv && !mv.isValid) return 'Missing';
-        if (pageMatrix.hasMissingMetaDescription) return 'Missing';
         return (page.description_length === 0 || page.description_length === undefined) ? 'Missing' : 'OK';
       })(),
 
@@ -494,7 +466,7 @@ export default function SessionDetailPage() {
 
       // Heading structure
       headingTags: (() => {
-        const hs = pageMatrix.headerStructure || crawlerData.heading_structure;
+        const hs = crawlerData.heading_structure;
         if (Array.isArray(hs) && hs.length > 0) return JSON.stringify(hs);
         const tags: any[] = [];
         for (let i = 1; i <= 6; i++) {
@@ -511,8 +483,8 @@ export default function SessionDetailPage() {
 
       // Additional fields
       cookies: page.cookies || '',
-      amphtmlUrl: page.amphtml_link || pageMatrix.ampHtmlUrl || '',
-      mobileAlternateUrl: page.mobile_alternate_link || pageMatrix.mobileAlternateUrl || '',
+      amphtmlUrl: page.amphtml_link || '',
+      mobileAlternateUrl: page.mobile_alternate_link || '',
       urlEncodedAddress: crawlerData.url_encoded_address || (page.url ? encodeURI(page.url) : ''),
       outlinks: crawlerData.outlinks || 0,
       externalOutlinks: crawlerData.external_outlinks || 0,
