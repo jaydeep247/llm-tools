@@ -7,7 +7,7 @@ import { Clock, Globe, CheckCircle, XCircle, Loader2, AlertCircle, RefreshCw } f
 import { Badge } from '@/components/ui/badge'
 import { CrawlLogger, DiscoveredPages, CrawlStatusHeader, CrawlStatusBanner } from '@/components/crawl'
 import { SessionLayout } from '@/components/layout/SessionLayout'
-import { CrawledDataTable, PageMetricsTable, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, PerformanceAuditsTable, SchemaGeneratorTable, AuditChecker, RecommendationsPanel, SerpAnalyzer } from '@/components/module_A'
+import { CrawledDataTable, MainContentAudit, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, SchemaGeneratorTable, AuditChecker, SerpAnalyzer } from '@/components/module_A'
 import { AIIntelligenceModule, ContentMetricsModule, AIVisibilityScorecards, EntityGapAnalysis, AIAnswerPreview, ImprovementActions, ModelComparison, AIVisibilityReport } from '@/components/module_C'
 import { PromptTrackingPanel, SiteStructure } from '@/components/module_D/site-structure'
 import { AICitationRanking, ContentConsistencyEntityCoverage, BrandAnalysisSection, SentimentTrackingSection, CompetitorMentionsSection, SentimentTracking, ShareOfVoiceSection, TrendsByModelSection, DashboardOverview, PromptTrackingRecommendations } from '@/components/module_E'
@@ -1066,45 +1066,14 @@ export default function SessionDetailPage() {
 
         {/* Show Page Metrics Table on page-metrics / content-audit tab */}
         {(activeSection === 'page-metrics' || activeSection === 'content-audit') && (
-          <div className="h-[calc(100vh-133px)] -mx-11 md:-mx-8">
-            <PageMetricsTable
-              data={pageMetricsData?.data || []}
-              isLoading={isLoadingMetrics}
-              onRefresh={() => refetchMetrics()}
-            />
-          </div>
-        )}
-
-        {/* Show Text Quality Table on text-quality tab */}
-        {activeSection === 'text-quality' && (
-          <div>
-            <TextQualityTable
-              data={textQualityData?.data || []}
-              isLoading={isLoadingTextQuality}
-              onRefresh={() => refetchTextQuality()}
-            />
-          </div>
-        )}
-
-        {/* Show Word Count Analysis on wordcount tab */}
-        {activeSection === 'wordcount' && (
-          <div>
-            <WordCountAnalysis
-              data={wordCountData?.data || []}
-              isLoading={isLoadingWordCount}
-              onRefresh={() => refetchWordCount()}
-            />
-          </div>
-        )}
-
-        {/* Show Broken Link Checker on broken-links tab */}
-        {activeSection === 'broken-links' && (
-          <div>
-            <BrokenLinkChecker
+          <div className="h-[calc(100vh-133px)] -mx-11 md:-mx-8 p-6">
+            <MainContentAudit
+              pageMetricsData={pageMetricsData?.data || []}
+              isLoadingMetrics={isLoadingMetrics}
+              onRefreshMetrics={() => refetchMetrics()}
               sessionId={sessionId}
-              onCheck={handleCheckLinks}
-              checkResults={linkCheckData?.results || null}
-              isChecking={isCheckingLinks}
+              jobId={crawlJob?.id ?? jobId ?? null}
+              sessionStatus={session?.status as any}
             />
           </div>
         )}
@@ -1164,21 +1133,21 @@ export default function SessionDetailPage() {
           </div>
         )}
 
-        {/* Show Performance Audits on performance tab */}
+        {/* Show Performance Audits on performance tab (now handled in Content Audit) */}
         {activeSection === 'performance' && (
           <div>
-            <PerformanceAuditsTable
-              sessionId={sessionId}
-              jobId={jobId || null}
-              sessionStatus={crawlStatus}
-            />
+            <div className="p-8 text-center text-zinc-400">
+              Performance Metrics have been moved to the Content Audit section.
+            </div>
           </div>
         )}
 
-        {/* Show Recommendations panel */}
+        {/* Show Recommendations panel (now handled in Content Audit) */}
         {activeSection === 'recommendations' && (
           <div>
-            <RecommendationsPanel jobId={crawlJob?.id ?? jobId ?? ''} />
+            <div className="p-8 text-center text-zinc-400">
+              Recommendations have been moved to the Content Audit section.
+            </div>
           </div>
         )}
 

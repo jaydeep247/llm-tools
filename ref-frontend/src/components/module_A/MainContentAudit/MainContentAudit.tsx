@@ -1,0 +1,81 @@
+import { useState } from 'react'
+import { PageMetrics } from './PageMetrics'
+import { KeywordMetrics } from './KeywordMetrics'
+import { PerformanceMetrics } from './PerformanceMetrics'
+import { ContentMetrics } from './ContentMetrics'
+import { BacklinkMetrics } from './BacklinkMetrics'
+import { Recommendations } from './Recommendations'
+
+interface MainContentAuditProps {
+  pageMetricsData: any[]
+  isLoadingMetrics?: boolean
+  onRefreshMetrics?: () => void
+  sessionId: string | number
+  jobId: string | null
+  sessionStatus?: 'idle' | 'running' | 'auditing' | 'completed' | 'cancelled'
+}
+
+export function MainContentAudit({
+  pageMetricsData,
+  isLoadingMetrics,
+  onRefreshMetrics,
+  sessionId,
+  jobId,
+  sessionStatus
+}: MainContentAuditProps) {
+  const [activeTab, setActiveTab] = useState('page-metrics')
+
+  const tabs = [
+    { id: 'page-metrics', label: 'Page Metrics' },
+    { id: 'keyword-metrics', label: 'Keyword Metrics' },
+    { id: 'performance-metrics', label: 'Performance Metrics' },
+    { id: 'content-metrics', label: 'Content Metrics' },
+    { id: 'backlink-metrics', label: 'Backlink Metrics' },
+    { id: 'recommendations', label: 'Recommendations' },
+  ]
+
+  return (
+    <div className="flex flex-col h-full gap-4">
+      {/* Tab Navigation */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-zinc-800 pb-2">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+              activeTab === tab.id
+                ? 'text-white border-b-2 border-white'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Content */}
+      <div className="flex-1 min-h-0">
+        {activeTab === 'page-metrics' && (
+          <PageMetrics 
+            data={pageMetricsData} 
+            isLoading={isLoadingMetrics} 
+            onRefresh={onRefreshMetrics} 
+          />
+        )}
+        {activeTab === 'keyword-metrics' && <KeywordMetrics />}
+        {activeTab === 'performance-metrics' && (
+          <PerformanceMetrics 
+            sessionId={sessionId} 
+            jobId={jobId} 
+            sessionStatus={sessionStatus} 
+          />
+        )}
+        {activeTab === 'content-metrics' && <ContentMetrics />}
+        {activeTab === 'backlink-metrics' && <BacklinkMetrics />}
+        {activeTab === 'recommendations' && (
+          <Recommendations jobId={jobId ?? ''} />
+        )}
+      </div>
+    </div>
+  )
+}

@@ -39,7 +39,7 @@ from modules.module_A.WebsiteCrawler.metrics import (
     link_analysis,
     similarity,
 )
-from modules.module_A.pagematrix.manager import extract_page_metrics
+from modules.module_A.ContentAudit import run_content_audit
 from modules.module_A.Wordcount_analysis import wordcount_extractor
 from modules.module_A.Broken_links_checker import broken_link_checker
 from modules.module_A.Redirects_audit import redirect_audit
@@ -1028,8 +1028,8 @@ class WebsiteSpider(RedisSpider):
                 'url_encoded_address': response.url,
             },
             
-            # Module A: Page Matrix Metrics
-            'page_matrix': extract_page_metrics(
+            # Content Audit (Orchestrator)
+            'page_matrix': run_content_audit(
                 url=response.url,
                 html_content=response.text,
                 response_status=response.status,
@@ -1037,7 +1037,7 @@ class WebsiteSpider(RedisSpider):
                 response_time_ms=(response.meta.get('download_latency', datetime.now().timestamp() - start_time)),
                 final_url=response.url,
                 raw_body_size=len(response.body),
-            ),
+            ).get('page_metrics', {}),
             
             # Text Quality Analyzer (New Consolidated Module)
             'Text Quality Analyzer': tq_results,

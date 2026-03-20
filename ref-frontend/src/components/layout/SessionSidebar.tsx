@@ -38,12 +38,7 @@ interface SessionSidebarProps {
 const menuItems = [
   { id: 'crawler', label: 'Crawler', icon: Bug },
   { id: 'crawled-data', label: 'Crawled Data', icon: Database },
-  { id: 'page-metrics', label: 'Page Metrics', icon: BarChart3 },
   { id: 'text-quality', label: 'Text Quality Analyzer', icon: Sparkles },
-  { id: 'serp-analysis', label: 'SERP Analysis', icon: Search },
-  { id: 'wordcount', label: 'Wordcount Analysis', icon: FileText },
-  { id: 'broken-links', label: 'Broken Link Checker', icon: Link2Off },
-  { id: 'audit-checker', label: 'Audit Checker', icon: CheckCircle2 },
   { id: 'link-analysis', label: 'Link Analysis', icon: Network },
   { id: 'site-structure', label: 'Site Structure', icon: GitBranch },
   { id: 'performance', label: 'Performance Audits', icon: Gauge },

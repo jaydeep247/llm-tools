@@ -68,7 +68,7 @@ const COLUMN_CATEGORIES: ColumnCategory[] = [
 
 const DEFAULT_VISIBLE_COLUMNS: Set<keyof AuditItem> = new Set(['runAt', 'device', 'url', 'performanceScore', 'LCP_ms', 'TBT_ms', 'CLS'])
 
-export function PerformanceAuditsTable({ 
+export function PerformanceMetrics({ 
   sessionId,
   jobId,
   sessionStatus = 'completed',

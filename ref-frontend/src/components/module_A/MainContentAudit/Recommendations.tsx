@@ -321,7 +321,7 @@ function PageRow({ page }: { page: PageRecommendation }) {
 // ─────────────────────────────────────────────
 // Main component
 // ─────────────────────────────────────────────
-export function RecommendationsPanel({ jobId }: RecommendationsPanelProps) {
+export function Recommendations({ jobId }: RecommendationsPanelProps) {
   const { data, isLoading, isError, refetch } = useGetJobRecommendationsQuery(jobId, {
     skip: !jobId,
     refetchOnMountOrArgChange: true,
@@ -525,4 +525,4 @@ export function RecommendationsPanel({ jobId }: RecommendationsPanelProps) {
   )
 }
 
-export default RecommendationsPanel
+export default Recommendations

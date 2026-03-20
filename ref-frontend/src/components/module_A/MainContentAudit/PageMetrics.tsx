@@ -14,7 +14,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { FieldTooltip } from './FieldTooltip'
+import { FieldTooltip } from '../FieldTooltip'
 
 interface PageMetric {
   id?: string | number
@@ -218,7 +218,7 @@ const FIELD_DESCRIPTIONS: Partial<Record<keyof PageMetric, string>> = {
 
 const DEFAULT_VISIBLE_COLUMNS: Set<keyof PageMetric> = new Set(['url', 'title', 'titleStatus', 'metaDescriptionStatus', 'hasTables', 'hasFaqs', 'timestamp'])
 
-export function PageMetricsTable({ 
+export function PageMetrics({ 
   data = [], 
   isLoading = false,
   onRefresh,
@@ -648,11 +648,82 @@ export function PageMetricsTable({
   }
 
   return (
-    <div className="flex gap-3 h-full">
-      {/* Sidebar Filter Panel */}
-      <div className={`${sidebarOpen ? 'w-68' : 'w-0'} transition-all duration-300 overflow-hidden shrink-0`}>
-        {sidebarOpen && (
-          <div className="bg-[#0D0D10] border border-zinc-800 rounded-xl p-4 h-full overflow-y-auto custom-scrollbar">
+    <div className="flex flex-col h-full gap-4">
+      {/* Option Bar: Header with Controls & Stats */}
+      <div className="flex flex-col gap-3">
+        {/* Header with Controls */}
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+          <div className="flex-1 w-full sm:max-w-md">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-500" />
+              <Input
+                placeholder="Search by URL or title..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value)
+                  setCurrentPage(1)
+                }}
+                className="pl-10 bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-500 text-sm rounded-xl"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {onRefresh && (
+              <Button
+                onClick={onRefresh}
+                variant="outline"
+                size="sm"
+                className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl"
+                disabled={isLoading}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            )}
+            {onExport && (
+              <Button
+                onClick={onExport}
+                variant="outline"
+                size="sm"
+                className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
+            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Total Pages</div>
+            <div className="text-xl font-bold text-white mt-1">{uniqueData.length}</div>
+          </div>
+          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
+            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Filtered</div>
+            <div className="text-xl font-bold text-white mt-1">{filteredData.length}</div>
+          </div>
+          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
+            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">With Tables</div>
+            <div className="text-xl font-bold text-white mt-1">
+              {uniqueData.filter(p => p.hasTables).length}
+            </div>
+          </div>
+          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
+            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">With FAQs</div>
+            <div className="text-xl font-bold text-white mt-1">
+              {uniqueData.filter(p => p.hasFaqs).length}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex gap-3 flex-1 min-h-0">
+        {/* Sidebar Filter Panel */}
+        <div className={`${sidebarOpen ? 'w-68' : 'w-0'} transition-all duration-300 overflow-hidden shrink-0`}>
+          {sidebarOpen && (
+            <div className="bg-[#0D0D10] border border-zinc-800 rounded-xl p-4 h-full overflow-y-auto custom-scrollbar">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-white">Column Filters</h3>
               <Button
@@ -732,73 +803,6 @@ export function PageMetricsTable({
             </Button>
           </div>
         )}
-
-        {/* Header with Controls */}
-        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between mb-4">
-          <div className="flex-1 w-full sm:max-w-md">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-500" />
-              <Input
-                placeholder="Search by URL or title..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value)
-                  setCurrentPage(1)
-                }}
-                className="pl-10 bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-500 text-sm rounded-xl"
-              />
-            </div>
-          </div>
-          <div className="flex gap-2">
-            {onRefresh && (
-              <Button
-                onClick={onRefresh}
-                variant="outline"
-                size="sm"
-                className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl"
-                disabled={isLoading}
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-            )}
-            {onExport && (
-              <Button
-                onClick={onExport}
-                variant="outline"
-                size="sm"
-                className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Export
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
-            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Total Pages</div>
-            <div className="text-xl font-bold text-white mt-1">{uniqueData.length}</div>
-          </div>
-          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
-            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Filtered</div>
-            <div className="text-xl font-bold text-white mt-1">{filteredData.length}</div>
-          </div>
-          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
-            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">With Tables</div>
-            <div className="text-xl font-bold text-white mt-1">
-              {uniqueData.filter(p => p.hasTables).length}
-            </div>
-          </div>
-          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
-            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">With FAQs</div>
-            <div className="text-xl font-bold text-white mt-1">
-              {uniqueData.filter(p => p.hasFaqs).length}
-            </div>
-          </div>
-        </div>
 
         {/* Table */}
         <div className="rounded-xl border border-zinc-800 bg-[#111113] overflow-hidden flex-1 min-h-0">
@@ -906,6 +910,7 @@ export function PageMetricsTable({
           </div>
         )}
       </div>
+    </div>
     </div>
   )
 }
