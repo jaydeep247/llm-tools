@@ -45,6 +45,14 @@ interface PageMetric {
   totalWordCount?: number
   timestamp: string
   sessionId?: number
+  pageCategory?: string | null
+  postCategoryType?: string | null
+  pageType?: string | null
+  postType?: string | null
+  intent?: string | null
+  indexability?: string | null
+  isSelfCanonical?: boolean | null
+  redirectTarget?: string | null
   tableCount?: number | null
   tableData?: string | null
   hasTables?: boolean | null
@@ -83,6 +91,10 @@ const COLUMN_CATEGORIES: ColumnCategory[] = [
   {
     name: 'Basic Info',
     columns: ['url', 'title', 'resourceType', 'timestamp']
+  },
+  {
+    name: 'Advanced Metrics',
+    columns: ['pageCategory', 'postCategoryType', 'pageType', 'postType', 'intent', 'indexability', 'canonicalUrl', 'isSelfCanonical', 'redirectTarget']
   },
   {
     name: 'Title Metrics',
@@ -136,9 +148,17 @@ const FIELD_DESCRIPTIONS: Partial<Record<keyof PageMetric, string>> = {
   structuredDataPresent: 'Whether JSON-LD structured data schema markup exists on this page.',
   structuredDataFormat: 'Format of structured data found (JSON-LD, Microdata, or RDFa).',
   structuredDataTypes: 'Schema.org types detected on this page (e.g. Article, FAQPage, Product).',
+  pageCategory: 'Top-level category of the page derived from CMS or URL structure.',
+  postCategoryType: 'Semantic type of the post content (e.g., Guide, Comparison, Listicle).',
+  pageType: 'Classification of page position in site architecture (Hub, Spoke, etc.).',
+  postType: 'CMS post type (e.g., article, product, landing_page).',
+  intent: 'Search intent aligned with the primary keyword (Informational, Navigational, Commercial, Transactional).',
+  indexability: 'Whether the page is indexable or non-indexable, considering canonicals and meta tags.',
+  isSelfCanonical: 'Whether the canonical URL points to the page itself.',
+  redirectTarget: 'Target URL if the page redirects to another location.',
 }
 
-const DEFAULT_VISIBLE_COLUMNS: Set<keyof PageMetric> = new Set(['url', 'title', 'titleStatus', 'hasTables', 'hasFaqs', 'timestamp'])
+const DEFAULT_VISIBLE_COLUMNS: Set<keyof PageMetric> = new Set(['url', 'title', 'pageCategory', 'pageType', 'intent', 'indexability', 'timestamp'])
 
 export function PageMetrics({ 
   data = [], 

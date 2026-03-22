@@ -421,6 +421,15 @@ export default function SessionDetailClient() {
     })(),
     canonicalValidationMessage: '',
 
+    pageCategory: pageMatrix.page_category ?? null,
+    postCategoryType: pageMatrix.post_category_type ?? null,
+    pageType: pageMatrix.page_type ?? null,
+    postType: pageMatrix.post_type ?? null,
+    intent: pageMatrix.intent ?? null,
+    indexability: pageMatrix.indexability ?? null,
+    isSelfCanonical: pageMatrix.is_self_canonical ?? null,
+    redirectTarget: pageMatrix.redirect_target ?? null,
+
     totalWordCount: page.word_count || page.wordCount || wordCountData.totalWordCount || 0,
     visibleWordCount: wordCountData.visibleWordCount || page.word_count || 0,
     uniqueWordCount: wordCountData.uniqueWordCount || 0,

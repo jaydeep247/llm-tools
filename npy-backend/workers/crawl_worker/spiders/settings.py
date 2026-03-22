@@ -58,6 +58,9 @@ HTTPCACHE_ENABLED = False
 LOG_LEVEL = 'ERROR'
 LOG_ENABLED = True
 
+# Disable Scrapy RedirectMiddleware to handle them manually
+REDIRECT_ENABLED = False
+
 EXTENSIONS = {
     'workers.crawl_worker.extensions.log_filter.SuppressEngineSlotNoise': 100,
 }

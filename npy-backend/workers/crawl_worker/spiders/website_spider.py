@@ -828,8 +828,40 @@ class WebsiteSpider(RedisSpider):
             page_item['folder_depth'] = folder_depth
             if self.job_id:
                 page_item['job_id'] = self.job_id
+                
+            # Populating minimal page_matrix for non-HTML (especially 3xx redirects)
+            page_item['fields'] = {
+                'status': str(response.status),
+                'page_matrix': run_content_audit(
+                    url=response.url,
+                    html_content="",
+                    response_status=response.status,
+                    response_headers={k.decode('utf-8'): v[0].decode('utf-8') for k, v in response.headers.items()},
+                    response_time_ms=(response.meta.get('download_latency', 0)),
+                    final_url=response.url,
+                    raw_body_size=len(response.body),
+                ).get('page_metrics', {})
+            }
+
             self.pages_crawled += 1
             yield page_item
+            
+            # Handle manual redirect for non-HTML redirect responses (edge cases)
+            if response.status in [301, 302, 307, 308]:
+                location = response.headers.get('Location')
+                if location:
+                    loc_str = location.decode('utf-8') if isinstance(location, bytes) else str(location)
+                    target_url = response.urljoin(loc_str)
+                    norm_target = self.normalize_url(target_url)
+                    if norm_target not in self.seen_urls and not self.should_stop:
+                        self.seen_urls.add(norm_target)
+                        yield scrapy.Request(
+                            url=target_url,
+                            callback=self.parse,
+                            priority=200,
+                            meta={'depth': crawl_depth, 'job_id': self.job_id, 'session_id': self.session_id, 'project_id': self.project_id},
+                            errback=self.handle_error,
+                        )
             return
             
         # ==================================================================
@@ -1037,6 +1069,7 @@ class WebsiteSpider(RedisSpider):
                 response_time_ms=(response.meta.get('download_latency', datetime.now().timestamp() - start_time)),
                 final_url=response.url,
                 raw_body_size=len(response.body),
+                redirect_urls=response.request.meta.get('redirect_urls', []),
             ).get('page_metrics', {}),
             
             # Text Quality Analyzer (New Consolidated Module)
@@ -1113,6 +1146,30 @@ class WebsiteSpider(RedisSpider):
         
         # Follow internal links
         if not self.should_stop:
+            # Handle Redirects manually to preserve full redirect graph
+            if response.status in [301, 302, 307, 308]:
+                location = response.headers.get('Location')
+                if location:
+                    loc_str = location.decode('utf-8') if isinstance(location, bytes) else str(location)
+                    target_url = response.urljoin(loc_str)
+                    normalized_target = self.normalize_url(target_url)
+                    
+                    if normalized_target not in self.seen_urls:
+                        self.seen_urls.add(normalized_target)
+                        yield scrapy.Request(
+                            url=target_url,
+                            callback=self.parse,
+                            priority=200, # Give redirects high priority
+                            meta={
+                                'depth': crawl_depth, # Keep same depth for redirects
+                                'job_id': self.job_id,
+                                'session_id': self.session_id,
+                                'project_id': self.project_id
+                            },
+                            errback=self.handle_error,
+                        )
+            
+            # Follow normal extracted links
             for link_data in links_data:
                 if link_data['is_internal']:
                     target_url = link_data['target_url']

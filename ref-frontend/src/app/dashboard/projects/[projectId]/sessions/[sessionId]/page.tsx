@@ -303,6 +303,16 @@ export default function SessionDetailPage() {
     return {
       ...page,
       id: page._id || page.id || page.url || Math.random(),
+      // --- Advanced Page Metrics ---
+      pageCategory: pageMatrix.page_category || null,
+      postCategoryType: pageMatrix.post_category_type || null,
+      pageType: pageMatrix.page_type || null,
+      postType: pageMatrix.post_type || null,
+      intent: pageMatrix.intent || null,
+      indexability: pageMatrix.indexability || null,
+      isSelfCanonical: pageMatrix.is_self_canonical || null,
+      redirectTarget: pageMatrix.redirect_target || null,
+      
       // --- Basic / CrawledDataTable props ---
       wordCount: page.word_count || page.wordCount || 0,
       titleLength: page.title_length || page.titleLength || pageMatrix.titleLength || 0,
@@ -325,7 +335,7 @@ export default function SessionDetailPage() {
       uniqueExternalOutlinks: crawlerData.unique_external_outlinks || 0,
       uniqueExternalJsOutlinks: crawlerData.unique_external_js_outlinks || 0,
       metaDescription: page.meta_description || page.metaDescription || '',
-      canonicalUrl: page.canonical_url || page.canonicalUrl || '',
+      canonicalUrl: pageMatrix.canonical_url || page.canonical_url || page.canonicalUrl || '',
       httpRelNext: page.http_rel_next || page.httpRelNext || '',
       httpRelPrev: page.http_rel_prev || page.httpRelPrev || '',
       relNext: page.rel_next ?? '',

@@ -21,6 +21,7 @@ def run_content_audit(
     response_time_ms: float,
     final_url: str = None,
     raw_body_size: int = 0,
+    redirect_urls: list = None,
     **kwargs
 ) -> Dict[str, Any]:
     """
@@ -40,7 +41,8 @@ def run_content_audit(
             response_headers=response_headers,
             response_time_ms=response_time_ms,
             final_url=final_url,
-            raw_body_size=raw_body_size
+            raw_body_size=raw_body_size,
+            redirect_urls=redirect_urls
         )
     except Exception as e:
         logger.error(f"Error extracting page metrics for {url}: {e}")
