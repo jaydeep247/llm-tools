@@ -72,6 +72,8 @@ export class JobService {
           runAudits: job.runAudits,
           auditDevice: job.auditDevice,
           captureLinkDetails: job.captureLinkDetails,
+          mainKeyword: job.mainKeyword,
+          gaPropertyId: job.gaPropertyId,
         });
         break;
 
@@ -424,6 +426,8 @@ export class JobService {
       runAudits: failedJob.runAudits,
       auditDevice: failedJob.auditDevice,
       captureLinkDetails: failedJob.captureLinkDetails,
+      mainKeyword: failedJob.mainKeyword,
+      gaPropertyId: failedJob.gaPropertyId,
     });
 
     // Update session status back to running

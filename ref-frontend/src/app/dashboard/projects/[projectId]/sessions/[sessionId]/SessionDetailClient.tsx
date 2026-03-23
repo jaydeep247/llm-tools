@@ -297,12 +297,22 @@ export default function SessionDetailClient() {
   
   const transformedPages = uniqueRawPages.map((page: any) => {
     // Find associated fields data
-    const fieldData = fieldsMap.get(page.url) || {};
+    const fieldDoc = fieldsMap.get(page.url) || {};
+    
+    // Check if the data is nested under a 'fields' key (old schema) or directly on the doc (new schema)
+    // The test db query showed: No 'fields' key in document, keys are:
+    // ['_id', 'url', 'jobId', 'Broken_links_checker', 'Keyword_analysis', 'Redirects_audit', 'Text Quality Analyzer', 'Wordcount_analysis', 'createdAt', 'page_matrix', 'recommendations', 'status', 'website_crawler']
+    const fieldData = fieldDoc.fields || fieldDoc || {};
+
     const crawlerData = fieldData.website_crawler || {};
     const textQualityData = fieldData['Text Quality Analyzer'] || {};
     const wordCountData = fieldData.Wordcount_analysis || {};
 
     const pageMatrix = fieldData.page_matrix || {};
+    
+    // Performance metrics are now at the root level of the fieldData document `fieldData.performance_metrics`
+    // but we fall back to pageMatrix for backwards compatibility with older crawls
+    const pmMetrics = fieldData.performance_metrics || pageMatrix?.performance_metrics || {};
 
     // Extract nested page_matrix sub-objects
     const pmTables = pageMatrix.tables || {};
@@ -429,6 +439,25 @@ export default function SessionDetailClient() {
     indexability: pageMatrix.indexability ?? null,
     isSelfCanonical: pageMatrix.is_self_canonical ?? null,
     redirectTarget: pageMatrix.redirect_target ?? null,
+
+    // --- Performance Metrics ---
+    ga30DaysTraffic: pmMetrics?.ga30DaysTraffic ?? pageMatrix?.ga30DaysTraffic ?? crawlerData?.ga30DaysTraffic ?? null,
+    currentWordCount: pmMetrics?.currentWordCount ?? pageMatrix?.currentWordCount ?? crawlerData?.currentWordCount ?? null,
+    serpIntentWordCount: pmMetrics?.serpIntentWordCount ?? pageMatrix?.serpIntentWordCount ?? crawlerData?.serpIntentWordCount ?? null,
+    needToAddWordCount: pmMetrics?.needToAddWordCount ?? pageMatrix?.needToAddWordCount ?? crawlerData?.needToAddWordCount ?? null,
+    publishedDate: pmMetrics?.publishedDate ?? pageMatrix?.publishedDate ?? crawlerData?.publishedDate ?? null,
+    upgradeDate: pmMetrics?.upgradeDate ?? pageMatrix?.upgradeDate ?? crawlerData?.upgradeDate ?? null,
+
+    // --- PSI Metrics ---
+    LCP_ms: pmMetrics?.psi_desktop?.LCP_ms ?? pageMatrix?.psi_desktop?.LCP_ms ?? crawlerData?.psi_desktop?.LCP_ms ?? null,
+    TBT_ms: pmMetrics?.psi_desktop?.TBT_ms ?? pageMatrix?.psi_desktop?.TBT_ms ?? crawlerData?.psi_desktop?.TBT_ms ?? null,
+    CLS: pmMetrics?.psi_desktop?.CLS ?? pageMatrix?.psi_desktop?.CLS ?? crawlerData?.psi_desktop?.CLS ?? null,
+    FCP_ms: pmMetrics?.psi_desktop?.FCP_ms ?? pageMatrix?.psi_desktop?.FCP_ms ?? crawlerData?.psi_desktop?.FCP_ms ?? null,
+    TTFB_ms: pmMetrics?.psi_desktop?.TTFB_ms ?? pageMatrix?.psi_desktop?.TTFB_ms ?? crawlerData?.psi_desktop?.TTFB_ms ?? null,
+    performanceScore: pmMetrics?.psi_desktop?.performanceScore ?? pageMatrix?.psi_desktop?.performanceScore ?? crawlerData?.psi_desktop?.performanceScore ?? null,
+    psiReportUrl: pmMetrics?.psi_desktop?.psiReportUrl ?? pageMatrix?.psi_desktop?.psiReportUrl ?? crawlerData?.psi_desktop?.psiReportUrl ?? null,
+    runAt: pmMetrics?.psi_desktop?.runAt ?? pageMatrix?.psi_desktop?.runAt ?? crawlerData?.psi_desktop?.runAt ?? null,
+    device: pmMetrics?.psi_desktop?.device ?? pageMatrix?.psi_desktop?.device ?? crawlerData?.psi_desktop?.device ?? null,
 
     totalWordCount: page.word_count || page.wordCount || wordCountData.totalWordCount || 0,
     visibleWordCount: wordCountData.visibleWordCount || page.word_count || 0,

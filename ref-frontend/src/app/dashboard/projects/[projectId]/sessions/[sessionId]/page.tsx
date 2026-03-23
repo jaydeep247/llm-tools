@@ -291,6 +291,9 @@ export default function SessionDetailPage() {
 
     const pageMatrix = fieldData.page_matrix || {};
 
+    // Performance metrics (stored at root level of the fields document)
+    const pmMetrics = fieldData.performance_metrics || pageMatrix?.performance_metrics || {};
+
     // Extract nested page_matrix sub-objects
     const pmTables = pageMatrix.tables || {};
     const pmFaqs = pageMatrix.faqs || {};
@@ -530,6 +533,25 @@ export default function SessionDetailPage() {
 
       // Ensure timestamp matches
       timestamp: page.timestamp || new Date().toISOString(),
+
+      // --- Performance Metrics ---
+      ga30DaysTraffic: pmMetrics?.ga30DaysTraffic ?? pageMatrix?.ga30DaysTraffic ?? crawlerData?.ga30DaysTraffic ?? null,
+      currentWordCount: pmMetrics?.currentWordCount ?? pageMatrix?.currentWordCount ?? crawlerData?.currentWordCount ?? null,
+      serpIntentWordCount: pmMetrics?.serpIntentWordCount ?? pageMatrix?.serpIntentWordCount ?? crawlerData?.serpIntentWordCount ?? null,
+      needToAddWordCount: pmMetrics?.needToAddWordCount ?? pageMatrix?.needToAddWordCount ?? crawlerData?.needToAddWordCount ?? null,
+      publishedDate: pmMetrics?.publishedDate ?? pageMatrix?.publishedDate ?? crawlerData?.publishedDate ?? null,
+      upgradeDate: pmMetrics?.upgradeDate ?? pageMatrix?.upgradeDate ?? crawlerData?.upgradeDate ?? null,
+
+      // --- PSI Metrics ---
+      LCP_ms: pmMetrics?.psi_desktop?.LCP_ms ?? pageMatrix?.psi_desktop?.LCP_ms ?? null,
+      TBT_ms: pmMetrics?.psi_desktop?.TBT_ms ?? pageMatrix?.psi_desktop?.TBT_ms ?? null,
+      CLS: pmMetrics?.psi_desktop?.CLS ?? pageMatrix?.psi_desktop?.CLS ?? null,
+      FCP_ms: pmMetrics?.psi_desktop?.FCP_ms ?? pageMatrix?.psi_desktop?.FCP_ms ?? null,
+      TTFB_ms: pmMetrics?.psi_desktop?.TTFB_ms ?? pageMatrix?.psi_desktop?.TTFB_ms ?? null,
+      performanceScore: pmMetrics?.psi_desktop?.performanceScore ?? pageMatrix?.psi_desktop?.performanceScore ?? null,
+      psiReportUrl: pmMetrics?.psi_desktop?.psiReportUrl ?? pageMatrix?.psi_desktop?.psiReportUrl ?? null,
+      runAt: pmMetrics?.psi_desktop?.runAt ?? pageMatrix?.psi_desktop?.runAt ?? null,
+      device: pmMetrics?.psi_desktop?.device ?? pageMatrix?.psi_desktop?.device ?? null,
 
       // Attach full field data for components that might dig deeper
       fields: fieldData

@@ -21,7 +21,9 @@ def _run_spider_subprocess(state_dict, url, session_id, job_id, project_id,
                             suppress_completion_events=False,
                             pause_on_limit=False,
                             is_resume=False,
-                            pages_crawled_offset=0):
+                            pages_crawled_offset=0,
+                            main_keyword="",
+                            ga_property_id=""):
     """
     Top-level (picklable) function that runs the Scrapy spider inside a
     spawned subprocess.  Must remain at module level for pickle to work.
@@ -61,6 +63,8 @@ def _run_spider_subprocess(state_dict, url, session_id, job_id, project_id,
             pause_on_limit=pause_on_limit,
             is_resume=is_resume,
             pages_crawled_offset=pages_crawled_offset,
+            main_keyword=main_keyword,
+            ga_property_id=ga_property_id,
         )
         process.start()
 
@@ -89,6 +93,10 @@ def execute_crawler_job(payload: dict) -> bool:
     job_id = payload.get("jobId") or f"job_{session_id}"
     max_pages = payload.get("maxPages") or config.MAX_CRAWL_PAGES
     timeout = payload.get("timeout", 0)
+    main_keyword = payload.get("mainKeyword") or ""
+    ga_property_id = payload.get("gaPropertyId") or ""
+
+    logger.info(f"[CRAWLER_RESUME] ▶️  Resuming crawler job: {job_id} | URL: {url[:60]}")
 
     logger.info(
         f"[CRAWLER] ▶️  Starting crawler job: {job_id} | "
@@ -116,6 +124,7 @@ def execute_crawler_job(payload: dict) -> bool:
     p = spawn_ctx.Process(
         target=_run_spider_subprocess,
         args=(state, url, session_id, job_id, project_id, max_pages, timeout, job_scrapy_settings),
+        kwargs={"main_keyword": main_keyword, "ga_property_id": ga_property_id},
     )
     p.start()
 
@@ -194,6 +203,8 @@ def execute_resume_crawler_job(payload: dict) -> bool:
     url = payload["url"]
     job_id = payload.get("jobId") or f"job_{session_id}"
     timeout = payload.get("timeout", 0)
+    main_keyword = payload.get("mainKeyword") or ""
+    ga_property_id = payload.get("gaPropertyId") or ""
 
     logger.info(f"[CRAWLER_RESUME] ▶️  Resuming crawler job: {job_id} | URL: {url[:60]}")
 
@@ -222,6 +233,8 @@ def execute_resume_crawler_job(payload: dict) -> bool:
             "pause_on_limit": False,
             "is_resume": True,
             "pages_crawled_offset": pages_offset,
+            "main_keyword": main_keyword,
+            "ga_property_id": ga_property_id,
         },
     )
     p.start()

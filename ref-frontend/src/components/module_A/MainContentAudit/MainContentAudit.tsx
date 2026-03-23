@@ -65,9 +65,10 @@ export function MainContentAudit({
         {activeTab === 'keyword-metrics' && <KeywordMetrics />}
         {activeTab === 'performance-metrics' && (
           <PerformanceMetrics 
-            sessionId={sessionId} 
-            jobId={jobId} 
-            sessionStatus={sessionStatus} 
+            data={pageMetricsData} 
+            isLoading={isLoadingMetrics} 
+            onRefresh={onRefreshMetrics} 
+            jobId={jobId}
           />
         )}
         {activeTab === 'content-metrics' && <ContentMetrics />}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { 
   ExternalLink, 
   ChevronDown, 
@@ -9,133 +9,169 @@ import {
   Download,
   RefreshCw,
   X,
-  ChevronRight,
-  Play
+  ChevronRight
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { 
-  useGetJobPerformanceAuditsQuery, 
-  useStartJobPerformanceAuditsMutation 
-} from '@/store/api/jobApi'
+import { FieldTooltip } from '../FieldTooltip'
 
-interface AuditItem {
-  id: string
+export interface PerformanceMetric {
+  id?: string | number
   url: string
-  device: 'mobile' | 'desktop'
-  runAt: string
-  LCP_ms?: number
-  TBT_ms?: number
-  CLS?: number
-  FCP_ms?: number
-  TTFB_ms?: number
-  performanceScore?: number
-  psiReportUrl?: string
+  ga30DaysTraffic?: number | null
+  currentWordCount?: number | null
+  serpIntentWordCount?: number | null
+  needToAddWordCount?: number | null
+  publishedDate?: string | null
+  upgradeDate?: string | null
+  timestamp?: string
+  // PSI Metrics
+  LCP_ms?: number | null
+  TBT_ms?: number | null
+  CLS?: number | null
+  FCP_ms?: number | null
+  TTFB_ms?: number | null
+  performanceScore?: number | null
+  psiReportUrl?: string | null
+  runAt?: string | null
+  device?: string | null
 }
 
-interface PerformanceAuditsTableProps {
-  sessionId: string | number
-  jobId: string | null
-  sessionStatus?: 'idle' | 'running' | 'auditing' | 'completed' | 'cancelled'
+interface PerformanceMetricsTableProps {
+  data: PerformanceMetric[]
   isLoading?: boolean
   onRefresh?: () => void
   onExport?: () => void
+  jobId?: string | null
 }
 
-type SortField = keyof AuditItem
+type SortField = keyof PerformanceMetric
 type SortDirection = 'asc' | 'desc'
 
 type ColumnCategory = {
   name: string
-  columns: (keyof AuditItem)[]
+  columns: (keyof PerformanceMetric)[]
 }
 
 const COLUMN_CATEGORIES: ColumnCategory[] = [
   {
     name: 'Basic Info',
-    columns: ['runAt', 'device', 'url', 'performanceScore']
+    columns: ['url', 'publishedDate', 'upgradeDate', 'device', 'runAt', 'timestamp']
+  },
+  {
+    name: 'Content & Traffic',
+    columns: ['ga30DaysTraffic', 'currentWordCount', 'serpIntentWordCount', 'needToAddWordCount']
   },
   {
     name: 'Core Web Vitals',
-    columns: ['LCP_ms', 'TBT_ms', 'CLS', 'FCP_ms', 'TTFB_ms']
-  },
-  {
-    name: 'Reports',
-    columns: ['psiReportUrl']
+    columns: ['performanceScore', 'LCP_ms', 'TBT_ms', 'CLS', 'FCP_ms', 'TTFB_ms', 'psiReportUrl']
   }
 ]
 
-const DEFAULT_VISIBLE_COLUMNS: Set<keyof AuditItem> = new Set(['runAt', 'device', 'url', 'performanceScore', 'LCP_ms', 'TBT_ms', 'CLS'])
+const FIELD_DESCRIPTIONS: Partial<Record<keyof PerformanceMetric, string>> = {
+  url: 'Full web address of the analyzed page. Click to open in a new tab.',
+  ga30DaysTraffic: 'Total sessions recorded over the last 30 days from Google Analytics 4.',
+  currentWordCount: 'Current number of words in the main content area of the page.',
+  serpIntentWordCount: 'Average word count of top 10 competitors for the primary keyword.',
+  needToAddWordCount: 'Number of words needed to reach the SERP intent average.',
+  publishedDate: 'Original publication date extracted from the page.',
+  upgradeDate: 'Last modified or upgraded date extracted from the page.',
+  timestamp: 'Date and time when this data was collected.',
+  performanceScore: 'Overall PageSpeed Insights score (0-100).',
+  LCP_ms: 'Largest Contentful Paint in milliseconds.',
+  TBT_ms: 'Total Blocking Time in milliseconds.',
+  CLS: 'Cumulative Layout Shift score.',
+  FCP_ms: 'First Contentful Paint in milliseconds.',
+  TTFB_ms: 'Time to First Byte in milliseconds.',
+  psiReportUrl: 'Link to the full PageSpeed Insights report.',
+  device: 'Device strategy used for the audit (mobile/desktop).',
+  runAt: 'When the performance audit was run.'
+}
+
+const DEFAULT_VISIBLE_COLUMNS: Set<keyof PerformanceMetric> = new Set([
+  'url', 
+  'ga30DaysTraffic', 
+  'currentWordCount', 
+  'serpIntentWordCount', 
+  'needToAddWordCount', 
+  'publishedDate', 
+  'upgradeDate',
+  'performanceScore',
+  'LCP_ms',
+  'CLS'
+] as (keyof PerformanceMetric)[])
+
+import { useStartJobPerformanceAuditsMutation } from '@/store/api/jobApi'
 
 export function PerformanceMetrics({ 
-  sessionId,
-  jobId,
-  sessionStatus = 'completed',
-  isLoading: externalLoading = false,
+  data = [], 
+  isLoading = false,
   onRefresh,
-  onExport 
-}: PerformanceAuditsTableProps) {
+  onExport,
+  jobId
+}: PerformanceMetricsTableProps) {
   const [searchQuery, setSearchQuery] = useState('')
-  const [deviceFilter, setDeviceFilter] = useState<'all' | 'mobile' | 'desktop'>('all')
-  const [sortField, setSortField] = useState<SortField>('runAt')
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  const [urlFilter, setUrlFilter] = useState('')
+  const [sortField, setSortField] = useState<SortField>('url')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [currentPage, setCurrentPage] = useState(1)
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [visibleColumns, setVisibleColumns] = useState<Set<keyof AuditItem>>(DEFAULT_VISIBLE_COLUMNS)
+  const [visibleColumns, setVisibleColumns] = useState<Set<keyof PerformanceMetric>>(DEFAULT_VISIBLE_COLUMNS)
   const tableContainerRef = useRef<HTMLDivElement>(null)
   const itemsPerPage = 20
-  const [isAuditing, setIsAuditing] = useState(false)
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
-  const { data: apiData, isLoading: isLoadingData, refetch } = useGetJobPerformanceAuditsQuery(
-    { jobId: jobId || '', device: deviceFilter },
-    { skip: !jobId }
-  )
   const [startAudit, { isLoading: isStartingAudit }] = useStartJobPerformanceAuditsMutation()
 
-  const data: AuditItem[] = (apiData?.items as AuditItem[]) || []
-  const isLoading = externalLoading || isLoadingData || isAuditing
-
-  // Sync isAuditing with sessionStatus from parent (SSE updates)
-  useEffect(() => {
-    if (sessionStatus === 'auditing') {
-      setIsAuditing(true)
-    } else if (sessionStatus === 'completed' && isAuditing) {
-      // When session completes, stop auditing state
-      setIsAuditing(false)
-      if (pollIntervalRef.current) {
-        clearTimeout(pollIntervalRef.current)
-        pollIntervalRef.current = null
-      }
-      // Refetch to get the completed audit results
-      refetch()
+  const handleStartAudit = async () => {
+    if (!jobId) return
+    try {
+      await startAudit({ jobId: jobId, device: 'desktop' }).unwrap()
+      // The frontend uses fields query so we can just trigger a refresh
+      if (onRefresh) onRefresh()
+    } catch (err) {
+      console.error('Failed to start performance audit', err)
     }
-  }, [sessionStatus, isAuditing, refetch])
+  }
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (pollIntervalRef.current) {
-        clearTimeout(pollIntervalRef.current)
+  const uniqueData = useMemo(() => {
+    const seen = new Set<string>()
+    const result: PerformanceMetric[] = []
+
+    data.forEach((page) => {
+      const key = page.url || ''
+      if (key && seen.has(key)) {
+        return
       }
-    }
-  }, [])
+      if (key) {
+        seen.add(key)
+      }
+      result.push(page)
+    })
 
-  // Filter data based on search
+    return result
+  }, [data])
+
+  // Filter data based on search and URL filter
   const filteredData = useMemo(() => {
-    let filtered = data
+    let filtered = uniqueData
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
-      filtered = filtered.filter(item => 
-        item.url.toLowerCase().includes(query) ||
-        item.device.toLowerCase().includes(query)
+      filtered = filtered.filter(page => 
+        page.url.toLowerCase().includes(query)
+      )
+    }
+
+    if (urlFilter.trim()) {
+      const query = urlFilter.toLowerCase()
+      filtered = filtered.filter(page => 
+        page.url.toLowerCase().includes(query)
       )
     }
 
     return filtered
-  }, [data, searchQuery])
+  }, [uniqueData, searchQuery, urlFilter])
 
   // Sort data
   const sortedData = useMemo(() => {
@@ -178,7 +214,7 @@ export function PerformanceMetrics({
     }
   }
 
-  const toggleColumn = (column: keyof AuditItem) => {
+  const toggleColumn = (column: keyof PerformanceMetric) => {
     const newVisibleColumns = new Set(visibleColumns)
     const isAdding = !newVisibleColumns.has(column)
     if (newVisibleColumns.has(column)) {
@@ -220,8 +256,8 @@ export function PerformanceMetrics({
   }
 
   // Get visible columns in correct order based on COLUMN_CATEGORIES
-  const getOrderedVisibleColumns = (): (keyof AuditItem)[] => {
-    const ordered: (keyof AuditItem)[] = []
+  const getOrderedVisibleColumns = (): (keyof PerformanceMetric)[] => {
+    const ordered: (keyof PerformanceMetric)[] = []
     for (const category of COLUMN_CATEGORIES) {
       for (const column of category.columns) {
         if (visibleColumns.has(column)) {
@@ -234,90 +270,54 @@ export function PerformanceMetrics({
 
   const orderedVisibleColumns = useMemo(() => getOrderedVisibleColumns(), [visibleColumns])
 
-  const getColumnLabel = (column: keyof AuditItem): string => {
+  const getColumnLabel = (column: keyof PerformanceMetric): string => {
     const labels: Record<string, string> = {
-      id: 'ID',
       url: 'URL',
-      device: 'Device',
-      runAt: 'Run Time',
+      ga30DaysTraffic: '30 Days GA Traffic',
+      currentWordCount: 'Current Word Count',
+      serpIntentWordCount: 'SERP Intent Word Count',
+      needToAddWordCount: 'Need to Add Words',
+      publishedDate: 'Published Date',
+      upgradeDate: 'Upgrade Date',
+      timestamp: 'Timestamp',
+      performanceScore: 'Performance Score',
       LCP_ms: 'LCP (ms)',
       TBT_ms: 'TBT (ms)',
       CLS: 'CLS',
       FCP_ms: 'FCP (ms)',
       TTFB_ms: 'TTFB (ms)',
-      performanceScore: 'Performance Score',
-      psiReportUrl: 'Report'
+      psiReportUrl: 'PSI Report',
+      device: 'Device',
+      runAt: 'Audit Run At'
     }
     return labels[column] || column
   }
 
   // Columns that support sorting
-  const sortableColumns: Set<keyof AuditItem> = new Set([
-    'runAt', 'device', 'url', 'LCP_ms', 'TBT_ms', 'CLS', 'FCP_ms', 'TTFB_ms', 'performanceScore'
-  ])
+  const sortableColumns: Set<keyof PerformanceMetric> = new Set([
+    'url', 'ga30DaysTraffic', 'currentWordCount', 'serpIntentWordCount', 'needToAddWordCount', 'publishedDate', 'upgradeDate', 'timestamp',
+    'LCP_ms', 'TBT_ms', 'CLS', 'FCP_ms', 'TTFB_ms', 'performanceScore', 'runAt'
+  ] as (keyof PerformanceMetric)[])
 
-  const renderTableHeader = (column: keyof AuditItem) => {
+  const renderTableHeader = (column: keyof PerformanceMetric) => {
     const isSortable = sortableColumns.has(column)
     const label = getColumnLabel(column)
-    const isMinWidthColumn = ['url', 'psiReportUrl'].includes(column as string)
-    
+
     return (
       <th
         key={String(column)}
         className={`px-3 py-2 text-center text-xs font-semibold text-zinc-200 whitespace-nowrap ${
-          isSortable ? 'cursor-pointer hover:bg-zinc-800/50 select-none' : ''
-        } ${
-          isMinWidthColumn 
-            ? column === 'url' 
-              ? 'min-w-50' 
-              : 'w-80'
-            : ''
+          isSortable ? 'cursor-pointer hover:bg-zinc-800/50' : ''
         }`}
         onClick={isSortable ? () => handleSort(column as SortField) : undefined}
       >
         <div className="flex items-center justify-center gap-1 whitespace-nowrap">
-          {label} {isSortable && <SortIcon field={column as SortField} />}
+          {label}
+          {isSortable && <SortIcon field={column as SortField} />}
+          <FieldTooltip description={FIELD_DESCRIPTIONS[column] ?? ''} />
         </div>
       </th>
     )
-  }
-
-  const getScoreColor = (score?: number) => {
-    if (!score) return 'bg-gray-500/20 text-gray-300 border-gray-500/30'
-    if (score >= 90) return 'bg-green-500/20 text-green-300 border-green-500/30'
-    if (score >= 50) return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
-    return 'bg-red-500/20 text-red-300 border-red-500/30'
-  }
-
-  const getStatusFromVitals = (lcp?: number, tbt?: number, cls?: number): { label: string, color: string } => {
-    if (lcp == null && tbt == null && cls == null) return { label: '-', color: 'bg-gray-500/20 text-gray-300' }
-    
-    const goodLcp = lcp != null && lcp <= 2500
-    const goodTbt = tbt != null && tbt <= 200
-    const goodCls = cls != null && cls <= 0.1
-    const poorLcp = lcp != null && lcp > 4000
-    const poorTbt = tbt != null && tbt > 600
-    const poorCls = cls != null && cls > 0.25
-    
-    if (poorLcp || poorTbt || poorCls) return { label: 'Poor', color: 'bg-red-500/20 text-red-300' }
-    if (goodLcp && goodTbt && goodCls) return { label: 'Good', color: 'bg-green-500/20 text-green-300' }
-    return { label: 'Needs Improvement', color: 'bg-yellow-500/20 text-yellow-300' }
-  }
-
-  const formatMs = (value?: number): string => {
-    if (value == null || !Number.isFinite(value)) return '-'
-    return `${Math.round(value)} ms`
-  }
-
-  const formatRunTime = (runAt?: string): string => {
-    if (!runAt || String(runAt).trim() === '') return '-'
-    const d = new Date(runAt)
-    return Number.isNaN(d.getTime()) ? '-' : d.toLocaleString()
-  }
-
-  const formatScore = (value?: number): string => {
-    if (value == null || !Number.isFinite(value)) return '-'
-    return `${Math.round(value)}/100`
   }
 
   const SortIcon = ({ field }: { field: SortField }) => {
@@ -325,236 +325,182 @@ export function PerformanceMetrics({
     return sortDirection === 'asc' ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
   }
 
-  const renderCellContent = (item: AuditItem, column: keyof AuditItem) => {
-    const value = item[column]
+  const renderCellContent = (page: PerformanceMetric, column: keyof PerformanceMetric) => {
+    const value = page[column]
+
+    if (value === undefined || value === null || value === '') {
+      return <span className="text-zinc-500">-</span>
+    }
 
     switch (column) {
       case 'url':
         return (
-          <a 
-            href={item.url} 
-            target="_blank" 
+          <a
+            href={page.url}
+            target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-400 hover:text-blue-300 flex items-center gap-1 cursor-pointer hover:underline"
+            className="text-blue-400 hover:text-blue-300 flex items-center justify-center gap-1"
           >
-            <span>{item.url}</span>
+            <span className="truncate max-w-xs">{page.url}</span>
             <ExternalLink className="h-3 w-3 shrink-0" />
           </a>
         )
+
+      case 'ga30DaysTraffic': {
+        const v = Number(value)
+        const color = v >= 1000 ? 'bg-green-500/20 text-green-300 border-green-500/30' :
+                      v >= 100  ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
+                                  'bg-zinc-700/40 text-zinc-300 border-zinc-600/30'
+        return <Badge className={color}>{v.toLocaleString()}</Badge>
+      }
+
+      case 'currentWordCount':
+      case 'serpIntentWordCount':
+        return <span className="font-mono text-zinc-300">{Number(value).toLocaleString()}</span>
+
+      case 'needToAddWordCount': {
+        const v = Number(value)
+        const color = v === 0 ? 'bg-green-500/20 text-green-300 border-green-500/30' :
+                      v <= 300 ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
+                                 'bg-red-500/20 text-red-300 border-red-500/30'
+        return <Badge className={color}>{v.toLocaleString()}</Badge>
+      }
+
+      case 'publishedDate':
+      case 'upgradeDate':
+        return <span className="text-zinc-300">{new Date(value as string).toLocaleDateString()}</span>
+
+      case 'timestamp':
+      case 'runAt':
+        return <span className="text-zinc-400 text-[10px]">{new Date(value as string).toLocaleString()}</span>
+
+      case 'performanceScore': {
+        const score = Math.round((value as number) * 100)
+        const color = score >= 90 ? 'bg-green-500/20 text-green-300 border-green-500/30' :
+                      score >= 50 ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
+                                    'bg-red-500/20 text-red-300 border-red-500/30'
+        return <Badge className={color}>{score}</Badge>
+      }
+
+      case 'LCP_ms': {
+        const v = Number(value)
+        const color = v <= 2500 ? 'bg-green-500/20 text-green-300 border-green-500/30' :
+                      v <= 4000 ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
+                                  'bg-red-500/20 text-red-300 border-red-500/30'
+        return <Badge className={color}>{v} ms</Badge>
+      }
+
+      case 'TBT_ms': {
+        const v = Number(value)
+        const color = v <= 200  ? 'bg-green-500/20 text-green-300 border-green-500/30' :
+                      v <= 600  ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
+                                  'bg-red-500/20 text-red-300 border-red-500/30'
+        return <Badge className={color}>{v} ms</Badge>
+      }
+
+      case 'FCP_ms': {
+        const v = Number(value)
+        const color = v <= 1800 ? 'bg-green-500/20 text-green-300 border-green-500/30' :
+                      v <= 3000 ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
+                                  'bg-red-500/20 text-red-300 border-red-500/30'
+        return <Badge className={color}>{v} ms</Badge>
+      }
+
+      case 'TTFB_ms': {
+        const v = Number(value)
+        const color = v <= 800  ? 'bg-green-500/20 text-green-300 border-green-500/30' :
+                      v <= 1800 ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
+                                  'bg-red-500/20 text-red-300 border-red-500/30'
+        return <Badge className={color}>{v} ms</Badge>
+      }
+
+      case 'CLS': {
+        const v = Number(value)
+        const color = v <= 0.1  ? 'bg-green-500/20 text-green-300 border-green-500/30' :
+                      v <= 0.25 ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
+                                  'bg-red-500/20 text-red-300 border-red-500/30'
+        return <Badge className={color}>{v.toFixed(3)}</Badge>
+      }
+
+      case 'psiReportUrl':
+        return (
+          <a
+            href={value as string}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-400 hover:text-blue-300 flex items-center justify-center gap-1"
+          >
+            View Report <ExternalLink className="h-3 w-3" />
+          </a>
+        )
+
       case 'device':
         return (
-          <Badge className={item.device === 'mobile' ? 'bg-blue-500/20 text-blue-300' : 'bg-blue-500/20 text-blue-300'}>
-            {item.device}
+          <Badge className="bg-zinc-700/40 text-zinc-300 border-zinc-600/30">
+            {String(value)}
           </Badge>
         )
-      case 'runAt':
-        return <span className="text-[10px]">{formatRunTime(item.runAt)}</span>
-      case 'performanceScore':
-        return (
-          <Badge className={getScoreColor(item.performanceScore)}>
-            {formatScore(item.performanceScore)}
-          </Badge>
-        )
-      case 'LCP_ms':
-        return formatMs(item.LCP_ms)
-      case 'TBT_ms':
-        return formatMs(item.TBT_ms)
-      case 'CLS':
-        return item.CLS != null ? item.CLS.toFixed(3) : '-'
-      case 'FCP_ms':
-        return formatMs(item.FCP_ms)
-      case 'TTFB_ms':
-        return formatMs(item.TTFB_ms)
-      case 'psiReportUrl':
-        return item.psiReportUrl ? (
-          <a 
-            href={item.psiReportUrl} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-blue-400 hover:text-blue-300 flex items-center justify-center gap-1 cursor-pointer hover:underline"
-          >
-            Open Report
-            <ExternalLink className="h-3 w-3" />
-          </a>
-        ) : '-'
+
       default:
-        return value != null ? String(value) : '-'
+        return <span className="text-zinc-300">{String(value)}</span>
     }
   }
 
-  const handleStartAudit = async () => {
-    if (!jobId) return
-    try {
-      setIsAuditing(true)
-      await startAudit({ jobId, device: deviceFilter === 'all' ? 'desktop' : deviceFilter }).unwrap()
-      refetch()
-      
-      // Set a timeout to stop showing auditing state after 5 minutes
-      const timeoutId = setTimeout(() => {
-        setIsAuditing(false)
-      }, 300000) // 5 minutes
-      
-      // Store timeout so we can clear it if needed
-      if (pollIntervalRef.current) clearTimeout(pollIntervalRef.current)
-      pollIntervalRef.current = timeoutId as any
-    } catch (error) {
-      console.error('Error starting audit:', error)
-      setIsAuditing(false)
-    }
-  }
-
-  const handleRefresh = () => {
-    refetch()
-    onRefresh?.()
-  }
-
-  const status = getStatusFromVitals(
-    paginatedData[0]?.LCP_ms,
-    paginatedData[0]?.TBT_ms,
-    paginatedData[0]?.CLS
-  )
+  // Derived stats
+  const psiAuditedCount = uniqueData.filter(p => p.performanceScore != null).length
+  const avgGA = uniqueData.length
+    ? Math.round(uniqueData.reduce((sum, p) => sum + (p.ga30DaysTraffic ?? 0), 0) / uniqueData.length)
+    : 0
 
   return (
-    <div className="flex gap-4 h-full">
-      {/* Sidebar Filter Panel */}
-      <div className={`${sidebarOpen ? 'w-70' : 'w-0'} transition-all duration-300 overflow-hidden shrink-0`}>
-        {sidebarOpen && (
-          <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-4 h-[calc(100vh-120px)] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-white">Column Filters</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSidebarOpen(false)}
-                className="text-zinc-400 hover:text-white p-1 h-auto"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-
-            {/* Device Filter */}
-            <div className="mb-4">
-              <label className="text-xs text-zinc-400 mb-1 block">Device Filter</label>
-              <div className="relative">
-                <select
-                  value={deviceFilter}
-                  onChange={(e) => {
-                    setDeviceFilter(e.target.value as 'all' | 'mobile' | 'desktop')
-                    setCurrentPage(1)
-                  }}
-                  className="w-full bg-zinc-800/50 border border-zinc-700 text-white text-xs h-8 rounded-full px-3 pr-8 cursor-pointer appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="all">All Devices</option>
-                  <option value="mobile">Mobile</option>
-                  <option value="desktop">Desktop</option>
-                </select>
-                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                  <svg className="w-3 h-3 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            {/* Column Visibility by Category */}
-            <div className="space-y-3">
-              {COLUMN_CATEGORIES.map((category) => {
-                const { visible, total } = getCategoryVisibleCount(category)
-                return (
-                  <div key={category.name} className="space-y-2">
-                    <button
-                      onClick={() => toggleCategoryColumns(category)}
-                      className="flex items-center justify-between w-full text-xs font-medium text-zinc-200 hover:text-white cursor-pointer"
-                    >
-                      <span>{category.name}</span>
-                      <span className="text-zinc-500">{visible}/{total}</span>
-                    </button>
-                    <div className="space-y-1 pl-2">
-                      {category.columns.map((column) => (
-                        <label
-                          key={String(column)}
-                          className="flex items-center gap-2 text-xs text-zinc-300 hover:text-white cursor-pointer select-none"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={visibleColumns.has(column)}
-                            onChange={() => toggleColumn(column)}
-                            className="rounded border-zinc-700 bg-zinc-800/50 text-blue-500 focus:ring-blue-500/50 focus:ring-offset-0 cursor-pointer"
-                          />
-                          <span className="truncate">{getColumnLabel(column)}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 min-w-0 flex flex-col h-[calc(100vh-120px)]">
-        {/* Open Sidebar Button */}
-        {!sidebarOpen && (
-          <div className="mb-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSidebarOpen(true)}
-              className="bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800"
-            >
-              <ChevronRight className="h-4 w-4 mr-2" />
-              Show Filters
-            </Button>
-          </div>
-        )}
-
-        {/* Start Auditing Button */}
-        <div className="mb-4">
-          <Button
-            onClick={handleStartAudit}
-            disabled={isStartingAudit || isAuditing}
-            className="bg-green-500 hover:bg-green-600 text-white disabled:bg-gray-500 disabled:cursor-not-allowed cursor-pointer"
-          >
-            <Play className={`h-4 w-4 mr-2 ${(isStartingAudit || isAuditing) ? 'animate-spin' : ''}`} />
-            {isStartingAudit ? 'Starting Audit...' : isAuditing ? 'Auditing in Progress...' : 'Start Auditing'}
-          </Button>
-        </div>
-
+    <div className="flex flex-col h-full gap-4">
+      {/* Option Bar: Header with Controls & Stats */}
+      <div className="flex flex-col gap-3">
         {/* Header with Controls */}
-        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between mb-4">
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
           <div className="flex-1 w-full sm:max-w-md">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-500" />
               <Input
-                placeholder="Search by URL or device..."
+                placeholder="Search by URL..."
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value)
                   setCurrentPage(1)
                 }}
-                className="pl-10 bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 text-sm"
+                className="pl-10 bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-500 text-sm rounded-xl"
               />
             </div>
           </div>
           <div className="flex gap-2">
             <Button
-              onClick={handleRefresh}
+              onClick={handleStartAudit}
               variant="outline"
               size="sm"
-              className="bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800"
-              disabled={isLoading}
+              disabled={isStartingAudit || !jobId}
+              className="bg-blue-600/20 text-blue-400 border-blue-500/30 hover:bg-blue-600/30 rounded-xl"
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
+              <RefreshCw className={`h-4 w-4 mr-2 ${isStartingAudit ? 'animate-spin' : ''}`} />
+              {isStartingAudit ? 'Auditing...' : 'Start PSI Audit'}
             </Button>
+            {onRefresh && (
+              <Button
+                onClick={onRefresh}
+                variant="outline"
+                size="sm"
+                className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl"
+                disabled={isLoading}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            )}
             {onExport && (
               <Button
                 onClick={onExport}
                 variant="outline"
                 size="sm"
-                className="bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800"
+                className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl"
               >
                 <Download className="h-4 w-4 mr-2" />
                 Export
@@ -564,158 +510,216 @@ export function PerformanceMetrics({
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-          <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-3">
-            <div className="text-xs text-zinc-400">Total Audits</div>
-            <div className="text-xl font-bold text-white mt-1">{data.length}</div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
+            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Total Pages</div>
+            <div className="text-xl font-bold text-white mt-1">{uniqueData.length}</div>
           </div>
-          <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-3">
-            <div className="text-xs text-zinc-400">Filtered</div>
+          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
+            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Filtered</div>
             <div className="text-xl font-bold text-white mt-1">{filteredData.length}</div>
           </div>
-          <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-3">
-            <div className="text-xs text-zinc-400">Avg Performance</div>
-            <div className="text-xl font-bold text-white mt-1">
-              {data.length > 0 
-                ? Math.round(data.reduce((sum, p) => sum + (p.performanceScore || 0), 0) / data.length) 
-                : 0}
-            </div>
+          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
+            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">PSI Audited</div>
+            <div className="text-xl font-bold text-white mt-1">{psiAuditedCount}</div>
           </div>
-          <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-3">
-            <div className="text-xs text-zinc-400">Status</div>
-            <div className="mt-1">
-              <Badge className={status.color}>{status.label}</Badge>
-            </div>
+          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
+            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Avg GA (30d)</div>
+            <div className="text-xl font-bold text-white mt-1">{avgGA.toLocaleString()}</div>
           </div>
         </div>
+      </div>
 
-        {/* Table */}
-        <div className="rounded-lg border border-zinc-700 bg-zinc-800/50 overflow-hidden flex-1">
-          <div 
-            ref={tableContainerRef} 
-            className="overflow-x-auto overflow-y-auto max-w-full h-full custom-scrollbar"
-          >
-            <table className="w-full text-sm">
-              <thead className="bg-gray-900 border-b border-zinc-700 sticky top-0 z-10">
-                <tr>
-                  {orderedVisibleColumns.map(column => renderTableHeader(column))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-800">
-                {isAuditing ? (
-                  <tr>
-                    <td colSpan={visibleColumns.size} className="px-4 py-12 text-center">
-                      <div className="flex flex-col items-center justify-center gap-3 text-zinc-200">
-                        <RefreshCw className="h-8 w-8 animate-spin text-green-400" />
-                        <div className="space-y-1">
-                          <p className="text-lg font-semibold">Running Performance Audits...</p>
-                          <p className="text-sm text-zinc-400">Analyzing page performance metrics</p>
-                          <p className="text-xs text-zinc-500 mt-2">This may take a few minutes depending on the number of pages</p>
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                ) : isLoading ? (
-                  <tr>
-                    <td colSpan={visibleColumns.size} className="px-4 py-12 text-center">
-                      <div className="flex items-center justify-center gap-2 text-zinc-400">
-                        <RefreshCw className="h-5 w-5 animate-spin" />
-                        <span>Loading audits...</span>
-                      </div>
-                    </td>
-                  </tr>
-                ) : paginatedData.length === 0 ? (
-                  <tr>
-                    <td colSpan={visibleColumns.size} className="px-4 py-12 text-center">
-                      <div className="flex flex-col items-center justify-center gap-3 text-zinc-400">
-                        {searchQuery ? (
-                          <p>No audits found. Try adjusting your filters.</p>
-                        ) : (
-                          <>
-                            <p className="text-lg">No performance audits available yet</p>
-                            <p className="text-sm text-zinc-500">Click "Start Auditing" above to run performance audits on this session</p>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedData.map((item) => (
-                    <tr 
-                      key={item.id}
-                      className="hover:bg-zinc-800/50 transition-colors"
-                    >
-                      {orderedVisibleColumns.map((column) => (
-                        <td key={String(column)} className="px-3 py-2 text-zinc-200 text-center whitespace-normal overflow-wrap-break-word">
-                          {renderCellContent(item, column)}
-                        </td>
-                      ))}
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+      <div className="flex gap-3 flex-1 min-h-0">
+        {/* Sidebar Filter Panel */}
+        <div className={`${sidebarOpen ? 'w-68' : 'w-0'} transition-all duration-300 overflow-hidden shrink-0`}>
+          {sidebarOpen && (
+            <div className="bg-[#0D0D10] border border-zinc-800 rounded-xl p-4 h-full overflow-y-auto custom-scrollbar">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-white">Column Filters</h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSidebarOpen(false)}
+                  className="text-zinc-500 hover:text-white p-1 h-auto hover:bg-zinc-800/60"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between mt-4">
-            <div className="text-sm text-zinc-400">
-              Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, sortedData.length)} of {sortedData.length} results
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800 disabled:opacity-50"
-              >
-                Previous
-              </Button>
-              <div className="flex items-center justify-center gap-1">
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum
-                  if (totalPages <= 5) {
-                    pageNum = i + 1
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i
-                  } else {
-                    pageNum = currentPage - 2 + i
-                  }
-                  
+              {/* URL Filter */}
+              <div className="mb-4">
+                <label className="text-[11px] text-zinc-500 uppercase tracking-wider mb-1.5 block">Filter by URL</label>
+                <Input
+                  placeholder="URL path..."
+                  value={urlFilter}
+                  onChange={(e) => {
+                    setUrlFilter(e.target.value)
+                    setCurrentPage(1)
+                  }}
+                  className="bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600 text-xs h-8 rounded-lg"
+                />
+              </div>
+
+              {/* Column Visibility by Category */}
+              <div className="space-y-3">
+                {COLUMN_CATEGORIES.map((category) => {
+                  const { visible, total } = getCategoryVisibleCount(category)
                   return (
-                    <Button
-                      key={pageNum}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(pageNum)}
-                      className={`cursor-pointer ${
-                        currentPage === pageNum
-                          ? 'bg-white text-black'
-                          : 'bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800'
-                      }`}
-                    >
-                      {pageNum}
-                    </Button>
+                    <div key={category.name} className="space-y-2">
+                      <button
+                        onClick={() => toggleCategoryColumns(category)}
+                        className="flex items-center justify-between w-full text-xs font-medium text-zinc-200 hover:text-white"
+                      >
+                        <span>{category.name}</span>
+                        <span className="text-zinc-500">{visible}/{total}</span>
+                      </button>
+                      <div className="space-y-1 pl-2">
+                        {category.columns.map((column) => (
+                          <label
+                            key={String(column)}
+                            className="flex items-center gap-2 text-xs text-zinc-400 hover:text-white cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={visibleColumns.has(column)}
+                              onChange={() => toggleColumn(column)}
+                              className="rounded border-zinc-700 bg-zinc-900 text-blue-500 focus:ring-blue-500/50 focus:ring-offset-0"
+                            />
+                            <span className="truncate">{getColumnLabel(column)}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
                   )
                 })}
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 min-w-0 flex flex-col h-full">
+          {/* Open Sidebar Button */}
+          {!sidebarOpen && (
+            <div className="mb-3">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800 disabled:opacity-50"
+                onClick={() => setSidebarOpen(true)}
+                className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white"
               >
-                Next
+                <ChevronRight className="h-4 w-4 mr-2" />
+                Show Filters
               </Button>
             </div>
+          )}
+
+          {/* Table */}
+          <div className="rounded-xl border border-zinc-800 bg-[#111113] overflow-hidden flex-1 min-h-0">
+            <div
+              ref={tableContainerRef}
+              className="overflow-x-auto overflow-y-auto max-w-full h-full custom-scrollbar"
+            >
+              <table className="w-full text-sm">
+                <thead className="bg-zinc-900/80 border-b border-zinc-800 sticky top-0 z-10">
+                  <tr>
+                    {orderedVisibleColumns.map(column => renderTableHeader(column))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800">
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={visibleColumns.size} className="px-4 py-12 text-center">
+                        <div className="flex items-center justify-center gap-2 text-zinc-400">
+                          <RefreshCw className="h-5 w-5 animate-spin" />
+                          <span>Loading data...</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : paginatedData.length === 0 ? (
+                    <tr>
+                      <td colSpan={visibleColumns.size} className="px-4 py-12 text-center text-zinc-400">
+                        No pages found. {(searchQuery || urlFilter) && 'Try adjusting your filters.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedData.map((page, index) => (
+                      <tr
+                        key={page.id ?? page.url ?? index}
+                        className="hover:bg-zinc-800/50 transition-colors"
+                      >
+                        {orderedVisibleColumns.map((column) => (
+                          <td key={String(column)} className="px-3 py-2 text-zinc-200 text-center whitespace-normal overflow-wrap-break-word">
+                            {renderCellContent(page, column)}
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-2">
+              <div className="text-sm text-zinc-500">
+                Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, sortedData.length)} of {sortedData.length} results
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white disabled:opacity-40 rounded-xl"
+                >
+                  Previous
+                </Button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum: number
+                    if (totalPages <= 5) {
+                      pageNum = i + 1
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i
+                    } else {
+                      pageNum = currentPage - 2 + i
+                    }
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`rounded-xl ${
+                          currentPage === pageNum
+                            ? 'bg-white text-black border-white'
+                            : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white'
+                        }`}
+                      >
+                        {pageNum}
+                      </Button>
+                    )
+                  })}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white disabled:opacity-40 rounded-xl"
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

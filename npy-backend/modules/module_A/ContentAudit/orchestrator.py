@@ -13,7 +13,7 @@ from .BacklinkMetrics import extract_backlink_metrics
 
 logger = logging.getLogger(__name__)
 
-def run_content_audit(
+async def run_content_audit(
     url: str,
     html_content: str,
     response_status: int,
@@ -22,16 +22,18 @@ def run_content_audit(
     final_url: str = None,
     raw_body_size: int = 0,
     redirect_urls: list = None,
+    main_keyword: str = "",
+    ga_property_id: str = None,
+    existing_item: Dict[str, Any] = None,
     **kwargs
 ) -> Dict[str, Any]:
     """
-    Main entry point for Content Audit.
+    Async entry point for Content Audit.
     Runs all active sub-modules and returns a unified structure.
-    
+
     Returns a dictionary mapping sub-module names to their respective results.
     """
-    logger.info(f"Starting Content Audit for {url}")
-    
+
     # 1. Page Metrics (Fully Functional)
     try:
         page_metrics_result = extract_page_metrics(
@@ -42,7 +44,7 @@ def run_content_audit(
             response_time_ms=response_time_ms,
             final_url=final_url,
             raw_body_size=raw_body_size,
-            redirect_urls=redirect_urls
+            redirect_urls=redirect_urls,
         )
     except Exception as e:
         logger.error(f"Error extracting page metrics for {url}: {e}")
@@ -55,9 +57,17 @@ def run_content_audit(
         logger.error(f"Error extracting keyword metrics for {url}: {e}")
         keyword_metrics_result = {"error": str(e)}
 
-    # 3. Performance Metrics (Placeholder)
+    # 3. Performance Metrics (async — awaited)
     try:
-        performance_metrics_result = extract_performance_metrics(url=url)
+        performance_metrics_result = await extract_performance_metrics(
+            url=url,
+            html_content=html_content,
+            main_keyword=main_keyword,
+            ga_property_id=ga_property_id,
+            response_headers=response_headers,
+            existing_item=existing_item,
+            **kwargs,
+        )
     except Exception as e:
         logger.error(f"Error extracting performance metrics for {url}: {e}")
         performance_metrics_result = {"error": str(e)}

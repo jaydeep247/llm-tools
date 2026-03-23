@@ -104,6 +104,8 @@ export interface Job {
   runAudits?: boolean;
   auditDevice?: string;
   captureLinkDetails?: boolean;
+  mainKeyword?: string;
+  gaPropertyId?: string;
   type: JobType;
   schemaType?: string | null;
   status: JobStatus;
@@ -121,6 +123,8 @@ export interface CreateJobDto {
   runAudits?: boolean;
   auditDevice?: string;
   captureLinkDetails?: boolean;
+  mainKeyword?: string;
+  gaPropertyId?: string;
   type?: JobType;
   schemaType?: string;
 }

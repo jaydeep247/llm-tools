@@ -23,6 +23,8 @@ def execute_module_e_job(payload: dict) -> bool:
     job_id = payload.get("jobId") or f"job_{session_id}"
     job_type = payload.get("jobType", "MODULE_E_FULL").upper()
     source_job_id = payload.get("sourceJobId") or payload.get("config", {}).get("sourceJobId")
+    main_keyword = payload.get("mainKeyword") or ""
+    ga_property_id = payload.get("gaPropertyId") or ""
 
     target_job_id = source_job_id if source_job_id else job_id
 
@@ -37,7 +39,13 @@ def execute_module_e_job(payload: dict) -> bool:
 
         if job_type == "MODULE_E_QUICK_START":
             result = asyncio.run(
-                run_quick_start(job_id, url, session_id=session_id, project_id=project_id)
+                run_quick_start(
+                    job_id, url,
+                    session_id=session_id,
+                    project_id=project_id,
+                    main_keyword=main_keyword,
+                    ga_property_id=ga_property_id,
+                )
             )
             if isinstance(result, dict) and result.get("cancelled"):
                 logger.info(f"[MODULE_E] 🛑 Quick Start job {job_id} cancelled")

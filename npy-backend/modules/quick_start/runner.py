@@ -318,6 +318,8 @@ def _start_crawl(
     url: str,
     session_id: str,
     project_id: str,
+    main_keyword: str = "",
+    ga_property_id: str = "",
 ):
     """
     Fire-and-forget: launches the Scrapy crawler in a subprocess and returns
@@ -338,7 +340,12 @@ def _start_crawl(
         target=_run_spider_subprocess,
         args=(state, url, session_id, job_id, project_id,
               QUICK_START_CRAWL_PAUSE_THRESHOLD, 0, SCRAPY_SETTINGS),
-        kwargs={"suppress_completion_events": True, "pause_on_limit": True},
+        kwargs={
+            "suppress_completion_events": True,
+            "pause_on_limit": True,
+            "main_keyword": main_keyword,
+            "ga_property_id": ga_property_id,
+        },
     )
     proc.start()
     logger.info(f"[QS] Crawl process launched (pid={proc.pid}) for {url} — running in background")
@@ -371,6 +378,8 @@ async def run_quick_start(
     session_id: str = None,
     project_id: str = None,
     html_content: str = None,
+    main_keyword: str = "",
+    ga_property_id: str = "",
 ) -> Dict[str, Any]:
     """
     Entry point consumed by queue_worker.py for MODULE_E_QUICK_START jobs.
@@ -417,7 +426,10 @@ async def run_quick_start(
     crawl_manager = None
     crawl_state = None
     try:
-        crawl_proc, crawl_manager, crawl_state = _start_crawl(job_id, url, _session_id, _project_id)
+        crawl_proc, crawl_manager, crawl_state = _start_crawl(
+            job_id, url, _session_id, _project_id,
+            main_keyword=main_keyword, ga_property_id=ga_property_id,
+        )
         _update_crawl_status(job_id, "running")
     except Exception as exc:
         logger.error(f"[QS] Crawl launch failed: {exc}", exc_info=exc)

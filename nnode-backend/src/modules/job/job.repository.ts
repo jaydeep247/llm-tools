@@ -52,6 +52,8 @@ export class JobRepository {
       runAudits: data.runAudits,
       auditDevice: data.auditDevice,
       captureLinkDetails: data.captureLinkDetails,
+      mainKeyword: data.mainKeyword,
+      gaPropertyId: data.gaPropertyId,
       // `type` is a legacy alias — always mirror `jobType` so the two fields
       // are never out of sync (e.g. type:'CRAWL' on a MODULE_E_QUICK_START job).
       type: data.jobType,

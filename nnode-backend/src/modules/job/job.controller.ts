@@ -22,8 +22,6 @@ export class JobController {
   private static readonly MAX_AEO_PAGE_SIZE = 250;
   private static readonly DEFAULT_SITE_STRUCTURE_PAGE_SIZE = 1000;
   private static readonly MAX_SITE_STRUCTURE_PAGE_SIZE = 2000;
-  private static readonly DEFAULT_AUDIT_PAGE_SIZE = 250;
-  private static readonly MAX_AUDIT_PAGE_SIZE = 500;
 
   constructor() {
     this.jobService = new JobService();
@@ -781,17 +779,14 @@ export class JobController {
 
   startJobPerformanceAudits = async (req: Request, res: Response): Promise<Response> => {
     try {
-      const userId = req.user!.userId;
       const { id } = sessionIdSchema.parse({ id: req.params.id });
       const deviceRaw = typeof req.body?.device === 'string' ? req.body.device : 'desktop';
       const device: DeviceStrategy =
         deviceRaw === 'mobile' || deviceRaw === 'desktop' ? deviceRaw : 'desktop';
 
-      const job = await this.jobService.getJobById(userId, id);
-
       const db = await connectToMongo();
       const pagesCollection = db.collection('pages');
-      const auditsCollection = db.collection('performance_audits');
+      const fieldsCollection = db.collection('fields');
 
       const pages = await pagesCollection
         .find({ jobId: id })
@@ -816,36 +811,47 @@ export class JobController {
             `Starting performance audits for job ${id} (device=${device}) on ${urls.length} pages`,
           );
 
-          for (const url of urls) {
-            try {
-              const result = await fetchPsi(url, device, {});
+          // Process in smaller batches with a delay to prevent Google PSI API 429 Rate Limits
+          const BATCH_SIZE = 5;
+          const DELAY_BETWEEN_BATCHES_MS = 2000; 
 
-              const doc = {
-                jobId: id,
-                sessionId: job.sessionId,
-                projectId: job.projectId,
-                url: result.url,
-                device: result.device,
-                runAt: result.runAt,
-                LCP_ms: result.lab?.LCP_ms ?? result.field?.LCP_ms,
-                TBT_ms: result.lab?.TBT_ms,
-                CLS: result.lab?.CLS ?? result.field?.CLS,
-                FCP_ms: result.lab?.FCP_ms,
-                TTFB_ms: result.lab?.TTFB_ms,
-                performanceScore: result.lab?.performanceScore,
-                psiReportUrl: result.psiReportUrl,
-                createdAt: new Date(),
-              };
+          for (let i = 0; i < urls.length; i += BATCH_SIZE) {
+            const batch = urls.slice(i, i + BATCH_SIZE);
+            
+            await Promise.all(
+              batch.map(async (url: string) => {
+                try {
+                  // Increase retries to 3 and use exponential backoff inside fetchPsi
+                  const result = await fetchPsi(url, device, { retries: 3 });
 
-              await auditsCollection.updateOne(
-                { jobId: id, url: doc.url, device: doc.device },
-                { $set: doc },
-                { upsert: true },
-              );
-            } catch (err: any) {
-              logger.warn(
-                `Failed performance audit for url=${url} job=${id}: ${err?.message || err}`,
-              );
+                  const psiData = {
+                    LCP_ms: result.lab?.LCP_ms ?? result.field?.LCP_ms,
+                    TBT_ms: result.lab?.TBT_ms,
+                    CLS: result.lab?.CLS ?? result.field?.CLS,
+                    FCP_ms: result.lab?.FCP_ms,
+                    TTFB_ms: result.lab?.TTFB_ms,
+                    performanceScore: result.lab?.performanceScore,
+                    psiReportUrl: result.psiReportUrl,
+                    runAt: result.runAt,
+                    device: result.device,
+                  };
+
+                  // Update the fields collection directly to align with new schema
+                  await fieldsCollection.updateOne(
+                    { jobId: id, url: url },
+                    { $set: { [`performance_metrics.psi_${device}`]: psiData } }
+                  );
+                } catch (err: any) {
+                  logger.warn(
+                    `Failed performance audit for url=${url} job=${id}: ${err?.message || err}`,
+                  );
+                }
+              })
+            );
+
+            // Wait between batches to prevent hammering the PSI API
+            if (i + BATCH_SIZE < urls.length) {
+              await new Promise((resolve) => setTimeout(resolve, DELAY_BETWEEN_BATCHES_MS));
             }
           }
 
@@ -873,86 +879,6 @@ export class JobController {
     }
   };
 
-  getJobPerformanceAudits = async (req: Request, res: Response): Promise<Response> => {
-    try {
-      const userId = req.user!.userId;
-      const { id } = sessionIdSchema.parse({ id: req.params.id });
-      const deviceRaw = req.query.device ? String(req.query.device) : 'all';
-      const deviceFilter: DeviceStrategy | 'all' =
-        deviceRaw === 'mobile' || deviceRaw === 'desktop' ? (deviceRaw as DeviceStrategy) : 'all';
-
-      await this.jobService.getJobById(userId, id);
-
-      const pagination = this.parsePagination(req, {
-        defaultLimit: JobController.DEFAULT_AUDIT_PAGE_SIZE,
-        maxLimit: JobController.MAX_AUDIT_PAGE_SIZE,
-      });
-      const db = await connectToMongo();
-      const collection = db.collection('performance_audits');
-
-      const filter: any = { jobId: id };
-      if (deviceFilter !== 'all') {
-        filter.device = deviceFilter;
-      }
-
-      const docs = await collection
-        .find(filter)
-        .project({
-          url: 1,
-          device: 1,
-          runAt: 1,
-          createdAt: 1,
-          LCP_ms: 1,
-          TBT_ms: 1,
-          CLS: 1,
-          FCP_ms: 1,
-          TTFB_ms: 1,
-          performanceScore: 1,
-          psiReportUrl: 1,
-        })
-        .sort({ runAt: -1 })
-        .skip(pagination.skip)
-        .limit(pagination.fetchLimit)
-        .toArray();
-      const total = pagination.includeTotal ? await collection.countDocuments(filter) : undefined;
-
-      const items = docs.map((doc: any) => ({
-        id: String(doc._id),
-        url: doc.url,
-        device: doc.device as DeviceStrategy,
-        runAt: doc.runAt || doc.createdAt || new Date().toISOString(),
-        LCP_ms: doc.LCP_ms,
-        TBT_ms: doc.TBT_ms,
-        CLS: doc.CLS,
-        FCP_ms: doc.FCP_ms,
-        TTFB_ms: doc.TTFB_ms,
-        performanceScore: doc.performanceScore,
-        psiReportUrl: doc.psiReportUrl,
-      }));
-
-      const hasNext = items.length > pagination.limit;
-
-      return ResponseUtil.success(
-        res,
-        'Job performance audits retrieved successfully',
-        {
-          items: hasNext ? items.slice(0, pagination.limit) : items,
-          pagination: {
-            page: pagination.page,
-            limit: pagination.limit,
-            total,
-            hasNext,
-          },
-        },
-      );
-    } catch (error: any) {
-      logger.error(`Error getting job performance audits: ${error.message}`);
-      if (error.message.includes('not found') || error.message.includes('access denied')) {
-        return ResponseUtil.notFound(res, error.message);
-      }
-      return ResponseUtil.serverError(res, 'Failed to retrieve job performance audits');
-    }
-  };
 
   /**
    * Cancel a running job (called when user closes browser)

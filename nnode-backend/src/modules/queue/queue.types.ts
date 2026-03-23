@@ -13,6 +13,8 @@ export interface CrawlJobPayload extends BaseJobPayload {
   runAudits?: boolean;
   auditDevice?: string;
   captureLinkDetails?: boolean;
+  mainKeyword?: string;
+  gaPropertyId?: string;
 }
 
 export interface CrawlResumeJobPayload extends BaseJobPayload {}  // resumes a paused crawl

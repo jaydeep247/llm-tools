@@ -86,6 +86,8 @@ class WebsiteSpider(RedisSpider):
         pause_on_limit: bool = False,
         is_resume: bool = False,
         pages_crawled_offset: int = 0,
+        main_keyword: str = "",
+        ga_property_id: str = "",
         *args,
         **kwargs
     ):
@@ -101,6 +103,8 @@ class WebsiteSpider(RedisSpider):
         # Resume crawls start the counter from where the previous run paused
         # so logs and frontend show cumulative pages, not per-run pages.
         self.pages_crawled = int(pages_crawled_offset) if pages_crawled_offset else 0
+        self.main_keyword = main_keyword or ""
+        self.ga_property_id = ga_property_id or ""
         if self.job_id:
              self.name = f"website_spider_{self.job_id}"
              self.redis_key = f"{self.name}:start_urls"
@@ -697,7 +701,7 @@ class WebsiteSpider(RedisSpider):
             url = bytes_to_str(data, self.redis_encoding)
             return scrapy.Request(url, callback=self.parse, dont_filter=True)
 
-    def parse(self, response: Response):
+    async def parse(self, response: Response):
         """Main parsing logic for each page"""
 
         # Hard limit gate: when pause_on_limit is active and we're already at
@@ -830,17 +834,18 @@ class WebsiteSpider(RedisSpider):
                 page_item['job_id'] = self.job_id
                 
             # Populating minimal page_matrix for non-HTML (especially 3xx redirects)
+            _non_html_audit = await run_content_audit(
+                url=response.url,
+                html_content="",
+                response_status=response.status,
+                response_headers={k.decode('utf-8'): v[0].decode('utf-8') for k, v in response.headers.items()},
+                response_time_ms=(response.meta.get('download_latency', 0)),
+                final_url=response.url,
+                raw_body_size=len(response.body),
+            )
             page_item['fields'] = {
                 'status': str(response.status),
-                'page_matrix': run_content_audit(
-                    url=response.url,
-                    html_content="",
-                    response_status=response.status,
-                    response_headers={k.decode('utf-8'): v[0].decode('utf-8') for k, v in response.headers.items()},
-                    response_time_ms=(response.meta.get('download_latency', 0)),
-                    final_url=response.url,
-                    raw_body_size=len(response.body),
-                ).get('page_metrics', {})
+                'page_matrix': _non_html_audit.get('page_metrics', {}),
             }
 
             self.pages_crawled += 1
@@ -1002,6 +1007,19 @@ class WebsiteSpider(RedisSpider):
         }
         status_reason = HTTP_STATUS_REASONS.get(response.status, str(response.status))
 
+        content_audit_result = await run_content_audit(
+            url=response.url,
+            html_content=response.text,
+            response_status=response.status,
+            response_headers={k.decode('utf-8'): v[0].decode('utf-8') for k, v in response.headers.items()},
+            response_time_ms=(response.meta.get('download_latency', datetime.now().timestamp() - start_time)),
+            final_url=response.url,
+            raw_body_size=len(response.body),
+            redirect_urls=response.request.meta.get('redirect_urls', []),
+            main_keyword=self.main_keyword,
+            ga_property_id=self.ga_property_id,
+        )
+
         page_item['fields'] = {
             # Status (Screaming Frog compatible reason phrase)
             'status': status_reason,
@@ -1061,16 +1079,10 @@ class WebsiteSpider(RedisSpider):
             },
             
             # Content Audit (Orchestrator)
-            'page_matrix': run_content_audit(
-                url=response.url,
-                html_content=response.text,
-                response_status=response.status,
-                response_headers={k.decode('utf-8'): v[0].decode('utf-8') for k, v in response.headers.items()},
-                response_time_ms=(response.meta.get('download_latency', datetime.now().timestamp() - start_time)),
-                final_url=response.url,
-                raw_body_size=len(response.body),
-                redirect_urls=response.request.meta.get('redirect_urls', []),
-            ).get('page_metrics', {}),
+            'page_matrix': content_audit_result.get('page_metrics', {}),
+
+            # Root level performance metrics
+            'performance_metrics': content_audit_result.get('performance_metrics', {}),
             
             # Text Quality Analyzer (New Consolidated Module)
             'Text Quality Analyzer': tq_results,
