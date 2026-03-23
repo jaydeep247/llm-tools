@@ -13,6 +13,7 @@ import { PromptTrackingPanel, SiteStructure } from '@/components/module_D/site-s
 import { AICitationRanking, ContentConsistencyEntityCoverage, BrandAnalysisSection, SentimentTrackingSection, CompetitorMentionsSection, SentimentTracking, ShareOfVoiceSection, TrendsByModelSection, DashboardOverview, PromptTrackingRecommendations } from '@/components/module_E'
 import VisibilityComparisonSection from '@/components/module_F/VisibilityComparisonSection'
 import CompetitorWinsLibrary from '@/components/module_F/CompetitorWinsLibrary'
+import CompetitorRecommendations from '@/components/module_F/CompetitorRecommendations'
 import CompetitorGrowthTrends from '@/components/module_F/CompetitorGrowthTrends'
 import GapOpportunities from '@/components/module_F/GapOpportunities'
 import CompetitorCitedURLs from '@/components/module_F/CompetitorCitedURLs'
@@ -243,7 +244,7 @@ export default function SessionDetailPage() {
         refetchFieldsRaw()
         refetchLinksRaw()
       }
-      const moduleFTabs = ['visibility-comparision', 'competitor-wins-library', 'competitor-cited-urls', 'gap-opportunities', 'growth-trends']
+      const moduleFTabs = ['visibility-comparision', 'competitor-wins-library', 'competitor-cited-urls', 'gap-opportunities', 'growth-trends', 'competitor-recommendations']
       if (moduleFTabs.includes(activeSection) && jobId) {
         refetchModuleF()
       }
@@ -1294,6 +1295,16 @@ export default function SessionDetailPage() {
                 jobId={jobId || null}
               />
             </div>
+          </div>
+        )}
+
+        {activeSection === 'competitor-recommendations' && (
+          <div className="space-y-6">
+            <CompetitorRecommendations 
+              moduleFData={moduleFQueryData?.data}
+              isLoading={isLoadingModuleF}
+              jobId={jobId || null} 
+            />
           </div>
         )}
 

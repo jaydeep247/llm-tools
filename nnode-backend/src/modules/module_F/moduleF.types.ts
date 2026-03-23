@@ -94,6 +94,36 @@ export interface ModuleFMetricRecommendation {
   fix: string;
 }
 
+export interface Moat4Action {
+  rec_id: string;
+  module: string;
+  action_title: string;
+  action_detail: string;
+  affected_urls: string[];
+  impact_score: number;
+  effort_score: number;
+  urgency_score: number;
+  priority_score: number;
+  gap_type: string | null;
+  competitor: string | null;
+  role_visibility: string[];
+  status: 'pending' | 'completed' | 'dismissed';
+}
+
+export interface Moat4Recommendations {
+  delta_class: string;
+  role_output: {
+    role: string;
+    format: string;
+    headline: string;
+    summary: string;
+    top_risk?: string;
+    actions: Moat4Action[];
+  };
+  all_actions: Moat4Action[];
+  generated_at: string;
+}
+
 export interface ModuleFEmergingTrends {
   competitor_changes: Array<{
     name: string;
@@ -120,9 +150,12 @@ export interface ModuleFResult {
   url?: string;
   compare_visibility_against_competitors?: ModuleFCompareVisibilityAgainstCompetitors;
   competitor_wins?: ModuleFCompetitorWins;
+  gap_analysis?: ModuleFGapOpportunity[];
   gap_opportunities?: ModuleFGapOpportunity[];
   source_analysis?: ModuleFSourceAnalysis;
+  metric_recommendations?: Record<string, string | ModuleFMetricRecommendation>;
   recommendations?: Record<string, string | ModuleFMetricRecommendation>;
+  moat4_recommendations?: Moat4Recommendations;
   emerging_trends?: ModuleFEmergingTrends | null;
   createdAt?: string;
   updatedAt?: string;

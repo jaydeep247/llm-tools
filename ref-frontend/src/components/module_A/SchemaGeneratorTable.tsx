@@ -91,6 +91,21 @@ function LiftTag({ lift }: { lift: string }) {
   )
 }
 
+function GradeBadge({ grade }: { grade: string }) {
+  const gradeMap: Record<string, string> = {
+    'A': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+    'B': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+    'C': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+    'D': 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+    'F': 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+  }
+  return (
+    <span className={cn('px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tight border', gradeMap[grade] || 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20')}>
+      Grade {grade}
+    </span>
+  )
+}
+
 export function SchemaGeneratorTable({
   sessionId,
   jobId,
@@ -301,19 +316,33 @@ export function SchemaGeneratorTable({
       {/* Dashboard Results */}
       {S && !loading && (
         <div className="space-y-6">
-          {/* Critical Alert */}
+          {/* Priority Alert Banner */}
           {S.priority_alert && (
-            <div className="flex items-center gap-4 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 animate-in fade-in slide-in-from-top-2 duration-500">
-              <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.5)]" />
+            <div className="flex items-center gap-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 animate-in fade-in slide-in-from-top-2 duration-500">
+              <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
               <div className="flex-1">
-                <span className="text-[10px] font-bold text-rose-400 uppercase tracking-widest mr-2">Critical Alert</span>
-                <p className="text-sm text-rose-200/90">{S.priority_alert_message}</p>
+                <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mr-2">Priority Alert</span>
+                <p className="text-sm text-amber-200/90">{S.priority_alert_message}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Schema Types Strip */}
+          {S.schema_types_present && S.schema_types_present.length > 0 && (
+            <div className="flex items-center gap-2 p-3 rounded-2xl bg-zinc-800/50 border border-zinc-800">
+              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Types Detected:</span>
+              <div className="flex flex-wrap gap-2">
+                {S.schema_types_present.map((type: string) => (
+                  <span key={type} className="px-2 py-0.5 rounded text-[10px] font-semibold text-cyan-300 bg-cyan-500/10 border border-cyan-500/20">
+                    {type}
+                  </span>
+                ))}
               </div>
             </div>
           )}
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
             <StatCard
               label="LCS™ Score"
               value={score}
@@ -345,6 +374,13 @@ export function SchemaGeneratorTable({
               icon={AlertCircle}
               accent={gaps.length > 0 ? 'amber' : 'emerald'}
             />
+            <StatCard
+              label="AIVS™ pts"
+              value={S.aivs_contribution ?? '0'}
+              subtext="Total AIVS™ points"
+              icon={Zap}
+              accent="cyan"
+            />
           </div>
 
           {/* Main Content Area */}
@@ -360,6 +396,22 @@ export function SchemaGeneratorTable({
                       val={val}
                       max={dimMax[key] || 100}
                     />
+                  ))}
+                </div>
+              </SectionCard>
+
+              <SectionCard title="Model Scores" description="Performance against leading AI models">
+                <div className="space-y-3">
+                  {Object.entries(S.model_scores || {}).map(([model, data]: [string, any]) => (
+                    <div key={model} className="flex items-center justify-between p-3 rounded-xl bg-zinc-900/50 border border-zinc-800">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-semibold text-zinc-200 uppercase">{model}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-mono text-zinc-400">{data.score.toFixed(2)}</span>
+                        <GradeBadge grade={data.grade} />
+                      </div>
+                    </div>
                   ))}
                 </div>
               </SectionCard>
@@ -406,10 +458,10 @@ export function SchemaGeneratorTable({
                           : 'text-zinc-500 hover:text-zinc-300'
                       )}
                     >
-                      {t === 'priority' ? `Fixes (${recs.length})` : 
-                       t === 'gaps' ? `Gaps (${gaps.length})` : 
-                       t === 'patches' ? `Patches (${patches.length})` : 
-                       t === 'schema' ? 'Schema' : 'AI Files'}
+                      {t === 'priority' ? `Priority Queue (${recs.length})` : 
+                       t === 'gaps' ? `All Gaps (${gaps.length})` : 
+                       t === 'patches' ? `Fix Patches (${patches.length})` : 
+                       t === 'schema' ? 'Schema Output' : 'AI Files'}
                     </button>
                   ))}
                 </div>
@@ -504,7 +556,17 @@ export function SchemaGeneratorTable({
                               <div className="px-4 pb-4 animate-in fade-in slide-in-from-top-1 duration-200">
                                 <div className="rounded-xl bg-zinc-950 border border-zinc-800 overflow-hidden">
                                   <div className="flex items-center justify-between px-3 py-2 bg-zinc-900/50 border-b border-zinc-800">
-                                    <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest">{isFile ? patch.patch_json._deploy_path : 'JSON-LD Patch'}</span>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest">{isFile ? patch.patch_json._deploy_path : 'JSON-LD Patch'}</span>
+                                      {patch.validation_status && (
+                                        <div className={cn('flex items-center gap-1.5 px-2 py-0.5 rounded-full', patch.validation_status === 'valid' ? 'bg-emerald-500/10' : 'bg-rose-500/10')}>
+                                          <div className={cn('w-1.5 h-1.5 rounded-full', patch.validation_status === 'valid' ? 'bg-emerald-500' : 'bg-rose-500')} />
+                                          <span className={cn('text-[9px] font-bold uppercase', patch.validation_status === 'valid' ? 'text-emerald-400' : 'text-rose-400')}>
+                                            {patch.validation_status}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
                                     <Button
                                       size="sm"
                                       variant="ghost"
@@ -586,16 +648,18 @@ export function SchemaGeneratorTable({
                               <span className="text-[10px] font-bold text-emerald-400">{lift} Impact</span>
                               {content && (
                                 <div className="flex gap-2">
-                                  <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] text-zinc-500" onClick={() => copyToClipboard(content, pKey)}>
-                                    {copiedKey === pKey ? 'Copied' : 'Copy'}
-                                  </Button>
-                                  <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] text-zinc-500" onClick={() => {
-                                    const blob = new Blob([content], { type: 'text/plain' })
-                                    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click()
-                                  }}>
-                                    <Download className="w-3 h-3" />
-                                  </Button>
-                                </div>
+                                <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] text-zinc-500 hover:text-zinc-300" onClick={() => copyToClipboard(content, pKey)}>
+                                  <Copy className="w-3 h-3 mr-1" />
+                                  {copiedKey === pKey ? 'Copied' : 'Copy'}
+                                </Button>
+                                <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] text-zinc-500 hover:text-zinc-300" onClick={() => {
+                                  const blob = new Blob([content], { type: 'text/plain' })
+                                  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click()
+                                }}>
+                                  <Download className="w-3 h-3 mr-1" />
+                                  Download
+                                </Button>
+                              </div>
                               )}
                             </div>
                           </div>
