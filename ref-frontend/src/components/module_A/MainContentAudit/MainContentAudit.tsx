@@ -8,6 +8,7 @@ import { Recommendations } from './Recommendations'
 
 interface MainContentAuditProps {
   pageMetricsData: any[]
+  contentMetricsData?: any[]
   isLoadingMetrics?: boolean
   onRefreshMetrics?: () => void
   sessionId: string | number
@@ -17,6 +18,7 @@ interface MainContentAuditProps {
 
 export function MainContentAudit({
   pageMetricsData,
+  contentMetricsData = [],
   isLoadingMetrics,
   onRefreshMetrics,
   sessionId,
@@ -71,8 +73,20 @@ export function MainContentAudit({
             jobId={jobId}
           />
         )}
-        {activeTab === 'content-metrics' && <ContentMetrics />}
-        {activeTab === 'backlink-metrics' && <BacklinkMetrics />}
+        {activeTab === 'content-metrics' && (
+          <ContentMetrics
+            data={contentMetricsData}
+            isLoading={isLoadingMetrics}
+            onRefresh={onRefreshMetrics}
+          />
+        )}
+        {activeTab === 'backlink-metrics' && (
+          <BacklinkMetrics
+            data={pageMetricsData}
+            isLoading={isLoadingMetrics}
+            onRefresh={onRefreshMetrics}
+          />
+        )}
         {activeTab === 'recommendations' && (
           <Recommendations jobId={jobId ?? ''} />
         )}

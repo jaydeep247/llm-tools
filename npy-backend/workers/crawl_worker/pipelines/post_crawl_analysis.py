@@ -15,6 +15,7 @@ Results are written back to the `fields` collection under each page's
 `website_crawler` sub-document.
 """
 
+import asyncio
 import math
 from typing import List, Dict, Any, Optional
 
@@ -22,10 +23,12 @@ from pymongo import UpdateOne
 
 from utils.mongo import mongo_manager
 from utils.logger import logger
+from urllib.parse import urlparse
 from modules.module_A.WebsiteCrawler.metrics.similarity import (
     hamming_distance,
     calculate_similarity_score,
 )
+from modules.module_A.ContentAudit.BacklinkMetrics import extract_backlink_metrics_batch
 
 # Hamming distance threshold (out of 64 bits):
 # ≤ 3 bits difference ≈ 95.3% identical content → near-duplicate
@@ -98,16 +101,25 @@ def run_post_crawl_analysis(job_id: str) -> None:
         # ------------------------------------------------------------------
         cursor = mongo_manager.fields.find(
             {"jobId": job_id},
-            {"url": 1, "website_crawler.simhash": 1, "Keyword_analysis": 1},
+            {
+                "url": 1,
+                "main_keyword": 1,
+                "backlink_metrics.internal_outlinks": 1,
+                "backlink_metrics.external_outlinks": 1,
+                "backlink_metrics.outlink_url_list": 1,
+                "website_crawler.simhash": 1,
+                "Keyword_analysis": 1,
+            },
         )
         docs = list(cursor)
 
         if len(docs) < 2:
             logger.info(
                 f"[POST-CRAWL] Skipping analysis for job {job_id}: "
-                f"only {len(docs)} page(s); need ≥ 2."
+                f"only {len(docs)} page(s); near-duplicate step skipped."
             )
-            return
+        # Near-duplicate analysis is optional; backlink metrics should still run
+        # even for very small crawls.
 
         # ------------------------------------------------------------------
         # 2. Build an in-memory list of page descriptors
@@ -130,91 +142,171 @@ def run_post_crawl_analysis(job_id: str) -> None:
         logger.info(f"[POST-CRAWL] Running analysis for job {job_id}: {n} pages")
 
         # ------------------------------------------------------------------
-        # 3. Pairwise computation
+        # 3. Pairwise computation (isolated so backlinks still run)
         # ------------------------------------------------------------------
-        updates: List[tuple] = []
+        try:
+            updates: List[tuple] = []
 
-        for i in range(n):
-            pi = pages[i]
-            url_i = pi["url"]
-            hash_i = pi["simhash"]
-            tf_i = pi["tf"]
+            if n >= 2:
+                for i in range(n):
+                    pi = pages[i]
+                    url_i = pi["url"]
+                    hash_i = pi["simhash"]
+                    tf_i = pi["tf"]
 
-            near_dup_candidates = []
-            semantic_candidates = []
-            all_cosines: List[float] = []
+                    near_dup_candidates = []
+                    semantic_candidates = []
+                    all_cosines: List[float] = []
 
-            for j in range(n):
-                if i == j:
-                    continue
-                pj = pages[j]
+                    for j in range(n):
+                        if i == j:
+                            continue
+                        pj = pages[j]
 
-                # --- Near-duplicate (SimHash Hamming distance) ---
-                if hash_i and pj["simhash"]:
-                    dist = hamming_distance(hash_i, pj["simhash"])
-                    if dist <= NEAR_DUPLICATE_BIT_THRESHOLD:
-                        score = calculate_similarity_score(hash_i, pj["simhash"])
-                        near_dup_candidates.append(
-                            {"url": pj["url"], "score": score, "dist": dist}
-                        )
+                        # --- Near-duplicate (SimHash Hamming distance) ---
+                        if hash_i and pj["simhash"]:
+                            dist = hamming_distance(hash_i, pj["simhash"])
+                            if dist <= NEAR_DUPLICATE_BIT_THRESHOLD:
+                                score = calculate_similarity_score(hash_i, pj["simhash"])
+                                near_dup_candidates.append(
+                                    {"url": pj["url"], "score": score, "dist": dist}
+                                )
 
-                # --- Semantic similarity (TF cosine) ---
-                if tf_i and pj["tf"]:
-                    cos = _cosine_similarity(tf_i, pj["tf"])
-                    all_cosines.append(cos)
-                    if cos >= SEMANTIC_SIMILAR_THRESHOLD:
-                        semantic_candidates.append({"url": pj["url"], "score": cos})
+                        # --- Semantic similarity (TF cosine) ---
+                        if tf_i and pj["tf"]:
+                            cos = _cosine_similarity(tf_i, pj["tf"])
+                            all_cosines.append(cos)
+                            if cos >= SEMANTIC_SIMILAR_THRESHOLD:
+                                semantic_candidates.append({"url": pj["url"], "score": cos})
 
-            # Sort descending by score
-            near_dup_candidates.sort(key=lambda x: -x["score"])
-            semantic_candidates.sort(key=lambda x: -x["score"])
+                    # Sort descending by score
+                    near_dup_candidates.sort(key=lambda x: -x["score"])
+                    semantic_candidates.sort(key=lambda x: -x["score"])
 
-            # Semantic relevance = average cosine to ALL other pages
-            semantic_relevance = (
-                round(sum(all_cosines) / len(all_cosines), 4)
-                if all_cosines
-                else 0.0
-            )
+                    # Semantic relevance = average cosine to ALL other pages
+                    semantic_relevance = (
+                        round(sum(all_cosines) / len(all_cosines), 4)
+                        if all_cosines
+                        else 0.0
+                    )
 
-            update_set = {
-                "website_crawler.closest_near_duplicate_url": (
-                    near_dup_candidates[0]["url"] if near_dup_candidates else None
-                ),
-                "website_crawler.closest_near_duplicate_similarity": (
-                    round(near_dup_candidates[0]["score"], 4)
-                    if near_dup_candidates
-                    else 0.0
-                ),
-                "website_crawler.no_near_duplicates": len(near_dup_candidates),
-                "website_crawler.closest_semantically_similar_address": (
-                    semantic_candidates[0]["url"] if semantic_candidates else None
-                ),
-                "website_crawler.semantic_similarity_score": (
-                    round(semantic_candidates[0]["score"], 4)
-                    if semantic_candidates
-                    else 0.0
-                ),
-                "website_crawler.no_semantically_similar": len(semantic_candidates),
-                "website_crawler.semantic_relevance_score": semantic_relevance,
-            }
-            updates.append((url_i, update_set))
+                    update_set = {
+                        "website_crawler.closest_near_duplicate_url": (
+                            near_dup_candidates[0]["url"] if near_dup_candidates else None
+                        ),
+                        "website_crawler.closest_near_duplicate_similarity": (
+                            round(near_dup_candidates[0]["score"], 4)
+                            if near_dup_candidates
+                            else 0.0
+                        ),
+                        "website_crawler.no_near_duplicates": len(near_dup_candidates),
+                        "website_crawler.closest_semantically_similar_address": (
+                            semantic_candidates[0]["url"] if semantic_candidates else None
+                        ),
+                        "website_crawler.semantic_similarity_score": (
+                            round(semantic_candidates[0]["score"], 4)
+                            if semantic_candidates
+                            else 0.0
+                        ),
+                        "website_crawler.no_semantically_similar": len(semantic_candidates),
+                        "website_crawler.semantic_relevance_score": semantic_relevance,
+                    }
+                    updates.append((url_i, update_set))
 
-        # ------------------------------------------------------------------
-        # 4. Bulk-write results back to the fields collection
-        # ------------------------------------------------------------------
-        if updates:
-            operations = [
-                UpdateOne(
-                    {"jobId": job_id, "url": url},
-                    {"$set": fields},
+            # ------------------------------------------------------------------
+            # 4. Bulk-write results back to the fields collection
+            # ------------------------------------------------------------------
+            if updates:
+                operations = [
+                    UpdateOne(
+                        {"jobId": job_id, "url": url},
+                        {"$set": fields},
+                    )
+                    for url, fields in updates
+                ]
+                result = mongo_manager.fields.bulk_write(operations, ordered=False)
+                logger.info(
+                    f"[POST-CRAWL] Updated {result.modified_count}/{n} pages "
+                    f"for job {job_id}"
                 )
-                for url, fields in updates
-            ]
-            result = mongo_manager.fields.bulk_write(operations, ordered=False)
-            logger.info(
-                f"[POST-CRAWL] Updated {result.modified_count}/{n} pages "
-                f"for job {job_id}"
+        except Exception as exc:
+            logger.error(
+                "[POST-CRAWL] Near-duplicate/semantic step failed for job %s: %s",
+                job_id,
+                exc,
+                exc_info=True,
             )
+
+        # ------------------------------------------------------------------
+        # 5. Backlink Metrics batch (fields 1,5-8) + inlinks graph (field 1)
+        # ------------------------------------------------------------------
+        backlink_items: List[Dict[str, Any]] = []
+        for doc in docs:
+            url = doc.get("url")
+            if not url:
+                continue
+            bm = doc.get("backlink_metrics") or {}
+            backlink_items.append(
+                {
+                    "url": url,
+                    "main_keyword": doc.get("main_keyword", "") or "",
+                    "internal_outlinks": bm.get("internal_outlinks"),
+                    "external_outlinks": bm.get("external_outlinks"),
+                    "outlink_url_list": bm.get("outlink_url_list") or [],
+                }
+            )
+
+        if backlink_items:
+            first_url = backlink_items[0].get("url", "")
+            parsed = urlparse(first_url) if first_url else None
+            site_domain = (
+                f"{parsed.scheme}://{parsed.netloc}" if parsed and parsed.scheme and parsed.netloc else ""
+            )
+
+            # extract_backlink_metrics_batch() is async; we run it in a fresh loop.
+            loop = asyncio.new_event_loop()
+            try:
+                asyncio.set_event_loop(loop)
+                results = loop.run_until_complete(
+                    extract_backlink_metrics_batch(backlink_items, site_domain=site_domain)
+                )
+            finally:
+                loop.close()
+                asyncio.set_event_loop(None)
+
+            results_by_url = {r.get("url"): r for r in (results or []) if r.get("url")}
+
+            backlink_ops = []
+            for item in backlink_items:
+                url = item["url"]
+                bm_res = results_by_url.get(url)
+                if not bm_res:
+                    continue
+
+                backlink_ops.append(
+                    UpdateOne(
+                        {"jobId": job_id, "url": url},
+                        {
+                            "$set": {
+                                "backlink_metrics": bm_res,
+                                # Flatten core 8 fields for easier downstream exports.
+                                "inlinks": bm_res.get("inlinks"),
+                                "internal_outlinks": bm_res.get("internal_outlinks"),
+                                "external_outlinks": bm_res.get("external_outlinks"),
+                                "link_ratio": bm_res.get("link_ratio"),
+                                "link_ratio_pass": bm_res.get("link_ratio_pass"),
+                                "pr_score": bm_res.get("pr_score"),
+                                "current_referring_domains": bm_res.get("current_referring_domains"),
+                                "min_required_rds": bm_res.get("min_required_rds"),
+                                "rds_to_acquire": bm_res.get("rds_to_acquire"),
+                                "backlink_audit_log": bm_res.get("audit_log") or {},
+                            }
+                        },
+                    )
+                )
+
+            if backlink_ops:
+                mongo_manager.fields.bulk_write(backlink_ops, ordered=False)
 
     except Exception:
         import traceback

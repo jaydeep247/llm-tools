@@ -19,12 +19,10 @@ import { FieldTooltip } from '../FieldTooltip'
 export interface PerformanceMetric {
   id?: string | number
   url: string
+  currentRanking?: number | null
   ga30DaysTraffic?: number | null
-  currentWordCount?: number | null
-  serpIntentWordCount?: number | null
-  needToAddWordCount?: number | null
-  publishedDate?: string | null
-  upgradeDate?: string | null
+  overallKeywords?: number | null
+  firstPageKeywords?: number | null
   timestamp?: string
   // PSI Metrics
   LCP_ms?: number | null
@@ -57,11 +55,11 @@ type ColumnCategory = {
 const COLUMN_CATEGORIES: ColumnCategory[] = [
   {
     name: 'Basic Info',
-    columns: ['url', 'publishedDate', 'upgradeDate', 'device', 'runAt', 'timestamp']
+    columns: ['url', 'device', 'runAt', 'timestamp']
   },
   {
-    name: 'Content & Traffic',
-    columns: ['ga30DaysTraffic', 'currentWordCount', 'serpIntentWordCount', 'needToAddWordCount']
+    name: 'Ranking & Traffic',
+    columns: ['currentRanking', 'ga30DaysTraffic', 'overallKeywords', 'firstPageKeywords']
   },
   {
     name: 'Core Web Vitals',
@@ -71,12 +69,10 @@ const COLUMN_CATEGORIES: ColumnCategory[] = [
 
 const FIELD_DESCRIPTIONS: Partial<Record<keyof PerformanceMetric, string>> = {
   url: 'Full web address of the analyzed page. Click to open in a new tab.',
+  currentRanking: 'Current SERP ranking position for the primary keyword.',
   ga30DaysTraffic: 'Total sessions recorded over the last 30 days from Google Analytics 4.',
-  currentWordCount: 'Current number of words in the main content area of the page.',
-  serpIntentWordCount: 'Average word count of top 10 competitors for the primary keyword.',
-  needToAddWordCount: 'Number of words needed to reach the SERP intent average.',
-  publishedDate: 'Original publication date extracted from the page.',
-  upgradeDate: 'Last modified or upgraded date extracted from the page.',
+  overallKeywords: 'Total number of keywords this page ranks for across all positions.',
+  firstPageKeywords: 'Number of keywords ranking on the first page of search results.',
   timestamp: 'Date and time when this data was collected.',
   performanceScore: 'Overall PageSpeed Insights score (0-100).',
   LCP_ms: 'Largest Contentful Paint in milliseconds.',
@@ -91,12 +87,10 @@ const FIELD_DESCRIPTIONS: Partial<Record<keyof PerformanceMetric, string>> = {
 
 const DEFAULT_VISIBLE_COLUMNS: Set<keyof PerformanceMetric> = new Set([
   'url', 
+  'currentRanking',
   'ga30DaysTraffic', 
-  'currentWordCount', 
-  'serpIntentWordCount', 
-  'needToAddWordCount', 
-  'publishedDate', 
-  'upgradeDate',
+  'overallKeywords', 
+  'firstPageKeywords',
   'performanceScore',
   'LCP_ms',
   'CLS'
@@ -273,12 +267,10 @@ export function PerformanceMetrics({
   const getColumnLabel = (column: keyof PerformanceMetric): string => {
     const labels: Record<string, string> = {
       url: 'URL',
+      currentRanking: 'Current Ranking',
       ga30DaysTraffic: '30 Days GA Traffic',
-      currentWordCount: 'Current Word Count',
-      serpIntentWordCount: 'SERP Intent Word Count',
-      needToAddWordCount: 'Need to Add Words',
-      publishedDate: 'Published Date',
-      upgradeDate: 'Upgrade Date',
+      overallKeywords: 'Overall Keywords',
+      firstPageKeywords: '1st Page Keywords',
       timestamp: 'Timestamp',
       performanceScore: 'Performance Score',
       LCP_ms: 'LCP (ms)',
@@ -295,7 +287,7 @@ export function PerformanceMetrics({
 
   // Columns that support sorting
   const sortableColumns: Set<keyof PerformanceMetric> = new Set([
-    'url', 'ga30DaysTraffic', 'currentWordCount', 'serpIntentWordCount', 'needToAddWordCount', 'publishedDate', 'upgradeDate', 'timestamp',
+    'url', 'currentRanking', 'ga30DaysTraffic', 'overallKeywords', 'firstPageKeywords', 'timestamp',
     'LCP_ms', 'TBT_ms', 'CLS', 'FCP_ms', 'TTFB_ms', 'performanceScore', 'runAt'
   ] as (keyof PerformanceMetric)[])
 
@@ -346,6 +338,14 @@ export function PerformanceMetrics({
           </a>
         )
 
+      case 'currentRanking': {
+        const v = Number(value)
+        const color = v <= 3  ? 'bg-green-500/20 text-green-300 border-green-500/30' :
+                      v <= 10 ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
+                                'bg-zinc-700/40 text-zinc-300 border-zinc-600/30'
+        return <Badge className={color}>{v}</Badge>
+      }
+
       case 'ga30DaysTraffic': {
         const v = Number(value)
         const color = v >= 1000 ? 'bg-green-500/20 text-green-300 border-green-500/30' :
@@ -354,21 +354,9 @@ export function PerformanceMetrics({
         return <Badge className={color}>{v.toLocaleString()}</Badge>
       }
 
-      case 'currentWordCount':
-      case 'serpIntentWordCount':
+      case 'overallKeywords':
+      case 'firstPageKeywords':
         return <span className="font-mono text-zinc-300">{Number(value).toLocaleString()}</span>
-
-      case 'needToAddWordCount': {
-        const v = Number(value)
-        const color = v === 0 ? 'bg-green-500/20 text-green-300 border-green-500/30' :
-                      v <= 300 ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
-                                 'bg-red-500/20 text-red-300 border-red-500/30'
-        return <Badge className={color}>{v.toLocaleString()}</Badge>
-      }
-
-      case 'publishedDate':
-      case 'upgradeDate':
-        return <span className="text-zinc-300">{new Date(value as string).toLocaleDateString()}</span>
 
       case 'timestamp':
       case 'runAt':

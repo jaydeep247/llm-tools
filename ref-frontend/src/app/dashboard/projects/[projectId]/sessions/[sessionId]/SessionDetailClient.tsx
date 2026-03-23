@@ -313,6 +313,8 @@ export default function SessionDetailClient() {
     // Performance metrics are now at the root level of the fieldData document `fieldData.performance_metrics`
     // but we fall back to pageMatrix for backwards compatibility with older crawls
     const pmMetrics = fieldData.performance_metrics || pageMatrix?.performance_metrics || {};
+    // Content matrix (output of ContentMetrics sub-module, stored as content_matrix)
+    const cmMetrics = fieldData.content_matrix || pageMatrix?.content_matrix || {};
 
     // Extract nested page_matrix sub-objects
     const pmTables = pageMatrix.tables || {};
@@ -442,11 +444,15 @@ export default function SessionDetailClient() {
 
     // --- Performance Metrics ---
     ga30DaysTraffic: pmMetrics?.ga30DaysTraffic ?? pageMatrix?.ga30DaysTraffic ?? crawlerData?.ga30DaysTraffic ?? null,
-    currentWordCount: pmMetrics?.currentWordCount ?? pageMatrix?.currentWordCount ?? crawlerData?.currentWordCount ?? null,
-    serpIntentWordCount: pmMetrics?.serpIntentWordCount ?? pageMatrix?.serpIntentWordCount ?? crawlerData?.serpIntentWordCount ?? null,
-    needToAddWordCount: pmMetrics?.needToAddWordCount ?? pageMatrix?.needToAddWordCount ?? crawlerData?.needToAddWordCount ?? null,
-    publishedDate: pmMetrics?.publishedDate ?? pageMatrix?.publishedDate ?? crawlerData?.publishedDate ?? null,
-    upgradeDate: pmMetrics?.upgradeDate ?? pageMatrix?.upgradeDate ?? crawlerData?.upgradeDate ?? null,
+    currentRanking: pmMetrics?.currentRanking ?? pageMatrix?.currentRanking ?? crawlerData?.currentRanking ?? null,
+    overallKeywords: pmMetrics?.overallKeywords ?? pageMatrix?.overallKeywords ?? crawlerData?.overallKeywords ?? null,
+    firstPageKeywords: pmMetrics?.firstPageKeywords ?? pageMatrix?.firstPageKeywords ?? crawlerData?.firstPageKeywords ?? null,
+    // Word count/date fields now come from content_matrix (ContentMetrics sub-module)
+    currentWordCount: cmMetrics?.currentWordCount ?? pageMatrix?.currentWordCount ?? crawlerData?.currentWordCount ?? null,
+    serpIntentWordCount: cmMetrics?.serpIntentWordCount ?? pageMatrix?.serpIntentWordCount ?? crawlerData?.serpIntentWordCount ?? null,
+    needToAddWordCount: cmMetrics?.needToAddWordCount ?? pageMatrix?.needToAddWordCount ?? crawlerData?.needToAddWordCount ?? null,
+    publishedDate: cmMetrics?.publishedDate ?? pageMatrix?.publishedDate ?? crawlerData?.publishedDate ?? null,
+    upgradeDate: cmMetrics?.upgradeDate ?? pageMatrix?.upgradeDate ?? crawlerData?.upgradeDate ?? null,
 
     // --- PSI Metrics ---
     LCP_ms: pmMetrics?.psi_desktop?.LCP_ms ?? pageMatrix?.psi_desktop?.LCP_ms ?? crawlerData?.psi_desktop?.LCP_ms ?? null,

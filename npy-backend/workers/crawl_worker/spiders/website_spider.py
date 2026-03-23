@@ -846,6 +846,8 @@ class WebsiteSpider(RedisSpider):
             page_item['fields'] = {
                 'status': str(response.status),
                 'page_matrix': _non_html_audit.get('page_metrics', {}),
+                'main_keyword': self.main_keyword or "",
+                'backlink_metrics': _non_html_audit.get('backlink_metrics', {}) or {},
             }
 
             self.pages_crawled += 1
@@ -1018,11 +1020,25 @@ class WebsiteSpider(RedisSpider):
             redirect_urls=response.request.meta.get('redirect_urls', []),
             main_keyword=self.main_keyword,
             ga_property_id=self.ga_property_id,
+            site_domain=f"{urlparse(response.url).scheme}://{urlparse(response.url).netloc}",
+            internal_outlinks=outlink_stats.get('internal_outlinks'),
+            external_outlinks=outlink_stats.get('external_outlinks'),
+            outlink_url_list=outlink_stats.get('outlink_url_list'),
+            h1=(page_item.get('h1_tags') or [''])[0],
+            title=page_item.get('title', ''),
         )
+
+        backlink_metrics_result = content_audit_result.get('backlink_metrics', {}) or {}
 
         page_item['fields'] = {
             # Status (Screaming Frog compatible reason phrase)
             'status': status_reason,
+
+            # Used by post-crawl backlinks batch step (SERP -> min_required_rds)
+            'main_keyword': self.main_keyword or "",
+
+            # Backlink metrics (crawl-time fields 2-4 + post-crawl placeholders)
+            'backlink_metrics': backlink_metrics_result,
             
             'website_crawler': {
                 # Pixel Widths
@@ -1080,6 +1096,9 @@ class WebsiteSpider(RedisSpider):
             
             # Content Audit (Orchestrator)
             'page_matrix': content_audit_result.get('page_metrics', {}),
+
+            # Content Metrics (SEO content quality signals)
+            'content_matrix': content_audit_result.get('content_metrics', {}),
 
             # Root level performance metrics
             'performance_metrics': content_audit_result.get('performance_metrics', {}),

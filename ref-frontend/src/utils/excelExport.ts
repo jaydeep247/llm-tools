@@ -227,6 +227,43 @@ export function transformPageMetricsForExcel(pages: any[]) {
   }))
 }
 
+export function transformContentMetricsForExcel(pages: any[]) {
+  return pages.map((p) => ({
+    URL: p.url || '',
+    'Meta Title': p.metaTitle || '',
+    'Title Length': p.metaTitleLength ?? '',
+    'Title Width (px)': p.metaTitlePx ?? '',
+    'Meta Description': p.cmMetaDescription || '',
+    'Description Length': p.cmMetaDescriptionLength ?? '',
+    'H1 Text': p.h1Text || '',
+    'H1 Count': p.h1Count ?? '',
+    'H1 Issues': p.h1Issues || '',
+    'Heading Structure Valid': p.headingStructureValid ? 'Yes' : p.headingStructureValid === false ? 'No' : '',
+    'Keyword Density (%)': p.cmKeywordDensity ?? '',
+    'Keyword Count': p.cmKeywordCount ?? '',
+    'Total Word Count': p.cmTotalWordCount ?? '',
+    'Keyword Density Pass': p.keywordDensityPass ? 'Yes' : p.keywordDensityPass === false ? 'No' : '',
+    'KW in H1': p.kwInH1 ? 'Yes' : p.kwInH1 === false ? 'No' : '',
+    'KW in First 100 Words': p.kwInFirst100 ? 'Yes' : p.kwInFirst100 === false ? 'No' : '',
+    'KW in URL': p.kwInUrlSlug ? 'Yes' : p.kwInUrlSlug === false ? 'No' : '',
+    'KW in H2': p.kwInH2 ? 'Yes' : p.kwInH2 === false ? 'No' : '',
+    'KW in Meta Title': p.kwInMetaTitle ? 'Yes' : p.kwInMetaTitle === false ? 'No' : '',
+    'KW in Meta Description': p.kwInMetaDescription ? 'Yes' : p.kwInMetaDescription === false ? 'No' : '',
+    'Schema Types': p.schemaTypes || '',
+    'Self-Canonical': p.canonicalIsSelf ? 'Yes' : p.canonicalIsSelf === false ? 'No' : '',
+    'Flesch Score': p.readabilityFlesch ?? '',
+    'Readability Label': p.readabilityLabel || '',
+    'Total Images': p.totalImages ?? '',
+    'Missing Alt': p.missingAlt ?? '',
+    'Alt Coverage (%)': p.altCoveragePct ?? '',
+    'URL Structure Valid': p.urlStructureValid ? 'Yes' : p.urlStructureValid === false ? 'No' : '',
+    'URL Issues': p.urlStructureIssues || '',
+    'Internal Links': p.internalLinksCount ?? '',
+    'External Links': p.externalLinksCount ?? '',
+    'Link Ratio': p.linkRatio ?? '',
+  }))
+}
+
 export function transformTextQualityForExcel(pages: any[]) {
   return pages.map((p) => ({
     URL: p.url || '',

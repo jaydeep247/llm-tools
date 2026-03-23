@@ -290,9 +290,11 @@ export default function SessionDetailPage() {
     const wordCountData = fieldData.Wordcount_analysis || {};
 
     const pageMatrix = fieldData.page_matrix || {};
+    const contentMatrix = fieldData.content_matrix || {};
 
     // Performance metrics (stored at root level of the fields document)
     const pmMetrics = fieldData.performance_metrics || pageMatrix?.performance_metrics || {};
+
 
     // Extract nested page_matrix sub-objects
     const pmTables = pageMatrix.tables || {};
@@ -534,13 +536,16 @@ export default function SessionDetailPage() {
       // Ensure timestamp matches
       timestamp: page.timestamp || new Date().toISOString(),
 
-      // --- Performance Metrics ---
-      ga30DaysTraffic: pmMetrics?.ga30DaysTraffic ?? pageMatrix?.ga30DaysTraffic ?? crawlerData?.ga30DaysTraffic ?? null,
-      currentWordCount: pmMetrics?.currentWordCount ?? pageMatrix?.currentWordCount ?? crawlerData?.currentWordCount ?? null,
-      serpIntentWordCount: pmMetrics?.serpIntentWordCount ?? pageMatrix?.serpIntentWordCount ?? crawlerData?.serpIntentWordCount ?? null,
-      needToAddWordCount: pmMetrics?.needToAddWordCount ?? pageMatrix?.needToAddWordCount ?? crawlerData?.needToAddWordCount ?? null,
-      publishedDate: pmMetrics?.publishedDate ?? pageMatrix?.publishedDate ?? crawlerData?.publishedDate ?? null,
-      upgradeDate: pmMetrics?.upgradeDate ?? pageMatrix?.upgradeDate ?? crawlerData?.upgradeDate ?? null,
+      // --- Performance Metrics ---      ga30DaysTraffic: pmMetrics?.ga30DaysTraffic ?? pageMatrix?.ga30DaysTraffic ?? crawlerData?.ga30DaysTraffic ?? null,
+      currentRanking: pmMetrics?.currentRanking ?? pageMatrix?.currentRanking ?? crawlerData?.currentRanking ?? null,
+      overallKeywords: pmMetrics?.overallKeywords ?? pageMatrix?.overallKeywords ?? crawlerData?.overallKeywords ?? null,
+      firstPageKeywords: pmMetrics?.firstPageKeywords ?? pageMatrix?.firstPageKeywords ?? crawlerData?.firstPageKeywords ?? null,
+      // Word count/date fields now come from content_matrix (ContentMetrics sub-module)
+      currentWordCount: contentMatrix?.currentWordCount ?? pageMatrix?.currentWordCount ?? crawlerData?.currentWordCount ?? null,
+      serpIntentWordCount: contentMatrix?.serpIntentWordCount ?? pageMatrix?.serpIntentWordCount ?? crawlerData?.serpIntentWordCount ?? null,
+      needToAddWordCount: contentMatrix?.needToAddWordCount ?? pageMatrix?.needToAddWordCount ?? crawlerData?.needToAddWordCount ?? null,
+      publishedDate: contentMatrix?.publishedDate ?? pageMatrix?.publishedDate ?? crawlerData?.publishedDate ?? null,
+      upgradeDate: contentMatrix?.upgradeDate ?? pageMatrix?.upgradeDate ?? crawlerData?.upgradeDate ?? null,
 
       // --- PSI Metrics ---
       LCP_ms: pmMetrics?.psi_desktop?.LCP_ms ?? pageMatrix?.psi_desktop?.LCP_ms ?? null,
@@ -554,7 +559,7 @@ export default function SessionDetailPage() {
       device: pmMetrics?.psi_desktop?.device ?? pageMatrix?.psi_desktop?.device ?? null,
 
       // Attach full field data for components that might dig deeper
-      fields: fieldData
+      fields: fieldData,
     }
   })
 
@@ -572,6 +577,7 @@ export default function SessionDetailPage() {
   const refetchPages = refetchJobResults
 
   const pageMetricsData = { data: transformedPages }
+  const contentMetricsData = { data: transformedPages }
   const isLoadingMetrics = isLoadingResults
   const refetchMetrics = refetchJobResults
 
@@ -1073,6 +1079,7 @@ export default function SessionDetailPage() {
           <div className="h-[calc(100vh-133px)] -mx-11 md:-mx-8 px-6 pb-6 pt-2">
             <MainContentAudit
               pageMetricsData={pageMetricsData?.data || []}
+              contentMetricsData={contentMetricsData?.data || []}
               isLoadingMetrics={isLoadingMetrics}
               onRefreshMetrics={() => refetchMetrics()}
               sessionId={sessionId}

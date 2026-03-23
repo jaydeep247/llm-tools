@@ -43,6 +43,11 @@ services:
       # DataForSEO Credentials
       DATAFORSEO_LOGIN: ${DATAFORSEO_LOGIN}
       DATAFORSEO_PASSWORD: ${DATAFORSEO_PASSWORD}
+      # Google Analytics
+      GA_PROPERTY_ID: ${GA_PROPERTY_ID:-}
+      GA_SERVICE_ACCOUNT_JSON: /app/ga-credentials.json
+    volumes:
+      - ./ga-credentials.json:/app/ga-credentials.json:ro
 
   ref-frontend:
     build:

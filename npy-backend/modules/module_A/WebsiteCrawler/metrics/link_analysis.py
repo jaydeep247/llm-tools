@@ -138,8 +138,11 @@ def analyze_outlinks(links: List[Dict[str, Any]]) -> Dict[str, Any]:
         'outlinks': total,
         'unique_outlinks': len(unique_outlinks),
         'unique_js_outlinks': js_outlinks,
+        'internal_outlinks': internal_count,
         'external_outlinks': external_count,
         'unique_external_outlinks': len(unique_external_outlinks),
         'unique_external_js_outlinks': external_js_outlinks,
-        # 'percent_of_total':  (Calculated elsewhere or placeholder)
+        'outlink_url_list': [
+            link.get('target_url', '') for link in links if link.get('is_internal', False)
+        ],
     }

@@ -3,13 +3,13 @@ Central Orchestrator for Content Audit
 Coordinates the execution of sub-modules and aggregates the results.
 """
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
 
 from .PageMetrics import extract_page_metrics
 from .KeywordMetrics import extract_keyword_metrics
 from .PerformanceMetrics import extract_performance_metrics
 from .ContentMetrics import extract_content_metrics
-from .BacklinkMetrics import extract_backlink_metrics
+from .BacklinkMetrics import extract_crawltime_backlink_fields
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +25,12 @@ async def run_content_audit(
     main_keyword: str = "",
     ga_property_id: str = None,
     existing_item: Dict[str, Any] = None,
+    site_domain: str = "",
+    internal_outlinks: Optional[int] = None,
+    external_outlinks: Optional[int] = None,
+    outlink_url_list: Optional[List[str]] = None,
+    h1: str = "",
+    title: str = "",
     **kwargs
 ) -> Dict[str, Any]:
     """
@@ -50,9 +56,16 @@ async def run_content_audit(
         logger.error(f"Error extracting page metrics for {url}: {e}")
         page_metrics_result = {"error": str(e)}
 
-    # 2. Keyword Metrics (Placeholder)
+    # 2. Keyword Metrics (async — awaited)
     try:
-        keyword_metrics_result = extract_keyword_metrics(url=url, html_content=html_content)
+        keyword_metrics_result = await extract_keyword_metrics(
+            url=url,
+            html_content=html_content,
+            main_keyword=main_keyword,
+            title=title,
+            h1=h1,
+            existing_item=existing_item,
+        )
     except Exception as e:
         logger.error(f"Error extracting keyword metrics for {url}: {e}")
         keyword_metrics_result = {"error": str(e)}
@@ -66,22 +79,41 @@ async def run_content_audit(
             ga_property_id=ga_property_id,
             response_headers=response_headers,
             existing_item=existing_item,
+            h1=h1,
+            title=title,
             **kwargs,
         )
     except Exception as e:
         logger.error(f"Error extracting performance metrics for {url}: {e}")
         performance_metrics_result = {"error": str(e)}
 
-    # 4. Content Metrics (Placeholder)
+    # 4. Content Metrics (async — awaited)
     try:
-        content_metrics_result = extract_content_metrics(url=url, html_content=html_content)
+        content_metrics_result = await extract_content_metrics(
+            url=url,
+            html_content=html_content,
+            main_keyword=main_keyword,
+            response_headers=response_headers,
+            existing_item=existing_item,
+            h1=h1,
+            title=title,
+            **kwargs,
+        )
     except Exception as e:
         logger.error(f"Error extracting content metrics for {url}: {e}")
         content_metrics_result = {"error": str(e)}
 
-    # 5. Backlink Metrics (Placeholder)
+    # 5. Backlink Metrics (async — awaited)
     try:
-        backlink_metrics_result = extract_backlink_metrics(url=url)
+        backlink_metrics_result = extract_crawltime_backlink_fields(
+            url=url,
+            html_content=html_content,
+            site_domain=site_domain,
+            internal_outlinks=internal_outlinks,
+            external_outlinks=external_outlinks,
+            outlink_url_list=outlink_url_list,
+            **kwargs,
+        )
     except Exception as e:
         logger.error(f"Error extracting backlink metrics for {url}: {e}")
         backlink_metrics_result = {"error": str(e)}
