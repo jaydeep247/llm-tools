@@ -9,9 +9,12 @@ type ModuleFDocument = WithId<Document> & {
   url?: string;
   compare_visibility_against_competitors?: ModuleFResult['compare_visibility_against_competitors'];
   competitor_wins?: ModuleFResult['competitor_wins'];
+  gap_analysis?: ModuleFResult['gap_analysis'];
   gap_opportunities?: ModuleFResult['gap_opportunities'];
   source_analysis?: ModuleFResult['source_analysis'];
+  metric_recommendations?: ModuleFResult['metric_recommendations'];
   recommendations?: ModuleFResult['recommendations'];
+  moat4_recommendations?: ModuleFResult['moat4_recommendations'];
   emerging_trends?: ModuleFResult['emerging_trends'];
   createdAt?: Date;
   updatedAt?: Date;
@@ -29,9 +32,12 @@ export class ModuleFRepository {
       url: doc.url,
       compare_visibility_against_competitors: doc.compare_visibility_against_competitors,
       competitor_wins: doc.competitor_wins,
+      gap_analysis: doc.gap_analysis,
       gap_opportunities: doc.gap_opportunities,
       source_analysis: doc.source_analysis,
+      metric_recommendations: doc.metric_recommendations,
       recommendations: doc.recommendations,
+      moat4_recommendations: doc.moat4_recommendations,
       emerging_trends: doc.emerging_trends,
       createdAt: doc.createdAt ? doc.createdAt.toISOString() : undefined,
       updatedAt: doc.updatedAt ? doc.updatedAt.toISOString() : undefined,

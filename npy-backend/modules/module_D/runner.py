@@ -4,7 +4,7 @@ import logging
 from typing import Dict, Any
 from datetime import datetime
 
-from .contentAnylsisMatrix import OpenAIService
+from .contentAnylsisMatrix import ClaudeService
 from modules.module_C.knowledge_base import KnowledgeBaseModule
 from utils.storage import load_raw_html_sync, save_raw_html
 from utils.mongo import mongo_manager
@@ -13,7 +13,7 @@ logger = logging.getLogger("module_d")
 
 async def run_prompt_tracking(job_id: str, url: str, prompts: list) -> Dict[str, Any]:
     mongo_manager.connect()
-    ai_service = OpenAIService()
+    ai_service = ClaudeService()
     result = ai_service.calculate_prompt_tracking_metrics(job_id=job_id, url=url, prompts=prompts or [])
     return {"success": True, "prompt_tracking": result}
 
@@ -25,7 +25,7 @@ async def run_content_metrics(job_id: str, url: str, html_content: str = None) -
     if not html_content:
         return {"error": "HTML content missing"}
         
-    ai_service = OpenAIService()
+    ai_service = ClaudeService()
     result = ai_service.analyze_content_metrics(html_content, url)
     
     # Store partial result
@@ -80,7 +80,7 @@ async def run_module_d(job_id: str, url: str, html_content: str = None) -> Dict[
     kb_result, metrics_result = await asyncio.gather(kb_task, metrics_task)
     
     # Entity relevance requires found entities from KB and AI Service
-    ai_service = OpenAIService()
+    ai_service = ClaudeService()
     entity_coverage = kb_result.get("entity_coverage") or {}
     found_entities = entity_coverage.get("found_entities") or []
     expected_entities = entity_coverage.get("expected_entities") or []

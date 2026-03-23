@@ -46,6 +46,26 @@ export interface JobSchemaResult {
   schema_text?: string;
   rdfa_markup?: string;
   createdAt?: string;
+  page_type?: string;
+  // MOAT 6 Intelligence fields
+  summary?: {
+    lcs_score: number;
+    grade: string;
+    coverage_pct: number;
+    schema_types_present: string[];
+    top_gaps: any[];
+    quick_win_patches: any[];
+    ai_file_status: any;
+    priority_alert: boolean;
+    priority_alert_message?: string;
+    model_scores: Record<string, { score: number; grade: string }>;
+    aivs_contribution: number;
+  };
+  gap_report?: any;
+  fix_patches?: any[];
+  lcs_score_report?: any;
+  schema_inventory?: any;
+  aivs_feed?: any;
 }
 
 export interface SeoKeywordResponse {

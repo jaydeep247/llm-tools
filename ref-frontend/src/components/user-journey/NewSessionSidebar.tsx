@@ -155,6 +155,7 @@ export const sessionSections: Section[] = [
       { id: 'competitor-cited-urls', label: 'Competitor Cited URLs', icon: Link2 },
       { id: 'gap-opportunities', label: 'Gap Opportunities', icon: Crosshair },
       { id: 'growth-trends', label: 'Growth Trends', icon: LineChart },
+      { id: 'competitor-recommendations', label: 'Competitor Recommendations', icon: Lightbulb },
     ],
   },
   {
