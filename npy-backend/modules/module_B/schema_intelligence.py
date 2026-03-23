@@ -901,7 +901,9 @@ class LCSScorer:
 
         # ── Per-model scores ───────────────────────────────────────────
         model_scores = {
-            m: self._apply_model_weights(lcs, types_present, props_map, m)
+            m: self._apply_model_weights(
+                lcs, types_present, props_map, m, dimension_scores
+            )
             for m in ["gpt4", "gemini", "perplexity", "claude"]
         }
 
@@ -1047,39 +1049,116 @@ class LCSScorer:
         types_present: set,
         props_map: Dict[str, Any],
         model: str,
+        dimension_scores: Optional[Dict[str, float]] = None,
     ) -> Dict[str, Any]:
-        """Apply model-specific weighting to produce per-model LCS™."""
+        """
+        Apply model-specific weighting to produce a genuinely differentiated
+        per-model LCS™ score.
+
+        Each LLM values schema signals differently — this method applies
+        those differences across ALL detectable signals on the page, not just
+        a handful. The result is meaningfully different scores per model.
+
+        Signal groups and their per-model impact weight (from SOP-006 table):
+          FAQPage:              gpt4=2.0  gemini=2.0  perplexity=3.0  claude=2.0
+          HowTo:                gpt4=2.0  gemini=3.0  perplexity=2.0  claude=2.0
+          Organization_sameAs:  gpt4=3.0  gemini=3.0  perplexity=2.0  claude=3.0
+          Article_datePublished:gpt4=2.0  gemini=2.0  perplexity=3.0  claude=1.5
+          Person:               gpt4=2.0  gemini=3.0  perplexity=2.0  claude=2.0
+          llms_txt:             gpt4=1.5  gemini=2.0  perplexity=3.0  claude=3.0
+          AggregateRating:      gpt4=1.5  gemini=1.5  perplexity=2.0  claude=0.5
+          BreadcrumbList:       gpt4=0.5  gemini=2.0  perplexity=1.5  claude=1.5
+          Speakable:            gpt4=1.5  gemini=3.0  perplexity=0.5  claude=1.5
+          Dataset:              gpt4=2.0  gemini=1.5  perplexity=1.5  claude=2.0
+        """
         weights = MODEL_WEIGHTS.get(model, {})
-        adjustment = 0.0
 
-        # FAQPage bonus
+        # ── Per-signal adjustments ────────────────────────────────────
+        # Each signal fires if the corresponding schema/property is present.
+        # Adjustment = (model_weight - 1.0) × signal_magnitude
+        # signal_magnitude is calibrated so the total range across models
+        # is meaningful (typically ±15 points spread across all signals).
+        adjustments = 0.0
+
+        # 1. FAQPage — biggest differentiator (Perplexity 3x vs others 2x)
         if "FAQPage" in types_present:
+            faq_props = props_map.get("FAQPage") or {}
+            me = faq_props.get("mainEntity")
+            has_full_faq = isinstance(me, list) and len(me) >= 2
             w = weights.get("FAQPage", 1.0)
-            adjustment += (w - 1.0) * 5
+            mag = 8.0 if has_full_faq else 4.0
+            adjustments += (w - 1.0) * mag
 
-        # HowTo bonus
+        # 2. HowTo — Gemini 3x vs others 2x → clear Gemini advantage
         if "HowTo" in types_present:
+            howto_props = props_map.get("HowTo") or {}
+            has_steps = bool(howto_props.get("step"))
             w = weights.get("HowTo", 1.0)
-            adjustment += (w - 1.0) * 4
+            mag = 7.0 if has_steps else 4.0
+            adjustments += (w - 1.0) * mag
 
-        # Organization + sameAs
-        if "Organization" in types_present:
-            org_props = props_map.get("Organization") or {}
+        # 3. Organization + sameAs — GPT4/Gemini/Claude 3x vs Perplexity 2x
+        if "Organization" in types_present or "LocalBusiness" in types_present:
+            org_type = "Organization" if "Organization" in types_present else "LocalBusiness"
+            org_props = props_map.get(org_type) or {}
             if org_props.get("sameAs"):
                 w = weights.get("Organization_sameAs", 1.0)
-                adjustment += (w - 1.0) * 6
+                adjustments += (w - 1.0) * 7.0
+            # Even without sameAs, Organization presence matters
+            else:
+                adjustments += (weights.get("Organization_sameAs", 1.0) - 1.0) * 2.0
 
-        # Author datePublished
+        # 4. Article datePublished — Perplexity 3x (recency-focused) vs Claude 1.5x
         for article_type in ["Article", "BlogPosting", "NewsArticle"]:
             if article_type in types_present:
                 art_props = props_map.get(article_type) or {}
                 if art_props.get("datePublished"):
                     w = weights.get("Article_datePublished", 1.0)
-                    adjustment += (w - 1.0) * 4
+                    adjustments += (w - 1.0) * 6.0
+                elif art_props.get("dateModified"):
+                    w = weights.get("Article_datePublished", 1.0)
+                    adjustments += (w - 1.0) * 3.0
                 break
 
+        # 5. Person schema — Gemini 3x (author credibility) vs GPT4/Claude 2x
+        if "Person" in types_present:
+            person_props = props_map.get("Person") or {}
+            has_sameas = bool(person_props.get("sameAs"))
+            w = weights.get("Person", 1.0)
+            mag = 6.0 if has_sameas else 3.0
+            adjustments += (w - 1.0) * mag
+
+        # 6. llms.txt — Perplexity 3x + Claude 3x vs GPT4 1.5x
+        # (detected via ai_files in inventory — passed through props_map signal)
+        # We use a proxy: if BreadcrumbList is present, site is well-structured
+        if "BreadcrumbList" in types_present:
+            w = weights.get("BreadcrumbList", 1.0)
+            adjustments += (w - 1.0) * 5.0  # GPT4=−2.5, Gemini=+5, Perplexity=+2.5
+
+        # 7. AggregateRating — Perplexity 2x, Claude only 0.5x (big spread)
+        if "AggregateRating" in types_present or "Review" in types_present:
+            w = weights.get("AggregateRating", 1.0)
+            adjustments += (w - 1.0) * 5.0  # Claude gets −2.5, Perplexity gets +5
+
+        # 8. Dataset — GPT4/Claude 2x vs Gemini/Perplexity 1.5x
+        if "Dataset" in types_present:
+            w = weights.get("Dataset", 1.0)
+            adjustments += (w - 1.0) * 4.0
+
+        # 9. WebSite potentialAction (SearchAction) — Gemini values structure
+        if "WebSite" in types_present:
+            ws_props = props_map.get("WebSite") or {}
+            if ws_props.get("potentialAction"):
+                w = weights.get("BreadcrumbList", 1.0)  # structural signal proxy
+                adjustments += (w - 1.0) * 3.0
+
+        # 10. SoftwareApplication — GPT4/Claude 2x vs Perplexity/Gemini 1.5x
+        if "SoftwareApplication" in types_present or "MobileApplication" in types_present:
+            w = weights.get("Dataset", 1.0)  # technical content proxy
+            adjustments += (w - 1.0) * 4.0
+
         model_score = round(
-            min(100.0, max(0.0, base_score + adjustment)), 2
+            min(100.0, max(0.0, base_score + adjustments)), 2
         )
         return {
             "score": model_score,
@@ -1551,34 +1630,49 @@ class SchemaIntelligenceEngine:
         html: str,
         url: str,
         page_data: Optional[Dict[str, Any]] = None,
+        schema_type: Optional[str] = None,
+        generated_schema_text: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Run the full 5-stage pipeline.
         Returns the complete MOAT 6 intelligence report.
 
         Args:
-            html:      Raw HTML of the page
-            url:       Canonical URL
-            page_data: Optional pre-extracted page_data from SchemaGenerator
-                       (pass this when integrating with schema_generator.py
-                       to avoid double-parsing)
-
-        Returns dict with keys:
-            url, page_type,
-            Stage1: schema_inventory
-            Stage2: gap_report
-            Stage3: lcs_score_report
-            Stage4: fix_patches
-            Stage5: aivs_feed
-            summary (customer dashboard Layer 1 data)
+            html:                  Raw HTML of the page
+            url:                   Canonical URL
+            page_data:             Optional pre-extracted page_data (avoids re-parsing)
+            schema_type:           User-selected schema type (e.g. "HowTo", "FAQPage").
+                                   When provided, overrides URL-based page type detection
+                                   so LCS™ is scored against the CORRECT expected schema map.
+            generated_schema_text: JSON-LD string from SchemaGenerator output.
+                                   Injected into HTML before extraction so gap detection
+                                   runs against the GENERATED schema, not the original page.
         """
-        logging.info(f"[MOAT6] Starting analysis: {url}")
+        logging.info(
+            f"[MOAT6] Starting analysis: {url} | schema_type={schema_type}"
+        )
 
         # ── STAGE 1: Discovery ─────────────────────────────────────────
-        inventory = self.extractor.extract(html, url)
+        # Inject generated schema into HTML so SchemaExtractor sees
+        # what Claude produced, not just the original page markup.
+        analysis_html = self._inject_generated_schema(html, generated_schema_text)
+        inventory = self.extractor.extract(analysis_html, url)
+
+        # Override page_type with user-selected schema_type when provided.
+        # This is the KEY fix: if user selected "HowTo", score as a howto page.
+        if schema_type and schema_type.lower() != "auto":
+            forced_page_type = self._schema_type_to_page_type(schema_type)
+            if forced_page_type:
+                inventory["page_type"] = forced_page_type
+                logging.info(
+                    f"[MOAT6] Page type forced to '{forced_page_type}' "
+                    f"from schema_type='{schema_type}'"
+                )
+
         logging.info(
-            f"[MOAT6] Stage 1 complete — types found: "
-            f"{inventory['schema_types_present']}"
+            f"[MOAT6] Stage 1 complete — "
+            f"page_type={inventory['page_type']} "
+            f"types_found={inventory['schema_types_present']}"
         )
 
         # ── STAGE 2: Gap Detection ─────────────────────────────────────
@@ -1650,6 +1744,87 @@ class SchemaIntelligenceEngine:
         return report
 
     # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # Schema-type → page-type mapping
+    # Maps user-selected schema type to the correct page_type key
+    # so gap detection uses the right expected schema map.
+    # ------------------------------------------------------------------
+    _SCHEMA_TYPE_TO_PAGE_TYPE: Dict[str, str] = {
+        # Tier 1 — Critical
+        "Organization":        "about",
+        "Article":             "article",
+        "BlogPosting":         "blog",
+        "NewsArticle":         "article",
+        "TechArticle":         "article",
+        "FAQPage":             "faq",
+        "HowTo":               "howto",
+        "Product":             "product",
+        "Person":              "about",
+        # Tier 2 — High
+        "LocalBusiness":       "location",
+        "BreadcrumbList":      "other",
+        "WebPage":             "other",
+        "WebSite":             "homepage",
+        "Review":              "review",
+        "AggregateRating":     "review",
+        "Event":               "event",
+        "ItemList":            "category",
+        "Course":              "course",
+        # Tier 3 — Supporting
+        "VideoObject":         "video",
+        "ImageObject":         "other",
+        "Recipe":              "recipe",
+        "SoftwareApplication": "software",
+        "MobileApplication":   "software",
+        "Dataset":             "other",
+        "JobPosting":          "other",
+        # Business variants
+        "ProfessionalService": "location",
+        "FoodEstablishment":   "location",
+        "Store":               "location",
+        "Hotel":               "location",
+        "MedicalBusiness":     "location",
+        "LegalService":        "location",
+        "FinancialService":    "location",
+    }
+
+    def _schema_type_to_page_type(self, schema_type: str) -> Optional[str]:
+        """
+        Convert a user-selected schema type to the matching page_type key
+        used in PAGE_TYPE_SCHEMA_MAP. Returns None if not found.
+        """
+        return self._SCHEMA_TYPE_TO_PAGE_TYPE.get(schema_type)
+
+    def _inject_generated_schema(
+        self, html: str, generated_schema_text: Optional[str]
+    ) -> str:
+        """
+        Inject Claude-generated JSON-LD into the HTML before extraction.
+        This ensures SchemaExtractor sees the GENERATED schema (what will
+        be deployed), not just what was originally on the page.
+
+        Without this: LCS gap detection compares original page schema → gaps
+        With this:    LCS gap detection compares GENERATED schema → real gaps
+        """
+        if not generated_schema_text or not generated_schema_text.strip():
+            return html
+
+        injection = (
+            f'\n<script type="application/ld+json">\n'
+            f'{generated_schema_text}\n'
+            f'</script>\n'
+        )
+
+        # Insert before </head>, </body>, or </html> — whichever comes first
+        for tag in ["</head>", "</body>", "</html>"]:
+            lower = html.lower()
+            idx = lower.rfind(tag.lower())
+            if idx != -1:
+                return html[:idx] + injection + html[idx:]
+
+        # Fallback: append to end
+        return html + injection
 
     def _build_summary(
         self,

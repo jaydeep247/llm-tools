@@ -1,4 +1,3 @@
-
 """
 Schema.org Markup Generator — Universal Edition
 ================================================
