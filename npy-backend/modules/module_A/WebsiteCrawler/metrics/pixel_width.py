@@ -1,12 +1,19 @@
 """
 Pixel Width Calculator
-Calculates approximate pixel width for text strings (Titles, Meta Descriptions)
-Calibrated to match Screaming Frog / Google SERP rendering.
-
-Character widths measured from the actual Arial TrueType font at 16px using
-Pillow (FreeType2).  The base table stores floats so that per-character
-rounding errors do not accumulate across long strings.
+Measures text width using Arial font rendering for the target font size.
+This aligns with Screaming Frog/Google SERP style pixel-width calculations.
 """
+
+from __future__ import annotations
+
+from functools import lru_cache
+
+try:
+    from PIL import Image, ImageDraw, ImageFont
+except Exception:  # pragma: no cover - optional dependency fallback
+    Image = None
+    ImageDraw = None
+    ImageFont = None
 
 # Character widths in pixels for Arial at 16px – measured from the system
 # Arial.ttf via Pillow/FreeType2.  Only the final total is rounded.
@@ -35,6 +42,40 @@ _CHAR_WIDTHS: dict[str, float] = {
 _DEFAULT_WIDTH: float = 9.0  # Fallback for unmapped characters
 
 
+@lru_cache(maxsize=16)
+def _get_arial_font(font_size: int):
+    """Load Arial if available; return None when unavailable."""
+    if ImageFont is None:
+        return None
+
+    candidates = (
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+        "/Library/Fonts/Arial.ttf",
+        "Arial.ttf",
+    )
+    for path in candidates:
+        try:
+            return ImageFont.truetype(path, font_size)
+        except Exception:
+            continue
+    return None
+
+
+def _measure_with_font(text: str, font_size: int) -> int:
+    """Measure rendered text width with PIL font metrics."""
+    if Image is None or ImageDraw is None:
+        return 0
+
+    font = _get_arial_font(font_size)
+    if font is None:
+        return 0
+
+    img = Image.new("RGB", (1, 1))
+    draw = ImageDraw.Draw(img)
+    # textlength gives sub-pixel precision with kerning.
+    return int(round(draw.textlength(text, font=font)))
+
+
 def calculate_pixel_width(text: str, font_size: float = 16.0) -> int:
     """
     Calculate approximate pixel width of text based on Arial character widths.
@@ -51,5 +92,11 @@ def calculate_pixel_width(text: str, font_size: float = 16.0) -> int:
     if not text:
         return 0
 
+    target_size = int(round(font_size))
+    rendered_width = _measure_with_font(text, target_size)
+    if rendered_width > 0:
+        return rendered_width
+
+    # Fallback path when Pillow/Arial is unavailable.
     base_width = sum(_CHAR_WIDTHS.get(c, _DEFAULT_WIDTH) for c in text)
-    return round(base_width * font_size / 16.0)
+    return round(base_width * target_size / 16.0)

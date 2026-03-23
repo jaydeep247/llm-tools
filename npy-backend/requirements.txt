@@ -55,6 +55,7 @@ spacy==3.7.2
 langdetect==1.0.9
 trafilatura==1.12.2
 textstat>=0.7.3
+pyphen>=0.17.2
 
 # =========================
 # Google Analytics

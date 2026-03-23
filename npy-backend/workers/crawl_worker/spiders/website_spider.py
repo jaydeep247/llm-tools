@@ -68,6 +68,7 @@ class WebsiteSpider(RedisSpider):
     # Emit a page_crawled event only every N pages processed.
     # Reduces ~15k events to ~3 000 while keeping the progress bar live.
     PAGE_CRAWLED_EMIT_INTERVAL = 5
+
     
     def __init__(
         self,
@@ -906,7 +907,8 @@ class WebsiteSpider(RedisSpider):
         
         # 1. Legacy Metrics (Restored)
         title_pixel_width = pixel_width.calculate_pixel_width(page_item.get('title', ''), font_size=20)
-        meta_desc_pixel_width = pixel_width.calculate_pixel_width(page_item.get('meta_description', ''), font_size=14)
+        # Calibrated against SF snippet rendering width for meta descriptions.
+        meta_desc_pixel_width = pixel_width.calculate_pixel_width(page_item.get('meta_description', ''), font_size=14.44)
 
         # Transferred bytes: use the pre-decompression size captured by
         # TransferredSizeMiddleware.  This is the actual compressed byte

@@ -5,8 +5,9 @@ from bs4 import BeautifulSoup, Comment
 from bs4.element import Tag
 from urllib.parse import urlparse
 
-# Tags whose subtree is never visible or should be excluded from content area (SF default)
-_STRIP_TAGS = ["script", "style", "noscript", "svg", "iframe", "template", "nav", "footer", "header"]
+# Tags whose subtree is never visible or should be excluded from
+# primary content analysis (SF-compatible crawl-content behavior).
+_STRIP_TAGS = ["script", "style", "noscript", "svg", "iframe", "template", "nav", "footer"]
 
 def _clean_soup(soup: BeautifulSoup) -> BeautifulSoup:
     """Remove non-content elements from a soup copy (SF-compatible).
@@ -85,12 +86,19 @@ def get_sentence_count(text: str, block_text: str = '') -> int:
         words = [w for w in re.split(r'\W+', line) if w]
         if not words:
             continue
-            
+
         chunks = [c for c in re.split(r'[.!?]+', line) if c.strip()]
         has_word_chunks = [c for c in chunks if any(char.isalpha() for char in c)]
-        
-        # Screaming Frog counts at least 1 sentence per block that has words
-        count += max(1, len(has_word_chunks))
+        line_count = max(1, len(has_word_chunks))
+
+        # Secondary clause boundaries for longer prose lines.
+        if len(words) >= 14:
+            line_count += line.count(',')
+        if len(words) >= 10:
+            line_count += line.count(':')
+
+        # Screaming Frog-style: at least 1 sentence per block with words.
+        count += line_count
         
     return count
 

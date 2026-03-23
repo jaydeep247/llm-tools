@@ -10,7 +10,8 @@ import re
 from bs4 import BeautifulSoup, Comment
 
 
-# Tags whose entire subtree is never rendered or should be excluded from content area
+# Tags whose entire subtree is never rendered or should be excluded from
+# primary content word/sentence metrics to mirror SF crawl content analysis.
 _STRIP_TAGS = {'script', 'style', 'noscript', 'svg', 'iframe', 'template', 'nav', 'footer'}
 
 BLOCK_ELEMENTS = {
@@ -94,8 +95,21 @@ class ContentExtractor:
                 line = line.strip()
                 if not line:
                     continue
+
+                # Primary sentence boundaries.
                 chunks = [c for c in re.split(r'[.!?]+', line) if c.strip()]
-                count += max(1, len(chunks))
+                line_count = max(1, len(chunks))
+
+                # Secondary clause boundaries for longer prose lines.
+                # This improves parity with SF exports on marketing pages where
+                # comma/colon-separated clauses are treated as short sentences.
+                word_count_in_line = len([w for w in re.split(r'\W+', line) if w])
+                if word_count_in_line >= 14:
+                    line_count += line.count(',')
+                if word_count_in_line >= 10:
+                    line_count += line.count(':')
+
+                count += line_count
             return max(1, count)
         chunks = [c for c in re.split(r'[.!?]+', block_text) if c.strip()]
         return max(1, len(chunks))
@@ -121,8 +135,8 @@ class ContentExtractor:
             
         flat_text = re.sub(r'\s+', ' ', block_text).strip()
 
-        # Word count – split on whitespace (Screaming Frog methodology)
-        words = flat_text.split()
+        # Word count – tokenized from flat visible text to mirror SF behavior.
+        words = [w for w in re.split(r'\W+', ContentExtractor._extract_visible_text(response.text)) if w]
         word_count = len(words)
 
         # Sentence count (block-aware, SF-compatible)

@@ -7,6 +7,10 @@ and spellGrammarChecker.ts
 
 import re
 from typing import Dict, Any, List, Optional
+try:
+    import pyphen
+except Exception:  # pragma: no cover
+    pyphen = None
 
 # ==========================================
 # Readability Analyzer
@@ -39,10 +43,22 @@ def count_total_syllables(text: str) -> int:
         
     words = re.findall(r'[a-z]+', text.lower())
     total_syllables = 0
-    
+
+    # Prefer dictionary-based hyphenation when available for better
+    # consistency across mixed-content pages.
+    if pyphen is not None:
+        dic = pyphen.Pyphen(lang='en_US')
+        for word in words:
+            hyphenated = dic.inserted(word)
+            if hyphenated:
+                total_syllables += max(1, hyphenated.count('-') + 1)
+            else:
+                total_syllables += 1
+        return total_syllables
+
     for word in words:
         total_syllables += count_word_syllables(word)
-        
+
     return total_syllables
 
 def calculate_flesch_reading_ease(text: str, sentence_count: int = 0, word_count: int = 0) -> float:
@@ -152,7 +168,7 @@ def analyze_content_quality(text: str, sentence_count: int, word_count: int) -> 
     spelling_errors = check_spelling(text)
     grammar_errors = check_grammar(text)
     
-    avg_words = round(word_count / sentence_count, 2) if sentence_count > 0 else 0
+    avg_words = (word_count / sentence_count) if sentence_count > 0 else 0
     
     return {
         'flesch_reading_ease_score': flesch_score,
