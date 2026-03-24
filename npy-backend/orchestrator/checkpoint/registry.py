@@ -81,6 +81,9 @@ class TaskRegistry:
 
         # Module A – Backlink Metrics
         "backlinks_summary": ["dataforseo"],
+
+        # Brand Onboarding
+        "brand_description": ["openai"],
     }
 
     @classmethod

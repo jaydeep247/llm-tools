@@ -42,6 +42,9 @@ const envSchema = z.object({
     .optional()
     .transform((val) => val === 'true')
     .default('false'),
+
+  // Python backend (npy-backend) HTTP API URL — for synchronous endpoints such as brand description
+  NPY_BACKEND_URL: z.string().default('http://localhost:8001'),
 });
 
 const isLocalInfraUrl = (value: string): boolean => {

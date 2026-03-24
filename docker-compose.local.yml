@@ -53,11 +53,14 @@ services:
       MONGO_URI: ${MONGO_URI:-mongodb://host.docker.internal:27017}
       MONGO_DB_NAME: ${MONGO_DB_NAME:-seo_crawler}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost,http://209.38.70.65}
+      NPY_BACKEND_URL: http://npy-backend:8001
     restart: unless-stopped
 
   npy-backend:
     build: ./npy-backend
     container_name: npy-backend
+    ports:
+      - "${NPY_HTTP_PORT:-8001}:8001"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

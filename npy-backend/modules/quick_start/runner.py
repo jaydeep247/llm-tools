@@ -16,6 +16,7 @@ from utils.storage import load_raw_html, save_raw_html
 from modules.module_E.brand_analyzer import BrandAnalyzer
 from modules.module_E.competitor_analyzer import CompetitorAnalyzer
 from modules.module_E.ranking_runner import run_ranking_analysis
+from modules.brand_onboarding.service import generate_brand_description
 
 logger = logging.getLogger("quick_start")
 
@@ -441,6 +442,15 @@ async def run_quick_start(
         # receives the HTML directly — no S3 round-trip needed.
         logger.info("[QS] Fetching homepage (fast path before parallel analyses)")
         html_content = await _fetch_and_store_homepage(job_id, url)
+
+        # ── Generate brand description from homepage HTML and store in DB ──
+        # This runs early so the brand-onboarding page can show the GPT
+        # description immediately via GET /brand-onboarding/description/{job_id}
+        try:
+            logger.info(f"[QS] Generating brand description for job {job_id}")
+            await generate_brand_description(url, job_id=job_id)
+        except Exception as exc:
+            logger.warning(f"[QS] Brand description generation failed: {exc}")
 
         if _is_cancelled(job_id):
             logger.info(f"[QS] Job {job_id} cancelled before analyses — aborting")

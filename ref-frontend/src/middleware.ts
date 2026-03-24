@@ -28,7 +28,7 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const isAdminLogin = pathname === '/admin/login'
   const isAdmin = pathname.startsWith('/admin')
-  const isOnboarding = pathname === '/onboarding'
+  const isOnboarding = pathname === '/onboarding' || pathname === '/brand-onboarding'
   const isDashboard = pathname.startsWith('/dashboard')
   const isSignin = pathname === '/signin'
 
@@ -69,6 +69,6 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/onboarding', '/dashboard/:path*', '/admin/:path*', '/signin'],
+  matcher: ['/onboarding', '/brand-onboarding', '/dashboard/:path*', '/admin/:path*', '/signin'],
 }
 

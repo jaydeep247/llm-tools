@@ -12,15 +12,11 @@ import { AnimatePresence } from 'framer-motion'
 
 import { OnboardingLayout } from '@/components/onboarding/layout'
 import { StepWelcome } from '@/components/onboarding/steps/step-welcome'
-import { StepRole } from '@/components/onboarding/steps/step-role'
-import { StepOrg } from '@/components/onboarding/steps/step-org'
-import { StepFocus } from '@/components/onboarding/steps/step-focus'
 import { StepCreateProject } from '@/components/onboarding/steps/step-create-project'
 import { StepStartSession } from '@/components/onboarding/steps/step-start-session'
 
-const TOTAL_STEPS = 6
+const TOTAL_STEPS = 3
 
-// Configuration for the dynamic left panel content
 const LEFT_PANEL_CONTENT = [
   { // 0: Welcome
     title: "Get powerful insights from your project data — instantly.",
@@ -31,34 +27,7 @@ const LEFT_PANEL_CONTENT = [
       role: "Product Manager"
     }
   },
-  { // 1: Role
-    title: "Tell us about your role.",
-    description: "We customize the dashboard based on your responsibilities to show you what matters most.",
-    testimonial: {
-      quote: "The role-based views are a game changer for our cross-functional team alignment.",
-      author: "David Chen",
-      role: "CTO at TechFlow"
-    }
-  },
-  { // 2: Org
-    title: "How do you operate?",
-    description: "Whether you're a solo founder or an enterprise team, we have tools that scale with your needs.",
-    testimonial: {
-      quote: "Scaling our operations with Contentlytics was seamless. It grew with us from day one.",
-      author: "Sarah Jones",
-      role: "Director of Operations"
-    }
-  },
-  { // 3: Focus
-    title: "What's your priority?",
-    description: "Select your primary focus area. We'll highlight the relevant metrics and insights for you.",
-    testimonial: {
-      quote: "I love how it surfaces exactly what I need to see without digging through clutter.",
-      author: "Mike Ross",
-      role: "SEO Specialist"
-    }
-  },
-  { // 4: Create Project
+  { // 1: Create Project
     title: "Set up your first project.",
     description: "Projects help you organize your sessions and track progress over time.",
     testimonial: {
@@ -67,7 +36,7 @@ const LEFT_PANEL_CONTENT = [
       role: "Growth Lead at Verve"
     }
   },
-  { // 5: Start First Session
+  { // 2: Start First Session
     title: "Run your first analysis.",
     description: "Enter a URL and we'll audit it instantly — brand presence, competitor signals, and AI visibility.",
     testimonial: {
@@ -83,71 +52,42 @@ export default function OnboardingPage() {
   const { user, isLoading: isAuthLoading } = useAuth()
   const { toast } = useToast()
 
-  // Prevent the hasNew:false guard from firing mid-onboarding after saveProfile saves the profile.
-  // saveProfile sets hasNew:false before the user reaches the action steps (4 & 5).
   const skipGuardRedirect = useRef(false)
 
-  // Guard: redirect away when auth resolves
   useEffect(() => {
     if (isAuthLoading) return
     if (skipGuardRedirect.current) return
-    // Already completed onboarding → go to dashboard
     if (user && user.hasNew === false) {
       router.replace('/dashboard')
     }
-    // Not authenticated → go to home (also handled by middleware, this is a fallback)
     if (!user) {
       window.location.replace('/signin')
     }
   }, [user, isAuthLoading, router])
 
-  const [updateUser, { isLoading: isSavingProfile }] = useUpdateUserMutation()
+  const [updateUser] = useUpdateUserMutation()
   const [createProject, { isLoading: isCreatingProject }] = useCreateProjectMutation()
   const [createSession] = useCreateSessionMutation()
   const [createJob] = useCreateJobMutation()
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0)
-  const [isStartingSession, setIsStartingSession] = useState(false)
-  const [formData, setFormData] = useState({
-    role: '',
-    organizationType: '',
-    focusArea: '',
-  })
   const [createdProjectId, setCreatedProjectId] = useState<string | null>(null)
-
-  const updateFormData = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
-  }
-
-  // Save the user profile (called when leaving the Focus step)
-  const saveProfile = async (): Promise<boolean> => {
-    if (!user) return false
-    // Suppress the hasNew:false guard so the user continues to steps 4 & 5
-    skipGuardRedirect.current = true
-    try {
-      await updateUser({
-        id: user.id,
-        data: { hasNew: false, onboardingData: formData },
-      }).unwrap()
-      return true
-    } catch (error) {
-      // Roll back the flag so the auth guard still protects on error
-      skipGuardRedirect.current = false
-      console.error('Failed to update profile:', error)
-      toast({
-        title: "Something went wrong",
-        description: "Failed to save your preferences. Please try again.",
-        variant: "destructive",
-      })
-      return false
-    }
-  }
+  const [isStartingSession, setIsStartingSession] = useState(false)
 
   const handleNext = async () => {
-    // Save profile when leaving the Focus step before entering action steps
-    if (currentStepIndex === 3) {
-      const saved = await saveProfile()
-      if (!saved) return
+    if (currentStepIndex === 0 && user) {
+      skipGuardRedirect.current = true
+      try {
+        await updateUser({ id: user.id, data: { hasNew: false } }).unwrap()
+      } catch {
+        skipGuardRedirect.current = false
+        toast({
+          title: "Something went wrong",
+          description: "Please try again.",
+          variant: "destructive",
+        })
+        return
+      }
     }
     if (currentStepIndex < TOTAL_STEPS - 1) {
       setCurrentStepIndex(prev => prev + 1)
@@ -160,13 +100,12 @@ export default function OnboardingPage() {
     }
   }
 
-  // Step 4: user creates a project → advance to session step
   const handleCreateProject = async (name: string, description?: string) => {
     try {
       const result = await createProject({ name, description }).unwrap()
       setCreatedProjectId(result.project.id)
       toast({ title: "Project created!", description: `"${name}" is ready.` })
-      setCurrentStepIndex(5)
+      setCurrentStepIndex(2)
     } catch (error: any) {
       toast({
         title: "Failed to create project",
@@ -176,36 +115,47 @@ export default function OnboardingPage() {
     }
   }
 
-  // Step 5: user starts a session → navigate to progress page (which redirects to dashboard on completion)
+  // Step 2: user entered URL — create session + start quick_start job, then redirect to brand-onboarding
   const handleStartSession = async (url: string) => {
-    if (!createdProjectId) return
+    if (!createdProjectId) {
+      router.push('/dashboard')
+      return
+    }
+
     setIsStartingSession(true)
+    const normalizedUrl = url.startsWith('http') ? url : `https://${url}`
+
     try {
       const sessionResult = await createSession(createdProjectId).unwrap()
       const sessionId = sessionResult.session.id
-      const normalizedUrl = url.startsWith('http') ? url : `https://${url}`
+
       const jobResult = await createJob({
         sessionId,
         data: { url: normalizedUrl, jobType: 'MODULE_E_QUICK_START' },
       }).unwrap()
-      router.push(`/dashboard/jobs/${jobResult.job.id}/progress`)
+
+      // Redirect to brand-onboarding with all context — quick_start is now running in background
+      const params = new URLSearchParams({
+        projectId: createdProjectId,
+        url: normalizedUrl,
+        sessionId,
+        jobId: jobResult.job.id,
+      })
+      router.push(`/brand-onboarding?${params.toString()}`)
     } catch (error: any) {
       toast({
-        title: "Failed to start session",
-        description: error?.data?.error || "Please try again.",
-        variant: "destructive",
+        title: 'Failed to start session',
+        description: error?.data?.error || 'Please try again.',
+        variant: 'destructive',
       })
       setIsStartingSession(false)
     }
   }
 
-  // Skip any action step → go straight to dashboard
   const handleSkipToDashboard = () => {
     router.push('/dashboard')
   }
 
-  // Show nothing (or a spinner) while auth is resolving / while redirecting
-  // Skip this gate when mid-onboarding (skipGuardRedirect is true after saveProfile)
   if (isAuthLoading || !user || (user.hasNew === false && !skipGuardRedirect.current)) {
     return (
       <div className="h-screen w-full bg-zinc-950 flex items-center justify-center">
@@ -220,40 +170,6 @@ export default function OnboardingPage() {
         return <StepWelcome onNext={handleNext} />
       case 1:
         return (
-          <StepRole
-            onNext={handleNext}
-            onBack={handleBack}
-            value={formData.role}
-            onChange={(val) => updateFormData('role', val)}
-            currentStep={currentStepIndex}
-            totalSteps={TOTAL_STEPS}
-          />
-        )
-      case 2:
-        return (
-          <StepOrg
-            onNext={handleNext}
-            onBack={handleBack}
-            value={formData.organizationType}
-            onChange={(val) => updateFormData('organizationType', val)}
-            currentStep={currentStepIndex}
-            totalSteps={TOTAL_STEPS}
-          />
-        )
-      case 3:
-        return (
-          <StepFocus
-            onNext={handleNext}
-            onBack={handleBack}
-            value={formData.focusArea}
-            onChange={(val) => updateFormData('focusArea', val)}
-            currentStep={currentStepIndex}
-            totalSteps={TOTAL_STEPS}
-            isLoading={isSavingProfile}
-          />
-        )
-      case 4:
-        return (
           <StepCreateProject
             onAdd={handleCreateProject}
             onSkip={handleSkipToDashboard}
@@ -263,7 +179,7 @@ export default function OnboardingPage() {
             totalSteps={TOTAL_STEPS}
           />
         )
-      case 5:
+      case 2:
         return (
           <StepStartSession
             onStart={handleStartSession}
