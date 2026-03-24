@@ -45,7 +45,6 @@ EXECUTOR_REGISTRY: Dict[str, ExecutorFn] = {
     "MODULE_E_AI_SOV": execute_module_e_job,
     "MODULE_E_RANKING": execute_module_e_job,
     "MODULE_E_BRAND": execute_module_e_job,
-    "MODULE_E_AI_CITATION_RANKING": execute_module_e_job,
     # Module F — Competitor AI Intelligence
     "MODULE_F_COMPETITOR_AI_INTELLIGENCE": execute_module_f_job,
     # Module A — SERP Analyzer

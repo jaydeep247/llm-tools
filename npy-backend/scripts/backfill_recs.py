@@ -9,7 +9,6 @@ from utils.mongo import mongo_manager
 from modules.module_E.recommendations import (
     generate_sov_recommendations,
     generate_tracked_prompts_recommendations,
-    generate_citations_recommendations,
 )
 from datetime import datetime
 
@@ -23,7 +22,6 @@ projection = {
     "ranking_analysis": 1,
     "sov_recommendations": 1,
     "tracked_prompts_recommendations": 1,
-    "citations_recommendations": 1,
 }
 docs = list(mongo_manager.module_e.find({}, projection))
 print(f"Found {len(docs)} module_e documents")
@@ -42,16 +40,12 @@ for doc in docs:
                 ai_sov, comp_mentions, sov_history
             )
 
-    # Tracked prompts + citations
+    # Tracked prompts
     ranking = doc.get("ranking_analysis") or {}
     if ranking:
         if not doc.get("tracked_prompts_recommendations"):
             updates["tracked_prompts_recommendations"] = (
                 generate_tracked_prompts_recommendations(ranking)
-            )
-        if not doc.get("citations_recommendations"):
-            updates["citations_recommendations"] = (
-                generate_citations_recommendations(ranking)
             )
 
     if updates:

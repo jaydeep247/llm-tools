@@ -210,20 +210,6 @@ export interface ModuleEResult {
     health_score: number
     summary: string
   }
-  citations_recommendations?: {
-    recommendations: Array<{
-      priority: number
-      category: string
-      severity: 'critical' | 'warning' | 'info'
-      title: string
-      issue: string
-      fix: string
-      impact: string
-      fields_affected: string[]
-    }>
-    health_score: number
-    summary: string
-  }
   sov_recommendations?: {
     recommendations: Array<{
       priority: number

@@ -164,9 +164,6 @@ export interface ModuleEResult {
   /** Recommendations for the Tracked Prompts section */
   tracked_prompts_recommendations?: ModuleERecommendationBlock;
 
-  /** Recommendations for the Citations Tracker section */
-  citations_recommendations?: ModuleERecommendationBlock;
-
   /** Recommendations for the Share of Voice section */
   sov_recommendations?: ModuleERecommendationBlock;
 

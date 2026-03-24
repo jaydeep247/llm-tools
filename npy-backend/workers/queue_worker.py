@@ -147,9 +147,8 @@ def execute_module_e_job(payload: dict) -> bool:
         elif job_type == "MODULE_E_AI_SOV":
             logger.info(f"[MODULE_E] ⚡ Running AI Share of Voice Analysis...")
             result = asyncio.run(run_ai_sov_analysis(target_job_id, url))
-        elif job_type == "MODULE_E_RANKING" or job_type == "MODULE_E_AI_CITATION_RANKING":
+        elif job_type == "MODULE_E_RANKING":
             logger.info(f"[MODULE_E] ⚡ Running Ranking Analysis...")
-            # Assuming AI_CITATION_RANKING uses ranking runner or similar
             result = asyncio.run(run_ranking_analysis(target_job_id, url))
         elif job_type == "MODULE_E_BRAND":
             logger.info(f"[MODULE_E] ⚡ Running Brand Analysis...")

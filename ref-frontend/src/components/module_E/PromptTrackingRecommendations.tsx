@@ -37,7 +37,6 @@ interface RecommendationBlock {
 
 export type RecommendationSection =
   | 'tracked_prompts_recommendations'
-  | 'citations_recommendations'
   | 'sov_recommendations'
 
 interface PromptTrackingRecommendationsProps {
@@ -182,7 +181,6 @@ function RecommendationCard({ rec }: { rec: Recommendation }) {
 
 const SECTION_LABEL: Record<RecommendationSection, string> = {
   tracked_prompts_recommendations: 'Tracked Prompts',
-  citations_recommendations: 'Citations Tracker',
   sov_recommendations: 'Share of Voice',
 }
 

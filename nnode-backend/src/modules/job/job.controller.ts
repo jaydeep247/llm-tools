@@ -1024,22 +1024,6 @@ export class JobController {
   };
 
   /**
-   * Start Module E AI Citation Ranking Analysis
-   */
-  startModuleEAiCitationRanking = async (req: Request, res: Response): Promise<Response> => {
-    try {
-      const userId = req.user!.userId;
-      const { id } = sessionIdSchema.parse({ id: req.params.id });
-      const job = await this.jobService.startModuleEAiCitationRanking(userId, id);
-      return ResponseUtil.success(res, 'Module E AI citation ranking job enqueued', job);
-    } catch (error: any) {
-      logger.error(`Error starting Module E AI citation ranking: ${error.message}`);
-      if (error.message.includes('not found')) return ResponseUtil.notFound(res, error.message);
-      return ResponseUtil.serverError(res, 'Failed to start Module E AI citation ranking');
-    }
-  };
-
-  /**
    * Get Module E Analysis Results
    */
   getJobModuleEAnalysis = async (req: Request, res: Response): Promise<Response> => {

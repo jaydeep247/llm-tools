@@ -40,7 +40,6 @@ router.post('/jobs/:id/module-e/competitors', jobController.startModuleECompetit
 router.post('/jobs/:id/module-e/ai-sov', jobController.startModuleEAiSov);
 router.post('/jobs/:id/module-e/ranking', jobController.startModuleERanking);
 router.post('/jobs/:id/module-e/brand', jobController.startModuleEBrand);
-router.post('/jobs/:id/module-e/ai-citation-ranking', jobController.startModuleEAiCitationRanking);
 router.get('/jobs/:id/results/module-e', jobController.getJobModuleEAnalysis);
 
 // Crawl Results
