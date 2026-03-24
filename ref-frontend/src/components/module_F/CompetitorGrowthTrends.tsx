@@ -1,13 +1,13 @@
 'use client'
 
-import { type ModuleFMetricRecommendation, useGetModuleFTrendsQuery, useGetModuleFResultQuery } from '@/store/api/module_F/moduleFApi'
+import { type ModuleFMetricRecommendation, useGetModuleFTrendsQuery, useGetModuleFResultQuery, resolveFeatureFlags, resolveD7Output } from '@/store/api/module_F/moduleFApi'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { TrendingUp, TrendingDown, LineChart as LineChartIcon, Activity, Calendar, Info } from 'lucide-react'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot } from 'recharts'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { useCallback, useMemo, useState } from 'react'
@@ -166,8 +166,27 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
   const emerging = latestResult?.data?.emerging_trends || null
   const competitorChanges = emerging?.competitor_changes || []
   const promptSwings = emerging?.prompt_swings || []
-  const visibilityRec = normalizeMetricRecommendation(latestResult?.data?.recommendations?.visibility_score)
-  const shareRec = normalizeMetricRecommendation(latestResult?.data?.recommendations?.market_share)
+  const visibilityRec = normalizeMetricRecommendation(latestResult?.data?.recommendations?.visibility_score ?? latestResult?.data?.metric_recommendations?.visibility_score)
+  const shareRec = normalizeMetricRecommendation(latestResult?.data?.recommendations?.market_share ?? latestResult?.data?.metric_recommendations?.market_share)
+  const flags = resolveFeatureFlags(latestResult?.data)
+  const d7 = resolveD7Output(latestResult?.data)
+  const eventOverlays = useMemo(() => {
+    if (!chartData.length) return [] as Array<{ label: string; y: number; color: string }>
+    const events: Array<{ label: string; y: number; color: string }> = []
+
+    // Overlay signals based on latest run deltas/swings.
+    if (promptSwings.length > 0) {
+      events.push({ label: 'Content published', y: 96, color: '#22c55e' })
+    }
+    if (competitorChanges.some((c) => c.status === 'rising' || c.status === 'falling')) {
+      events.push({ label: 'Model update detected', y: 90, color: '#f59e0b' })
+    }
+    if (latestResult?.data?.moat4_recommendations?.all_actions?.some((a) => a.gap_type === 'schema')) {
+      events.push({ label: 'Schema added', y: 84, color: '#06b6d4' })
+    }
+
+    return events
+  }, [chartData.length, promptSwings.length, competitorChanges, latestResult?.data?.moat4_recommendations?.all_actions])
 
   if (isLoading) {
     return (
@@ -175,6 +194,16 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
         <Skeleton className="h-75 w-full rounded-xl" />
         <Skeleton className="h-75 w-full rounded-xl" />
       </div>
+    )
+  }
+
+  if (flags.trend_chart_days === 0) {
+    return (
+      <AnalysisEmptyState
+        icon={<LineChartIcon className="w-8 h-8 text-zinc-400" />}
+        title="Growth Trends Locked"
+        description="Upgrade to Pro plan or above to unlock growth trend charts and competitor movement tracking."
+      />
     )
   }
 
@@ -190,8 +219,22 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900/50 to-transparent p-4 sm:p-5">
+        <div className="flex items-start gap-3">
+          <div className="p-2 rounded-xl bg-[#111113] border border-zinc-800">
+            <LineChartIcon className="w-5 h-5 text-blue-400" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-zinc-100">Growth Trends</h2>
+            <p className="text-xs text-zinc-400">
+              Track visibility, market share shifts, and competitor momentum across multiple Module F runs.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Metrics Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className={cn('grid gap-4', d7 ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4' : 'grid-cols-1 md:grid-cols-3')}>
         <Card className="bg-[#111113] border-zinc-800">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-zinc-400 flex items-center gap-2">
@@ -320,6 +363,42 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
             </div>
           </CardContent>
         </Card>
+
+        {d7 && (
+          <Card className="bg-[#111113] border-zinc-800">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-zinc-400">AIVS™ D7 Score</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-zinc-100">{d7.d7_score?.toFixed(1)}</span>
+                  <span className={cn('text-xs font-bold px-1.5 py-0.5 rounded border',
+                    d7.d7_grade === 'A+' || d7.d7_grade === 'A' ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25' :
+                    d7.d7_grade === 'B' ? 'text-blue-400 bg-blue-500/10 border-blue-500/25' :
+                    d7.d7_grade === 'C' ? 'text-amber-400 bg-amber-500/10 border-amber-500/25' :
+                    'text-red-400 bg-red-500/10 border-red-500/25'
+                  )}>{d7.d7_grade}</span>
+                </div>
+                {d7.d7_delta != null && (
+                  d7.d7_delta >= 0 ? (
+                    <TrendingUp className="h-4 w-4 text-emerald-500" />
+                  ) : (
+                    <TrendingDown className="h-4 w-4 text-rose-500" />
+                  )
+                )}
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                {d7.d7_delta != null && (
+                  <span className={cn('text-xs font-mono', d7.d7_delta > 0 ? 'text-emerald-400' : d7.d7_delta < 0 ? 'text-rose-400' : 'text-zinc-500')}>
+                    {d7.d7_delta > 0 ? '+' : ''}{d7.d7_delta.toFixed(1)} pts
+                  </span>
+                )}
+                <span className="text-xs text-zinc-600">• {d7.aivs_d7_contribution?.toFixed(2)}/15.00 AIVS™</span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
 
@@ -407,6 +486,17 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
                         />
                       ),
                     )}
+                    {eventOverlays.map((e) => (
+                      <ReferenceDot
+                        key={`v-${e.label}`}
+                        x={chartData[chartData.length - 1]?.date}
+                        y={e.y}
+                        r={4}
+                        fill={e.color}
+                        stroke="none"
+                        label={{ value: e.label, position: 'top', fill: e.color, fontSize: 10 }}
+                      />
+                    ))}
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -453,6 +543,17 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
                         />
                       ),
                     )}
+                    {eventOverlays.map((e) => (
+                      <ReferenceDot
+                        key={`s-${e.label}`}
+                        x={chartData[chartData.length - 1]?.date}
+                        y={e.y}
+                        r={4}
+                        fill={e.color}
+                        stroke="none"
+                        label={{ value: e.label, position: 'top', fill: e.color, fontSize: 10 }}
+                      />
+                    ))}
                   </LineChart>
                 </ResponsiveContainer>
               </div>

@@ -20,7 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { type ModuleFMetricRecommendation, ModuleFResult, useGetModuleFResultQuery } from '@/store/api/module_F/moduleFApi'
+import { type ModuleFMetricRecommendation, ModuleFResult, useGetModuleFResultQuery, resolveFeatureFlags } from '@/store/api/module_F/moduleFApi'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import {
   Tooltip,
@@ -82,8 +82,7 @@ function ScoreCard({ title, score, value, icon, color, trend, subStats, error, i
   const rec = normalizeMetricRecommendation(recommendation)
 
   return (
-    <div className="bg-[#111113] rounded-xl p-5 border border-zinc-800 hover:bg-[#0D0D10] transition-all duration-300 group h-full flex flex-col">
-      {/* Header */}
+    <div className="bg-[#111113] rounded-xl p-5 border border-zinc-800 hover:border-zinc-700/60 hover:bg-[#0D0D10] transition-all duration-300 group h-full flex flex-col">
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-start gap-3">
           <div className={cn("p-2.5 rounded-xl shrink-0", color)}>
@@ -211,6 +210,7 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
   const competitorBreakdown = winsData?.competitor_breakdown || []
 
   const brandName = effectiveData?.compare_visibility_against_competitors?.brand?.name || 'Brand'
+  const flags = resolveFeatureFlags(effectiveData)
 
   const filteredResults = detailedResults.filter(item => {
     const matchesSearch = item.prompt.toLowerCase().includes(searchTerm.toLowerCase())
@@ -235,14 +235,16 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Header Section */}
-      <div className="flex flex-col gap-2">
-        <h2 className="text-2xl font-semibold text-zinc-100 tracking-tight flex items-center gap-3">
-          <Trophy className="w-6 h-6 text-yellow-400" />
-          Competitor Wins Library
-        </h2>
-        <p className="text-zinc-400 text-base max-w-3xl">
-          Analyze prompts where competitors rank higher or appear more frequently. Identify content gaps and opportunities to improve your AI visibility.
-        </p>
+      <div className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900/50 to-transparent p-4 sm:p-5">
+        <div className="flex flex-col gap-2">
+          <h2 className="text-2xl font-semibold text-zinc-100 tracking-tight flex items-center gap-3">
+            <Trophy className="w-6 h-6 text-yellow-400" />
+            Competitor Wins Library
+          </h2>
+          <p className="text-zinc-400 text-base max-w-3xl">
+            Analyze prompts where competitors rank higher or appear more frequently. Identify content gaps and opportunities to improve your AI visibility.
+          </p>
+        </div>
       </div>
 
 
@@ -256,10 +258,10 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
           description="Percentage of prompts where competitors outperform your brand."
           isLoading={isLoading || isFetchingModuleF}
           subStats={[
-            { label: 'Total Prompts Analyzed', value: summary?.total_prompts ?? 0 },
+            { label: 'Prompts Analyzed', value: summary?.total_prompts ?? 0 },
             { label: 'Competitor Wins', value: summary?.competitor_wins ?? 0 },
           ]}
-          recommendation={effectiveData?.recommendations?.competitor_win_rate}
+          recommendation={effectiveData?.recommendations?.competitor_win_rate ?? effectiveData?.metric_recommendations?.competitor_win_rate}
         />
         
         <ScoreCard
@@ -272,7 +274,7 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
           subStats={[
             { label: 'Brand Wins', value: summary?.brand_wins ?? 0 },
           ]}
-          recommendation={effectiveData?.recommendations?.brand_win_rate}
+          recommendation={effectiveData?.recommendations?.brand_win_rate ?? effectiveData?.metric_recommendations?.brand_win_rate}
         />
 
         <ScoreCard
@@ -283,21 +285,21 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
           color="bg-blue-500/20 text-blue-400"
           description="Average gap in content completeness or entity coverage."
           isLoading={isLoading || isFetchingModuleF}
-          score={100 - (summary?.avg_content_gap_score ?? 0)} // Higher score is better (less gap)
+          score={100 - (summary?.avg_content_gap_score ?? 0)}
           subStats={[
             { label: 'Prompts where brand mentioned', value: summary?.brand_prompt_mentions ?? '—' },
           ]}
-          recommendation={effectiveData?.recommendations?.content_gap_score}
+          recommendation={effectiveData?.recommendations?.content_gap_score ?? effectiveData?.metric_recommendations?.content_gap_score}
         />
 
         <ScoreCard
           title="Market Share"
-          value={`${moduleFData?.compare_visibility_against_competitors?.brand?.market_share_percent ?? 0}%`}
+          value={`${effectiveData?.compare_visibility_against_competitors?.brand?.market_share_percent ?? 0}%`}
           icon={<Activity className="w-5 h-5 text-zinc-100" />}
           color="bg-purple-500/20 text-purple-400"
           description="Your brand's share of voice across all analyzed prompts."
           isLoading={isLoading || isFetchingModuleF}
-          recommendation={effectiveData?.recommendations?.market_share}
+          recommendation={effectiveData?.recommendations?.market_share ?? effectiveData?.metric_recommendations?.market_share}
         />
       </div>
 
@@ -312,8 +314,8 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
           <CardContent>
             <ScrollArea className="h-56 pr-4">
               <div className="space-y-2">
-                {competitorBreakdown.map((row) => (
-                  <div key={row.competitor} className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
+                  {competitorBreakdown.map((row) => (
+                  <div key={row.competitor} className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4 hover:bg-zinc-900/50 transition-colors">
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
                         <div className="text-zinc-100 font-medium truncate" title={row.competitor}>{row.competitor}</div>
@@ -322,22 +324,37 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
                         </div>
                       </div>
                       <div className="shrink-0 flex items-center gap-2">
-                        <Badge className="bg-red-500/10 text-red-300 border-red-500/30">
-                          {row.win_percent}%
+                        <Badge className={cn('border',
+                          row.win_percent >= 60 ? 'bg-red-500/10 text-red-300 border-red-500/30' :
+                          row.win_percent >= 30 ? 'bg-amber-500/10 text-amber-300 border-amber-500/30' :
+                          'bg-zinc-800 text-zinc-400 border-zinc-700'
+                        )}>
+                          {row.win_percent}% win rate
                         </Badge>
                       </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-3 mt-4">
+                    <div className="mt-3 mb-3">
+                      <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
+                        <div
+                          className={cn('h-full rounded-full transition-all',
+                            row.win_percent >= 60 ? 'bg-red-500' :
+                            row.win_percent >= 30 ? 'bg-amber-500' : 'bg-zinc-600'
+                          )}
+                          style={{ width: `${Math.min(100, row.win_percent)}%` }}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
                       <div className="rounded-lg border border-zinc-800 bg-[#111113] p-3">
-                        <div className="text-[10px] text-zinc-500">Prompts Won</div>
+                        <div className="text-[11px] text-zinc-500">Prompts Won</div>
                         <div className="text-lg font-semibold text-zinc-100 mt-1">{row.prompts_won}</div>
                       </div>
                       <div className="rounded-lg border border-zinc-800 bg-[#111113] p-3">
-                        <div className="text-[10px] text-zinc-500">Win %</div>
+                        <div className="text-[11px] text-zinc-500">Win %</div>
                         <div className="text-lg font-semibold text-zinc-100 mt-1">{row.win_percent}%</div>
                       </div>
                       <div className="rounded-lg border border-zinc-800 bg-[#111113] p-3">
-                        <div className="text-[10px] text-zinc-500">Content Gap</div>
+                        <div className="text-[11px] text-zinc-500">Content Gap</div>
                         <div className="text-lg font-semibold text-zinc-100 mt-1">{row.content_gap_score}%</div>
                       </div>
                     </div>
@@ -354,7 +371,14 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
         <CardHeader>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <CardTitle className="text-lg font-medium text-zinc-100">Prompt Analysis</CardTitle>
+              <CardTitle className="text-lg font-medium text-zinc-100 flex items-center gap-2">
+                Prompt Analysis
+                {!flags.prompt_level_drilldown && (
+                  <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/25 text-[10px] font-normal">
+                    Upgrade to unlock
+                  </Badge>
+                )}
+              </CardTitle>
               <CardDescription className="text-zinc-400">
                 Detailed breakdown of winner and ranking for each prompt.
               </CardDescription>
@@ -383,7 +407,21 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {!flags.prompt_level_drilldown ? (
+            <div className="text-center py-14">
+              <div className="w-14 h-14 rounded-2xl bg-zinc-800/50 border border-zinc-700/50 flex items-center justify-center mx-auto mb-5">
+                <Activity className="w-7 h-7 text-zinc-600" />
+              </div>
+              <h3 className="text-sm font-medium text-zinc-300 mb-1.5">Prompt-Level Drilldown</h3>
+              <p className="text-sm text-zinc-600 max-w-sm mx-auto leading-relaxed">
+                Upgrade to Agency or Enterprise to see per-prompt winner analysis, coverage gap scores, and ranking breakdowns.
+              </p>
+              <div className="mt-4 flex items-center justify-center gap-2">
+                <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/25 text-xs">Agency</Badge>
+                <Badge className="bg-purple-500/10 text-purple-400 border-purple-500/25 text-xs">Enterprise</Badge>
+              </div>
+            </div>
+          ) : isLoading ? (
              <div className="space-y-4">
                {[1, 2, 3].map((i) => (
                  <div key={i} className="h-24 bg-zinc-900/50 rounded-xl animate-pulse" />

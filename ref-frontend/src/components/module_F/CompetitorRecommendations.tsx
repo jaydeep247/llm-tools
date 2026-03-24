@@ -33,6 +33,8 @@ import {
   resolveGapAnalysis,
   resolveRecommendations,
   resolveAlerts,
+  resolveFeatureFlags,
+  resolveD7Output,
   normaliseMetricRec,
 } from '@/store/api/module_F/moduleFApi'
 
@@ -165,12 +167,19 @@ function Section({
 // Alert banner
 // ─────────────────────────────────────────────────────────────────────────────
 
+const ALERT_LEVEL_CONFIG: Record<string, { cls: string; label: string }> = {
+  high:   { cls: 'bg-rose-500/15 text-rose-400 border-rose-500/30', label: 'High' },
+  medium: { cls: 'bg-amber-500/15 text-amber-400 border-amber-500/30', label: 'Medium' },
+  low:    { cls: 'bg-zinc-800 text-zinc-400 border-zinc-700', label: 'Low' },
+}
+
 function AlertBanner({ alerts }: { alerts: ModuleFAlert[] }) {
   const [gone, setGone] = useState(false)
   if (!alerts.length || gone) return null
   const top  = alerts[0]
   const isUp = top.alertType === 'improvement'
   const isDn = top.alertType === 'drop'
+  const levelCfg = top.alertLevel ? ALERT_LEVEL_CONFIG[top.alertLevel] : null
   return (
     <div className={cn(
       'rounded-xl border p-4 flex items-start gap-3',
@@ -180,11 +189,18 @@ function AlertBanner({ alerts }: { alerts: ModuleFAlert[] }) {
         {isUp ? <TrendingUp className="w-4 h-4 text-emerald-400" /> : <AlertTriangle className="w-4 h-4 text-rose-400" />}
       </div>
       <div className="flex-1 min-w-0">
-        <p className={cn('text-xs font-bold uppercase tracking-wide mb-0.5',
-          isUp ? 'text-emerald-400' : isDn ? 'text-rose-400' : 'text-amber-400'
-        )}>
-          {isUp ? 'Rank Improved' : isDn ? 'Score Dropped' : 'Rank Changed'} — {top.entityName}
-        </p>
+        <div className="flex items-center gap-2 mb-0.5">
+          <p className={cn('text-xs font-bold uppercase tracking-wide',
+            isUp ? 'text-emerald-400' : isDn ? 'text-rose-400' : 'text-amber-400'
+          )}>
+            {isUp ? 'Rank Improved' : isDn ? 'Score Dropped' : 'Rank Changed'} — {top.entityName}
+          </p>
+          {levelCfg && (
+            <span className={cn('text-[10px] font-medium border rounded px-2 py-0.5', levelCfg.cls)}>
+              {levelCfg.label}
+            </span>
+          )}
+        </div>
         <p className="text-sm text-zinc-200">{top.message}</p>
         <div className="flex gap-4 mt-1.5">
           {top.scoreDelta !== 0 && (
@@ -712,31 +728,80 @@ function SourcesPanel({ sourceAnalysis }: { sourceAnalysis?: ModuleFSourceAnalys
           directly increases your own AI visibility score.
         </p>
       </div>
+      <div className="px-4 py-2 bg-zinc-900/30 border-b border-zinc-800/60 hidden lg:grid lg:grid-cols-[220px_220px_1fr] gap-4 text-[10px] uppercase tracking-wide text-zinc-600">
+        <div>Competitor</div>
+        <div>Quality Metrics</div>
+        <div>Top Domains (by citation frequency)</div>
+      </div>
+
       <div className="divide-y divide-zinc-800/40">
         {shown.map((src, i) => (
-          <div key={i} className="px-4 py-3.5">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-zinc-200">{src.competitor}</span>
-              <div className="flex items-center gap-3 text-[10px] text-zinc-600">
-                <span>influence <span className="text-amber-400 font-mono font-semibold">{src.source_domain_influence_score?.toFixed(0)}</span></span>
-                <span>avg DA <span className="text-sky-400 font-mono font-semibold">{src.average_domain_authority?.toFixed(0)}</span></span>
-                <span>{src.citation_count} cites</span>
+          <div key={i} className="px-4 py-3.5 bg-zinc-950/20 hover:bg-zinc-900/25 transition-colors">
+            <div className="grid grid-cols-1 lg:grid-cols-[220px_220px_1fr] gap-4 items-start">
+              <div className="min-w-0 space-y-2">
+                <div className="text-sm font-semibold text-zinc-100 truncate">{src.competitor}</div>
+                <div className="inline-flex items-center gap-1.5 text-[10px] rounded-md border border-zinc-800 bg-zinc-900/70 px-2 py-1 text-zinc-500">
+                  <span>{src.citation_count} cites</span>
+                  <span>•</span>
+                  <span>{src.unique_domains ?? 0} domains</span>
+                </div>
               </div>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {(src.citation_frequency ?? []).slice(0, 8).map((cf, j) => (
-                <span key={j} className="text-[10px] bg-zinc-900 border border-zinc-800 text-zinc-400 px-2 py-0.5 rounded-md font-mono">
-                  {cf.domain} <span className="text-zinc-700 ml-1">×{cf.count}</span>
+
+              <div className="flex flex-wrap gap-2">
+                <span className="text-[10px] rounded-lg border border-amber-500/20 bg-amber-500/12 text-amber-300 px-2.5 py-1">
+                  influence {src.source_domain_influence_score?.toFixed(0)}
                 </span>
-              ))}
-              {(src.top_citations ?? []).slice(0, 3).map((tc, j) => {
-                const ct = tc.content_type ?? 'page'
-                return (
-                  <span key={`ct-${j}`} className={cn('text-[10px] border rounded px-2 py-0.5', CT_COLOR[ct] ?? CT_COLOR.page)}>
-                    {ct}
+                <span className="text-[10px] rounded-lg border border-sky-500/20 bg-sky-500/12 text-sky-300 px-2.5 py-1">
+                  avg DA {src.average_domain_authority?.toFixed(0)}
+                </span>
+                {(src.credibility_score ?? 0) > 0 && (
+                  <span className="text-[10px] rounded-lg border border-zinc-700 bg-zinc-900/90 text-zinc-400 px-2.5 py-1">
+                    credibility {src.credibility_score?.toFixed(0)}
                   </span>
-                )
-              })}
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-1.5">
+                  {(src.citation_frequency ?? []).slice(0, 8).map((cf, j) => (
+                    <span key={j} className="text-[10px] bg-zinc-900/90 border border-zinc-800 text-zinc-300 px-2.5 py-1 rounded-full font-mono">
+                      {cf.domain} <span className="text-zinc-700 ml-1">×{cf.count}</span>
+                    </span>
+                  ))}
+                  {!src.citation_frequency?.length && (
+                    <span className="text-[10px] text-zinc-600">No frequency data</span>
+                  )}
+                </div>
+
+                {(() => {
+                  const typeCounts = (src.top_citations ?? []).reduce<Record<string, number>>((acc, tc) => {
+                    const ct = (tc.content_type ?? 'page').toLowerCase()
+                    // "page" is too generic/noisy, hide unless it's the only type.
+                    if (ct !== 'page') {
+                      acc[ct] = (acc[ct] ?? 0) + 1
+                    }
+                    return acc
+                  }, {})
+                  const entries = Object.entries(typeCounts)
+
+                  if (!entries.length) {
+                    return <div className="text-[10px] text-zinc-600">Content types: mixed pages</div>
+                  }
+
+                  return (
+                    <div className="flex flex-wrap gap-1.5">
+                      {entries.slice(0, 4).map(([ct, count]) => (
+                        <span key={ct} className={cn('text-[10px] border rounded-full px-2.5 py-1 capitalize', CT_COLOR[ct] ?? CT_COLOR.page)}>
+                          {ct} x{count}
+                        </span>
+                      ))}
+                      {entries.length > 4 && (
+                        <span className="text-[10px] text-zinc-600">+{entries.length - 4} more</span>
+                      )}
+                    </div>
+                  )
+                })()}
+              </div>
             </div>
           </div>
         ))}
@@ -881,12 +946,15 @@ export default function CompetitorRecommendations({
   moduleFData, isLoading,
 }: CompetitorRecommendationsProps) {
   const [statuses, setStatuses] = useState<Record<string, Moat4Action['status']>>({})
+  const [showD7Details, setShowD7Details] = useState(false)
 
   const moat4       = resolveMoat4Recommendations(moduleFData)
   const metricRecs  = resolveRecommendations(moduleFData)
   const gapAnalysis = resolveGapAnalysis(moduleFData)
   const alerts      = resolveAlerts(moduleFData)
   const comparison  = moduleFData?.compare_visibility_against_competitors ?? null
+  const flags       = resolveFeatureFlags(moduleFData)
+  const d7          = resolveD7Output(moduleFData)
 
   const handleStatus = (recId: string, status: 'completed' | 'dismissed') =>
     setStatuses(prev => ({ ...prev, [recId]: status }))
@@ -920,27 +988,140 @@ export default function CompetitorRecommendations({
   const p3   = allActions.filter(a => a.priority_score < 6.5).length
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-10 animate-in fade-in duration-500">
 
       {/* Page header */}
-      <div className="flex items-start gap-3">
-        <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl shrink-0">
-          <Lightbulb className="w-5 h-5 text-amber-400" />
-        </div>
-        <div>
-          <h2 className="text-xl font-bold text-zinc-100 flex items-center gap-2.5">
-            Recommendation Engine
-            <Badge className="bg-zinc-800 border-zinc-700 text-zinc-500 text-[10px] font-normal"></Badge>
-          </h2>
-          <p className="text-sm text-zinc-500 mt-0.5 max-w-2xl">
-            Generated from your live competitor citation data. Follow the numbered sections below — each builds on
-            the previous to give you a complete picture before you act.
-          </p>
+      <div className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900/50 to-transparent p-4 sm:p-5">
+        <div className="flex items-start gap-3">
+          <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl shrink-0">
+            <Lightbulb className="w-5 h-5 text-amber-400" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-zinc-100 flex items-center gap-2.5">
+              Recommendation Engine
+              {moduleFData?.plan && (
+                <Badge className="bg-zinc-800 border-zinc-700 text-zinc-500 text-[10px] font-normal capitalize">
+                  {moduleFData.plan}
+                </Badge>
+              )}
+              {moduleFData?.role && (
+                <Badge variant="outline" className="border-zinc-700 text-zinc-500 text-[10px] font-normal capitalize">
+                  {moduleFData.role.replace(/_/g, ' ')}
+                </Badge>
+              )}
+            </h2>
+            <p className="text-sm text-zinc-500 mt-0.5 max-w-2xl">
+              Generated from your live competitor citation data. Start with the summary cards, then follow priority actions.
+            </p>
+            {d7 && (
+              <div className="mt-2">
+                <div className="flex items-center gap-3 text-xs flex-wrap">
+                  <span className="text-zinc-600">AIVS™ D7:</span>
+                  <span className="font-mono text-zinc-300">{d7.d7_score?.toFixed(1)}</span>
+                  <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded border',
+                    d7.d7_grade === 'A+' || d7.d7_grade === 'A' ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25' :
+                    d7.d7_grade === 'B' ? 'text-blue-400 bg-blue-500/10 border-blue-500/25' :
+                    d7.d7_grade === 'C' ? 'text-amber-400 bg-amber-500/10 border-amber-500/25' :
+                    'text-red-400 bg-red-500/10 border-red-500/25'
+                  )}>{d7.d7_grade}</span>
+                  {d7.d7_delta != null && (
+                    <span className={cn('font-mono', d7.d7_delta > 0 ? 'text-emerald-400' : d7.d7_delta < 0 ? 'text-rose-400' : 'text-zinc-500')}>
+                      {d7.d7_delta > 0 ? '+' : ''}{d7.d7_delta.toFixed(1)} pts
+                    </span>
+                  )}
+                  <span className="text-zinc-700">•</span>
+                  <span className="text-zinc-600">Contribution: {d7.aivs_d7_contribution?.toFixed(2) ?? '—'}/15.00</span>
+                  <button
+                    onClick={() => setShowD7Details((v) => !v)}
+                    className="ml-auto text-[10px] px-2 py-1 rounded border border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600 transition-colors"
+                  >
+                    {showD7Details ? 'Hide D7 details' : 'Show D7 details'}
+                  </button>
+                </div>
+                {showD7Details && (
+                  <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-[11px]">
+                      <div className="rounded-md border border-zinc-800 bg-[#111113] px-2.5 py-2">
+                        <div className="text-zinc-500">SOV (30%)</div>
+                        <div className="text-zinc-200 font-mono mt-1">{d7.param_breakdown?.sov?.score?.toFixed(1) ?? '—'}</div>
+                      </div>
+                      <div className="rounded-md border border-zinc-800 bg-[#111113] px-2.5 py-2">
+                        <div className="text-zinc-500">Missing Prompts (35%)</div>
+                        <div className="text-zinc-200 font-mono mt-1">{d7.param_breakdown?.gaps?.score?.toFixed(1) ?? '—'}</div>
+                      </div>
+                      <div className="rounded-md border border-zinc-800 bg-[#111113] px-2.5 py-2">
+                        <div className="text-zinc-500">Source Overlap (35%)</div>
+                        <div className="text-zinc-200 font-mono mt-1">{d7.param_breakdown?.overlap?.score?.toFixed(1) ?? '—'}</div>
+                      </div>
+                      <div className="rounded-md border border-zinc-800 bg-[#111113] px-2.5 py-2">
+                        <div className="text-zinc-500">Projected AIVS</div>
+                        <div className="text-zinc-200 font-mono mt-1">{d7.projected_aivs_score?.toFixed(2) ?? '—'}</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Quick usage hints */}
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2 flex items-center gap-2">
+                <Flame className="w-3.5 h-3.5 text-rose-400" />
+                <span className="text-[11px] text-zinc-400">Do P1 first (critical drops/surges)</span>
+              </div>
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2 flex items-center gap-2">
+                <Zap className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-[11px] text-zinc-400">Finish P2 in this sprint</span>
+              </div>
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2 flex items-center gap-2">
+                <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="text-[11px] text-zinc-400">Track completion progress weekly</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Alert */}
       <AlertBanner alerts={alerts} />
+
+      {/* At-a-glance KPI cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+          <div className="flex items-center gap-2 text-[11px] text-zinc-500">
+            <Target className="w-3.5 h-3.5 text-purple-400" />
+            Priority Actions
+          </div>
+          <div className="text-2xl font-bold text-zinc-100 mt-1">{allActions.length}</div>
+          <div className="text-[10px] text-zinc-600 mt-0.5">Total recommendations generated</div>
+        </div>
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+          <div className="flex items-center gap-2 text-[11px] text-zinc-500">
+            <Flame className="w-3.5 h-3.5 text-rose-400" />
+            Critical (P1)
+          </div>
+          <div className="text-2xl font-bold text-rose-300 mt-1">{p1}</div>
+          <div className="text-[10px] text-zinc-600 mt-0.5">Need immediate attention</div>
+        </div>
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+          <div className="flex items-center gap-2 text-[11px] text-zinc-500">
+            <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
+            Completed
+          </div>
+          <div className="text-2xl font-bold text-emerald-300 mt-1">{done}</div>
+          <div className="text-[10px] text-zinc-600 mt-0.5">
+            {allActions.length > 0 ? `${Math.round((done / allActions.length) * 100)}% completion` : 'No actions yet'}
+          </div>
+        </div>
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+          <div className="flex items-center gap-2 text-[11px] text-zinc-500">
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+            Active Alerts
+          </div>
+          <div className="text-2xl font-bold text-zinc-100 mt-1">{alerts.length}</div>
+          <div className="text-[10px] text-zinc-600 mt-0.5">Latest benchmark/rank movement alerts</div>
+        </div>
+      </div>
 
       {/* ── 1. Status ─────────────────────────────────────────────────────── */}
       <Section step={1} title="Current Status"
@@ -970,7 +1151,7 @@ export default function CompetitorRecommendations({
 
       {/* ── 5. Actions ────────────────────────────────────────────────────── */}
       <Section step={5} title="Prioritised Action Queue"
-        subtitle="Every recommended action, ranked by Impact × Effort × Urgency. Select your role to get a view formatted for your workflow. Expand any row for step-by-step implementation instructions.">
+        subtitle="Each row shows priority score, effort, and urgency. Open a row for implementation steps and affected URLs.">
         <ActionQueue moat4={moat4} allActions={allActions} onStatusChange={handleStatus} />
       </Section>
 

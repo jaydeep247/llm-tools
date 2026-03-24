@@ -38,8 +38,10 @@ export interface ModuleFPerModelStats {
 export interface ModuleFCompareVisibilityEntityRow {
   name: string
   entity_type?: 'client' | 'competitor'
+  entity_id?: string | null
+  display_order?: number
   visibility_score: number
-  benchmark_score: number            // now computed via _compute_citation_score() — Fix 2
+  benchmark_score: number
   share_of_voice: number
   rank_position: number
   rank_difference_vs_brand?: number | null
@@ -48,12 +50,10 @@ export interface ModuleFCompareVisibilityEntityRow {
   mentioned_in_models: number
   avg_rank?: number | null
   avg_rank_percentile: number
-  // ── delta fields attached by runner._attach_deltas() ────────────────────
-  score_delta?: number               // benchmark_score change vs previous run
-  rank_move?: number                 // positive = moved up the leaderboard
-  // ── URL citation aggregates (Fix 6–7) ────────────────────────────────────
-  cited_urls?: string[]              // deduplicated URLs cited across all models
-  citation_count?: number            // number of models that cited this entity's domain
+  score_delta?: number
+  rank_move?: number
+  cited_urls?: string[]
+  citation_count?: number
   per_model: Record<string, ModuleFPerModelStats>
 }
 
@@ -213,6 +213,7 @@ export interface ModuleFAlert {
   sessionId?: string
   entityName: string
   alertType: 'improvement' | 'drop' | 'rank_change'
+  alertLevel?: 'high' | 'medium' | 'low'
   message: string
   scoreDelta: number
   rankMove: number
@@ -220,6 +221,49 @@ export interface ModuleFAlert {
   benchmarkScore?: number | null
   firedAt: string
   status: 'unread' | 'read' | 'dismissed'
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// D7 AIVS™ output — from moat7_aivs_bridge.run_d7_pipeline()
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface D7ParamBreakdown {
+  sov:     { score?: number | null; raw_pct?: number | null }
+  gaps:    { score?: number | null; count?: number | null }
+  overlap: { score?: number | null; overlap_pct?: number | null }
+}
+
+export interface D7AivsOutput {
+  d7_score:               number
+  d7_grade:               string
+  d7_delta:               number | null
+  d7_delta_direction:     'improved' | 'dropped' | 'stable' | 'first_run'
+  aivs_d7_contribution:   number
+  aivs_d7_delta:          number | null
+  projected_aivs_score:   number | null
+  previous_aivs_score:    number | null
+  previous_d7_score:      number | null
+  previous_d7_grade:      string | null
+  param_breakdown:        D7ParamBreakdown
+  grade_change:           'improved' | 'dropped' | null
+  alert_level:            'high' | 'medium' | 'low' | 'none'
+  generated_at:           string
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Plan feature flags — from runner.PLAN_FEATURE_FLAGS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ModuleFFeatureFlags {
+  max_competitors:         number
+  leaderboard:             boolean
+  model_breakdown_view:    boolean
+  prompt_level_drilldown:  boolean
+  competitor_cited_urls:   boolean
+  gap_opportunities:       boolean | 'limited'
+  trend_chart_days:        number
+  benchmark_score_alerts:  boolean
+  export:                  boolean
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -310,23 +354,19 @@ export interface ModuleFResult {
   job_id?: string
   url?: string
   plan?: string
+  role?: string
+  feature_flags?: ModuleFFeatureFlags
   compare_visibility_against_competitors?: ModuleFCompareVisibilityAgainstCompetitors
   competitor_wins?: ModuleFCompetitorWins
-  // ── Gap analysis (Screen 5) ───────────────────────────────────────────────
   gap_analysis?: ModuleFGapOpportunity[]
-  gap_opportunities?: ModuleFGapOpportunity[]       // backwards-compat alias
-  // ── Source / cited URL analysis (Screen 4) ───────────────────────────────
+  gap_opportunities?: ModuleFGapOpportunity[]
   source_analysis?: ModuleFSourceAnalysis
-  // ── Metric recommendations (why + fix per metric) ────────────────────────
   metric_recommendations?: ModuleFRecommendations
-  recommendations?: ModuleFRecommendations          // backwards-compat alias
-  // ── MOAT 4 recommendation engine output ──────────────────────────────────
+  recommendations?: ModuleFRecommendations
   moat4_recommendations?: Moat4Recommendations
-  // ── Trend data ───────────────────────────────────────────────────────────
   emerging_trends?: ModuleFEmergingTrends | null
-  // ── Alerts (Fix: cbm_alerts written by runner._write_cbm_alerts) ─────────
+  d7_aivs_output?: D7AivsOutput | null
   alerts?: ModuleFAlert[]
-  // ── Meta ─────────────────────────────────────────────────────────────────
   createdAt?: string
   updatedAt?: string
   created_at?: string
@@ -465,4 +505,30 @@ export function normaliseMetricRec(
   if (typeof value === 'string') return { why: '', fix: value }
   if (value.why || value.fix) return value
   return null
+}
+
+/** D7 AIVS™ output — returns null when not yet computed */
+export function resolveD7Output(
+  data: ModuleFResult | null | undefined
+): D7AivsOutput | null {
+  return data?.d7_aivs_output ?? null
+}
+
+const DEFAULT_FLAGS: ModuleFFeatureFlags = {
+  max_competitors: 10,
+  leaderboard: true,
+  model_breakdown_view: true,
+  prompt_level_drilldown: true,
+  competitor_cited_urls: true,
+  gap_opportunities: true,
+  trend_chart_days: 90,
+  benchmark_score_alerts: true,
+  export: true,
+}
+
+/** Feature flags for the current plan — falls back to agency-level defaults */
+export function resolveFeatureFlags(
+  data: ModuleFResult | null | undefined
+): ModuleFFeatureFlags {
+  return data?.feature_flags ?? DEFAULT_FLAGS
 }
