@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { type ModuleFMetricRecommendation, useGetModuleFResultQuery } from '@/store/api/module_F/moduleFApi'
+import { type ModuleFMetricRecommendation, useGetModuleFResultQuery, resolveFeatureFlags } from '@/store/api/module_F/moduleFApi'
 import type { ModuleFResult } from '@/store/api/module_F/moduleFApi'
 import {
   Tooltip,
@@ -81,6 +81,7 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
   })
 
   const effectiveData: ModuleFResult | null | undefined = fetched?.data ?? moduleFData
+  const flags = resolveFeatureFlags(effectiveData)
 
   const brandName = effectiveData?.compare_visibility_against_competitors?.brand?.name || 'Brand'
   const detailedResults = effectiveData?.competitor_wins?.detailed_results || []
@@ -192,26 +193,47 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
   }
 
   const hasData = rows.length > 0 && totalPrompts > 0
-  const gapRec = normalizeMetricRecommendation(effectiveData?.recommendations?.content_gap_score)
-  const missingRec = normalizeMetricRecommendation(effectiveData?.recommendations?.missing_prompts)
-  const gainRec = normalizeMetricRecommendation(effectiveData?.recommendations?.potential_gain)
+  const gapRec = normalizeMetricRecommendation(effectiveData?.recommendations?.content_gap_score ?? effectiveData?.metric_recommendations?.content_gap_score)
+  const missingRec = normalizeMetricRecommendation(effectiveData?.recommendations?.missing_prompts ?? effectiveData?.metric_recommendations?.missing_prompts)
+  const gainRec = normalizeMetricRecommendation(effectiveData?.recommendations?.potential_gain ?? effectiveData?.metric_recommendations?.potential_gain)
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex flex-col gap-2">
-        <h2 className="text-2xl font-semibold text-zinc-100 tracking-tight flex items-center gap-3">
-          <div className="p-2 bg-cyan-500/10 rounded-lg">
-            <Radar className="w-6 h-6 text-cyan-400" />
-          </div>
-          Gap Opportunities
-        </h2>
-        <p className="text-zinc-400 text-base max-w-3xl">
-          Identify prompts where competitors are missing coverage or underperforming, and estimate how much visibility you can capture for {brandName}.
-        </p>
+      <div className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900/50 to-transparent p-4 sm:p-5">
+        <div className="flex flex-col gap-2">
+          <h2 className="text-2xl font-semibold text-zinc-100 tracking-tight flex items-center gap-3">
+            <div className="p-2 bg-cyan-500/10 rounded-lg">
+              <Radar className="w-6 h-6 text-cyan-400" />
+            </div>
+            Gap Opportunities
+            {flags.gap_opportunities === 'limited' && (
+              <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/25 text-[10px] font-normal ml-2">
+                Limited view
+              </Badge>
+            )}
+          </h2>
+          <p className="text-zinc-400 text-base max-w-3xl">
+            Identify prompts where competitors are missing coverage or underperforming, and estimate how much visibility you can capture for {brandName}.
+          </p>
+        </div>
       </div>
 
 
-      {!hasData ? (
+      {!flags.gap_opportunities ? (
+        <div className="bg-[#111113] rounded-2xl border border-zinc-800 p-14 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-zinc-800/50 border border-zinc-700/50 flex items-center justify-center mx-auto mb-5">
+            <Target className="w-8 h-8 text-zinc-600" />
+          </div>
+          <h3 className="text-base font-medium text-zinc-300 mb-2">Gap Opportunities</h3>
+          <p className="text-sm text-zinc-600 max-w-md mx-auto leading-relaxed">
+            Upgrade to Agency or Enterprise to unlock prompt-level coverage gap analysis and competitor opportunity scoring.
+          </p>
+          <div className="mt-5 flex items-center justify-center gap-2">
+            <Badge className="bg-cyan-500/10 text-cyan-400 border-cyan-500/25 text-xs">Agency</Badge>
+            <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/25 text-xs">Enterprise</Badge>
+          </div>
+        </div>
+      ) : !hasData ? (
         <AnalysisEmptyState
           icon={<Target className="w-8 h-8 text-zinc-400" />}
           title="No Gap Data"
@@ -393,12 +415,16 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
                           key={r.competitor}
                           onClick={() => setSelectedCompetitor(r.competitor)}
                           className={cn(
-                            'px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors',
-                            active ? 'bg-zinc-800 border-zinc-700 text-zinc-100' : 'bg-transparent border-zinc-800 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50'
+                            'px-3 py-1.5 rounded-lg border text-xs font-medium transition-all',
+                            active
+                              ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300 shadow-sm shadow-cyan-500/5'
+                              : 'bg-transparent border-zinc-800 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50'
                           )}
                         >
                           <span>{r.competitor}</span>
-                          <span className="ml-2 text-zinc-500">{r.gapScore}/100</span>
+                          <span className={cn('ml-2', active ? 'text-cyan-400/60' : 'text-zinc-600')}>
+                            {r.gapScore}/100
+                          </span>
                         </button>
                       )
                     })}
@@ -465,14 +491,26 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
                               className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4 hover:bg-zinc-900 transition-colors"
                             >
                               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                                <div className="min-w-0">
+                                <div className="min-w-0 flex-1">
                                   <div className="text-zinc-100 font-medium text-sm wrap-break-word">{o.prompt}</div>
-                                  <div className="text-zinc-500 text-xs mt-1">
+                                  <div className="text-zinc-500 text-xs mt-1.5">
                                     {isMissing ? (
-                                      <span>Competitor outside top 3</span>
+                                      <span className="text-amber-400/70">Competitor outside top 3</span>
                                     ) : (
-                                      <span>Competitor rank: {o.rank}</span>
+                                      <span>Competitor rank: #{o.rank}</span>
                                     )}
+                                  </div>
+                                  <div className="mt-2 flex items-center gap-2">
+                                    <div className="h-1 flex-1 max-w-32 bg-zinc-800 rounded-full overflow-hidden">
+                                      <div
+                                        className={cn('h-full rounded-full transition-all',
+                                          o.opportunityScore >= 80 ? 'bg-amber-500' :
+                                          o.opportunityScore >= 50 ? 'bg-cyan-500' : 'bg-zinc-600'
+                                        )}
+                                        style={{ width: `${Math.min(100, o.opportunityScore)}%` }}
+                                      />
+                                    </div>
+                                    <span className="text-[10px] text-zinc-600 font-mono">{round1(o.opportunityScore)}</span>
                                   </div>
                                 </div>
 
@@ -483,7 +521,7 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
                                       isMissing ? 'bg-amber-500/10 text-amber-300 border-amber-500/30' : 'bg-zinc-800 text-zinc-100 border-zinc-700'
                                     )}
                                   >
-                                    Opportunity {round1(o.opportunityScore)}/100
+                                    {round1(o.opportunityScore)}/100
                                   </Badge>
                                 </div>
                               </div>

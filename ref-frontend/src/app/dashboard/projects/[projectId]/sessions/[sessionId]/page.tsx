@@ -1260,21 +1260,17 @@ export default function SessionDetailPage() {
 
         {activeSection === 'visibility-comparision' && (
           <div className="space-y-6">
-            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
-              <VisibilityComparisonSection jobId={jobId || null} />
-            </div>
+            <VisibilityComparisonSection jobId={jobId || null} />
           </div>
         )}
 
         {activeSection === 'competitor-wins-library' && (
           <div className="space-y-6">
-            <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
-              <CompetitorWinsLibrary 
-                moduleFData={moduleFQueryData?.data}
-                isLoading={isLoadingModuleF}
-                jobId={jobId || null}
-              />
-            </div>
+            <CompetitorWinsLibrary
+              moduleFData={moduleFQueryData?.data}
+              isLoading={isLoadingModuleF}
+              jobId={jobId || null}
+            />
           </div>
         )}
 

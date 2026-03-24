@@ -1,3 +1,4 @@
+# competitor_ai_intelligence.py
 import logging
 import asyncio
 import re
@@ -1113,17 +1114,41 @@ class CompetitorAIIntelligence:
         competitors: List[str],
         brand_name: Optional[str] = None,
         topic: Optional[str] = None,
+        competitor_configs: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
- 
+
         brand_domain = _extract_domain(url)
         brand_terms_extra = [brand_name] if brand_name else []
- 
+
         # SOP §6 — enforce plan competitor limit before processing
         competitors = _enforce_competitor_limit(list(competitors), self.plan)
- 
+
+        # SOP §2 Step 1 — merge aliases and metadata from competitor_config
+        _alias_map: Dict[str, List[str]] = {}
+        _config_id_map: Dict[str, str] = {}
+        _display_order_map: Dict[str, int] = {}
+        if competitor_configs:
+            for cfg in competitor_configs:
+                cfg_name = _normalize_term(
+                    str(cfg.get("competitor_name") or cfg.get("name") or "")
+                )
+                if not cfg_name:
+                    continue
+                _alias_map[cfg_name] = list(cfg.get("brand_aliases") or [])
+                cfg_id = str(cfg.get("id") or "")
+                if cfg_id:
+                    _config_id_map[cfg_name] = cfg_id
+                _display_order_map[cfg_name] = int(cfg.get("display_order") or 0)
+
         entities: List[EntityTerms] = [
             _make_entity_terms(brand_domain, extra_terms=brand_terms_extra),
-            *[_make_entity_terms(c) for c in competitors],
+            *[
+                _make_entity_terms(
+                    c,
+                    extra_terms=_alias_map.get(_normalize_term(c), []),
+                )
+                for c in competitors
+            ],
         ]
  
         # Deduplicate entities
@@ -1338,7 +1363,16 @@ class CompetitorAIIntelligence:
         aggregate, brand_avg_rank = _aggregate_benchmark_scores(
             per_model, entities, brand_key, brand_name_display, total_mentions_all_entities
         )
- 
+
+        # SOP §2 Step 1 — attach competitor_config metadata (entity_id, display_order)
+        for entity_name, row in aggregate.items():
+            row["entity_id"] = _config_id_map.get(entity_name)
+            row["display_order"] = _display_order_map.get(entity_name, 0)
+
+        # Brand entity_type marker for downstream snapshot writer
+        if brand_key in aggregate:
+            aggregate[brand_key]["entity_type"] = "client"
+
         # Brand probe — if brand has zero mentions, do a lightweight check
         if brand_key in aggregate and aggregate[brand_key]["mentioned_in_models"] == 0:
             try:
