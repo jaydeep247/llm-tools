@@ -41,9 +41,9 @@ export function StepBrandReady({
             <Sparkles className="w-4 h-4 text-emerald-600" />
           </div>
         </div>
-        <h2 className="text-2xl font-bold text-zinc-900 mb-2 tracking-tight">You're all set!</h2>
+        <h2 className="text-2xl font-bold text-zinc-900 mb-2 tracking-tight">Brand Profile Summary</h2>
         <p className="text-zinc-500 text-sm">
-          Your analysis is running in the background. Review your brand profile below.
+          Here's a summary of the brand information we've gathered.
         </p>
       </div>
 
@@ -93,29 +93,13 @@ export function StepBrandReady({
           </div>
         </div>
 
-        {/* Running indicator */}
-        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <p className="text-zinc-700 text-xs font-medium">Quick-start analysis is running in the background</p>
-          </div>
-          <p className="text-zinc-500 text-xs mt-1 ml-4">
-            You can view progress on the next page. Results are typically ready in a few minutes.
-          </p>
-        </div>
+
       </div>
 
       {/* Footer */}
       <div className="mt-auto pt-6">
         <div className="flex justify-between items-center mb-6">
-          <Button
-            onClick={onSkip}
-            variant="ghost"
-            disabled={isLoading}
-            className="text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 px-4 h-10 text-sm font-medium rounded-full"
-          >
-            Skip to Dashboard
-          </Button>
+          <div />
 
           <Button
             onClick={onStart}
@@ -126,7 +110,7 @@ export function StepBrandReady({
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <>
-                View Progress
+                Continue
                 <ArrowRight className="w-4 h-4 ml-2" />
               </>
             )}

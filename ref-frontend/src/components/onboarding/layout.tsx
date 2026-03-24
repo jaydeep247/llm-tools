@@ -82,9 +82,9 @@ export function OnboardingLayout({
         </div>
 
         {/* Right Panel - Form Content */}
-        <div className="w-full lg:w-[60%] bg-white p-6 lg:p-24 relative flex flex-col justify-center">
-          <div className="w-full max-w-lg mx-auto flex flex-col h-full justify-center">
-            <div className="flex-1 flex flex-col justify-center">
+        <div className="w-full lg:w-[60%] bg-white p-6 lg:py-10 lg:px-24 relative flex flex-col overflow-hidden">
+          <div className="w-full max-w-lg mx-auto flex flex-col flex-1 min-h-0">
+            <div className="flex-1 flex flex-col min-h-0">
               {children}
             </div>
           </div>

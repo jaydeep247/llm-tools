@@ -84,6 +84,10 @@ class TaskRegistry:
 
         # Brand Onboarding
         "brand_description": ["openai"],
+        "brand_topics": ["openai"],
+        "brand_prompts": ["openai"],
+        "brand_prompt_execute": ["openai", "gemini", "claude"],
+        "brand_prompt_analyze": ["openai", "gemini", "claude"],
     }
 
     @classmethod

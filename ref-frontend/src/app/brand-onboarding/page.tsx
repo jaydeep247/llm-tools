@@ -1,16 +1,29 @@
 'use client'
 
 import { Suspense } from 'react'
-import { useState, useEffect, useRef } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
-import { useGenerateBrandDescriptionMutation, useLazyGetBrandDescriptionQuery } from '@/store/api/brandOnboardingApi'
+import {
+  useGenerateBrandDescriptionMutation,
+  useLazyGetBrandDescriptionQuery,
+  useGenerateBrandTopicsMutation,
+  useSaveBrandTopicsMutation,
+  useGenerateBrandPromptsMutation,
+  useSaveBrandPromptsMutation,
+  useExecuteBrandPromptsMutation,
+  useLazyGetOnboardingDataQuery,
+} from '@/store/api/brandOnboardingApi'
+import type { GeneratedPrompt, PromptResult } from '@/store/api/brandOnboardingApi'
 import { AnimatePresence } from 'framer-motion'
 
 import { OnboardingLayout } from '@/components/onboarding/layout'
 import { StepBrandReady } from '@/components/brand-onboarding/step-brand-ready'
+import { StepBrandTopics } from '@/components/brand-onboarding/step-brand-topics'
+import { StepBrandPrompts } from '@/components/brand-onboarding/step-brand-prompts'
+import { StepBrandResults } from '@/components/brand-onboarding/step-brand-results'
 
-const TOTAL_STEPS = 1
+const TOTAL_STEPS = 4
 
 const LEFT_PANEL_CONTENT = [
   {
@@ -20,6 +33,33 @@ const LEFT_PANEL_CONTENT = [
       quote: 'I had actionable insights within minutes of starting my first session. Genuinely game-changing.',
       author: 'Emily White',
       role: 'Data Analyst',
+    },
+  },
+  {
+    title: 'What topics matter to your brand?',
+    description: 'We\'ll track how your brand appears in AI-generated responses for the topics you choose.',
+    testimonial: {
+      quote: 'Picking the right topics to monitor gave us clarity on where our brand was winning — and where we were invisible.',
+      author: 'James Carter',
+      role: 'Brand Strategist',
+    },
+  },
+  {
+    title: 'Review your AI prompts.',
+    description: 'We\'ve generated prompts based on your topics. These are the exact queries we\'ll use to monitor your brand in AI responses.',
+    testimonial: {
+      quote: 'Seeing the actual prompts gave us confidence that we were tracking exactly what mattered to our business.',
+      author: 'Sarah Mitchell',
+      role: 'Marketing Director',
+    },
+  },
+  {
+    title: 'Your brand visibility snapshot.',
+    description: 'We sent your prompts to GPT, Gemini, and Claude. Here\'s how your brand appears across AI-generated responses.',
+    testimonial: {
+      quote: 'Seeing our brand visibility scored across all major AI platforms was a real eye-opener for our strategy.',
+      author: 'David Chen',
+      role: 'Growth Lead',
     },
   },
 ]
@@ -43,18 +83,52 @@ export default function BrandOnboardingPage() {
 function BrandOnboardingContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const pathname = usePathname()
   const { user, isLoading: isAuthLoading } = useAuth()
 
   const projectId = searchParams.get('projectId')
   const rawUrl = searchParams.get('url') ?? ''
   const jobId = searchParams.get('jobId') ?? ''
 
+  // Read initial step from URL (1-indexed in URL, 0-indexed in state)
+  const initialStep = (() => {
+    const s = parseInt(searchParams.get('step') ?? '', 10)
+    return s >= 1 && s <= TOTAL_STEPS ? s - 1 : 0
+  })()
+
   const [generateBrandDescription] = useGenerateBrandDescriptionMutation()
   const [fetchStoredDescription] = useLazyGetBrandDescriptionQuery()
+  const [generateBrandTopics] = useGenerateBrandTopicsMutation()
+  const [saveBrandTopics] = useSaveBrandTopicsMutation()
+  const [generateBrandPrompts] = useGenerateBrandPromptsMutation()
+  const [saveBrandPrompts] = useSaveBrandPromptsMutation()
+  const [executeBrandPrompts] = useExecuteBrandPromptsMutation()
+  const [fetchOnboardingData] = useLazyGetOnboardingDataQuery()
   const descriptionFetched = useRef(false)
+  const onboardingDataFetched = useRef(false)
 
+  const [currentStep, setCurrentStep] = useState(initialStep)
   const [brandDescription, setBrandDescription] = useState('')
   const [isDescriptionLoading, setIsDescriptionLoading] = useState(true)
+  const [topics, setTopics] = useState<string[]>([])
+  const [selectedTopics, setSelectedTopics] = useState<string[]>([])
+  const [isTopicsLoading, setIsTopicsLoading] = useState(false)
+  const [isAdvancingToTopics, setIsAdvancingToTopics] = useState(false)
+  const [isSavingTopics, setIsSavingTopics] = useState(false)
+  const [prompts, setPrompts] = useState<GeneratedPrompt[]>([])
+  const [customPrompts, setCustomPrompts] = useState<string[]>([])
+  const [isAdvancingToPrompts, setIsAdvancingToPrompts] = useState(false)
+  const [isSavingPrompts, setIsSavingPrompts] = useState(false)
+  const [promptResults, setPromptResults] = useState<PromptResult[]>([])
+  const [isExecutingPrompts, setIsExecutingPrompts] = useState(false)
+
+  // Update URL ?step= when currentStep changes (1-indexed in URL)
+  const goToStep = useCallback((step: number) => {
+    setCurrentStep(step)
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('step', String(step + 1))
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+  }, [searchParams, pathname, router])
 
   // Infer brand name from URL domain (same logic as Python backend)
   const brandName = (() => {
@@ -109,12 +183,135 @@ function BrandOnboardingContent() {
     fetchDescription()
   }, [rawUrl, jobId])
 
-  // Quick_start is already running — go to job progress page
-  const handleGoToProgress = () => {
-    if (jobId) {
-      router.push(`/dashboard/jobs/${jobId}/progress`)
-    } else {
-      router.push('/dashboard')
+  // Hydrate stored onboarding data (topics, prompts) on mount when landing on step > 1
+  useEffect(() => {
+    if (!jobId || onboardingDataFetched.current) return
+    onboardingDataFetched.current = true
+
+    const hydrate = async () => {
+      try {
+        const data = await fetchOnboardingData(jobId).unwrap()
+        if (data) {
+          if (data.description && !brandDescription) {
+            setBrandDescription(data.description)
+            setIsDescriptionLoading(false)
+          }
+          if (data.topics_generated?.length > 0 && topics.length === 0) {
+            setTopics(data.topics_generated)
+          }
+          if (data.topics_selected?.length > 0 && selectedTopics.length === 0) {
+            setSelectedTopics(data.topics_selected)
+          }
+          if (data.prompts_generated?.length > 0 && prompts.length === 0) {
+            setPrompts(data.prompts_generated)
+          }
+          if (data.prompt_results?.length > 0 && promptResults.length === 0) {
+            setPromptResults(data.prompt_results)
+          }
+        }
+      } catch {
+        // No stored data — will generate on demand
+      }
+    }
+    hydrate()
+  }, [jobId])
+
+  // Generate topics and then move to step 2
+  const handleGoToTopics = async () => {
+    // If topics already loaded, just advance
+    if (topics.length > 0) {
+      goToStep(1)
+      return
+    }
+
+    setIsAdvancingToTopics(true)
+    try {
+      const result = await generateBrandTopics({
+        url: rawUrl,
+        brandName,
+        brandDescription,
+        jobId: jobId || undefined,
+      }).unwrap()
+      setTopics(result.topics)
+    } catch {
+      // If topic generation fails, set empty — user can still add custom
+      setTopics([])
+    } finally {
+      setIsAdvancingToTopics(false)
+      goToStep(1)
+    }
+  }
+
+  // Save selected topics, generate prompts (if not already loaded), then advance to step 3
+  const handleTopicsContinue = async () => {
+    setIsAdvancingToPrompts(true)
+    try {
+      if (jobId && selectedTopics.length > 0) {
+        await saveBrandTopics({ jobId, selectedTopics }).unwrap()
+      }
+    } catch {
+      // Non-blocking — proceed even if save fails
+    }
+
+    // Only generate if we don't already have prompts
+    if (prompts.length === 0) {
+      try {
+        const result = await generateBrandPrompts({
+          brandName,
+          brandDescription,
+          selectedTopics,
+          jobId: jobId || undefined,
+        }).unwrap()
+        setPrompts(result.prompts)
+      } catch {
+        setPrompts([])
+      }
+    }
+
+    setIsAdvancingToPrompts(false)
+    goToStep(2)
+  }
+
+  // Save all prompts (generated + custom) and advance to step 4 (results)
+  const handlePromptsContinue = async () => {
+    const allPrompts = [
+      ...prompts.map((p) => p.prompt),
+      ...customPrompts,
+    ]
+    setIsSavingPrompts(true)
+    try {
+      if (jobId && allPrompts.length > 0) {
+        await saveBrandPrompts({ jobId, selectedPrompts: allPrompts }).unwrap()
+      }
+    } catch {
+      // Non-blocking
+    } finally {
+      setIsSavingPrompts(false)
+    }
+
+    goToStep(3)
+
+    // If we already have results (from hydration), don't re-execute
+    if (promptResults.length > 0) return
+
+    // Execute prompts against all 3 LLMs
+    setIsExecutingPrompts(true)
+    try {
+      // Combine generated prompts + custom prompts into the execution list
+      const allPromptsForExecution: GeneratedPrompt[] = [
+        ...prompts,
+        ...customPrompts.map((p) => ({ prompt: p, type: 'custom' })),
+      ]
+      const result = await executeBrandPrompts({
+        brandName,
+        prompts: allPromptsForExecution,
+        jobId: jobId || undefined,
+      }).unwrap()
+      setPromptResults(result.results)
+    } catch {
+      // Results will show as empty
+    } finally {
+      setIsExecutingPrompts(false)
     }
   }
 
@@ -132,24 +329,72 @@ function BrandOnboardingContent() {
 
   return (
     <OnboardingLayout
-      currentStep={0}
+      currentStep={currentStep}
       totalSteps={TOTAL_STEPS}
-      leftPanelContent={LEFT_PANEL_CONTENT[0]}
+      leftPanelContent={LEFT_PANEL_CONTENT[currentStep]}
     >
       <AnimatePresence mode="wait">
-        <div key="brand-ready" className="h-full">
-          <StepBrandReady
-            brandName={brandName}
-            brandDescription={brandDescription}
-            url={rawUrl}
-            onStart={handleGoToProgress}
-            onSkip={handleSkip}
-            isLoading={false}
-            isDescriptionLoading={isDescriptionLoading}
-            currentStep={0}
-            totalSteps={TOTAL_STEPS}
-          />
-        </div>
+        {currentStep === 0 && (
+          <div key="brand-ready" className="h-full">
+            <StepBrandReady
+              brandName={brandName}
+              brandDescription={brandDescription}
+              url={rawUrl}
+              onStart={handleGoToTopics}
+              onSkip={handleSkip}
+              isLoading={isAdvancingToTopics}
+              isDescriptionLoading={isDescriptionLoading}
+              currentStep={0}
+              totalSteps={TOTAL_STEPS}
+            />
+          </div>
+        )}
+        {currentStep === 1 && (
+          <div key="brand-topics" className="h-full">
+            <StepBrandTopics
+              topics={topics}
+              selectedTopics={selectedTopics}
+              onSelectedTopicsChange={setSelectedTopics}
+              isTopicsLoading={isTopicsLoading}
+              isSaving={isAdvancingToPrompts}
+              onNext={handleTopicsContinue}
+              onBack={() => goToStep(0)}
+              currentStep={1}
+              totalSteps={TOTAL_STEPS}
+            />
+          </div>
+        )}
+        {currentStep === 2 && (
+          <div key="brand-prompts" className="h-full">
+            <StepBrandPrompts
+              prompts={prompts}
+              customPrompts={customPrompts}
+              onCustomPromptsChange={setCustomPrompts}
+              isPromptsLoading={false}
+              isSaving={isSavingPrompts}
+              onNext={handlePromptsContinue}
+              onBack={() => goToStep(1)}
+              currentStep={2}
+              totalSteps={TOTAL_STEPS}
+            />
+          </div>
+        )}
+        {currentStep === 3 && (
+          <div key="brand-results" className="h-full">
+            <StepBrandResults
+              results={promptResults}
+              isLoading={isExecutingPrompts}
+              brandName={brandName}
+              onDashboard={() => {
+                if (jobId) {
+                  router.push(`/dashboard/jobs/${jobId}/progress`)
+                } else {
+                  router.push('/dashboard')
+                }
+              }}
+            />
+          </div>
+        )}
       </AnimatePresence>
     </OnboardingLayout>
   )
