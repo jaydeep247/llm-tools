@@ -268,7 +268,7 @@ export default function DashboardOverview({ jobId, url, onNavigate, crawlStatusS
           </SectionCard>
         </div>
 
-        {/* Background Crawl Banner (right column) — stretched to fill card height */}
+        {/* Background Crawl Banner (right column) */}
         <div className="flex flex-col *:flex-1">
           {crawlStatusSlot}
         </div>

@@ -64,7 +64,13 @@ export function MainContentAudit({
             onRefresh={onRefreshMetrics} 
           />
         )}
-        {activeTab === 'keyword-metrics' && <KeywordMetrics />}
+        {activeTab === 'keyword-metrics' && (
+          <KeywordMetrics
+            data={pageMetricsData}
+            isLoading={isLoadingMetrics}
+            onRefresh={onRefreshMetrics}
+          />
+        )}
         {activeTab === 'performance-metrics' && (
           <PerformanceMetrics 
             data={pageMetricsData} 

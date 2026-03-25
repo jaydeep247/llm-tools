@@ -1031,13 +1031,22 @@ class WebsiteSpider(RedisSpider):
         )
 
         backlink_metrics_result = content_audit_result.get('backlink_metrics', {}) or {}
+        keyword_metrics_result = content_audit_result.get('keyword_metrics', {}) or {}
+
+        # Per-page resolved keyword (from title/H1), falls back to site-level keyword
+        resolved_keyword = (
+            keyword_metrics_result.get('main_keyword')
+            or self.main_keyword
+            or ""
+        )
 
         page_item['fields'] = {
             # Status (Screaming Frog compatible reason phrase)
             'status': status_reason,
 
-            # Used by post-crawl backlinks batch step (SERP -> min_required_rds)
-            'main_keyword': self.main_keyword or "",
+            # Per-page keyword resolved by KeywordMetrics sub-module
+            'main_keyword': resolved_keyword,
+            'keyword_source': keyword_metrics_result.get('keyword_source', ''),
 
             # Backlink metrics (crawl-time fields 2-4 + post-crawl placeholders)
             'backlink_metrics': backlink_metrics_result,

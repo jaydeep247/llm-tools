@@ -18,6 +18,7 @@ import CompetitorGrowthTrends from '@/components/module_F/CompetitorGrowthTrends
 import GapOpportunities from '@/components/module_F/GapOpportunities'
 import CompetitorCitedURLs from '@/components/module_F/CompetitorCitedURLs'
 import { ExportsTab } from '@/components/session/exports'
+import { BrandOnboardingResultsPanel } from '@/components/brand-onboarding/BrandOnboardingResultsPanel'
 import { useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
 import { useGetQuickStartResultQuery, useResumeCrawlMutation } from '@/store/api/quick_start/quickStartApi'
 import { useGetModuleFResultQuery } from '@/store/api/module_F/moduleFApi'
@@ -1061,6 +1062,10 @@ export default function SessionDetailPage() {
                 ) : undefined
               }
             />
+
+            <div className="rounded-2xl border border-zinc-800 bg-[#121212] p-6">
+              <BrandOnboardingResultsPanel jobId={qsJobId || jobId} />
+            </div>
           </>
         )}
 

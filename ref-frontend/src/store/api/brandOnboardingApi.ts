@@ -199,6 +199,7 @@ export const {
   useGenerateBrandDescriptionMutation,
   useGetBrandDescriptionQuery,
   useLazyGetBrandDescriptionQuery,
+  useGetOnboardingDataQuery,
   useLazyGetOnboardingDataQuery,
   useGenerateBrandTopicsMutation,
   useSaveBrandTopicsMutation,

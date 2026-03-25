@@ -79,6 +79,15 @@ class TaskRegistry:
         "serp_organic": ["dataforseo"],
         "onpage_content_parsing": ["dataforseo"],
 
+        # Module A – Performance Metrics (ranking, traffic, domain analytics)
+        "serp_ranking": ["dataforseo"],
+        "traffic_analytics": ["dataforseo"],
+        "domain_analytics_keywords": ["dataforseo"],
+
+        # Module A – Keyword Metrics (volume, CPC, KD)
+        "keywords_search_volume": ["dataforseo"],
+        "keyword_difficulty": ["dataforseo"],
+
         # Module A – Backlink Metrics
         "backlinks_summary": ["dataforseo"],
 

@@ -29,6 +29,8 @@ from modules.module_A.WebsiteCrawler.metrics.similarity import (
     calculate_similarity_score,
 )
 from modules.module_A.ContentAudit.BacklinkMetrics import extract_backlink_metrics_batch
+from modules.module_A.ContentAudit.KeywordMetrics import extract_keyword_metrics_batch
+from modules.module_A.ContentAudit.PerformanceMetrics import extract_performance_metrics_batch
 
 # Hamming distance threshold (out of 64 bits):
 # ≤ 3 bits difference ≈ 95.3% identical content → near-duplicate
@@ -109,6 +111,11 @@ def run_post_crawl_analysis(job_id: str) -> None:
                 "backlink_metrics.outlink_url_list": 1,
                 "website_crawler.simhash": 1,
                 "Keyword_analysis": 1,
+                "volume_global": 1,
+                "volume_us": 1,
+                "kd_us": 1,
+                "cpc_usd": 1,
+                "performance_metrics": 1,
             },
         )
         docs = list(cursor)
@@ -307,6 +314,136 @@ def run_post_crawl_analysis(job_id: str) -> None:
 
             if backlink_ops:
                 mongo_manager.fields.bulk_write(backlink_ops, ordered=False)
+
+        # ------------------------------------------------------------------
+        # 6. Keyword Metrics batch (volume_global, volume_us, kd_us, cpc_usd)
+        # ------------------------------------------------------------------
+        keyword_items: List[Dict[str, Any]] = []
+        for doc in docs:
+            url = doc.get("url")
+            if not url:
+                continue
+            keyword_items.append(
+                {
+                    "url": url,
+                    "main_keyword": doc.get("main_keyword", "") or "",
+                    "volume_global": doc.get("volume_global"),
+                    "volume_us": doc.get("volume_us"),
+                    "kd_us": doc.get("kd_us"),
+                    "cpc_usd": doc.get("cpc_usd"),
+                }
+            )
+
+        if keyword_items:
+            loop = asyncio.new_event_loop()
+            try:
+                asyncio.set_event_loop(loop)
+                km_results = loop.run_until_complete(
+                    extract_keyword_metrics_batch(keyword_items)
+                )
+            finally:
+                loop.close()
+                asyncio.set_event_loop(None)
+
+            km_results_by_url = {
+                r.get("url"): r for r in (km_results or []) if r.get("url")
+            }
+
+            km_ops = []
+            for item in keyword_items:
+                url = item["url"]
+                km_res = km_results_by_url.get(url)
+                if not km_res:
+                    continue
+
+                km_ops.append(
+                    UpdateOne(
+                        {"jobId": job_id, "url": url},
+                        {
+                            "$set": {
+                                "volume_global": km_res.get("volume_global"),
+                                "volume_us": km_res.get("volume_us"),
+                                "kd_us": km_res.get("kd_us"),
+                                "cpc_usd": km_res.get("cpc_usd"),
+                                "keyword_metrics_audit_log": km_res.get("audit_log") or {},
+                            }
+                        },
+                    )
+                )
+
+            if km_ops:
+                mongo_manager.fields.bulk_write(km_ops, ordered=False)
+                logger.info(
+                    "[POST-CRAWL] Keyword metrics: wrote %d updates for job %s",
+                    len(km_ops),
+                    job_id,
+                )
+
+        # ------------------------------------------------------------------
+        # 7. Performance Metrics batch
+        #    (currentRanking, ga30DaysTraffic, overallKeywords, firstPageKeywords)
+        # ------------------------------------------------------------------
+        perf_items: List[Dict[str, Any]] = []
+        for doc in docs:
+            url = doc.get("url")
+            if not url:
+                continue
+            pm = doc.get("performance_metrics") or {}
+            perf_items.append(
+                {
+                    "url": url,
+                    "main_keyword": doc.get("main_keyword", "") or "",
+                    "currentRanking":    pm.get("currentRanking"),
+                    "ga30DaysTraffic":   pm.get("ga30DaysTraffic"),
+                    "overallKeywords":   pm.get("overallKeywords"),
+                    "firstPageKeywords": pm.get("firstPageKeywords"),
+                }
+            )
+
+        if perf_items:
+            loop = asyncio.new_event_loop()
+            try:
+                asyncio.set_event_loop(loop)
+                perf_results = loop.run_until_complete(
+                    extract_performance_metrics_batch(perf_items)
+                )
+            finally:
+                loop.close()
+                asyncio.set_event_loop(None)
+
+            perf_results_by_url = {
+                r.get("url"): r for r in (perf_results or []) if r.get("url")
+            }
+
+            perf_ops = []
+            for item in perf_items:
+                url = item["url"]
+                pr = perf_results_by_url.get(url)
+                if not pr:
+                    continue
+
+                perf_ops.append(
+                    UpdateOne(
+                        {"jobId": job_id, "url": url},
+                        {
+                            "$set": {
+                                "performance_metrics.currentRanking":    pr.get("currentRanking"),
+                                "performance_metrics.ga30DaysTraffic":   pr.get("ga30DaysTraffic"),
+                                "performance_metrics.overallKeywords":   pr.get("overallKeywords"),
+                                "performance_metrics.firstPageKeywords": pr.get("firstPageKeywords"),
+                                "performance_metrics_audit_log":         pr.get("audit_log") or {},
+                            }
+                        },
+                    )
+                )
+
+            if perf_ops:
+                mongo_manager.fields.bulk_write(perf_ops, ordered=False)
+                logger.info(
+                    "[POST-CRAWL] Performance metrics: wrote %d updates for job %s",
+                    len(perf_ops),
+                    job_id,
+                )
 
     except Exception:
         import traceback
