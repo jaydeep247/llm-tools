@@ -1,21 +1,38 @@
 'use client'
 
-// CompetitorRecommendations.tsx
-// MOAT 4 Recommendation Engine — fully structured UI
-// 8 numbered sections so users understand WHAT they see and WHY before acting.
+/**
+ * CompetitorRecommendations.tsx
+ * MOAT 4 Recommendation Engine — Premium UI Overhaul
+ * 
+ * Redesigned with a high-fidelity visual hierarchy, role-based action queues,
+ * and semantic iconography to guide users from insight to execution.
+ */
 
 import { useState, useMemo } from 'react'
 import {
+  type LucideIcon,
   Lightbulb, AlertTriangle, TrendingDown, TrendingUp, Minus,
   ChevronDown, ChevronUp, CheckCircle2, Clock, Zap, Target,
   Globe, Link2, Star, BarChart2, ShieldAlert, Eye, ArrowUp,
   ArrowDown, Info, BookOpen, Layers, Flame, Trophy,
-  FileText, BarChart, CheckCheck
+  FileText, BarChart, CheckCheck, Sparkles, Rocket,
+  Search, ExternalLink, Activity, ChevronRight, BarChart3,
+  MousePointer2, History, Layout, Calendar, Percent,
+  AlertCircle, ShieldCheck, ListChecks, Filter,
+  ArrowRightCircle, CheckSquare, MoreVertical,
+  Maximize2, Share2, Download, Settings2, HelpCircle
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
+import { SectionCard } from '@/components/ui/SectionCard'
+import { StatCard } from '@/components/ui/StatCard'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import {
   type ModuleFResult,
   type ModuleFAlert,
@@ -39,7 +56,7 @@ import {
 } from '@/store/api/module_F/moduleFApi'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Props
+// Types & Config
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface CompetitorRecommendationsProps {
@@ -48,71 +65,67 @@ interface CompetitorRecommendationsProps {
   jobId?: string | null
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Config maps
-// ─────────────────────────────────────────────────────────────────────────────
-
 const DELTA_CONFIG: Record<DeltaClass, {
-  label: string; desc: string; color: string; bg: string; border: string; icon: React.ReactNode
+  label: string; desc: string; color: string; accent: 'rose' | 'amber' | 'blue' | 'emerald' | 'zinc' | 'violet' | 'cyan'; icon: LucideIcon
 }> = {
   competitor_threat: {
     label: 'Competitor Threat',
     desc: 'A competitor has surged or flipped prompts away from your brand. Act within 7 days.',
-    color: 'text-rose-300', bg: 'bg-rose-500/10', border: 'border-rose-500/30',
-    icon: <ShieldAlert className="w-5 h-5" />,
+    color: 'text-rose-400', accent: 'rose',
+    icon: ShieldAlert,
   },
   critical_drop: {
     label: 'Critical Drop',
     desc: 'Your benchmark score dropped more than 15 pts since the last run. Immediate action required.',
-    color: 'text-rose-300', bg: 'bg-rose-500/10', border: 'border-rose-500/30',
-    icon: <TrendingDown className="w-5 h-5" />,
+    color: 'text-rose-400', accent: 'rose',
+    icon: TrendingDown,
   },
   significant_drop: {
     label: 'Significant Drop',
     desc: 'Benchmark or visibility dropped 8–15 pts. Prioritise content fixes this sprint.',
-    color: 'text-amber-300', bg: 'bg-amber-500/10', border: 'border-amber-500/30',
-    icon: <TrendingDown className="w-5 h-5" />,
+    color: 'text-amber-400', accent: 'amber',
+    icon: TrendingDown,
   },
   plateau: {
     label: 'Plateau',
     desc: 'Score has been flat 21+ days while competitors win prompts. Expand your content coverage.',
-    color: 'text-sky-300', bg: 'bg-sky-500/10', border: 'border-sky-500/30',
-    icon: <Minus className="w-5 h-5" />,
+    color: 'text-blue-400', accent: 'blue',
+    icon: Minus,
   },
   improvement: {
     label: 'Improving',
     desc: 'Benchmark improved +5 pts or more. Defend winning prompts and push for further gains.',
-    color: 'text-emerald-300', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30',
-    icon: <TrendingUp className="w-5 h-5" />,
+    color: 'text-emerald-400', accent: 'emerald',
+    icon: TrendingUp,
   },
   stable: {
     label: 'Stable',
     desc: 'No significant movement. Use this time to build uncontested territory before a competitor does.',
-    color: 'text-zinc-400', bg: 'bg-zinc-800/60', border: 'border-zinc-700',
-    icon: <Minus className="w-5 h-5" />,
+    color: 'text-zinc-400', accent: 'zinc',
+    icon: Minus,
   },
 }
 
-const GAP_CONFIG: Partial<Record<GapType, { label: string; cls: string; desc: string }>> = {
-  uncontested:        { label: 'Uncontested ★',   desc: 'No competitor ranks — own it now',                cls: 'bg-amber-500/10 text-amber-300 border-amber-500/25' },
-  priority_fix:       { label: 'Priority Fix',     desc: 'Competitor outranks you by 30+ pts',             cls: 'bg-rose-500/10 text-rose-300 border-rose-500/25' },
-  comparison_page:    { label: 'Comparison Page',  desc: 'Build a dedicated vs-competitor page',           cls: 'bg-purple-500/10 text-purple-300 border-purple-500/25' },
-  near_uncontested:   { label: 'Near-Uncontested', desc: 'Weak competitor hold — easy to overtake',        cls: 'bg-amber-500/10 text-amber-300 border-amber-500/25' },
-  competitor_surge:   { label: 'Competitor Surge', desc: 'Competitor visibility jumped +5 pts',            cls: 'bg-rose-500/10 text-rose-300 border-rose-500/25' },
-  win_rate:           { label: 'Win Rate Fix',      desc: 'You win fewer than 30% of tracked prompts',    cls: 'bg-sky-500/10 text-sky-300 border-sky-500/25' },
-  citation_gap:       { label: 'Citation Gap',      desc: 'Earn a high-DA citation competitors already have', cls: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/25' },
-  schema:             { label: 'Add Schema',        desc: 'Add FAQ/HowTo schema for AI crawlability',      cls: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/25' },
-  score_drop:         { label: 'Score Recovery',    desc: 'Benchmark dropped — find the flipped prompts',  cls: 'bg-rose-500/10 text-rose-300 border-rose-500/25' },
-  entity_consistency: { label: 'Entity Signals',    desc: 'Strengthen brand name consistency site-wide',   cls: 'bg-zinc-700/50 text-zinc-400 border-zinc-600/25' },
-  model_gap:          { label: 'Model Gap',          desc: 'Good rank on one AI model, poor on another',   cls: 'bg-indigo-500/10 text-indigo-300 border-indigo-500/25' },
+const GAP_CONFIG: Partial<Record<GapType, { label: string; cls: string; icon: LucideIcon }>> = {
+  uncontested:        { label: 'Uncontested',   icon: Star,          cls: 'bg-amber-500/10 text-amber-400 border-amber-500/25' },
+  priority_fix:       { label: 'Priority Fix',     icon: AlertCircle,   cls: 'bg-rose-500/10 text-rose-400 border-rose-500/25' },
+  comparison_page:    { label: 'Comparison Page',  icon: Layers,        cls: 'bg-violet-500/10 text-violet-400 border-violet-500/25' },
+  near_uncontested:   { label: 'Near-Uncontested', icon: Zap,           cls: 'bg-amber-500/10 text-amber-400 border-amber-500/25' },
+  competitor_surge:   { label: 'Competitor Surge', icon: Flame,         cls: 'bg-rose-500/10 text-rose-400 border-rose-500/25' },
+  win_rate:           { label: 'Win Rate Fix',      icon: Target,        cls: 'bg-blue-500/10 text-blue-400 border-blue-500/25' },
+  citation_gap:       { label: 'Citation Gap',      icon: Link2,         cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' },
+  schema:             { label: 'Add Schema',        icon: FileText,      cls: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/25' },
+  score_drop:         { label: 'Score Recovery',    icon: ArrowDown,     cls: 'bg-rose-500/10 text-rose-400 border-rose-500/25' },
+  entity_consistency: { label: 'Entity Signals',    icon: ShieldCheck,   cls: 'bg-zinc-800 text-zinc-400 border-zinc-700/50' },
+  model_gap:          { label: 'Model Gap',          icon: Activity,      cls: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/25' },
 }
 
 const ROLE_CONFIG = [
-  { id: 'all',             label: 'All',     icon: <Layers className="w-3.5 h-3.5" />,   hint: 'Full list, all roles' },
-  { id: 'cxo',             label: 'CXO',     icon: <Trophy className="w-3.5 h-3.5" />,   hint: 'Top 3, executive brief' },
-  { id: 'cmo',             label: 'CMO',     icon: <BarChart className="w-3.5 h-3.5" />, hint: 'Top 5, content ROI' },
-  { id: 'seo_manager',     label: 'SEO',     icon: <Target className="w-3.5 h-3.5" />,   hint: 'Up to 10, sprint backlog' },
-  { id: 'content_manager', label: 'Content', icon: <FileText className="w-3.5 h-3.5" />, hint: 'Up to 7, content briefs' },
+  { id: 'all',             label: 'All Actions', icon: ListChecks,    hint: 'Full prioritized backlog' },
+  { id: 'cxo',             label: 'CXO Brief',   icon: Trophy,        hint: 'Executive strategic priorities' },
+  { id: 'cmo',             label: 'CMO Focus',   icon: BarChart,      hint: 'Content ROI & positioning' },
+  { id: 'seo_manager',     label: 'SEO Sprint',  icon: Target,        hint: 'Technical & structural fixes' },
+  { id: 'content_manager', label: 'Content Brief', icon: FileText,     hint: 'Entity-focused content guides' },
 ]
 
 const METRIC_META: Record<string, { label: string; icon: React.ReactNode }> = {
@@ -139,417 +152,367 @@ const CT_COLOR: Record<string, string> = {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Section wrapper — consistent labelling with step number
+// Sub-Components
 // ─────────────────────────────────────────────────────────────────────────────
 
-function Section({
-  step, title, subtitle, children,
-}: {
-  step: number; title: string; subtitle: string; children: React.ReactNode
-}) {
+/** Premium Header Section */
+function EngineHeader({ deltaClass, summary }: { deltaClass: DeltaClass; summary?: string }) {
+  const cfg = DELTA_CONFIG[deltaClass] ?? DELTA_CONFIG.stable
+  const Icon = cfg.icon
+
   return (
-    <div className="space-y-3">
-      <div className="flex items-start gap-3">
-        <div className="w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-[10px] font-bold text-zinc-500 shrink-0 mt-0.5">
-          {step}
+    <div className="relative group overflow-hidden rounded-[2rem] border border-zinc-800/50 bg-zinc-900/40 p-8 mb-8 transition-all duration-500 hover:border-zinc-700/50 hover:bg-zinc-900/60">
+      {/* Background Effects */}
+      <div className={cn(
+        "absolute -top-24 -right-24 w-64 h-64 rounded-full blur-[100px] opacity-20 transition-all duration-700 group-hover:opacity-30",
+        cfg.accent === 'rose' ? 'bg-rose-500' :
+        cfg.accent === 'amber' ? 'bg-amber-500' :
+        cfg.accent === 'blue' ? 'bg-blue-500' :
+        cfg.accent === 'emerald' ? 'bg-emerald-500' :
+        cfg.accent === 'violet' ? 'bg-violet-500' : 'bg-zinc-500'
+      )} />
+      
+      <div className="relative flex flex-col md:flex-row items-center gap-8">
+        {/* Pulsing Icon */}
+        <div className="relative shrink-0">
+          <div className={cn(
+            "absolute inset-0 rounded-3xl blur-xl opacity-40 animate-pulse",
+            cfg.accent === 'rose' ? 'bg-rose-500' :
+            cfg.accent === 'amber' ? 'bg-amber-500' :
+            cfg.accent === 'blue' ? 'bg-blue-500' :
+            cfg.accent === 'emerald' ? 'bg-emerald-500' :
+            cfg.accent === 'violet' ? 'bg-violet-500' : 'bg-zinc-500'
+          )} />
+          <div className={cn(
+            "relative w-20 h-20 rounded-3xl border flex items-center justify-center shadow-2xl",
+            cfg.accent === 'rose' ? 'bg-rose-500/20 border-rose-500/30' :
+            cfg.accent === 'amber' ? 'bg-amber-500/20 border-amber-500/30' :
+            cfg.accent === 'blue' ? 'bg-blue-500/20 border-blue-500/30' :
+            cfg.accent === 'emerald' ? 'bg-emerald-500/20 border-emerald-500/30' :
+            cfg.accent === 'violet' ? 'bg-violet-500/20 border-violet-500/30' : 'bg-zinc-800/50 border-zinc-700/50'
+          )}>
+            <Icon className={cn("w-10 h-10", cfg.color)} />
+          </div>
         </div>
-        <div>
-          <h3 className="text-sm font-semibold text-zinc-100">{title}</h3>
-          <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">{subtitle}</p>
+
+        {/* Content */}
+        <div className="flex-1 text-center md:text-left space-y-4">
+          <div className="space-y-1">
+            <div className="flex items-center justify-center md:justify-start gap-3">
+              <h1 className="text-3xl font-bold tracking-tight text-white">Recommendation Engine</h1>
+              <Badge variant="outline" className={cn(
+                "text-[10px] font-bold uppercase tracking-widest px-2.5 py-0.5 border-transparent",
+                cfg.accent === 'rose' ? 'bg-rose-500/10 text-rose-400' :
+                cfg.accent === 'amber' ? 'bg-amber-500/10 text-amber-400' :
+                cfg.accent === 'blue' ? 'bg-blue-500/10 text-blue-400' :
+                cfg.accent === 'emerald' ? 'bg-emerald-500/10 text-emerald-400' :
+                cfg.accent === 'violet' ? 'bg-violet-500/10 text-violet-400' : 'bg-zinc-800 text-zinc-400'
+              )}>
+                {cfg.label}
+              </Badge>
+            </div>
+            <p className="text-zinc-400 text-lg font-medium max-w-2xl leading-relaxed">
+              {cfg.desc}
+            </p>
+          </div>
+          
+          {summary && (
+            <div className="flex items-center gap-2 text-sm text-zinc-500 bg-zinc-950/40 w-fit px-4 py-2 rounded-full border border-zinc-800/50">
+              <Info className="w-4 h-4 text-zinc-600" />
+              <span>{summary}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center gap-3">
+          <button className="p-2.5 rounded-xl bg-zinc-800/50 border border-zinc-700/50 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all">
+            <Share2 className="w-5 h-5" />
+          </button>
+          <button className="p-2.5 rounded-xl bg-zinc-800/50 border border-zinc-700/50 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all">
+            <Download className="w-5 h-5" />
+          </button>
         </div>
       </div>
-      <div className="ml-9">{children}</div>
     </div>
   )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Alert banner
-// ─────────────────────────────────────────────────────────────────────────────
-
-const ALERT_LEVEL_CONFIG: Record<string, { cls: string; label: string }> = {
-  high:   { cls: 'bg-rose-500/15 text-rose-400 border-rose-500/30', label: 'High' },
-  medium: { cls: 'bg-amber-500/15 text-amber-400 border-amber-500/30', label: 'Medium' },
-  low:    { cls: 'bg-zinc-800 text-zinc-400 border-zinc-700', label: 'Low' },
-}
-
+/** Alert Banner for Critical Changes */
 function AlertBanner({ alerts }: { alerts: ModuleFAlert[] }) {
   const [gone, setGone] = useState(false)
   if (!alerts.length || gone) return null
-  const top  = alerts[0]
+  
+  const top = alerts[0]
   const isUp = top.alertType === 'improvement'
   const isDn = top.alertType === 'drop'
-  const levelCfg = top.alertLevel ? ALERT_LEVEL_CONFIG[top.alertLevel] : null
+  
   return (
     <div className={cn(
-      'rounded-xl border p-4 flex items-start gap-3',
-      isUp ? 'bg-emerald-500/8 border-emerald-500/25' : isDn ? 'bg-rose-500/8 border-rose-500/25' : 'bg-amber-500/8 border-amber-500/25'
+      "relative overflow-hidden rounded-2xl border p-4 mb-6 transition-all duration-300 animate-in slide-in-from-top-4",
+      isUp ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-400' : 
+      isDn ? 'bg-rose-500/5 border-rose-500/20 text-rose-400' : 
+      'bg-amber-500/5 border-amber-500/20 text-amber-400'
     )}>
-      <div className={cn('p-1.5 rounded-lg shrink-0', isUp ? 'bg-emerald-500/15' : isDn ? 'bg-rose-500/15' : 'bg-amber-500/15')}>
-        {isUp ? <TrendingUp className="w-4 h-4 text-emerald-400" /> : <AlertTriangle className="w-4 h-4 text-rose-400" />}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-0.5">
-          <p className={cn('text-xs font-bold uppercase tracking-wide',
-            isUp ? 'text-emerald-400' : isDn ? 'text-rose-400' : 'text-amber-400'
-          )}>
-            {isUp ? 'Rank Improved' : isDn ? 'Score Dropped' : 'Rank Changed'} — {top.entityName}
-          </p>
-          {levelCfg && (
-            <span className={cn('text-[10px] font-medium border rounded px-2 py-0.5', levelCfg.cls)}>
-              {levelCfg.label}
-            </span>
-          )}
+      <div className="flex items-start gap-4">
+        <div className={cn(
+          "p-2 rounded-xl shrink-0",
+          isUp ? 'bg-emerald-500/10' : isDn ? 'bg-rose-500/10' : 'bg-amber-500/10'
+        )}>
+          {isUp ? <TrendingUp className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
         </div>
-        <p className="text-sm text-zinc-200">{top.message}</p>
-        <div className="flex gap-4 mt-1.5">
-          {top.scoreDelta !== 0 && (
-            <span className={cn('text-xs font-mono font-medium', top.scoreDelta > 0 ? 'text-emerald-400' : 'text-rose-400')}>
-              {top.scoreDelta > 0 ? '+' : ''}{top.scoreDelta.toFixed(1)} pts
+        
+        <div className="flex-1 min-w-0 space-y-1">
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-bold uppercase tracking-wider">
+              {isUp ? 'Performance Lift' : isDn ? 'Visibility Alert' : 'Market Shift'} — {top.entityName}
             </span>
-          )}
-          {top.rankMove !== 0 && (
-            <span className={cn('text-xs font-mono font-medium', top.rankMove > 0 ? 'text-emerald-400' : 'text-rose-400')}>
-              {top.rankMove > 0 ? '↑' : '↓'} {Math.abs(top.rankMove)} rank
-            </span>
-          )}
-          {top.benchmarkScore != null && (
-            <span className="text-xs text-zinc-600 font-mono">score: {top.benchmarkScore.toFixed(1)}</span>
-          )}
-        </div>
-      </div>
-      {alerts.length > 1 && <span className="text-[10px] text-zinc-600 shrink-0 mt-1">+{alerts.length - 1} more</span>}
-      <button onClick={() => setGone(true)} className="text-zinc-700 hover:text-zinc-400 shrink-0 mt-0.5 transition-colors">
-        <Minus className="w-3.5 h-3.5" />
-      </button>
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Step 1 — Status bar
-// ─────────────────────────────────────────────────────────────────────────────
-
-function StatusBar({ deltaClass, summary }: { deltaClass: DeltaClass; summary?: string }) {
-  const cfg = DELTA_CONFIG[deltaClass]
-  return (
-    <div className={cn('rounded-xl border p-5 flex items-start gap-4', cfg.bg, cfg.border)}>
-      <div className={cn('p-2.5 rounded-xl border shrink-0', cfg.bg, cfg.border)}>
-        <span className={cfg.color}>{cfg.icon}</span>
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap mb-1">
-          <span className={cn('text-base font-bold', cfg.color)}>{cfg.label}</span>
-          <Badge className={cn('border text-[10px] font-semibold tracking-wide', cfg.bg, cfg.color, cfg.border)}>
-            {deltaClass.replace(/_/g, ' ').toUpperCase()}
-          </Badge>
-        </div>
-        <p className="text-sm text-zinc-300 leading-relaxed">{cfg.desc}</p>
-        {summary && summary.length > 10 && (
-          <p className="text-xs text-zinc-500 mt-2 pt-2 border-t border-zinc-700/40 leading-relaxed">{summary}</p>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Step 2 — Stat cards
-// ─────────────────────────────────────────────────────────────────────────────
-
-function StatCards({ p1, p2, p3, done, total }: {
-  p1: number; p2: number; p3: number; done: number; total: number
-}) {
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-      {[
-        { label: 'Act Now',    sub: 'Priority ≥ 8.0',    val: p1,   color: 'text-rose-400',    bg: 'bg-rose-500/6',    border: 'border-rose-500/20',    icon: <Flame className="w-4 h-4 text-rose-400" />,    tip: 'Critical actions — competitor threat or score drop detected.' },
-        { label: 'This Sprint', sub: 'Score 6.5–8.0',    val: p2,   color: 'text-amber-400',   bg: 'bg-amber-500/6',   border: 'border-amber-500/20',   icon: <Zap className="w-4 h-4 text-amber-400" />,     tip: 'High-impact — complete within the next 2-week sprint.' },
-        { label: 'Ongoing',    sub: 'Score < 6.5',       val: p3,   color: 'text-zinc-300',    bg: 'bg-zinc-800/40',   border: 'border-zinc-700/50',    icon: <Target className="w-4 h-4 text-zinc-500" />,   tip: 'Medium-term — add to regular content cadence.' },
-        { label: 'Completed',  sub: `${pct}% done`,      val: done, color: 'text-emerald-400', bg: 'bg-emerald-500/6', border: 'border-emerald-500/20', icon: <CheckCheck className="w-4 h-4 text-emerald-400" />, tip: 'Actions marked done in this session.' },
-      ].map(c => (
-        <div key={c.label} className={cn('rounded-xl border p-4 flex flex-col gap-2', c.bg, c.border)} title={c.tip}>
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] text-zinc-500 uppercase tracking-wide font-medium">{c.label}</span>
-            {c.icon}
+            <Badge variant="outline" className={cn(
+              "text-[9px] font-bold px-1.5 py-0 border-current opacity-70",
+              isUp ? 'text-emerald-500' : isDn ? 'text-rose-500' : 'text-amber-500'
+            )}>
+              {top.alertLevel?.toUpperCase()}
+            </Badge>
           </div>
-          <p className={cn('text-3xl font-bold tabular-nums', c.color)}>{c.val}</p>
-          <p className="text-[10px] text-zinc-600">{c.sub}</p>
-          {c.label === 'Completed' && total > 0 && (
-            <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
-              <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Step 3 — Leaderboard delta
-// ─────────────────────────────────────────────────────────────────────────────
-
-function LeaderboardDelta({ comparison }: { comparison: ModuleFCompareVisibilityAgainstCompetitors | null }) {
-  if (!comparison) return null
-  const all = [comparison.brand, ...(comparison.competitors ?? [])].filter(Boolean) as ModuleFCompareVisibilityEntityRow[]
-  if (!all.some(e => (e.score_delta != null && e.score_delta !== 0) || e.rank_move)) return null
-  return (
-    <div className="rounded-xl border border-zinc-800 overflow-hidden">
-      <div className="px-4 py-3 bg-zinc-900/60 border-b border-zinc-800">
-        <div className="flex items-center gap-2">
-          <BarChart2 className="w-4 h-4 text-zinc-500" />
-          <span className="text-xs font-semibold text-zinc-200">Score movement vs last run</span>
-          <div className="ml-auto flex items-center gap-4 text-[10px] text-zinc-600">
-            <span>Score</span><span>Δ pts</span><span>Rank</span>
-          </div>
-        </div>
-        <p className="text-[10px] text-zinc-600 mt-1">
-          Positive Δ = improved. Negative = dropped. Rank ↑ = moved up the leaderboard.
-        </p>
-      </div>
-      <div className="divide-y divide-zinc-800/40">
-        {all.map((e, i) => {
-          const delta = e.score_delta ?? 0
-          const move  = e.rank_move  ?? 0
-          const isBrand = i === 0
-          return (
-            <div key={e.name} className={cn('flex items-center gap-3 px-4 py-3', isBrand && 'bg-amber-500/4')}>
-              <div className={cn('w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0',
-                isBrand ? 'bg-amber-500/20 text-amber-300' : 'bg-zinc-800 text-zinc-500'
-              )}>
-                {e.rank_position ?? i + 1}
-              </div>
-              <div className="flex-1 min-w-0">
-                <span className={cn('text-sm truncate', isBrand ? 'text-amber-200 font-semibold' : 'text-zinc-300')}>
-                  {e.name}
-                </span>
-                {isBrand && <span className="text-[10px] text-amber-500/40 ml-1.5">your brand</span>}
-              </div>
-              <span className="text-xs font-mono text-zinc-500 w-12 text-right">{e.benchmark_score?.toFixed(1) ?? '—'}</span>
-              <span className={cn('text-xs font-mono font-medium w-16 text-right flex items-center justify-end gap-0.5',
-                delta > 0 ? 'text-emerald-400' : delta < 0 ? 'text-rose-400' : 'text-zinc-700'
-              )}>
-                {delta > 0 ? <ArrowUp className="w-3 h-3" /> : delta < 0 ? <ArrowDown className="w-3 h-3" /> : null}
-                {delta !== 0 ? `${delta > 0 ? '+' : ''}${delta.toFixed(1)}` : '—'}
+          <p className="text-sm text-zinc-200 font-medium">{top.message}</p>
+          
+          <div className="flex items-center gap-4 text-[10px] font-mono opacity-80">
+            {top.scoreDelta !== 0 && (
+              <span className="flex items-center gap-1">
+                {top.scoreDelta > 0 ? '+' : ''}{top.scoreDelta.toFixed(1)} pts
               </span>
-              <span className={cn('text-[10px] w-12 text-right font-medium',
-                move > 0 ? 'text-emerald-400' : move < 0 ? 'text-rose-400' : 'text-zinc-700'
-              )}>
-                {move !== 0 ? `${move > 0 ? '↑' : '↓'} ${Math.abs(move)}` : '—'}
+            )}
+            {top.rankMove !== 0 && (
+              <span className="flex items-center gap-1">
+                {top.rankMove > 0 ? '↑' : '↓'} {Math.abs(top.rankMove)} rank
               </span>
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Step 4 — Uncontested gaps
-// ─────────────────────────────────────────────────────────────────────────────
-
-function UncontestedGaps({ gapAnalysis }: { gapAnalysis: ModuleFGapOpportunity[] }) {
-  const items = gapAnalysis
-    .flatMap(g =>
-      (g.opportunities ?? [])
-        .filter(o => o.rank == null && (o.opportunityScore ?? 0) >= 90)
-        .map(o => ({ prompt: o.prompt, competitor: g.competitor, score: o.opportunityScore }))
-    )
-    .slice(0, 6)
-  if (!items.length) return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/20 px-4 py-5 text-center">
-      <p className="text-xs text-zinc-600">No uncontested prompts found — all opportunities have some competitor presence.</p>
-    </div>
-  )
-  return (
-    <div className="rounded-xl border border-amber-500/20 bg-amber-500/4 overflow-hidden">
-      <div className="px-4 py-3 border-b border-amber-500/15 flex items-center gap-2">
-        <div className="p-1 bg-amber-500/15 rounded">
-          <Star className="w-3.5 h-3.5 text-amber-400" />
-        </div>
-        <span className="text-xs font-semibold text-amber-300">Uncontested — no competitor ranks here</span>
-        <Badge className="ml-auto bg-amber-500/10 border border-amber-500/25 text-amber-400 text-[10px]">
-          {items.length} prompt{items.length !== 1 ? 's' : ''}
-        </Badge>
-      </div>
-      <div className="p-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-        {items.map((item, i) => (
-          <div key={i} className="flex items-start gap-2.5 bg-zinc-900/60 border border-zinc-800 rounded-lg px-3 py-2.5">
-            <Star className="w-3 h-3 text-amber-400 shrink-0 mt-0.5" />
-            <div className="min-w-0">
-              <p className="text-xs text-zinc-200 leading-snug">"{item.prompt}"</p>
-              <p className="text-[10px] text-zinc-500 mt-1">
-                vs <span className="text-zinc-400">{item.competitor}</span>
-                <span className="mx-1.5 text-zinc-700">·</span>
-                opportunity <span className="text-amber-400 font-mono">{item.score}</span>/100
-              </p>
-            </div>
+            )}
+            <span className="text-zinc-500">{new Date(top.firedAt).toLocaleDateString()}</span>
           </div>
-        ))}
+        </div>
+
+        <button 
+          onClick={() => setGone(true)}
+          className="p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+        >
+          <Minus className="w-4 h-4" />
+        </button>
       </div>
     </div>
   )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Step 5 — Action queue
-// ─────────────────────────────────────────────────────────────────────────────
-
-function PriorityBar({ score }: { score: number }) {
-  const pct  = Math.min(100, Math.round((score / 10) * 100))
-  const fill = score >= 8 ? 'bg-rose-500' : score >= 6.5 ? 'bg-amber-500' : 'bg-zinc-600'
-  return (
-    <div className="flex items-center gap-1.5">
-      <div className="flex-1 h-1 bg-zinc-800 rounded-full overflow-hidden">
-        <div className={cn('h-full rounded-full', fill)} style={{ width: `${pct}%` }} />
-      </div>
-      <span className="text-[10px] font-mono text-zinc-600 shrink-0">{score.toFixed(1)}</span>
-    </div>
-  )
-}
-
-function ModelGapDetail({ detail }: { detail: NonNullable<Moat4Action['model_detail']> }) {
-  return (
-    <div className="grid grid-cols-2 gap-2 mt-2">
-      <div className="bg-emerald-500/8 border border-emerald-500/20 rounded-lg p-3 text-center">
-        <p className="text-[10px] text-emerald-400/60 uppercase tracking-wide mb-1">Best rank</p>
-        <p className="text-xl font-bold text-emerald-300">#{detail.best_rank}</p>
-        <p className="text-[10px] text-zinc-500 capitalize mt-0.5">{detail.best_model}</p>
-      </div>
-      <div className="bg-rose-500/8 border border-rose-500/20 rounded-lg p-3 text-center">
-        <p className="text-[10px] text-rose-400/60 uppercase tracking-wide mb-1">Weakest rank</p>
-        <p className="text-xl font-bold text-rose-300">#{detail.worst_rank}</p>
-        <p className="text-[10px] text-zinc-500 capitalize mt-0.5">{detail.worst_model}</p>
-      </div>
-    </div>
-  )
-}
-
+/** Individual Action Card */
 function ActionCard({
   action, index, onStatusChange,
 }: {
   action: Moat4Action; index: number
   onStatusChange: (recId: string, status: 'completed' | 'dismissed') => void
 }) {
-  const [open, setOpen] = useState(false)
-  const gap     = action.gap_type ? GAP_CONFIG[action.gap_type] : null
-  const done    = action.status === 'completed'
-  const dismiss = action.status === 'dismissed'
+  const [isOpen, setIsOpen] = useState(false)
+  const gap = action.gap_type ? GAP_CONFIG[action.gap_type] : null
+  const isDone = action.status === 'completed'
+  const isDismissed = action.status === 'dismissed'
 
-  const effortLabel = action.effort_hours ? `~${action.effort_hours}h`
-    : action.effort_score >= 8 ? 'Quick win'
-    : action.effort_score >= 5 ? 'Medium effort'
-    : 'Large project'
-  const effortCls = action.effort_score >= 8 ? 'text-emerald-400'
-    : action.effort_score >= 5 ? 'text-amber-400'
-    : 'text-zinc-500'
+  const priorityScore = action.priority_score ?? 0
+  const priorityAccent: 'rose' | 'amber' | 'blue' | 'zinc' = 
+    priorityScore >= 8 ? 'rose' : 
+    priorityScore >= 6.5 ? 'amber' : 
+    priorityScore >= 5 ? 'blue' : 'zinc'
 
-  const accentLeft = done ? 'border-l-2 border-l-emerald-500/50'
-    : dismiss ? ''
-    : action.priority_score >= 8 ? 'border-l-2 border-l-rose-500'
-    : action.priority_score >= 6.5 ? 'border-l-2 border-l-amber-400/60'
-    : ''
+  const effortText = action.effort_hours ? `~${action.effort_hours}h` : 
+    action.effort_score >= 8 ? 'Quick win' : 
+    action.effort_score >= 5 ? 'Medium effort' : 'Large project'
 
   return (
     <div className={cn(
-      'rounded-xl border border-zinc-800 bg-zinc-900/40 transition-all',
-      accentLeft, done && 'opacity-60', dismiss && 'opacity-30'
+      "group relative overflow-hidden rounded-2xl border transition-all duration-300",
+      isDone ? "bg-emerald-500/5 border-emerald-500/20 opacity-60" :
+      isDismissed ? "bg-zinc-900/40 border-zinc-800 opacity-40" :
+      priorityAccent === 'rose' ? "bg-rose-500/5 border-rose-500/20 hover:border-rose-500/40" :
+      priorityAccent === 'amber' ? "bg-amber-500/5 border-amber-500/20 hover:border-amber-500/40" :
+      "bg-zinc-900/40 border-zinc-800/60 hover:border-zinc-700 hover:bg-zinc-900/60"
     )}>
-      <div className="p-4">
-        <div className="flex items-start gap-3">
-          {/* Index */}
+      <div className="p-5">
+        <div className="flex items-start gap-5">
+          {/* Index/Icon Container */}
           <div className={cn(
-            'w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 mt-0.5 border',
-            action.priority_score >= 8   ? 'bg-rose-500/15 border-rose-500/30 text-rose-300'
-            : action.priority_score >= 6.5 ? 'bg-amber-500/15 border-amber-500/30 text-amber-300'
-            : 'bg-zinc-800 border-zinc-700 text-zinc-500'
+            "w-12 h-12 rounded-2xl border flex items-center justify-center text-sm font-bold shrink-0 mt-0.5 shadow-inner transition-transform group-hover:scale-105",
+            isDone ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-400" :
+            priorityAccent === 'rose' ? "bg-rose-500/20 border-rose-500/30 text-rose-400" :
+            priorityAccent === 'amber' ? "bg-amber-500/20 border-amber-500/30 text-amber-400" :
+            "bg-zinc-800 border-zinc-700 text-zinc-400"
           )}>
-            {index + 1}
+            {isDone ? <CheckSquare className="w-5 h-5" /> : index + 1}
           </div>
 
-          <div className="flex-1 min-w-0 space-y-2">
-            {/* Title */}
-            <p className={cn('text-sm font-medium leading-snug', done ? 'line-through text-zinc-500' : 'text-zinc-100')}>
-              {action.action_title}
-            </p>
-            {/* Tags */}
-            <div className="flex flex-wrap items-center gap-1.5">
-              {gap && (
-                <span className={cn('text-[10px] font-medium border rounded px-2 py-0.5', gap.cls)} title={gap.desc}>
-                  {gap.label}
+          {/* Main Content */}
+          <div className="flex-1 min-w-0 space-y-3">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className={cn(
+                  "text-lg font-bold tracking-tight",
+                  isDone ? "line-through text-zinc-500" : "text-zinc-100 group-hover:text-white transition-colors"
+                )}>
+                  {action.action_title}
+                </h3>
+                {gap && (
+                  <Badge variant="outline" className={cn("text-[9px] font-bold uppercase tracking-widest px-2 py-0 border-current opacity-80", gap.cls)}>
+                    <gap.icon className="w-3 h-3 mr-1" />
+                    {gap.label}
+                  </Badge>
+                )}
+                {action.competitor && (
+                  <Badge variant="secondary" className="bg-zinc-800 text-zinc-400 text-[9px] font-bold uppercase tracking-widest px-2 py-0">
+                    vs {action.competitor}
+                  </Badge>
+                )}
+              </div>
+              
+              <div className="flex items-center gap-4 text-xs font-medium text-zinc-500">
+                <span className="flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5" />
+                  {effortText}
                 </span>
-              )}
-              {action.competitor && (
-                <span className="text-[10px] bg-zinc-800 border border-zinc-700 text-zinc-400 rounded px-2 py-0.5">
-                  vs {action.competitor}
+                <span className="w-1 h-1 rounded-full bg-zinc-800" />
+                <span className="flex items-center gap-1.5">
+                  <Activity className="w-3.5 h-3.5" />
+                  Score: {priorityScore.toFixed(1)}
                 </span>
-              )}
-              <span className={cn('text-[10px] font-medium ml-auto', effortCls)}>{effortLabel}</span>
+              </div>
             </div>
-            {/* IEU row */}
-            <div className="flex items-center gap-4">
+
+            {/* Score Breakdown Bar */}
+            <div className="grid grid-cols-3 sm:flex sm:items-center gap-6 py-3 border-y border-zinc-800/40">
               {[
-                { l: 'Impact',  v: action.impact_score,  c: 'text-purple-400' },
-                { l: 'Effort',  v: action.effort_score,  c: 'text-sky-400' },
-                { l: 'Urgency', v: action.urgency_score, c: 'text-amber-400' },
-              ].map(({ l, v, c }) => (
-                <div key={l} className="text-center">
-                  <p className={cn('text-xs font-bold tabular-nums', c)}>{v.toFixed(1)}</p>
-                  <p className="text-[9px] text-zinc-700 uppercase tracking-wide">{l}</p>
+                { label: 'Impact',  value: action.impact_score,  color: 'text-violet-400', icon: Zap },
+                { label: 'Effort',  value: action.effort_score,  color: 'text-cyan-400',   icon: Activity },
+                { label: 'Urgency', value: action.urgency_score, color: 'text-amber-400',  icon: Flame },
+              ].map(({ label, value, color, icon: Icon }) => (
+                <div key={label} className="flex flex-col gap-0.5">
+                  <div className={cn("flex items-center gap-1.5 text-xs font-bold tabular-nums", color)}>
+                    <Icon className="w-3.5 h-3.5" />
+                    {value.toFixed(1)}
+                  </div>
+                  <span className="text-[9px] text-zinc-600 uppercase tracking-widest font-bold">{label}</span>
                 </div>
               ))}
-              <div className="flex-1">
-                <PriorityBar score={action.priority_score} />
+              
+              <div className="hidden sm:block flex-1 ml-6 h-1.5 bg-zinc-800/50 rounded-full overflow-hidden">
+                <div 
+                  className={cn(
+                    "h-full rounded-full transition-all duration-1000 ease-out",
+                    priorityAccent === 'rose' ? "bg-rose-500" :
+                    priorityAccent === 'amber' ? "bg-amber-500" :
+                    priorityAccent === 'blue' ? "bg-blue-500" : "bg-zinc-600"
+                  )} 
+                  style={{ width: `${(priorityScore / 10) * 100}%` }}
+                />
               </div>
             </div>
           </div>
 
-          {/* Controls */}
-          <div className="flex items-center gap-0.5 shrink-0">
-            {!done && !dismiss && (
+          {/* Action Buttons */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {!isDone && !isDismissed && (
               <>
-                <button onClick={() => onStatusChange(action.rec_id, 'completed')}
-                  title="Mark done"
-                  className="p-1.5 rounded-lg hover:bg-emerald-500/15 text-zinc-700 hover:text-emerald-400 transition-colors">
-                  <CheckCircle2 className="w-4 h-4" />
-                </button>
-                <button onClick={() => onStatusChange(action.rec_id, 'dismissed')}
-                  title="Dismiss"
-                  className="p-1.5 rounded-lg hover:bg-zinc-700 text-zinc-700 hover:text-zinc-400 transition-colors">
-                  <Clock className="w-4 h-4" />
-                </button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button 
+                        onClick={() => onStatusChange(action.rec_id, 'completed')}
+                        className="p-2.5 rounded-xl bg-zinc-800/50 text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/30 border border-transparent transition-all"
+                      >
+                        <CheckCircle2 className="w-4.5 h-4.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>Mark as Completed</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button 
+                        onClick={() => onStatusChange(action.rec_id, 'dismissed')}
+                        className="p-2.5 rounded-xl bg-zinc-800/50 text-zinc-500 hover:text-amber-400 hover:bg-amber-500/10 hover:border-amber-500/30 border border-transparent transition-all"
+                      >
+                        <Clock className="w-4.5 h-4.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>Dismiss for Now</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </>
             )}
-            <button onClick={() => setOpen(!open)}
-              className="p-1.5 text-zinc-700 hover:text-zinc-300 transition-colors">
-              {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            
+            <button 
+              onClick={() => setIsOpen(!isOpen)}
+              className={cn(
+                "p-2.5 rounded-xl transition-all border border-transparent",
+                isOpen ? "bg-zinc-800 text-white border-zinc-700" : "bg-zinc-800/50 text-zinc-500 hover:text-white"
+              )}
+            >
+              {isOpen ? <ChevronUp className="w-4.5 h-4.5" /> : <ChevronDown className="w-4.5 h-4.5" />}
             </button>
           </div>
         </div>
 
-        {/* Expanded detail */}
-        {open && (
-          <div className="mt-4 ml-10 space-y-3">
-            <div className="rounded-lg border border-zinc-700/50 bg-zinc-900/70 p-3.5">
-              <p className="text-[10px] text-zinc-500 uppercase tracking-wide font-semibold mb-2">Implementation steps</p>
-              <p className="text-xs text-zinc-300 leading-relaxed">{action.action_detail}</p>
+        {/* Expandable Detail Panel */}
+        {isOpen && (
+          <div className="mt-6 ml-16 space-y-6 animate-in slide-in-from-top-4 duration-500">
+            {/* Strategy Box */}
+            <div className="relative overflow-hidden rounded-2xl border border-zinc-800/60 bg-zinc-950/50 p-5 shadow-inner">
+              <div className="absolute top-0 right-0 p-4 opacity-5">
+                <BookOpen className="w-12 h-12" />
+              </div>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="p-1.5 bg-violet-500/10 rounded-lg border border-violet-500/20">
+                  <Sparkles className="w-3.5 h-3.5 text-violet-400" />
+                </div>
+                <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Execution Strategy</span>
+              </div>
+              <p className="text-sm text-zinc-300 leading-relaxed font-medium">
+                {action.action_detail}
+              </p>
             </div>
-            {action.gap_type === 'model_gap' && action.model_detail && (
-              <div>
-                <p className="text-[10px] text-zinc-500 uppercase tracking-wide font-semibold mb-1.5">Model breakdown</p>
-                <ModelGapDetail detail={action.model_detail} />
+
+            {/* URLs & Resources */}
+            {(action.affected_urls?.length ?? 0) > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 ml-1">
+                  <Link2 className="w-3.5 h-3.5 text-zinc-600" />
+                  <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Target Endpoints</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {action.affected_urls.map((url, i) => (
+                    <div key={i} className="group/url flex items-center justify-between px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800/60 hover:border-zinc-700 transition-colors">
+                      <code className="text-[10px] text-zinc-400 truncate max-w-[80%] font-mono">{url}</code>
+                      <ExternalLink className="w-3 h-3 text-zinc-700 group-hover/url:text-zinc-400 transition-colors" />
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
-            {(action.affected_urls?.length ?? 0) > 0 && (
-              <div>
-                <p className="text-[10px] text-zinc-500 uppercase tracking-wide font-semibold mb-1.5">Affected pages</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {action.affected_urls.map((u, i) => (
-                    <code key={i} className="text-[10px] bg-zinc-900 border border-zinc-800 text-zinc-400 px-2 py-1 rounded">{u}</code>
-                  ))}
+
+            {/* Model Sensitivity Breakdown (Issue 10 Fix) */}
+            {action.gap_type === 'model_gap' && action.model_detail && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 ml-1">
+                  <Activity className="w-3.5 h-3.5 text-indigo-400" />
+                  <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Model Sensitivity Breakdown</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-2xl p-4 text-center">
+                    <p className="text-[10px] text-emerald-500/60 uppercase tracking-wider mb-1 font-bold">Peak Performance</p>
+                    <p className="text-2xl font-bold text-emerald-400">#{action.model_detail.best_rank}</p>
+                    <p className="text-[10px] text-zinc-500 capitalize mt-1 font-medium">{action.model_detail.best_model}</p>
+                  </div>
+                  <div className="bg-rose-500/5 border border-rose-500/20 rounded-2xl p-4 text-center">
+                    <p className="text-[10px] text-rose-500/60 uppercase tracking-wider mb-1 font-bold">Critical Gap</p>
+                    <p className="text-2xl font-bold text-rose-400">#{action.model_detail.worst_rank}</p>
+                    <p className="text-[10px] text-zinc-500 capitalize mt-1 font-medium">{action.model_detail.worst_model}</p>
+                  </div>
                 </div>
               </div>
             )}
@@ -560,312 +523,535 @@ function ActionCard({
   )
 }
 
-function TierGroup({
-  label, sublabel, labelColor, icon, emptyMsg, actions, offset, onStatusChange,
-}: {
-  label: string; sublabel: string; labelColor: string; icon: React.ReactNode; emptyMsg: string
-  actions: Moat4Action[]; offset: number
-  onStatusChange: (recId: string, status: 'completed' | 'dismissed') => void
-}) {
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <span className={cn('flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest', labelColor)}>
-          {icon}{label}
-        </span>
-        <span className="text-[10px] text-zinc-700">— {sublabel}</span>
-        <div className="flex-1 h-px bg-zinc-800/60" />
-        <span className="text-[10px] text-zinc-700">{actions.length}</span>
-      </div>
-      {actions.length === 0
-        ? <p className="text-xs text-zinc-700 py-2 pl-1">{emptyMsg}</p>
-        : actions.map((a, i) => (
-            <ActionCard key={a.rec_id} action={a} index={offset + i} onStatusChange={onStatusChange} />
-          ))
-      }
-    </div>
-  )
-}
-
-function CXOBrief({
-  roleOutput, deltaClass, onStatusChange,
-}: {
-  roleOutput: Moat4RoleOutput; deltaClass: DeltaClass
-  onStatusChange: (recId: string, status: 'completed' | 'dismissed') => void
-}) {
-  const cfg = DELTA_CONFIG[deltaClass] ?? DELTA_CONFIG.stable
-  return (
-    <div className="space-y-4">
-      <div className={cn('rounded-xl border p-4', cfg.bg, cfg.border)}>
-        <p className={cn('text-xs font-bold uppercase tracking-wide mb-1.5', cfg.color)}>{roleOutput.headline}</p>
-        <p className="text-sm text-zinc-300 leading-relaxed">{roleOutput.summary}</p>
-        {roleOutput.top_risk && (
-          <div className="mt-3 border-t border-zinc-700/40 pt-3">
-            <p className="text-[10px] text-zinc-600 uppercase tracking-wide mb-1">Top risk</p>
-            <p className="text-xs text-zinc-200">{roleOutput.top_risk}</p>
-          </div>
-        )}
-      </div>
-      {(roleOutput.actions ?? []).length > 0 ? (
-        <div className="space-y-2">
-          {(roleOutput.actions ?? []).map((a, i) => (
-            <ActionCard key={a.rec_id} action={a} index={i} onStatusChange={onStatusChange} />
-          ))}
-        </div>
-      ) : (
-        <p className="text-xs text-zinc-700 text-center py-4">No CXO-level actions at this time.</p>
-      )}
-    </div>
-  )
-}
-
+/** Action Queue Section Wrapper */
 function ActionQueue({
   moat4, allActions, onStatusChange,
 }: {
   moat4: Moat4Recommendations; allActions: Moat4Action[]
   onStatusChange: (recId: string, status: 'completed' | 'dismissed') => void
 }) {
-  const [role, setRole] = useState('all')
+  const [activeRole, setActiveRole] = useState('all')
 
-  const getRoleActions = (r: string): Moat4Action[] => {
-    if (r === 'all')             return allActions
-    if (r === 'cxo')             return allActions.filter(a => (a.role_visibility ?? []).includes('cxo')).slice(0, 3)
-    if (r === 'cmo')             return allActions.filter(a => (a.role_visibility ?? []).includes('cmo')).slice(0, 5)
-    if (r === 'seo_manager')     return allActions.filter(a => (a.role_visibility ?? []).includes('seo_manager')).slice(0, 10)
-    if (r === 'content_manager') return allActions.filter(a => (a.role_visibility ?? []).includes('content_manager')).slice(0, 7)
-    return allActions
-  }
+  const filteredActions = useMemo(() => {
+    if (activeRole === 'all') return allActions
+    return allActions.filter(a => (a.role_visibility ?? []).includes(activeRole))
+  }, [allActions, activeRole])
 
-  const filtered = getRoleActions(role)
-  const p1 = filtered.filter(a => a.priority_score >= 8)
-  const p2 = filtered.filter(a => a.priority_score >= 6.5 && a.priority_score < 8)
-  const p3 = filtered.filter(a => a.priority_score < 6.5)
+  const tiers = useMemo(() => {
+    return {
+      critical: filteredActions.filter(a => a.priority_score >= 8),
+      high: filteredActions.filter(a => a.priority_score >= 6.5 && a.priority_score < 8),
+      growth: filteredActions.filter(a => a.priority_score < 6.5)
+    }
+  }, [filteredActions])
 
   const ROLE_HINTS: Record<string, string> = {
-    all:             'All actions sorted by priority score — best for analysts and daily users.',
-    cxo:             'Top 3 actions formatted as an executive brief. Designed for a 5-minute board review.',
-    cmo:             'Top 5 content investment priorities with business impact context.',
-    seo_manager:     'Up to 10 sprint-ready actions with effort estimates and team ownership.',
-    content_manager: 'Up to 7 execution-ready content briefs with entity and structure guidance.',
+    all:             'Complete prioritized backlog of all competitive actions detected by the engine.',
+    cxo:             'High-level strategic priorities focused on long-term market dominance.',
+    cmo:             'Content ROI focus areas and brand positioning adjustments for competitive lift.',
+    seo_manager:     'Technical optimizations and structural fixes ready for the next sprint backlog.',
+    content_manager: 'Entity-specific content briefs and structural guidance for high-impact publishing.',
   }
 
   return (
-    <Card className="bg-zinc-900/30 border-zinc-800">
-      <CardHeader className="pb-4 border-b border-zinc-800">
-        <div className="space-y-3">
-          <div>
-            <CardTitle className="text-sm font-semibold text-zinc-100 mb-0.5">Action Queue</CardTitle>
-            <p className="text-xs text-zinc-500">
-              Select your role to filter and reformat the action list. Expand any row to see full implementation steps.
+    <SectionCard
+      title="Strategic Action Queue"
+      description="The MOAT 4 engine has analyzed your competitive landscape and prioritized these actions based on their potential to flip AI model rankings."
+      className="border-zinc-800/50"
+    >
+      <div className="space-y-8">
+        {/* Role Navigation */}
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            {ROLE_CONFIG.map(role => {
+              const Icon = role.icon
+              const isActive = activeRole === role.id
+              return (
+                <button
+                  key={role.id}
+                  onClick={() => setActiveRole(role.id)}
+                  className={cn(
+                    "group relative flex items-center gap-2.5 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all border",
+                    isActive 
+                      ? "bg-zinc-800 border-zinc-600 text-white shadow-xl shadow-black/40 scale-[1.02]" 
+                      : "bg-transparent border-zinc-800/60 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700 hover:bg-zinc-800/30"
+                  )}
+                >
+                  {isActive && (
+                    <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.6)]" />
+                  )}
+                  <Icon className={cn("w-4 h-4", isActive ? "text-amber-400" : "text-zinc-600 group-hover:text-zinc-500")} />
+                  <span>{role.label}</span>
+                </button>
+              )
+            })}
+          </div>
+          
+          <div className="flex items-start gap-3 bg-zinc-950/40 rounded-2xl p-4 border border-zinc-800/50 shadow-inner">
+            <div className="p-1.5 bg-zinc-800 rounded-lg mt-0.5">
+              <Info className="w-3.5 h-3.5 text-zinc-500" />
+            </div>
+            <p className="text-xs text-zinc-500 leading-relaxed italic font-medium">
+              {ROLE_HINTS[activeRole]}
             </p>
           </div>
-          {/* Role tabs */}
-          <div className="flex flex-wrap gap-1.5">
-            {ROLE_CONFIG.map(rc => (
-              <button
-                key={rc.id}
-                onClick={() => setRole(rc.id)}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border',
-                  role === rc.id
-                    ? 'bg-zinc-800 border-zinc-600 text-zinc-100'
-                    : 'bg-transparent border-zinc-800 text-zinc-500 hover:text-zinc-200 hover:border-zinc-700'
-                )}
-              >
-                <span className={cn(role === rc.id ? 'text-amber-400' : 'text-zinc-600')}>{rc.icon}</span>
-                {rc.label}
-              </button>
-            ))}
-          </div>
-          {/* Role hint */}
-          <div className="flex items-start gap-1.5 bg-zinc-800/30 rounded-lg px-3 py-2 border border-zinc-800">
-            <Info className="w-3 h-3 text-zinc-600 shrink-0 mt-0.5" />
-            <p className="text-[10px] text-zinc-600 leading-relaxed">{ROLE_HINTS[role]}</p>
-          </div>
         </div>
-      </CardHeader>
 
-      <CardContent className="pt-5 space-y-6">
-        {role === 'cxo' && moat4.role_output ? (
-          <CXOBrief roleOutput={moat4.role_output} deltaClass={moat4.delta_class as DeltaClass} onStatusChange={onStatusChange} />
-        ) : filtered.length === 0 ? (
-          <p className="text-xs text-zinc-700 text-center py-8">No actions found for this role view.</p>
-        ) : (
-          <>
-            <TierGroup label="P1 — Act now"    sublabel="this week, critical" labelColor="text-rose-400"    icon={<Flame className="w-3 h-3" />} emptyMsg="No critical actions — healthy sign."      actions={p1} offset={0}              onStatusChange={onStatusChange} />
-            <TierGroup label="P2 — This sprint" sublabel="within 2 weeks"    labelColor="text-amber-400"   icon={<Zap className="w-3 h-3" />}   emptyMsg="No sprint-priority actions right now."  actions={p2} offset={p1.length}      onStatusChange={onStatusChange} />
-            <TierGroup label="P3 — Ongoing"     sublabel="regular cadence"   labelColor="text-zinc-500"    icon={<Target className="w-3 h-3" />} emptyMsg="No ongoing actions queued."            actions={p3} offset={p1.length + p2.length} onStatusChange={onStatusChange} />
-          </>
-        )}
-      </CardContent>
-    </Card>
+        {/* Tiers Display */}
+        <div className="space-y-12">
+          {filteredActions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-24 text-center space-y-4">
+              <div className="w-20 h-20 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center shadow-inner">
+                <Search className="w-10 h-10 text-zinc-800" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-lg font-bold text-zinc-400">No actions found</p>
+                <p className="text-sm text-zinc-600 max-w-xs">
+                  Your competitive standing for this role perspective is currently optimal.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* CXO Brief Special View */}
+              {activeRole === 'cxo' && moat4.role_output && (
+                <div className="space-y-8 animate-in fade-in duration-700">
+                  <div className="relative overflow-hidden rounded-[2rem] border border-amber-500/20 bg-amber-500/5 p-8 shadow-2xl">
+                    <div className="absolute top-0 right-0 p-6 opacity-5">
+                      <Trophy className="w-24 h-24 text-amber-500" />
+                    </div>
+                    <div className="relative z-10 space-y-6">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-amber-500/10 rounded-xl border border-amber-500/20">
+                          <Trophy className="w-5 h-5 text-amber-400" />
+                        </div>
+                        <span className="text-xs font-bold uppercase tracking-[0.3em] text-amber-500/80">
+                          Executive Strategic Summary
+                        </span>
+                      </div>
+                      <h2 className="text-2xl font-bold text-zinc-100 leading-snug tracking-tight">
+                        {moat4.role_output.headline}
+                      </h2>
+                      <p className="text-lg text-zinc-300 leading-relaxed font-medium">
+                        {moat4.role_output.summary}
+                      </p>
+                      {moat4.role_output.top_risk && (
+                        <div className="pt-6 border-t border-zinc-800/40">
+                          <div className="flex items-center gap-2 mb-3">
+                            <ShieldAlert className="w-4 h-4 text-rose-400" />
+                            <span className="text-[10px] text-rose-400/80 uppercase tracking-[0.2em] font-bold">Strategic Risk Factor</span>
+                          </div>
+                          <p className="text-sm text-zinc-400 leading-relaxed italic border-l-2 border-rose-500/30 pl-4 py-1">
+                            {moat4.role_output.top_risk}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 ml-1">
+                      <Sparkles className="w-4 h-4 text-amber-400" />
+                      <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold">Top Strategic Actions</span>
+                    </div>
+                    <div className="space-y-4">
+                      {tiers.critical.concat(tiers.high).slice(0, 3).map((a, i) => (
+                        <ActionCard key={a.rec_id} action={a} index={i} onStatusChange={onStatusChange} />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Standard Tiers View */}
+              {activeRole !== 'cxo' && (
+                <div className="space-y-12">
+                  <TierGroup 
+                    label="Critical Fixes" 
+                    icon={Flame} 
+                    accent="rose" 
+                    actions={tiers.critical} 
+                    onStatusChange={onStatusChange}
+                    offset={0}
+                  />
+                  <TierGroup 
+                    label="High Priority" 
+                    icon={Zap} 
+                    accent="amber" 
+                    actions={tiers.high} 
+                    onStatusChange={onStatusChange}
+                    offset={tiers.critical.length}
+                  />
+                  <TierGroup 
+                    label="Growth Tasks" 
+                    icon={Target} 
+                    accent="blue" 
+                    actions={tiers.growth} 
+                    onStatusChange={onStatusChange}
+                    offset={tiers.critical.length + tiers.high.length}
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </SectionCard>
   )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Step 6 — Competitor citation sources
-// ─────────────────────────────────────────────────────────────────────────────
+function TierGroup({
+  label, icon: Icon, accent, actions, offset, onStatusChange,
+}: {
+  label: string; icon: any; accent: 'rose' | 'amber' | 'blue' | 'zinc'
+  actions: Moat4Action[]; offset: number
+  onStatusChange: (recId: string, status: 'completed' | 'dismissed') => void
+}) {
+  const accentCls = 
+    accent === 'rose' ? 'text-rose-400 border-rose-500/30 bg-rose-500/10' :
+    accent === 'amber' ? 'text-amber-400 border-amber-500/30 bg-amber-500/10' :
+    accent === 'blue' ? 'text-blue-400 border-blue-500/30 bg-blue-500/10' :
+    'text-zinc-500 border-zinc-700 bg-zinc-800/30'
 
-function SourcesPanel({ sourceAnalysis }: { sourceAnalysis?: ModuleFSourceAnalysis | null }) {
-  const [exp, setExp] = useState(false)
-  const sources = sourceAnalysis?.competitor_source_analysis ?? []
-  if (!sources.length) return (
-    <div className="rounded-xl border border-zinc-800 px-4 py-5 text-center bg-zinc-900/20">
-      <p className="text-xs text-zinc-600">No citation source data available.</p>
-    </div>
-  )
-  const shown = sources.slice(0, exp ? 20 : 3)
   return (
-    <div className="rounded-xl border border-zinc-800 overflow-hidden">
-      <div className="px-4 py-3 bg-zinc-900/60 border-b border-zinc-800">
-        <div className="flex items-center gap-2">
-          <Link2 className="w-4 h-4 text-zinc-500" />
-          <span className="text-xs font-semibold text-zinc-200">Competitor citation sources</span>
-          <span className="text-[10px] text-zinc-600 ml-auto">Screen 4 data</span>
+    <div className="space-y-4">
+      <div className="flex items-center gap-4">
+        <div className={cn("flex items-center gap-2 px-4 py-1.5 rounded-full border text-[10px] font-bold uppercase tracking-[0.2em] shadow-lg", accentCls)}>
+          <Icon className="w-4 h-4" />
+          {label}
         </div>
-        <p className="text-[10px] text-zinc-600 mt-1">
-          High-authority domains that AI models cite for your competitors. Earning a citation from these sources
-          directly increases your own AI visibility score.
-        </p>
+        <div className="flex-1 h-px bg-gradient-to-r from-zinc-800/60 via-zinc-800/20 to-transparent" />
+        <Badge variant="secondary" className="bg-zinc-900 border border-zinc-800 text-zinc-500 text-[10px] font-bold px-2 py-0.5">
+          {actions.length} ACTIONS
+        </Badge>
       </div>
-      <div className="px-4 py-2 bg-zinc-900/30 border-b border-zinc-800/60 hidden lg:grid lg:grid-cols-[220px_220px_1fr] gap-4 text-[10px] uppercase tracking-wide text-zinc-600">
-        <div>Competitor</div>
-        <div>Quality Metrics</div>
-        <div>Top Domains (by citation frequency)</div>
-      </div>
-
-      <div className="divide-y divide-zinc-800/40">
-        {shown.map((src, i) => (
-          <div key={i} className="px-4 py-3.5 bg-zinc-950/20 hover:bg-zinc-900/25 transition-colors">
-            <div className="grid grid-cols-1 lg:grid-cols-[220px_220px_1fr] gap-4 items-start">
-              <div className="min-w-0 space-y-2">
-                <div className="text-sm font-semibold text-zinc-100 truncate">{src.competitor}</div>
-                <div className="inline-flex items-center gap-1.5 text-[10px] rounded-md border border-zinc-800 bg-zinc-900/70 px-2 py-1 text-zinc-500">
-                  <span>{src.citation_count} cites</span>
-                  <span>•</span>
-                  <span>{src.unique_domains ?? 0} domains</span>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <span className="text-[10px] rounded-lg border border-amber-500/20 bg-amber-500/12 text-amber-300 px-2.5 py-1">
-                  influence {src.source_domain_influence_score?.toFixed(0)}
-                </span>
-                <span className="text-[10px] rounded-lg border border-sky-500/20 bg-sky-500/12 text-sky-300 px-2.5 py-1">
-                  avg DA {src.average_domain_authority?.toFixed(0)}
-                </span>
-                {(src.credibility_score ?? 0) > 0 && (
-                  <span className="text-[10px] rounded-lg border border-zinc-700 bg-zinc-900/90 text-zinc-400 px-2.5 py-1">
-                    credibility {src.credibility_score?.toFixed(0)}
-                  </span>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex flex-wrap gap-1.5">
-                  {(src.citation_frequency ?? []).slice(0, 8).map((cf, j) => (
-                    <span key={j} className="text-[10px] bg-zinc-900/90 border border-zinc-800 text-zinc-300 px-2.5 py-1 rounded-full font-mono">
-                      {cf.domain} <span className="text-zinc-700 ml-1">×{cf.count}</span>
-                    </span>
-                  ))}
-                  {!src.citation_frequency?.length && (
-                    <span className="text-[10px] text-zinc-600">No frequency data</span>
-                  )}
-                </div>
-
-                {(() => {
-                  const typeCounts = (src.top_citations ?? []).reduce<Record<string, number>>((acc, tc) => {
-                    const ct = (tc.content_type ?? 'page').toLowerCase()
-                    // "page" is too generic/noisy, hide unless it's the only type.
-                    if (ct !== 'page') {
-                      acc[ct] = (acc[ct] ?? 0) + 1
-                    }
-                    return acc
-                  }, {})
-                  const entries = Object.entries(typeCounts)
-
-                  if (!entries.length) {
-                    return <div className="text-[10px] text-zinc-600">Content types: mixed pages</div>
-                  }
-
-                  return (
-                    <div className="flex flex-wrap gap-1.5">
-                      {entries.slice(0, 4).map(([ct, count]) => (
-                        <span key={ct} className={cn('text-[10px] border rounded-full px-2.5 py-1 capitalize', CT_COLOR[ct] ?? CT_COLOR.page)}>
-                          {ct} x{count}
-                        </span>
-                      ))}
-                      {entries.length > 4 && (
-                        <span className="text-[10px] text-zinc-600">+{entries.length - 4} more</span>
-                      )}
-                    </div>
-                  )
-                })()}
-              </div>
-            </div>
+      
+      {actions.length === 0 ? (
+        <div className="flex items-center gap-4 py-6 px-6 rounded-[1.5rem] border border-dashed border-zinc-800 bg-zinc-900/10 transition-all hover:bg-zinc-900/20">
+          <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+            <CheckCheck className="w-5 h-5 text-emerald-500/60" />
           </div>
-        ))}
-      </div>
-      {sources.length > 3 && (
-        <button onClick={() => setExp(!exp)}
-          className="w-full px-4 py-2.5 text-[10px] text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800/30 transition-colors flex items-center justify-center gap-1 border-t border-zinc-800">
-          {exp ? <><ChevronUp className="w-3 h-3" />Show less</> : <><ChevronDown className="w-3 h-3" />{sources.length - 3} more</>}
-        </button>
+          <p className="text-sm text-zinc-500 font-medium italic">
+            No pending actions in this tier. Your competitive stance is stable.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {actions.map((a, i) => (
+            <ActionCard key={a.rec_id} action={a} index={offset + i} onStatusChange={onStatusChange} />
+          ))}
+        </div>
       )}
     </div>
   )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Step 7 — Metric accordion
+// Restored Sections
 // ─────────────────────────────────────────────────────────────────────────────
+
+function LeaderboardDelta({ comparison }: { comparison: ModuleFCompareVisibilityAgainstCompetitors | null }) {
+  if (!comparison) return null
+  const all = [comparison.brand, ...(comparison.competitors ?? [])].filter(Boolean) as ModuleFCompareVisibilityEntityRow[]
+  if (!all.some(e => (e.score_delta != null && e.score_delta !== 0) || e.rank_move)) return null
+  
+  return (
+    <SectionCard
+      title="Leaderboard Momentum"
+      description="Score and rank shifts compared to your last analysis run."
+      className="border-zinc-800/50"
+    >
+      <div className="space-y-4">
+        <div className="grid grid-cols-[1fr_100px_100px_100px] gap-4 px-6 py-3 bg-zinc-900/60 rounded-xl border border-zinc-800/60 text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-bold">
+          <div>Entity Name</div>
+          <div className="text-right">AIVS™</div>
+          <div className="text-right">Δ Score</div>
+          <div className="text-right">Rank</div>
+        </div>
+        
+        <div className="space-y-2">
+          {all.map((e, i) => {
+            const delta = e.score_delta ?? 0
+            const move  = e.rank_move  ?? 0
+            const isBrand = i === 0
+            return (
+              <div key={e.name} className={cn(
+                'group relative overflow-hidden grid grid-cols-[1fr_100px_100px_100px] gap-4 items-center px-6 py-4 rounded-2xl border transition-all duration-300',
+                isBrand 
+                  ? 'bg-amber-500/5 border-amber-500/20 hover:border-amber-500/40' 
+                  : 'bg-zinc-900/40 border-zinc-800/60 hover:border-zinc-700 hover:bg-zinc-900/60'
+              )}>
+                <div className="flex items-center gap-4 min-w-0">
+                  <div className={cn(
+                    'w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 border transition-transform group-hover:scale-110',
+                    isBrand ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-zinc-800 text-zinc-500 border-zinc-700'
+                  )}>
+                    {e.rank_position ?? i + 1}
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={cn('text-sm truncate font-bold', isBrand ? 'text-white' : 'text-zinc-200')}>
+                        {e.name}
+                      </span>
+                      {isBrand && (
+                        <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/20 text-[9px] font-bold py-0 h-4 px-1.5">
+                          BRAND
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="text-right">
+                  <span className="text-sm font-mono font-bold text-zinc-100">
+                    {e.benchmark_score?.toFixed(1) ?? '—'}
+                  </span>
+                </div>
+
+                <div className={cn(
+                  'text-sm font-mono font-bold text-right flex items-center justify-end gap-1',
+                  delta > 0 ? 'text-emerald-400' : delta < 0 ? 'text-rose-400' : 'text-zinc-600'
+                )}>
+                  {delta !== 0 && (delta > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />)}
+                  {delta !== 0 ? `${delta > 0 ? '+' : ''}${delta.toFixed(1)}` : '—'}
+                </div>
+
+                <div className={cn(
+                  'text-sm text-right font-bold tabular-nums',
+                  move > 0 ? 'text-emerald-400' : move < 0 ? 'text-rose-400' : 'text-zinc-700'
+                )}>
+                  {move !== 0 ? (
+                    <span className="flex items-center justify-end gap-1">
+                      {move > 0 ? '↑' : '↓'} {Math.abs(move)}
+                    </span>
+                  ) : '—'}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </SectionCard>
+  )
+}
+
+function SourcesPanel({ sourceAnalysis }: { sourceAnalysis?: ModuleFSourceAnalysis | null }) {
+  const [exp, setExp] = useState(false)
+  const sources = sourceAnalysis?.competitor_source_analysis ?? []
+  
+  if (!sources.length) return null
+
+  const shown = sources.slice(0, exp ? 20 : 3)
+  
+  return (
+    <SectionCard
+      title="Competitive Citation Analysis"
+      description="Domains cited by AI models for your competitors. Gaining citations here boosts your authority."
+      className="border-zinc-800/50"
+    >
+      <div className="space-y-6">
+        <div className="divide-y divide-zinc-800/40">
+          {shown.map((src, i) => (
+            <div key={i} className="group py-6 first:pt-0 last:pb-0 transition-all duration-300 hover:bg-zinc-800/5 rounded-2xl px-4 -mx-4">
+              <div className="flex flex-col lg:flex-row gap-8 items-start">
+                {/* Competitor Identity */}
+                <div className="w-full lg:w-[260px] space-y-3 shrink-0">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)] animate-pulse" />
+                    <span className="text-base font-bold text-zinc-100 group-hover:text-blue-400 transition-colors tracking-tight">
+                      {src.competitor}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="bg-zinc-900/60 border-zinc-800 text-zinc-500 text-[10px] font-bold px-2 py-0.5 tracking-wider">
+                      {src.citation_count} CITES
+                    </Badge>
+                    <Badge variant="secondary" className="bg-zinc-900/60 border-zinc-800 text-zinc-500 text-[10px] font-bold px-2 py-0.5 tracking-wider">
+                      {src.unique_domains ?? 0} DOMAINS
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Quality Metrics Grid */}
+                <div className="w-full lg:w-auto grid grid-cols-1 sm:grid-cols-3 gap-3 shrink-0">
+                  {[
+                    { l: 'Influence', v: src.source_domain_influence_score, c: 'amber', i: Zap },
+                    { l: 'Avg DA',    v: src.average_domain_authority,     c: 'cyan',  i: Globe },
+                    { l: 'Trust',     v: src.credibility_score,            c: 'violet', i: ShieldCheck },
+                  ].map(m => (
+                    <div key={m.l} className={cn(
+                      'relative overflow-hidden flex flex-col gap-1.5 p-3 rounded-xl border min-w-[120px] transition-all group/metric hover:shadow-lg',
+                      m.c === 'amber' ? 'bg-amber-500/5 border-amber-500/20 hover:border-amber-500/40' :
+                      m.c === 'cyan'  ? 'bg-cyan-500/5 border-cyan-500/20 hover:border-cyan-500/40' :
+                      'bg-violet-500/5 border-violet-500/20 hover:border-violet-500/40'
+                    )}>
+                      <div className="flex items-center justify-between">
+                        <span className={cn(
+                          'text-[9px] font-bold uppercase tracking-widest opacity-60',
+                          m.c === 'amber' ? 'text-amber-500' : m.c === 'cyan' ? 'text-cyan-500' : 'text-violet-500'
+                        )}>{m.l}</span>
+                        <m.i className={cn(
+                          'w-3 h-3 transition-transform group-hover/metric:scale-110',
+                          m.c === 'amber' ? 'text-amber-500' : m.c === 'cyan' ? 'text-cyan-500' : 'text-violet-500'
+                        )} />
+                      </div>
+                      <div className="flex items-end gap-2">
+                        <span className="text-xl font-bold text-zinc-100 tabular-nums">
+                          {m.v?.toFixed(0) ?? '0'}
+                        </span>
+                        <div className="flex-1 h-1 bg-zinc-800/50 rounded-full mb-1.5 overflow-hidden">
+                          <div 
+                            className={cn(
+                              'h-full rounded-full transition-all duration-1000',
+                              m.c === 'amber' ? 'bg-amber-500' : m.c === 'cyan' ? 'bg-cyan-500' : 'bg-violet-500'
+                            )}
+                            style={{ width: `${m.v ?? 0}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Top Citation Domains - Pills */}
+                <div className="flex-1 space-y-4">
+                  <div className="flex flex-wrap gap-2">
+                    {(src.citation_frequency ?? []).slice(0, 10).map((cf, j) => (
+                      <TooltipProvider key={j}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="group/domain flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-zinc-600 transition-all cursor-default shadow-sm hover:shadow-md">
+                              <Globe className="w-3.5 h-3.5 text-zinc-600 group-hover/domain:text-blue-400 transition-colors" />
+                              <span className="text-[11px] text-zinc-300 font-mono tracking-tight group-hover:text-zinc-100 transition-colors">{cf.domain}</span>
+                              <div className="h-4 w-[1px] bg-zinc-800 mx-1" />
+                              <span className="text-[10px] text-zinc-600 font-bold tracking-tighter group-hover:text-blue-400 transition-colors">×{cf.count}</span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent className="bg-zinc-900 border-zinc-800 text-zinc-200">
+                            <p className="text-xs">Cited {cf.count} times for <span className="text-blue-400 font-bold">{src.competitor}</span></p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    ))}
+                  </div>
+
+                  {(() => {
+                    const typeCounts = (src.top_citations ?? []).reduce<Record<string, number>>((acc, tc) => {
+                      const ct = (tc.content_type ?? 'page').toLowerCase()
+                      if (ct !== 'page') acc[ct] = (acc[ct] ?? 0) + 1
+                      return acc
+                    }, {})
+                    const entries = Object.entries(typeCounts)
+                    if (!entries.length) return null
+                    
+                    return (
+                      <div className="flex items-center gap-3 pt-2 border-t border-zinc-800/40">
+                        <span className="text-[10px] text-zinc-600 uppercase tracking-[0.2em] font-bold">Content Mix:</span>
+                        <div className="flex flex-wrap gap-2">
+                          {entries.slice(0, 5).map(([ct, count]) => (
+                            <Badge key={ct} variant="outline" className={cn(
+                              'text-[10px] font-bold capitalize px-2.5 py-0.5 border-zinc-800/60 shadow-sm transition-all hover:scale-105',
+                              CT_COLOR[ct] ?? CT_COLOR.page
+                            )}>
+                              {ct} <span className="ml-1.5 opacity-60 font-mono">{count}</span>
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })()}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        {sources.length > 3 && (
+          <button
+            onClick={() => setExp(!exp)}
+            className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 hover:bg-zinc-800 hover:border-zinc-700 text-xs font-bold text-zinc-400 hover:text-zinc-200 transition-all group shadow-inner"
+          >
+            {exp ? <ChevronUp className="w-4 h-4 group-hover:-translate-y-0.5 transition-transform" /> : <ChevronDown className="w-4 h-4 group-hover:translate-y-0.5 transition-transform" />}
+            {exp ? 'Collapse Deep Analysis' : `View Comprehensive Citation Profiles (${sources.length})`}
+          </button>
+        )}
+      </div>
+    </SectionCard>
+  )
+}
 
 function MetricAccordion({ metricRecs }: { metricRecs: ModuleFRecommendations }) {
   const [open, setOpen] = useState<string | null>(null)
-  const entries = Object.entries(metricRecs)
-    .map(([k, raw]) => ({ key: k, val: normaliseMetricRec(raw) }))
-    .filter(({ val }) => val !== null) as Array<{ key: string; val: { why: string; fix: string } }>
-  if (!entries.length) return (
-    <div className="rounded-xl border border-zinc-800 px-4 py-5 text-center bg-zinc-900/20">
-      <p className="text-xs text-zinc-600">No metric analysis data available.</p>
-    </div>
-  )
+
+  const recs = Object.entries(metricRecs)
+    .map(([key, value]) => ({ key, rec: normaliseMetricRec(value) }))
+    .filter(item => item.rec && (item.rec.why || item.rec.fix))
+
+  if (!recs.length) return null
+
   return (
-    <div className="rounded-xl border border-zinc-800 overflow-hidden">
-      <div className="px-4 py-3 bg-zinc-900/60 border-b border-zinc-800 flex items-center gap-2">
-        <Info className="w-4 h-4 text-zinc-500" />
-        <span className="text-xs font-semibold text-zinc-200">Why each metric is where it is — and how to fix it</span>
-      </div>
-      <p className="text-[10px] text-zinc-600 px-4 py-2 bg-zinc-900/30 border-b border-zinc-800/50">
-        Generated from your actual benchmark data. Click any metric to see the root-cause analysis and a concrete fix list.
-      </p>
-      <div className="divide-y divide-zinc-800/40">
-        {entries.map(({ key, val }) => {
-          const meta  = METRIC_META[key]
+    <SectionCard
+      title="Metric-Level Analysis"
+      description="Detailed explanations for key metric scores and how to improve them."
+      className="border-zinc-800/50"
+    >
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {recs.map(({ key, rec }) => {
+          const meta = METRIC_META[key]
           const isOpen = open === key
+          if (!rec || !meta) return null
+
           return (
-            <div key={key}>
-              <button
+            <div key={key} className={cn(
+              'group relative overflow-hidden flex flex-col rounded-2xl border transition-all duration-300',
+              isOpen ? 'bg-zinc-800/40 border-zinc-600 shadow-xl' : 'bg-zinc-900/40 border-zinc-800/60 hover:border-zinc-700 hover:bg-zinc-900/60'
+            )}>
+              <button 
                 onClick={() => setOpen(isOpen ? null : key)}
-                className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-zinc-800/20 transition-colors text-left"
+                className="w-full flex items-center justify-between p-5 transition-colors"
               >
-                <span className="text-zinc-600 shrink-0">{meta?.icon ?? <Info className="w-3.5 h-3.5" />}</span>
-                <span className="text-xs font-medium text-zinc-200 flex-1">{meta?.label ?? key}</span>
-                <span className="text-[10px] text-zinc-600 mr-2">{isOpen ? 'close' : 'why + fix'}</span>
-                {isOpen ? <ChevronUp className="w-3.5 h-3.5 text-zinc-700 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-zinc-700 shrink-0" />}
+                <div className="flex items-center gap-4">
+                  <div className={cn(
+                    'w-10 h-10 rounded-xl border flex items-center justify-center transition-all group-hover:scale-110',
+                    isOpen ? 'bg-amber-500/20 border-amber-500/30 text-amber-400' : 'bg-zinc-800 border-zinc-700 text-zinc-400'
+                  )}>
+                    {meta.icon}
+                  </div>
+                  <span className={cn('text-sm font-bold tracking-tight', isOpen ? 'text-white' : 'text-zinc-200 group-hover:text-white')}>
+                    {meta.label}
+                  </span>
+                </div>
+                <div className={cn(
+                  'p-1.5 rounded-lg bg-zinc-800/50 text-zinc-500 transition-all',
+                  isOpen && 'bg-amber-500/10 text-amber-400 rotate-180'
+                )}>
+                  <ChevronDown className="w-4 h-4" />
+                </div>
               </button>
+              
               {isOpen && (
-                <div className="px-4 pb-4 space-y-2.5 bg-zinc-900/25">
-                  {val.why && (
-                    <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3.5">
-                      <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-wide mb-2">Why it's here</p>
-                      <p className="text-xs text-zinc-300 leading-relaxed">{val.why}</p>
+                <div className="px-5 pb-5 space-y-4 animate-in slide-in-from-top-4 duration-500">
+                  <div className="h-px bg-zinc-800/50 w-full" />
+                  {rec.why && (
+                    <div className="relative overflow-hidden flex items-start gap-4 text-sm text-zinc-400 bg-zinc-950/50 p-4 rounded-xl border border-zinc-800/50 shadow-inner">
+                      <div className="p-1.5 bg-blue-500/10 rounded-lg border border-blue-500/20 shrink-0 mt-0.5">
+                        <HelpCircle className="w-3.5 h-3.5 text-blue-400" />
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[10px] text-zinc-600 uppercase tracking-widest font-bold">Root Cause Analysis</span>
+                        <p className="leading-relaxed text-zinc-300 font-medium">{rec.why}</p>
+                      </div>
                     </div>
                   )}
-                  {val.fix && (
-                    <div className="rounded-lg border border-emerald-500/15 bg-emerald-500/4 p-3.5">
-                      <p className="text-[10px] font-bold text-emerald-600/60 uppercase tracking-wide mb-2">How to improve it</p>
-                      <p className="text-xs text-zinc-300 leading-relaxed">{val.fix}</p>
+                  {rec.fix && (
+                    <div className="relative overflow-hidden flex items-start gap-4 text-sm text-zinc-400 bg-zinc-950/50 p-4 rounded-xl border border-zinc-800/50 shadow-inner">
+                      <div className="p-1.5 bg-emerald-500/10 rounded-lg border border-emerald-500/20 shrink-0 mt-0.5">
+                        <Settings2 className="w-3.5 h-3.5 text-emerald-400" />
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[10px] text-zinc-600 uppercase tracking-widest font-bold">Optimization Strategy</span>
+                        <p className="leading-relaxed text-zinc-300 font-medium">{rec.fix}</p>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -874,305 +1060,132 @@ function MetricAccordion({ metricRecs }: { metricRecs: ModuleFRecommendations })
           )
         })}
       </div>
-    </div>
+    </SectionCard>
   )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Step 8 — IEU explainer
+// Main Component
 // ─────────────────────────────────────────────────────────────────────────────
 
-function IEUExplainer() {
-  return (
-    <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/20 p-5 space-y-4">
-      <p className="text-xs text-zinc-500">
-        Every action is scored on three dimensions and ranked by a weighted formula. Understanding this helps you
-        decide which P2 actions to promote to P1 based on your specific situation.
-      </p>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {[
-          { label: 'Impact', pct: '50%', color: 'text-purple-400', bg: 'bg-purple-500/8', border: 'border-purple-500/20',
-            desc: 'How much AI visibility will this gain if completed?', eg: 'Uncontested page = 9/10. Minor copy tweak = 4/10.' },
-          { label: 'Effort', pct: '30%', color: 'text-sky-400', bg: 'bg-sky-500/8', border: 'border-sky-500/20',
-            desc: 'Inverted: 10 = quick win (~1 hr). 1 = large project (40+ hrs).',  eg: 'FAQ schema = 9/10. New comparison page = 5/10.' },
-          { label: 'Urgency', pct: '20%', color: 'text-amber-400', bg: 'bg-amber-500/8', border: 'border-amber-500/20',
-            desc: 'Does delay make this worse? Elevated on competitor surge or score drop.', eg: 'Competitor +10 pts = +3 urgency modifier.' },
-        ].map(({ label, pct, color, bg, border, desc, eg }) => (
-          <div key={label} className={cn('rounded-lg border p-3.5 space-y-1.5', bg, border)}>
-            <div className="flex items-center justify-between">
-              <span className={cn('text-sm font-bold', color)}>{label}</span>
-              <span className={cn('text-xs font-mono font-semibold', color)}>{pct}</span>
-            </div>
-            <p className="text-xs text-zinc-400 leading-relaxed">{desc}</p>
-            <p className="text-[10px] text-zinc-600">e.g. {eg}</p>
-          </div>
-        ))}
-      </div>
-      <div className="border-t border-zinc-800/50 pt-3 space-y-0.5 text-center">
-        <p className="text-[10px] text-zinc-600 font-mono">
-          Priority = (Impact × 0.50) + ((11 − Effort) × 0.30) + (Urgency × 0.20)
-        </p>
-        <p className="text-[10px] text-zinc-700">
-          Score ≥ 8.0 = P1 (Act now) &nbsp;·&nbsp; 6.5–8.0 = P2 (This sprint) &nbsp;·&nbsp; &lt; 6.5 = P3 (Ongoing)
-        </p>
-      </div>
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Loading skeleton
-// ─────────────────────────────────────────────────────────────────────────────
-
-function Skeleton() {
-  return (
-    <div className="space-y-5 animate-pulse">
-      <div className="h-7 w-52 bg-zinc-800 rounded-lg" />
-      <div className="h-20 bg-zinc-900 border border-zinc-800 rounded-xl" />
-      <div className="grid grid-cols-4 gap-3">
-        {[1,2,3,4].map(i => <div key={i} className="h-24 bg-zinc-900 border border-zinc-800 rounded-xl" />)}
-      </div>
-      <div className="h-36 bg-zinc-900 border border-zinc-800 rounded-xl" />
-      {[1,2,3].map(i => <div key={i} className="h-20 bg-zinc-900 border border-zinc-800 rounded-xl" />)}
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Root
-// ─────────────────────────────────────────────────────────────────────────────
-
-export default function CompetitorRecommendations({
-  moduleFData, isLoading,
+export function CompetitorRecommendations({
+  moduleFData,
+  isLoading,
+  jobId
 }: CompetitorRecommendationsProps) {
-  const [statuses, setStatuses] = useState<Record<string, Moat4Action['status']>>({})
-  const [showD7Details, setShowD7Details] = useState(false)
+  const moat4 = resolveMoat4Recommendations(moduleFData)
+  const alerts = resolveAlerts(moduleFData)
+  const gaps = resolveGapAnalysis(moduleFData)
+  
+  // Local state for action status tracking
+  const [completedActions, setCompletedActions] = useState<Set<string>>(new Set())
+  const [dismissedActions, setDismissedActions] = useState<Set<string>>(new Set())
 
-  const moat4       = resolveMoat4Recommendations(moduleFData)
-  const metricRecs  = resolveRecommendations(moduleFData)
-  const gapAnalysis = resolveGapAnalysis(moduleFData)
-  const alerts      = resolveAlerts(moduleFData)
-  const comparison  = moduleFData?.compare_visibility_against_competitors ?? null
-  const flags       = resolveFeatureFlags(moduleFData)
-  const d7          = resolveD7Output(moduleFData)
+  const handleStatusChange = (recId: string, status: 'completed' | 'dismissed') => {
+    if (status === 'completed') {
+      setCompletedActions(prev => new Set(prev).add(recId))
+    } else {
+      setDismissedActions(prev => new Set(prev).add(recId))
+    }
+  }
 
-  const handleStatus = (recId: string, status: 'completed' | 'dismissed') =>
-    setStatuses(prev => ({ ...prev, [recId]: status }))
+  // Memoize action stats
+  const stats = useMemo(() => {
+    if (!moat4) return { p1: 0, p2: 0, p3: 0, done: 0, total: 0 }
+    const actions = moat4.all_actions ?? []
+    return {
+      p1: actions.filter(a => a.priority_score >= 8).length,
+      p2: actions.filter(a => a.priority_score >= 6.5 && a.priority_score < 8).length,
+      p3: actions.filter(a => a.priority_score < 6.5).length,
+      done: completedActions.size,
+      total: actions.length
+    }
+  }, [moat4, completedActions])
 
-  if (isLoading) return <Skeleton />
-
-  if (!moat4?.all_actions?.length) {
+  if (isLoading) {
     return (
-      <AnalysisEmptyState
-        icon={<Lightbulb className="w-8 h-8 text-zinc-400" />}
-        title="No Recommendations Yet"
-        description="Run Module F analysis to generate prioritised competitive recommendations powered by the MOAT 4 engine."
-      />
+      <div className="space-y-8 animate-pulse">
+        <div className="h-64 rounded-[2rem] bg-zinc-900/50" />
+        <div className="grid grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map(i => <div key={i} className="h-32 rounded-2xl bg-zinc-900/50" />)}
+        </div>
+        <div className="h-96 rounded-[2rem] bg-zinc-900/50" />
+      </div>
     )
   }
 
-  const deltaClass = (moat4.delta_class ?? 'stable') as DeltaClass
-
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const allActions: Moat4Action[] = useMemo(() =>
-    moat4.all_actions.map(a => ({
-      ...a,
-      status: (statuses[a.rec_id] ?? a.status ?? 'pending') as Moat4Action['status'],
-    })),
-    [moat4.all_actions, statuses]
-  )
-
-  const done = Object.values(statuses).filter(s => s === 'completed').length
-  const p1   = allActions.filter(a => a.priority_score >= 8).length
-  const p2   = allActions.filter(a => a.priority_score >= 6.5 && a.priority_score < 8).length
-  const p3   = allActions.filter(a => a.priority_score < 6.5).length
+  if (!moat4) {
+    return <AnalysisEmptyState 
+      title="No Recommendations Yet" 
+      description="Run a competitive analysis to generate MOAT 4 strategic recommendations." 
+      icon={<Rocket className="w-16 h-16 text-zinc-700" />}
+    />
+  }
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-500">
-
-      {/* Page header */}
-      <div className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900/50 to-transparent p-4 sm:p-5">
-        <div className="flex items-start gap-3">
-          <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl shrink-0">
-            <Lightbulb className="w-5 h-5 text-amber-400" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-zinc-100 flex items-center gap-2.5">
-              Recommendation Engine
-              {moduleFData?.plan && (
-                <Badge className="bg-zinc-800 border-zinc-700 text-zinc-500 text-[10px] font-normal capitalize">
-                  {moduleFData.plan}
-                </Badge>
-              )}
-              {moduleFData?.role && (
-                <Badge variant="outline" className="border-zinc-700 text-zinc-500 text-[10px] font-normal capitalize">
-                  {moduleFData.role.replace(/_/g, ' ')}
-                </Badge>
-              )}
-            </h2>
-            <p className="text-sm text-zinc-500 mt-0.5 max-w-2xl">
-              Generated from your live competitor citation data. Start with the summary cards, then follow priority actions.
-            </p>
-            {d7 && (
-              <div className="mt-2">
-                <div className="flex items-center gap-3 text-xs flex-wrap">
-                  <span className="text-zinc-600">AIVS™ D7:</span>
-                  <span className="font-mono text-zinc-300">{d7.d7_score?.toFixed(1)}</span>
-                  <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded border',
-                    d7.d7_grade === 'A+' || d7.d7_grade === 'A' ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25' :
-                    d7.d7_grade === 'B' ? 'text-blue-400 bg-blue-500/10 border-blue-500/25' :
-                    d7.d7_grade === 'C' ? 'text-amber-400 bg-amber-500/10 border-amber-500/25' :
-                    'text-red-400 bg-red-500/10 border-red-500/25'
-                  )}>{d7.d7_grade}</span>
-                  {d7.d7_delta != null && (
-                    <span className={cn('font-mono', d7.d7_delta > 0 ? 'text-emerald-400' : d7.d7_delta < 0 ? 'text-rose-400' : 'text-zinc-500')}>
-                      {d7.d7_delta > 0 ? '+' : ''}{d7.d7_delta.toFixed(1)} pts
-                    </span>
-                  )}
-                  <span className="text-zinc-700">•</span>
-                  <span className="text-zinc-600">Contribution: {d7.aivs_d7_contribution?.toFixed(2) ?? '—'}/15.00</span>
-                  <button
-                    onClick={() => setShowD7Details((v) => !v)}
-                    className="ml-auto text-[10px] px-2 py-1 rounded border border-zinc-700 text-zinc-400 hover:text-zinc-200 hover:border-zinc-600 transition-colors"
-                  >
-                    {showD7Details ? 'Hide D7 details' : 'Show D7 details'}
-                  </button>
-                </div>
-                {showD7Details && (
-                  <div className="mt-3 rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-[11px]">
-                      <div className="rounded-md border border-zinc-800 bg-[#111113] px-2.5 py-2">
-                        <div className="text-zinc-500">SOV (30%)</div>
-                        <div className="text-zinc-200 font-mono mt-1">{d7.param_breakdown?.sov?.score?.toFixed(1) ?? '—'}</div>
-                      </div>
-                      <div className="rounded-md border border-zinc-800 bg-[#111113] px-2.5 py-2">
-                        <div className="text-zinc-500">Missing Prompts (35%)</div>
-                        <div className="text-zinc-200 font-mono mt-1">{d7.param_breakdown?.gaps?.score?.toFixed(1) ?? '—'}</div>
-                      </div>
-                      <div className="rounded-md border border-zinc-800 bg-[#111113] px-2.5 py-2">
-                        <div className="text-zinc-500">Source Overlap (35%)</div>
-                        <div className="text-zinc-200 font-mono mt-1">{d7.param_breakdown?.overlap?.score?.toFixed(1) ?? '—'}</div>
-                      </div>
-                      <div className="rounded-md border border-zinc-800 bg-[#111113] px-2.5 py-2">
-                        <div className="text-zinc-500">Projected AIVS</div>
-                        <div className="text-zinc-200 font-mono mt-1">{d7.projected_aivs_score?.toFixed(2) ?? '—'}</div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Quick usage hints */}
-            <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2 flex items-center gap-2">
-                <Flame className="w-3.5 h-3.5 text-rose-400" />
-                <span className="text-[11px] text-zinc-400">Do P1 first (critical drops/surges)</span>
-              </div>
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2 flex items-center gap-2">
-                <Zap className="w-3.5 h-3.5 text-amber-400" />
-                <span className="text-[11px] text-zinc-400">Finish P2 in this sprint</span>
-              </div>
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2 flex items-center gap-2">
-                <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="text-[11px] text-zinc-400">Track completion progress weekly</span>
-              </div>
-            </div>
-          </div>
-        </div>
+    <div className="space-y-8 animate-in fade-in duration-700">
+      {/* Header & Alerts */}
+      <div className="space-y-6">
+        <EngineHeader deltaClass={moat4.delta_class as DeltaClass} summary={moat4.generated_at} />
+        <AlertBanner alerts={alerts} />
       </div>
 
-      {/* Alert */}
-      <AlertBanner alerts={alerts} />
-
-      {/* At-a-glance KPI cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
-          <div className="flex items-center gap-2 text-[11px] text-zinc-500">
-            <Target className="w-3.5 h-3.5 text-purple-400" />
-            Priority Actions
-          </div>
-          <div className="text-2xl font-bold text-zinc-100 mt-1">{allActions.length}</div>
-          <div className="text-[10px] text-zinc-600 mt-0.5">Total recommendations generated</div>
-        </div>
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
-          <div className="flex items-center gap-2 text-[11px] text-zinc-500">
-            <Flame className="w-3.5 h-3.5 text-rose-400" />
-            Critical (P1)
-          </div>
-          <div className="text-2xl font-bold text-rose-300 mt-1">{p1}</div>
-          <div className="text-[10px] text-zinc-600 mt-0.5">Need immediate attention</div>
-        </div>
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
-          <div className="flex items-center gap-2 text-[11px] text-zinc-500">
-            <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
-            Completed
-          </div>
-          <div className="text-2xl font-bold text-emerald-300 mt-1">{done}</div>
-          <div className="text-[10px] text-zinc-600 mt-0.5">
-            {allActions.length > 0 ? `${Math.round((done / allActions.length) * 100)}% completion` : 'No actions yet'}
-          </div>
-        </div>
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
-          <div className="flex items-center gap-2 text-[11px] text-zinc-500">
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-            Active Alerts
-          </div>
-          <div className="text-2xl font-bold text-zinc-100 mt-1">{alerts.length}</div>
-          <div className="text-[10px] text-zinc-600 mt-0.5">Latest benchmark/rank movement alerts</div>
-        </div>
+      {/* High-Level Metrics */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          label="Critical Fixes"
+          value={stats.p1}
+          subtext="Score ≥ 8.0"
+          icon={Flame}
+          accent="rose"
+          description="Immediate actions required to counter competitor surges or fix score drops."
+        />
+        <StatCard
+          label="Priority Sprint"
+          value={stats.p2}
+          subtext="Score 6.5 – 8.0"
+          icon={Zap}
+          accent="amber"
+          description="High-impact tasks prioritized for the next execution cycle."
+        />
+        <StatCard
+          label="Growth Queue"
+          value={stats.p3}
+          subtext="Score < 6.5"
+          icon={Target}
+          accent="blue"
+          description="Ongoing optimizations to expand your market share and SOV."
+        />
+        <StatCard
+          label="Execution Rate"
+          value={stats.done}
+          subtext={`${stats.total > 0 ? Math.round((stats.done / stats.total) * 100) : 0}% Complete`}
+          icon={CheckCheck}
+          accent="emerald"
+          progress={stats.total > 0 ? (stats.done / stats.total) * 100 : 0}
+          description="Overall progress on strategic recommendations for this run."
+        />
       </div>
 
-      {/* ── 1. Status ─────────────────────────────────────────────────────── */}
-      <Section step={1} title="Current Status"
-        subtitle="What is happening to your brand's AI visibility right now. This determines the urgency class of all recommendations below.">
-        <StatusBar deltaClass={deltaClass} summary={moat4.role_output?.summary} />
-      </Section>
+      {/* Main Action Queue */}
+      <ActionQueue 
+        moat4={moat4} 
+        allActions={moat4.all_actions ?? []} 
+        onStatusChange={handleStatusChange} 
+      />
 
-      {/* ── 2. Summary counts ─────────────────────────────────────────────── */}
-      <Section step={2} title="Action Summary"
-        subtitle="How many actions require your attention, split by urgency tier. Hover each card to understand what the tier means.">
-        <StatCards p1={p1} p2={p2} p3={p3} done={done} total={allActions.length} />
-      </Section>
-
-      {/* ── 3. Score movement ─────────────────────────────────────────────── */}
-      {comparison && (
-        <Section step={3} title="Score Movement vs Last Run"
-          subtitle="See how your brand and each competitor moved since the previous analysis. This is the data that drives the delta class in Step 1.">
-          <LeaderboardDelta comparison={comparison} />
-        </Section>
-      )}
-
-      {/* ── 4. Uncontested prompts ─────────────────────────────────────────── */}
-      <Section step={4} title="Uncontested Opportunities"
-        subtitle="Prompts where no competitor currently ranks. The fastest way to gain new AI citations — first brand to publish a focused page can own this query.">
-        <UncontestedGaps gapAnalysis={gapAnalysis} />
-      </Section>
-
-      {/* ── 5. Actions ────────────────────────────────────────────────────── */}
-      <Section step={5} title="Prioritised Action Queue"
-        subtitle="Each row shows priority score, effort, and urgency. Open a row for implementation steps and affected URLs.">
-        <ActionQueue moat4={moat4} allActions={allActions} onStatusChange={handleStatus} />
-      </Section>
-
-      {/* ── 6. Citation sources ────────────────────────────────────────────── */}
-      <Section step={6} title="Where Competitors Get Their Citations"
-        subtitle="High-authority domains AI models use to validate competitors. Getting cited here directly improves your benchmark score — these are the link-building targets that matter most for AI visibility.">
+      {/* Deep Dive Analysis Section */}
+      <div className="space-y-8 pt-8 border-t border-zinc-800/50">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-zinc-200 tracking-tight">Deep Dive Analysis</h2>
+          <p className="text-zinc-500 max-w-2xl mx-auto">Explore detailed metrics and competitive intelligence data that power the recommendations.</p>
+        </div>
+        <LeaderboardDelta comparison={moduleFData?.compare_visibility_against_competitors ?? null} />
         <SourcesPanel sourceAnalysis={moduleFData?.source_analysis} />
-      </Section>
-
-      {/* ── 7. Metric deep-dive ───────────────────────────────────────────── */}
-      <Section step={7} title="Why Each Metric Is Where It Is"
-        subtitle="Data-driven root-cause analysis for every visibility metric. Expand a metric to see exactly why the number is what it is and a concrete fix list.">
-        <MetricAccordion metricRecs={metricRecs} />
-      </Section>
-
-      {/* ── 8. Scoring explained ──────────────────────────────────────────── */}
-      {/* <Section step={8} title="How Priority Scores Are Calculated"
-        subtitle="Understanding the IEU formula helps you make smarter decisions about which actions to do first and which to delegate.">
-        <IEUExplainer />
-      </Section> */}
-
+        <MetricAccordion metricRecs={resolveRecommendations(moduleFData)} />
+      </div>
     </div>
   )
 }
+
+export default CompetitorRecommendations
