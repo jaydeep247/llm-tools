@@ -9,9 +9,11 @@ import { logger } from '../../shared/logger/logger';
 import { getRedisClient } from '../../config/redis';
 import { connectToMongo } from '../../config/mongo';
 import { fetchPsi, DeviceStrategy } from './psiClient';
+import { ContentAuditMetricType, ContentAuditMetricsService } from './contentAuditMetrics.service';
 
 export class JobController {
   private jobService: JobService;
+  private contentAuditMetricsService: ContentAuditMetricsService;
   private redis = getRedisClient();
 
   private static readonly DEFAULT_PAGE_SIZE = 100;
@@ -25,6 +27,23 @@ export class JobController {
 
   constructor() {
     this.jobService = new JobService();
+    this.contentAuditMetricsService = new ContentAuditMetricsService();
+  }
+
+  private parseContentAuditMetric(metricParam?: string): ContentAuditMetricType {
+    const metric = String(metricParam || '').trim() as ContentAuditMetricType;
+    const supportedMetrics: ContentAuditMetricType[] = [
+      'keyword-metrics',
+      'performance-metrics',
+      'content-metrics',
+      'backlink-metrics',
+    ];
+
+    if (!supportedMetrics.includes(metric)) {
+      throw new Error('Unsupported content audit metric');
+    }
+
+    return metric;
   }
 
   private parsePagination(
@@ -173,6 +192,32 @@ export class JobController {
         return ResponseUtil.error(res, error.message, undefined, 400);
       }
       return ResponseUtil.serverError(res, 'Failed to start prompt tracking');
+    }
+  };
+
+  runContentAuditMetric = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+      await this.jobService.getJobById(userId, id);
+
+      const metricParam = Array.isArray(req.params.metric) ? req.params.metric[0] : req.params.metric;
+      const metric = this.parseContentAuditMetric(metricParam);
+      const urls = Array.isArray(req.body?.urls)
+        ? req.body.urls.filter((url: unknown): url is string => typeof url === 'string' && url.trim().length > 0)
+        : undefined;
+
+      const response = await this.contentAuditMetricsService.runMetric(id, metric, urls);
+      return ResponseUtil.success(res, 'Content audit metric run accepted', response);
+    } catch (error: any) {
+      logger.error(`Error starting content audit metric run: ${error.message}`);
+      if (error.message.includes('not found') || error.message.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      if (error.message.includes('Unsupported content audit metric')) {
+        return ResponseUtil.error(res, error.message, undefined, 400);
+      }
+      return ResponseUtil.serverError(res, 'Failed to start content audit metric run');
     }
   };
 

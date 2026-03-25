@@ -15,12 +15,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { FieldTooltip } from '../FieldTooltip'
+import { useContentAuditMetricRunner } from './useContentAuditMetricRunner'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 interface ContentMetric {
   id?: string | number
   url: string
+  fields?: Record<string, any>
   currentWordCount?: number | null
   serpIntentWordCount?: number | null
   needToAddWordCount?: number | null
@@ -33,6 +35,7 @@ interface ContentMetricsTableProps {
   isLoading?: boolean
   onRefresh?: () => void
   onExport?: () => void
+  jobId?: string | null
 }
 
 type SortField = keyof ContentMetric
@@ -105,6 +108,7 @@ export function ContentMetrics({
   isLoading = false,
   onRefresh,
   onExport,
+  jobId,
 }: ContentMetricsTableProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [urlFilter, setUrlFilter] = useState('')
@@ -123,10 +127,21 @@ export function ContentMetrics({
       const key = row.url || ''
       if (key && seen.has(key)) return
       if (key) seen.add(key)
-      result.push(row)
+      result.push({
+        ...row,
+        fields: row.fields ?? {},
+      })
     })
     return result
   }, [data])
+
+  const metricRunner = useContentAuditMetricRunner({
+    jobId,
+    metric: 'content-metrics',
+    data: uniqueData,
+    onRefresh,
+    getLastRunAt: (row) => row.fields?.content_metrics_last_run_at,
+  })
 
   const filteredData = useMemo(() => {
     let filtered = uniqueData
@@ -308,6 +323,16 @@ export function ContentMetrics({
             </div>
           </div>
           <div className="flex gap-2">
+            <Button
+              onClick={() => metricRunner.runAll()}
+              variant="outline"
+              size="sm"
+              disabled={!jobId || uniqueData.length === 0 || metricRunner.hasPendingRuns || metricRunner.isSubmitting}
+              className="bg-blue-600/20 text-blue-400 border-blue-500/30 hover:bg-blue-600/30 rounded-xl"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${metricRunner.hasPendingRuns ? 'animate-spin' : ''}`} />
+              {metricRunner.hasPendingRuns ? `Running ${metricRunner.pendingCount}...` : 'Run All URLs'}
+            </Button>
             {onRefresh && (
               <Button onClick={onRefresh} variant="outline" size="sm" className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl" disabled={isLoading}>
                 <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
@@ -414,12 +439,17 @@ export function ContentMetrics({
             <div ref={tableContainerRef} className="overflow-x-auto overflow-y-auto max-w-full h-full custom-scrollbar">
               <table className="w-full text-sm">
                 <thead className="bg-zinc-900/80 border-b border-zinc-800 sticky top-0 z-10">
-                  <tr>{orderedVisibleColumns.map((col) => renderTableHeader(col))}</tr>
+                  <tr>
+                    {orderedVisibleColumns.map((col) => renderTableHeader(col))}
+                    <th className="px-3 py-2 text-center text-xs font-semibold text-zinc-200 whitespace-nowrap">
+                      Actions
+                    </th>
+                  </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={visibleColumns.size} className="px-4 py-12 text-center">
+                      <td colSpan={visibleColumns.size + 1} className="px-4 py-12 text-center">
                         <div className="flex items-center justify-center gap-2 text-zinc-400">
                           <RefreshCw className="h-5 w-5 animate-spin" />
                           <span>Loading data...</span>
@@ -428,7 +458,7 @@ export function ContentMetrics({
                     </tr>
                   ) : paginatedData.length === 0 ? (
                     <tr>
-                      <td colSpan={visibleColumns.size} className="px-4 py-12 text-center text-zinc-400">
+                      <td colSpan={visibleColumns.size + 1} className="px-4 py-12 text-center text-zinc-400">
                         No pages found. {(searchQuery || urlFilter) && 'Try adjusting your filters.'}
                       </td>
                     </tr>
@@ -440,6 +470,18 @@ export function ContentMetrics({
                             {renderCellContent(row, column)}
                           </td>
                         ))}
+                        <td className="px-3 py-2 text-center">
+                          <Button
+                            onClick={() => metricRunner.runOne(row.url)}
+                            variant="outline"
+                            size="sm"
+                            disabled={!jobId || metricRunner.isRunning(row.url)}
+                            className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl min-w-24"
+                          >
+                            <RefreshCw className={`h-4 w-4 mr-2 ${metricRunner.isRunning(row.url) ? 'animate-spin' : ''}`} />
+                            {metricRunner.isRunning(row.url) ? 'Running' : 'Run'}
+                          </Button>
+                        </td>
                       </tr>
                     ))
                   )}

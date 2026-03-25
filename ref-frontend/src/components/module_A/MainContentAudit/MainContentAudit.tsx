@@ -69,6 +69,7 @@ export function MainContentAudit({
             data={pageMetricsData}
             isLoading={isLoadingMetrics}
             onRefresh={onRefreshMetrics}
+            jobId={jobId}
           />
         )}
         {activeTab === 'performance-metrics' && (
@@ -84,6 +85,7 @@ export function MainContentAudit({
             data={contentMetricsData}
             isLoading={isLoadingMetrics}
             onRefresh={onRefreshMetrics}
+            jobId={jobId}
           />
         )}
         {activeTab === 'backlink-metrics' && (
@@ -91,6 +93,7 @@ export function MainContentAudit({
             data={pageMetricsData}
             isLoading={isLoadingMetrics}
             onRefresh={onRefreshMetrics}
+            jobId={jobId}
           />
         )}
         {activeTab === 'recommendations' && (

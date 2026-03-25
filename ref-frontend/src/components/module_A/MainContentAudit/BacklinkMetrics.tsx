@@ -15,11 +15,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { FieldTooltip } from '../FieldTooltip'
+import { useContentAuditMetricRunner } from './useContentAuditMetricRunner'
 
 interface BacklinkMetricRow {
   id?: string | number
   url: string
   title?: string
+  fields?: Record<string, any>
   inlinks?: number | null
   internal_outlinks?: number | null
   external_outlinks?: number | null
@@ -36,6 +38,7 @@ interface BacklinkMetricsTableProps {
   isLoading?: boolean
   onRefresh?: () => void
   onExport?: () => void
+  jobId?: string | null
 }
 
 type SortField = keyof BacklinkMetricRow
@@ -107,6 +110,7 @@ export function BacklinkMetrics({
   isLoading = false,
   onRefresh,
   onExport,
+  jobId,
 }: BacklinkMetricsTableProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [urlFilter, setUrlFilter] = useState('')
@@ -144,6 +148,7 @@ export function BacklinkMetrics({
         id: row.id ?? row._id,
         url: String(url),
         title: row.title ?? getRowValue(row, 'title') ?? '',
+        fields: row.fields ?? {},
         inlinks: inlinks === '' ? null : inlinks ?? null,
         internal_outlinks: internal_outlinks === '' ? null : internal_outlinks ?? null,
         external_outlinks: external_outlinks === '' ? null : external_outlinks ?? null,
@@ -158,6 +163,14 @@ export function BacklinkMetrics({
 
     return result
   }, [data])
+
+  const metricRunner = useContentAuditMetricRunner({
+    jobId,
+    metric: 'backlink-metrics',
+    data: normalizedData,
+    onRefresh,
+    getLastRunAt: (row) => row.fields?.backlink_metrics_last_run_at,
+  })
 
   const filteredData = useMemo(() => {
     let filtered = normalizedData
@@ -410,6 +423,16 @@ export function BacklinkMetrics({
             </div>
           </div>
           <div className="flex gap-2">
+            <Button
+              onClick={() => metricRunner.runAll()}
+              variant="outline"
+              size="sm"
+              disabled={!jobId || normalizedData.length === 0 || metricRunner.hasPendingRuns || metricRunner.isSubmitting}
+              className="bg-blue-600/20 text-blue-400 border-blue-500/30 hover:bg-blue-600/30 rounded-xl"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${metricRunner.hasPendingRuns ? 'animate-spin' : ''}`} />
+              {metricRunner.hasPendingRuns ? `Running ${metricRunner.pendingCount}...` : 'Run All URLs'}
+            </Button>
             {onRefresh && (
               <Button
                 onClick={onRefresh}
@@ -554,12 +577,15 @@ export function BacklinkMetrics({
                 <thead className="bg-zinc-900/80 border-b border-zinc-800 sticky top-0 z-10">
                   <tr>
                     {orderedVisibleColumns.map((column) => renderTableHeader(column))}
+                    <th className="px-3 py-2 text-center text-xs font-semibold text-zinc-200 whitespace-nowrap">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={visibleColumns.size} className="px-4 py-12 text-center">
+                      <td colSpan={visibleColumns.size + 1} className="px-4 py-12 text-center">
                         <div className="flex items-center justify-center gap-2 text-zinc-400">
                           <RefreshCw className="h-5 w-5 animate-spin" />
                           <span>Loading data...</span>
@@ -568,7 +594,7 @@ export function BacklinkMetrics({
                     </tr>
                   ) : paginatedData.length === 0 ? (
                     <tr>
-                      <td colSpan={visibleColumns.size} className="px-4 py-12 text-center text-zinc-400">
+                      <td colSpan={visibleColumns.size + 1} className="px-4 py-12 text-center text-zinc-400">
                         No pages found. {(searchQuery || urlFilter) && 'Try adjusting your filters.'}
                       </td>
                     </tr>
@@ -586,6 +612,18 @@ export function BacklinkMetrics({
                             {renderCellContent(row, column)}
                           </td>
                         ))}
+                        <td className="px-3 py-2 text-center">
+                          <Button
+                            onClick={() => metricRunner.runOne(row.url)}
+                            variant="outline"
+                            size="sm"
+                            disabled={!jobId || metricRunner.isRunning(row.url)}
+                            className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl min-w-24"
+                          >
+                            <RefreshCw className={`h-4 w-4 mr-2 ${metricRunner.isRunning(row.url) ? 'animate-spin' : ''}`} />
+                            {metricRunner.isRunning(row.url) ? 'Running' : 'Run'}
+                          </Button>
+                        </td>
                       </tr>
                     ))
                   )}

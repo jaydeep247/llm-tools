@@ -49,6 +49,7 @@ router.get('/jobs/:id/results/sitemaps', jobController.getJobSitemaps);
 router.get('/jobs/:id/results/fields', jobController.getJobFields);
 router.get('/jobs/:id/results/recommendations', jobController.getJobRecommendations);
 router.get('/jobs/:id/results/redirects-audit', jobController.getJobRedirectAudit);
+router.post('/jobs/:id/content-audit/:metric/run', jobController.runContentAuditMetric);
 router.post('/jobs/:id/performance-audits/start', jobController.startJobPerformanceAudits);
 
 export default router;

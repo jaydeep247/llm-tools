@@ -9,9 +9,11 @@ def _start_http_server():
     import uvicorn
     from fastapi import FastAPI
     from modules.brand_onboarding.router import router as brand_onboarding_router
+    from modules.module_A.content_audit.router import router as content_audit_router
 
     app = FastAPI(title="NPY Backend HTTP API", docs_url=None, redoc_url=None)
     app.include_router(brand_onboarding_router)
+    app.include_router(content_audit_router)
 
     port = int(os.getenv("NPY_HTTP_PORT", "8001"))
     uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")

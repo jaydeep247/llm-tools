@@ -192,6 +192,12 @@ export interface PerformanceAuditItem {
   psiReportUrl?: string;
 }
 
+export type ContentAuditMetricType =
+  | 'keyword-metrics'
+  | 'performance-metrics'
+  | 'content-metrics'
+  | 'backlink-metrics';
+
 export interface JobSiteStructure {
   jobId: string;
   sessionId: string;
@@ -439,6 +445,20 @@ export const jobApi = baseApi.injectEndpoints({
       }),
     }),
 
+    runContentAuditMetric: builder.mutation<
+      { accepted: boolean; job_id: string; metric: ContentAuditMetricType; urls: string[] },
+      { jobId: string; metric: ContentAuditMetricType; urls: string[] }
+    >({
+      query: ({ jobId, metric, urls }) => ({
+        url: `/jobs/${jobId}/content-audit/${metric}/run`,
+        method: 'POST',
+        body: { urls },
+      }),
+      transformResponse: (response: { success: boolean; data: { accepted: boolean; job_id: string; metric: ContentAuditMetricType; urls: string[] } }) =>
+        response.data,
+      invalidatesTags: (result, error, { jobId }) => [{ type: 'Job', id: jobId }],
+    }),
+
     generateJobSchema: builder.mutation<
       { success: boolean; job: Job },
       { jobId: string; schemaType?: string; url?: string }
@@ -519,6 +539,7 @@ export const {
   useGetJobRecommendationsQuery,
   useGetJobPerformanceAuditsQuery,
   useStartJobPerformanceAuditsMutation,
+  useRunContentAuditMetricMutation,
   useGenerateJobSchemaMutation,
   useCancelJobMutation,
   useRetryJobMutation,

@@ -68,12 +68,35 @@ _STOP_WORDS: frozenset = frozenset({
 })
 
 _BAD_CHARS_RE = re.compile(r"[^a-zA-Z0-9\s\-']")
+_CLAUSE_SPLIT_RE = re.compile(r"\s*[:;|]\s*|\s+[\u2013\u2014-]\s+")
 
 
 def _sanitize_keyword(kw: str) -> str:
     """Strip characters rejected by the DataForSEO APIs and collapse whitespace."""
     cleaned = _BAD_CHARS_RE.sub("", kw).strip()
     return re.sub(r"\s+", " ", cleaned)
+
+
+def _extract_keyword_clause(kw: str) -> str:
+    """
+    Reduce article-style titles to a search-oriented leading clause.
+
+    Examples:
+      "AEO vs SEO: Key Differences for Online Success" -> "AEO vs SEO"
+      "Best CRM Tools - Complete Guide" -> "Best CRM Tools"
+    """
+    normalized = re.sub(r"\s+", " ", (kw or "").strip())
+    if not normalized:
+        return ""
+
+    parts = [part.strip() for part in _CLAUSE_SPLIT_RE.split(normalized) if part.strip()]
+    if not parts:
+        return normalized
+
+    lead = parts[0]
+    if len(lead.split()) >= 2:
+        return lead
+    return normalized
 
 
 def _keyword_candidates(kw: str, max_words: int = 10, trunc_words: int = 5, core_words: int = 3) -> List[str]:
@@ -97,10 +120,14 @@ def _keyword_candidates(kw: str, max_words: int = 10, trunc_words: int = 5, core
     seen: set = set()
 
     def _add(phrase: str) -> None:
-        phrase = phrase.strip()
+        phrase = _sanitize_keyword(phrase)
         if phrase and phrase not in seen:
             seen.add(phrase)
             candidates.append(phrase)
+
+    clause = _extract_keyword_clause(kw)
+    if clause and clause != kw:
+        _add(clause)
 
     # 1. Full phrase (hard capped at max_words)
     _add(" ".join(words[:max_words]))
@@ -134,7 +161,7 @@ def _keyword_from_title(title: str) -> str:
     if not title:
         return ""
     parts = _BRAND_SPLIT_RE.split(title, maxsplit=1)
-    candidate = parts[0].strip()
+    candidate = _extract_keyword_clause(parts[0].strip())
     # Reject very short results (likely just a brand name)
     if len(candidate) < 3:
         return ""

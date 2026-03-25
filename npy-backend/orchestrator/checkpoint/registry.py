@@ -83,6 +83,7 @@ class TaskRegistry:
         "serp_ranking": ["dataforseo"],
         "traffic_analytics": ["dataforseo"],
         "domain_analytics_keywords": ["dataforseo"],
+        "historical_traffic_estimation": ["dataforseo"],
 
         # Module A – Keyword Metrics (volume, CPC, KD)
         "keywords_search_volume": ["dataforseo"],

@@ -15,25 +15,17 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { FieldTooltip } from '../FieldTooltip'
+import { useContentAuditMetricRunner } from './useContentAuditMetricRunner'
 
 export interface PerformanceMetric {
   id?: string | number
   url: string
-  currentRanking?: number | null
+  fields?: Record<string, any>
+  currentRanking?: number | string | null
   ga30DaysTraffic?: number | null
   overallKeywords?: number | null
   firstPageKeywords?: number | null
   timestamp?: string
-  // PSI Metrics
-  LCP_ms?: number | null
-  TBT_ms?: number | null
-  CLS?: number | null
-  FCP_ms?: number | null
-  TTFB_ms?: number | null
-  performanceScore?: number | null
-  psiReportUrl?: string | null
-  runAt?: string | null
-  device?: string | null
 }
 
 interface PerformanceMetricsTableProps {
@@ -54,35 +46,18 @@ type ColumnCategory = {
 
 const COLUMN_CATEGORIES: ColumnCategory[] = [
   {
-    name: 'Basic Info',
-    columns: ['url', 'device', 'runAt', 'timestamp']
-  },
-  {
     name: 'Ranking & Traffic',
-    columns: ['currentRanking', 'ga30DaysTraffic', 'overallKeywords', 'firstPageKeywords']
-  },
-  {
-    name: 'Core Web Vitals',
-    columns: ['performanceScore', 'LCP_ms', 'TBT_ms', 'CLS', 'FCP_ms', 'TTFB_ms', 'psiReportUrl']
+    columns: ['url', 'currentRanking', 'ga30DaysTraffic', 'overallKeywords', 'firstPageKeywords']
   }
 ]
 
 const FIELD_DESCRIPTIONS: Partial<Record<keyof PerformanceMetric, string>> = {
   url: 'Full web address of the analyzed page. Click to open in a new tab.',
   currentRanking: 'Current SERP ranking position for the primary keyword.',
-  ga30DaysTraffic: 'Total sessions recorded over the last 30 days from Google Analytics 4.',
+  ga30DaysTraffic: 'Estimated monthly organic traffic for this URL from DataForSEO Labs.',
   overallKeywords: 'Total number of keywords this page ranks for across all positions.',
   firstPageKeywords: 'Number of keywords ranking on the first page of search results.',
   timestamp: 'Date and time when this data was collected.',
-  performanceScore: 'Overall PageSpeed Insights score (0-100).',
-  LCP_ms: 'Largest Contentful Paint in milliseconds.',
-  TBT_ms: 'Total Blocking Time in milliseconds.',
-  CLS: 'Cumulative Layout Shift score.',
-  FCP_ms: 'First Contentful Paint in milliseconds.',
-  TTFB_ms: 'Time to First Byte in milliseconds.',
-  psiReportUrl: 'Link to the full PageSpeed Insights report.',
-  device: 'Device strategy used for the audit (mobile/desktop).',
-  runAt: 'When the performance audit was run.'
 }
 
 const DEFAULT_VISIBLE_COLUMNS: Set<keyof PerformanceMetric> = new Set([
@@ -90,13 +65,8 @@ const DEFAULT_VISIBLE_COLUMNS: Set<keyof PerformanceMetric> = new Set([
   'currentRanking',
   'ga30DaysTraffic', 
   'overallKeywords', 
-  'firstPageKeywords',
-  'performanceScore',
-  'LCP_ms',
-  'CLS'
+  'firstPageKeywords'
 ] as (keyof PerformanceMetric)[])
-
-import { useStartJobPerformanceAuditsMutation } from '@/store/api/jobApi'
 
 export function PerformanceMetrics({ 
   data = [], 
@@ -115,19 +85,6 @@ export function PerformanceMetrics({
   const tableContainerRef = useRef<HTMLDivElement>(null)
   const itemsPerPage = 20
 
-  const [startAudit, { isLoading: isStartingAudit }] = useStartJobPerformanceAuditsMutation()
-
-  const handleStartAudit = async () => {
-    if (!jobId) return
-    try {
-      await startAudit({ jobId: jobId, device: 'desktop' }).unwrap()
-      // The frontend uses fields query so we can just trigger a refresh
-      if (onRefresh) onRefresh()
-    } catch (err) {
-      console.error('Failed to start performance audit', err)
-    }
-  }
-
   const uniqueData = useMemo(() => {
     const seen = new Set<string>()
     const result: PerformanceMetric[] = []
@@ -140,11 +97,22 @@ export function PerformanceMetrics({
       if (key) {
         seen.add(key)
       }
-      result.push(page)
+      result.push({
+        ...page,
+        fields: (page as any).fields ?? {},
+      })
     })
 
     return result
   }, [data])
+
+  const metricRunner = useContentAuditMetricRunner({
+    jobId,
+    metric: 'performance-metrics',
+    data: uniqueData,
+    onRefresh,
+    getLastRunAt: (row) => row.fields?.performance_metrics_last_run_at,
+  })
 
   // Filter data based on search and URL filter
   const filteredData = useMemo(() => {
@@ -268,27 +236,17 @@ export function PerformanceMetrics({
     const labels: Record<string, string> = {
       url: 'URL',
       currentRanking: 'Current Ranking',
-      ga30DaysTraffic: '30 Days GA Traffic',
+      ga30DaysTraffic: 'Organic Traffic (Est.)',
       overallKeywords: 'Overall Keywords',
       firstPageKeywords: '1st Page Keywords',
-      timestamp: 'Timestamp',
-      performanceScore: 'Performance Score',
-      LCP_ms: 'LCP (ms)',
-      TBT_ms: 'TBT (ms)',
-      CLS: 'CLS',
-      FCP_ms: 'FCP (ms)',
-      TTFB_ms: 'TTFB (ms)',
-      psiReportUrl: 'PSI Report',
-      device: 'Device',
-      runAt: 'Audit Run At'
+      timestamp: 'Timestamp'
     }
     return labels[column] || column
   }
 
   // Columns that support sorting
   const sortableColumns: Set<keyof PerformanceMetric> = new Set([
-    'url', 'currentRanking', 'ga30DaysTraffic', 'overallKeywords', 'firstPageKeywords', 'timestamp',
-    'LCP_ms', 'TBT_ms', 'CLS', 'FCP_ms', 'TTFB_ms', 'performanceScore', 'runAt'
+    'url', 'currentRanking', 'ga30DaysTraffic', 'overallKeywords', 'firstPageKeywords', 'timestamp'
   ] as (keyof PerformanceMetric)[])
 
   const renderTableHeader = (column: keyof PerformanceMetric) => {
@@ -339,7 +297,15 @@ export function PerformanceMetrics({
         )
 
       case 'currentRanking': {
+        if (value === '100+') {
+          return <Badge className="bg-zinc-700/40 text-zinc-300 border-zinc-600/30">100+</Badge>
+        }
+
         const v = Number(value)
+        if (!Number.isFinite(v)) {
+          return <span className="text-zinc-500">-</span>
+        }
+
         const color = v <= 3  ? 'bg-green-500/20 text-green-300 border-green-500/30' :
                       v <= 10 ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
                                 'bg-zinc-700/40 text-zinc-300 border-zinc-600/30'
@@ -359,83 +325,13 @@ export function PerformanceMetrics({
         return <span className="font-mono text-zinc-300">{Number(value).toLocaleString()}</span>
 
       case 'timestamp':
-      case 'runAt':
         return <span className="text-zinc-400 text-[10px]">{new Date(value as string).toLocaleString()}</span>
-
-      case 'performanceScore': {
-        const score = Math.round((value as number) * 100)
-        const color = score >= 90 ? 'bg-green-500/20 text-green-300 border-green-500/30' :
-                      score >= 50 ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
-                                    'bg-red-500/20 text-red-300 border-red-500/30'
-        return <Badge className={color}>{score}</Badge>
-      }
-
-      case 'LCP_ms': {
-        const v = Number(value)
-        const color = v <= 2500 ? 'bg-green-500/20 text-green-300 border-green-500/30' :
-                      v <= 4000 ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
-                                  'bg-red-500/20 text-red-300 border-red-500/30'
-        return <Badge className={color}>{v} ms</Badge>
-      }
-
-      case 'TBT_ms': {
-        const v = Number(value)
-        const color = v <= 200  ? 'bg-green-500/20 text-green-300 border-green-500/30' :
-                      v <= 600  ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
-                                  'bg-red-500/20 text-red-300 border-red-500/30'
-        return <Badge className={color}>{v} ms</Badge>
-      }
-
-      case 'FCP_ms': {
-        const v = Number(value)
-        const color = v <= 1800 ? 'bg-green-500/20 text-green-300 border-green-500/30' :
-                      v <= 3000 ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
-                                  'bg-red-500/20 text-red-300 border-red-500/30'
-        return <Badge className={color}>{v} ms</Badge>
-      }
-
-      case 'TTFB_ms': {
-        const v = Number(value)
-        const color = v <= 800  ? 'bg-green-500/20 text-green-300 border-green-500/30' :
-                      v <= 1800 ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
-                                  'bg-red-500/20 text-red-300 border-red-500/30'
-        return <Badge className={color}>{v} ms</Badge>
-      }
-
-      case 'CLS': {
-        const v = Number(value)
-        const color = v <= 0.1  ? 'bg-green-500/20 text-green-300 border-green-500/30' :
-                      v <= 0.25 ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
-                                  'bg-red-500/20 text-red-300 border-red-500/30'
-        return <Badge className={color}>{v.toFixed(3)}</Badge>
-      }
-
-      case 'psiReportUrl':
-        return (
-          <a
-            href={value as string}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-400 hover:text-blue-300 flex items-center justify-center gap-1"
-          >
-            View Report <ExternalLink className="h-3 w-3" />
-          </a>
-        )
-
-      case 'device':
-        return (
-          <Badge className="bg-zinc-700/40 text-zinc-300 border-zinc-600/30">
-            {String(value)}
-          </Badge>
-        )
 
       default:
         return <span className="text-zinc-300">{String(value)}</span>
     }
   }
 
-  // Derived stats
-  const psiAuditedCount = uniqueData.filter(p => p.performanceScore != null).length
   const avgGA = uniqueData.length
     ? Math.round(uniqueData.reduce((sum, p) => sum + (p.ga30DaysTraffic ?? 0), 0) / uniqueData.length)
     : 0
@@ -462,14 +358,14 @@ export function PerformanceMetrics({
           </div>
           <div className="flex gap-2">
             <Button
-              onClick={handleStartAudit}
+              onClick={() => metricRunner.runAll()}
               variant="outline"
               size="sm"
-              disabled={isStartingAudit || !jobId}
-              className="bg-blue-600/20 text-blue-400 border-blue-500/30 hover:bg-blue-600/30 rounded-xl"
+              disabled={!jobId || uniqueData.length === 0 || metricRunner.hasPendingRuns || metricRunner.isSubmitting}
+              className="bg-emerald-600/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-600/30 rounded-xl"
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${isStartingAudit ? 'animate-spin' : ''}`} />
-              {isStartingAudit ? 'Auditing...' : 'Start PSI Audit'}
+              <RefreshCw className={`h-4 w-4 mr-2 ${metricRunner.hasPendingRuns ? 'animate-spin' : ''}`} />
+              {metricRunner.hasPendingRuns ? `Running ${metricRunner.pendingCount}...` : 'Run All URLs'}
             </Button>
             {onRefresh && (
               <Button
@@ -498,7 +394,7 @@ export function PerformanceMetrics({
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
             <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Total Pages</div>
             <div className="text-xl font-bold text-white mt-1">{uniqueData.length}</div>
@@ -508,11 +404,7 @@ export function PerformanceMetrics({
             <div className="text-xl font-bold text-white mt-1">{filteredData.length}</div>
           </div>
           <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
-            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">PSI Audited</div>
-            <div className="text-xl font-bold text-white mt-1">{psiAuditedCount}</div>
-          </div>
-          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
-            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Avg GA (30d)</div>
+            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Avg Organic Traffic</div>
             <div className="text-xl font-bold text-white mt-1">{avgGA.toLocaleString()}</div>
           </div>
         </div>
@@ -613,12 +505,15 @@ export function PerformanceMetrics({
                 <thead className="bg-zinc-900/80 border-b border-zinc-800 sticky top-0 z-10">
                   <tr>
                     {orderedVisibleColumns.map(column => renderTableHeader(column))}
+                    <th className="px-3 py-2 text-center text-xs font-semibold text-zinc-200 whitespace-nowrap">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={visibleColumns.size} className="px-4 py-12 text-center">
+                      <td colSpan={visibleColumns.size + 1} className="px-4 py-12 text-center">
                         <div className="flex items-center justify-center gap-2 text-zinc-400">
                           <RefreshCw className="h-5 w-5 animate-spin" />
                           <span>Loading data...</span>
@@ -627,7 +522,7 @@ export function PerformanceMetrics({
                     </tr>
                   ) : paginatedData.length === 0 ? (
                     <tr>
-                      <td colSpan={visibleColumns.size} className="px-4 py-12 text-center text-zinc-400">
+                      <td colSpan={visibleColumns.size + 1} className="px-4 py-12 text-center text-zinc-400">
                         No pages found. {(searchQuery || urlFilter) && 'Try adjusting your filters.'}
                       </td>
                     </tr>
@@ -642,6 +537,18 @@ export function PerformanceMetrics({
                             {renderCellContent(page, column)}
                           </td>
                         ))}
+                        <td className="px-3 py-2 text-center">
+                          <Button
+                            onClick={() => metricRunner.runOne(page.url)}
+                            variant="outline"
+                            size="sm"
+                            disabled={!jobId || metricRunner.isRunning(page.url)}
+                            className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl min-w-24"
+                          >
+                            <RefreshCw className={`h-4 w-4 mr-2 ${metricRunner.isRunning(page.url) ? 'animate-spin' : ''}`} />
+                            {metricRunner.isRunning(page.url) ? 'Running' : 'Run'}
+                          </Button>
+                        </td>
                       </tr>
                     ))
                   )}

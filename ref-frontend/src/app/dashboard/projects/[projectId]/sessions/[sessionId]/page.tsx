@@ -538,10 +538,11 @@ export default function SessionDetailPage() {
       // Ensure timestamp matches
       timestamp: page.timestamp || new Date().toISOString(),
 
-      // --- Performance Metrics ---      ga30DaysTraffic: pmMetrics?.ga30DaysTraffic ?? pageMatrix?.ga30DaysTraffic ?? crawlerData?.ga30DaysTraffic ?? null,
+      // --- Performance Metrics ---
+      ga30DaysTraffic: pmMetrics?.ga30DaysTraffic ?? pageMatrix?.ga30DaysTraffic ?? crawlerData?.ga30DaysTraffic ?? 0,
       currentRanking: pmMetrics?.currentRanking ?? pageMatrix?.currentRanking ?? crawlerData?.currentRanking ?? null,
-      overallKeywords: pmMetrics?.overallKeywords ?? pageMatrix?.overallKeywords ?? crawlerData?.overallKeywords ?? null,
-      firstPageKeywords: pmMetrics?.firstPageKeywords ?? pageMatrix?.firstPageKeywords ?? crawlerData?.firstPageKeywords ?? null,
+      overallKeywords: pmMetrics?.overallKeywords ?? pageMatrix?.overallKeywords ?? crawlerData?.overallKeywords ?? 0,
+      firstPageKeywords: pmMetrics?.firstPageKeywords ?? pageMatrix?.firstPageKeywords ?? crawlerData?.firstPageKeywords ?? 0,
       // Word count/date fields now come from content_matrix (ContentMetrics sub-module)
       currentWordCount: contentMatrix?.currentWordCount ?? pageMatrix?.currentWordCount ?? crawlerData?.currentWordCount ?? null,
       serpIntentWordCount: contentMatrix?.serpIntentWordCount ?? pageMatrix?.serpIntentWordCount ?? crawlerData?.serpIntentWordCount ?? null,
