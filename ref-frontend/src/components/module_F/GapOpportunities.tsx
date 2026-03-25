@@ -1,13 +1,41 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { AlertCircle, Target, TrendingUp, Radar, Search, Info } from 'lucide-react'
+import { 
+  AlertCircle, 
+  Target, 
+  TrendingUp, 
+  Radar, 
+  Search, 
+  Info,
+  Activity,
+  Zap,
+  Swords,
+  Trophy,
+  ExternalLink,
+  ChevronRight,
+  ChevronDown,
+  Lock,
+  Star,
+  Shield,
+  Layout,
+  FileText,
+  BarChart3,
+  MousePointer2,
+  Lightbulb
+} from 'lucide-react'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { type ModuleFMetricRecommendation, useGetModuleFResultQuery, resolveFeatureFlags } from '@/store/api/module_F/moduleFApi'
+import { SectionCard } from '@/components/ui/SectionCard'
+import { StatCard } from '@/components/ui/StatCard'
+import { 
+  type ModuleFMetricRecommendation, 
+  useGetModuleFResultQuery, 
+  resolveFeatureFlags,
+  normaliseMetricRec
+} from '@/store/api/module_F/moduleFApi'
 import type { ModuleFResult } from '@/store/api/module_F/moduleFApi'
 import {
   Tooltip,
@@ -91,7 +119,7 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
   const rows = useMemo((): CompetitorGapRow[] => {
     // 1. Prefer backend pre-calculated gap analysis
     if (effectiveData?.gap_opportunities && effectiveData.gap_opportunities.length > 0) {
-      return effectiveData.gap_opportunities.map((g) => ({
+      return (effectiveData.gap_opportunities as CompetitorGapRow[]).map((g) => ({
         competitor: g.competitor,
         gapScore: g.gapScore,
         missingPrompts: g.missingPrompts,
@@ -178,59 +206,78 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
   if (isLoading || isFetchingModuleF) {
     return (
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div className="space-y-2">
-          <div className="h-8 w-56 bg-zinc-800 rounded animate-pulse" />
-          <div className="h-4 w-96 bg-zinc-800 rounded animate-pulse" />
-        </div>
+        <div className="h-32 bg-[#111113] rounded-3xl border border-zinc-800 animate-pulse" />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="bg-[#111113] rounded-xl p-5 border border-zinc-800 animate-pulse h-32" />
+            <div key={i} className="bg-[#111113] rounded-2xl p-5 border border-zinc-800 animate-pulse h-32" />
           ))}
         </div>
-        <div className="h-80 bg-[#111113] rounded-xl border border-zinc-800 animate-pulse" />
+        <div className="h-96 bg-[#111113] rounded-2xl border border-zinc-800 animate-pulse" />
       </div>
     )
   }
 
   const hasData = rows.length > 0 && totalPrompts > 0
-  const gapRec = normalizeMetricRecommendation(effectiveData?.recommendations?.content_gap_score ?? effectiveData?.metric_recommendations?.content_gap_score)
-  const missingRec = normalizeMetricRecommendation(effectiveData?.recommendations?.missing_prompts ?? effectiveData?.metric_recommendations?.missing_prompts)
-  const gainRec = normalizeMetricRecommendation(effectiveData?.recommendations?.potential_gain ?? effectiveData?.metric_recommendations?.potential_gain)
+  const gapRec = normaliseMetricRec(effectiveData?.metric_recommendations?.content_gap_score)
+  const missingRec = normaliseMetricRec(effectiveData?.metric_recommendations?.missing_prompts)
+  const gainRec = normaliseMetricRec(effectiveData?.metric_recommendations?.potential_gain)
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900/50 to-transparent p-4 sm:p-5">
-        <div className="flex flex-col gap-2">
-          <h2 className="text-2xl font-semibold text-zinc-100 tracking-tight flex items-center gap-3">
-            <div className="p-2 bg-cyan-500/10 rounded-lg">
-              <Radar className="w-6 h-6 text-cyan-400" />
+      {/* Premium Header */}
+      <div className="rounded-3xl border border-zinc-800 bg-[#111113] p-6 sm:p-8 relative overflow-hidden group">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/5 blur-[100px] -mr-32 -mt-32" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/5 blur-[100px] -ml-32 -mb-32" />
+        
+        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-start gap-5">
+            <div className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-xl group-hover:border-cyan-500/30 transition-colors">
+              <Radar className="w-8 h-8 text-cyan-400 animate-pulse" />
             </div>
-            Gap Opportunities
-            {flags.gap_opportunities === 'limited' && (
-              <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/25 text-[10px] font-normal ml-2">
-                Limited view
-              </Badge>
-            )}
-          </h2>
-          <p className="text-zinc-400 text-base max-w-3xl">
-            Identify prompts where competitors are missing coverage or underperforming, and estimate how much visibility you can capture for {brandName}.
-          </p>
+            <div>
+              <div className="flex items-center gap-3 mb-1">
+                <h2 className="text-2xl font-bold text-white tracking-tight">Gap Opportunities</h2>
+                {flags.gap_opportunities === 'limited' && (
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20">
+                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Limited View</span>
+                  </div>
+                )}
+              </div>
+              <p className="text-sm text-zinc-400 max-w-2xl leading-relaxed">
+                Identify prompts where competitors are missing coverage or underperforming, and estimate how much visibility you can capture for <span className="text-white font-bold">{brandName}</span>.
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex flex-col items-end gap-1 bg-zinc-900/50 px-4 py-2 rounded-2xl border border-zinc-800">
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Total Prompts</span>
+            <span className="text-sm font-bold text-zinc-200">{totalPrompts}</span>
+          </div>
         </div>
       </div>
 
-
       {!flags.gap_opportunities ? (
-        <div className="bg-[#111113] rounded-2xl border border-zinc-800 p-14 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-zinc-800/50 border border-zinc-700/50 flex items-center justify-center mx-auto mb-5">
-            <Target className="w-8 h-8 text-zinc-600" />
-          </div>
-          <h3 className="text-base font-medium text-zinc-300 mb-2">Gap Opportunities</h3>
-          <p className="text-sm text-zinc-600 max-w-md mx-auto leading-relaxed">
-            Upgrade to Agency or Enterprise to unlock prompt-level coverage gap analysis and competitor opportunity scoring.
-          </p>
-          <div className="mt-5 flex items-center justify-center gap-2">
-            <Badge className="bg-cyan-500/10 text-cyan-400 border-cyan-500/25 text-xs">Agency</Badge>
-            <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/25 text-xs">Enterprise</Badge>
+        <div className="bg-[#111113] rounded-3xl border border-zinc-800 p-20 text-center relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-b from-cyan-500/5 to-transparent" />
+          <div className="relative">
+            <div className="w-20 h-20 rounded-3xl bg-zinc-800/50 border border-zinc-700/50 flex items-center justify-center mx-auto mb-6 shadow-2xl">
+              <Lock className="w-10 h-10 text-zinc-600" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">Prompt-Level Gap Analysis</h3>
+            <p className="text-sm text-zinc-500 max-w-sm mx-auto leading-relaxed mb-8">
+              Upgrade to Agency or Enterprise to unlock prompt-level coverage gap analysis and competitor opportunity scoring.
+            </p>
+            <div className="flex items-center justify-center gap-3">
+              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-cyan-500/5 border border-cyan-500/10">
+                <Star className="w-4 h-4 text-cyan-500" />
+                <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest">Agency</span>
+              </div>
+              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500/5 border border-amber-500/10">
+                <Zap className="w-4 h-4 text-amber-500" />
+                <span className="text-xs font-bold text-amber-400 uppercase tracking-widest">Enterprise</span>
+              </div>
+            </div>
           </div>
         </div>
       ) : !hasData ? (
@@ -242,299 +289,221 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-[#111113] rounded-xl p-5 border border-zinc-800 h-full flex flex-col hover:bg-[#0D0D10] transition-colors">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-start gap-3">
-                  <div className="p-2.5 rounded-xl shrink-0 bg-cyan-500/20 text-cyan-400">
-                    <Target className="w-5 h-5 text-zinc-100" />
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium text-zinc-100 block flex items-center gap-2">
-                      Gap Score
-                      {gapRec && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger>
-                              <Info className="w-3.5 h-3.5 text-zinc-500 hover:text-zinc-300 transition-colors" />
-                            </TooltipTrigger>
-                            <TooltipContent className="bg-zinc-900 border-zinc-800 text-zinc-300 max-w-xs text-xs p-3">
-                              {gapRec.why && (
-                                <>
-                                  <div className="font-medium text-zinc-100 mb-1">Why this metric</div>
-                                  <div className="text-zinc-300">{gapRec.why}</div>
-                                </>
-                              )}
-                              <div className={cn('font-medium text-zinc-100', gapRec.why ? 'mt-3 mb-1' : 'mb-1')}>
-                                How to improve
-                              </div>
-                              <div className="text-zinc-300">{gapRec.fix}</div>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
-                    </span>
-                    <span className="text-xs text-zinc-400 block mt-0.5 leading-relaxed">Opportunity size across competitors</span>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-auto">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-bold text-zinc-100 tracking-tight">{overall.overallGapScore}</span>
-                  <span className="text-sm text-zinc-500 font-medium mb-1">/100</span>
-                </div>
-              </div>
-            </div>
+            <StatCard
+              label="Gap Score"
+              value={overall.overallGapScore}
+              subtext="Overall opportunity size"
+              icon={Target}
+              accent="cyan"
+              progress={overall.overallGapScore}
+              description={gapRec?.why || "Aggregated opportunity size based on competitor weaknesses across all prompts."}
+            />
 
-            <div className="bg-[#111113] rounded-xl p-5 border border-zinc-800 h-full flex flex-col hover:bg-[#0D0D10] transition-colors">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-start gap-3">
-                  <div className="p-2.5 rounded-xl shrink-0 bg-amber-500/20 text-amber-400">
-                    <Radar className="w-5 h-5 text-zinc-100" />
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium text-zinc-100 block flex items-center gap-2">
-                      Missing Prompts
-                      {missingRec && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger>
-                              <Info className="w-3.5 h-3.5 text-zinc-500 hover:text-zinc-300 transition-colors" />
-                            </TooltipTrigger>
-                            <TooltipContent className="bg-zinc-900 border-zinc-800 text-zinc-300 max-w-xs text-xs p-3">
-                              {missingRec.why && (
-                                <>
-                                  <div className="font-medium text-zinc-100 mb-1">Why this metric</div>
-                                  <div className="text-zinc-300">{missingRec.why}</div>
-                                </>
-                              )}
-                              <div className={cn('font-medium text-zinc-100', missingRec.why ? 'mt-3 mb-1' : 'mb-1')}>
-                                How to improve
-                              </div>
-                              <div className="text-zinc-300">{missingRec.fix}</div>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
-                    </span>
-                    <span className="text-xs text-zinc-400 block mt-0.5 leading-relaxed">Outside top 3 for the prompt</span>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-auto">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-bold text-zinc-100 tracking-tight">{overall.totalMissingPrompts}</span>
-                  <span className="text-sm text-zinc-500 font-medium mb-1">gaps</span>
-                </div>
-              </div>
-            </div>
+            <StatCard
+              label="Missing Prompts"
+              value={overall.totalMissingPrompts}
+              subtext="Gaps found"
+              icon={Radar}
+              accent="amber"
+              description={missingRec?.why || "Prompts where your brand is currently outside the top 3 results."}
+            />
 
-            <div className="bg-[#111113] rounded-xl p-5 border border-zinc-800 h-full flex flex-col hover:bg-[#0D0D10] transition-colors">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-start gap-3">
-                  <div className="p-2.5 rounded-xl shrink-0 bg-emerald-500/20 text-emerald-400">
-                    <TrendingUp className="w-5 h-5 text-zinc-100" />
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium text-zinc-100 block flex items-center gap-2">
-                      Potential Gain
-                      {gainRec && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger>
-                              <Info className="w-3.5 h-3.5 text-zinc-500 hover:text-zinc-300 transition-colors" />
-                            </TooltipTrigger>
-                            <TooltipContent className="bg-zinc-900 border-zinc-800 text-zinc-300 max-w-xs text-xs p-3">
-                              {gainRec.why && (
-                                <>
-                                  <div className="font-medium text-zinc-100 mb-1">Why this metric</div>
-                                  <div className="text-zinc-300">{gainRec.why}</div>
-                                </>
-                              )}
-                              <div className={cn('font-medium text-zinc-100', gainRec.why ? 'mt-3 mb-1' : 'mb-1')}>
-                                How to improve
-                              </div>
-                              <div className="text-zinc-300">{gainRec.fix}</div>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
-                    </span>
-                    <span className="text-xs text-zinc-400 block mt-0.5 leading-relaxed">Average coverage you can capture</span>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-auto">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-bold text-zinc-100 tracking-tight">{overall.averagePotentialGainPercent}</span>
-                  <span className="text-sm text-zinc-500 font-medium mb-1">%</span>
-                </div>
-              </div>
-            </div>
+            <StatCard
+              label="Potential Gain"
+              value={`${overall.averagePotentialGainPercent}%`}
+              subtext="Average capture rate"
+              icon={TrendingUp}
+              accent="emerald"
+              progress={overall.averagePotentialGainPercent}
+              description={gainRec?.why || "Estimated visibility share you can capture by addressing these content gaps."}
+            />
 
-            <div className="bg-[#111113] rounded-xl p-5 border border-zinc-800 h-full flex flex-col hover:bg-[#0D0D10] transition-colors">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-start gap-3">
-                  <div className="p-2.5 rounded-xl shrink-0 bg-purple-500/20 text-purple-400">
-                    <Target className="w-5 h-5 text-zinc-100" />
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium text-zinc-100 block">Top Opportunity</span>
-                    <span className="text-xs text-zinc-400 block mt-0.5 leading-relaxed">Largest competitor gap</span>
-                  </div>
-                </div>
-              </div>
-              <div className="mt-auto">
-                {overall.topCompetitor ? (
-                  <div className="space-y-1">
-                    <div className="text-lg font-semibold text-zinc-100">{overall.topCompetitor.competitor}</div>
-                    <div className="text-sm text-zinc-500">{overall.topCompetitor.gapScore}/100</div>
-                  </div>
-                ) : (
-                  <div className="text-zinc-500 text-sm">—</div>
-                )}
-              </div>
-            </div>
+            <StatCard
+              label="Top Opportunity"
+              value={overall.topCompetitor?.competitor ?? '—'}
+              subtext={`Score: ${overall.topCompetitor?.gapScore ?? 0}/100`}
+              icon={Trophy}
+              accent="violet"
+              progress={overall.topCompetitor?.gapScore}
+              description="Competitor with the largest share of voice that is currently uncontested or weak."
+            />
           </div>
 
-          <Card className="bg-[#111113] border-zinc-800">
-            <CardHeader>
-              <div className="flex flex-col gap-4">
+          <SectionCard 
+            title="Competitor Coverage Gaps" 
+            description="Deep dive into specific prompts where competitors are missing coverage or ranking poorly."
+            className="bg-[#111113]"
+          >
+            <div className="flex flex-col lg:flex-row gap-8">
+              {/* Sidebar / Selector */}
+              <div className="w-full lg:w-72 shrink-0 space-y-6">
                 <div>
-                  <CardTitle className="text-lg font-medium text-zinc-100">Competitor Coverage Gaps</CardTitle>
-                  <CardDescription className="text-zinc-400">
-                    Select a competitor to see their biggest prompt-level gaps (rank missing or outside top 3).
-                  </CardDescription>
+                  <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em] mb-4">Competitors</div>
+                  <div className="flex flex-col gap-2">
+                    {rows.map((row) => (
+                      <button
+                        key={row.competitor}
+                        onClick={() => setSelectedCompetitor(row.competitor)}
+                        className={cn(
+                          "flex items-center justify-between px-4 py-3 rounded-2xl border transition-all duration-300 text-left group",
+                          activeCompetitor === row.competitor 
+                            ? "bg-cyan-500/10 border-cyan-500/30 text-white shadow-lg shadow-cyan-500/5" 
+                            : "bg-zinc-900/40 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:bg-zinc-900/60"
+                        )}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={cn(
+                            "w-2 h-2 rounded-full shrink-0 transition-all",
+                            activeCompetitor === row.competitor ? "bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.6)]" : "bg-zinc-700 group-hover:bg-zinc-500"
+                          )} />
+                          <span className="font-bold truncate text-sm">{row.competitor}</span>
+                        </div>
+                        <ChevronRight className={cn(
+                          "w-4 h-4 shrink-0 transition-transform",
+                          activeCompetitor === row.competitor ? "translate-x-0 opacity-100" : "-translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100"
+                        )} />
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="flex flex-col lg:flex-row lg:items-center gap-3 justify-between">
-                  <div className="flex flex-wrap gap-2">
-                    {rows.map((r) => {
-                      const active = r.competitor === activeCompetitor
-                      return (
-                        <button
-                          key={r.competitor}
-                          onClick={() => setSelectedCompetitor(r.competitor)}
-                          className={cn(
-                            'px-3 py-1.5 rounded-lg border text-xs font-medium transition-all',
-                            active
-                              ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300 shadow-sm shadow-cyan-500/5'
-                              : 'bg-transparent border-zinc-800 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50'
-                          )}
-                        >
-                          <span>{r.competitor}</span>
-                          <span className={cn('ml-2', active ? 'text-cyan-400/60' : 'text-zinc-600')}>
-                            {r.gapScore}/100
-                          </span>
-                        </button>
-                      )
-                    })}
+                {activeRow && (
+                  <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 space-y-5">
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 pb-3">
+                      <BarChart3 className="w-3.5 h-3.5 text-cyan-400" /> Performance
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-zinc-500">Gap Score</span>
+                        <span className="text-sm font-bold font-mono text-zinc-200">{activeRow.gapScore}/100</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-zinc-500">Missing Prompts</span>
+                        <span className="text-sm font-bold font-mono text-zinc-200">{activeRow.missingPrompts}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-zinc-500">Potential Gain</span>
+                        <span className="text-sm font-bold font-mono text-zinc-200">{activeRow.potentialGainPercent}%</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-zinc-800 space-y-3">
+                      <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Opportunity Summary</div>
+                      <p className="text-[11px] text-zinc-500 leading-relaxed">
+                        Addressing these <span className="text-zinc-300 font-bold">{activeRow.missingPrompts}</span> gaps could improve <span className="text-zinc-300 font-bold">{brandName}'s</span> visibility by up to <span className="text-emerald-400 font-bold">{activeRow.potentialGainPercent}%</span> for this competitor's share.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Main Content Area */}
+              <div className="flex-1 min-w-0 space-y-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-zinc-900 border border-zinc-800">
+                      <Target className="w-5 h-5 text-cyan-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-white leading-tight">{activeCompetitor} Coverage Gaps</h3>
+                      <p className="text-xs text-zinc-500">Showing top {filteredOpportunities.length} opportunities</p>
+                    </div>
                   </div>
 
-                  <div className="relative w-full lg:w-80">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                    <input
-                      type="text"
-                      placeholder="Search prompts..."
-                      className="bg-zinc-900/50 border border-zinc-800 rounded-lg pl-9 pr-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-zinc-700 w-full"
+                  <div className="relative group">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-cyan-400 transition-colors" />
+                    <input 
+                      type="text" 
+                      placeholder="Filter prompts..." 
+                      className="bg-zinc-900 border border-zinc-800 rounded-xl pl-10 pr-4 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 w-full md:w-64 transition-all"
                       value={searchPrompt}
                       onChange={(e) => setSearchPrompt(e.target.value)}
                     />
                   </div>
                 </div>
-              </div>
-            </CardHeader>
 
-            <CardContent>
-              {!activeRow ? (
-                <div className="text-zinc-500 text-sm">No competitor data available.</div>
-              ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="text-zinc-100 font-medium">{activeRow.competitor}</div>
-                        <div className="text-zinc-500 text-xs mt-1">
-                          Outside top 3 in {activeRow.missingPrompts} / {totalPrompts} prompts
-                        </div>
-                      </div>
-                      <Badge className="bg-zinc-800 text-zinc-100 border-zinc-700 hover:bg-zinc-700">
-                        Gap {activeRow.gapScore}/100
-                      </Badge>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 mt-4">
-                      <div className="rounded-lg border border-zinc-800 bg-[#111113] p-3">
-                        <div className="text-[10px] text-zinc-500">Missing Prompts</div>
-                        <div className="text-lg font-semibold text-zinc-100 mt-1">{activeRow.missingPrompts}</div>
-                      </div>
-                      <div className="rounded-lg border border-zinc-800 bg-[#111113] p-3">
-                        <div className="text-[10px] text-zinc-500">Potential Gain</div>
-                        <div className="text-lg font-semibold text-zinc-100 mt-1">{activeRow.potentialGainPercent}%</div>
-                      </div>
-                      {typeof activeRow.potentialGainMentions === 'number' && Number.isFinite(activeRow.potentialGainMentions) && (
-                        <div className="rounded-lg border border-zinc-800 bg-[#111113] p-3 col-span-2">
-                          <div className="text-[10px] text-zinc-500">Potential Gain (Mentions)</div>
-                          <div className="text-lg font-semibold text-zinc-100 mt-1">{round1(activeRow.potentialGainMentions)}</div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="lg:col-span-2">
-                    <ScrollArea className="h-105 pr-4">
-                      <div className="space-y-3">
-                        {filteredOpportunities.map((o) => {
-                          const isMissing = o.rank === null || (o.rank ?? 0) > 3
-                          return (
-                            <div
-                              key={o.prompt}
-                              className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4 hover:bg-zinc-900 transition-colors"
-                            >
-                              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                                <div className="min-w-0 flex-1">
-                                  <div className="text-zinc-100 font-medium text-sm wrap-break-word">{o.prompt}</div>
-                                  <div className="text-zinc-500 text-xs mt-1.5">
-                                    {isMissing ? (
-                                      <span className="text-amber-400/70">Competitor outside top 3</span>
-                                    ) : (
-                                      <span>Competitor rank: #{o.rank}</span>
-                                    )}
-                                  </div>
-                                  <div className="mt-2 flex items-center gap-2">
-                                    <div className="h-1 flex-1 max-w-32 bg-zinc-800 rounded-full overflow-hidden">
-                                      <div
-                                        className={cn('h-full rounded-full transition-all',
-                                          o.opportunityScore >= 80 ? 'bg-amber-500' :
-                                          o.opportunityScore >= 50 ? 'bg-cyan-500' : 'bg-zinc-600'
-                                        )}
-                                        style={{ width: `${Math.min(100, o.opportunityScore)}%` }}
-                                      />
-                                    </div>
-                                    <span className="text-[10px] text-zinc-600 font-mono">{round1(o.opportunityScore)}</span>
-                                  </div>
+                <ScrollArea className="h-[600px] pr-4 -mr-2">
+                  <div className="space-y-3 pb-4">
+                    {filteredOpportunities.map((o, idx) => {
+                      const isMissing = o.rank === null || (o.rank ?? 0) > 3
+                      return (
+                        <div key={idx} className="group relative bg-zinc-900/20 border border-zinc-800 rounded-2xl p-5 hover:border-zinc-700 hover:bg-zinc-900/40 transition-all duration-300">
+                          <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-3">
+                                <Badge className={cn(
+                                  "px-2 py-0.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider",
+                                  isMissing ? "bg-amber-500/10 text-amber-400 border-amber-500/20" : "bg-zinc-800 text-zinc-400 border-zinc-700"
+                                )}>
+                                  {isMissing ? "High Priority Gap" : "Moderate Opportunity"}
+                                </Badge>
+                                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-zinc-950/40 border border-zinc-800/50 text-[10px] font-bold text-zinc-500 uppercase">
+                                  <MousePointer2 className="w-3 h-3 text-cyan-400" />
+                                  Score: {round1(o.opportunityScore)}
                                 </div>
+                              </div>
+                              
+                              <h4 className="text-zinc-100 font-bold text-base mb-3 leading-snug group-hover:text-cyan-400 transition-colors">
+                                {o.prompt}
+                              </h4>
 
-                                <div className="flex items-center gap-2 shrink-0">
-                                  <Badge
-                                    className={cn(
-                                      'border',
-                                      isMissing ? 'bg-amber-500/10 text-amber-300 border-amber-500/30' : 'bg-zinc-800 text-zinc-100 border-zinc-700'
-                                    )}
-                                  >
-                                    {round1(o.opportunityScore)}/100
-                                  </Badge>
+                              <div className="flex items-center gap-4">
+                                <div className="flex-1 max-w-xs space-y-1.5">
+                                  <div className="flex justify-between text-[10px] font-bold text-zinc-600 uppercase tracking-tighter">
+                                    <span>Opportunity Strength</span>
+                                    <span>{round1(o.opportunityScore)}%</span>
+                                  </div>
+                                  <div className="h-1.5 w-full bg-zinc-800/50 rounded-full overflow-hidden border border-zinc-800/50">
+                                    <div
+                                      className={cn('h-full rounded-full transition-all duration-1000 ease-out',
+                                        o.opportunityScore >= 80 ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]' :
+                                        o.opportunityScore >= 50 ? 'bg-cyan-500 shadow-[0_0_8px_rgba(34,211,238,0.4)]' :
+                                        'bg-zinc-600 shadow-[0_0_8px_rgba(113,113,122,0.4)]'
+                                      )}
+                                      style={{ width: `${Math.min(100, o.opportunityScore)}%` }}
+                                    />
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          )
-                        })}
+
+                            <div className="flex items-center gap-4 shrink-0 bg-zinc-950/40 px-5 py-3 rounded-2xl border border-zinc-800/50 w-full md:w-auto">
+                              <div className="flex flex-col items-center border-r border-zinc-800 pr-5">
+                                <span className="text-[9px] font-bold text-zinc-600 uppercase tracking-tighter">Comp. Rank</span>
+                                <span className={cn(
+                                  "text-lg font-bold font-mono",
+                                  isMissing ? "text-amber-400" : "text-zinc-400"
+                                )}>
+                                  {o.rank ? `#${o.rank}` : 'N/A'}
+                                </span>
+                              </div>
+                              <div className="flex flex-col items-end flex-1 md:flex-none">
+                                <div className="flex items-center gap-1.5 text-[10px] font-bold text-cyan-400 uppercase tracking-wider mb-1">
+                                  <Lightbulb className="w-3 h-3" /> Action
+                                </div>
+                                <span className="text-xs text-zinc-400 text-right font-medium">Create Targeting Content</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+
+                    {filteredOpportunities.length === 0 && (
+                      <div className="text-center py-20 bg-zinc-900/20 rounded-3xl border border-dashed border-zinc-800">
+                        <div className="w-16 h-16 rounded-2xl bg-zinc-900/50 flex items-center justify-center mx-auto mb-4">
+                          <Search className="w-8 h-8 text-zinc-700" />
+                        </div>
+                        <h3 className="text-white font-bold mb-1">No prompts found</h3>
+                        <p className="text-zinc-500 text-sm">Try adjusting your search filter.</p>
                       </div>
-                    </ScrollArea>
+                    )}
                   </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                </ScrollArea>
+              </div>
+            </div>
+          </SectionCard>
         </>
       )}
     </div>

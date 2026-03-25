@@ -4,6 +4,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
+import { SectionCard } from '@/components/ui/SectionCard'
+import { StatCard } from '@/components/ui/StatCard'
 import {
   type ModuleFMetricRecommendation,
   type ModuleFPerModelStats,
@@ -16,7 +18,8 @@ import {
 import {
   ArrowDown, ArrowUp, CheckCircle2, Eye, Loader2, Percent, Swords,
   Info, Shield, ChevronDown, ChevronUp, Gauge, TrendingUp, TrendingDown,
-  Star, Globe, MessageSquare, Link2,
+  Star, Globe, MessageSquare, Link2, Zap, Trophy, Target, BarChart3,
+  Search, ExternalLink, Activity
 } from 'lucide-react'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import {
@@ -91,76 +94,95 @@ function PerModelBreakdown({ perModel, entityName }: { perModel: Record<string, 
   const models = Object.entries(perModel)
   if (!models.length) return null
 
-  const MODEL_COLORS: Record<string, string> = {
-    openai: 'border-emerald-500/20 bg-emerald-500/5',
-    gemini: 'border-blue-500/20 bg-blue-500/5',
-    claude: 'border-purple-500/20 bg-purple-500/5',
+  const MODEL_CONFIG: Record<string, { color: string; icon: any; bg: string }> = {
+    openai: { color: 'text-emerald-400', icon: Zap, bg: 'bg-emerald-500/10' },
+    gemini: { color: 'text-blue-400', icon: Activity, bg: 'bg-blue-500/10' },
+    claude: { color: 'text-amber-400', icon: Star, bg: 'bg-amber-500/10' },
   }
 
   return (
-    <div className="mt-3 space-y-2.5">
-      <div className="text-[11px] text-zinc-500 uppercase tracking-wide font-medium flex items-center gap-2">
-        <div className="h-px flex-1 bg-zinc-800/50" />
-        Per-model breakdown — {entityName}
-        <div className="h-px flex-1 bg-zinc-800/50" />
+    <div className="mt-4 space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="h-px flex-1 bg-gradient-to-r from-transparent to-zinc-800" />
+        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Model Insights — {entityName}</span>
+        <div className="h-px flex-1 bg-gradient-to-l from-transparent to-zinc-800" />
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {models.map(([model, stats]) => {
-          const modelKey = model.toLowerCase()
-          const colorCls = MODEL_COLORS[modelKey] ?? 'border-zinc-800 bg-zinc-900/40'
+          const mKey = model.toLowerCase()
+          const cfg = MODEL_CONFIG[mKey] ?? { color: 'text-zinc-400', icon: MessageSquare, bg: 'bg-zinc-800/50' }
+          const Icon = cfg.icon
+
           return (
-            <div key={model} className={cn('rounded-xl border p-3.5 space-y-2.5', colorCls)}>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-zinc-200 capitalize">{model}</span>
+            <div key={model} className="group relative rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4 transition-all duration-300 hover:border-zinc-700 hover:bg-zinc-900/60 overflow-hidden">
+              <div className={cn('absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 opacity-[0.03] transition-opacity group-hover:opacity-[0.07]', cfg.color)}>
+                <Icon className="w-full h-full" />
+              </div>
+              
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className={cn('p-2 rounded-xl shrink-0', cfg.bg)}>
+                    <Icon className={cn('w-4 h-4', cfg.color)} />
+                  </div>
+                  <span className="text-sm font-bold text-zinc-100 capitalize">{model}</span>
+                </div>
                 {stats.rank != null && (
-                  <Badge className="bg-zinc-800/80 text-zinc-400 border-zinc-700 text-[10px]">
-                    #{stats.rank}
-                  </Badge>
+                  <div className="flex flex-col items-end">
+                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-tighter">Rank</span>
+                    <span className={cn('text-lg font-bold font-mono leading-none', cfg.color)}>#{stats.rank}</span>
+                  </div>
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-2.5 text-[11px]">
-                <div className="flex items-center gap-1.5">
-                  <MessageSquare className="w-3 h-3 text-zinc-500" />
-                  <span className="text-zinc-500">Mentions</span>
-                  <span className="text-zinc-300 font-mono ml-auto">{stats.mentions}</span>
+
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="bg-zinc-950/40 rounded-xl p-2.5 border border-zinc-800/50">
+                  <div className="text-[10px] font-bold text-zinc-500 uppercase mb-1">Mentions</div>
+                  <div className="text-sm font-mono text-zinc-200">{stats.mentions}</div>
                 </div>
                 {stats.sentiment != null && (
-                  <div className="flex items-center gap-1.5">
-                    <Star className="w-3 h-3 text-zinc-500" />
-                    <span className="text-zinc-500">Sentiment</span>
-                    <span className={cn('font-mono ml-auto', stats.sentiment > 0 ? 'text-emerald-400' : stats.sentiment < 0 ? 'text-rose-400' : 'text-zinc-400')}>
+                  <div className="bg-zinc-950/40 rounded-xl p-2.5 border border-zinc-800/50">
+                    <div className="text-[10px] font-bold text-zinc-500 uppercase mb-1">Sentiment</div>
+                    <div className={cn('text-sm font-mono', stats.sentiment > 0 ? 'text-emerald-400' : stats.sentiment < 0 ? 'text-rose-400' : 'text-zinc-400')}>
                       {stats.sentiment > 0 ? '+' : ''}{stats.sentiment.toFixed(2)}
-                    </span>
-                  </div>
-                )}
-                {stats.in_title != null && (
-                  <div className="flex items-center gap-1.5">
-                    <Globe className="w-3 h-3 text-zinc-500" />
-                    <span className="text-zinc-500">In title</span>
-                    <span className={cn('ml-auto', stats.in_title ? 'text-emerald-400' : 'text-zinc-600')}>
-                      {stats.in_title ? 'Yes' : 'No'}
-                    </span>
-                  </div>
-                )}
-                {stats.citation_present != null && (
-                  <div className="flex items-center gap-1.5">
-                    <Link2 className="w-3 h-3 text-zinc-500" />
-                    <span className="text-zinc-500">Cited</span>
-                    <span className={cn('ml-auto', stats.citation_present ? 'text-emerald-400' : 'text-zinc-600')}>
-                      {stats.citation_present ? 'Yes' : 'No'}
-                    </span>
+                    </div>
                   </div>
                 )}
               </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-zinc-500">In Title</span>
+                  <span className={cn('font-bold', stats.in_title ? 'text-emerald-400' : 'text-zinc-600')}>
+                    {stats.in_title ? 'YES' : 'NO'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-zinc-500">Cited</span>
+                  <span className={cn('font-bold', stats.citation_present ? 'text-emerald-400' : 'text-zinc-600')}>
+                    {stats.citation_present ? 'YES' : 'NO'}
+                  </span>
+                </div>
+              </div>
+
               {stats.cited_urls && stats.cited_urls.length > 0 && (
-                <div className="pt-2 border-t border-zinc-800/30">
-                  <div className="text-[10px] text-zinc-600 mb-1">Cited URLs</div>
-                  {stats.cited_urls.slice(0, 2).map((url, i) => (
-                    <div key={i} className="text-[10px] text-zinc-500 truncate font-mono">{url}</div>
-                  ))}
-                  {stats.cited_urls.length > 2 && (
-                    <div className="text-[10px] text-zinc-700 mt-0.5">+{stats.cited_urls.length - 2} more</div>
-                  )}
+                <div className="mt-4 pt-3 border-t border-zinc-800/50">
+                  <div className="text-[10px] font-bold text-zinc-500 uppercase mb-2 flex items-center gap-1.5">
+                    <Link2 className="w-3 h-3" /> Sources
+                  </div>
+                  <div className="space-y-1.5">
+                    {stats.cited_urls.slice(0, 2).map((url, i) => (
+                      <div key={i} className="group/url flex items-center gap-2 text-[10px] text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer">
+                        <div className="w-1 h-1 rounded-full bg-zinc-700 group-hover/url:bg-blue-400" />
+                        <span className="truncate font-mono">{url}</span>
+                        <ExternalLink className="w-2.5 h-2.5 opacity-0 group-hover/url:opacity-100 transition-opacity" />
+                      </div>
+                    ))}
+                    {stats.cited_urls.length > 2 && (
+                      <div className="text-[9px] text-zinc-600 font-bold ml-3">
+                        +{stats.cited_urls.length - 2} ADDITIONAL SOURCES
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -186,34 +208,50 @@ function ModelBenchmarkMatrix({
     return Array.from(m).sort((a, b) => a.localeCompare(b))
   }, [entities])
 
+  const MODEL_CONFIG: Record<string, { color: string; icon: any; bg: string }> = {
+    openai: { color: 'text-emerald-400', icon: Zap, bg: 'bg-emerald-500/10' },
+    gemini: { color: 'text-blue-400', icon: Activity, bg: 'bg-blue-500/10' },
+    claude: { color: 'text-amber-400', icon: Star, bg: 'bg-amber-500/10' },
+  }
+
   if (!entities.length || !models.length) return null
 
   return (
-    <div className="bg-[#111113] rounded-xl border border-zinc-800 overflow-hidden">
-      <div className="p-4 border-b border-zinc-800">
-        <h3 className="text-sm font-medium text-zinc-100">Model-by-Model Benchmark</h3>
-        <p className="text-[11px] text-zinc-600 mt-0.5">
-          Leader cell per model is highlighted. Each cell shows rank and mentions.
-        </p>
-      </div>
-      <div className="overflow-x-auto">
+    <SectionCard 
+      title="Model-by-Model Benchmark" 
+      description="Leader cell per model is highlighted. Each cell shows rank and mentions."
+      className="bg-[#111113] overflow-hidden"
+    >
+      <div className="overflow-x-auto -mx-5 -mb-5">
         <table className="w-full text-sm text-left">
           <thead>
             <tr className="border-b border-zinc-800 bg-zinc-900/50 text-zinc-400">
-              <th className="p-3 font-medium sticky left-0 bg-zinc-900/50">Entity</th>
-              {models.map((model) => (
-                <th key={model} className="p-3 font-medium capitalize">{model}</th>
-              ))}
+              <th className="p-4 font-bold uppercase tracking-wider text-[10px] sticky left-0 bg-zinc-900/50 backdrop-blur-md z-10">Entity</th>
+              {models.map((model) => {
+                const mKey = model.toLowerCase()
+                const cfg = MODEL_CONFIG[mKey] ?? { color: 'text-zinc-400', icon: MessageSquare, bg: 'bg-zinc-800/50' }
+                const Icon = cfg.icon
+                return (
+                  <th key={model} className="p-4 font-bold uppercase tracking-wider text-[10px]">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className={cn('p-1.5 rounded-lg', cfg.bg)}>
+                        <Icon className={cn('w-3.5 h-3.5', cfg.color)} />
+                      </div>
+                      <span>{model}</span>
+                    </div>
+                  </th>
+                )
+              })}
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-800">
             {entities.map((entity) => (
-              <tr key={entity.name} className="hover:bg-zinc-900/40 transition-colors">
-                <td className="p-3 sticky left-0 bg-[#111113]">
+              <tr key={entity.name} className="hover:bg-zinc-900/40 transition-colors group">
+                <td className="p-4 sticky left-0 bg-[#111113] group-hover:bg-[#161618] transition-colors z-10 border-r border-zinc-800/50">
                   <div className="flex items-center gap-2">
-                    <span className="text-zinc-100 font-medium truncate max-w-48">{entity.name}</span>
+                    <span className="text-zinc-100 font-semibold truncate max-w-48">{entity.name}</span>
                     {entity.entity_type === 'client' && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">you</span>
+                      <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-[9px] px-1 py-0 h-4">YOU</Badge>
                     )}
                   </div>
                 </td>
@@ -233,16 +271,27 @@ function ModelBenchmarkMatrix({
                     <td key={`${entity.name}-${model}`} className="p-3">
                       {stats ? (
                         <div className={cn(
-                          'rounded-md border px-2.5 py-2 text-xs',
-                          isLeader ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-zinc-800 bg-zinc-900/40'
+                          'rounded-xl border p-3 text-center transition-all duration-300',
+                          isLeader 
+                            ? 'border-emerald-500/30 bg-emerald-500/10 shadow-[0_0_12px_rgba(16,185,129,0.1)] scale-[1.02]' 
+                            : 'border-zinc-800 bg-zinc-900/40'
                         )}>
-                          <div className={cn('font-mono', isLeader ? 'text-emerald-300' : 'text-zinc-300')}>
+                          <div className={cn('text-lg font-bold font-mono', isLeader ? 'text-emerald-400' : 'text-zinc-100')}>
                             {rank != null ? `#${rank}` : '—'}
                           </div>
-                          <div className="text-zinc-600 mt-0.5">mentions {mentions}</div>
+                          <div className="text-[10px] font-medium text-zinc-500 mt-1 uppercase tracking-tighter">
+                            {mentions} Mentions
+                          </div>
+                          {isLeader && (
+                            <div className="mt-1.5 flex justify-center">
+                              <Trophy className="w-3 h-3 text-emerald-500/50" />
+                            </div>
+                          )}
                         </div>
                       ) : (
-                        <span className="text-zinc-600 text-xs">—</span>
+                        <div className="flex justify-center">
+                          <span className="text-zinc-800 text-xs font-mono">—</span>
+                        </div>
                       )}
                     </td>
                   )
@@ -252,7 +301,7 @@ function ModelBenchmarkMatrix({
           </tbody>
         </table>
       </div>
-    </div>
+    </SectionCard>
   )
 }
 
@@ -337,35 +386,63 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900/50 to-transparent p-4 sm:p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-xl bg-[#111113] border border-zinc-800">
-              <Swords className="w-5 h-5 text-blue-400" />
+      <div className="rounded-3xl border border-zinc-800 bg-[#111113] p-6 sm:p-8 relative overflow-hidden group">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 blur-[100px] -mr-32 -mt-32" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/5 blur-[100px] -ml-32 -mb-32" />
+        
+        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-start gap-5">
+            <div className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-xl group-hover:border-blue-500/30 transition-colors">
+              <Swords className="w-8 h-8 text-blue-400 animate-pulse" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-zinc-100">Visibility Comparison</h2>
-              <p className="text-xs text-zinc-400">
-                Compare brand vs competitors across AI outputs: visibility score, rank delta, and market share.
+              <div className="flex items-center gap-3 mb-1">
+                <h2 className="text-2xl font-bold text-white tracking-tight">Visibility Comparison</h2>
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Live AI Insights</span>
+                </div>
+              </div>
+              <p className="text-sm text-zinc-400 max-w-xl">
+                Real-time competitive analysis across OpenAI, Gemini & Claude. Compare your brand's presence, sentiment, and citation share.
               </p>
               {comparison?.topic && (
-                <div className="mt-2">
-                  <Badge className="bg-zinc-800 text-zinc-400 border-0 text-[11px]">Topic: {comparison.topic}</Badge>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <div className="flex items-center gap-2 px-3 py-1 rounded-xl bg-zinc-900 border border-zinc-800 text-[11px] text-zinc-300">
+                    <Search className="w-3 h-3 text-zinc-500" />
+                    <span className="text-zinc-500 uppercase font-bold tracking-tighter">Topic:</span>
+                    <span className="font-semibold">{comparison.topic}</span>
+                  </div>
+                  {result?.plan && (
+                    <div className="px-3 py-1 rounded-xl bg-blue-500/10 border border-blue-500/20 text-[11px] font-bold text-blue-400 uppercase">
+                      {result.plan} Plan
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {result?.plan && (
-              <Badge variant="outline" className="text-[11px] border-zinc-700 text-zinc-500 hidden sm:flex capitalize">
-                {result.plan}
-              </Badge>
-            )}
+          
+          <div className="flex flex-col items-end gap-3">
             {updatedAt && (
-              <Badge variant="outline" className="text-[11px] border-zinc-700 text-zinc-400 hidden sm:flex">
-                Updated: {new Date(updatedAt).toLocaleString()}
-              </Badge>
+              <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-widest bg-zinc-900/50 px-3 py-1.5 rounded-full border border-zinc-800">
+                <Activity className="w-3 h-3 text-emerald-500" />
+                Last Analysis: {new Date(updatedAt).toLocaleTimeString()}
+              </div>
             )}
+            <button
+              onClick={handleRun}
+              disabled={isRunning}
+              className={cn(
+                'flex items-center gap-2 px-6 py-2.5 rounded-2xl font-bold text-sm transition-all',
+                isRunning 
+                  ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' 
+                  : 'bg-white text-black hover:bg-zinc-200 active:scale-95 shadow-lg shadow-white/5'
+              )}
+            >
+              {isRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+              {isRunning ? 'Analyzing Models...' : 'Re-Run Comparison'}
+            </button>
           </div>
         </div>
       </div>
@@ -397,138 +474,47 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
 
       {comparison && (
         <div className={cn('grid gap-4', d7 ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4' : 'grid-cols-1 md:grid-cols-3')}>
-          <Card className="bg-[#111113] rounded-xl border border-zinc-800 p-5 hover:bg-[#0D0D10] transition-colors">
-            <div className="flex items-center gap-3">
-              <div className="relative w-12 h-12 shrink-0">
-                <svg viewBox="0 0 36 36" className="w-12 h-12 -rotate-90">
-                  <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="3" />
-                  <circle
-                    cx="18" cy="18" r="15" fill="none"
-                    stroke={
-                      (brand?.visibility_score ?? 0) >= 75 ? '#34d399'
-                        : (brand?.visibility_score ?? 0) >= 50 ? '#60a5fa'
-                        : (brand?.visibility_score ?? 0) >= 25 ? '#fbbf24' : '#f87171'
-                    }
-                    strokeWidth="3" strokeLinecap="round"
-                    strokeDasharray={`${((brand?.visibility_score ?? 0) / 100) * 94.2} 94.2`}
-                  />
-                </svg>
-                <Eye className="w-4 h-4 text-blue-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
-              </div>
-              <div className="flex-1">
-                <div className="text-xs text-zinc-400 flex items-center gap-1.5">
-                  Your Visibility
-                  {visibilityRec && <MetricTooltip rec={visibilityRec} />}
-                </div>
-                <div className={cn('text-3xl font-bold', getVisibilityColor(brand?.visibility_score ?? 0))}>
-                  {(brand?.visibility_score ?? 0).toFixed(1)}
-                </div>
-                <div className="text-xs text-zinc-500 flex items-center gap-1.5">
-                  {brand?.name ?? 'Brand'}
-                  {brand?.entity_type === 'client' && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">client</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </Card>
+          <StatCard
+            label="Your Visibility"
+            value={(brand?.visibility_score ?? 0).toFixed(1)}
+            subtext={brand?.name ?? 'Brand'}
+            icon={Eye}
+            accent={(brand?.visibility_score ?? 0) >= 75 ? 'emerald' : (brand?.visibility_score ?? 0) >= 50 ? 'blue' : (brand?.visibility_score ?? 0) >= 25 ? 'amber' : 'rose'}
+            progress={brand?.visibility_score ?? 0}
+            description={visibilityRec?.why || 'Overall AI search visibility score'}
+          />
 
-          <Card className="bg-[#111113] rounded-xl border border-zinc-800 p-5 hover:bg-[#0D0D10] transition-colors">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-purple-500/20 rounded-xl">
-                <Swords className="w-4 h-4 text-purple-400" />
-              </div>
-              <div className="flex-1">
-                <div className="text-xs text-zinc-400">Top Competitor</div>
-                <div className="text-xl font-semibold text-zinc-100 truncate">
-                  {topCompetitor?.name ?? '—'}
-                </div>
-                <div className="text-xs text-zinc-500">
-                  Score: {(topCompetitor?.visibility_score ?? 0).toFixed(1)}
-                </div>
-              </div>
-            </div>
-          </Card>
+          <StatCard
+            label="Top Competitor"
+            value={topCompetitor?.name ?? '—'}
+            subtext={`Score: ${(topCompetitor?.visibility_score ?? 0).toFixed(1)}`}
+            icon={Trophy}
+            accent="violet"
+            progress={topCompetitor?.visibility_score ?? 0}
+            description="Leading brand in this analysis"
+          />
 
-          <Card className="bg-[#111113] rounded-xl border border-zinc-800 p-5 hover:bg-[#0D0D10] transition-colors">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-emerald-500/20 rounded-xl">
-                <Percent className="w-4 h-4 text-emerald-400" />
-              </div>
-              <div className="flex-1">
-                <div className="text-xs text-zinc-400 flex items-center gap-1.5">
-                  Market Share
-                  {shareRec && <MetricTooltip rec={shareRec} />}
-                </div>
-                <div className="text-3xl font-bold text-zinc-100">
-                  {(brand?.market_share_percent ?? 0).toFixed(1)}%
-                </div>
-                <div className="text-xs text-zinc-500">{competitors.length} competitors tracked</div>
-              </div>
-            </div>
-          </Card>
+          <StatCard
+            label="Market Share"
+            value={`${(brand?.market_share_percent ?? 0).toFixed(1)}%`}
+            subtext={`${competitors.length} competitors tracked`}
+            icon={Percent}
+            accent="emerald"
+            progress={brand?.market_share_percent ?? 0}
+            description={shareRec?.why || 'Share of voice in AI results'}
+          />
 
           {d7 && (
-            <Card className="bg-[#111113] rounded-xl border border-zinc-800 p-5 hover:bg-[#0D0D10] transition-colors">
-              <div className="flex items-center gap-3">
-                <div className="relative w-12 h-12 shrink-0">
-                  <svg viewBox="0 0 36 36" className="w-12 h-12 -rotate-90">
-                    <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="3" />
-                    <circle
-                      cx="18" cy="18" r="15" fill="none" stroke="#f59e0b"
-                      strokeWidth="3" strokeLinecap="round"
-                      strokeDasharray={`${((d7.d7_score ?? 0) / 100) * 94.2} 94.2`}
-                    />
-                  </svg>
-                  <Gauge className="w-4 h-4 text-amber-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
-                </div>
-                <div className="flex-1">
-                  <div className="text-xs text-zinc-400 flex items-center gap-1.5">
-                    AIVS™ D7 Score
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <Info className="w-3 h-3 text-zinc-500 hover:text-zinc-300 transition-colors" />
-                        </TooltipTrigger>
-                        <TooltipContent className="bg-zinc-900 border-zinc-800 text-zinc-300 max-w-xs text-xs p-3">
-                          <div className="font-medium text-zinc-100 mb-1">Competitive Citation Gap Score</div>
-                          <div className="text-zinc-300 mb-2">D7 contributes 15% to your overall AIVS™ score. It measures competitive citation share, content gaps, and source overlap.</div>
-                          <div className="space-y-1.5 text-[11px]">
-                            <div className="flex justify-between"><span className="text-zinc-500">Share of Voice (30%)</span><span className="text-zinc-300">{d7.param_breakdown?.sov?.score?.toFixed(1) ?? '—'}</span></div>
-                            <div className="flex justify-between"><span className="text-zinc-500">Content Gaps (35%)</span><span className="text-zinc-300">{d7.param_breakdown?.gaps?.score?.toFixed(1) ?? '—'}</span></div>
-                            <div className="flex justify-between"><span className="text-zinc-500">Source Overlap (35%)</span><span className="text-zinc-300">{d7.param_breakdown?.overlap?.score?.toFixed(1) ?? '—'}</span></div>
-                          </div>
-                          <div className="mt-2 pt-2 border-t border-zinc-800 text-[11px]">
-                            <span className="text-zinc-500">AIVS™ contribution: </span>
-                            <span className="text-amber-400 font-mono">{d7.aivs_d7_contribution?.toFixed(2) ?? '—'}</span>
-                            <span className="text-zinc-600"> / 15.00</span>
-                          </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-bold text-zinc-100">{d7.d7_score?.toFixed(1)}</span>
-                    <span className={cn('text-sm font-bold px-1.5 py-0.5 rounded border', getGradeColor(d7.d7_grade))}>
-                      {d7.d7_grade}
-                    </span>
-                  </div>
-                  <div className="text-xs text-zinc-500 flex items-center gap-1.5">
-                    {d7.d7_delta != null && (
-                      <span className={cn('font-mono', d7.d7_delta > 0 ? 'text-emerald-400' : d7.d7_delta < 0 ? 'text-rose-400' : 'text-zinc-500')}>
-                        {d7.d7_delta > 0 ? '+' : ''}{d7.d7_delta.toFixed(1)} pts
-                      </span>
-                    )}
-                    {d7.grade_change && (
-                      <span className={cn('text-[10px]', d7.grade_change === 'improved' ? 'text-emerald-400' : 'text-rose-400')}>
-                        Grade {d7.grade_change}
-                      </span>
-                    )}
-                    {d7.d7_delta == null && <span className="text-zinc-600">First run</span>}
-                  </div>
-                </div>
-              </div>
-            </Card>
+            <StatCard
+              label="AIVS™ D7 Score"
+              value={d7.d7_score?.toFixed(1) || '0.0'}
+              subtext={`Grade ${d7.d7_grade}`}
+              icon={Gauge}
+              accent="amber"
+              progress={d7.d7_score}
+              trend={d7.d7_delta && d7.d7_delta > 0 ? 'up' : d7.d7_delta && d7.d7_delta < 0 ? 'down' : 'neutral'}
+              description="AIVS™ Competitive Citation Gap Score (15% contribution)"
+            />
           )}
         </div>
       )}
@@ -601,26 +587,34 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
                           <td className="p-3 text-zinc-600 text-xs font-mono">{row.rank_position ?? i + 1}</td>
                           <td className="p-3">
                             <div className="flex items-center gap-2">
-                              <span className="font-medium text-zinc-100 truncate max-w-55">{row.name}</span>
-                              {row.entity_type === 'client' && (
-                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">you</span>
-                              )}
+                              <div className={cn(
+                                'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
+                                row.entity_type === 'client' ? 'bg-blue-500/10 text-blue-400' : 'bg-zinc-800 text-zinc-400'
+                              )}>
+                                {row.entity_type === 'client' ? <Target className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
+                              </div>
+                              <div className="flex flex-col min-w-0">
+                                <span className="font-medium text-zinc-100 truncate max-w-55">{row.name}</span>
+                                {row.entity_type === 'client' && (
+                                  <span className="text-[9px] font-bold text-blue-400 uppercase tracking-tighter">Your Brand</span>
+                                )}
+                              </div>
                             </div>
                           </td>
                           <td className="p-3">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <span className={cn('font-semibold', getVisibilityColor(row.visibility_score ?? 0))}>
+                            <div className="space-y-1.5">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className={cn('font-bold font-mono text-sm', getVisibilityColor(row.visibility_score ?? 0))}>
                                   {(row.visibility_score ?? 0).toFixed(1)}
                                 </span>
-                                <span className="text-xs text-zinc-600">/ 100</span>
+                                <span className="text-[10px] text-zinc-600 font-medium">/ 100</span>
                               </div>
-                              <div className="h-1 w-20 bg-zinc-800 rounded-full overflow-hidden">
+                              <div className="h-1.5 w-24 bg-zinc-800/50 rounded-full overflow-hidden border border-zinc-800/50">
                                 <div
-                                  className={cn('h-full rounded-full transition-all',
-                                    (row.visibility_score ?? 0) >= 75 ? 'bg-emerald-500' :
-                                    (row.visibility_score ?? 0) >= 50 ? 'bg-blue-500' :
-                                    (row.visibility_score ?? 0) >= 25 ? 'bg-amber-500' : 'bg-red-500'
+                                  className={cn('h-full rounded-full transition-all duration-1000 ease-out',
+                                    (row.visibility_score ?? 0) >= 75 ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]' :
+                                    (row.visibility_score ?? 0) >= 50 ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.4)]' :
+                                    (row.visibility_score ?? 0) >= 25 ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)]'
                                   )}
                                   style={{ width: `${Math.min(100, row.visibility_score ?? 0)}%` }}
                                 />

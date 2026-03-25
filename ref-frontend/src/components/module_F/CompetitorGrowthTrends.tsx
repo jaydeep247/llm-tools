@@ -1,16 +1,46 @@
 'use client'
 
-import { type ModuleFMetricRecommendation, useGetModuleFTrendsQuery, useGetModuleFResultQuery, resolveFeatureFlags, resolveD7Output } from '@/store/api/module_F/moduleFApi'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { 
+  type ModuleFMetricRecommendation, 
+  useGetModuleFTrendsQuery, 
+  useGetModuleFResultQuery, 
+  resolveFeatureFlags, 
+  resolveD7Output,
+  normaliseMetricRec
+} from '@/store/api/module_F/moduleFApi'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { TrendingUp, TrendingDown, LineChart as LineChartIcon, Activity, Calendar, Info } from 'lucide-react'
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  LineChart as LineChartIcon, 
+  Activity, 
+  Calendar, 
+  Info,
+  Zap,
+  BarChart3,
+  Clock,
+  Layout,
+  Star,
+  Shield,
+  MousePointer2,
+  Trophy,
+  History,
+  Rocket,
+  ArrowUpRight,
+  Eye,
+  Percent,
+  Swords,
+  ChevronRight
+} from 'lucide-react'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot } from 'recharts'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { useCallback, useMemo, useState } from 'react'
+import { SectionCard } from '@/components/ui/SectionCard'
+import { StatCard } from '@/components/ui/StatCard'
 import {
   Tooltip as UiTooltip,
   TooltipContent,
@@ -27,19 +57,6 @@ type TrendSeries = {
   label: string
   color: string
   kind: 'brand' | 'competitor'
-}
-
-function normalizeMetricRecommendation(value: unknown): ModuleFMetricRecommendation | null {
-  if (!value) return null
-  if (typeof value === 'string') return { why: '', fix: value }
-  if (typeof value === 'object') {
-    const rec = value as Partial<ModuleFMetricRecommendation>
-    const why = typeof rec.why === 'string' ? rec.why : ''
-    const fix = typeof rec.fix === 'string' ? rec.fix : ''
-    if (!why && !fix) return null
-    return { why, fix }
-  }
-  return null
 }
 
 function formatSigned(value: number, decimals = 1) {
@@ -66,6 +83,7 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
   const trends = response?.data
   const history = trends?.history || []
   const [hidden, setHidden] = useState<Record<string, boolean>>({})
+  const [activeTab, setActiveTab] = useState<'visibility' | 'share'>('visibility')
 
   const toggleSeries = useCallback((seriesKey: string) => {
     setHidden((prev) => ({ ...prev, [seriesKey]: !prev[seriesKey] }))
@@ -166,8 +184,8 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
   const emerging = latestResult?.data?.emerging_trends || null
   const competitorChanges = emerging?.competitor_changes || []
   const promptSwings = emerging?.prompt_swings || []
-  const visibilityRec = normalizeMetricRecommendation(latestResult?.data?.recommendations?.visibility_score ?? latestResult?.data?.metric_recommendations?.visibility_score)
-  const shareRec = normalizeMetricRecommendation(latestResult?.data?.recommendations?.market_share ?? latestResult?.data?.metric_recommendations?.market_share)
+  const visibilityRec = normaliseMetricRec(latestResult?.data?.metric_recommendations?.visibility_score)
+  const shareRec = normaliseMetricRec(latestResult?.data?.metric_recommendations?.market_share)
   const flags = resolveFeatureFlags(latestResult?.data)
   const d7 = resolveD7Output(latestResult?.data)
   const eventOverlays = useMemo(() => {
@@ -218,474 +236,380 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900/50 to-transparent p-4 sm:p-5">
-        <div className="flex items-start gap-3">
-          <div className="p-2 rounded-xl bg-[#111113] border border-zinc-800">
-            <LineChartIcon className="w-5 h-5 text-blue-400" />
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* Premium Header */}
+      <div className="rounded-3xl border border-zinc-800 bg-[#111113] p-6 sm:p-8 relative overflow-hidden group">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 blur-[100px] -mr-32 -mt-32" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/5 blur-[100px] -ml-32 -mb-32" />
+        
+        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-start gap-5">
+            <div className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 shadow-xl group-hover:border-emerald-500/30 transition-colors">
+              <History className="w-8 h-8 text-emerald-400 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-3 mb-1">
+                <h2 className="text-2xl font-bold text-white tracking-tight">Growth Trends</h2>
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Historical Tracking</span>
+                </div>
+              </div>
+              <p className="text-sm text-zinc-400 max-w-2xl leading-relaxed">
+                Monitor visibility shifts and market share momentum over time. Analyze how model updates and content changes impact your competitive standing.
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-lg font-semibold text-zinc-100">Growth Trends</h2>
-            <p className="text-xs text-zinc-400">
-              Track visibility, market share shifts, and competitor momentum across multiple Module F runs.
-            </p>
+          
+          <div className="flex flex-col items-end gap-1 bg-zinc-900/50 px-4 py-2 rounded-2xl border border-zinc-800">
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Dataset</span>
+            <span className="text-sm font-bold text-zinc-200">{runCount} Historical Runs</span>
           </div>
         </div>
       </div>
 
       {/* Metrics Summary */}
       <div className={cn('grid gap-4', d7 ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4' : 'grid-cols-1 md:grid-cols-3')}>
-        <Card className="bg-[#111113] border-zinc-800">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400 flex items-center gap-2">
-              Visibility Change
-              {visibilityRec && (
-                <TooltipProvider>
-                  <UiTooltip>
-                    <TooltipTrigger>
-                      <Info className="w-3 h-3 text-zinc-500 hover:text-zinc-300 transition-colors" />
-                    </TooltipTrigger>
-                    <TooltipContent className="bg-zinc-900 border-zinc-800 text-zinc-300 max-w-xs text-xs p-3">
-                      {visibilityRec.why && (
-                        <>
-                          <div className="font-medium text-zinc-100 mb-1">Why this</div>
-                          <div className="text-zinc-300">{visibilityRec.why}</div>
-                        </>
-                      )}
-                      <div className={cn('font-medium text-zinc-100', visibilityRec.why ? 'mt-3 mb-1' : 'mb-1')}>
-                        How to improve
-                      </div>
-                      <div className="text-zinc-300">{visibilityRec.fix}</div>
-                    </TooltipContent>
-                  </UiTooltip>
-                </TooltipProvider>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <span className="text-2xl font-bold text-zinc-100">
-                {canComputeDelta && brandVisibilityChangePct !== null
-                  ? `${formatSigned(brandVisibilityChangePct)}%`
-                  : (brandNowVisibility !== null ? brandNowVisibility.toFixed(1) : '—')}
-              </span>
-              {canComputeDelta && brandVisibilityChangePct !== null ? (
-                brandVisibilityChangePct >= 0 ? (
-                  <TrendingUp className="h-4 w-4 text-emerald-500" />
-                ) : (
-                  <TrendingDown className="h-4 w-4 text-rose-500" />
-                )
-              ) : null}
-            </div>
-            <p className="text-xs text-zinc-500 mt-1">
-              {canComputeDelta ? 'vs previous run' : 'Current visibility'}
-            </p>
-          </CardContent>
-        </Card>
+        <StatCard
+          label="Visibility Change"
+          value={canComputeDelta && brandVisibilityChangePct !== null
+            ? `${formatSigned(brandVisibilityChangePct)}%`
+            : (brandNowVisibility !== null ? brandNowVisibility.toFixed(1) : '—')}
+          subtext={canComputeDelta ? 'vs previous run' : 'Current visibility'}
+          icon={Eye}
+          accent={canComputeDelta && brandVisibilityChangePct !== null 
+            ? (brandVisibilityChangePct >= 0 ? 'emerald' : 'rose')
+            : 'blue'}
+          trend={canComputeDelta && brandVisibilityChangePct !== null
+            ? (brandVisibilityChangePct >= 0 ? 'up' : 'down')
+            : 'neutral'}
+          description={visibilityRec?.why || "Change in overall visibility score compared to the previous analysis run."}
+        />
 
-        <Card className="bg-[#111113] border-zinc-800">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400 flex items-center gap-2">
-              Market Share Change
-              {shareRec && (
-                <TooltipProvider>
-                  <UiTooltip>
-                    <TooltipTrigger>
-                      <Info className="w-3 h-3 text-zinc-500 hover:text-zinc-300 transition-colors" />
-                    </TooltipTrigger>
-                    <TooltipContent className="bg-zinc-900 border-zinc-800 text-zinc-300 max-w-xs text-xs p-3">
-                      {shareRec.why && (
-                        <>
-                          <div className="font-medium text-zinc-100 mb-1">Why this</div>
-                          <div className="text-zinc-300">{shareRec.why}</div>
-                        </>
-                      )}
-                      <div className={cn('font-medium text-zinc-100', shareRec.why ? 'mt-3 mb-1' : 'mb-1')}>
-                        How to improve
-                      </div>
-                      <div className="text-zinc-300">{shareRec.fix}</div>
-                    </TooltipContent>
-                  </UiTooltip>
-                </TooltipProvider>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <span className="text-2xl font-bold text-zinc-100">
-                {canComputeDelta && brandMarketShareChange !== null
-                  ? `${formatSigned(brandMarketShareChange)}%`
-                  : (brandNowShare !== null ? `${brandNowShare.toFixed(1)}%` : '—')}
-              </span>
-              {canComputeDelta && brandMarketShareChange !== null ? (
-                brandMarketShareChange >= 0 ? (
-                  <TrendingUp className="h-4 w-4 text-emerald-500" />
-                ) : (
-                  <TrendingDown className="h-4 w-4 text-rose-500" />
-                )
-              ) : null}
-            </div>
-            <p className="text-xs text-zinc-500 mt-1">
-              {canComputeDelta ? 'vs previous run' : 'Current market share'}
-            </p>
-          </CardContent>
-        </Card>
+        <StatCard
+          label="Market Share Change"
+          value={canComputeDelta && brandMarketShareChange !== null
+            ? `${formatSigned(brandMarketShareChange)}%`
+            : (brandNowShare !== null ? `${brandNowShare.toFixed(1)}%` : '—')}
+          subtext={canComputeDelta ? 'vs previous run' : 'Current market share'}
+          icon={Percent}
+          accent={canComputeDelta && brandMarketShareChange !== null 
+            ? (brandMarketShareChange >= 0 ? 'emerald' : 'rose')
+            : 'blue'}
+          trend={canComputeDelta && brandMarketShareChange !== null
+            ? (brandMarketShareChange >= 0 ? 'up' : 'down')
+            : 'neutral'}
+          description={shareRec?.why || "Shift in market share (share of voice) since the last data point."}
+        />
 
-        <Card className="bg-[#111113] border-zinc-800">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-zinc-400">Latest Snapshot</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold text-zinc-100">{brandNowVisibility?.toFixed(1) ?? '—'}</span>
-                  <span className="text-xs text-zinc-500">visibility</span>
-                  <span className="text-xs text-zinc-500">•</span>
-                  <span className="text-sm font-semibold text-zinc-200">{brandNowShare?.toFixed(1) ?? '—'}%</span>
-                  <span className="text-xs text-zinc-500">share</span>
-                </div>
-                <div className="mt-1 flex items-center gap-2 text-xs text-zinc-500">
-                  <Calendar className="h-3.5 w-3.5" />
-                  <span className="truncate">
-                    {latestPoint?.date ? format(new Date(latestPoint.date), 'MMM dd, yyyy • HH:mm') : '—'}
-                  </span>
-                </div>
-              </div>
-              <div className="shrink-0 flex flex-col items-end gap-1">
-                <Badge variant="outline" className="border-zinc-700 text-zinc-400 bg-zinc-900/40">
-                  Runs: {runCount}
-                </Badge>
-                {brandNowMentions !== null ? (
-                  <span className="text-xs text-zinc-500">Mentions: {brandNowMentions}</span>
-                ) : null}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard
+          label="Latest Snapshot"
+          value={brandNowVisibility?.toFixed(1) ?? '—'}
+          subtext={`${brandNowShare?.toFixed(1) ?? '—'}% Share • ${runCount} Runs`}
+          icon={Clock}
+          accent="violet"
+          description={`Last analysis run on ${latestPoint?.date ? format(new Date(latestPoint.date), 'MMM dd, yyyy') : 'N/A'}`}
+        />
 
         {d7 && (
-          <Card className="bg-[#111113] border-zinc-800">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-zinc-400">AIVS™ D7 Score</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold text-zinc-100">{d7.d7_score?.toFixed(1)}</span>
-                  <span className={cn('text-xs font-bold px-1.5 py-0.5 rounded border',
-                    d7.d7_grade === 'A+' || d7.d7_grade === 'A' ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25' :
-                    d7.d7_grade === 'B' ? 'text-blue-400 bg-blue-500/10 border-blue-500/25' :
-                    d7.d7_grade === 'C' ? 'text-amber-400 bg-amber-500/10 border-amber-500/25' :
-                    'text-red-400 bg-red-500/10 border-red-500/25'
-                  )}>{d7.d7_grade}</span>
-                </div>
-                {d7.d7_delta != null && (
-                  d7.d7_delta >= 0 ? (
-                    <TrendingUp className="h-4 w-4 text-emerald-500" />
-                  ) : (
-                    <TrendingDown className="h-4 w-4 text-rose-500" />
-                  )
-                )}
-              </div>
-              <div className="flex items-center gap-2 mt-1">
-                {d7.d7_delta != null && (
-                  <span className={cn('text-xs font-mono', d7.d7_delta > 0 ? 'text-emerald-400' : d7.d7_delta < 0 ? 'text-rose-400' : 'text-zinc-500')}>
-                    {d7.d7_delta > 0 ? '+' : ''}{d7.d7_delta.toFixed(1)} pts
-                  </span>
-                )}
-                <span className="text-xs text-zinc-600">• {d7.aivs_d7_contribution?.toFixed(2)}/15.00 AIVS™</span>
-              </div>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="AIVS™ D7 Score"
+            value={d7.d7_score?.toFixed(1)}
+            subtext={`Grade ${d7.d7_grade} • ${d7.aivs_d7_contribution?.toFixed(2)}/15 pts`}
+            icon={Zap}
+            accent={d7.d7_delta && d7.d7_delta >= 0 ? 'emerald' : 'amber'}
+            trend={d7.d7_delta && d7.d7_delta > 0 ? 'up' : d7.d7_delta && d7.d7_delta < 0 ? 'down' : 'neutral'}
+            progress={d7.d7_score}
+            description="Competitive Citation Gap Score (15% contribution to AIVS™)"
+          />
         )}
       </div>
 
 
       {/* Trends Chart */}
-      <Card className="bg-[#111113] border-zinc-800">
-        <CardHeader>
-          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <LineChartIcon className="h-5 w-5 text-blue-400" />
-                <CardTitle className="text-zinc-100">Growth Trends</CardTitle>
-              </div>
-              <CardDescription className="text-zinc-400">
-                Track visibility and market share across runs (dots show each run).
-              </CardDescription>
-            </div>
+      <SectionCard 
+        title="Performance Trends" 
+        description="Visualize visibility and market share shifts across multiple analysis runs."
+        className="bg-[#111113]"
+      >
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-auto">
+              <TabsList className="bg-zinc-900 border border-zinc-800 p-1 h-9">
+                <TabsTrigger value="visibility" className="text-[10px] font-bold uppercase tracking-wider px-4 data-[state=active]:bg-zinc-800 data-[state=active]:text-white transition-all">Visibility</TabsTrigger>
+                <TabsTrigger value="share" className="text-[10px] font-bold uppercase tracking-wider px-4 data-[state=active]:bg-zinc-800 data-[state=active]:text-white transition-all">Market Share</TabsTrigger>
+              </TabsList>
+            </Tabs>
+
             <div className="flex flex-wrap items-center gap-2">
+              <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mr-2">Legend:</div>
               {series.map((s) => (
                 <button
                   key={s.key}
                   onClick={() => toggleSeries(s.key)}
                   className={cn(
-                    'flex items-center gap-2 rounded-full border px-3 py-1 text-xs transition-colors',
+                    'flex items-center gap-2 rounded-xl border px-3 py-1.5 text-[10px] font-bold uppercase tracking-tighter transition-all duration-300',
                     hidden[s.key]
-                      ? 'border-zinc-800 bg-zinc-900/30 text-zinc-500 hover:bg-zinc-900/50'
-                      : 'border-zinc-700 bg-zinc-900/60 text-zinc-200 hover:bg-zinc-900/80',
+                      ? 'border-zinc-800 bg-zinc-900/30 text-zinc-600 hover:bg-zinc-900/50'
+                      : 'border-zinc-700 bg-zinc-900/60 text-zinc-200 hover:border-zinc-600 shadow-lg shadow-black/20',
                   )}
                   type="button"
                 >
-                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color }} />
-                  <span className="max-w-45 truncate">{s.label}</span>
+                  <div className={cn("h-1.5 w-1.5 rounded-full transition-all", hidden[s.key] ? "bg-zinc-800" : "")} style={{ backgroundColor: hidden[s.key] ? undefined : s.color }} />
+                  <span className="max-w-32 truncate">{s.label}</span>
                 </button>
               ))}
             </div>
           </div>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="visibility">
-            <TabsList className="bg-zinc-900/50 border border-zinc-800">
-              <TabsTrigger value="visibility" className="text-xs data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 text-zinc-400">
-                Visibility
-              </TabsTrigger>
-              <TabsTrigger value="share" className="text-xs data-[state=active]:bg-zinc-800 data-[state=active]:text-zinc-100 text-zinc-400">
-                Market Share
-              </TabsTrigger>
-            </TabsList>
 
-            <TabsContent value="visibility" className="mt-4">
-              <div className="h-95 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData} margin={{ top: 8, right: 16, left: 4, bottom: 8 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                    <XAxis dataKey="date" stroke="#71717a" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis stroke="#71717a" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: '#0b0b0f',
-                        border: '1px solid rgba(255,255,255,0.12)',
-                        borderRadius: '12px',
-                      }}
-                      labelStyle={{ color: '#e4e4e7' }}
-                      itemStyle={{ color: '#e4e4e7' }}
-                      formatter={(value: any, name: any, item: any) => {
-                        const s = series.find((x) => x.key === item?.dataKey)
-                        const mentions = item?.payload?.[`${item?.dataKey}_mentions`]
-                        const label = s?.label ?? String(name)
-                        const extra = Number.isFinite(mentions) ? ` • mentions ${mentions}` : ''
-                        return [`${Number(value ?? 0).toFixed(1)}${extra}`, label]
-                      }}
-                      labelFormatter={(label: any, payload: any[]) => {
-                        const raw = payload?.[0]?.payload?.fullDate
-                        return raw ? format(new Date(raw), 'MMM dd, yyyy • HH:mm') : label
-                      }}
-                    />
-                    {series.map((s) =>
-                      hidden[s.key] ? null : (
-                        <Line
-                          key={s.key}
-                          type="monotone"
-                          dataKey={s.key}
-                          stroke={s.color}
-                          strokeWidth={s.kind === 'brand' ? 2.6 : 2}
-                          dot={{ r: 3, fill: s.color, strokeWidth: 0 }}
-                          activeDot={{ r: 5 }}
-                        />
-                      ),
-                    )}
-                    {eventOverlays.map((e) => (
-                      <ReferenceDot
-                        key={`v-${e.label}`}
-                        x={chartData[chartData.length - 1]?.date}
-                        y={e.y}
-                        r={4}
-                        fill={e.color}
-                        stroke="none"
-                        label={{ value: e.label, position: 'top', fill: e.color, fontSize: 10 }}
+          <div className="h-[400px] w-full bg-zinc-950/40 rounded-3xl border border-zinc-800/50 p-6 relative overflow-hidden group/chart">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-[40px] -mr-16 -mt-16 opacity-0 group-hover/chart:opacity-100 transition-opacity" />
+            
+            <ResponsiveContainer width="100%" height="100%">
+              {activeTab === 'visibility' ? (
+                <LineChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
+                  <XAxis 
+                    dataKey="date" 
+                    stroke="#52525b" 
+                    fontSize={10} 
+                    fontWeight="bold"
+                    tickLine={false} 
+                    axisLine={false}
+                    dy={10}
+                  />
+                  <YAxis 
+                    stroke="#52525b" 
+                    fontSize={10} 
+                    fontWeight="bold"
+                    tickLine={false} 
+                    axisLine={false} 
+                    domain={[0, 100]} 
+                    dx={-10}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#0b0b0f',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: '16px',
+                      boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.5)',
+                      padding: '12px'
+                    }}
+                    labelStyle={{ color: '#71717a', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '8px' }}
+                    itemStyle={{ padding: '2px 0' }}
+                    formatter={(value: any, name: any, item: any) => {
+                      const s = series.find((x) => x.key === item?.dataKey)
+                      const mentions = item?.payload?.[`${item?.dataKey}_mentions`]
+                      const label = s?.label ?? String(name)
+                      return [
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-bold text-white">{Number(value ?? 0).toFixed(1)}</span>
+                          {Number.isFinite(mentions) && (
+                            <span className="text-[10px] font-bold text-zinc-500 uppercase">{mentions} Mentions</span>
+                          )}
+                        </div>,
+                        <span className="text-[11px] font-medium text-zinc-400">{label}</span>
+                      ]
+                    }}
+                    labelFormatter={(label: any, payload: any[]) => {
+                      const raw = payload?.[0]?.payload?.fullDate
+                      return raw ? format(new Date(raw), 'MMM dd, yyyy • HH:mm') : label
+                    }}
+                  />
+                  {series.map((s) =>
+                    hidden[s.key] ? null : (
+                      <Line
+                        key={s.key}
+                        type="monotone"
+                        dataKey={s.key}
+                        stroke={s.color}
+                        strokeWidth={s.kind === 'brand' ? 3 : 2}
+                        dot={{ r: 4, fill: s.color, strokeWidth: 2, stroke: '#0b0b0f' }}
+                        activeDot={{ r: 6, strokeWidth: 0 }}
+                        animationDuration={1500}
                       />
-                    ))}
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="share" className="mt-4">
-              <div className="h-95 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData} margin={{ top: 8, right: 16, left: 4, bottom: 8 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                    <XAxis dataKey="date" stroke="#71717a" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis stroke="#71717a" fontSize={12} tickLine={false} axisLine={false} domain={[0, 100]} unit="%" />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: '#0b0b0f',
-                        border: '1px solid rgba(255,255,255,0.12)',
-                        borderRadius: '12px',
-                      }}
-                      labelStyle={{ color: '#e4e4e7' }}
-                      itemStyle={{ color: '#e4e4e7' }}
-                      formatter={(value: any, name: any, item: any) => {
-                        const rawKey = String(item?.dataKey || '')
-                        const baseKey = rawKey.replace(/_share$/, '')
-                        const s = series.find((x) => x.key === baseKey)
-                        const label = s?.label ?? String(name)
-                        return [`${Number(value ?? 0).toFixed(1)}%`, label]
-                      }}
-                      labelFormatter={(label: any, payload: any[]) => {
-                        const raw = payload?.[0]?.payload?.fullDate
-                        return raw ? format(new Date(raw), 'MMM dd, yyyy • HH:mm') : label
-                      }}
+                    ),
+                  )}
+                  {eventOverlays.map((e) => (
+                    <ReferenceDot
+                      key={`v-${e.label}`}
+                      x={chartData[chartData.length - 1]?.date}
+                      y={e.y}
+                      r={4}
+                      fill={e.color}
+                      stroke="none"
+                      label={{ value: e.label, position: 'top', fill: e.color, fontSize: 10, fontWeight: 'bold' }}
                     />
-                    {series.map((s) =>
-                      hidden[s.key] ? null : (
-                        <Line
-                          key={`${s.key}_share`}
-                          type="monotone"
-                          dataKey={`${s.key}_share`}
-                          stroke={s.color}
-                          strokeWidth={s.kind === 'brand' ? 2.6 : 2}
-                          strokeDasharray={s.kind === 'brand' ? undefined : '6 6'}
-                          dot={{ r: 3, fill: s.color, strokeWidth: 0 }}
-                          activeDot={{ r: 5 }}
-                        />
-                      ),
-                    )}
-                    {eventOverlays.map((e) => (
-                      <ReferenceDot
-                        key={`s-${e.label}`}
-                        x={chartData[chartData.length - 1]?.date}
-                        y={e.y}
-                        r={4}
-                        fill={e.color}
-                        stroke="none"
-                        label={{ value: e.label, position: 'top', fill: e.color, fontSize: 10 }}
+                  ))}
+                </LineChart>
+              ) : (
+                <LineChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
+                  <XAxis 
+                    dataKey="date" 
+                    stroke="#52525b" 
+                    fontSize={10} 
+                    fontWeight="bold"
+                    tickLine={false} 
+                    axisLine={false}
+                    dy={10}
+                  />
+                  <YAxis 
+                    stroke="#52525b" 
+                    fontSize={10} 
+                    fontWeight="bold"
+                    tickLine={false} 
+                    axisLine={false} 
+                    domain={[0, 100]} 
+                    unit="%"
+                    dx={-10}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#0b0b0f',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRadius: '16px',
+                      boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.5)',
+                      padding: '12px'
+                    }}
+                    labelStyle={{ color: '#71717a', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '8px' }}
+                    formatter={(value: any, name: any, item: any) => {
+                      const rawKey = String(item?.dataKey || '')
+                      const baseKey = rawKey.replace(/_share$/, '')
+                      const s = series.find((x) => x.key === baseKey)
+                      const label = s?.label ?? String(name)
+                      return [
+                        <span className="text-sm font-bold text-white">{Number(value ?? 0).toFixed(1)}%</span>,
+                        <span className="text-[11px] font-medium text-zinc-400">{label}</span>
+                      ]
+                    }}
+                    labelFormatter={(label: any, payload: any[]) => {
+                      const raw = payload?.[0]?.payload?.fullDate
+                      return raw ? format(new Date(raw), 'MMM dd, yyyy • HH:mm') : label
+                    }}
+                  />
+                  {series.map((s) =>
+                    hidden[s.key] ? null : (
+                      <Line
+                        key={`${s.key}_share`}
+                        type="monotone"
+                        dataKey={`${s.key}_share`}
+                        stroke={s.color}
+                        strokeWidth={s.kind === 'brand' ? 3 : 2}
+                        strokeDasharray={s.kind === 'brand' ? undefined : '6 6'}
+                        dot={{ r: 4, fill: s.color, strokeWidth: 2, stroke: '#0b0b0f' }}
+                        activeDot={{ r: 6, strokeWidth: 0 }}
+                        animationDuration={1500}
                       />
-                    ))}
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
-
-      {canComputeDelta && topMovers.length > 0 ? (
-        <Card className="bg-[#111113] border-zinc-800">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Activity className="h-5 w-5 text-emerald-400" />
-              <CardTitle className="text-zinc-100">Top Movers (Last Run)</CardTitle>
-            </div>
-            <CardDescription className="text-zinc-400">
-              Biggest visibility changes compared to the previous run.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {topMovers.map((m) => (
-                <div key={m.name} className="flex items-center justify-between gap-4 rounded-xl border border-zinc-800 bg-zinc-900/30 px-4 py-3">
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-zinc-100 truncate">{m.name}</div>
-                    <div className="text-xs text-zinc-500">
-                      Visibility {m.currentVisibility.toFixed(1)} • Share {m.currentShare.toFixed(1)}%
-                    </div>
-                  </div>
-                  <div className="shrink-0 flex items-center gap-3">
-                    <div className={cn('text-sm font-semibold', m.visibilityDelta >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
-                      {formatSigned(m.visibilityDelta, 1)}
-                    </div>
-                    <div className="text-xs text-zinc-500">{formatSigned(m.shareDelta, 1)}%</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      <Card className="bg-[#111113] border-zinc-800">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Activity className="h-5 w-5 text-blue-400" />
-            <CardTitle className="text-zinc-100">Emerging Trends</CardTitle>
+                    ),
+                  )}
+                </LineChart>
+              )}
+            </ResponsiveContainer>
           </div>
-          <CardDescription className="text-zinc-400">
-            Changes detected in the latest run
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {(!competitorChanges.length && !promptSwings.length) ? (
-              <div className="text-sm text-zinc-500 border border-dashed border-zinc-800 rounded-xl p-4">
-                No emerging patterns detected in this run.
+        </div>
+      </SectionCard>
+
+      {canComputeDelta && (topMovers.length > 0 || competitorChanges.length > 0 || promptSwings.length > 0) ? (
+        <SectionCard 
+          title="Market Momentum & Emerging Shifts" 
+          description="Identify competitors with the highest visibility gains and analyze recent prompt winner shifts."
+          className="bg-[#111113]"
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Top Movers */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 pb-3">
+                <Rocket className="w-3.5 h-3.5 text-emerald-400" /> Top Movers (Visibility)
               </div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {emerging?.summary ? (
-                <div className="lg:col-span-2 -mt-2 mb-2 flex flex-wrap gap-2">
-                  <Badge variant="outline" className="border-zinc-700 text-zinc-300">
-                    Trends: {emerging.summary.trends_detected}
-                  </Badge>
-                  <Badge variant="outline" className="border-zinc-700 text-zinc-300">
-                    Avg Δ Visibility: {formatSigned(emerging.summary.avg_visibility_delta, 1)}
-                  </Badge>
-                  <Badge className={
-                    emerging.summary.threat_level === 'high'
-                      ? 'bg-rose-500/15 text-rose-400 border-rose-600/30'
-                      : emerging.summary.threat_level === 'medium'
-                      ? 'bg-amber-500/15 text-amber-400 border-amber-600/30'
-                      : 'bg-emerald-500/15 text-emerald-400 border-emerald-600/30'
-                  }>
-                    {emerging.summary.threat_level} threat
-                  </Badge>
-                </div>
-              ) : null}
-              <div>
-                <div className="text-xs uppercase tracking-wide text-zinc-400 mb-3">Competitor Changes</div>
-                <div className="space-y-2">
-                  {competitorChanges.slice(0, 6).map((c) => {
-                    const up = c.delta_visibility >= 0
-                    const color =
-                      c.status === 'rising' || c.status === 'new'
-                        ? 'text-emerald-400'
-                        : c.status === 'falling' || c.status === 'missing'
-                        ? 'text-rose-400'
-                        : 'text-zinc-400'
-                    const badgeClass =
-                      c.status === 'rising' || c.status === 'new'
-                        ? 'bg-emerald-500/15 text-emerald-400 border-emerald-600/30'
-                        : c.status === 'falling' || c.status === 'missing'
-                        ? 'bg-rose-500/15 text-rose-400 border-rose-600/30'
-                        : 'bg-zinc-900/50 text-zinc-400 border-zinc-700'
-                    return (
-                      <div key={c.name} className="flex items-center justify-between gap-4 rounded-xl border border-zinc-800 bg-zinc-900/30 px-4 py-3">
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium text-zinc-100 truncate">{c.name}</div>
-                          <div className="text-xs text-zinc-500">Visibility {formatSigned(c.delta_visibility, 1)} • Share {formatSigned(c.delta_market_share, 1)}%</div>
-                        </div>
-                        <Badge variant="outline" className={badgeClass}>
-                          {c.status}
-                        </Badge>
+              <div className="space-y-3">
+                {topMovers.map((m) => (
+                  <div key={m.name} className="group flex items-center justify-between p-4 rounded-2xl bg-zinc-900/40 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/60 transition-all duration-300">
+                    <div className="flex items-center gap-3">
+                      <div className={cn("p-2 rounded-xl shrink-0", m.visibilityDelta > 0 ? "bg-emerald-500/10" : "bg-rose-500/10")}>
+                        {m.visibilityDelta > 0 ? <TrendingUp className="w-4 h-4 text-emerald-400" /> : <TrendingDown className="w-4 h-4 text-rose-400" />}
                       </div>
-                    )
-                  })}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs uppercase tracking-wide text-zinc-400 mb-3">Prompt Swings</div>
-                {promptSwings.length ? (
-                  <div className="space-y-2">
-                    {promptSwings.slice(0, 6).map((p, idx) => (
-                      <div key={idx} className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-3">
-                        <div className="text-xs text-zinc-400 mb-1 truncate">{p.prompt}</div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="border-zinc-700 text-zinc-300">{p.from}</Badge>
-                          <span className="text-xs text-zinc-500">→</span>
-                          <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-600/30">{p.to}</Badge>
-                        </div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-bold text-zinc-100 truncate max-w-[120px]">{m.name}</div>
+                        <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-tighter">Score: {m.currentVisibility.toFixed(1)}</div>
                       </div>
-                    ))}
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <div className={cn("text-sm font-bold font-mono", m.visibilityDelta > 0 ? "text-emerald-400" : "text-rose-400")}>
+                        {formatSigned(m.visibilityDelta)} pts
+                      </div>
+                    </div>
                   </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Competitor Changes */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 pb-3">
+                <Activity className="w-3.5 h-3.5 text-blue-400" /> Competitor Status
+              </div>
+              <div className="space-y-3">
+                {competitorChanges.length > 0 ? (
+                  competitorChanges.slice(0, 5).map((c, idx) => (
+                    <div key={idx} className="group flex items-center justify-between p-4 rounded-2xl bg-zinc-900/40 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/60 transition-all duration-300">
+                      <div className="flex items-center gap-3">
+                        <div className={cn("p-2 rounded-xl shrink-0", 
+                          c.status === 'rising' || c.status === 'new' ? "bg-emerald-500/10" : 
+                          c.status === 'falling' || c.status === 'missing' ? "bg-rose-500/10" : "bg-zinc-800/50"
+                        )}>
+                          {c.status === 'rising' || c.status === 'new' ? <ArrowUpRight className="w-4 h-4 text-emerald-400" /> : 
+                           c.status === 'falling' || c.status === 'missing' ? <TrendingDown className="w-4 h-4 text-rose-400" /> : 
+                           <Zap className="w-4 h-4 text-zinc-400" />}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-bold text-zinc-100 truncate max-w-[120px]">{c.name}</div>
+                          <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-tighter capitalize">{c.status}</div>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className={cn("border-0 text-[10px] font-bold uppercase", 
+                        c.status === 'rising' || c.status === 'new' ? "bg-emerald-500/10 text-emerald-400" : 
+                        c.status === 'falling' || c.status === 'missing' ? "bg-rose-500/10 text-rose-400" : "bg-zinc-800 text-zinc-500"
+                      )}>
+                        {formatSigned(c.delta_market_share)}% Share
+                      </Badge>
+                    </div>
+                  ))
                 ) : (
-                  <div className="text-sm text-zinc-500 border border-dashed border-zinc-800 rounded-xl p-4">No prompt winner changes detected.</div>
+                  <div className="flex flex-col items-center justify-center h-40 rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/20">
+                    <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest text-center px-6">No major status changes</p>
+                  </div>
                 )}
               </div>
             </div>
-          )}
-        </CardContent>
-      </Card>
+
+            {/* Prompt Swings */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 pb-3">
+                <Swords className="w-3.5 h-3.5 text-amber-400" /> Recent Prompt Swings
+              </div>
+              <div className="space-y-3">
+                {promptSwings.length > 0 ? (
+                  promptSwings.slice(0, 5).map((p, idx) => (
+                    <div key={idx} className="group p-4 rounded-2xl bg-zinc-900/40 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/60 transition-all duration-300">
+                      <div className="text-[11px] font-bold text-zinc-100 mb-2 truncate" title={p.prompt}>{p.prompt}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[9px] font-bold text-zinc-400 uppercase">{p.from}</div>
+                        <ChevronRight className="w-3 h-3 text-zinc-600" />
+                        <div className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-bold text-emerald-400 uppercase">{p.to}</div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-40 rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/20">
+                    <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest text-center px-6">No winner swings detected</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </SectionCard>
+      ) : null}
     </div>
   )
 }
