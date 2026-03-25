@@ -32,7 +32,10 @@ import {
   Eye,
   Percent,
   Swords,
-  ChevronRight
+  ChevronRight,
+  Target,
+  Cpu,
+  AlertTriangle
 } from 'lucide-react'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot } from 'recharts'
@@ -184,6 +187,8 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
   const emerging = latestResult?.data?.emerging_trends || null
   const competitorChanges = emerging?.competitor_changes || []
   const promptSwings = emerging?.prompt_swings || []
+  const summary = emerging?.summary || null
+  const modelTargeting = emerging?.model_targeting || {}
   const visibilityRec = normaliseMetricRec(latestResult?.data?.metric_recommendations?.visibility_score)
   const shareRec = normaliseMetricRec(latestResult?.data?.metric_recommendations?.market_share)
   const flags = resolveFeatureFlags(latestResult?.data)
@@ -267,6 +272,74 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
           </div>
         </div>
       </div>
+
+      {/* Emerging Trend Summary Highlights */}
+      {summary && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="rounded-3xl border border-zinc-800 bg-[#111113] p-5 relative overflow-hidden group/sum">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 blur-[50px] -mr-16 -mt-16 transition-all group-hover/sum:bg-emerald-500/10" />
+            <div className="relative flex items-center gap-4">
+              <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
+                <Zap className="w-5 h-5 text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Trends Detected</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-white">{summary.trends_detected}</span>
+                  <span className="text-[10px] font-bold text-emerald-400 uppercase">Active</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-zinc-800 bg-[#111113] p-5 relative overflow-hidden group/sum">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 blur-[50px] -mr-16 -mt-16 transition-all group-hover/sum:bg-blue-500/10" />
+            <div className="relative flex items-center gap-4">
+              <div className="p-3 rounded-2xl bg-blue-500/10 border border-blue-500/20">
+                <Activity className="w-5 h-5 text-blue-400" />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Avg. Visibility Delta</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-white">{formatSigned(summary.avg_visibility_delta)}</span>
+                  <span className="text-[10px] font-bold text-zinc-500 uppercase">Pts</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-zinc-800 bg-[#111113] p-5 relative overflow-hidden group/sum">
+            <div className={cn(
+              "absolute top-0 right-0 w-32 h-32 blur-[50px] -mr-16 -mt-16 transition-all group-hover/sum:opacity-100 opacity-50",
+              summary.threat_level === 'high' ? "bg-rose-500/10" : 
+              summary.threat_level === 'medium' ? "bg-amber-500/10" : "bg-emerald-500/10"
+            )} />
+            <div className="relative flex items-center gap-4">
+              <div className={cn(
+                "p-3 rounded-2xl border",
+                summary.threat_level === 'high' ? "bg-rose-500/10 border-rose-500/20" : 
+                summary.threat_level === 'medium' ? "bg-amber-500/10 border-amber-500/20" : "bg-emerald-500/10 border-emerald-500/20"
+              )}>
+                <Shield className={cn(
+                  "w-5 h-5",
+                  summary.threat_level === 'high' ? "text-rose-400" : 
+                  summary.threat_level === 'medium' ? "text-amber-400" : "text-emerald-400"
+                )} />
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Overall Threat Level</p>
+                <div className="flex items-baseline gap-2">
+                  <span className={cn(
+                    "text-2xl font-bold capitalize",
+                    summary.threat_level === 'high' ? "text-rose-400" : 
+                    summary.threat_level === 'medium' ? "text-amber-400" : "text-emerald-400"
+                  )}>{summary.threat_level}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Metrics Summary */}
       <div className={cn('grid gap-4', d7 ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4' : 'grid-cols-1 md:grid-cols-3')}>
@@ -510,101 +583,163 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
         </div>
       </SectionCard>
 
-      {canComputeDelta && (topMovers.length > 0 || competitorChanges.length > 0 || promptSwings.length > 0) ? (
+      {canComputeDelta && (topMovers.length > 0 || competitorChanges.length > 0 || promptSwings.length > 0 || Object.keys(modelTargeting).length > 0) ? (
         <SectionCard 
           title="Market Momentum & Emerging Shifts" 
           description="Identify competitors with the highest visibility gains and analyze recent prompt winner shifts."
           className="bg-[#111113]"
         >
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Top Movers */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 pb-3">
-                <Rocket className="w-3.5 h-3.5 text-emerald-400" /> Top Movers (Visibility)
-              </div>
-              <div className="space-y-3">
-                {topMovers.map((m) => (
-                  <div key={m.name} className="group flex items-center justify-between p-4 rounded-2xl bg-zinc-900/40 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/60 transition-all duration-300">
-                    <div className="flex items-center gap-3">
-                      <div className={cn("p-2 rounded-xl shrink-0", m.visibilityDelta > 0 ? "bg-emerald-500/10" : "bg-rose-500/10")}>
-                        {m.visibilityDelta > 0 ? <TrendingUp className="w-4 h-4 text-emerald-400" /> : <TrendingDown className="w-4 h-4 text-rose-400" />}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-sm font-bold text-zinc-100 truncate max-w-[120px]">{m.name}</div>
-                        <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-tighter">Score: {m.currentVisibility.toFixed(1)}</div>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-end">
-                      <div className={cn("text-sm font-bold font-mono", m.visibilityDelta > 0 ? "text-emerald-400" : "text-rose-400")}>
-                        {formatSigned(m.visibilityDelta)} pts
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Competitor Changes */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 pb-3">
-                <Activity className="w-3.5 h-3.5 text-blue-400" /> Competitor Status
-              </div>
-              <div className="space-y-3">
-                {competitorChanges.length > 0 ? (
-                  competitorChanges.slice(0, 5).map((c, idx) => (
-                    <div key={idx} className="group flex items-center justify-between p-4 rounded-2xl bg-zinc-900/40 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/60 transition-all duration-300">
+          <div className="space-y-10">
+            {/* Row 1: Top Movers, Status, Model Targeting */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {/* Top Movers */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 pb-3">
+                  <Rocket className="w-3.5 h-3.5 text-emerald-400" /> Top Movers (Visibility)
+                </div>
+                <div className="space-y-3">
+                  {topMovers.map((m) => (
+                    <div key={m.name} className="group flex items-center justify-between p-4 rounded-2xl bg-zinc-900/40 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/60 transition-all duration-300">
                       <div className="flex items-center gap-3">
-                        <div className={cn("p-2 rounded-xl shrink-0", 
-                          c.status === 'rising' || c.status === 'new' ? "bg-emerald-500/10" : 
-                          c.status === 'falling' || c.status === 'missing' ? "bg-rose-500/10" : "bg-zinc-800/50"
-                        )}>
-                          {c.status === 'rising' || c.status === 'new' ? <ArrowUpRight className="w-4 h-4 text-emerald-400" /> : 
-                           c.status === 'falling' || c.status === 'missing' ? <TrendingDown className="w-4 h-4 text-rose-400" /> : 
-                           <Zap className="w-4 h-4 text-zinc-400" />}
+                        <div className={cn("p-2 rounded-xl shrink-0", m.visibilityDelta > 0 ? "bg-emerald-500/10" : "bg-rose-500/10")}>
+                          {m.visibilityDelta > 0 ? <TrendingUp className="w-4 h-4 text-emerald-400" /> : <TrendingDown className="w-4 h-4 text-rose-400" />}
                         </div>
                         <div className="min-w-0">
-                          <div className="text-sm font-bold text-zinc-100 truncate max-w-[120px]">{c.name}</div>
-                          <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-tighter capitalize">{c.status}</div>
+                          <div className="text-sm font-bold text-zinc-100 truncate max-w-[120px]">{m.name}</div>
+                          <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-tighter">Score: {m.currentVisibility.toFixed(1)}</div>
                         </div>
                       </div>
-                      <Badge variant="outline" className={cn("border-0 text-[10px] font-bold uppercase", 
-                        c.status === 'rising' || c.status === 'new' ? "bg-emerald-500/10 text-emerald-400" : 
-                        c.status === 'falling' || c.status === 'missing' ? "bg-rose-500/10 text-rose-400" : "bg-zinc-800 text-zinc-500"
-                      )}>
-                        {formatSigned(c.delta_market_share)}% Share
-                      </Badge>
+                      <div className="flex flex-col items-end">
+                        <div className={cn("text-sm font-bold font-mono", m.visibilityDelta > 0 ? "text-emerald-400" : "text-rose-400")}>
+                          {formatSigned(m.visibilityDelta)} pts
+                        </div>
+                      </div>
                     </div>
-                  ))
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-40 rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/20">
-                    <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest text-center px-6">No major status changes</p>
-                  </div>
-                )}
+                  ))}
+                </div>
+              </div>
+
+              {/* Competitor Changes */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 pb-3">
+                  <Activity className="w-3.5 h-3.5 text-blue-400" /> Competitor Status
+                </div>
+                <div className="space-y-3">
+                  {competitorChanges.length > 0 ? (
+                    competitorChanges.slice(0, 5).map((c, idx) => (
+                      <div key={idx} className="group flex items-center justify-between p-4 rounded-2xl bg-zinc-900/40 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/60 transition-all duration-300">
+                        <div className="flex items-center gap-3">
+                          <div className={cn("p-2 rounded-xl shrink-0", 
+                            c.status === 'rising' || c.status === 'new' ? "bg-emerald-500/10" : 
+                            c.status === 'falling' || c.status === 'missing' ? "bg-rose-500/10" : "bg-zinc-800/50"
+                          )}>
+                            {c.status === 'rising' || c.status === 'new' ? <ArrowUpRight className="w-4 h-4 text-emerald-400" /> : 
+                            c.status === 'falling' || c.status === 'missing' ? <TrendingDown className="w-4 h-4 text-rose-400" /> : 
+                            <Zap className="w-4 h-4 text-zinc-400" />}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-sm font-bold text-zinc-100 truncate max-w-[120px]">{c.name}</div>
+                            <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-tighter capitalize">{c.status}</div>
+                          </div>
+                        </div>
+                        <Badge variant="outline" className={cn("border-0 text-[10px] font-bold uppercase", 
+                          c.status === 'rising' || c.status === 'new' ? "bg-emerald-500/10 text-emerald-400" : 
+                          c.status === 'falling' || c.status === 'missing' ? "bg-rose-500/10 text-rose-400" : "bg-zinc-800 text-zinc-500"
+                        )}>
+                          {formatSigned(c.delta_market_share)}% Share
+                        </Badge>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-40 rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/20">
+                      <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest text-center px-6">No major status changes</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* AI Model Targeting */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 pb-3">
+                  <Target className="w-3.5 h-3.5 text-violet-400" /> AI Model Targeting
+                </div>
+                <div className="space-y-3">
+                  {Object.keys(modelTargeting).length > 0 ? (
+                    Object.entries(modelTargeting).slice(0, 5).map(([comp, models], idx) => (
+                      <div key={idx} className="group p-4 rounded-2xl bg-zinc-900/40 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/60 transition-all duration-300">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-sm font-bold text-zinc-100 truncate max-w-[140px]">{comp}</span>
+                          <span className="text-[9px] font-bold text-zinc-500 uppercase">{models.length} Models</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {models.map((m) => (
+                            <div key={m} className="px-2 py-0.5 rounded-lg bg-violet-500/5 border border-violet-500/10 text-[9px] font-bold text-violet-400 uppercase tracking-tighter">
+                              {m}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-40 rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/20">
+                      <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest text-center px-6">No specific model targeting detected</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Prompt Swings */}
+            {/* Row 2: Prompt Swings (Full-width Table) */}
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-widest border-b border-zinc-800 pb-3">
-                <Swords className="w-3.5 h-3.5 text-amber-400" /> Recent Prompt Swings
+                <Swords className="w-3.5 h-3.5 text-amber-400" /> Detailed Prompt Swings
               </div>
-              <div className="space-y-3">
-                {promptSwings.length > 0 ? (
-                  promptSwings.slice(0, 5).map((p, idx) => (
-                    <div key={idx} className="group p-4 rounded-2xl bg-zinc-900/40 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/60 transition-all duration-300">
-                      <div className="text-[11px] font-bold text-zinc-100 mb-2 truncate" title={p.prompt}>{p.prompt}</div>
-                      <div className="flex items-center gap-2">
-                        <div className="px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[9px] font-bold text-zinc-400 uppercase">{p.from}</div>
-                        <ChevronRight className="w-3 h-3 text-zinc-600" />
-                        <div className="px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-bold text-emerald-400 uppercase">{p.to}</div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-40 rounded-2xl border border-dashed border-zinc-800 bg-zinc-900/20">
-                    <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest text-center px-6">No winner swings detected</p>
-                  </div>
-                )}
+              <div className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950/20">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-zinc-800 bg-zinc-900/50">
+                      <th className="px-6 py-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">High-Value Prompt</th>
+                      <th className="px-6 py-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Previous Winner</th>
+                      <th className="px-6 py-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">New Leader</th>
+                      <th className="px-6 py-4 text-[10px] font-bold text-zinc-500 uppercase tracking-widest text-right">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {promptSwings.length > 0 ? (
+                      promptSwings.map((p, idx) => (
+                        <tr key={idx} className="group border-b border-zinc-800/50 last:border-0 hover:bg-zinc-900/30 transition-colors">
+                          <td className="px-6 py-4">
+                            <span className="text-sm font-medium text-zinc-200 group-hover:text-white transition-colors">{p.prompt}</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="inline-flex px-2.5 py-1 rounded-xl bg-zinc-900 border border-zinc-800 text-[10px] font-bold text-zinc-400 uppercase">
+                              {p.from}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="inline-flex items-center gap-2">
+                              <div className="px-2.5 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-bold text-emerald-400 uppercase">
+                                {p.to}
+                              </div>
+                              <ArrowUpRight className="w-3 h-3 text-emerald-500/50" />
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <Badge variant="outline" className="bg-amber-500/5 border-amber-500/20 text-[9px] font-bold text-amber-400 uppercase tracking-tighter">
+                              Swing Detected
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={4} className="px-6 py-12 text-center">
+                          <p className="text-[11px] text-zinc-600 font-bold uppercase tracking-widest">No major winner swings detected in recent runs</p>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
