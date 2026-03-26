@@ -11,6 +11,9 @@ const authController = new AuthController();
 router.post('/signup', credentialRateLimit, authController.signup);
 router.post('/login', credentialRateLimit, authController.login);
 
+// Google OAuth — same credential rate limit to prevent token-stuffing attacks
+router.post('/google', credentialRateLimit, authController.googleAuth);
+
 // Protected routes
 router.post('/logout', authMiddleware, authController.logout);
 router.get('/me', sessionRateLimit, authMiddleware, authController.getCurrentUser);

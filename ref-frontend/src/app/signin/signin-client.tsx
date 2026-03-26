@@ -1,17 +1,50 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Loader2 } from "lucide-react"
-import { useLoginMutation, useSignupMutation } from "@/store/api/authApi"
+import Script from "next/script"
+import { useGoogleAuthMutation, useLoginMutation, useSignupMutation } from "@/store/api/authApi"
 import { useRouter } from "next/navigation"
-import { UserRole } from "@/types/auth"
+import { AuthResponse, UserRole } from "@/types/auth"
 import Link from "next/link"
+
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (options: {
+            client_id: string
+            callback: (response: { credential?: string }) => void
+            auto_select?: boolean
+            cancel_on_tap_outside?: boolean
+          }) => void
+          renderButton: (
+            parent: HTMLElement,
+            options: {
+              theme?: "outline" | "filled_blue" | "filled_black"
+              size?: "large" | "medium" | "small"
+              text?: "signin_with" | "signup_with" | "continue_with" | "signin"
+              shape?: "rectangular" | "pill" | "circle" | "square"
+              width?: number
+              logo_alignment?: "left" | "center"
+            },
+          ) => void
+          cancel: () => void
+        }
+      }
+    }
+  }
+}
 
 export default function SigninClient() {
   const router = useRouter()
+  const googleButtonRef = useRef<HTMLDivElement | null>(null)
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
 
   const [isLogin, setIsLogin] = useState(true)
   const [isTransitioning, setIsTransitioning] = useState(false)
+  const [isGoogleScriptLoaded, setIsGoogleScriptLoaded] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -22,6 +55,7 @@ export default function SigninClient() {
 
   const [login, { isLoading: isLoginLoading }] = useLoginMutation()
   const [signup, { isLoading: isSignupLoading }] = useSignupMutation()
+  const [googleAuth, { isLoading: isGoogleLoading }] = useGoogleAuthMutation()
 
   const toggleLoginSignup = () => {
     setIsTransitioning(true)
@@ -57,41 +91,79 @@ export default function SigninClient() {
     return raw
   }
 
+  const handleAuthSuccess = (response: AuthResponse) => {
+    if (response.user.hasNew) {
+      router.replace("/onboarding")
+      return
+    }
+
+    router.replace("/dashboard")
+  }
+
+  useEffect(() => {
+    if (!googleClientId || !isGoogleScriptLoaded || !window.google?.accounts?.id || !googleButtonRef.current) {
+      return
+    }
+
+    googleButtonRef.current.innerHTML = ""
+
+    window.google.accounts.id.initialize({
+      client_id: googleClientId,
+      callback: async (response) => {
+        if (!response.credential) {
+          setError("Google sign-in failed. Please try again.")
+          return
+        }
+
+        setError("")
+
+        try {
+          const authResponse = await googleAuth({
+            idToken: response.credential,
+          }).unwrap()
+
+          handleAuthSuccess(authResponse)
+        } catch (err: any) {
+          setError(getErrorMessage(err))
+        }
+      },
+      auto_select: false,
+      cancel_on_tap_outside: true,
+    })
+
+    window.google.accounts.id.renderButton(googleButtonRef.current, {
+      theme: "outline",
+      size: "large",
+      text: isLogin ? "signin_with" : "signup_with",
+      shape: "pill",
+      width: Math.max(320, googleButtonRef.current.offsetWidth || 320),
+      logo_alignment: "left",
+    })
+
+    return () => {
+      window.google?.accounts.id.cancel()
+    }
+  }, [googleAuth, googleClientId, isGoogleScriptLoaded, isLogin, router])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
 
     try {
       if (isLogin) {
-        // Login (token stored in localStorage by authApi)
         const response = await login({
           email: formData.email,
           password: formData.password,
         }).unwrap()
-
-        // Check for onboarding
-        if (response.user.hasNew) {
-            router.replace('/onboarding')
-            return
-        }
-
-        router.replace('/dashboard')
+        handleAuthSuccess(response)
       } else {
-        // Signup
         const response = await signup({
           email: formData.email,
           password: formData.password,
           name: formData.name || "User",
           role: formData.role,
         }).unwrap()
-
-        // Check for onboarding (should be true for new users)
-        if (response.user.hasNew) {
-            router.replace('/onboarding')
-            return
-        }
-
-        router.replace('/dashboard')
+        handleAuthSuccess(response)
       }
     } catch (err: any) {
       const errorMessage = getErrorMessage(err)
@@ -113,6 +185,19 @@ export default function SigninClient() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 sm:p-8">
+      {googleClientId && (
+        <Script
+          src="https://accounts.google.com/gsi/client"
+          strategy="afterInteractive"
+          onLoad={() => {
+            setIsGoogleScriptLoaded(true)
+          }}
+          onError={() => {
+            setError("Failed to load Google sign-in. Please try again or use email and password.")
+          }}
+        />
+      )}
+
       <Link href="/" className="mb-8 text-slate-600 hover:text-slate-900 font-medium transition-colors">
         &larr; Back to Home
       </Link>
@@ -252,7 +337,7 @@ export default function SigninClient() {
             <button
               type="submit"
               disabled={isLoginLoading || isSignupLoading}
-              className={`w-full py-3 bg-slate-900 text-white rounded-full font-semibold hover:bg-slate-800 transition-all duration-300 hover:scale-105 shadow-lg cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2 ${
+              className={`w-full py-3 bg-popover text-foreground rounded-full font-semibold hover:bg-slate-800 transition-all duration-300 hover:scale-105 shadow-lg cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2 ${
                 isTransitioning ? "opacity-50" : "opacity-100"
               }`}
             >
@@ -273,42 +358,47 @@ export default function SigninClient() {
             </div>
           </div>
 
-          {/* Social Login */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <button
-              type="button"
-              className="flex items-center justify-center gap-2 px-4 py-3 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all duration-200 cursor-pointer"
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
-                <path
-                  fill="#4285F4"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                />
-              </svg>
-              <span className="text-sm font-medium text-slate-700">Google</span>
-            </button>
+          <div className="relative">
+            <div
+              ref={googleButtonRef}
+              className={`min-h-11 w-full flex items-center justify-center overflow-hidden rounded-xl ${
+                isGoogleLoading ? "pointer-events-none opacity-60" : ""
+              }`}
+            />
 
-            <button
-              type="button"
-              className="flex items-center justify-center gap-2 px-4 py-3 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all duration-200 cursor-pointer"
-            >
-              <svg className="w-5 h-5" fill="#1877F2" viewBox="0 0 24 24">
-                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-              </svg>
-              <span className="text-sm font-medium text-slate-700">Facebook</span>
-            </button>
+            {!googleClientId && (
+              <button
+                type="button"
+                onClick={() => setError("Google sign-in is unavailable right now. Please use email and password.")}
+                className="flex w-full items-center justify-center gap-2 px-4 py-3 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all duration-200 cursor-pointer"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    fill="#4285F4"
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                  />
+                </svg>
+                <span className="text-sm font-medium text-slate-700">Continue with Google</span>
+              </button>
+            )}
+
+            {isGoogleLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white/60 rounded-xl">
+                <Loader2 className="w-5 h-5 animate-spin text-slate-700" />
+              </div>
+            )}
           </div>
 
           {/* Toggle Login/Signup */}

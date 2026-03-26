@@ -1,5 +1,5 @@
 import { baseApi } from './baseApi';
-import { User, SignupRequest, LoginRequest, AuthResponse } from '@/types/auth';
+import { User, SignupRequest, LoginRequest, GoogleAuthRequest, AuthResponse } from '@/types/auth';
 
 export const authApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -18,6 +18,16 @@ export const authApi = baseApi.injectEndpoints({
         url: '/auth/login',
         method: 'POST',
         body: credentials,
+      }),
+      transformResponse: (response: { data: AuthResponse }) => response.data,
+      invalidatesTags: ['Auth', 'User'],
+    }),
+
+    googleAuth: builder.mutation<AuthResponse, GoogleAuthRequest>({
+      query: (data) => ({
+        url: '/auth/google',
+        method: 'POST',
+        body: data,
       }),
       transformResponse: (response: { data: AuthResponse }) => response.data,
       invalidatesTags: ['Auth', 'User'],
@@ -53,6 +63,7 @@ export const authApi = baseApi.injectEndpoints({
 export const {
   useSignupMutation,
   useLoginMutation,
+  useGoogleAuthMutation,
   useLogoutMutation,
   useGetMeQuery,
   useLazyGetMeQuery,

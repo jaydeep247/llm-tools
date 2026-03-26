@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { ResponseUtil } from '../../utils/response';
-import { signupSchema, loginSchema } from './auth.validator';
+import { signupSchema, loginSchema, googleAuthSchema } from './auth.validator';
 import { logger } from '../../shared/logger/logger';
 import { cookieConfig, COOKIE_NAME } from '../../config/cookie';
 
@@ -26,7 +26,13 @@ export class AuthController {
       return ResponseUtil.created(res, 'User registered successfully', result);
     } catch (error: any) {
       logger.error(`Signup error: ${error.message}`);
-      if (error.message === 'User with this email already exists') {
+      if (
+        error.message === 'User with this email already exists' ||
+        error.message === 'A user with this email already exists'
+      ) {
+        return ResponseUtil.error(res, error.message, undefined, 409);
+      }
+      if (error.message === 'Account already exists. Please log in using Google.') {
         return ResponseUtil.error(res, error.message, undefined, 409);
       }
       if (error.name === 'ZodError') {
@@ -52,6 +58,9 @@ export class AuthController {
       logger.error(`Login error: ${error.message}`);
       if (error.message === 'Invalid credentials') {
         return ResponseUtil.unauthorized(res, error.message);
+      }
+      if (error.message === 'Please log in using Google.') {
+        return ResponseUtil.error(res, error.message, undefined, 403);
       }
       if (error.name === 'ZodError') {
         return ResponseUtil.error(res, 'Validation failed', error.errors);
@@ -93,6 +102,43 @@ export class AuthController {
         return ResponseUtil.unauthorized(res, 'User not found');
       }
       return ResponseUtil.serverError(res, 'Failed to retrieve user');
+    }
+  };
+
+  /**
+   * Google OAuth authentication
+   * Accepts a Google ID token, verifies it, and returns a JWT in a cookie.
+   */
+  googleAuth = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const data = googleAuthSchema.parse(req.body);
+      const result = await this.authService.googleAuth(data);
+
+      // Set JWT in HTTP-only cookie — same pattern as email/password auth
+      res.cookie(COOKIE_NAME, result.token, cookieConfig);
+
+      return ResponseUtil.success(res, 'Google authentication successful', result);
+    } catch (error: any) {
+      logger.error(`Google auth error: ${error.message}`);
+      if (error.name === 'ZodError') {
+        return ResponseUtil.error(res, 'Validation failed', error.errors);
+      }
+      if (
+        error.message === 'Invalid Google token. Please try again.' ||
+        error.message === 'Google account does not have a verified email address.'
+      ) {
+        return ResponseUtil.error(res, error.message, undefined, 400);
+      }
+      if (
+        error.message === 'This email is already linked to another Google account. Please log in with Google.' ||
+        error.message === 'This Google account is already linked to another user'
+      ) {
+        return ResponseUtil.error(res, error.message, undefined, 409);
+      }
+      if (error.message === 'Google OAuth is not configured on this server.') {
+        return ResponseUtil.serverError(res, error.message);
+      }
+      return ResponseUtil.serverError(res, 'Google authentication failed');
     }
   };
 }

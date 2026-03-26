@@ -3,6 +3,10 @@ import { connectToMongo } from '../../config/mongo';
 import { CreateUserDto, UpdateUserDto, UserFilters, UserResponse, UserEntity } from './user.types';
 import { UserRole } from '../../shared/constants/roles';
 
+const normalizeEmail = (email: string): string => email.trim().toLowerCase();
+
+const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 export class UserRepository {
   /**
    * Create a new user
@@ -10,12 +14,16 @@ export class UserRepository {
   async create(data: CreateUserDto): Promise<UserEntity> {
     const db = await connectToMongo();
     const now = new Date();
+    const normalizedEmail = data.emailNormalized ?? normalizeEmail(data.email);
     const user: UserEntity = {
       id: randomUUID(),
-      email: data.email,
-      password: data.password,
+      email: normalizedEmail,
+      emailNormalized: normalizedEmail,
+      ...(data.password !== undefined && { password: data.password }),
       name: data.name,
       role: data.role ?? UserRole.ANALYST,
+      googleId: data.googleId,
+      authProvider: data.authProvider ?? 'email',
       createdAt: now,
       updatedAt: now,
       hasNew: true, // Default to true for new users
@@ -24,6 +32,9 @@ export class UserRepository {
       await db.collection<UserEntity>('users').insertOne(user);
     } catch (error: any) {
       if (error.code === 11000) {
+        if (error.message?.includes('googleId')) {
+          throw new Error('This Google account is already linked to another user');
+        }
         throw new Error('A user with this email already exists');
       }
       throw error;
@@ -44,7 +55,28 @@ export class UserRepository {
    */
   async findByEmail(email: string): Promise<UserEntity | null> {
     const db = await connectToMongo();
-    return db.collection<UserEntity>('users').findOne({ email });
+    const normalizedEmail = normalizeEmail(email);
+    const collection = db.collection<UserEntity>('users');
+
+    const userByNormalizedEmail = await collection.findOne({ emailNormalized: normalizedEmail });
+    if (userByNormalizedEmail) {
+      return userByNormalizedEmail;
+    }
+
+    return collection.findOne({
+      email: {
+        $regex: `^${escapeRegExp(email.trim())}$`,
+        $options: 'i',
+      },
+    });
+  }
+
+  /**
+   * Find user by Google ID
+   */
+  async findByGoogleId(googleId: string): Promise<UserEntity | null> {
+    const db = await connectToMongo();
+    return db.collection<UserEntity>('users').findOne({ googleId });
   }
 
   /**
@@ -71,10 +103,32 @@ export class UserRepository {
    */
   async update(id: string, data: UpdateUserDto): Promise<UserEntity> {
     const db = await connectToMongo();
-    await db.collection<UserEntity>('users').updateOne(
-      { id },
-      { $set: { ...data, updatedAt: new Date() } }
-    );
+    const updates: UpdateUserDto & { updatedAt: Date } = {
+      ...data,
+      updatedAt: new Date(),
+    };
+
+    if (data.email !== undefined) {
+      const normalizedEmail = normalizeEmail(data.email);
+      updates.email = normalizedEmail;
+      updates.emailNormalized = normalizedEmail;
+    }
+
+    try {
+      await db.collection<UserEntity>('users').updateOne(
+        { id },
+        { $set: updates }
+      );
+    } catch (error: any) {
+      if (error.code === 11000) {
+        if (error.message?.includes('googleId')) {
+          throw new Error('This Google account is already linked to another user');
+        }
+        throw new Error('A user with this email already exists');
+      }
+      throw error;
+    }
+
     const user = await this.findById(id);
     if (!user) {
       throw new Error('User not found');
@@ -102,9 +156,10 @@ export class UserRepository {
    */
   async existsByEmail(email: string): Promise<boolean> {
     const db = await connectToMongo();
+    const normalizedEmail = normalizeEmail(email);
     const count = await db
       .collection<UserEntity>('users')
-      .countDocuments({ email });
+      .countDocuments({ emailNormalized: normalizedEmail });
     return count > 0;
   }
 

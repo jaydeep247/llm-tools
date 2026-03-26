@@ -9,6 +9,7 @@ services:
     environment:
       JWT_SECRET: ${JWT_SECRET}
       COOKIE_SECRET: ${COOKIE_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-904802294750-6l7h0olnfrpi83fkt3pml5ng2mqk0ntv.apps.googleusercontent.com}
       RABBITMQ_URL: ${RABBITMQ_URL:-}
       REDIS_URL: ${REDIS_URL:-}
       ALLOW_LOCAL_INFRA_IN_PROD: ${ALLOW_LOCAL_INFRA_IN_PROD:-false}
@@ -59,6 +60,7 @@ services:
         # These are baked into the JS bundle at build time
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
         NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL}
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-904802294750-6l7h0olnfrpi83fkt3pml5ng2mqk0ntv.apps.googleusercontent.com}
     container_name: ref-frontend
     ports:
       - "${FRONTEND_PORT:-80}:80"

@@ -12,6 +12,11 @@ export interface LoginDto {
   password: string;
 }
 
+export interface GoogleAuthDto {
+  /** Google ID token obtained from Google Identity Services on the client */
+  idToken: string;
+}
+
 export interface AuthResponse {
   user: {
     id: string;

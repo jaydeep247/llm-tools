@@ -19,6 +19,10 @@ export class UserService {
       throw new Error('User with this email already exists');
     }
 
+    if (!data.password) {
+      throw new Error('Password is required');
+    }
+
     // Hash password
     const hashedPassword = await PasswordUtil.hash(data.password);
 

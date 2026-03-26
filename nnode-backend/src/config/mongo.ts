@@ -9,6 +9,22 @@ let indexesEnsured: Promise<void> | null = null;
 const ensureMongoIndexes = async (database: Db): Promise<void> => {
   if (!indexesEnsured) {
     indexesEnsured = Promise.all([
+      database.collection('users').createIndex(
+        { emailNormalized: 1 },
+        {
+          unique: true,
+          partialFilterExpression: {
+            emailNormalized: { $exists: true, $type: 'string' },
+          },
+        }
+      ),
+      database.collection('users').createIndex(
+        { googleId: 1 },
+        {
+          unique: true,
+          sparse: true,
+        }
+      ),
       database.collection('sessions').createIndex({ projectId: 1, createdAt: -1 }),
       database.collection('sessions').createIndex({ projectId: 1, status: 1, createdAt: -1 }),
       database.collection('jobs').createIndex({ sessionId: 1, createdAt: -1 }),

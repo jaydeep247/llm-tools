@@ -31,6 +31,10 @@ export interface LoginRequest {
   password: string;
 }
 
+export interface GoogleAuthRequest {
+  idToken: string;
+}
+
 export interface AuthResponse {
   user: User;
   token: string;
