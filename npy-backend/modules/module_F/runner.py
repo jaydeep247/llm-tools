@@ -83,12 +83,30 @@ def _extract_prompts_from_module_e(
     topic: Optional[str] = None,
 ) -> List[str]:
     prompts: List[str] = []
-    ranking = doc.get("ranking") or {}
-    if ranking.get("generated_prompts"):
-        prompts = ranking["generated_prompts"]
+    ranking = doc.get("ranking_analysis") or doc.get("ranking") or {}
+    ranking_prompts = ranking.get("generated_prompts") or []
+    if ranking_prompts:
+        prompts = [str(p).strip() for p in ranking_prompts if str(p or "").strip()]
+    if not prompts:
+        selected = doc.get("brand_prompts_selected") or []
+        if selected:
+            prompts = [str(p).strip() for p in selected if str(p or "").strip()]
+    if not prompts:
+        generated = doc.get("brand_prompts_generated") or []
+        if isinstance(generated, list):
+            if generated and isinstance(generated[0], dict):
+                prompts = [
+                    str(p.get("prompt") or "").strip()
+                    for p in generated
+                    if str(p.get("prompt") or "").strip()
+                ]
+            else:
+                prompts = [str(p or "").strip() for p in generated if str(p or "").strip()]
     if not prompts:
         cc = doc.get("content_consistency") or {}
-        prompts = cc.get("generated_prompts") or cc.get("prompts") or []
+        cc_prompts = cc.get("generated_prompts") or cc.get("prompts") or []
+        if cc_prompts:
+            prompts = [str(p).strip() for p in cc_prompts if str(p or "").strip()]
     if not prompts and topic:
         prompts = [
             f"What are the best {topic} solutions?",

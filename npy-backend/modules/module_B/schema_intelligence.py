@@ -502,22 +502,161 @@ class SchemaExtractor:
         return max_d
 
     def _detect_ai_files(self, soup, url: str) -> Dict[str, bool]:
+        """
+        Detect llms.txt and facts.json using 3 strategies in order:
+
+        1. HTML scan  — links/meta on the page (fast, no network)
+        2. JSON-LD    — linked via schema markup (e.g. sameAs / url)
+        3. HTTP probe — fetch known paths directly from domain root
+                        This is the key fix: a file can exist at /llms.txt
+                        without being linked anywhere in the page HTML.
+
+        Probe paths checked:
+          llms.txt  → /llms.txt
+          facts.json → /facts.json  and  /.well-known/ai/facts.json
+        """
         result = {"llms_txt": False, "facts_json": False}
-        # Check for links to llms.txt / facts.json
+
+        # ── Strategy 1: HTML links ─────────────────────────────────────
         for a in soup.find_all("a", href=True):
             href = (a.get("href") or "").lower()
-            if "llms.txt" in href:
-                result["llms_txt"] = True
-            if "facts.json" in href:
-                result["facts_json"] = True
-        # Check meta tags
+            if "llms.txt"   in href: result["llms_txt"]   = True
+            if "facts.json" in href: result["facts_json"] = True
+
+        # ── Strategy 2: meta tags ──────────────────────────────────────
         for meta in soup.find_all("meta"):
-            content = (meta.get("content") or "").lower()
-            if "llms.txt" in content:
-                result["llms_txt"] = True
-            if "facts.json" in content:
-                result["facts_json"] = True
+            c = (meta.get("content") or "").lower()
+            if "llms.txt"   in c: result["llms_txt"]   = True
+            if "facts.json" in c: result["facts_json"] = True
+
+        # ── Strategy 3: JSON-LD references ────────────────────────────
+        page_text = str(soup)
+        if "llms.txt"   in page_text.lower(): result["llms_txt"]   = True
+        if "facts.json" in page_text.lower(): result["facts_json"] = True
+
+        # ── Strategy 4: HTTP probe domain root paths ───────────────────
+        # Only probe if still not found — avoids unnecessary requests
+        if not result["llms_txt"] or not result["facts_json"]:
+            if url:
+                probed = self._probe_ai_file_paths(url)
+                if probed.get("llms_txt"):   result["llms_txt"]   = True
+                if probed.get("facts_json"): result["facts_json"] = True
+
         return result
+
+    def _probe_ai_file_paths(self, url: str) -> Dict[str, bool]:
+        """
+        HTTP HEAD/GET probes for known AI file paths at the domain root.
+
+        Checks:
+          /llms.txt
+          /facts.json
+          /.well-known/ai/facts.json
+
+        Uses HEAD first (cheap), falls back to GET if HEAD blocked.
+        Returns immediately on first 200 per file type.
+        Timeout: 5 seconds per request. Failures are silent.
+        """
+        from urllib.parse import urlparse, urljoin
+
+        found = {"llms_txt": False, "facts_json": False}
+
+        # Build domain root (scheme + netloc only, no path)
+        try:
+            parsed = urlparse(url)
+            if not parsed.netloc:
+                return found
+            root = f"{parsed.scheme}://{parsed.netloc}"
+        except Exception:
+            return found
+
+        # Paths to probe per file type
+        probe_map = {
+            "llms_txt":   ["/llms.txt"],
+            "facts_json": ["/facts.json", "/.well-known/ai/facts.json"],
+        }
+
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (compatible; ColyticsBot/1.0; "
+                "+https://colytics.ai/bot)"
+            ),
+            "Accept": "*/*",
+        }
+
+        for file_key, paths in probe_map.items():
+            if found[file_key]:
+                continue                          # already found via HTML
+            for path in paths:
+                probe_url = root + path
+                try:
+                    # Try HEAD first — lightweight, no body download
+                    status = self._http_head(probe_url, headers)
+                    if status is None:
+                        # HEAD blocked — try GET with minimal read
+                        status = self._http_get_status(probe_url, headers)
+                    if status == 200:
+                        found[file_key] = True
+                        logging.info(
+                            f"[MOAT6] AI file found via HTTP probe: "
+                            f"{probe_url}"
+                        )
+                        break                      # no need to try other paths
+                except Exception as exc:
+                    logging.debug(
+                        f"[MOAT6] AI file probe failed {probe_url}: {exc}"
+                    )
+
+        return found
+
+    def _http_head(self, url: str, headers: Dict[str, str]) -> Optional[int]:
+        """
+        Send HTTP HEAD request. Returns status code or None on failure.
+        Uses requests if available, falls back to urllib.
+        """
+        try:
+            import requests as _req
+            resp = _req.head(url, headers=headers, timeout=5,
+                             allow_redirects=True)
+            return resp.status_code
+        except ImportError:
+            pass
+        except Exception:
+            return None
+
+        # urllib fallback
+        try:
+            import urllib.request
+            req = urllib.request.Request(url, headers=headers, method="HEAD")
+            with urllib.request.urlopen(req, timeout=5) as r:
+                return r.status
+        except Exception:
+            return None
+
+    def _http_get_status(self, url: str, headers: Dict[str, str]) -> Optional[int]:
+        """
+        Send HTTP GET, read only the first 512 bytes.
+        Returns status code or None on failure.
+        """
+        try:
+            import requests as _req
+            resp = _req.get(url, headers=headers, timeout=5,
+                            allow_redirects=True, stream=True)
+            resp.close()
+            return resp.status_code
+        except ImportError:
+            pass
+        except Exception:
+            return None
+
+        try:
+            import urllib.request
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=5) as r:
+                r.read(512)
+                return r.status
+        except Exception:
+            return None
 
     def _classify_page_type(self, url: str, html: str) -> str:
         """
