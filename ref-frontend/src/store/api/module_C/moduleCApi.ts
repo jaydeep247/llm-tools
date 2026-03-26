@@ -1,126 +1,175 @@
 import { baseApi } from '../baseApi'
 
+// ─── New C1-C9 module shape interfaces ─────────────────────────────────────
+
+export interface C5EntityExtraction {
+  entities?: Array<{ text: string; label: string; count?: number }>
+  topics?: string[]
+  visible_text?: string
+  word_count?: number
+  sentence_count?: number
+}
+
+export interface C1AeoChecker {
+  llm_friendliness_score?: number
+  sub_scores?: {
+    crawl_access?: Record<string, any>
+    schema?: Record<string, any>
+    content?: Record<string, any>
+    tech_hygiene?: Record<string, any>
+    structure?: Record<string, any>
+  }
+  entity_ratio?: Record<string, any>
+  structured_data?: Record<string, any>
+  readability?: Record<string, any>
+  page_type?: string
+  page_topic?: string
+  word_count?: number
+}
+
+export interface C3EntityCoverage {
+  coverage?: {
+    entity_coverage_pct?: number
+    matched_count?: number
+    expected_count?: number
+  }
+  missing_entities?: Array<{
+    name: string
+    type: string
+    importance: string
+    pages_missing_from?: string[]
+  }>
+  critical_missing_count?: number
+  critical_missing?: Array<{
+    name: string
+    type: string
+    importance: string
+    pages_missing_from?: string[]
+  }>
+  entity_relevance?: any[]
+  page_type?: string
+  entity_coverage_pct?: number
+}
+
+export interface C6MissingInfo {
+  missing_entity_count?: number
+  missing_fact_count?: number
+  total_missing?: number
+  missing_facts?: string[]
+  present_facts?: string[]
+  classification?: {
+    critical?: Array<{ name: string; type: string; severity: string }>
+    important?: Array<{ name: string; type: string; severity: string }>
+    minor?: Array<{ name: string; type: string; severity: string }>
+    critical_count?: number
+    important_count?: number
+    minor_count?: number
+  }
+  gap?: {
+    gap_pct?: number
+    risk_level?: string
+    total_expected?: number
+    total_missing?: number
+  }
+}
+
+export interface C4AnswerCompleteness {
+  completeness_score?: number
+  pct_fully_answered?: number
+  questions_generated?: number
+  fully_answered?: number
+  partially_answered?: number
+  not_answered?: number
+  results?: Array<{
+    question: string
+    status: string
+    evidence: string
+  }>
+  missing_questions?: string[]
+  partial_questions?: string[]
+  gaps?: Record<string, string>
+}
+
+export interface C7LlmSimulator {
+  prompts_used?: string[]
+  accuracy?: {
+    overall?: number
+    per_model?: Record<string, number>
+    claims_extracted?: number
+  }
+  completeness?: {
+    overall?: number
+    per_model?: Record<string, number>
+  }
+  consistency?: {
+    consistency_score?: number
+    pairwise_comparisons?: number
+    flag?: string | null
+    overall?: number
+  }
+  model_responses?: Record<string, Array<{
+    prompt: string
+    success: boolean
+    answer_length: number
+  }>>
+  raw_answers?: Record<string, string[]>
+}
+
+export interface C9MultiModel {
+  model_friendliness?: {
+    per_model?: Record<string, number>
+    average?: number
+  }
+  answer_variation?: {
+    variation_score?: number
+    avg_similarity?: number
+    contradictions?: any[]
+  }
+  coverage_gaps?: {
+    coverage_score?: number
+    models_citing?: string[]
+    models_not_citing?: string[]
+    total_models?: number
+  }
+  overall?: number
+}
+
+export interface C8PageActions {
+  total_actions?: number
+  high_priority?: number
+  medium_priority?: number
+  low_priority?: number
+  predicted_llm_friendliness_delta?: number
+  current_llm_friendliness?: number
+  predicted_llm_friendliness?: number
+  actions?: Array<{
+    action_type: string
+    action: string
+    category: string
+    aivs_dimension: string
+    dimension_weight: number
+    competitor_has_it: boolean
+    priority: string
+  }>
+}
+
 export interface ModuleCModules {
-  ai_presence?: {
-    score: number
-    robots_checks?: {
-      robots_gptbot?: boolean
-      robots_google_extended?: boolean
-      robots_claudebot?: boolean
-      sitemap_present?: boolean
-    }
-    content_checks?: {
-      org_schema_present?: boolean
-      org_logo_present?: boolean
-      sameas_wikidata_or_wikipedia?: boolean
-      sameas_major_profiles_count?: number
-      open_graph_present?: boolean
-      twitter_card_present?: boolean
-    }
-    ai_understanding?: Record<string, {
-      score?: number
-      understanding_level?: string
-      error?: string
-      recommendations?: Array<{ action: string; priority: string; impact: number }>
-    }>
-    multi_model_consensus?: {
-      consistency_score?: number
-      variation_rating?: string
-      variance?: number
-    }
-    recommendations?: Array<{ action: string; priority: string; impact: number }>
-  }
-  answerability?: {
-    score: number
-    completeness_score?: number
-    depth_score?: number
-    breadth_score?: number
-    readability_score?: number
-    metrics?: {
-      question_count?: number
-      answer_count?: number
-      qa_balance?: number
-      percent_questions_answered?: number
-    }
-    multi_model_scores?: Record<string, number>
-    ai_analysis?: {
-      ai_answerability_score?: number
-      percent_questions_answered?: number
-      answered_questions?: string[]
-      missing_answers_gaps?: string[]
-      missing_aspects?: string[]
-      recommendations?: Array<{ action: string; priority: string; impact: number }>
-    }
-    recommendations?: string[]
-  }
-  knowledge_base?: {
-    score: number
-    fact_density?: number
-    entity_coverage?: {
-      topic?: string
-      coverage_score?: number
-      relevance_explanation?: string
-      entites_analysis?: Array<{
-        entity: string
-        type: string
-        relevance_score: number
-        status: string
-        importance: string
-      }>
-      found_entities?: string[]
-      missing_entities?: string[]
-      critical_entities_count?: number
-      minor_entities_count?: number
-      gap_percentage?: number
-      recommendations?: Array<{ action: string; priority: string; impact: number }>
-    }
-  }
-  llm_simulator?: {
-    query?: string
-    simulations?: Record<string, {
-      answer?: string
-      accuracy_score?: number
-      completeness_score?: number
-      eval_explanation?: string
-    }>
-    cross_model_metrics?: {
-      consistency_score?: number
-      variation_analysis?: {
-        outcome_level?: { agreement?: string; score?: number; note?: string }
-        reasoning_level?: { similarity?: number; approach?: string }
-        specificity_level?: { depth_score?: number; completeness_score?: number }
-        tone_analysis?: { confidence?: string; risk_posture?: string }
-      }
-      coverage_gaps?: (string | { type?: string; description?: string; missing_from?: string[]; present_in?: string[]; severity?: string })[]
-      model_scores?: Record<string, { agreement?: number; depth?: number; overall?: number }>
-    }
-  }
-  multi_model_insights?: {
-    agreement?: Record<string, unknown>
-    claim_matrix?: unknown[]
-    coverage_gaps?: (string | { type?: string; description?: string; missing_from?: string[]; present_in?: string[]; severity?: string })[]
-    scores?: Record<string, { agreement?: number; depth?: number; overall?: number }>
-  }
-  actionable_insights?: {
-    totalActions?: number
-    priorityBreakdown?: { high?: number; medium?: number; low?: number }
-    currentScore?: number
-    predictedScore?: number
-    improvement?: number
-    actions?: Array<{
-      id: string
-      type: string
-      description: string
-      priority: string
-      impact: number
-      category: string
-    }>
-  }
+  entity_extraction?: C5EntityExtraction
+  aeo_checker?: C1AeoChecker
+  entity_coverage?: C3EntityCoverage
+  missing_info?: C6MissingInfo
+  answer_completeness?: C4AnswerCompleteness
+  bulk_audit?: Record<string, any>
+  llm_simulator?: C7LlmSimulator
+  multi_model?: C9MultiModel
+  page_actions?: C8PageActions
 }
 
 export interface ModuleCResult {
   jobId: string
   url: string
+  domain?: string
+  industry?: string
   timestamp: string
   overall_score: number
   modules: ModuleCModules
@@ -172,14 +221,17 @@ export interface ModuleSummaryResponse {
   data?: {
     jobId: string
     url: string
+    domain: string | null
+    industry: string | null
     overall_score: number
     module_scores: {
-      ai_presence: number | null
-      answerability: number | null
-      knowledge_base: number | null
+      aeo_checker: number | null
+      entity_coverage: number | null
+      answer_completeness: number | null
       llm_simulator: number | null
+      multi_model: number | null
     }
-    actionable_insights: {
+    c8_page_actions: {
       total_actions: number
       priority_breakdown: { high?: number; medium?: number; low?: number }
       current_score: number | null
@@ -258,42 +310,60 @@ export const moduleCApi = baseApi.injectEndpoints({
       ],
     }),
 
-    // ===== Individual Module Field Endpoints =====
-    
-    // Get AI Presence module data
-    getAiPresence: builder.query<ModuleFieldResponse<ModuleCModules['ai_presence']>, string>({
-      query: (jobId) => `/module-c/jobs/${jobId}/ai-presence`,
-      providesTags: (_result, _error, jobId) => [{ type: 'ModuleC' as const, id: `ai-presence-${jobId}` }],
+    // ===== New C1-C9 Submodule Field Endpoints =====
+
+    // C5 — Entity Extraction
+    getC5EntityExtraction: builder.query<ModuleFieldResponse<C5EntityExtraction>, string>({
+      query: (jobId) => `/module-c/jobs/${jobId}/c5`,
+      providesTags: (_result, _error, jobId) => [{ type: 'ModuleC' as const, id: `c5-${jobId}` }],
     }),
 
-    // Get Answerability module data
-    getAnswerability: builder.query<ModuleFieldResponse<ModuleCModules['answerability']>, string>({
-      query: (jobId) => `/module-c/jobs/${jobId}/answerability`,
-      providesTags: (_result, _error, jobId) => [{ type: 'ModuleC' as const, id: `answerability-${jobId}` }],
+    // C1 — AEO Checker (LLM-friendliness score)
+    getC1AeoChecker: builder.query<ModuleFieldResponse<C1AeoChecker>, string>({
+      query: (jobId) => `/module-c/jobs/${jobId}/c1`,
+      providesTags: (_result, _error, jobId) => [{ type: 'ModuleC' as const, id: `c1-${jobId}` }],
     }),
 
-    // Get Knowledge Base module data
-    getKnowledgeBase: builder.query<ModuleFieldResponse<ModuleCModules['knowledge_base']>, string>({
-      query: (jobId) => `/module-c/jobs/${jobId}/knowledge-base`,
-      providesTags: (_result, _error, jobId) => [{ type: 'ModuleC' as const, id: `knowledge-base-${jobId}` }],
+    // C3 — Entity Coverage Audit
+    getC3EntityCoverage: builder.query<ModuleFieldResponse<C3EntityCoverage>, string>({
+      query: (jobId) => `/module-c/jobs/${jobId}/c3`,
+      providesTags: (_result, _error, jobId) => [{ type: 'ModuleC' as const, id: `c3-${jobId}` }],
     }),
 
-    // Get LLM Simulator module data
-    getLlmSimulator: builder.query<ModuleFieldResponse<ModuleCModules['llm_simulator']>, string>({
-      query: (jobId) => `/module-c/jobs/${jobId}/llm-simulator`,
-      providesTags: (_result, _error, jobId) => [{ type: 'ModuleC' as const, id: `llm-simulator-${jobId}` }],
+    // C6 — Missing Information
+    getC6MissingInfo: builder.query<ModuleFieldResponse<C6MissingInfo>, string>({
+      query: (jobId) => `/module-c/jobs/${jobId}/c6`,
+      providesTags: (_result, _error, jobId) => [{ type: 'ModuleC' as const, id: `c6-${jobId}` }],
     }),
 
-    // Get Multi-Model Insights module data
-    getMultiModelInsights: builder.query<ModuleFieldResponse<ModuleCModules['multi_model_insights']>, string>({
-      query: (jobId) => `/module-c/jobs/${jobId}/multi-model-insights`,
-      providesTags: (_result, _error, jobId) => [{ type: 'ModuleC' as const, id: `multi-model-${jobId}` }],
+    // C4 — Answer Completeness
+    getC4AnswerCompleteness: builder.query<ModuleFieldResponse<C4AnswerCompleteness>, string>({
+      query: (jobId) => `/module-c/jobs/${jobId}/c4`,
+      providesTags: (_result, _error, jobId) => [{ type: 'ModuleC' as const, id: `c4-${jobId}` }],
     }),
 
-    // Get Actionable Insights module data
-    getActionableInsights: builder.query<ModuleFieldResponse<ModuleCModules['actionable_insights']>, string>({
-      query: (jobId) => `/module-c/jobs/${jobId}/actionable-insights`,
-      providesTags: (_result, _error, jobId) => [{ type: 'ModuleC' as const, id: `actionable-${jobId}` }],
+    // C2 — Bulk Audit
+    getC2BulkAudit: builder.query<ModuleFieldResponse<Record<string, any>>, string>({
+      query: (jobId) => `/module-c/jobs/${jobId}/c2`,
+      providesTags: (_result, _error, jobId) => [{ type: 'ModuleC' as const, id: `c2-${jobId}` }],
+    }),
+
+    // C7 — LLM Simulator
+    getC7LlmSimulator: builder.query<ModuleFieldResponse<C7LlmSimulator>, string>({
+      query: (jobId) => `/module-c/jobs/${jobId}/c7`,
+      providesTags: (_result, _error, jobId) => [{ type: 'ModuleC' as const, id: `c7-${jobId}` }],
+    }),
+
+    // C9 — Multi-Model Insights
+    getC9MultiModel: builder.query<ModuleFieldResponse<C9MultiModel>, string>({
+      query: (jobId) => `/module-c/jobs/${jobId}/c9`,
+      providesTags: (_result, _error, jobId) => [{ type: 'ModuleC' as const, id: `c9-${jobId}` }],
+    }),
+
+    // C8 — Page Actions
+    getC8PageActions: builder.query<ModuleFieldResponse<C8PageActions>, string>({
+      query: (jobId) => `/module-c/jobs/${jobId}/c8`,
+      providesTags: (_result, _error, jobId) => [{ type: 'ModuleC' as const, id: `c8-${jobId}` }],
     }),
 
     // Get Summary (overall score + all module scores)
@@ -315,13 +385,17 @@ export const {
   useGetAllModuleCResultsQuery,
   useGetSessionModuleCResultsQuery,
   useRunModuleCAnalysisMutation,
-  // Individual module hooks
-  useGetAiPresenceQuery,
-  useGetAnswerabilityQuery,
-  useGetKnowledgeBaseQuery,
-  useGetLlmSimulatorQuery,
-  useGetMultiModelInsightsQuery,
-  useGetActionableInsightsQuery,
+  // New C1-C9 submodule hooks
+  useGetC5EntityExtractionQuery,
+  useGetC1AeoCheckerQuery,
+  useGetC3EntityCoverageQuery,
+  useGetC6MissingInfoQuery,
+  useGetC4AnswerCompletenessQuery,
+  useGetC2BulkAuditQuery,
+  useGetC7LlmSimulatorQuery,
+  useGetC9MultiModelQuery,
+  useGetC8PageActionsQuery,
+  // Summary & report
   useGetModuleSummaryQuery,
   useGetVisibilityReportQuery,
 } = moduleCApi

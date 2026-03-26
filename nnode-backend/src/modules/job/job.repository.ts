@@ -28,7 +28,7 @@ export class JobRepository {
       db.collection('links').deleteMany({ jobId: { $in: jobIds } }),
       db.collection('sitemaps').deleteMany({ jobId: { $in: jobIds } }),
       db.collection('fields').deleteMany({ jobId: { $in: jobIds } }),
-      db.collection('aeo_analysis').deleteMany({ jobId: { $in: jobIds } }),
+      db.collection('module_c').deleteMany({ jobId: { $in: jobIds } }),
       db.collection('module_e').deleteMany({ jobId: { $in: jobIds } }),
       db.collection('content_metrics').deleteMany({ jobId: { $in: jobIds } }),
       db.collection('schemas').deleteMany({ jobId: { $in: jobIds } }),

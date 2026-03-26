@@ -17,7 +17,7 @@ const ensureMongoIndexes = async (database: Db): Promise<void> => {
       database.collection('links').createIndex({ jobId: 1, createdAt: 1 }),
       database.collection('fields').createIndex({ jobId: 1, createdAt: 1 }),
       database.collection('sitemaps').createIndex({ jobId: 1, createdAt: 1 }),
-      database.collection('aeo_analysis').createIndex({ jobId: 1, timestamp: -1 }),
+      database.collection('module_c').createIndex({ jobId: 1, timestamp: -1 }),
       database.collection('performance_audits').createIndex({ jobId: 1, device: 1, runAt: -1 }),
       database.collection('module_f').createIndex({ sessionId: 1, updatedAt: -1 }),
     ])

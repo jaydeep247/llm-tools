@@ -1,455 +1,435 @@
 'use client'
 
-import { Badge } from '@/components/ui/badge'
+import { useState, useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { 
-  Loader2, 
-  Database, 
-  CheckCircle, 
-  XCircle, 
-  RefreshCw,
-  Search,
-  Hash,
-  TrendingUp,
-  AlertTriangle,
-  Target
+import { Badge } from '@/components/ui/badge'
+import {
+  Loader2, Database, AlertTriangle, XCircle, RefreshCw,
+  Hash, Target, AlertCircle, ChevronDown, ChevronUp
 } from 'lucide-react'
+import {
+  PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid
+} from 'recharts'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
+import { FieldTooltip } from '@/components/module_A/FieldTooltip'
 import { useGetModuleCResultQuery, useRunModuleCAnalysisMutation } from '@/store/api/module_C/moduleCApi'
 import { useGetJobStatusQuery } from '@/store/api/jobApi'
-import { useState, useMemo, useEffect } from 'react'
 
 interface EntityGapAnalysisProps {
   jobId?: string | null
   url?: string
 }
 
-// Donut Chart Component
-function DonutChart({ 
-  value, 
-  size = 120, 
-  strokeWidth = 12,
-  label 
-}: { 
-  value: number
-  size?: number
-  strokeWidth?: number
-  label?: string 
-}) {
-  const radius = (size - strokeWidth) / 2
-  const circumference = radius * 2 * Math.PI
-  const offset = circumference - (value / 100) * circumference
+const TOOLTIPS = {
+  totalEntities: 'Total named entities detected on the page using NLP. Includes persons, organisations, locations, products, concepts, etc.',
+  entityTypes: 'Distribution of entity types found. A balanced mix signals comprehensive, well-structured content.',
+  entityDensity: 'Percentage of total words that are named entities. 3-8% is a healthy range for LLM-optimised content.',
+  wordCount: 'Total visible word count after stripping HTML. Used to calibrate entity density and readability metrics.',
+  entityCoveragePct: 'What percentage of the expected topical entities are actually present on the page.',
+  matchedCount: 'Number of expected entities your page explicitly mentions.',
+  expectedCount: 'Total number of entities that authoritative sources associate with your topic.',
+  missingEntities: 'Expected topical entities absent from your page. AI models cite pages that mention these.',
+  criticalMissing: 'High-importance missing entities that significantly impact AI citation probability.',
+  missingFacts: 'Factual statements that AI models expect but cannot find on your page.',
+  classification: 'Severity breakdown of all missing information. Critical gaps directly reduce AI citation rates.',
+  gapPct: 'Percentage of all expected knowledge that is currently absent from your page.',
+  riskLevel: 'Overall risk rating for AI discoverability based on knowledge completeness.',
+  missingEntityCount: 'Number of distinct entity names missing from the page.',
+  missingFactCount: 'Number of factual claims missing from the page content.',
+  totalMissing: 'Combined count of missing entities and missing facts.',
+}
 
+function PieTooltip({ active, payload }: any) {
+  if (!active || !payload?.length) return null
   return (
-    <div className="relative inline-flex items-center justify-center">
-      <svg width={size} height={size} className="transform -rotate-90">
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="rgba(255,255,255,0.1)"
-          strokeWidth={strokeWidth}
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="#10b981"
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          className="transition-all duration-700 ease-out"
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-2xl font-bold text-white">{value}</span>
-        <span className="text-[10px] text-zinc-400 uppercase tracking-wider">{label || 'Coverage'}</span>
-      </div>
+    <div className="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 text-xs shadow-2xl">
+      <p style={{ color: payload[0].payload.fill }} className="font-semibold">{payload[0].name}</p>
+      <p className="text-white font-bold">{payload[0].value}</p>
     </div>
   )
 }
 
-export default function EntityGapAnalysis({ jobId, url = '' }: EntityGapAnalysisProps) {
-  const [searchQuery, setSearchQuery] = useState('')
+function Section({ title, icon, children, defaultOpen = true, badge }: {
+  title: string; icon: React.ReactNode; children: React.ReactNode; defaultOpen?: boolean; badge?: React.ReactNode
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl overflow-hidden">
+      <button onClick={() => setOpen((v: boolean) => !v)}
+        className="w-full flex items-center justify-between p-5 hover:bg-zinc-800/40 transition-colors">
+        <div className="flex items-center gap-2.5">
+          {icon}
+          <span className="text-sm font-semibold text-white">{title}</span>
+          {badge}
+        </div>
+        {open ? <ChevronUp className="w-4 h-4 text-zinc-500" /> : <ChevronDown className="w-4 h-4 text-zinc-500" />}
+      </button>
+      {open && <div className="px-5 pb-5">{children}</div>}
+    </div>
+  )
+}
+
+export default function EntityGapAnalysis({ jobId, url }: EntityGapAnalysisProps) {
   const [analysisJobId, setAnalysisJobId] = useState<string | null>(null)
-  
-  const { 
-    data: moduleCData, 
-    isLoading, 
-    refetch 
-  } = useGetModuleCResultQuery(jobId || '', { 
-    skip: !jobId,
-    refetchOnMountOrArgChange: true,
-    refetchOnFocus: true,
-    refetchOnReconnect: true,
-  })
+  const [showAllMissing, setShowAllMissing] = useState(false)
+  const [showAllFacts, setShowAllFacts] = useState(false)
 
+  const { data: moduleCData, isLoading: isLoadingData, refetch: refetchData } = useGetModuleCResultQuery(jobId || '', {
+    skip: !jobId, refetchOnMountOrArgChange: true,
+  })
   const [runAnalysis, { isLoading: isRunning }] = useRunModuleCAnalysisMutation()
-
-  // Refetch analysis job status
   const { data: analysisJobData } = useGetJobStatusQuery(analysisJobId || '', {
-    skip: !analysisJobId,
-    pollingInterval: analysisJobId ? 2000 : 0,
+    skip: !analysisJobId, pollingInterval: analysisJobId ? 2000 : 0,
   })
 
-  // Check if analysis job is complete
   useEffect(() => {
-    if (analysisJobData?.status === 'COMPLETED') {
-      setAnalysisJobId(null)
-      refetch()
-    } else if (analysisJobData?.status === 'FAILED') {
-      setAnalysisJobId(null)
-    }
-  }, [analysisJobData, refetch])
+    const status = analysisJobData?.status?.toUpperCase()
+    if (status === 'COMPLETED') { setAnalysisJobId(null); refetchData() }
+    else if (status === 'FAILED') { setAnalysisJobId(null) }
+  }, [analysisJobData, refetchData])
 
   const handleRunAnalysis = async () => {
     if (!jobId) return
     try {
-      const result = await runAnalysis({ jobId, url }).unwrap()
-      if (result.data?.analysisJobId) {
-        setAnalysisJobId(result.data.analysisJobId)
-      }
-    } catch (error) {
-      console.error('Failed to start analysis:', error)
-    }
+      const result = await runAnalysis({ jobId, url: url || '' }).unwrap()
+      if (result.data?.analysisJobId) setAnalysisJobId(result.data.analysisJobId)
+    } catch (e) { console.error(e) }
   }
 
   const isAnalyzing = isRunning || !!analysisJobId
-
   const result = moduleCData?.data
-  const knowledgeBase = result?.modules?.knowledge_base
+  const modules = result?.modules || {}
+  const hasData = !!result
 
-  // Filter entities based on search
-  const filteredEntities = useMemo(() => {
-    if (!knowledgeBase?.entity_coverage?.entites_analysis) return []
-    const query = searchQuery.toLowerCase()
-    return knowledgeBase.entity_coverage.entites_analysis.filter(entity => 
-      entity.entity?.toLowerCase().includes(query) ||
-      entity.type?.toLowerCase().includes(query)
-    )
-  }, [knowledgeBase?.entity_coverage?.entites_analysis, searchQuery])
+  const entityExt = modules.entity_extraction as any
+  const entityCov = modules.entity_coverage as any
+  const missingInfo = modules.missing_info as any
 
-  // Group entities by type
-  const entityTypes = useMemo(() => {
-    if (!knowledgeBase?.entity_coverage?.entites_analysis) return {}
-    return knowledgeBase.entity_coverage.entites_analysis.reduce((acc, entity) => {
-      const type = entity.type || 'Other'
-      if (!acc[type]) acc[type] = []
-      acc[type].push(entity)
-      return acc
-    }, {} as Record<string, typeof knowledgeBase.entity_coverage.entites_analysis>)
-  }, [knowledgeBase?.entity_coverage?.entites_analysis])
+  const entityTypeData = useMemo(() => {
+    if (!entityExt?.entity_types_breakdown) return []
+    const colors = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4','#ec4899','#84cc16']
+    return Object.entries(entityExt.entity_types_breakdown as Record<string, number>)
+      .map(([name, value], i) => ({ name, value, fill: colors[i % colors.length] }))
+      .sort((a, b) => b.value - a.value)
+  }, [entityExt])
 
-  const foundCount = knowledgeBase?.entity_coverage?.found_entities?.length ?? 0
-  const missingCount = knowledgeBase?.entity_coverage?.missing_entities?.length ?? 0
-  const totalEntities = foundCount + missingCount
+  const classificationData = useMemo(() => {
+    if (!missingInfo?.classification) return []
+    return [
+      { name: 'Critical', value: missingInfo.classification.critical_count ?? 0, fill: '#ef4444' },
+      { name: 'Important', value: missingInfo.classification.important_count ?? 0, fill: '#f59e0b' },
+      { name: 'Minor', value: missingInfo.classification.minor_count ?? 0, fill: '#6b7280' },
+    ].filter((d) => d.value > 0)
+  }, [missingInfo])
+
+  const coveragePct = entityCov?.entity_coverage_pct ?? entityCov?.coverage?.entity_coverage_pct ?? 0
+  const matchedCount = entityCov?.coverage?.matched_count ?? 0
+  const expectedCount = entityCov?.coverage?.expected_count ?? 0
+  const missingCount = Math.max(0, expectedCount - matchedCount)
+
+  const coverageDonut = useMemo(() => [
+    { name: 'Matched', value: matchedCount, fill: '#10b981' },
+    { name: 'Missing', value: missingCount, fill: '#ef4444' },
+  ], [matchedCount, missingCount])
+
+  const riskLevel = missingInfo?.gap?.risk_level ?? 'Unknown'
+  const riskColor = riskLevel === 'High Risk' ? 'text-red-400 bg-red-500/10 border-red-500/20'
+    : riskLevel === 'Medium Risk' ? 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20'
+    : 'text-green-400 bg-green-500/10 border-green-500/20'
+
+  const missingEntities: any[] = entityCov?.missing_entities ?? []
+  const criticalMissing: any[] = entityCov?.critical_missing ?? []
+  const missingFacts: string[] = missingInfo?.missing_facts ?? []
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-5">
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-white">Entity & Gap Analysis</h2>
-          <p className="text-sm text-zinc-400 mt-1">
-            Identified entities and content gaps in your content
-          </p>
+          <h2 className="text-xl font-semibold text-white">Entity &amp; Knowledge Gap Analysis</h2>
+          <p className="text-sm text-zinc-400 mt-0.5">What your page is missing that AI engines expect to find</p>
         </div>
-        <Button
-          onClick={() => refetch()}
-          variant="outline"
-          size="sm"
-          disabled={isLoading}
-          className="bg-zinc-800/50 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white"
-        >
-          <RefreshCw className={cn("w-4 h-4 mr-2", isLoading && "animate-spin")} />
-          Refresh
-        </Button>
+        {hasData && (
+          <Button onClick={handleRunAnalysis} disabled={!jobId || isAnalyzing} variant="outline" size="sm"
+            className="bg-zinc-800/50 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
+            <RefreshCw className={cn('w-4 h-4 mr-2', isAnalyzing && 'animate-spin')} />
+            Re-analyze
+          </Button>
+        )}
       </div>
 
-      {/* Loading State */}
-      {isLoading && (
-        <div className="flex items-center justify-center p-12">
-          <Loader2 className="w-8 h-8 animate-spin text-zinc-400" />
+      {(isLoadingData || isAnalyzing) && (
+        <div className="flex items-center justify-center p-16 border border-zinc-800 rounded-2xl bg-zinc-800/30">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
+            <p className="text-sm text-zinc-400">{isAnalyzing ? 'Running analysis...' : 'Loading...'}</p>
+          </div>
         </div>
       )}
 
-      {/* Content */}
-      {!isLoading && knowledgeBase?.entity_coverage ? (
+      {!hasData && !isLoadingData && !isAnalyzing && jobId && (
+        <AnalysisEmptyState
+          icon={<Database className="w-8 h-8 text-zinc-600" />}
+          title="No Entity Analysis Data"
+          description="Run an analysis to discover entity gaps between your page and AI model expectations."
+          onRunAnalysis={handleRunAnalysis}
+          isAnalyzing={isAnalyzing}
+        />
+      )}
+
+      {hasData && !isLoadingData && !isAnalyzing && (
         <>
-          {/* Top Stats Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Coverage Donut Card */}
-            <div className="bg-zinc-800/50 rounded-2xl p-6 border border-zinc-800">
-              <div className="flex items-center gap-6">
-                <DonutChart 
-                  value={knowledgeBase.entity_coverage.coverage_score ?? 0} 
-                  size={100}
-                  strokeWidth={10}
-                />
-                <div className="flex-1">
-                  <h3 className="text-sm font-medium text-zinc-300 mb-3">Entity Coverage</h3>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                      <span className="text-xs text-zinc-400">Found</span>
-                      <span className="text-sm font-bold text-white ml-auto">{foundCount}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-red-500" />
-                      <span className="text-xs text-zinc-400">Missing</span>
-                      <span className="text-sm font-bold text-white ml-auto">{missingCount}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-zinc-500" />
-                      <span className="text-xs text-zinc-400">Total</span>
-                      <span className="text-sm font-bold text-white ml-auto">{totalEntities}</span>
-                    </div>
-                  </div>
-                </div>
+          <div className={cn('flex items-center gap-3 p-4 rounded-xl border', riskColor)}>
+            <AlertCircle className="w-5 h-5 shrink-0" />
+            <div className="flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-semibold">Knowledge Gap Risk:</span>
+                <span className="text-sm font-bold">{riskLevel}</span>
+                <FieldTooltip description={TOOLTIPS.riskLevel} />
               </div>
-            </div>
-
-            {/* Entity Counts Card */}
-            <div className="bg-zinc-800/50 rounded-2xl p-6 border border-zinc-800">
-              <h3 className="text-sm font-medium text-zinc-300 mb-4">Entity Breakdown</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-zinc-800/50 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="p-1.5 bg-emerald-500/20 rounded-lg">
-                      <Target className="w-4 h-4 text-emerald-400" />
-                    </div>
-                    <span className="text-xs text-zinc-400">Critical</span>
-                  </div>
-                  <div className="text-2xl font-bold text-emerald-400">
-                    {knowledgeBase.entity_coverage.critical_entities_count ?? 0}
-                  </div>
+              {missingInfo?.gap?.gap_pct !== undefined && (
+                <div className="flex items-center gap-1 mt-0.5">
+                  <p className="text-xs opacity-80">{missingInfo.gap.gap_pct}% of expected knowledge is absent from this page</p>
+                  <FieldTooltip description={TOOLTIPS.gapPct} />
                 </div>
-                <div className="bg-zinc-800/50 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="p-1.5 bg-blue-500/20 rounded-lg">
-                      <Hash className="w-4 h-4 text-blue-400" />
-                    </div>
-                    <span className="text-xs text-zinc-400">Minor</span>
-                  </div>
-                  <div className="text-2xl font-bold text-blue-400">
-                    {knowledgeBase.entity_coverage.minor_entities_count ?? 0}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Topic & Density Card */}
-            <div className="bg-zinc-800/50 rounded-2xl p-6 border border-zinc-800">
-              <h3 className="text-sm font-medium text-zinc-300 mb-4">Content Analysis</h3>
-              <div className="space-y-4">
-                <div>
-                  <span className="text-xs text-zinc-400 uppercase tracking-wider">Topic Identified</span>
-                  <p className="text-white font-semibold mt-1 truncate" title={knowledgeBase.entity_coverage.topic || 'N/A'}>
-                    {knowledgeBase.entity_coverage.topic || 'N/A'}
-                  </p>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-xs text-zinc-400 uppercase tracking-wider">Fact Density</span>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xl font-bold text-white">{knowledgeBase.fact_density?.toFixed(2) ?? '--'}</span>
-                      <TrendingUp className="w-4 h-4 text-emerald-400" />
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-xs text-zinc-400">per 100 words</span>
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
           </div>
 
-          {/* Entity Tags Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Found Entities */}
-            <div className="bg-zinc-800/50 rounded-2xl p-5 border border-zinc-800">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 bg-emerald-500/20 rounded-lg">
-                    <CheckCircle className="w-4 h-4 text-emerald-400" />
+          <Section title="Entity Extraction" icon={<Hash className="w-4 h-4 text-blue-400" />}
+            badge={entityExt?.total_entities_detected !== undefined ? (
+              <Badge className="bg-blue-500/15 text-blue-300 border border-blue-500/20 text-xs ml-1">
+                {entityExt.total_entities_detected} entities
+              </Badge>
+            ) : undefined}>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+              {[
+                { label: 'Total Detected', val: entityExt?.total_entities_detected ?? 0, tip: TOOLTIPS.totalEntities, color: 'text-blue-400' },
+                { label: 'Entity Density', val: `${(entityExt?.entity_density ?? 0).toFixed(1)}%`, tip: TOOLTIPS.entityDensity, color: 'text-purple-400' },
+                { label: 'Word Count', val: (entityExt?.word_count ?? 0).toLocaleString(), tip: TOOLTIPS.wordCount, color: 'text-cyan-400' },
+                { label: 'Unique Types', val: Object.keys(entityExt?.entity_types_breakdown ?? {}).length, tip: TOOLTIPS.entityTypes, color: 'text-amber-400' },
+              ].map(({ label, val, tip, color }) => (
+                <div key={label} className="bg-zinc-800/50 rounded-xl p-3 text-center">
+                  <div className="flex justify-center items-center gap-1 mb-1">
+                    <span className="text-[10px] text-zinc-500">{label}</span>
+                    <FieldTooltip description={tip} />
                   </div>
-                  <span className="text-sm font-medium text-white">Found Entities</span>
+                  <span className={cn('text-xl font-bold', color)}>{val}</span>
                 </div>
-                <Badge className="bg-emerald-500/20 text-emerald-400 border-0">
-                  {foundCount}
-                </Badge>
-              </div>
-              <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-                {knowledgeBase.entity_coverage.found_entities?.map((entity, i) => (
-                  <span 
-                    key={i} 
-                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-zinc-800/50 hover:bg-zinc-800 rounded-lg text-xs text-zinc-200 transition-colors cursor-default"
-                  >
-                    <Hash className="w-3 h-3 text-emerald-400" />
-                    {entity}
-                  </span>
-                ))}
-                {foundCount === 0 && (
-                  <span className="text-zinc-500 text-sm">No entities found</span>
-                )}
-              </div>
+              ))}
             </div>
-
-            {/* Missing Entities */}
-            <div className="bg-zinc-800/50 rounded-2xl p-5 border border-zinc-800">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 bg-red-500/20 rounded-lg">
-                    <AlertTriangle className="w-4 h-4 text-red-400" />
-                  </div>
-                  <span className="text-sm font-medium text-white">Missing Entities</span>
+            {entityTypeData.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1 mb-3">
+                  <span className="text-xs text-zinc-400">Entity Type Distribution</span>
+                  <FieldTooltip description={TOOLTIPS.entityTypes} />
                 </div>
-                <Badge className="bg-red-500/20 text-red-400 border-0">
-                  {missingCount}
-                </Badge>
-              </div>
-              <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-                {knowledgeBase.entity_coverage.missing_entities?.map((entity, i) => (
-                  <span 
-                    key={i} 
-                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-500/10 hover:bg-red-500/15 rounded-lg text-xs text-red-300 transition-colors cursor-default"
-                  >
-                    <Hash className="w-3 h-3 text-red-400" />
-                    {entity}
-                  </span>
-                ))}
-                {missingCount === 0 && (
-                  <span className="text-emerald-400 text-sm flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3" /> All entities covered
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* KB Recommendations Section */}
-          {knowledgeBase.entity_coverage.recommendations && knowledgeBase.entity_coverage.recommendations.length > 0 && (
-            <div className="bg-zinc-800/50 rounded-2xl border border-zinc-800 overflow-hidden">
-              <div className="p-4 border-b border-zinc-800 flex items-center gap-2">
-                <div className="p-2 bg-amber-500/20 rounded-lg">
-                  <TrendingUp className="w-4 h-4 text-amber-400" />
-                </div>
-                <span className="text-sm font-medium text-white">Knowledge Base Recommendations</span>
-                <Badge className="bg-amber-500/20 text-amber-300 border-0 ml-auto">
-                  {knowledgeBase.entity_coverage.recommendations.length} actions
-                </Badge>
-              </div>
-              <div className="p-4 space-y-3">
-                {knowledgeBase.entity_coverage.recommendations.map((rec, i) => (
-                  <div 
-                    key={i}
-                    className="p-4 bg-zinc-800/50 rounded-xl border border-zinc-800/50"
-                  >
-                    <div className="flex items-start justify-between gap-4 mb-2">
-                      <Badge className={cn(
-                        "border text-xs",
-                        rec.priority === 'High' ? "bg-red-500/20 text-red-300 border-red-500/30" :
-                        rec.priority === 'Medium' ? "bg-amber-500/20 text-amber-300 border-amber-500/30" :
-                        "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
-                      )}>
-                        {rec.priority}
-                      </Badge>
-                      <div className="flex items-center gap-1 text-emerald-400">
-                        <span className="text-xs font-semibold">+{rec.impact}</span>
-                        <span className="text-[10px] text-zinc-500">impact</span>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <ResponsiveContainer width="100%" height={180}>
+                    <BarChart data={entityTypeData} layout="vertical" barCategoryGap="20%">
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
+                      <XAxis type="number" tick={{ fill: '#a1a1aa', fontSize: 10 }} axisLine={false} tickLine={false} />
+                      <YAxis type="category" dataKey="name" tick={{ fill: '#a1a1aa', fontSize: 10 }} axisLine={false} tickLine={false} width={70} />
+                      <Tooltip content={<PieTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+                      <Bar dataKey="value" radius={[0, 4, 4, 0]} name="Count">
+                        {entityTypeData.map((_: any, idx: number) => <Cell key={idx} fill={entityTypeData[idx].fill} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                  <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
+                    {entityTypeData.map(({ name, value, fill }: any) => (
+                      <div key={name} className="flex items-center justify-between py-1.5 px-2 rounded-lg bg-zinc-800/40">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: fill }} />
+                          <span className="text-xs text-zinc-300">{name}</span>
+                        </div>
+                        <span className="text-xs font-semibold text-white">{value}</span>
                       </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </Section>
+
+          <Section title="Entity Coverage" icon={<Target className="w-4 h-4 text-emerald-400" />}>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="flex flex-col items-center">
+                <div className="relative" style={{ width: 180, height: 180 }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={coverageDonut} cx="50%" cy="50%" innerRadius={55} outerRadius={75} dataKey="value" strokeWidth={0}>
+                        {coverageDonut.map((_: any, idx: number) => <Cell key={idx} fill={coverageDonut[idx].fill} />)}
+                      </Pie>
+                      <Tooltip content={<PieTooltip />} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-3xl font-bold text-white">{Math.round(coveragePct)}%</span>
+                    <span className="text-[10px] text-zinc-500">coverage</span>
+                  </div>
+                </div>
+                <div className="flex gap-4 mt-2">
+                  {[{ name: 'Matched', fill: '#10b981' }, { name: 'Missing', fill: '#ef4444' }].map(({ name, fill }) => (
+                    <div key={name} className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ background: fill }} />
+                      <span className="text-xs text-zinc-400">{name}</span>
                     </div>
-                    <p className="text-sm text-zinc-300">{rec.action}</p>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-3">
+                {[
+                  { label: 'Entity Coverage', val: `${Math.round(coveragePct)}%`, tip: TOOLTIPS.entityCoveragePct, color: coveragePct > 50 ? 'text-emerald-400' : 'text-red-400' },
+                  { label: 'Matched Entities', val: matchedCount, tip: TOOLTIPS.matchedCount, color: 'text-emerald-400' },
+                  { label: 'Expected Entities', val: expectedCount, tip: TOOLTIPS.expectedCount, color: 'text-zinc-300' },
+                  { label: 'Missing Entities', val: missingEntities.length, tip: TOOLTIPS.missingEntities, color: 'text-red-400' },
+                  { label: 'Critical Missing', val: entityCov?.critical_missing_count ?? 0, tip: TOOLTIPS.criticalMissing, color: 'text-rose-400' },
+                ].map(({ label, val, tip, color }) => (
+                  <div key={label} className="flex justify-between items-center py-2 border-b border-zinc-800/60 last:border-0">
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-zinc-400">{label}</span>
+                      <FieldTooltip description={tip} />
+                    </div>
+                    <span className={cn('text-sm font-bold', color)}>{val}</span>
                   </div>
                 ))}
               </div>
             </div>
-          )}
+          </Section>
 
-          {/* Entity Types Grid */}
-          {Object.keys(entityTypes).length > 0 && (
-            <div className="bg-zinc-800/50 rounded-2xl border border-zinc-800 overflow-hidden">
-              <div className="p-4 border-b border-zinc-800/50 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-                <h3 className="text-sm font-medium text-white">Entity Analysis by Type</h3>
-                <div className="relative w-full sm:w-64">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-500" />
-                  <Input
-                    placeholder="Search entities..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 bg-zinc-800/50 border-zinc-800 text-white placeholder:text-zinc-500 text-sm h-9"
-                  />
-                </div>
+          {criticalMissing.length > 0 && (
+            <Section title="Critical Missing Entities" icon={<AlertTriangle className="w-4 h-4 text-rose-400" />}
+              badge={
+                <Badge className="bg-rose-500/15 text-rose-300 border border-rose-500/20 text-xs ml-1">
+                  {criticalMissing.length} critical
+                </Badge>
+              }>
+              <div className="flex items-center gap-1 mb-3">
+                <span className="text-xs text-zinc-500">High-importance entities whose absence most strongly reduces AI citation probability</span>
+                <FieldTooltip description={TOOLTIPS.criticalMissing} />
               </div>
-
-              <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {Object.entries(entityTypes).map(([type, entities]) => {
-                  const filteredTypeEntities = entities.filter(e => 
-                    searchQuery === '' || 
-                    e.entity?.toLowerCase().includes(searchQuery.toLowerCase())
-                  )
-                  if (filteredTypeEntities.length === 0) return null
-
-                  const typeColors: Record<string, { bg: string; border: string; text: string }> = {
-                    'Person': { bg: 'bg-zinc-800/30', border: 'border-blue-500/30', text: 'text-blue-400' },
-                    'Organization': { bg: 'bg-zinc-800/30', border: 'border-blue-500/30', text: 'text-blue-400' },
-                    'Location': { bg: 'bg-zinc-800/30', border: 'border-amber-500/30', text: 'text-amber-400' },
-                    'Concept': { bg: 'bg-zinc-800/30', border: 'border-cyan-500/30', text: 'text-cyan-400' },
-                    'Product': { bg: 'bg-zinc-800/30', border: 'border-emerald-500/30', text: 'text-emerald-400' },
-                    'Date': { bg: 'bg-zinc-800/30', border: 'border-pink-500/30', text: 'text-pink-400' },
-                  }
-                  const colors = typeColors[type] || { bg: 'bg-zinc-800/30', border: 'border-zinc-800', text: 'text-zinc-300' }
-
+              <div className="flex flex-wrap gap-2">
+                {criticalMissing.map((entity: any, i: number) => {
+                  const name = typeof entity === 'string' ? entity : (entity?.name ?? entity?.text ?? String(entity))
+                  const type = entity?.type ?? entity?.label ?? ''
                   return (
-                    <div 
-                      key={type}
-                      className={cn("rounded-xl p-4 border", colors.bg, colors.border)}
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <span className={cn("text-sm font-medium", colors.text)}>{type}</span>
-                        <span className="text-xs text-zinc-400">{filteredTypeEntities.length} items</span>
-                      </div>
-                      <div className="space-y-2 max-h-40 overflow-y-auto">
-                        {filteredTypeEntities.map((entity, i) => (
-                          <div 
-                            key={i}
-                            className="flex items-center justify-between p-2 rounded-lg bg-zinc-800/50"
-                          >
-                            <span className="text-sm text-white truncate flex-1">{entity.entity}</span>
-                            <div className="flex items-center gap-2 ml-2">
-                              <span className={cn(
-                                "text-xs font-medium",
-                                entity.status === 'Found' ? "text-emerald-400" : "text-red-400"
-                              )}>
-                                {entity.status === 'Found' ? '✓' : '✗'}
-                              </span>
-                              <span className="text-xs text-zinc-400">{entity.relevance_score}/10</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                    <div key={i} className="flex items-center gap-1.5 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-1.5">
+                      <XCircle className="w-3 h-3 text-rose-400 shrink-0" />
+                      <span className="text-xs text-rose-200 font-medium">{name}</span>
+                      {type && <span className="text-[10px] text-rose-400/70">({type})</span>}
                     </div>
                   )
                 })}
               </div>
-            </div>
+            </Section>
           )}
+
+          {missingEntities.length > 0 && (
+            <Section title="All Missing Entities" icon={<XCircle className="w-4 h-4 text-red-400" />}
+              badge={
+                <Badge className="bg-red-500/15 text-red-300 border border-red-500/20 text-xs ml-1">
+                  {missingEntities.length} missing
+                </Badge>
+              }>
+              <div className="flex items-center gap-1 mb-3">
+                <span className="text-xs text-zinc-500">All expected entities not found on this page</span>
+                <FieldTooltip description={TOOLTIPS.missingEntities} />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {(showAllMissing ? missingEntities : missingEntities.slice(0, 20)).map((entity: any, i: number) => {
+                  const name = typeof entity === 'string' ? entity : (entity?.name ?? entity?.text ?? String(entity))
+                  const type = entity?.type ?? entity?.label ?? ''
+                  return (
+                    <div key={i} className="flex items-center gap-1.5 bg-zinc-800/60 border border-zinc-700 rounded-lg px-2.5 py-1">
+                      <span className="text-xs text-zinc-300">{name}</span>
+                      {type && <span className="text-[10px] text-zinc-500">({type})</span>}
+                    </div>
+                  )
+                })}
+              </div>
+              {missingEntities.length > 20 && (
+                <button onClick={() => setShowAllMissing((v: boolean) => !v)}
+                  className="mt-3 text-xs text-blue-400 hover:text-blue-300 transition-colors">
+                  {showAllMissing ? 'Show less' : `Show all ${missingEntities.length} entities`}
+                </button>
+              )}
+            </Section>
+          )}
+
+          <Section title="Knowledge Gap Analysis" icon={<AlertCircle className="w-4 h-4 text-amber-400" />}>
+            <div className="grid grid-cols-3 gap-3 mb-5">
+              {[
+                { label: 'Missing Entities', val: missingInfo?.missing_entity_count ?? 0, tip: TOOLTIPS.missingEntityCount, color: 'text-red-400' },
+                { label: 'Missing Facts', val: missingInfo?.missing_fact_count ?? 0, tip: TOOLTIPS.missingFactCount, color: 'text-amber-400' },
+                { label: 'Total Missing', val: missingInfo?.total_missing ?? 0, tip: TOOLTIPS.totalMissing, color: 'text-white' },
+              ].map(({ label, val, tip, color }) => (
+                <div key={label} className="bg-zinc-800/50 rounded-xl p-3 text-center">
+                  <div className="flex justify-center items-center gap-1 mb-1">
+                    <span className="text-[10px] text-zinc-500">{label}</span>
+                    <FieldTooltip description={tip} />
+                  </div>
+                  <span className={cn('text-2xl font-bold', color)}>{val}</span>
+                </div>
+              ))}
+            </div>
+            {classificationData.length > 0 && (
+              <div className="mb-5">
+                <div className="flex items-center gap-1 mb-3">
+                  <span className="text-xs text-zinc-400">Missing Info Classification</span>
+                  <FieldTooltip description={TOOLTIPS.classification} />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                  <div style={{ height: 160 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={classificationData} cx="50%" cy="50%" innerRadius={45} outerRadius={65} dataKey="value" strokeWidth={0}>
+                          {classificationData.map((_: any, idx: number) => <Cell key={idx} fill={classificationData[idx].fill} />)}
+                        </Pie>
+                        <Tooltip content={<PieTooltip />} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="space-y-2">
+                    {classificationData.map(({ name, value, fill }: any) => (
+                      <div key={name} className="flex items-center justify-between py-2 px-3 rounded-lg bg-zinc-800/40">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2.5 h-2.5 rounded-full" style={{ background: fill }} />
+                          <span className="text-xs text-zinc-300">{name}</span>
+                        </div>
+                        <span className="text-sm font-bold text-white">{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+            {missingFacts.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1 mb-3">
+                  <span className="text-xs text-zinc-400">Missing Fact Statements</span>
+                  <FieldTooltip description={TOOLTIPS.missingFacts} />
+                </div>
+                <div className="space-y-2">
+                  {(showAllFacts ? missingFacts : missingFacts.slice(0, 5)).map((fact: string, i: number) => (
+                    <div key={i} className="flex items-start gap-2.5 p-3 bg-amber-500/5 border border-amber-500/15 rounded-xl">
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+                      <span className="text-xs text-amber-200/90 leading-relaxed">{fact}</span>
+                    </div>
+                  ))}
+                </div>
+                {missingFacts.length > 5 && (
+                  <button onClick={() => setShowAllFacts((v: boolean) => !v)}
+                    className="mt-3 text-xs text-blue-400 hover:text-blue-300 transition-colors">
+                    {showAllFacts ? 'Show less' : `Show all ${missingFacts.length} facts`}
+                  </button>
+                )}
+              </div>
+            )}
+          </Section>
         </>
-      ) : !isLoading ? (
-        <AnalysisEmptyState
-          icon={<Database className="w-8 h-8 text-zinc-600" />}
-          title="No Entity Analysis Data"
-          description="Run an AI Visibility analysis to see entity coverage and gap analysis."
-          onRunAnalysis={handleRunAnalysis}
-          isAnalyzing={isAnalyzing}
-          disabled={!jobId}
-        />
-      ) : null}
+      )}
     </div>
   )
 }

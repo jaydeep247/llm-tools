@@ -738,7 +738,7 @@ export class JobController {
         maxLimit: JobController.MAX_AEO_PAGE_SIZE,
       });
       const db = await connectToMongo();
-      const collection = db.collection('aeo_analysis');
+      const collection = db.collection('module_c');
       const rows = await collection
         .find({ jobId: id })
         .sort({ timestamp: -1 })

@@ -1,29 +1,20 @@
 export interface ModuleCResult {
   jobId: string;
   url: string;
+  domain?: string;
+  industry?: string;
   timestamp: Date;
   overall_score: number;
   modules: {
-    ai_presence?: {
-      score: number;
-      details?: Record<string, any>;
-    };
-    answerability?: {
-      score: number;
-      details?: Record<string, any>;
-    };
-    knowledge_base?: {
-      score: number;
-      details?: Record<string, any>;
-    };
-    llm_simulator?: {
-      simulations?: Record<string, any>;
-      cross_model_metrics?: {
-        consistency_score?: number;
-      };
-    };
-    multi_model_insights?: Record<string, any>;
-    actionable_insights?: Record<string, any>;
+    entity_extraction?: Record<string, any>;
+    aeo_checker?: Record<string, any>;
+    entity_coverage?: Record<string, any>;
+    missing_info?: Record<string, any>;
+    answer_completeness?: Record<string, any>;
+    bulk_audit?: Record<string, any>;
+    llm_simulator?: Record<string, any>;
+    multi_model?: Record<string, any>;
+    page_actions?: Record<string, any>;
   };
 }
 

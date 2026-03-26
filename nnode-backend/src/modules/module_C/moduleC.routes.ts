@@ -19,25 +19,34 @@ router.post('/module-c/jobs/:jobId/run', moduleCController.runModuleCAnalysis);
 // Get Module C results for a session
 router.get('/module-c/sessions/:sessionId', moduleCController.getSessionModuleCResults);
 
-// ===== Individual Module Field Endpoints =====
+// ===== New C1-C9 Submodule Field Endpoints =====
 
-// AI Presence - Overall score, robots checks, content checks, AI understanding
-router.get('/module-c/jobs/:jobId/ai-presence', moduleCController.getAiPresence);
+// C5 — Entity Extraction (NER, topics, word-count)
+router.get('/module-c/jobs/:jobId/c5', moduleCController.getC5EntityExtraction);
 
-// Answerability - Q&A analysis, completeness, depth, breadth scores
-router.get('/module-c/jobs/:jobId/answerability', moduleCController.getAnswerability);
+// C1 — AEO Checker (LLM-friendliness score, sub-component scores)
+router.get('/module-c/jobs/:jobId/c1', moduleCController.getC1AeoChecker);
 
-// Knowledge Base - Entity coverage, fact density
-router.get('/module-c/jobs/:jobId/knowledge-base', moduleCController.getKnowledgeBase);
+// C3 — Entity Coverage Audit
+router.get('/module-c/jobs/:jobId/c3', moduleCController.getC3EntityCoverage);
 
-// LLM Simulator - Multi-model simulation results
-router.get('/module-c/jobs/:jobId/llm-simulator', moduleCController.getLlmSimulator);
+// C6 — Missing Information Analysis
+router.get('/module-c/jobs/:jobId/c6', moduleCController.getC6MissingInfo);
 
-// Multi-Model Insights - Cross-model agreement & consensus
-router.get('/module-c/jobs/:jobId/multi-model-insights', moduleCController.getMultiModelInsights);
+// C4 — Answer Completeness Score
+router.get('/module-c/jobs/:jobId/c4', moduleCController.getC4AnswerCompleteness);
 
-// Actionable Insights - Prioritized action items
-router.get('/module-c/jobs/:jobId/actionable-insights', moduleCController.getActionableInsights);
+// C2 — Bulk LLM-Friendliness Audit
+router.get('/module-c/jobs/:jobId/c2', moduleCController.getC2BulkAudit);
+
+// C7 — LLM Answer Simulation
+router.get('/module-c/jobs/:jobId/c7', moduleCController.getC7LlmSimulator);
+
+// C9 — Multi-Model Insights
+router.get('/module-c/jobs/:jobId/c9', moduleCController.getC9MultiModel);
+
+// C8 — Page-Level Improvement Actions
+router.get('/module-c/jobs/:jobId/c8', moduleCController.getC8PageActions);
 
 // Overall Score Summary
 router.get('/module-c/jobs/:jobId/summary', moduleCController.getSummary);

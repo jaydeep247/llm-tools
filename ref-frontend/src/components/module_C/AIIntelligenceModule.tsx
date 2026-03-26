@@ -5,7 +5,7 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Loader2, Brain, Rocket, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react'
+import { Loader2, Brain, Rocket, CheckCircle, AlertCircle, RefreshCw, BarChart3, GitCompare, Zap, Eye } from 'lucide-react'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
 import { 
@@ -14,6 +14,11 @@ import {
   useGetSessionModuleCResultsQuery,
 } from '@/store/api/module_C/moduleCApi'
 import { useGetJobStatusQuery } from '@/store/api/jobApi'
+import AIVisibilityScorecards from './AIVisibilityScorecards'
+import EntityGapAnalysis from './EntityGapAnalysis'
+import AIAnswerPreview from './AIAnswerPreview'
+import ModelComparison from './ModelComparison'
+import ImprovementActions from './ImprovementActions'
 
 interface AIIntelligenceModuleProps {
   url: string
@@ -31,6 +36,7 @@ export default function AIIntelligenceModule({ url, sessionId, jobId }: AIIntell
   const [auditMode, setAuditMode] = useState<'single' | 'bulk'>(subtab === 'bulk' ? 'bulk' : 'single')
   const [sitemapUrl, setSitemapUrl] = useState('')
   const [analysisJobId, setAnalysisJobId] = useState<string | null>(null)
+  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'entities' | 'answers' | 'models' | 'actions'>('overview')
   
   // Ensure URL always has subtab parameter
   useEffect(() => {
@@ -128,21 +134,15 @@ export default function AIIntelligenceModule({ url, sessionId, jobId }: AIIntell
   const modules = aeoResult?.modules || {}
   
   // Extract individual module scores
-  const aiPresenceScore = modules.ai_presence?.score || 0
-  const answerabilityScore = modules.answerability?.score || 0
-  const knowledgeBaseScore = modules.knowledge_base?.score || 0
-  const llmConsistencyScore = modules.llm_simulator?.cross_model_metrics?.consistency_score || 0
+  const aiPresenceScore = modules.aeo_checker?.llm_friendliness_score || 0
+  const answerabilityScore = modules.answer_completeness?.completeness_score || 0
+  const knowledgeBaseScore = modules.entity_coverage?.entity_coverage_pct || 0
+  const llmConsistencyScore = modules.llm_simulator?.consistency?.overall || 0
 
   const getScoreColor = (score: number) => {
     if (score >= 70) return 'text-green-500'
     if (score >= 50) return 'text-yellow-500'
     return 'text-red-500'
-  }
-
-  const getScoreBg = (score: number) => {
-    if (score >= 70) return 'bg-green-500/20 border-green-500/30'
-    if (score >= 50) return 'bg-yellow-500/20 border-yellow-500/30'
-    return 'bg-red-500/20 border-red-500/30'
   }
 
   return (
@@ -228,7 +228,7 @@ export default function AIIntelligenceModule({ url, sessionId, jobId }: AIIntell
           {/* Results Display */}
           {hasExistingData && !isLoadingSingleData && (
             <div className="space-y-4">
-              {/* Show badge if displaying existing data */}
+              {/* Top bar: timestamp + re-run */}
               <div className="flex items-center justify-between">
                 <Badge variant="outline" className="text-xs">
                   <CheckCircle className="w-3 h-3 mr-1" />
@@ -241,148 +241,56 @@ export default function AIIntelligenceModule({ url, sessionId, jobId }: AIIntell
                   className="bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer"
                 >
                   {isAnalyzing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Re-analyzing...
-                    </>
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Re-analyzing...</>
                   ) : (
-                    <>
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                      Run New Analysis
-                    </>
+                    <><RefreshCw className="w-4 h-4 mr-2" />Run New Analysis</>
                   )}
                 </Button>
               </div>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Main Score Card */}
-                <div className="border border-border rounded-lg p-6 bg-muted/30">
-                  <h4 className="text-sm font-medium text-muted-foreground mb-4 text-center">
-                    Overall AEO Score
-                  </h4>
-                  <div className="flex items-center justify-center mb-4">
-                    <div className={`text-6xl font-bold ${getScoreColor(overallScore)}`}>
-                      {Math.round(overallScore)}
-                    </div>
-                  </div>
-                  <p className="text-xs text-center text-muted-foreground leading-relaxed">
-                    <strong>AEO Analysis:</strong> How well your content is optimized for AI answer engines.
-                  </p>
-                </div>
 
-                {/* Module Scores List */}
-                <div className="space-y-3">
-                  {/* AI Presence Score */}
-                  <div className="border border-border rounded-lg p-4 bg-background">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-foreground">
-                        🤖 AI Presence
-                      </span>
-                      <span className={`text-lg font-bold ${getScoreColor(aiPresenceScore)}`}>
-                        {Math.round(aiPresenceScore)}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-                      <div
-                        className={`h-full transition-all duration-300 ${
-                          aiPresenceScore > 70 ? 'bg-green-500' : aiPresenceScore > 50 ? 'bg-yellow-500' : 'bg-red-500'
-                        }`}
-                        style={{ width: `${aiPresenceScore}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      How visible your content is to AI systems.
-                    </p>
-                  </div>
-
-                  {/* Answerability Score */}
-                  <div className="border border-border rounded-lg p-4 bg-background">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-foreground">
-                        💬 Answerability
-                      </span>
-                      <span className={`text-lg font-bold ${getScoreColor(answerabilityScore)}`}>
-                        {Math.round(answerabilityScore)}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-                      <div
-                        className={`h-full transition-all duration-300 ${
-                          answerabilityScore > 70 ? 'bg-green-500' : answerabilityScore > 50 ? 'bg-yellow-500' : 'bg-red-500'
-                        }`}
-                        style={{ width: `${answerabilityScore}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      How well your content answers user queries.
-                    </p>
-                  </div>
-
-                  {/* Knowledge Base Score */}
-                  <div className="border border-border rounded-lg p-4 bg-background">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-foreground">
-                        📚 Knowledge Base
-                      </span>
-                      <span className={`text-lg font-bold ${getScoreColor(knowledgeBaseScore)}`}>
-                        {Math.round(knowledgeBaseScore)}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-                      <div
-                        className={`h-full transition-all duration-300 ${
-                          knowledgeBaseScore > 70 ? 'bg-green-500' : knowledgeBaseScore > 50 ? 'bg-yellow-500' : 'bg-red-500'
-                        }`}
-                        style={{ width: `${knowledgeBaseScore}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Structured data and knowledge graph readiness.
-                    </p>
-                  </div>
-
-                  {/* LLM Consistency Score */}
-                  <div className="border border-border rounded-lg p-4 bg-background">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-foreground">
-                        🔄 LLM Consistency
-                      </span>
-                      <span className={`text-lg font-bold ${getScoreColor(llmConsistencyScore)}`}>
-                        {Math.round(llmConsistencyScore)}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-                      <div
-                        className={`h-full transition-all duration-300 ${
-                          llmConsistencyScore > 70 ? 'bg-green-500' : llmConsistencyScore > 50 ? 'bg-yellow-500' : 'bg-red-500'
-                        }`}
-                        style={{ width: `${llmConsistencyScore}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Consistency across different LLM responses.
-                    </p>
-                  </div>
-                </div>
+              {/* Sub-tab navigation */}
+              <div className="flex gap-1 border border-zinc-800 bg-zinc-900/50 p-1 rounded-xl overflow-x-auto">
+                {([
+                  { key: 'overview', label: 'Overview', icon: BarChart3 },
+                  { key: 'entities', label: 'Entities & Gaps', icon: Brain },
+                  { key: 'answers', label: 'Answer Preview', icon: Eye },
+                  { key: 'models', label: 'Model Comparison', icon: GitCompare },
+                  { key: 'actions', label: 'Actions', icon: Zap },
+                ] as const).map(({ key, label, icon: Icon }) => (
+                  <button
+                    key={key}
+                    onClick={() => setActiveSubTab(key)}
+                    className={cn(
+                      'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all',
+                      activeSubTab === key
+                        ? 'bg-zinc-700 text-white shadow-sm'
+                        : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50'
+                    )}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {label}
+                  </button>
+                ))}
               </div>
 
-              {/* Detailed Modules Section */}
-              {modules.actionable_insights && (
-                <div className="mt-6 border border-border rounded-lg p-4 bg-background">
-                  <h4 className="text-sm font-semibold text-foreground mb-3">
-                    📋 Actionable Insights
-                  </h4>
-                  <div className="text-sm text-muted-foreground">
-                    {typeof modules.actionable_insights === 'object' && modules.actionable_insights !== null ? (
-                      <pre className="whitespace-pre-wrap text-xs">
-                        {JSON.stringify(modules.actionable_insights, null, 2)}
-                      </pre>
-                    ) : (
-                      <p>No actionable insights available.</p>
-                    )}
-                  </div>
-                </div>
-              )}
+              {/* Sub-tab content */}
+              <div className="min-h-0">
+                {activeSubTab === 'overview' && (
+                  <AIVisibilityScorecards jobId={jobId} url={url} />
+                )}
+                {activeSubTab === 'entities' && (
+                  <EntityGapAnalysis jobId={jobId} url={url} />
+                )}
+                {activeSubTab === 'answers' && (
+                  <AIAnswerPreview jobId={jobId} url={url} />
+                )}
+                {activeSubTab === 'models' && (
+                  <ModelComparison jobId={jobId} url={url} />
+                )}
+                {activeSubTab === 'actions' && (
+                  <ImprovementActions jobId={jobId} url={url} />
+                )}
+              </div>
             </div>
           )}
         </div>

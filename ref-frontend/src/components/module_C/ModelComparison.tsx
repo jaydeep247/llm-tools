@@ -1,506 +1,368 @@
 'use client'
 
-import { Badge } from '@/components/ui/badge'
+import { useState, useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
-import { 
-  Loader2, 
-  BarChart3, 
-  Cpu, 
-  AlertTriangle, 
-  RefreshCw,
-  CheckCircle2,
-  TrendingUp,
-  Layers,
-  Target,
-  Activity,
-  Shield
+import { Badge } from '@/components/ui/badge'
+import {
+  Loader2, BarChart3, RefreshCw, AlertTriangle,
+  TrendingUp, Users, Zap, AlertCircle, ChevronDown, ChevronUp
 } from 'lucide-react'
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  Legend, RadarChart, PolarGrid, PolarAngleAxis, Radar,
+  Cell, PieChart, Pie
+} from 'recharts'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
+import { FieldTooltip } from '@/components/module_A/FieldTooltip'
 import { useGetModuleCResultQuery, useRunModuleCAnalysisMutation } from '@/store/api/module_C/moduleCApi'
 import { useGetJobStatusQuery } from '@/store/api/jobApi'
-import { useMemo, useState, useEffect } from 'react'
 
 interface ModelComparisonProps {
   jobId?: string | null
   url?: string
 }
 
-// Circular progress component for consistency score
-function ConsistencyGauge({ value }: { value: number }) {
-  const circumference = 2 * Math.PI * 45
-  const strokeDashoffset = circumference - (value / 100) * circumference
-  
-  const getColor = (score: number) => {
-    if (score >= 70) return { stroke: '#10B981', text: 'text-emerald-400' }
-    if (score >= 50) return { stroke: '#F59E0B', text: 'text-amber-400' }
-    return { stroke: '#EF4444', text: 'text-red-400' }
-  }
-  
-  const colors = getColor(value)
-  
+const TOOLTIPS = {
+  accuracyOverall: 'Overall accuracy score across all LLM models. Measures how correctly models describe your brand based on your page content.',
+  accuracyPerModel: 'Per-model accuracy score (0-100). Higher means the model more accurately represents information from your page.',
+  completenessOverall: 'How completely models cover all relevant information when responding about your brand.',
+  completenessPerModel: 'Per-model completeness score (0-100). A high score means the model surfaces most of your key facts.',
+  consistencyScore: 'How consistent responses are across different AI models and sessions. Low scores indicate unstable AI visibility.',
+  consistencyFlag: 'Qualitative assessment of consistency risk based on score thresholds.',
+  modelFriendlinessAvg: 'Average friendliness score across all models. Reflects how well your content is optimised for each model.',
+  modelFriendlinessPerModel: 'How friendly your page is for this specific AI model — higher means the model is more likely to cite you accurately.',
+  variationScore: 'Degree of variation in responses across models. 0 = identical answers, 100 = completely different answers.',
+  avgSimilarity: 'Semantic similarity between responses from different models. Higher = more consistent AI answers.',
+  contradictions: 'Specific factual contradictions identified between different model responses about your brand.',
+  coverageScore: 'How well your content is covered across all models combined. 0 = no model cites from your page.',
+  modelsNotCiting: 'Models that did not cite or reference your page content in their responses.',
+  totalModels: 'Number of AI models tested in this multi-model analysis.',
+}
+
+function CustomTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null
   return (
-    <div className="relative w-32 h-32">
-      <svg className="w-32 h-32 -rotate-90" viewBox="0 0 100 100">
-        <circle
-          cx="50"
-          cy="50"
-          r="45"
-          fill="none"
-          stroke="rgba(255,255,255,0.1)"
-          strokeWidth="6"
-        />
-        <circle
-          cx="50"
-          cy="50"
-          r="45"
-          fill="none"
-          stroke={colors.stroke}
-          strokeWidth="6"
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={strokeDashoffset}
-          className="transition-all duration-1000"
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className={cn("text-3xl font-bold", colors.text)}>{Math.round(value)}%</span>
-        <span className="text-xs text-zinc-400">Consistency</span>
+    <div className="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 text-xs shadow-2xl">
+      <p className="text-zinc-300 font-semibold mb-1">{label}</p>
+      {payload.map((p: any, i: number) => (
+        <p key={i} style={{ color: p.color }}>{p.name}: <span className="font-bold text-white">{p.value}</span></p>
+      ))}
+    </div>
+  )
+}
+
+function ConsistencyGauge({ score, flag }: { score: number; flag?: string }) {
+  const color = score >= 70 ? '#10b981' : score >= 50 ? '#f59e0b' : score >= 30 ? '#f97316' : '#ef4444'
+  const radius = 50
+  const circumference = radius * Math.PI * 2 * 0.75
+  const offset = circumference - (Math.min(score, 100) / 100) * circumference
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <div className="relative" style={{ width: 120, height: 120 }}>
+        <svg width={120} height={120} viewBox="0 0 120 120">
+          <circle cx={60} cy={60} r={radius} fill="none" stroke="rgba(255,255,255,0.06)"
+            strokeWidth={10} strokeDasharray={`${circumference} ${circumference}`}
+            strokeDashoffset={circumference * 0.125} transform="rotate(-225 60 60)" />
+          <circle cx={60} cy={60} r={radius} fill="none" stroke={color}
+            strokeWidth={10} strokeLinecap="round"
+            strokeDasharray={`${circumference} ${circumference}`}
+            strokeDashoffset={offset + circumference * 0.125}
+            transform="rotate(-225 60 60)" className="transition-all duration-700" />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-2xl font-bold text-white">{Math.round(score)}</span>
+          <span className="text-[9px] text-zinc-500">/100</span>
+        </div>
       </div>
+      {flag && <p className="text-[11px] text-zinc-400 text-center max-w-32 leading-relaxed">{flag}</p>}
     </div>
   )
 }
 
-// Mini bar for scores
-function MiniBar({ value, maxValue = 100, color }: { value: number; maxValue?: number; color: string }) {
-  const percentage = Math.min((value / maxValue) * 100, 100)
-  return (
-    <div className="h-2 w-full bg-zinc-800 rounded-full overflow-hidden">
-      <div 
-        className={cn("h-full rounded-full transition-all duration-500", color)}
-        style={{ width: `${percentage}%` }}
-      />
-    </div>
-  )
-}
-
-export default function ModelComparison({ jobId, url = '' }: ModelComparisonProps) {
+export default function ModelComparison({ jobId, url }: ModelComparisonProps) {
   const [analysisJobId, setAnalysisJobId] = useState<string | null>(null)
+  const [expandedSection, setExpandedSection] = useState<string | null>(null)
 
-  const { 
-    data: moduleCData, 
-    isLoading, 
-    refetch 
-  } = useGetModuleCResultQuery(jobId || '', { 
-    skip: !jobId,
-    refetchOnMountOrArgChange: true,
-    refetchOnFocus: true,
-    refetchOnReconnect: true,
+  const { data: moduleCData, isLoading: isLoadingData, refetch: refetchData } = useGetModuleCResultQuery(jobId || '', {
+    skip: !jobId, refetchOnMountOrArgChange: true,
   })
-
-  const [runAnalysis] = useRunModuleCAnalysisMutation()
-
+  const [runAnalysis, { isLoading: isRunning }] = useRunModuleCAnalysisMutation()
   const { data: analysisJobData } = useGetJobStatusQuery(analysisJobId || '', {
-    skip: !analysisJobId,
-    pollingInterval: analysisJobId ? 2000 : 0,
+    skip: !analysisJobId, pollingInterval: analysisJobId ? 2000 : 0,
   })
 
   useEffect(() => {
-    if (analysisJobData?.status === 'COMPLETED' || analysisJobData?.status === 'FAILED') {
-      setAnalysisJobId(null)
-      if (analysisJobData?.status === 'COMPLETED') {
-        refetch()
-      }
-    }
-  }, [analysisJobData?.status, refetch])
+    const status = analysisJobData?.status?.toUpperCase()
+    if (status === 'COMPLETED') { setAnalysisJobId(null); refetchData() }
+    else if (status === 'FAILED') { setAnalysisJobId(null) }
+  }, [analysisJobData, refetchData])
 
   const handleRunAnalysis = async () => {
     if (!jobId) return
     try {
-      const result = await runAnalysis({ jobId, url }).unwrap()
-      if (result.data?.analysisJobId) {
-        setAnalysisJobId(result.data.analysisJobId)
-      }
-    } catch (error) {
-      console.error('Failed to start analysis:', error)
-    }
+      const result = await runAnalysis({ jobId, url: url || '' }).unwrap()
+      if (result.data?.analysisJobId) setAnalysisJobId(result.data.analysisJobId)
+    } catch (e) { console.error(e) }
   }
 
-  const isAnalyzing = !!analysisJobId
-
+  const isAnalyzing = isRunning || !!analysisJobId
   const result = moduleCData?.data
-  const llmSimulator = result?.modules?.llm_simulator
-  const metrics = llmSimulator?.cross_model_metrics
+  const modules = result?.modules || {}
+  const hasData = !!result
 
-  // Model colors mapping
-  const modelColors: Record<string, { bg: string; icon: string; bar: string }> = {
-    'gpt': { bg: 'bg-zinc-800/50', icon: 'text-emerald-400', bar: 'bg-emerald-500' },
-    'claude': { bg: 'bg-zinc-800/50', icon: 'text-orange-400', bar: 'bg-orange-500' },
-    'gemini': { bg: 'bg-zinc-800/50', icon: 'text-blue-400', bar: 'bg-blue-500' },
-    'llama': { bg: 'bg-zinc-800/50', icon: 'text-blue-400', bar: 'bg-purple-500' },
-    'mistral': { bg: 'bg-zinc-800/50', icon: 'text-cyan-400', bar: 'bg-cyan-500' },
-  }
+  const llmSim = modules.llm_simulator as any
+  const multiModel = modules.multi_model as any
 
-  const getModelColor = (model: string) => {
-    const lowerModel = model.toLowerCase()
-    for (const [key, colors] of Object.entries(modelColors)) {
-      if (lowerModel.includes(key)) return colors
-    }
-    return { bg: 'bg-zinc-800/50', icon: 'text-zinc-300', bar: 'bg-zinc-500' }
-  }
+  // Per-model grouped bar chart data
+  const perModelChartData = useMemo(() => {
+    const accuracy = llmSim?.accuracy?.per_model ?? {}
+    const completeness = llmSim?.completeness?.per_model ?? {}
+    const friendliness = multiModel?.model_friendliness?.per_model ?? {}
+    const allModels = new Set([...Object.keys(accuracy), ...Object.keys(completeness), ...Object.keys(friendliness)])
+    return Array.from(allModels).map((model) => ({
+      name: model.charAt(0).toUpperCase() + model.slice(1),
+      'Accuracy': Math.round(accuracy[model] ?? 0),
+      'Completeness': Math.round(completeness[model] ?? 0),
+      'Friendliness': Math.round((friendliness[model] ?? 0) * 10),
+    }))
+  }, [llmSim, multiModel])
 
-  const models = useMemo(() => {
-    if (!metrics?.model_scores) return []
-    return Object.entries(metrics.model_scores)
-  }, [metrics?.model_scores])
+  // Radar chart data for multi-model overview
+  const radarData = useMemo(() => {
+    if (!perModelChartData.length) return []
+    const metrics = ['Accuracy', 'Completeness', 'Friendliness'] as const
+    return metrics.map((metric) => {
+      const entry: Record<string, any> = { metric }
+      perModelChartData.forEach((m) => { entry[m.name] = m[metric] })
+      return entry
+    })
+  }, [perModelChartData])
+
+  const consistencyScore = llmSim?.consistency?.consistency_score ?? 0
+  const consistencyFlag = llmSim?.consistency?.flag ?? ''
+  const accuracyOverall = llmSim?.accuracy?.overall ?? 0
+  const completenessOverall = llmSim?.completeness?.overall ?? 0
+  const modelFriendlinessAvg = multiModel?.model_friendliness?.average ?? 0
+  const variationScore = multiModel?.answer_variation?.variation_score ?? 0
+  const avgSimilarity = multiModel?.answer_variation?.avg_similarity ?? 0
+  const contradictions: any[] = multiModel?.answer_variation?.contradictions ?? []
+  const coverageScore = multiModel?.coverage_gaps?.coverage_score ?? 0
+  const modelsNotCiting: string[] = multiModel?.coverage_gaps?.models_not_citing ?? []
+  const totalModels = multiModel?.coverage_gaps?.total_models ?? 0
+
+  const MODEL_COLORS: Record<string, string> = { Accuracy: '#3b82f6', Completeness: '#10b981', Friendliness: '#8b5cf6' }
+  const RADAR_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6']
+
+  const toggle = (key: string) => setExpandedSection(v => v === key ? null : key)
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-5">
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-white">Model Comparison</h2>
-          <p className="text-sm text-zinc-400 mt-1">
-            Cross-model consistency and performance analysis
-          </p>
+          <h2 className="text-xl font-semibold text-white">Multi-Model AI Comparison</h2>
+          <p className="text-sm text-zinc-400 mt-0.5">How different AI engines perceive and represent your brand</p>
         </div>
-        <Button
-          onClick={() => refetch()}
-          variant="outline"
-          size="sm"
-          disabled={isLoading}
-          className="bg-zinc-800/50 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white"
-        >
-          <RefreshCw className={cn("w-4 h-4 mr-2", isLoading && "animate-spin")} />
-          Refresh
-        </Button>
+        {hasData && (
+          <Button onClick={handleRunAnalysis} disabled={!jobId || isAnalyzing} variant="outline" size="sm"
+            className="bg-zinc-800/50 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
+            <RefreshCw className={cn('w-4 h-4 mr-2', isAnalyzing && 'animate-spin')} />
+            Re-analyze
+          </Button>
+        )}
       </div>
 
-      {/* Loading State */}
-      {isLoading && (
-        <div className="flex items-center justify-center p-12">
-          <Loader2 className="w-8 h-8 animate-spin text-zinc-400" />
+      {(isLoadingData || isAnalyzing) && (
+        <div className="flex items-center justify-center p-16 border border-zinc-800 rounded-2xl bg-zinc-800/30">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
+            <p className="text-sm text-zinc-400">{isAnalyzing ? 'Running analysis...' : 'Loading...'}</p>
+          </div>
         </div>
       )}
 
-      {/* Content */}
-      {!isLoading && metrics ? (
-        <>
-          {/* Hero Stats Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            {/* Consistency Score Card */}
-            <div className="lg:col-span-4 bg-zinc-800/50 rounded-2xl p-6 border border-zinc-800">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Activity className="w-4 h-4 text-zinc-400" />
-                    <span className="text-xs text-zinc-400 uppercase tracking-wider">Consistency</span>
-                  </div>
-                  <p className="text-sm text-zinc-400 max-w-37.5">
-                    How consistent are responses across all AI models
-                  </p>
-                </div>
-                <ConsistencyGauge value={metrics.consistency_score ?? 0} />
-              </div>
-            </div>
-
-            {/* Quick Stats */}
-            <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div className="bg-zinc-800/50 rounded-2xl p-5 border border-zinc-800">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="p-2 bg-blue-500/20 rounded-xl">
-                    <Cpu className="w-4 h-4 text-blue-400" />
-                  </div>
-                </div>
-                <div className="text-2xl font-bold text-white">{models.length}</div>
-                <div className="text-xs text-zinc-400 mt-1">Models Compared</div>
-              </div>
-
-              <div className="bg-zinc-800/50 rounded-2xl p-5 border border-zinc-800">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="p-2 bg-blue-500/20 rounded-xl">
-                    <Layers className="w-4 h-4 text-blue-400" />
-                  </div>
-                </div>
-                <div className="text-2xl font-bold text-white">
-                  {((metrics.variation_analysis?.reasoning_level?.similarity ?? 0) * 100).toFixed(0)}%
-                </div>
-                <div className="text-xs text-zinc-400 mt-1">Reasoning Similarity</div>
-              </div>
-
-              <div className="bg-zinc-800/50 rounded-2xl p-5 border border-zinc-800">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="p-2 bg-amber-500/20 rounded-xl">
-                    <Target className="w-4 h-4 text-amber-400" />
-                  </div>
-                </div>
-                <div className="text-2xl font-bold text-white">
-                  {metrics.variation_analysis?.specificity_level?.depth_score ?? 0}
-                </div>
-                <div className="text-xs text-zinc-400 mt-1">Depth Score</div>
-              </div>
-
-              <div className="bg-zinc-800/50 rounded-2xl p-5 border border-zinc-800">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className={cn(
-                    "p-2 rounded-xl",
-                    (metrics.coverage_gaps?.length ?? 0) === 0 ? "bg-emerald-500/20" : "bg-red-500/20"
-                  )}>
-                    {(metrics.coverage_gaps?.length ?? 0) === 0 ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    ) : (
-                      <AlertTriangle className="w-4 h-4 text-red-400" />
-                    )}
-                  </div>
-                </div>
-                <div className={cn(
-                  "text-2xl font-bold",
-                  (metrics.coverage_gaps?.length ?? 0) === 0 ? "text-emerald-400" : "text-red-400"
-                )}>
-                  {metrics.coverage_gaps?.length ?? 0}
-                </div>
-                <div className="text-xs text-zinc-400 mt-1">Coverage Gaps</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Variation Analysis */}
-          {metrics.variation_analysis && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {/* Outcome Level */}
-              <div className="bg-zinc-800/50 rounded-2xl p-5 border border-zinc-800">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="p-2 bg-emerald-500/20 rounded-xl">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  </div>
-                  <span className="text-sm font-medium text-white">Outcome Level</span>
-                </div>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-white font-semibold capitalize">
-                    {metrics.variation_analysis.outcome_level?.agreement || 'N/A'}
-                  </span>
-                  <Badge className="bg-zinc-800 text-zinc-300 border-0">
-                    Score: {metrics.variation_analysis.outcome_level?.score ?? 'N/A'}
-                  </Badge>
-                </div>
-                {metrics.variation_analysis.outcome_level?.note && (
-                  <p className="text-xs text-zinc-400 leading-relaxed">
-                    {metrics.variation_analysis.outcome_level.note}
-                  </p>
-                )}
-              </div>
-
-              {/* Tone Analysis */}
-              <div className="bg-zinc-800/50 rounded-2xl p-5 border border-zinc-800">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="p-2 bg-blue-500/20 rounded-xl">
-                    <TrendingUp className="w-4 h-4 text-blue-400" />
-                  </div>
-                  <span className="text-sm font-medium text-white">Tone Analysis</span>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-zinc-400">Confidence</span>
-                    <Badge className="bg-blue-500/20 text-blue-300 border-0 capitalize">
-                      {metrics.variation_analysis.tone_analysis?.confidence || 'N/A'}
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-zinc-400">Risk Posture</span>
-                    <Badge className="bg-amber-500/20 text-amber-300 border-0 capitalize">
-                      {metrics.variation_analysis.tone_analysis?.risk_posture || 'N/A'}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-
-              {/* Specificity Level */}
-              <div className="bg-zinc-800/50 rounded-2xl p-5 border border-zinc-800">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="p-2 bg-blue-500/20 rounded-xl">
-                    <Shield className="w-4 h-4 text-blue-400" />
-                  </div>
-                  <span className="text-sm font-medium text-white">Specificity Level</span>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-xs text-zinc-400 mb-1">Depth</div>
-                    <div className="text-2xl font-bold text-white">
-                      {metrics.variation_analysis.specificity_level?.depth_score ?? 0}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-zinc-400 mb-1">Completeness</div>
-                    <div className="text-2xl font-bold text-white">
-                      {metrics.variation_analysis.specificity_level?.completeness_score ?? 0}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Model Scores Cards */}
-          {models.length > 0 && (
-            <div className="bg-zinc-800/50 rounded-2xl border border-zinc-800 overflow-hidden">
-              <div className="p-4 border-b border-zinc-800 flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-zinc-400" />
-                <span className="text-sm font-medium text-white">Model Performance</span>
-                <Badge className="bg-zinc-800 text-zinc-300 border-0 ml-auto">
-                  {models.length} models
-                </Badge>
-              </div>
-
-              <div className="divide-y divide-zinc-800/50">
-                {models.map(([model, scores]) => {
-                  const colors = getModelColor(model)
-                  const overall = ((scores.overall ?? 0) * 100)
-                  const agreement = ((scores.agreement ?? 0) * 100)
-                  const depth = ((scores.depth ?? 0) * 100)
-                  
-                  return (
-                    <div key={model} className="p-4 hover:bg-zinc-800/50 transition-all">
-                      <div className="flex items-center gap-4">
-                        <div className={cn("p-2.5 rounded-xl", colors.bg)}>
-                          <Cpu className={cn("w-5 h-5", colors.icon)} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="text-sm font-medium text-white capitalize">
-                              {model.replace(/_/g, ' ')}
-                            </span>
-                            <Badge className={cn(
-                              "border",
-                              overall >= 70 ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" :
-                              overall >= 50 ? "bg-amber-500/20 text-amber-300 border-amber-500/30" :
-                              "bg-red-500/20 text-red-300 border-red-500/30"
-                            )}>
-                              {overall.toFixed(0)}% Overall
-                            </Badge>
-                          </div>
-                          
-                          <div className="grid grid-cols-2 gap-6">
-                            <div>
-                              <div className="flex items-center justify-between mb-1.5">
-                                <span className="text-xs text-zinc-400">Agreement</span>
-                                <span className="text-xs font-medium text-white">{agreement.toFixed(0)}%</span>
-                              </div>
-                              <MiniBar value={agreement} color={colors.bar} />
-                            </div>
-                            <div>
-                              <div className="flex items-center justify-between mb-1.5">
-                                <span className="text-xs text-zinc-400">Depth</span>
-                                <span className="text-xs font-medium text-white">{depth.toFixed(0)}%</span>
-                              </div>
-                              <MiniBar value={depth} color={colors.bar} />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Claim Matrix Section */}
-          {result?.modules?.multi_model_insights?.claim_matrix && (result.modules.multi_model_insights.claim_matrix as any[]).length > 0 && (
-            <div className="bg-zinc-800/50 rounded-2xl border border-zinc-800 overflow-hidden">
-              <div className="p-4 border-b border-zinc-800 flex items-center gap-2">
-                <div className="p-2 bg-blue-500/20 rounded-xl">
-                  <Layers className="w-4 h-4 text-blue-400" />
-                </div>
-                <span className="text-sm font-medium text-white">Claim Verification Matrix</span>
-                <Badge className="bg-blue-500/20 text-blue-300 border-0 ml-auto">
-                  {(result.modules.multi_model_insights.claim_matrix as any[]).length} claims
-                </Badge>
-              </div>
-              <div className="divide-y divide-zinc-800/50">
-                {(result.modules.multi_model_insights.claim_matrix as any[]).map((claim: any, i: number) => (
-                  <div key={i} className="p-4 hover:bg-zinc-800/50 transition-all">
-                    <div className="flex items-start justify-between gap-4 mb-3">
-                      <p className="text-sm text-zinc-200 flex-1">{claim.claim}</p>
-                      <Badge variant="outline" className="text-zinc-400 border-zinc-700 shrink-0 text-xs">
-                        {claim.category}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs text-zinc-500">Confirmed by:</span>
-                      {claim.providers && Object.entries(claim.providers)
-                        .filter(([, confirmed]) => confirmed)
-                        .map(([provider]) => (
-                          <Badge key={provider} className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-xs capitalize">
-                            {provider}
-                          </Badge>
-                        ))
-                      }
-                      {claim.providers && Object.entries(claim.providers)
-                        .filter(([, confirmed]) => !confirmed)
-                        .map(([provider]) => (
-                          <Badge key={provider} className="bg-red-500/20 text-red-300 border-red-500/30 text-xs capitalize">
-                            {provider} ✗
-                          </Badge>
-                        ))
-                      }
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Coverage Gaps */}
-          {metrics.coverage_gaps && metrics.coverage_gaps.length > 0 && (
-            <div className="bg-zinc-800/50 rounded-2xl border border-red-500/30 p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="p-2 bg-red-500/20 rounded-xl">
-                  <AlertTriangle className="w-4 h-4 text-red-400" />
-                </div>
-                <span className="text-sm font-medium text-red-400">
-                  Coverage Gaps ({metrics.coverage_gaps.length})
-                </span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                {metrics.coverage_gaps.map((gap, i) => (
-                  <div 
-                    key={i} 
-                    className="text-sm text-zinc-300 bg-zinc-800/50 rounded-xl px-4 py-2.5 border border-zinc-800"
-                  >
-                    {typeof gap === 'string' ? gap : (
-                      <div className="space-y-1">
-                        <div className="font-medium text-zinc-200">{gap.type}</div>
-                        {gap.description && <div className="text-xs text-zinc-400">{gap.description}</div>}
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {gap.severity && (
-                            <span className={`text-xs px-1.5 py-0.5 rounded ${
-                              gap.severity === 'high' ? 'bg-red-500/20 text-red-400' :
-                              gap.severity === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
-                              'bg-zinc-700 text-zinc-400'
-                            }`}>{gap.severity}</span>
-                          )}
-                          {gap.missing_from && gap.missing_from.length > 0 && (
-                            <span className="text-xs text-red-400">Missing: {gap.missing_from.join(', ')}</span>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
-      ) : !isLoading ? (
+      {!hasData && !isLoadingData && !isAnalyzing && jobId && (
         <AnalysisEmptyState
           icon={<BarChart3 className="w-8 h-8 text-zinc-600" />}
           title="No Model Comparison Data"
-          description="Run an AI Visibility analysis to see cross-model consistency and performance."
+          description="Run an analysis to compare how different AI models respond to queries about your brand."
           onRunAnalysis={handleRunAnalysis}
           isAnalyzing={isAnalyzing}
-          disabled={!jobId}
         />
-      ) : null}
+      )}
+
+      {hasData && !isLoadingData && !isAnalyzing && (
+        <>
+          {/* SECTION 1: Summary Stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label: 'Accuracy Overall', val: `${Math.round(accuracyOverall)}`, tip: TOOLTIPS.accuracyOverall, color: 'text-blue-400', sub: '/100' },
+              { label: 'Completeness', val: `${Math.round(completenessOverall)}`, tip: TOOLTIPS.completenessOverall, color: 'text-emerald-400', sub: '/100' },
+              { label: 'Model Friendliness', val: modelFriendlinessAvg.toFixed(1), tip: TOOLTIPS.modelFriendlinessAvg, color: 'text-purple-400', sub: 'avg' },
+              { label: 'Coverage Score', val: `${Math.round(coverageScore)}`, tip: TOOLTIPS.coverageScore, color: coverageScore > 50 ? 'text-emerald-400' : 'text-red-400', sub: '/100' },
+            ].map(({ label, val, tip, color, sub }) => (
+              <div key={label} className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-4 text-center">
+                <div className="flex justify-center items-center gap-1 mb-2">
+                  <span className="text-[10px] text-zinc-500">{label}</span>
+                  <FieldTooltip description={tip} />
+                </div>
+                <span className={cn('text-3xl font-bold', color)}>{val}</span>
+                <span className="text-xs text-zinc-500 block">{sub}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* SECTION 2: Per-Model Grouped Bar Chart */}
+          {perModelChartData.length > 0 && (
+            <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-5">
+                <BarChart3 className="w-4 h-4 text-blue-400" />
+                <span className="text-sm font-semibold text-white">Per-Model Score Comparison</span>
+                <FieldTooltip description="Side-by-side comparison of Accuracy, Completeness, and Friendliness for each AI model tested." />
+              </div>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={perModelChartData} barCategoryGap="25%" barGap={4}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                  <XAxis dataKey="name" tick={{ fill: '#a1a1aa', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis domain={[0, 100]} tick={{ fill: '#a1a1aa', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+                  <Legend wrapperStyle={{ fontSize: 11, color: '#a1a1aa' }} />
+                  {(['Accuracy', 'Completeness', 'Friendliness'] as const).map((metric, i) => (
+                    <Bar key={metric} dataKey={metric} fill={Object.values(MODEL_COLORS)[i]} radius={[3, 3, 0, 0]} />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+
+              {/* Per-model breakdown table */}
+              <div className="mt-4 space-y-2">
+                {perModelChartData.map(({ name, Accuracy, Completeness, Friendliness }) => (
+                  <div key={name} className="flex items-center gap-3 py-2.5 px-3 bg-zinc-800/40 rounded-xl">
+                    <span className="text-xs font-semibold text-white w-20 shrink-0">{name}</span>
+                    {[
+                      { label: 'Accuracy', val: Accuracy, color: '#3b82f6', tip: TOOLTIPS.accuracyPerModel },
+                      { label: 'Completeness', val: Completeness, color: '#10b981', tip: TOOLTIPS.completenessPerModel },
+                      { label: 'Friendliness', val: Friendliness, color: '#8b5cf6', tip: TOOLTIPS.modelFriendlinessPerModel },
+                    ].map(({ label, val, color, tip }) => (
+                      <div key={label} className="flex-1 text-center">
+                        <div className="flex justify-center items-center gap-1 mb-0.5">
+                          <span className="text-[9px] text-zinc-500">{label}</span>
+                          <FieldTooltip description={tip} />
+                        </div>
+                        <span className="text-sm font-bold" style={{ color }}>{val}</span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* SECTION 3: Radar Overview */}
+          {radarData.length > 0 && perModelChartData.length > 1 && (
+            <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <TrendingUp className="w-4 h-4 text-purple-400" />
+                <span className="text-sm font-semibold text-white">Multi-Metric Radar</span>
+                <FieldTooltip description="Radar chart showing accuracy, completeness, and friendliness for each model simultaneously." />
+              </div>
+              <ResponsiveContainer width="100%" height={200}>
+                <RadarChart data={radarData} cx="50%" cy="50%">
+                  <PolarGrid stroke="rgba(255,255,255,0.08)" />
+                  <PolarAngleAxis dataKey="metric" tick={{ fill: '#a1a1aa', fontSize: 11 }} />
+                  {perModelChartData.map(({ name }, i) => (
+                    <Radar key={name} name={name} dataKey={name} stroke={RADAR_COLORS[i % RADAR_COLORS.length]}
+                      fill={RADAR_COLORS[i % RADAR_COLORS.length]} fillOpacity={0.15} strokeWidth={2} />
+                  ))}
+                  <Legend wrapperStyle={{ fontSize: 11, color: '#a1a1aa' }} />
+                  <Tooltip content={<CustomTooltip />} />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* SECTION 4: Consistency */}
+          <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Zap className="w-4 h-4 text-yellow-400" />
+              <span className="text-sm font-semibold text-white">Response Consistency</span>
+              <FieldTooltip description={TOOLTIPS.consistencyScore} />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 items-center">
+              <div className="flex justify-center">
+                <ConsistencyGauge score={consistencyScore} flag={consistencyFlag} />
+              </div>
+              <div className="sm:col-span-2 space-y-3">
+                {[
+                  { label: 'Consistency Score', val: `${Math.round(consistencyScore)}/100`, tip: TOOLTIPS.consistencyScore, color: consistencyScore >= 60 ? 'text-emerald-400' : 'text-red-400' },
+                  { label: 'Answer Variation', val: `${Math.round(variationScore)}%`, tip: TOOLTIPS.variationScore, color: variationScore > 50 ? 'text-red-400' : 'text-emerald-400' },
+                  { label: 'Avg Response Similarity', val: `${Math.round(avgSimilarity)}%`, tip: TOOLTIPS.avgSimilarity, color: 'text-zinc-300' },
+                  { label: 'Models Tested', val: totalModels, tip: TOOLTIPS.totalModels, color: 'text-blue-400' },
+                  { label: 'Models Not Citing', val: modelsNotCiting.length, tip: TOOLTIPS.modelsNotCiting, color: modelsNotCiting.length > 0 ? 'text-red-400' : 'text-emerald-400' },
+                ].map(({ label, val, tip, color }) => (
+                  <div key={label} className="flex justify-between items-center py-1.5 border-b border-zinc-800/60 last:border-0">
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-zinc-400">{label}</span>
+                      <FieldTooltip description={tip} />
+                    </div>
+                    <span className={cn('text-sm font-bold', color)}>{val}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {consistencyFlag && (
+              <div className="mt-4 flex items-start gap-2 p-3 bg-amber-500/8 border border-amber-500/20 rounded-xl">
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-200/90 leading-relaxed">{consistencyFlag}</p>
+              </div>
+            )}
+          </div>
+
+          {/* SECTION 5: Models Not Citing */}
+          {modelsNotCiting.length > 0 && (
+            <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Users className="w-4 h-4 text-red-400" />
+                <span className="text-sm font-semibold text-white">Models Not Citing Your Page</span>
+                <FieldTooltip description={TOOLTIPS.modelsNotCiting} />
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {modelsNotCiting.map((model: string, i: number) => (
+                  <div key={i} className="flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-1.5">
+                    <AlertCircle className="w-3 h-3 text-red-400 shrink-0" />
+                    <span className="text-xs text-red-200 font-medium capitalize">{model}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* SECTION 6: Contradictions */}
+          {contradictions.length > 0 && (
+            <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-5">
+              <button onClick={() => toggle('contradictions')}
+                className="w-full flex items-center justify-between hover:bg-zinc-800/40 transition-colors rounded-lg -mx-2 px-2 py-1">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-400" />
+                  <span className="text-sm font-semibold text-white">Detected Contradictions</span>
+                  <FieldTooltip description={TOOLTIPS.contradictions} />
+                  <Badge className="bg-rose-500/15 text-rose-300 border border-rose-500/20 text-xs">{contradictions.length}</Badge>
+                </div>
+                {expandedSection === 'contradictions' ? <ChevronUp className="w-4 h-4 text-zinc-500" /> : <ChevronDown className="w-4 h-4 text-zinc-500" />}
+              </button>
+              {expandedSection === 'contradictions' && (
+                <div className="mt-4 space-y-2">
+                  {contradictions.map((c: any, i: number) => (
+                    <div key={i} className="p-3 bg-rose-500/5 border border-rose-500/15 rounded-xl">
+                      <p className="text-xs text-rose-200/90">{typeof c === 'string' ? c : JSON.stringify(c)}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }

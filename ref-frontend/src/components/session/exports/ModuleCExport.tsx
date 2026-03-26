@@ -19,118 +19,123 @@ interface ModuleCExportProps {
 // ── transform helpers ────────────────────────────────────────────────────────
 
 function transformAiPresence(modules: any) {
-  const ap = modules?.ai_presence
-  if (!ap) return []
+  const c1 = modules?.aeo_checker
+  if (!c1) return []
 
-  const rc = ap.robots_checks || {}
-  const cc = ap.content_checks || {}
-  const mmc = ap.multi_model_consensus || {}
+  const subScores = c1.sub_scores || {}
+  const crawl = c1.crawl_access || {}
+  const schema = c1.schema_signals || {}
+  const authority = c1.authority_signals || {}
 
   const baseRow: Record<string, any> = {
-    'AI Presence Score': ap.score ?? 0,
-    'Robots GPTBot': rc.robots_gptbot ? 'Allowed' : 'Blocked',
-    'Robots Google Extended': rc.robots_google_extended ? 'Allowed' : 'Blocked',
-    'Robots ClaudeBot': rc.robots_claudebot ? 'Allowed' : 'Blocked',
-    'Sitemap Present': rc.sitemap_present ? 'Yes' : 'No',
-    'Org Schema Present': cc.org_schema_present ? 'Yes' : 'No',
-    'Org Logo Present': cc.org_logo_present ? 'Yes' : 'No',
-    'SameAs Wikipedia': cc.sameas_wikidata_or_wikipedia ? 'Yes' : 'No',
-    'SameAs Major Profiles': cc.sameas_major_profiles_count ?? 0,
-    'Open Graph Present': cc.open_graph_present ? 'Yes' : 'No',
-    'Twitter Card Present': cc.twitter_card_present ? 'Yes' : 'No',
-    'Consistency Score': mmc.consistency_score ?? 0,
-    'Variation Rating': mmc.variation_rating || '',
+    'LLM Friendliness Score': c1.llm_friendliness_score ?? 0,
+    'Page Topic': c1.page_topic || '',
+    'Page Type': c1.page_type || '',
+    'Crawl Access': subScores.crawl_access ?? 0,
+    'Schema Signals': subScores.schema ?? 0,
+    'Content Structure': subScores.content ?? 0,
+    'Tech Hygiene': subScores.tech_hygiene ?? 0,
+    'Structure': subScores.structure ?? 0,
   }
 
-  // Per-model understanding
-  const aiUnderstanding = ap.ai_understanding || {}
-  Object.entries(aiUnderstanding).forEach(([model, val]: [string, any]) => {
-    baseRow[`${model} Score`] = val?.score ?? 0
-    baseRow[`${model} Level`] = val?.understanding_level || ''
+  Object.entries(crawl).forEach(([key, val]: [string, any]) => {
+    baseRow[`Crawl: ${key}`] = typeof val === 'boolean' ? (val ? 'Yes' : 'No') : val
+  })
+  Object.entries(schema).forEach(([key, val]: [string, any]) => {
+    baseRow[`Schema: ${key}`] = typeof val === 'boolean' ? (val ? 'Yes' : 'No') : val
+  })
+  Object.entries(authority).forEach(([key, val]: [string, any]) => {
+    baseRow[`Authority: ${key}`] = typeof val === 'boolean' ? (val ? 'Yes' : 'No') : val
   })
 
   return [baseRow]
 }
 
 function transformAnswerability(modules: any) {
-  const an = modules?.answerability
-  if (!an) return []
+  const c4 = modules?.answer_completeness
+  if (!c4) return []
 
-  const metrics = an.metrics || {}
-  const multiScores = an.multi_model_scores || {}
-  const row: Record<string, any> = {
-    'Answerability Score': an.score ?? 0,
-    'Completeness Score': an.completeness_score ?? 0,
-    'Depth Score': an.depth_score ?? 0,
-    'Breadth Score': an.breadth_score ?? 0,
-    'Readability Score': an.readability_score ?? 0,
-    'Question Count': metrics.question_count ?? 0,
-    'Answer Count': metrics.answer_count ?? 0,
-    'QA Balance': metrics.qa_balance ?? 0,
-    '% Questions Answered': metrics.percent_questions_answered ?? 0,
-    'AI Answerability Score': an.ai_analysis?.ai_answerability_score ?? 0,
-  }
-
-  Object.entries(multiScores).forEach(([model, score]: [string, any]) => {
-    row[`${model} Score`] = score ?? 0
-  })
-
-  return [row]
+  return [{
+    'Completeness Score': c4.completeness_score ?? 0,
+    'Pct Fully Answered': c4.pct_fully_answered ?? 0,
+    'Questions Generated': c4.questions_generated ?? 0,
+    'Fully Answered': c4.fully_answered ?? 0,
+    'Partially Answered': c4.partially_answered ?? 0,
+    'Not Answered': c4.not_answered ?? 0,
+  }]
 }
 
 function transformKnowledgeBase(modules: any) {
-  const kb = modules?.knowledge_base
-  if (!kb) return []
+  const c3 = modules?.entity_coverage
+  if (!c3) return []
 
-  const ec = kb.entity_coverage || {}
-  const baseRow: Record<string, any> = {
-    'Knowledge Base Score': kb.score ?? 0,
-    'Fact Density': kb.fact_density ?? 0,
-    'Entity Coverage Topic': ec.topic || '',
-    'Coverage Score': ec.coverage_score ?? 0,
-    'Gap %': ec.gap_percentage ?? 0,
-    'Critical Entities Count': ec.critical_entities_count ?? 0,
-    'Minor Entities Count': ec.minor_entities_count ?? 0,
-    'Found Entities': (ec.found_entities ?? []).join(', '),
-    'Missing Entities': (ec.missing_entities ?? []).join(', '),
-  }
+  const missingNames = new Set((c3.missing_entities ?? []).map((e: any) => e.name))
+  const foundEntities = (c3.entity_relevance ?? [])
+    .filter((e: any) => !missingNames.has(e.entity || e.name))
+    .map((e: any) => (e.entity || e.name) as string)
 
-  return [baseRow]
+  return [{
+    'Entity Coverage %': c3.entity_coverage_pct ?? c3.coverage?.entity_coverage_pct ?? 0,
+    'Topic': c3.page_type || c3.topic || '',
+    'Found Entities': foundEntities.join(', '),
+    'Missing Entities': (c3.missing_entities ?? []).map((e: any) => e.name).join(', '),
+  }]
 }
 
 function transformEntityDetails(modules: any) {
-  const entities = modules?.knowledge_base?.entity_coverage?.entites_analysis ?? []
-  return entities.map((e: any) => ({
-    Entity: e.entity || '',
-    Type: e.type || '',
-    'Relevance Score': e.relevance_score ?? 0,
-    Status: e.status || '',
-    Importance: e.importance || '',
-  }))
+  const c3 = modules?.entity_coverage
+  if (!c3) return []
+
+  const missingNames = new Set((c3.missing_entities ?? []).map((e: any) => e.name))
+  const entities: any[] = []
+
+  if (c3.entity_relevance && c3.entity_relevance.length > 0) {
+    c3.entity_relevance.forEach((e: any) => {
+      entities.push({
+        Entity: e.entity || e.name || '',
+        Type: e.label || e.tier || e.type || 'Other',
+        'Relevance Score': Math.round((e.relevance_score ?? 0) / 10),
+        Status: missingNames.has(e.entity || e.name) ? 'Missing' : 'Found',
+        Importance: e.importance || '',
+      })
+    })
+  } else if (c3.missing_entities && c3.missing_entities.length > 0) {
+    c3.missing_entities.forEach((e: any) => {
+      entities.push({
+        Entity: e.name || '',
+        Type: e.type || 'Other',
+        'Relevance Score': e.importance === 'Critical' ? 10 : 5,
+        Status: 'Missing',
+        Importance: e.importance || '',
+      })
+    })
+  }
+  
+  return entities
 }
 
 function transformActionableInsights(modules: any) {
-  const ai = modules?.actionable_insights
-  if (!ai?.actions) return []
-  return ai.actions.map((a: any) => ({
-    ID: a.id || '',
-    Type: a.type || '',
-    Description: a.description || '',
+  const c8 = modules?.page_actions
+  if (!c8?.actions) return []
+  return c8.actions.map((a: any) => ({
+    Type: a.action_type || '',
+    Description: a.action || '',
     Priority: a.priority || '',
-    Impact: a.impact ?? 0,
+    'AIVS Dimension': a.aivs_dimension || '',
+    'Dimension Weight': a.dimension_weight ?? 0,
     Category: a.category || '',
+    'Competitor Has It': a.competitor_has_it ? 'Yes' : 'No',
   }))
 }
 
 function transformLlmSimulator(modules: any) {
-  const llm = modules?.llm_simulator
-  if (!llm?.simulations) return []
-  return Object.entries(llm.simulations).map(([model, sim]: [string, any]) => ({
+  const c7 = modules?.llm_simulator
+  if (!c7?.model_responses) return []
+  return Object.keys(c7.model_responses).map((model: string) => ({
     Model: model,
-    Query: llm.query || '',
-    'Accuracy Score': sim.accuracy_score ?? 0,
-    'Completeness Score': sim.completeness_score ?? 0,
-    'Eval Explanation': sim.eval_explanation || '',
+    'Accuracy Score': c7.accuracy?.per_model?.[model] ?? 0,
+    'Completeness Score': c7.completeness?.per_model?.[model] ?? 0,
+    'Consistency Overall': c7.consistency?.overall ?? 0,
   }))
 }
 
@@ -152,23 +157,23 @@ const EXPORT_OPTIONS: ExportOption[] = [
     description: 'Robot accessibility, schema, Open Graph and multi-model understanding scores.',
     icon: Sparkles,
     color: 'text-violet-400',
-    dataKey: 'ai_presence',
+    dataKey: 'aeo_checker',
   },
   {
     id: 'answerability',
     label: 'Answerability',
-    description: 'QA coverage, completeness, depth, breadth and readability scores.',
+    description: 'Completeness, depth, breadth and readability scores.',
     icon: BookOpen,
     color: 'text-blue-400',
-    dataKey: 'answerability',
+    dataKey: 'answer_completeness',
   },
   {
     id: 'knowledge-base',
     label: 'Knowledge Base & Entities',
-    description: 'Fact density, entity coverage and gap analysis.',
+    description: 'Entity coverage, found/missing entities and gap analysis.',
     icon: Layers,
     color: 'text-emerald-400',
-    dataKey: 'knowledge_base',
+    dataKey: 'entity_coverage',
   },
   {
     id: 'llm-simulator',
@@ -184,7 +189,7 @@ const EXPORT_OPTIONS: ExportOption[] = [
     description: 'Improvement actions with priority, impact and category.',
     icon: Zap,
     color: 'text-rose-400',
-    dataKey: 'actionable_insights',
+    dataKey: 'page_actions',
   },
   {
     id: 'all',
@@ -209,9 +214,13 @@ export default function ModuleCExport({ jobId, sessionName = 'session' }: Module
 
   const getCount = (key: string): number => {
     if (!modules) return 0
-    if (key === 'actionable_insights') return modules.actionable_insights?.actions?.length ?? 0
-    if (key === 'llm_simulator') return Object.keys(modules.llm_simulator?.simulations ?? {}).length
-    if (key === 'knowledge_base') return (modules.knowledge_base?.entity_coverage?.entites_analysis?.length ?? 0) + 1
+    if (key === 'page_actions') return (modules as any).page_actions?.actions?.length ?? 0
+    if (key === 'llm_simulator') return Object.keys((modules as any).llm_simulator?.model_responses ?? {}).length
+    if (key === 'entity_coverage') {
+      const c3 = (modules as any).entity_coverage
+      const len = (c3?.entity_relevance?.length || c3?.missing_entities?.length || 0)
+      return len + 1
+    }
     return modules[key as keyof typeof modules] ? 1 : 0
   }
 

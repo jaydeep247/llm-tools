@@ -1,218 +1,462 @@
+"""
+Module C Runner — Orchestrates C5 → C1 → C3 → C6 → C4 → C2 → C7 → C9 → C8.
+
+Processing order is mandated: each stage feeds into subsequent stages.
+
+Input sources:
+  - HTML: loaded from S3 via sourceJobId (the crawl job that stored it)
+  - Page metadata: loaded from MongoDB `pages` collection for the crawl job
+  - Domain: parsed from the URL
+  - Industry: loaded from `module_e` collection (brand onboarding data)
+  - robots.txt: fetched live from {domain}/robots.txt
+"""
+
 import asyncio
 import logging
-from typing import Dict, List
+from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
+
+import aiohttp
 from bs4 import BeautifulSoup
-from .ai_presence import AIPresenceModule
-from .answerability import AnswerabilityModule
-from .knowledge_base import KnowledgeBaseModule
-from .llm_simulator import LlmSimulatorModule
-from .multi_model_insights import MultiModelInsights
-from .actionable_insights import ActionableInsightsModule
-from .ai_visibility_report import AIVisibilityReportModule
+
+from utils.mongo import mongo_manager
 from utils.storage import save_raw_html, load_raw_html
+
+from .c5_entity_extractor import run_c5
+from .c1_aeo_checker import run_c1
+from .c3_entity_coverage import run_c3
+from .c6_missing_info import run_c6
+from .c4_answer_completeness import run_c4
+from .c2_bulk_audit import run_c2_from_crawl, run_c2_from_urls
+from .c7_llm_simulator import run_c7
+from .c9_multi_model import run_c9
+from .c8_page_actions import run_c8
 
 logger = logging.getLogger("module_c")
 
+SUBMODULE_ORDER = ["c5", "c1", "c3", "c6", "c4", "c2", "c7", "c9", "c8"]
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+#  Input helpers — resolve all inputs from existing DB / live fetches
+# ═════════════════════════════════════════════════════════════════════════════
+
+def _domain_from_url(url: str) -> str:
+    """Extract bare domain from a URL (e.g. 'colytics.ai')."""
+    parsed = urlparse(url if url.startswith(("http://", "https://")) else f"https://{url}")
+    return parsed.netloc or url
+
+
+def _load_page_metadata(crawl_job_id: str, url: str) -> Dict[str, Any]:
+    """
+    Load page-level crawl metadata from the MongoDB `pages` collection.
+
+    The crawl spider stores per-page data (status_code, response_time,
+    word_count, canonical_url, has_structured_data, heading_structure, etc.)
+    keyed by {jobId, url}. We use this instead of re-parsing HTML fields
+    that are already computed.
+    """
+    try:
+        doc = mongo_manager.db.pages.find_one(
+            {"jobId": crawl_job_id, "url": url},
+            {"_id": 0},
+        )
+        return dict(doc) if doc else {}
+    except Exception as e:
+        logger.warning(f"[MODULE_C] Could not load page metadata: {e}")
+        return {}
+
+
+def _load_industry(source_job_id: str) -> str:
+    """
+    Resolve the industry string from the brand-onboarding data stored in
+    the `module_e` collection.  Falls back to empty string.
+    """
+    try:
+        doc = mongo_manager.module_e.find_one(
+            {"jobId": source_job_id},
+            {"brand_description": 1, "_id": 0},
+        )
+        if doc and doc.get("brand_description"):
+            # module_e stores a brand_description (LLM-generated text about
+            # the brand).  There is no separate 'industry' field, so we
+            # return the brand description itself as the industry context.
+            return doc["brand_description"]
+    except Exception as e:
+        logger.warning(f"[MODULE_C] Could not load industry from module_e: {e}")
+    return ""
+
+
+async def _fetch_robots_txt(domain: str) -> str:
+    """
+    Fetch robots.txt live from the domain. This is NOT stored by the
+    crawler so we fetch it on demand. Timeout after 5 s silently.
+    """
+    robots_url = f"https://{domain}/robots.txt"
+    try:
+        async with aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=5),
+            headers={"User-Agent": "Mozilla/5.0 (compatible; YogreetBot/1.0)"},
+        ) as session:
+            async with session.get(robots_url) as resp:
+                if resp.status == 200:
+                    return await resp.text()
+    except Exception:
+        logger.debug(f"[MODULE_C] robots.txt not available at {robots_url}")
+    return ""
+
+
+def _derive_query(html: str, url: str, query: Optional[str]) -> str:
+    """Build a fallback query from the page title when none is provided."""
+    if query:
+        return query
+    soup = BeautifulSoup(html, "html.parser")
+    title = soup.title.string.strip() if soup.title and soup.title.string else ""
+    return f"What is {title}?" if title else f"What is the content of {url} about?"
+
+
 class ModuleCRunner:
-    """
-    Orchestrates the entire Module C (AEO) analysis.
-    """
-    def __init__(self):
-        self.ai_presence = AIPresenceModule()
-        self.answerability = AnswerabilityModule()
-        self.knowledge_base = KnowledgeBaseModule()
-        self.llm_simulator = LlmSimulatorModule()
-        self.multi_model_insights = MultiModelInsights()
-        self.actionable_insights = ActionableInsightsModule()
-        self.ai_visibility_report = AIVisibilityReportModule()
+    """Orchestrates the full Module C (AEO) analysis pipeline."""
 
-    async def _ensure_html_content(self, job_id: str, html_content: str = None, skip_save: bool = False) -> str:
-        """Helper to ensure HTML content is loaded from S3 only"""
-        if html_content:
-            if not skip_save:
-                await save_raw_html(job_id, html_content)
-        else:
-            # Load from S3 bucket
-            html_content = await load_raw_html(job_id)
-        return html_content
+    # ─────────────────────────────────────────────────────────────────────────
+    #  Full pipeline
+    # ─────────────────────────────────────────────────────────────────────────
 
-    async def run(self, job_id: str, url: str, html_content: str = None, skip_save: bool = False, query: str = None) -> Dict:
+    async def run(
+        self,
+        job_id: str,
+        url: str,
+        source_job_id: str = "",
+        html_content: Optional[str] = None,
+        query: Optional[str] = None,
+        domain: str = "",
+        industry: str = "",
+    ) -> Dict[str, Any]:
         """
-        Runs complete Module C analysis.
-        HTML must be available in S3 bucket or provided directly.
+        Run the complete Module C pipeline: C5→C1→C3→C6→C4→C2→C7→C9→C8.
+
+        Args:
+            job_id: The Module C analysis job ID (created by Node backend).
+            url: The page URL to analyse.
+            source_job_id: The crawl job ID whose data we reference.
+                           Used to load HTML from S3 and page metadata from
+                           the ``pages`` collection.
+            html_content: Optional raw HTML (bypass S3 fetch).
+            query: Optional user query for LLM simulation.
+            domain: Domain string — auto-derived from *url* if empty.
+            industry: Industry string — loaded from onboarding DB if empty.
         """
-        html_content = await self._ensure_html_content(job_id, html_content, skip_save)
-            
+        # ── Resolve source_job_id (falls back to job_id for backwards compat)
+        src_id = source_job_id or job_id
+
+        # ── Load HTML from S3 (stored by crawler under the crawl job_id) ──
         if not html_content:
-            logger.error(f"[MODULE_C] ❌ HTML not found in S3 for job {job_id}")
-            logger.info(f"[MODULE_C] 💡 Make sure:")
-            logger.info(f"[MODULE_C]    1. A CRAWLER job ran first and cached HTML to S3")
-            logger.info(f"[MODULE_C]    2. OR provide htmlContent in the request payload")
-            logger.info(f"[MODULE_C]    3. OR use sourceJobId to reference a crawler job ID")
-            return {"error": "HTML not found in S3. Run CRAWLER job first or provide htmlContent.", "job_id": job_id}
-
-        # Find or Generate Query if not provided
-        if not query:
-            # Fallback: Extract title or use a generic query
-            soup = BeautifulSoup(html_content, 'html.parser')
-            title = soup.title.string if soup.title else ""
-            query = f"What is {title}?" if title else f"What is the content of {url} about?"
-
-        # 2. Robots extraction (Basic mechanism, in real env this comes from crawler)
-        robots_txt = "" 
-
-        # 3. Parallel Execution
-        results = await asyncio.gather(
-            self.ai_presence.run_analysis(url, html_content, robots_txt),
-            self.answerability.run_analysis(html_content),
-            self.knowledge_base.run_analysis(html_content, url),
-            self.llm_simulator.simulate_answer(query, html_content),
-            self.actionable_insights.run_analysis(html_content, url),
-            return_exceptions=True
-        )
-        
-        ai_res, ans_res, kb_res, sim_res, actionable_insights_res = results
-
-        # Handle exceptions in results
-        ai_res = ai_res if isinstance(ai_res, dict) else {"score": 0, "error": str(ai_res)}
-        ans_res = ans_res if isinstance(ans_res, dict) else {"score": 0, "error": str(ans_res)}
-        kb_res = kb_res if isinstance(kb_res, dict) else {"score": 0, "error": str(kb_res)}
-        sim_res = sim_res if isinstance(sim_res, dict) else {"error": str(sim_res)}
-
-        # 4. Multi-Model Insights (Comparison analysis)
-        multi_model_insights_res = {}
-        if "simulations" in sim_res:
-            # Extract raw answers for comparison
-            responses = {}
-            for provider, data in sim_res["simulations"].items():
-                if isinstance(data, dict) and "answer" in data:
-                    responses[provider] = data["answer"]
-            
-            if responses:
-                multi_model_insights_res = self.multi_model_insights.perform_analysis(responses)
-
-        # Handle exceptions for actionable insights
-        actionable_insights_res = actionable_insights_res if isinstance(actionable_insights_res, dict) else {"error": str(actionable_insights_res)}
-        multi_model_insights_res = multi_model_insights_res if isinstance(multi_model_insights_res, dict) else {"error": str(multi_model_insights_res)}
-
-        # 5. Final Aggregation
-        overall_score = (
-            (ai_res.get('score', 0) * 0.30) +
-            (ans_res.get('score', 0) * 0.30) +
-            (kb_res.get('score', 0) * 0.20) +
-            (sim_res.get('cross_model_metrics', {}).get('consistency_score', 0) * 0.20)
-        )
-
-        result = {
-            "job_id": job_id,
-            "url": url,
-            "overall_score": round(overall_score, 1),
-            "modules": {
-                "ai_presence": ai_res,
-                "answerability": ans_res,
-                "knowledge_base": kb_res,
-                "llm_simulator": sim_res,
-                "multi_model_insights": multi_model_insights_res,
-                "actionable_insights": actionable_insights_res
+            html_content = await load_raw_html(src_id)
+        if not html_content:
+            logger.error(f"[MODULE_C] HTML not found for source job {src_id}")
+            return {
+                "error": "HTML not found in S3. Run CRAWLER job first or provide htmlContent.",
+                "job_id": job_id,
             }
+
+        # ── Resolve domain ───────────────────────────────────────────────
+        if not domain:
+            domain = _domain_from_url(url)
+
+        # ── Resolve industry from onboarding DB ──────────────────────────
+        if not industry:
+            industry = _load_industry(src_id)
+
+        # ── Load page metadata from crawl DB (status_code, response_time…)
+        page_meta = _load_page_metadata(src_id, url)
+        status_code = page_meta.get("status_code", 200)
+        download_latency = page_meta.get("response_time", 0) or 0
+
+        # ── Fetch robots.txt live (not stored by crawler) ────────────────
+        robots_txt = await _fetch_robots_txt(domain)
+
+        query = _derive_query(html_content, url, query)
+
+        # ── C5: Entity Extraction (synchronous, no AI calls) ─────────────
+        logger.info(f"[MODULE_C] C5 — Entity Extraction | {url[:60]}")
+        c5_output = run_c5(html_content, word_count=page_meta.get("word_count", 0))
+
+        # ── C1: AEO Checker (sub-component scoring + entity ratio LLM) ──
+        logger.info(f"[MODULE_C] C1 — AEO Checker | {url[:60]}")
+        c1_output = await run_c1(
+            html=html_content,
+            url=url,
+            c5_output=c5_output,
+            robots_txt=robots_txt,
+            download_latency_s=download_latency,
+            status_code=status_code,
+            industry=industry,
+        )
+
+        page_topic = c1_output.get("page_topic", "")
+        page_type = c1_output.get("page_type", "other")
+
+        # ── C3: Entity Coverage Audit ────────────────────────────────────
+        logger.info(f"[MODULE_C] C3 — Entity Coverage | {url[:60]}")
+        c3_output = await run_c3(
+            c1_output=c1_output,
+            c5_output=c5_output,
+            url=url,
+        )
+
+        # ── C6: Missing Information Analysis ─────────────────────────────
+        logger.info(f"[MODULE_C] C6 — Missing Information | {url[:60]}")
+        c6_output = await run_c6(
+            c3_output=c3_output,
+            c5_output=c5_output,
+            page_topic=page_topic,
+            industry=industry,
+        )
+
+        # ── C4: Answer Completeness Score ────────────────────────────────
+        logger.info(f"[MODULE_C] C4 — Answer Completeness | {url[:60]}")
+        c4_output = await run_c4(
+            visible_text=c5_output.get("visible_text", ""),
+            page_topic=page_topic,
+            page_type=page_type,
+        )
+
+        # ── C2: Bulk — skipped for single-page; run via run_bulk_audit() ─
+        c2_output: Dict[str, Any] = {}
+
+        # ── C7: Live LLM Answer Simulation (most expensive) ─────────────
+        logger.info(f"[MODULE_C] C7 — LLM Answer Simulation | {url[:60]}")
+        c7_output = await run_c7(
+            visible_text=c5_output.get("visible_text", ""),
+            page_topic=page_topic,
+        )
+
+        # Raw answer strings for C9
+        c7_raw_answers: Dict[str, List[str]] = c7_output.get("raw_answers", {})
+
+        # ── C9: Multi-Model Insights ─────────────────────────────────────
+        logger.info(f"[MODULE_C] C9 — Multi-Model Insights | {url[:60]}")
+        c9_output = await run_c9(
+            domain=domain,
+            c7_output=c7_output,
+            c7_raw_answers=c7_raw_answers,
+        )
+
+        # ── C8: Page-Level Improvement Actions (final aggregation) ───────
+        logger.info(f"[MODULE_C] C8 — Improvement Actions | {url[:60]}")
+        c8_output = run_c8(
+            c1_output=c1_output,
+            c3_output=c3_output,
+            c4_output=c4_output,
+            c6_output=c6_output,
+        )
+
+        # ── Overall Score ────────────────────────────────────────────────
+        overall_score = round(
+            (c1_output.get("llm_friendliness_score", 0) * 0.30)
+            + (c4_output.get("completeness_score", 0) * 0.20)
+            + (c3_output.get("entity_coverage_pct", 0) * 0.20)
+            + (c7_output.get("consistency", {}).get("overall", 0) * 0.15)
+            + (c7_output.get("accuracy", {}).get("overall", 0) * 0.15),
+            1,
+        )
+
+        result: Dict[str, Any] = {
+            "job_id": src_id,
+            "url": url,
+            "domain": domain,
+            "industry": industry,
+            "overall_score": overall_score,
+            "modules": {
+                "entity_extraction": c5_output,
+                "aeo_checker": c1_output,
+                "entity_coverage": c3_output,
+                "missing_info": c6_output,
+                "answer_completeness": c4_output,
+                "llm_simulator": c7_output,
+                "multi_model": c9_output,
+                "page_actions": c8_output,
+            },
         }
 
-        # 6. Generate AI Visibility Report from the aggregated result
-        try:
-            visibility_report = await self.ai_visibility_report.generate_report(result)
-            result["modules"]["ai_visibility_report"] = visibility_report
-        except Exception as e:
-            logger.error(f"[MODULE_C] AI Visibility Report generation failed: {e}")
-            result["modules"]["ai_visibility_report"] = {"error": str(e)}
-
-        # 7. Save to aeo_analysis collection
+        # ── Persist to aeo_analysis collection ───────────────────────────
         try:
             from utils.storage import save_aeo_analysis
-            await save_aeo_analysis(job_id, url, result)
+            await save_aeo_analysis(src_id, url, result)
         except Exception as e:
-            logger.error(f"Failed to save AEO analysis to MongoDB: {str(e)}")
+            logger.error(f"[MODULE_C] Failed to save AEO analysis: {e}")
 
+        logger.info(f"[MODULE_C] Full pipeline done | score={overall_score} | {url[:60]}")
         return result
-    
-    async def run_submodule(self, submodule: str, job_id: str, url: str, html_content: str = None, query: str = None) -> Dict:
-        """
-        Run a specific sub-module of Module C.
-        HTML must be available in S3 bucket or provided directly.
-        """
-        html_content = await self._ensure_html_content(job_id, html_content)
-        
+
+    # ─────────────────────────────────────────────────────────────────────────
+    #  Individual submodule execution
+    # ─────────────────────────────────────────────────────────────────────────
+
+    async def run_submodule(
+        self,
+        submodule: str,
+        job_id: str,
+        url: str,
+        source_job_id: str = "",
+        html_content: Optional[str] = None,
+        query: Optional[str] = None,
+        domain: str = "",
+        industry: str = "",
+    ) -> Dict[str, Any]:
+        """Run a single submodule of Module C."""
+        src_id = source_job_id or job_id
+
         if not html_content:
-            logger.error(f"[MODULE_C] ❌ HTML not found in S3 for job {job_id} (submodule: {submodule})")
+            html_content = await load_raw_html(src_id)
+        if not html_content:
+            logger.error(f"[MODULE_C] HTML not found for job {src_id} ({submodule})")
             return {"error": "HTML not found in S3. Run CRAWLER job first or provide htmlContent."}
 
-        robots_txt = "" # Basic mock
+        if not domain:
+            domain = _domain_from_url(url)
+        if not industry:
+            industry = _load_industry(src_id)
+
+        page_meta = _load_page_metadata(src_id, url)
 
         try:
-            if submodule == "ai_presence":
-                return await self.ai_presence.run_analysis(url, html_content, robots_txt)
-            elif submodule == "answerability":
-                return await self.answerability.run_analysis(html_content)
-            elif submodule == "knowledge_base":
-                return await self.knowledge_base.run_analysis(html_content, url)
-            elif submodule == "llm_simulator":
-                # Ensure query exists
-                if not query:
-                    soup = BeautifulSoup(html_content, 'html.parser')
-                    title = soup.title.string if soup.title else ""
-                    query = f"What is {title}?" if title else f"What is the content of {url} about?"
-                return await self.llm_simulator.simulate_answer(query, html_content)
-            elif submodule == "actionable_insights":
-                return await self.actionable_insights.run_analysis(html_content, url)
-            elif submodule == "ai_visibility_report":
-                # Requires the full AEO result — load from DB if available
-                try:
-                    from utils.storage import load_aeo_analysis
-                    aeo_result = await load_aeo_analysis(job_id)
-                    if not aeo_result:
-                        return {"error": "No AEO analysis found for this job. Run full AEO analysis first."}
-                    return await self.ai_visibility_report.generate_report(aeo_result)
-                except Exception as e:
-                    logger.error(f"AI Visibility Report submodule failed: {e}")
-                    return {"error": str(e)}
-            else:
-                return {"error": f"Unknown submodule: {submodule}"}
+            c5_output = run_c5(html_content, word_count=page_meta.get("word_count", 0))
+
+            if submodule == "c5":
+                return c5_output
+
+            if submodule == "c1":
+                robots_txt = await _fetch_robots_txt(domain)
+                return await run_c1(
+                    html=html_content, url=url, c5_output=c5_output,
+                    robots_txt=robots_txt,
+                    download_latency_s=page_meta.get("response_time", 0) or 0,
+                    status_code=page_meta.get("status_code", 200),
+                    industry=industry,
+                )
+
+            # For deeper submodules, build prerequisites in chain
+            robots_txt = await _fetch_robots_txt(domain)
+            c1_output = await run_c1(
+                html=html_content, url=url, c5_output=c5_output,
+                robots_txt=robots_txt,
+                download_latency_s=page_meta.get("response_time", 0) or 0,
+                status_code=page_meta.get("status_code", 200),
+                industry=industry,
+            )
+
+            if submodule == "c3":
+                return await run_c3(c1_output=c1_output, c5_output=c5_output, url=url)
+
+            if submodule == "c6":
+                c3_output = await run_c3(c1_output=c1_output, c5_output=c5_output, url=url)
+                return await run_c6(
+                    c3_output=c3_output, c5_output=c5_output,
+                    page_topic=c1_output.get("page_topic", ""),
+                    industry=industry,
+                )
+
+            if submodule == "c4":
+                return await run_c4(
+                    visible_text=c5_output.get("visible_text", ""),
+                    page_topic=c1_output.get("page_topic", ""),
+                    page_type=c1_output.get("page_type", "other"),
+                )
+
+            if submodule == "c7":
+                return await run_c7(
+                    visible_text=c5_output.get("visible_text", ""),
+                    page_topic=c1_output.get("page_topic", ""),
+                )
+
+            if submodule == "c9":
+                c7_output = await run_c7(
+                    visible_text=c5_output.get("visible_text", ""),
+                    page_topic=c1_output.get("page_topic", ""),
+                )
+                return await run_c9(
+                    domain=domain, c7_output=c7_output,
+                    c7_raw_answers=c7_output.get("raw_answers", {}),
+                )
+
+            if submodule == "c8":
+                c3_output = await run_c3(c1_output=c1_output, c5_output=c5_output, url=url)
+                c6_output = await run_c6(
+                    c3_output=c3_output, c5_output=c5_output,
+                    page_topic=c1_output.get("page_topic", ""),
+                    industry=industry,
+                )
+                c4_output = await run_c4(
+                    visible_text=c5_output.get("visible_text", ""),
+                    page_topic=c1_output.get("page_topic", ""),
+                    page_type=c1_output.get("page_type", "other"),
+                )
+                return run_c8(
+                    c1_output=c1_output, c3_output=c3_output,
+                    c4_output=c4_output, c6_output=c6_output,
+                )
+
+            # Legacy submodule names → full pipeline
+            if submodule in ("ai_presence", "answerability", "knowledge_base",
+                             "llm_simulator", "actionable_insights"):
+                full = await self.run(
+                    job_id, url, source_job_id=src_id,
+                    html_content=html_content, query=query,
+                    domain=domain, industry=industry,
+                )
+                return full.get("modules", {})
+
+            return {"error": f"Unknown submodule: {submodule}"}
+
         except Exception as e:
-            logger.error(f"Submodule {submodule} failed: {e}")
+            logger.error(f"[MODULE_C] Submodule {submodule} failed: {e}", exc_info=True)
             return {"error": str(e)}
 
-    async def run_bulk_audit(self, urls: List[str], job_id: str = "bulk_audit") -> Dict:
-        """
-        Run bulk AEO audit across multiple URLs.
-        
-        Args:
-            urls: List of URLs to analyze
-            job_id: Base job ID for tracking
-            
-        Returns:
-            Aggregated bulk audit results with summary and details
-        """
-        from .bulk_audit_service import run_bulk_audit
-        return await run_bulk_audit(urls, job_id)
+    # ─────────────────────────────────────────────────────────────────────────
+    #  Bulk audit (C2)
+    # ─────────────────────────────────────────────────────────────────────────
 
-# Singleton entry point
+    async def run_bulk_audit(
+        self,
+        urls: Optional[List[str]] = None,
+        job_id: str = "bulk_audit",
+        industry: str = "",
+        robots_txt: str = "",
+    ) -> Dict[str, Any]:
+        if urls:
+            return await run_c2_from_urls(urls, robots_txt=robots_txt, industry=industry)
+        return await run_c2_from_crawl(job_id, robots_txt=robots_txt, industry=industry)
+
+
+# ── Singleton ────────────────────────────────────────────────────────────────
 runner = ModuleCRunner()
 
-async def run_module_c(job_id: str, url: str, html_content: str = None, query: str = None):
+
+async def run_module_c(
+    job_id: str,
+    url: str,
+    source_job_id: str = "",
+    html_content: Optional[str] = None,
+    query: Optional[str] = None,
+    domain: str = "",
+    industry: str = "",
+) -> Dict[str, Any]:
     """
-    Run Module C analysis for a job.
-    Analyzes the main URL using the stored HTML content.
-    
-    Args:
-        job_id: Job ID for this analysis
-        url: URL to analyze
-        html_content: Optional HTML content (if not provided, loads from disk)
-        query: Optional specific query for AI Answer Simulation
-        
-    Returns:
-        Module C analysis results with overall score and module details
+    Entry point for Module C analysis.
+
+    Called by the executor.  Passes ``source_job_id`` through to the runner
+    so that it can resolve HTML from S3, page metadata from the ``pages``
+    collection, and industry from the ``module_e`` collection — all keyed
+    on the original crawl job.
     """
-    # Run single-page analysis on the main URL
-    result = await runner.run(job_id, url, html_content, query=query)
-    
-    return result
+    return await runner.run(
+        job_id=job_id,
+        url=url,
+        source_job_id=source_job_id,
+        html_content=html_content,
+        query=query,
+        domain=domain,
+        industry=industry,
+    )
 

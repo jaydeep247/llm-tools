@@ -213,7 +213,7 @@ async def save_job_response(job_id: str, data: dict) -> str:
 
 async def save_aeo_analysis(job_id: str, url: str, data: dict) -> str:
     """
-    Saves Module C (AEO) analysis results to MongoDB aeo_analysis collection.
+    Saves Module C analysis results to MongoDB module_c collection.
     
     Args:
         job_id: Job ID
@@ -231,6 +231,8 @@ async def save_aeo_analysis(job_id: str, url: str, data: dict) -> str:
         document = {
             "jobId": job_id,
             "url": url,
+            "domain": data.get("domain", ""),
+            "industry": data.get("industry", ""),
             "timestamp": datetime.utcnow(),
             "overall_score": data.get("overall_score", 0),
             "modules": data.get("modules", {})
@@ -240,7 +242,7 @@ async def save_aeo_analysis(job_id: str, url: str, data: dict) -> str:
         mongo_manager.connect()
         
         # Use upsert to handle updates for the same job_id + url
-        result = mongo_manager.aeo_analysis.update_one(
+        result = mongo_manager.module_c.update_one(
             {"jobId": job_id, "url": url},
             {"$set": document},
             upsert=True
@@ -249,7 +251,7 @@ async def save_aeo_analysis(job_id: str, url: str, data: dict) -> str:
         doc_id = result.upserted_id or "updated"
         from utils.logger import logger
         
-        return f"mongodb://aeo_analysis/{doc_id}"
+        return f"mongodb://module_c/{doc_id}"
         
     except Exception as e:
         from utils.logger import logger
@@ -273,7 +275,7 @@ async def load_aeo_analysis(job_id: str) -> dict:
 
     try:
         mongo_manager.connect()
-        doc = mongo_manager.aeo_analysis.find_one(
+        doc = mongo_manager.module_c.find_one(
             {"jobId": job_id},
             sort=[("timestamp", -1)],
         )

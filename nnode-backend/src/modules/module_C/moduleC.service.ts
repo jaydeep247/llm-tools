@@ -4,16 +4,33 @@ import { ModuleCResult } from './moduleC.types';
 
 export class ModuleCService {
   /**
+   * Get effective job IDs (includes the requested jobId and any analysis jobs that used it as a source)
+   */
+  private async getEffectiveJobIds(db: any, jobId: string): Promise<string[]> {
+    const jobIds = [jobId];
+    const analysisJobs = await db.collection('jobs').find({
+      'config.sourceJobId': jobId,
+      jobType: 'AEO_ANALYSIS'
+    }).toArray();
+    
+    if (analysisJobs.length > 0) {
+      jobIds.push(...analysisJobs.map((j: any) => j.id));
+    }
+    return jobIds;
+  }
+
+  /**
    * Get Module C (AEO) analysis result for a specific job
    */
   async getModuleCResult(jobId: string, _userId: string): Promise<ModuleCResult | null> {
     try {
       const db = await connectToMongo();
-      const collection = db.collection('aeo_analysis');
+      const jobIds = await this.getEffectiveJobIds(db, jobId);
+      const collection = db.collection('module_c');
       
       // Find the most recent analysis for this job
       const result = await collection.findOne(
-        { jobId },
+        { jobId: { $in: jobIds } },
         { sort: { timestamp: -1 } }
       );
 
@@ -34,10 +51,11 @@ export class ModuleCService {
   async getAllModuleCResults(jobId: string): Promise<ModuleCResult[]> {
     try {
       const db = await connectToMongo();
-      const collection = db.collection('aeo_analysis');
+      const jobIds = await this.getEffectiveJobIds(db, jobId);
+      const collection = db.collection('module_c');
       
       const results = await collection
-        .find({ jobId })
+        .find({ jobId: { $in: jobIds } })
         .sort({ timestamp: -1 })
         .toArray();
 
@@ -54,14 +72,15 @@ export class ModuleCService {
   async getModuleCResultByUrl(jobId: string, url: string): Promise<ModuleCResult | null> {
     try {
       const db = await connectToMongo();
-      const collection = db.collection('aeo_analysis');
+      const jobIds = await this.getEffectiveJobIds(db, jobId);
+      const collection = db.collection('module_c');
       
       // Normalize URL for matching
       const normalizedUrl = url.endsWith('/') ? url.slice(0, -1) : url;
       const altUrl = url.endsWith('/') ? url : url + '/';
       
       const result = await collection.findOne({
-        jobId,
+        jobId: { $in: jobIds },
         $or: [
           { url: normalizedUrl },
           { url: altUrl },
@@ -93,9 +112,9 @@ export class ModuleCService {
 
       const jobIds = jobs.map(j => j.id);
       
-      // Then get all aeo_analysis results for these jobs
-      const aeoCollection = db.collection('aeo_analysis');
-      const results = await aeoCollection
+      // Then get all module_c results for these jobs
+      const moduleCCollection = db.collection('module_c');
+      const results = await moduleCCollection
         .find({ jobId: { $in: jobIds } })
         .sort({ timestamp: -1 })
         .toArray();
@@ -113,10 +132,11 @@ export class ModuleCService {
   async getModuleField(jobId: string, field: string): Promise<any> {
     try {
       const db = await connectToMongo();
-      const collection = db.collection('aeo_analysis');
+      const jobIds = await this.getEffectiveJobIds(db, jobId);
+      const collection = db.collection('module_c');
       
       const result = await collection.findOne(
-        { jobId },
+        { jobId: { $in: jobIds } },
         { 
           sort: { timestamp: -1 },
           projection: { 
@@ -150,10 +170,11 @@ export class ModuleCService {
   async getSummary(jobId: string): Promise<any> {
     try {
       const db = await connectToMongo();
-      const collection = db.collection('aeo_analysis');
+      const jobIds = await this.getEffectiveJobIds(db, jobId);
+      const collection = db.collection('module_c');
       
       const result = await collection.findOne(
-        { jobId },
+        { jobId: { $in: jobIds } },
         { sort: { timestamp: -1 } }
       );
 
@@ -166,19 +187,22 @@ export class ModuleCService {
       return {
         jobId: result.jobId,
         url: result.url,
+        domain: result.domain ?? null,
+        industry: result.industry ?? null,
         overall_score: result.overall_score,
         module_scores: {
-          ai_presence: modules.ai_presence?.score ?? null,
-          answerability: modules.answerability?.score ?? null,
-          knowledge_base: modules.knowledge_base?.score ?? null,
-          llm_simulator: modules.llm_simulator?.cross_model_metrics?.consistency_score ?? null,
+          aeo_checker: modules.aeo_checker?.llm_friendliness_score ?? null,
+          entity_coverage: modules.entity_coverage?.entity_coverage_pct ?? null,
+          answer_completeness: modules.answer_completeness?.completeness_score ?? null,
+          llm_simulator: modules.llm_simulator?.consistency?.overall ?? null,
+          multi_model: modules.multi_model?.overall ?? null,
         },
-        actionable_insights: {
-          total_actions: modules.actionable_insights?.totalActions ?? 0,
-          priority_breakdown: modules.actionable_insights?.priorityBreakdown ?? {},
-          current_score: modules.actionable_insights?.currentScore ?? null,
-          predicted_score: modules.actionable_insights?.predictedScore ?? null,
-          improvement: modules.actionable_insights?.improvement ?? 0,
+        c8_page_actions: {
+          total_actions: modules.page_actions?.total_actions ?? 0,
+          priority_breakdown: modules.page_actions?.priority_breakdown ?? {},
+          current_score: modules.page_actions?.current_score ?? null,
+          predicted_score: modules.page_actions?.predicted_score ?? null,
+          improvement: modules.page_actions?.improvement ?? 0,
         },
         timestamp: result.timestamp,
       };
@@ -194,10 +218,11 @@ export class ModuleCService {
   async getVisibilityReport(jobId: string): Promise<any> {
     try {
       const db = await connectToMongo();
-      const collection = db.collection('aeo_analysis');
+      const jobIds = await this.getEffectiveJobIds(db, jobId);
+      const collection = db.collection('module_c');
 
       const result = await collection.findOne(
-        { jobId },
+        { jobId: { $in: jobIds } },
         {
           sort: { timestamp: -1 },
           projection: {

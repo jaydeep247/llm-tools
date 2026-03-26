@@ -104,9 +104,9 @@ class MongoManager:
             self._db.module_e.create_index("jobId", unique=True)
             self._db.module_f.create_index("jobId", unique=True)
             self._db.module_f.create_index([("sessionId", 1), ("updatedAt", -1)])
-            self._db.aeo_analysis.create_index("jobId")
-            self._db.aeo_analysis.create_index([("jobId", 1), ("url", 1)])
-            self._db.aeo_analysis.create_index([("jobId", 1), ("timestamp", -1)])
+            self._db.module_c.create_index("jobId")
+            self._db.module_c.create_index([("jobId", 1), ("url", 1)])
+            self._db.module_c.create_index([("jobId", 1), ("timestamp", -1)])
             self._db.performance_audits.create_index([("jobId", 1), ("device", 1), ("runAt", -1)])
             self._db.serp_results.create_index("jobId", unique=True)
             self._db.serp_results.create_index("sessionId")
@@ -164,8 +164,8 @@ class MongoManager:
         return self.db.module_f
 
     @property
-    def aeo_analysis(self) -> Collection:
-        return self.db.aeo_analysis
+    def module_c(self) -> Collection:
+        return self.db.module_c
 
     @property
     def serp_results(self) -> Collection:

@@ -152,115 +152,38 @@ export class ModuleCController {
     }
   };
 
-  // ===== Individual Module Field Endpoints =====
+  // ===== Individual C-Submodule Field Endpoints =====
 
   /**
-   * Get AI Presence module data
+   * Generic helper — get a single submodule field from an AEO result.
    */
-  getAiPresence = async (req: Request, res: Response): Promise<Response> => {
-    try {
-      const userId = req.user!.userId;
-      const { jobId } = jobIdParamSchema.parse(req.params);
+  private getField = (field: string, label: string) => {
+    return async (req: Request, res: Response): Promise<Response> => {
+      try {
+        const userId = req.user!.userId;
+        const { jobId } = jobIdParamSchema.parse(req.params);
 
-      await this.jobService.getJobById(userId, jobId);
-      const result = await this.moduleCService.getModuleField(jobId, 'ai_presence');
-      
-      return ResponseUtil.success(res, 'AI Presence data retrieved', result);
-    } catch (error: any) {
-      logger.error('Error fetching AI Presence:', error);
-      return this.handleModuleError(res, error, 'AI Presence');
-    }
+        await this.jobService.getJobById(userId, jobId);
+        const result = await this.moduleCService.getModuleField(jobId, field);
+
+        return ResponseUtil.success(res, `${label} data retrieved`, result);
+      } catch (error: any) {
+        logger.error(`Error fetching ${label}:`, error);
+        return this.handleModuleError(res, error, label);
+      }
+    };
   };
 
-  /**
-   * Get Answerability module data
-   */
-  getAnswerability = async (req: Request, res: Response): Promise<Response> => {
-    try {
-      const userId = req.user!.userId;
-      const { jobId } = jobIdParamSchema.parse(req.params);
-
-      await this.jobService.getJobById(userId, jobId);
-      const result = await this.moduleCService.getModuleField(jobId, 'answerability');
-      
-      return ResponseUtil.success(res, 'Answerability data retrieved', result);
-    } catch (error: any) {
-      logger.error('Error fetching Answerability:', error);
-      return this.handleModuleError(res, error, 'Answerability');
-    }
-  };
-
-  /**
-   * Get Knowledge Base module data
-   */
-  getKnowledgeBase = async (req: Request, res: Response): Promise<Response> => {
-    try {
-      const userId = req.user!.userId;
-      const { jobId } = jobIdParamSchema.parse(req.params);
-
-      await this.jobService.getJobById(userId, jobId);
-      const result = await this.moduleCService.getModuleField(jobId, 'knowledge_base');
-      
-      return ResponseUtil.success(res, 'Knowledge Base data retrieved', result);
-    } catch (error: any) {
-      logger.error('Error fetching Knowledge Base:', error);
-      return this.handleModuleError(res, error, 'Knowledge Base');
-    }
-  };
-
-  /**
-   * Get LLM Simulator module data
-   */
-  getLlmSimulator = async (req: Request, res: Response): Promise<Response> => {
-    try {
-      const userId = req.user!.userId;
-      const { jobId } = jobIdParamSchema.parse(req.params);
-
-      await this.jobService.getJobById(userId, jobId);
-      const result = await this.moduleCService.getModuleField(jobId, 'llm_simulator');
-      
-      return ResponseUtil.success(res, 'LLM Simulator data retrieved', result);
-    } catch (error: any) {
-      logger.error('Error fetching LLM Simulator:', error);
-      return this.handleModuleError(res, error, 'LLM Simulator');
-    }
-  };
-
-  /**
-   * Get Multi-Model Insights module data
-   */
-  getMultiModelInsights = async (req: Request, res: Response): Promise<Response> => {
-    try {
-      const userId = req.user!.userId;
-      const { jobId } = jobIdParamSchema.parse(req.params);
-
-      await this.jobService.getJobById(userId, jobId);
-      const result = await this.moduleCService.getModuleField(jobId, 'multi_model_insights');
-      
-      return ResponseUtil.success(res, 'Multi-Model Insights data retrieved', result);
-    } catch (error: any) {
-      logger.error('Error fetching Multi-Model Insights:', error);
-      return this.handleModuleError(res, error, 'Multi-Model Insights');
-    }
-  };
-
-  /**
-   * Get Actionable Insights module data
-   */
-  getActionableInsights = async (req: Request, res: Response): Promise<Response> => {
-    try {
-      const userId = req.user!.userId;
-      const { jobId } = jobIdParamSchema.parse(req.params);
-
-      await this.jobService.getJobById(userId, jobId);
-      const result = await this.moduleCService.getModuleField(jobId, 'actionable_insights');
-      
-      return ResponseUtil.success(res, 'Actionable Insights data retrieved', result);
-    } catch (error: any) {
-      logger.error('Error fetching Actionable Insights:', error);
-      return this.handleModuleError(res, error, 'Actionable Insights');
-    }
-  };
+  // New C-submodule endpoints
+  getC5EntityExtraction = this.getField('entity_extraction', 'Entity Extraction');
+  getC1AeoChecker = this.getField('aeo_checker', 'AEO Checker');
+  getC3EntityCoverage = this.getField('entity_coverage', 'Entity Coverage');
+  getC6MissingInfo = this.getField('missing_info', 'Missing Information');
+  getC4AnswerCompleteness = this.getField('answer_completeness', 'Answer Completeness');
+  getC2BulkAudit = this.getField('bulk_audit', 'Bulk Audit');
+  getC7LlmSimulator = this.getField('llm_simulator', 'LLM Simulator');
+  getC9MultiModel = this.getField('multi_model', 'Multi-Model Insights');
+  getC8PageActions = this.getField('page_actions', 'Page Actions');
 
   /**
    * Get Summary (overall score + all module scores)
