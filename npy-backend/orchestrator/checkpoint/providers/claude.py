@@ -9,14 +9,14 @@ logger = logging.getLogger("orchestrator.claude")
 
 class ClaudeProvider(BaseProvider):
     def __init__(self):
-        self.api_key = os.getenv("CLAUDE_API_KEY")
+        self.api_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_API_KEY")
         if not self.api_key:
             raise ValueError("CLAUDE_API_KEY environment variable not set")
         self.client = anthropic.AsyncAnthropic(api_key=self.api_key)
 
     async def execute(self, task_name: str, input_data: Dict[str, Any], options: Dict[str, Any] = None) -> TaskResponse:
         options = options or {}
-        model = options.get("model", "claude-3-5-sonnet-20240620")
+        model = options.get("model", "claude-3-haiku-20240307")
 
         try:
             messages = input_data.get("messages")

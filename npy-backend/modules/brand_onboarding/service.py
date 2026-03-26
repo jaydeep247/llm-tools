@@ -456,7 +456,7 @@ import json as _json_mod
 _PROVIDERS = {
     "openai": {"model": "gpt-4o-mini"},
     "gemini": {"model": "gemini-2.0-flash"},
-    "claude": {"model": "claude-3-5-sonnet-20241022"},
+    "claude": {"model": "claude-3-haiku-20240307"},
 }
 
 _BRAND_ANALYSIS_PROMPT = """You are a brand visibility analyst. Your job is to analyze an AI-generated response and extract structured data about brand mentions.
