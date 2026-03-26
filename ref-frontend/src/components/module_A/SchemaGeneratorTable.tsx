@@ -181,6 +181,16 @@ export function SchemaGeneratorTable({
   const ai = S?.ai_file_status || {}
   const score = S?.lcs_score ?? 0
 
+  const originFromUrl = (() => {
+    const raw = schemaData?.url || session?.startUrl
+    if (!raw) return ''
+    try {
+      return new URL(raw).origin
+    } catch {
+      return ''
+    }
+  })()
+
   const dimLabels: Record<string, string> = {
     presence: 'Presence',
     completeness: 'Completeness',
@@ -617,8 +627,21 @@ export function SchemaGeneratorTable({
                         { key: 'llms_txt', name: 'llms.txt', patch: llmsPatch, desc: 'Direct LLM crawl permission.', lift: '+25%' },
                         { key: 'facts_json', name: 'facts.json', patch: factsPatch, desc: 'Structured entity facts.', lift: '+18%' },
                       ].map(({ key, name, patch, desc, lift }) => {
-                        const content = key === 'llms_txt' ? patch?.patch_json?._content : patch?.patch_json ? JSON.stringify(patch.patch_json, null, 2) : null
+                        const content = key === 'llms_txt'
+                          ? patch?.patch_json?._content
+                          : patch?.patch_json
+                            ? JSON.stringify(patch.patch_json, null, 2)
+                            : null
                         const pKey = `ai-file-${key}`
+                        const liveUrl =
+                          originFromUrl &&
+                          (key === 'llms_txt'
+                            ? `${originFromUrl}/llms.txt`
+                            : key === 'facts_json'
+                              ? `${originFromUrl}/facts.json`
+                              : '')
+                        const hasTemplate = !!content
+                        const hasLiveOnly = !content && ai[key] && !!liveUrl
                         
                         return (
                           <div key={key} className="rounded-2xl bg-zinc-900/50 border border-zinc-800 overflow-hidden flex flex-col">
@@ -635,8 +658,13 @@ export function SchemaGeneratorTable({
                             <div className="p-4 flex-1">
                               <p className="text-[11px] text-zinc-500 mb-4">{desc}</p>
                               <div className="rounded-xl bg-zinc-950 border border-zinc-800 p-3 h-32 overflow-y-auto custom-scrollbar">
-                                {content ? (
+                                {hasTemplate ? (
                                   <pre className="text-[10px] font-mono text-zinc-500 whitespace-pre-wrap">{content}</pre>
+                                ) : hasLiveOnly ? (
+                                  <div className="h-full flex flex-col items-start justify-center text-[10px] text-zinc-500 space-y-1">
+                                    <span className="font-semibold text-zinc-300">File detected on your domain.</span>
+                                    <span className="truncate">{liveUrl}</span>
+                                  </div>
                                 ) : (
                                   <div className="h-full flex items-center justify-center text-[10px] text-zinc-700 italic">
                                     No template available
@@ -646,7 +674,7 @@ export function SchemaGeneratorTable({
                             </div>
                             <div className="px-4 py-3 bg-zinc-900/30 border-t border-zinc-800 flex items-center justify-between">
                               <span className="text-[10px] font-bold text-emerald-400">{lift} Impact</span>
-                              {content && (
+                              {hasTemplate && (
                                 <div className="flex gap-2">
                                 <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] text-zinc-500 hover:text-zinc-300" onClick={() => copyToClipboard(content, pKey)}>
                                   <Copy className="w-3 h-3 mr-1" />
@@ -660,6 +688,20 @@ export function SchemaGeneratorTable({
                                   Download
                                 </Button>
                               </div>
+                              )}
+                              {!hasTemplate && hasLiveOnly && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-[10px] text-zinc-500 hover:text-zinc-300"
+                                  onClick={() => {
+                                    if (!liveUrl) return
+                                    window.open(liveUrl, '_blank', 'noopener,noreferrer')
+                                  }}
+                                >
+                                  <Download className="w-3 h-3 mr-1" />
+                                  Open file
+                                </Button>
                               )}
                             </div>
                           </div>
