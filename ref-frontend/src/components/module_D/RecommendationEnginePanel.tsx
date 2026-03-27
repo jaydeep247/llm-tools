@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { Sparkles, Lightbulb, AlertTriangle, Target, Activity, ChevronDown } from 'lucide-react'
+import { Sparkles, Lightbulb, AlertTriangle, Target, Activity, ChevronDown, ChevronUp, BarChart3, Gauge, Rocket, ListChecks, Search, Flame } from 'lucide-react'
 
 type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
 
@@ -103,14 +104,30 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
   const [severityFilter, setSeverityFilter] = useState<'ALL' | Severity>('ALL')
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set())
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [searchTerm, setSearchTerm] = useState<string>('')
+  const [sortBy, setSortBy] = useState<'priority' | 'severity' | 'impact'>('priority')
 
   const recommendations = data?.recommendations || []
   const summary = data?.summary
 
   const filtered = useMemo(() => {
-    if (severityFilter === 'ALL') return recommendations
-    return recommendations.filter((r) => r.severity === severityFilter)
-  }, [recommendations, severityFilter])
+    const bySeverity = severityFilter === 'ALL' ? recommendations : recommendations.filter((r) => r.severity === severityFilter)
+    const bySearch = searchTerm
+      ? bySeverity.filter(
+          (r) =>
+            r.action_title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            r.prompt.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            r.module.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+      : bySeverity
+    const sorted = [...bySearch].sort((a, b) => {
+      if (sortBy === 'priority') return b.priority_score - a.priority_score
+      if (sortBy === 'impact') return b.impact_score - a.impact_score
+      const order: Record<Severity, number> = { CRITICAL: 4, HIGH: 3, MEDIUM: 2, LOW: 1 }
+      return order[b.severity] - order[a.severity]
+    })
+    return sorted
+  }, [recommendations, severityFilter, searchTerm, sortBy])
 
   const highCount = useMemo(
     () => recommendations.filter((r) => r.severity === 'HIGH').length,
@@ -164,84 +181,63 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
 
   return (
     <div className="rounded-2xl border border-zinc-800 bg-[#0b0c10] p-6 space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-violet-500/15 border border-violet-500/40">
-              <Sparkles className="w-4 h-4 text-violet-300" />
+      <div className="relative overflow-hidden rounded-2xl border border-zinc-800">
+        <div className="absolute inset-0 bg-gradient-to-r from-violet-600/10 via-indigo-500/10 to-emerald-500/10" />
+        <div className="relative p-6 flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-violet-500/15 border border-violet-500/40">
+              <Sparkles className="w-5 h-5 text-violet-300" />
             </div>
             <div>
-              <h2 className="text-xl font-semibold tracking-tight text-zinc-50">Recommendation Engine</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-2xl font-semibold tracking-tight text-zinc-50">Recommendation Engine</h2>
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-2 px-2 py-0.5 rounded-md border text-[11px] font-mono',
+                    delta.variant === 'critical' && 'border-rose-500/40 bg-rose-500/10 text-rose-400',
+                    delta.variant === 'high' && 'border-amber-500/40 bg-amber-500/10 text-amber-300',
+                    delta.variant === 'medium' && 'border-yellow-400/40 bg-yellow-400/10 text-yellow-200',
+                    delta.variant === 'low' && 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300',
+                    delta.variant === 'info' && 'border-indigo-500/40 bg-indigo-500/10 text-indigo-300'
+                  )}
+                >
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span>{delta.label}</span>
+                </span>
+              </div>
               <p className="text-[11px] text-zinc-500 font-mono">
-                Ranked IEU actions generated from your prompt visibility and engagement metrics.
+                {(data?.role_filter_applied || 'SEO Manager') +
+                  ' · ' +
+                  (data?.plan_limit_applied ?? recommendations.length) +
+                  ' max · ' +
+                  (summary?.top_module || 'Prompt intelligence')}
               </p>
             </div>
           </div>
-          <p className="text-[11px] text-zinc-600 font-mono mt-2">
-            {(data?.role_filter_applied || 'SEO Manager') +
-              ' view · ' +
-              (data?.plan_limit_applied ?? recommendations.length) +
-              ' actions max · ' +
-              (summary?.top_module || 'Prompt intelligence')}
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <div
-            className={cn(
-              'inline-flex items-center gap-2 px-3 py-1 rounded-md border text-[11px] font-mono',
-              delta.variant === 'critical' && 'border-rose-500/40 bg-rose-500/10 text-rose-400',
-              delta.variant === 'high' && 'border-amber-500/40 bg-amber-500/10 text-amber-300',
-              delta.variant === 'medium' && 'border-yellow-400/40 bg-yellow-400/10 text-yellow-200',
-              delta.variant === 'low' && 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300',
-              delta.variant === 'info' && 'border-indigo-500/40 bg-indigo-500/10 text-indigo-300'
-            )}
-          >
-            <AlertTriangle className="w-3.5 h-3.5" />
-            <span>{delta.label}</span>
-          </div>
-          <div className="inline-flex items-center gap-2 text-[10px] text-zinc-500 font-mono">
-            <span className="inline-flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-rose-500" /> CRITICAL
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-amber-400" /> HIGH
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-yellow-300" /> MEDIUM
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-400" /> LOW
-            </span>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="bg-[#111318] px-4 py-3 rounded-lg border border-zinc-800">
+              <div className="text-2xl font-extrabold tracking-tight text-zinc-50">{summary?.total ?? recommendations.length}</div>
+              <div className="text-[11px] text-zinc-500 font-mono uppercase tracking-[0.18em]">Total</div>
+            </div>
+            <div className="bg-[#111318] px-4 py-3 rounded-lg border border-zinc-800">
+              <div className="text-2xl font-extrabold tracking-tight text-zinc-50">
+                {summary?.critical ?? recommendations.filter((r) => r.severity === 'CRITICAL').length}
+              </div>
+              <div className="text-[11px] text-zinc-500 font-mono uppercase tracking-[0.18em]">Critical</div>
+            </div>
+            <div className="bg-[#111318] px-4 py-3 rounded-lg border border-zinc-800">
+              <div className="text-2xl font-extrabold tracking-tight text-zinc-50">{highCount}</div>
+              <div className="text-[11px] text-zinc-500 font-mono uppercase tracking-[0.18em]">High</div>
+            </div>
+            <div className="bg-[#111318] px-4 py-3 rounded-lg border border-zinc-800">
+              <div className="text-2xl font-extrabold tracking-tight text-zinc-50">{data?.plan_limit_applied ?? recommendations.length}</div>
+              <div className="text-[11px] text-zinc-500 font-mono uppercase tracking-[0.18em]">Plan</div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px rounded-xl overflow-hidden border border-zinc-800 bg-zinc-800">
-        <div className="bg-[#111318] px-4 py-3">
-          <div className="text-2xl font-extrabold tracking-tight text-zinc-50">
-            {summary?.total ?? recommendations.length}
-          </div>
-          <div className="text-[11px] text-zinc-500 font-mono uppercase tracking-[0.18em]">Total actions</div>
-        </div>
-        <div className="bg-[#111318] px-4 py-3">
-          <div className="text-2xl font-extrabold tracking-tight text-zinc-50">
-            {summary?.critical ?? recommendations.filter((r) => r.severity === 'CRITICAL').length}
-          </div>
-          <div className="text-[11px] text-zinc-500 font-mono uppercase tracking-[0.18em]">Critical</div>
-        </div>
-        <div className="bg-[#111318] px-4 py-3">
-          <div className="text-2xl font-extrabold tracking-tight text-zinc-50">{highCount}</div>
-          <div className="text-[11px] text-zinc-500 font-mono uppercase tracking-[0.18em]">High priority</div>
-        </div>
-        <div className="bg-[#111318] px-4 py-3">
-          <div className="text-2xl font-extrabold tracking-tight text-zinc-50">
-            {data?.plan_limit_applied ?? recommendations.length}
-          </div>
-          <div className="text-[11px] text-zinc-500 font-mono uppercase tracking-[0.18em]">Plan limit</div>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-2 items-center">
+      <div className="flex flex-wrap items-center gap-3">
         {(['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const).map((sev) => (
           <Button
             key={sev}
@@ -249,18 +245,33 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
             variant={severityFilter === sev ? 'default' : 'outline'}
             className={cn(
               'h-8 px-3 text-[11px] font-mono rounded-md border',
-              severityFilter === sev
-                ? 'bg-violet-500 text-white border-violet-500'
-                : 'bg-[#111318] text-zinc-400 border-zinc-800 hover:bg-zinc-900'
+              severityFilter === sev ? 'bg-violet-500 text-white border-violet-500' : 'bg-[#111318] text-zinc-400 border-zinc-800 hover:bg-zinc-900'
             )}
             onClick={() => setSeverityFilter(sev as any)}
           >
             {sev === 'ALL' ? 'All' : sev.charAt(0) + sev.slice(1).toLowerCase()}
           </Button>
         ))}
-        <div className="text-[11px] text-zinc-500 font-mono flex items-center gap-2 ml-1">
-          <Target className="w-3.5 h-3.5 text-zinc-500" />
-          <span>Filter actions by severity to focus your next sprint.</span>
+        <div className="inline-flex items-center gap-2 ml-auto">
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2 top-2.5" />
+            <Input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search actions or prompts"
+              className="h-8 pl-7 text-[12px] bg-[#111318] border-zinc-800 text-zinc-200 placeholder:text-zinc-500"
+            />
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 px-3 text-[11px] font-mono border-zinc-700 text-zinc-400 hover:text-zinc-100"
+            onClick={() => setSortBy(sortBy === 'priority' ? 'severity' : sortBy === 'severity' ? 'impact' : 'priority')}
+          >
+            {sortBy === 'priority' && 'Sort: Priority'}
+            {sortBy === 'severity' && 'Sort: Severity'}
+            {sortBy === 'impact' && 'Sort: Impact'}
+          </Button>
         </div>
       </div>
 
@@ -293,6 +304,12 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
 
           const isDone = completedIds.has(rec.recommendation_id)
           const expanded = expandedId === rec.recommendation_id
+          const moduleIcon =
+            rec.module.toLowerCase().includes('prompt') ? <ListChecks className="w-4 h-4 text-violet-300" /> :
+            rec.module.toLowerCase().includes('visibility') ? <Gauge className="w-4 h-4 text-emerald-300" /> :
+            rec.module.toLowerCase().includes('content') ? <BarChart3 className="w-4 h-4 text-blue-300" /> :
+            rec.module.toLowerCase().includes('entity') ? <Target className="w-4 h-4 text-yellow-200" /> :
+            <Activity className="w-4 h-4 text-zinc-300" />
 
           return (
             <div
@@ -307,6 +324,9 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
                 <div className={cn('w-1.5 h-10 rounded-full', sevColors.bar)} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
+                    <div className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-[#151821] border border-zinc-800">
+                      {moduleIcon}
+                    </div>
                     <div className="truncate text-sm font-semibold text-zinc-50">{rec.action_title}</div>
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-zinc-500 font-mono">
@@ -355,7 +375,7 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
                 </div>
 
                 <div className="flex items-center justify-center w-6 h-6 text-[10px] text-zinc-500">
-                  <ChevronDown className={cn('w-3 h-3 transition-transform', expanded && 'rotate-180')} />
+                  {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                 </div>
               </div>
 
@@ -488,6 +508,10 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
             </div>
           )
         })}
+      </div>
+      <div className="text-[10px] text-zinc-500 font-mono flex items-center gap-2">
+        <Flame className="w-3.5 h-3.5 text-emerald-400" />
+        <span>Focus high priority items first. Use filters and search to plan sprint actions.</span>
       </div>
     </div>
   )
