@@ -220,10 +220,6 @@ export class JobService {
       ? trackedPrompts.map((p) => (typeof p === 'string' ? p.trim() : '')).filter(Boolean)
       : [];
 
-    if (cleaned.length === 0) {
-      throw new Error('No prompts provided');
-    }
-
     let resolvedSourceJobId = sourceJobId;
     if (!resolvedSourceJobId) {
       const sessionJobs = await this.jobRepository.findBySessionId(job.sessionId);

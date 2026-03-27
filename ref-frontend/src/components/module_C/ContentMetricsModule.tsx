@@ -34,6 +34,7 @@ import { useGetContentMetricsQuery, useStartContentMetricsMutation } from '@/sto
 import { useGetSessionJobsQuery } from '@/store/api/jobApi'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { RecommendationEnginePanel, RecommendationEnginePayload } from '@/components/module_D/RecommendationEnginePanel'
 
 // Score Card Component - Adapted from AIVisibilityScorecards
 interface ScoreCardProps {
@@ -186,9 +187,9 @@ function ScoreCard({ title, score, value, icon, color, trend, subStats, error, i
 interface ContentMetricsModuleProps {
   url: string
   sessionId?: string
-  initialTab?: 'content-analysis' | 'intent-clusters' | 'entity-detection'
+  initialTab?: 'content-analysis' | 'intent-clusters' | 'entity-detection' | 'recommendations'
   /** When set, renders only this single section without the internal tab switcher. */
-  section?: 'content-analysis' | 'intent-clusters' | 'entity-detection'
+  section?: 'content-analysis' | 'intent-clusters' | 'entity-detection' | 'recommendations'
 }
 
 export default function ContentMetricsModule({ url, sessionId, initialTab, section }: ContentMetricsModuleProps) {
@@ -197,10 +198,11 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
   const pathname = usePathname()
   
   const subtab = searchParams.get('subtab') || initialTab || 'content-analysis'
-  const [activeTab, setActiveTab] = useState<'content-analysis' | 'intent-clusters' | 'entity-detection'>(
+  const [activeTab, setActiveTab] = useState<'content-analysis' | 'intent-clusters' | 'entity-detection' | 'recommendations'>(
     section ? section :
     subtab === 'intent-clusters' ? 'intent-clusters' : 
     subtab === 'entity-detection' ? 'entity-detection' : 
+    subtab === 'recommendations' ? 'recommendations' :
     'content-analysis'
   )
   
@@ -276,6 +278,7 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
   
   const contentMetrics = metricsResult?.content_metrics
   const entityMetrics = metricsResult?.entity_metrics
+  const recommendations = metricsResult?.recommendations as RecommendationEnginePayload | undefined
 
   // Stop polling once data arrives
   useEffect(() => {
@@ -925,6 +928,50 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
                 )}
               </div>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* Recommendations Tab (Prompt Intelligence) */}
+      {activeTab === 'recommendations' && (
+        <div className="rounded-xl border border-zinc-800 bg-[#111113] p-6 space-y-6">
+          {!recommendations && !isLoadingMetrics && !metricsError && !isWaitingForAnalysis && !isStartingAnalysis && (
+            <AnalysisEmptyState
+              icon={<Zap className="w-8 h-8 text-zinc-600" />}
+              title="No Recommendation Data"
+              description="No recommendation cards available yet. Run a content metrics analysis to generate prioritized actions."
+              onRunAnalysis={jobId ? handleStartAnalysis : undefined}
+              isAnalyzing={isStartingAnalysis}
+              disabled={!jobId}
+              buttonLabel="Run Content Metrics Analysis"
+            />
+          )}
+
+          {(isLoadingMetrics || isWaitingForAnalysis || isStartingAnalysis) && !recommendations && (
+            <div className="p-8 text-center border border-zinc-800 rounded-xl bg-[#0D0D10]">
+              <Loader2 className="w-10 h-10 mx-auto mb-4 text-primary animate-spin" />
+              <p className="text-sm text-zinc-400">
+                {isStartingAnalysis ? 'Starting analysis...' : 'Running analysis — this may take a moment...'}
+              </p>
+            </div>
+          )}
+
+          {metricsError && !recommendations && (
+            <div className="p-4 border border-red-500/20 bg-red-500/10 rounded-lg">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-400" />
+                <p className="text-sm text-red-400">
+                  {((metricsError as any)?.data?.error ?? (metricsError as any)?.message ?? 'Failed to load metrics')}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {recommendations && (
+            <RecommendationEnginePanel
+              data={recommendations}
+              isLoading={isLoadingMetrics || isStartingAnalysis}
+            />
           )}
         </div>
       )}

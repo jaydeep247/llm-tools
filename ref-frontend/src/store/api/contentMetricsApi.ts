@@ -10,6 +10,7 @@ export interface ContentMetricsJobResult {
   message?: string;
   content_metrics?: any;
   entity_metrics?: any;
+  recommendations?: any;
   createdAt?: string;
 }
 
