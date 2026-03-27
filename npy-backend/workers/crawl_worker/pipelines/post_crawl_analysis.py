@@ -23,14 +23,11 @@ from pymongo import UpdateOne
 
 from utils.mongo import mongo_manager
 from utils.logger import logger
-from urllib.parse import urlparse
 from modules.module_A.WebsiteCrawler.metrics.similarity import (
     hamming_distance,
     calculate_similarity_score,
 )
-from modules.module_A.ContentAudit.BacklinkMetrics import extract_backlink_metrics_batch
 from modules.module_A.ContentAudit.KeywordMetrics import extract_keyword_metrics_batch
-from modules.module_A.ContentAudit.PerformanceMetrics import extract_performance_metrics_batch
 
 # Hamming distance threshold (out of 64 bits):
 # ≤ 3 bits difference ≈ 95.3% identical content → near-duplicate
@@ -245,78 +242,9 @@ def run_post_crawl_analysis(job_id: str) -> None:
             )
 
         # ------------------------------------------------------------------
-        # 5. Backlink Metrics batch (fields 1,5-8) + inlinks graph (field 1)
-        # ------------------------------------------------------------------
-        backlink_items: List[Dict[str, Any]] = []
-        for doc in docs:
-            url = doc.get("url")
-            if not url:
-                continue
-            bm = doc.get("backlink_metrics") or {}
-            backlink_items.append(
-                {
-                    "url": url,
-                    "main_keyword": doc.get("main_keyword", "") or "",
-                    "internal_outlinks": bm.get("internal_outlinks"),
-                    "external_outlinks": bm.get("external_outlinks"),
-                    "outlink_url_list": bm.get("outlink_url_list") or [],
-                }
-            )
-
-        if backlink_items:
-            first_url = backlink_items[0].get("url", "")
-            parsed = urlparse(first_url) if first_url else None
-            site_domain = (
-                f"{parsed.scheme}://{parsed.netloc}" if parsed and parsed.scheme and parsed.netloc else ""
-            )
-
-            # extract_backlink_metrics_batch() is async; we run it in a fresh loop.
-            loop = asyncio.new_event_loop()
-            try:
-                asyncio.set_event_loop(loop)
-                results = loop.run_until_complete(
-                    extract_backlink_metrics_batch(backlink_items, site_domain=site_domain)
-                )
-            finally:
-                loop.close()
-                asyncio.set_event_loop(None)
-
-            results_by_url = {r.get("url"): r for r in (results or []) if r.get("url")}
-
-            backlink_ops = []
-            for item in backlink_items:
-                url = item["url"]
-                bm_res = results_by_url.get(url)
-                if not bm_res:
-                    continue
-
-                backlink_ops.append(
-                    UpdateOne(
-                        {"jobId": job_id, "url": url},
-                        {
-                            "$set": {
-                                "backlink_metrics": bm_res,
-                                # Flatten core 8 fields for easier downstream exports.
-                                "inlinks": bm_res.get("inlinks"),
-                                "internal_outlinks": bm_res.get("internal_outlinks"),
-                                "external_outlinks": bm_res.get("external_outlinks"),
-                                "link_ratio": bm_res.get("link_ratio"),
-                                "link_ratio_pass": bm_res.get("link_ratio_pass"),
-                                "pr_score": bm_res.get("pr_score"),
-                                "current_referring_domains": bm_res.get("current_referring_domains"),
-                                "min_required_rds": bm_res.get("min_required_rds"),
-                                "rds_to_acquire": bm_res.get("rds_to_acquire"),
-                                "backlink_audit_log": bm_res.get("audit_log") or {},
-                            }
-                        },
-                    )
-                )
-
-            if backlink_ops:
-                mongo_manager.fields.bulk_write(backlink_ops, ordered=False)
-
-        # ------------------------------------------------------------------
-        # 6. Keyword Metrics batch (volume_global, volume_us, kd_us, cpc_usd)
+        # 5. Keyword Metrics batch (volume_global, volume_us, kd_us, cpc_usd)
+        # NOTE: Backlink Metrics are intentionally excluded here — they are
+        # only computed on-demand via the manual "Run" action in the frontend.
         # ------------------------------------------------------------------
         keyword_items: List[Dict[str, Any]] = []
         for doc in docs:
@@ -379,71 +307,8 @@ def run_post_crawl_analysis(job_id: str) -> None:
                     job_id,
                 )
 
-        # ------------------------------------------------------------------
-        # 7. Performance Metrics batch
-        #    (currentRanking, ga30DaysTraffic, overallKeywords, firstPageKeywords)
-        # ------------------------------------------------------------------
-        perf_items: List[Dict[str, Any]] = []
-        for doc in docs:
-            url = doc.get("url")
-            if not url:
-                continue
-            pm = doc.get("performance_metrics") or {}
-            perf_items.append(
-                {
-                    "url": url,
-                    "main_keyword": doc.get("main_keyword", "") or "",
-                    "currentRanking":    pm.get("currentRanking"),
-                    "ga30DaysTraffic":   pm.get("ga30DaysTraffic"),
-                    "overallKeywords":   pm.get("overallKeywords"),
-                    "firstPageKeywords": pm.get("firstPageKeywords"),
-                }
-            )
-
-        if perf_items:
-            loop = asyncio.new_event_loop()
-            try:
-                asyncio.set_event_loop(loop)
-                perf_results = loop.run_until_complete(
-                    extract_performance_metrics_batch(perf_items)
-                )
-            finally:
-                loop.close()
-                asyncio.set_event_loop(None)
-
-            perf_results_by_url = {
-                r.get("url"): r for r in (perf_results or []) if r.get("url")
-            }
-
-            perf_ops = []
-            for item in perf_items:
-                url = item["url"]
-                pr = perf_results_by_url.get(url)
-                if not pr:
-                    continue
-
-                perf_ops.append(
-                    UpdateOne(
-                        {"jobId": job_id, "url": url},
-                        {
-                            "$set": {
-                                "performance_metrics.currentRanking":    pr.get("currentRanking"),
-                                "performance_metrics.ga30DaysTraffic":   pr.get("ga30DaysTraffic"),
-                                "performance_metrics.overallKeywords":   pr.get("overallKeywords"),
-                                "performance_metrics.firstPageKeywords": pr.get("firstPageKeywords"),
-                                "performance_metrics_audit_log":         pr.get("audit_log") or {},
-                            }
-                        },
-                    )
-                )
-
-            if perf_ops:
-                mongo_manager.fields.bulk_write(perf_ops, ordered=False)
-                logger.info(
-                    "[POST-CRAWL] Performance metrics: wrote %d updates for job %s",
-                    len(perf_ops),
-                    job_id,
-                )
+        # NOTE: Performance Metrics are intentionally excluded here — they are
+        # only computed on-demand via the manual "Run" action in the frontend.
 
     except Exception:
         import traceback

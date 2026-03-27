@@ -394,7 +394,7 @@ export default function SigninClient() {
               }`}
             >
               {googleClientId && !isGoogleScriptLoaded && (
-                <div className="flex w-full items-center justify-center gap-2 px-4 py-3 bg-white border border-slate-200 rounded-xl h-[44px]">
+                <div className="flex w-full items-center justify-center gap-2 px-4 py-3 bg-white border border-slate-200 rounded-xl h-11">
                   <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
                   <span className="text-sm font-medium text-slate-500">Loading...</span>
                 </div>

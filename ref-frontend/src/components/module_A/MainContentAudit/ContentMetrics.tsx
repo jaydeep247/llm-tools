@@ -141,6 +141,7 @@ export function ContentMetrics({
     data: uniqueData,
     onRefresh,
     getLastRunAt: (row) => row.fields?.content_metrics_last_run_at,
+    persistLoading: true,
   })
 
   const filteredData = useMemo(() => {
@@ -261,7 +262,7 @@ export function ContentMetrics({
 
     switch (column) {
       case 'url':
-        if (!value) return 'N/A'
+        if (!value) return <span className="text-zinc-600 text-xs select-none">—</span>
         return (
           <a
             href={String(value)}
@@ -276,11 +277,11 @@ export function ContentMetrics({
 
       case 'currentWordCount':
       case 'serpIntentWordCount':
-        if (value == null) return 'N/A'
+        if (value == null) return <span className="text-zinc-600 text-xs select-none">—</span>
         return Number(value).toLocaleString()
 
       case 'needToAddWordCount': {
-        if (value == null) return 'N/A'
+        if (value == null) return <span className="text-zinc-600 text-xs select-none">—</span>
         const n = Number(value)
         const color =
           n <= 0 ? 'bg-green-500/20 text-green-300 border-green-500/30' :
@@ -291,7 +292,7 @@ export function ContentMetrics({
 
       case 'publishedDate':
       case 'upgradeDate': {
-        if (!value) return 'N/A'
+        if (!value) return <span className="text-zinc-600 text-xs select-none">—</span>
         try {
           return new Date(String(value)).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
         } catch {
@@ -300,7 +301,7 @@ export function ContentMetrics({
       }
 
       default:
-        return value !== null && value !== undefined ? String(value) : 'N/A'
+        return value !== null && value !== undefined ? String(value) : <span className="text-zinc-600 text-xs select-none">—</span>
     }
   }
 
@@ -327,11 +328,11 @@ export function ContentMetrics({
               onClick={() => metricRunner.runAll()}
               variant="outline"
               size="sm"
-              disabled={!jobId || uniqueData.length === 0 || metricRunner.hasPendingRuns || metricRunner.isSubmitting}
+              disabled={!jobId || uniqueData.length === 0 || metricRunner.isProcessing || metricRunner.isSubmitting}
               className="bg-blue-600/20 text-blue-400 border-blue-500/30 hover:bg-blue-600/30 rounded-xl"
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${metricRunner.hasPendingRuns ? 'animate-spin' : ''}`} />
-              {metricRunner.hasPendingRuns ? `Running ${metricRunner.pendingCount}...` : 'Run All URLs'}
+              <RefreshCw className={`h-4 w-4 mr-2 ${metricRunner.isProcessing ? 'animate-spin' : ''}`} />
+              {metricRunner.isProcessing ? `Running${metricRunner.pendingCount > 0 ? ` ${metricRunner.pendingCount}` : ''}...` : 'Run All URLs'}
             </Button>
             {onRefresh && (
               <Button onClick={onRefresh} variant="outline" size="sm" className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl" disabled={isLoading}>
@@ -441,18 +442,18 @@ export function ContentMetrics({
                 <thead className="bg-zinc-900/80 border-b border-zinc-800 sticky top-0 z-10">
                   <tr>
                     {orderedVisibleColumns.map((col) => renderTableHeader(col))}
-                    <th className="px-3 py-2 text-center text-xs font-semibold text-zinc-200 whitespace-nowrap">
+                    <th className="px-3 py-2 text-center text-xs font-semibold text-zinc-200 whitespace-nowrap sticky right-0 z-20 bg-zinc-900/80 border-l border-zinc-800">
                       Actions
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800">
-                  {isLoading ? (
+                  {isLoading || metricRunner.isBulkProcessing ? (
                     <tr>
                       <td colSpan={visibleColumns.size + 1} className="px-4 py-12 text-center">
                         <div className="flex items-center justify-center gap-2 text-zinc-400">
                           <RefreshCw className="h-5 w-5 animate-spin" />
-                          <span>Loading data...</span>
+                          <span>{metricRunner.isBulkProcessing ? 'Processing content metrics...' : 'Loading data...'}</span>
                         </div>
                       </td>
                     </tr>
@@ -464,23 +465,25 @@ export function ContentMetrics({
                     </tr>
                   ) : (
                     paginatedData.map((row, index) => (
-                      <tr key={row.id ?? row.url ?? index} className="hover:bg-zinc-800/50 transition-colors">
+                      <tr key={row.id ?? row.url ?? index} className="group hover:bg-zinc-800/50 transition-colors">
                         {orderedVisibleColumns.map((column) => (
                           <td key={String(column)} className="px-3 py-2 text-zinc-200 text-center whitespace-normal overflow-wrap-break-word">
                             {renderCellContent(row, column)}
                           </td>
                         ))}
-                        <td className="px-3 py-2 text-center">
-                          <Button
-                            onClick={() => metricRunner.runOne(row.url)}
-                            variant="outline"
-                            size="sm"
-                            disabled={!jobId || metricRunner.isRunning(row.url)}
-                            className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl min-w-24"
-                          >
-                            <RefreshCw className={`h-4 w-4 mr-2 ${metricRunner.isRunning(row.url) ? 'animate-spin' : ''}`} />
-                            {metricRunner.isRunning(row.url) ? 'Running' : 'Run'}
-                          </Button>
+                        <td className="px-3 py-2 text-center sticky right-0 z-10 bg-[#111113] group-hover:bg-zinc-800/50 border-l border-zinc-800 transition-colors">
+                          {(metricRunner.isRunning(row.url) || !row.fields?.content_metrics_last_run_at) && (
+                            <Button
+                              onClick={() => metricRunner.runOne(row.url)}
+                              variant="outline"
+                              size="sm"
+                              disabled={!jobId || metricRunner.isRunning(row.url)}
+                              className="bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl min-w-24"
+                            >
+                              <RefreshCw className={`h-4 w-4 mr-2 ${metricRunner.isRunning(row.url) ? 'animate-spin' : ''}`} />
+                              {metricRunner.isRunning(row.url) ? 'Running' : 'Run'}
+                            </Button>
+                          )}
                         </td>
                       </tr>
                     ))

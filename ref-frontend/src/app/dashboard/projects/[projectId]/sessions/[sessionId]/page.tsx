@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { CrawlLogger, DiscoveredPages, CrawlStatusHeader, CrawlStatusBanner } from '@/components/crawl'
 import { SessionLayout } from '@/components/layout/SessionLayout'
 import { CrawledDataTable, MainContentAudit, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, SchemaGeneratorTable, AuditChecker, SerpAnalyzer } from '@/components/module_A'
+import { Recommendations } from '@/components/module_A/MainContentAudit/Recommendations'
 import { AIIntelligenceModule, ContentMetricsModule, AIVisibilityScorecards, EntityGapAnalysis, AIAnswerPreview, ImprovementActions, ModelComparison, AIVisibilityReport } from '@/components/module_C'
 import { PromptTrackingPanel, SiteStructure } from '@/components/module_D/site-structure'
 import { AICitationRanking, ContentConsistencyEntityCoverage, BrandAnalysisSection, SentimentTrackingSection, CompetitorMentionsSection, SentimentTracking, ShareOfVoiceSection, TrendsByModelSection, DashboardOverview, PromptTrackingRecommendations } from '@/components/module_E'
@@ -1160,12 +1161,10 @@ export default function SessionDetailPage() {
           </div>
         )}
 
-        {/* Show Recommendations panel (now handled in Content Audit) */}
+        {/* Show Recommendations panel on recommendations tab */}
         {activeSection === 'recommendations' && (
           <div>
-            <div className="p-8 text-center text-zinc-400">
-              Recommendations have been moved to the Content Audit section.
-            </div>
+            <Recommendations jobId={jobId || ''} />
           </div>
         )}
 

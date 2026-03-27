@@ -337,7 +337,7 @@ export function BacklinkMetrics({
 
     switch (column) {
       case 'url':
-        if (!value || value === ('undefined' as any) || value === ('null' as any)) return 'N/A'
+        if (!value || value === ('undefined' as any) || value === ('null' as any)) return <span className="text-zinc-600 text-xs select-none">—</span>
         return (
           <a
             href={String(value)}
@@ -351,7 +351,7 @@ export function BacklinkMetrics({
         )
 
       case 'link_ratio_pass': {
-        if (value === undefined || value === null) return 'N/A'
+        if (value === undefined || value === null) return <span className="text-zinc-600 text-xs select-none">—</span>
         const passed = Boolean(value)
         const color = passed
           ? 'bg-green-500/20 text-green-300 border-green-500/30'
@@ -367,9 +367,9 @@ export function BacklinkMetrics({
       case 'current_referring_domains':
       case 'min_required_rds':
       case 'rds_to_acquire': {
-        if (value === undefined || value === null) return 'N/A'
+        if (value === undefined || value === null) return <span className="text-zinc-600 text-xs select-none">—</span>
         const num = Number(value)
-        if (Number.isNaN(num)) return 'N/A'
+        if (Number.isNaN(num)) return <span className="text-zinc-600 text-xs select-none">—</span>
 
         if (column === 'rds_to_acquire') {
           const color =
@@ -389,15 +389,11 @@ export function BacklinkMetrics({
           return <Badge className={color}>{num.toFixed(2)}</Badge>
         }
 
-        const color =
-          num === 0
-            ? 'bg-green-500/20 text-green-300 border-green-500/30'
-            : 'bg-zinc-700/30 text-zinc-200 border-zinc-600/30'
-        return <Badge className={color}>{num.toLocaleString()}</Badge>
+        return <Badge className="bg-zinc-700/30 text-zinc-200 border-zinc-600/30">{num.toLocaleString()}</Badge>
       }
 
       default:
-        return value !== null && value !== undefined ? String(value) : 'N/A'
+        return value !== null && value !== undefined ? String(value) : <span className="text-zinc-600 text-xs select-none">—</span>
     }
   }
 
@@ -428,7 +424,7 @@ export function BacklinkMetrics({
               variant="outline"
               size="sm"
               disabled={!jobId || normalizedData.length === 0 || metricRunner.hasPendingRuns || metricRunner.isSubmitting}
-              className="bg-blue-600/20 text-blue-400 border-blue-500/30 hover:bg-blue-600/30 rounded-xl"
+              className="bg-white text-black border-white hover:bg-zinc-100 rounded-xl"
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${metricRunner.hasPendingRuns ? 'animate-spin' : ''}`} />
               {metricRunner.hasPendingRuns ? `Running ${metricRunner.pendingCount}...` : 'Run All URLs'}
@@ -577,7 +573,7 @@ export function BacklinkMetrics({
                 <thead className="bg-zinc-900/80 border-b border-zinc-800 sticky top-0 z-10">
                   <tr>
                     {orderedVisibleColumns.map((column) => renderTableHeader(column))}
-                    <th className="px-3 py-2 text-center text-xs font-semibold text-zinc-200 whitespace-nowrap">
+                    <th className="px-3 py-2 text-center text-xs font-semibold text-zinc-200 whitespace-nowrap sticky right-0 z-20 bg-zinc-900/80 border-l border-zinc-800">
                       Actions
                     </th>
                   </tr>
@@ -602,7 +598,7 @@ export function BacklinkMetrics({
                     paginatedData.map((row, index) => (
                       <tr
                         key={row.id ?? row.url ?? index}
-                        className="hover:bg-zinc-800/50 transition-colors"
+                        className="group hover:bg-zinc-800/50 transition-colors"
                       >
                         {orderedVisibleColumns.map((column) => (
                           <td
@@ -612,17 +608,19 @@ export function BacklinkMetrics({
                             {renderCellContent(row, column)}
                           </td>
                         ))}
-                        <td className="px-3 py-2 text-center">
-                          <Button
-                            onClick={() => metricRunner.runOne(row.url)}
-                            variant="outline"
-                            size="sm"
-                            disabled={!jobId || metricRunner.isRunning(row.url)}
-                            className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl min-w-24"
-                          >
-                            <RefreshCw className={`h-4 w-4 mr-2 ${metricRunner.isRunning(row.url) ? 'animate-spin' : ''}`} />
-                            {metricRunner.isRunning(row.url) ? 'Running' : 'Run'}
-                          </Button>
+                        <td className="px-3 py-2 text-center sticky right-0 z-10 bg-[#111113] group-hover:bg-zinc-800/50 border-l border-zinc-800 transition-colors">
+                          {(metricRunner.isRunning(row.url) || !row.fields?.backlink_metrics_last_run_at) && (
+                            <Button
+                              onClick={() => metricRunner.runOne(row.url)}
+                              variant="outline"
+                              size="sm"
+                              disabled={!jobId || metricRunner.isRunning(row.url)}
+                              className="bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl min-w-24"
+                            >
+                              <RefreshCw className={`h-4 w-4 mr-2 ${metricRunner.isRunning(row.url) ? 'animate-spin' : ''}`} />
+                              {metricRunner.isRunning(row.url) ? 'Running' : 'Run'}
+                            </Button>
+                          )}
                         </td>
                       </tr>
                     ))

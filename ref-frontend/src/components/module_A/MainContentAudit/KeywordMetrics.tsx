@@ -144,6 +144,7 @@ export function KeywordMetrics({
     data: normalizedData,
     onRefresh,
     getLastRunAt: (row) => row.fields?.keyword_metrics_last_run_at,
+    persistLoading: true,
   })
 
   const filteredData = useMemo(() => {
@@ -307,7 +308,7 @@ export function KeywordMetrics({
 
     switch (column) {
       case 'url':
-        if (!value || value === ('undefined' as any) || value === ('null' as any)) return 'N/A'
+        if (!value || value === ('undefined' as any) || value === ('null' as any)) return <span className="text-zinc-600 text-xs select-none">—</span>
         return (
           <a
             href={String(value)}
@@ -321,14 +322,14 @@ export function KeywordMetrics({
         )
 
       case 'main_keyword':
-        if (!value) return <span className="text-zinc-500">—</span>
+        if (!value) return <span className="text-zinc-600 text-xs select-none">—</span>
         return <span className="text-zinc-200">{String(value)}</span>
 
       case 'volume_global':
       case 'volume_us': {
-        if (value === undefined || value === null) return 'N/A'
+        if (value === undefined || value === null) return <span className="text-zinc-600 text-xs select-none">—</span>
         const num = Number(value)
-        if (Number.isNaN(num)) return 'N/A'
+        if (Number.isNaN(num)) return <span className="text-zinc-600 text-xs select-none">—</span>
         const color =
           num >= 10000
             ? 'bg-green-500/20 text-green-300 border-green-500/30'
@@ -339,16 +340,16 @@ export function KeywordMetrics({
       }
 
       case 'kd_us': {
-        if (value === undefined || value === null) return 'N/A'
+        if (value === undefined || value === null) return <span className="text-zinc-600 text-xs select-none">—</span>
         const num = Number(value)
-        if (Number.isNaN(num)) return 'N/A'
+        if (Number.isNaN(num)) return <span className="text-zinc-600 text-xs select-none">—</span>
         return <Badge className={getKdColor(num)}>{num}</Badge>
       }
 
       case 'cpc_usd': {
-        if (value === undefined || value === null) return 'N/A'
+        if (value === undefined || value === null) return <span className="text-zinc-600 text-xs select-none">—</span>
         const num = Number(value)
-        if (Number.isNaN(num)) return 'N/A'
+        if (Number.isNaN(num)) return <span className="text-zinc-600 text-xs select-none">—</span>
         const color =
           num >= 5
             ? 'bg-green-500/20 text-green-300 border-green-500/30'
@@ -359,7 +360,7 @@ export function KeywordMetrics({
       }
 
       default:
-        return value !== null && value !== undefined ? String(value) : 'N/A'
+        return value !== null && value !== undefined ? String(value) : <span className="text-zinc-600 text-xs select-none">—</span>
     }
   }
 
@@ -393,11 +394,11 @@ export function KeywordMetrics({
               onClick={() => metricRunner.runAll()}
               variant="outline"
               size="sm"
-              disabled={!jobId || normalizedData.length === 0 || metricRunner.hasPendingRuns || metricRunner.isSubmitting}
+              disabled={!jobId || normalizedData.length === 0 || metricRunner.isProcessing || metricRunner.isSubmitting}
               className="bg-blue-600/20 text-blue-400 border-blue-500/30 hover:bg-blue-600/30 rounded-xl"
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${metricRunner.hasPendingRuns ? 'animate-spin' : ''}`} />
-              {metricRunner.hasPendingRuns ? `Running ${metricRunner.pendingCount}...` : 'Run All URLs'}
+              <RefreshCw className={`h-4 w-4 mr-2 ${metricRunner.isProcessing ? 'animate-spin' : ''}`} />
+              {metricRunner.isProcessing ? `Running ${metricRunner.pendingCount > 0 ? metricRunner.pendingCount : ''}...` : 'Run All URLs'}
             </Button>
             {onRefresh && (
               <Button
@@ -541,18 +542,18 @@ export function KeywordMetrics({
                 <thead className="bg-zinc-900/80 border-b border-zinc-800 sticky top-0 z-10">
                   <tr>
                     {orderedVisibleColumns.map((column) => renderTableHeader(column))}
-                    <th className="px-3 py-2 text-center text-xs font-semibold text-zinc-200 whitespace-nowrap">
+                    <th className="px-3 py-2 text-center text-xs font-semibold text-zinc-200 whitespace-nowrap sticky right-0 z-20 bg-zinc-900/80 border-l border-zinc-800">
                       Actions
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800">
-                  {isLoading ? (
+                  {isLoading || metricRunner.isBulkProcessing ? (
                     <tr>
                       <td colSpan={visibleColumns.size + 1} className="px-4 py-12 text-center">
                         <div className="flex items-center justify-center gap-2 text-zinc-400">
                           <RefreshCw className="h-5 w-5 animate-spin" />
-                          <span>Loading data...</span>
+                          <span>{metricRunner.isBulkProcessing ? 'Processing keyword metrics...' : 'Loading data...'}</span>
                         </div>
                       </td>
                     </tr>
@@ -566,7 +567,7 @@ export function KeywordMetrics({
                     paginatedData.map((row, index) => (
                       <tr
                         key={row.id ?? row.url ?? index}
-                        className="hover:bg-zinc-800/50 transition-colors"
+                        className="group hover:bg-zinc-800/50 transition-colors"
                       >
                         {orderedVisibleColumns.map((column) => (
                           <td
@@ -576,17 +577,19 @@ export function KeywordMetrics({
                             {renderCellContent(row, column)}
                           </td>
                         ))}
-                        <td className="px-3 py-2 text-center">
-                          <Button
-                            onClick={() => metricRunner.runOne(row.url)}
-                            variant="outline"
-                            size="sm"
-                            disabled={!jobId || metricRunner.isRunning(row.url)}
-                            className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl min-w-24"
-                          >
-                            <RefreshCw className={`h-4 w-4 mr-2 ${metricRunner.isRunning(row.url) ? 'animate-spin' : ''}`} />
-                            {metricRunner.isRunning(row.url) ? 'Running' : 'Run'}
-                          </Button>
+                        <td className="px-3 py-2 text-center sticky right-0 z-10 bg-[#111113] group-hover:bg-zinc-800/50 border-l border-zinc-800 transition-colors">
+                          {(metricRunner.isRunning(row.url) || !row.fields?.keyword_metrics_last_run_at) && (
+                            <Button
+                              onClick={() => metricRunner.runOne(row.url)}
+                              variant="outline"
+                              size="sm"
+                              disabled={!jobId || metricRunner.isRunning(row.url)}
+                              className="bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl min-w-24"
+                            >
+                              <RefreshCw className={`h-4 w-4 mr-2 ${metricRunner.isRunning(row.url) ? 'animate-spin' : ''}`} />
+                              {metricRunner.isRunning(row.url) ? 'Running' : 'Run'}
+                            </Button>
+                          )}
                         </td>
                       </tr>
                     ))
