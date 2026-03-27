@@ -1366,6 +1366,14 @@ export default function SessionDetailPage() {
           />
         )}
 
+        {activeSection === 'prompt-recommendations' && (
+          <ContentMetricsModule
+            url={session?.startUrl || ''}
+            sessionId={sessionId}
+            section="recommendations"
+          />
+        )}
+
         {/* SERP Analyzer */}
         {activeSection === 'serp-analyzer' && (
           <SerpAnalyzer jobId={jobId} sessionId={sessionId} />
