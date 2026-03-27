@@ -1,12 +1,11 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
-import { Button } from '@/components/ui/button'
+import { useMemo } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { 
   Loader2, Brain, MessageCircle, Database, Cpu, Lightbulb,
   CheckCircle, AlertCircle, Shield, Globe, BookOpen,
-  BarChart3, Zap, RefreshCw, FileText, Eye, Activity
+  BarChart3, Zap, FileText, Eye, Activity
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -17,9 +16,9 @@ import { cn } from '@/lib/utils'
 import { FieldTooltip } from '@/components/module_A/FieldTooltip'
 import { 
   useGetModuleCResultQuery,
-  useRunModuleCAnalysisMutation,
 } from '@/store/api/module_C/moduleCApi'
-import { useGetJobStatusQuery } from '@/store/api/jobApi'
+import { useModuleCAnalysis } from '@/hooks/useModuleCAnalysis'
+import ModuleCProgressLoader from './ModuleCProgressLoader'
 
 interface AIVisibilityScorecardsProps {
   url: string
@@ -141,31 +140,22 @@ function MetricCard({ label, value, sublabel, tooltip, icon, accent = 'blue', la
 }
 
 export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisibilityScorecardsProps) {
-  const [analysisJobId, setAnalysisJobId] = useState<string | null>(null)
-
   const { data: moduleCData, isLoading: isLoadingData, refetch: refetchData } = useGetModuleCResultQuery(jobId || '', { 
     skip: !jobId, refetchOnMountOrArgChange: true, refetchOnFocus: true, refetchOnReconnect: true,
   })
-  const [runAnalysis, { isLoading: isRunning }] = useRunModuleCAnalysisMutation()
-  const { data: analysisJobData } = useGetJobStatusQuery(analysisJobId || '', {
-    skip: !analysisJobId, pollingInterval: analysisJobId ? 2000 : 0,
+  const { isAnalyzing, progress, phaseLabel, runAnalysis } = useModuleCAnalysis({
+    jobId,
+    url,
+    onCompleted: refetchData,
   })
 
-  useEffect(() => {
-    const status = analysisJobData?.status?.toUpperCase()
-    if (status === 'COMPLETED') { setAnalysisJobId(null); refetchData() }
-    else if (status === 'FAILED') { setAnalysisJobId(null) }
-  }, [analysisJobData, refetchData])
-
   const handleRunAnalysis = async () => {
-    if (!jobId) return
     try {
-      const result = await runAnalysis({ jobId, url }).unwrap()
-      if (result.data?.analysisJobId) setAnalysisJobId(result.data.analysisJobId)
-    } catch (e) { console.error(e) }
+      await runAnalysis()
+    } catch (e) {
+      console.error(e)
+    }
   }
-
-  const isAnalyzing = isRunning || !!analysisJobId
   const result = moduleCData?.data
   const modules = result?.modules || {}
   const hasData = !!result
@@ -211,13 +201,6 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisi
           <h2 className="text-xl font-semibold text-white">AI Visibility Scorecards</h2>
           <p className="text-sm text-zinc-400 mt-0.5">How well your page performs across all AI engine dimensions</p>
         </div>
-        {hasData && (
-          <Button onClick={handleRunAnalysis} disabled={!jobId || isAnalyzing} variant="outline" size="sm"
-            className="bg-zinc-800/50 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
-            <RefreshCw className={cn('w-4 h-4 mr-2', isAnalyzing && 'animate-spin')} />
-            Re-analyze
-          </Button>
-        )}
       </div>
 
       {/* ── No Job Warning ───────────────────────────────────────────────────── */}
@@ -229,13 +212,21 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisi
       )}
 
       {/* ── Loading ──────────────────────────────────────────────────────────── */}
-      {(isLoadingData || isAnalyzing) && (
+      {isLoadingData && (
         <div className="flex items-center justify-center p-16 border border-zinc-800 rounded-2xl bg-zinc-800/30">
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
-            <p className="text-sm text-zinc-400">{isAnalyzing ? 'Running analysis…' : 'Loading data…'}</p>
+            <p className="text-sm text-zinc-400">Loading data…</p>
           </div>
         </div>
+      )}
+
+      {isAnalyzing && (
+        <ModuleCProgressLoader
+          progress={progress}
+          phaseLabel={phaseLabel}
+          title="Building AI Visibility Scorecards"
+        />
       )}
 
       {/* ── Empty State ───────────────────────────────────────────────────────── */}

@@ -21,6 +21,7 @@ from bs4 import BeautifulSoup
 
 from utils.mongo import mongo_manager
 from utils.storage import save_raw_html, load_raw_html
+from utils.event_publisher import publisher
 
 from .c5_entity_extractor import run_c5
 from .c1_aeo_checker import run_c1
@@ -118,6 +119,27 @@ def _derive_query(html: str, url: str, query: Optional[str]) -> str:
 class ModuleCRunner:
     """Orchestrates the full Module C (AEO) analysis pipeline."""
 
+    @staticmethod
+    def _emit_progress(job_id: str, step: int, total_steps: int, stage: str, message: str) -> None:
+        """Emit a non-blocking progress event for live UI streaming."""
+        try:
+            percent = int((step / max(total_steps, 1)) * 100)
+            percent = max(5, min(98, percent))
+            publisher.emit_event(
+                job_id,
+                "PROGRESS_UPDATE",
+                {
+                    "status": "running",
+                    "progress": percent,
+                    "stage": stage,
+                    "step": step,
+                    "total_steps": total_steps,
+                    "message": message,
+                },
+            )
+        except Exception as e:
+            logger.debug(f"[MODULE_C] Failed to emit progress event: {e}")
+
     # ─────────────────────────────────────────────────────────────────────────
     #  Full pipeline
     # ─────────────────────────────────────────────────────────────────────────
@@ -177,11 +199,15 @@ class ModuleCRunner:
 
         query = _derive_query(html_content, url, query)
 
+        total_stages = 9
+
         # ── C5: Entity Extraction (synchronous, no AI calls) ─────────────
+        self._emit_progress(job_id, 1, total_stages, "c5", "Extracting entities and content signals")
         logger.info(f"[MODULE_C] C5 — Entity Extraction | {url[:60]}")
         c5_output = run_c5(html_content, word_count=page_meta.get("word_count", 0))
 
         # ── C1: AEO Checker (sub-component scoring + entity ratio LLM) ──
+        self._emit_progress(job_id, 2, total_stages, "c1", "Scoring AEO readiness")
         logger.info(f"[MODULE_C] C1 — AEO Checker | {url[:60]}")
         c1_output = await run_c1(
             html=html_content,
@@ -197,6 +223,7 @@ class ModuleCRunner:
         page_type = c1_output.get("page_type", "other")
 
         # ── C3: Entity Coverage Audit ────────────────────────────────────
+        self._emit_progress(job_id, 3, total_stages, "c3", "Measuring entity coverage")
         logger.info(f"[MODULE_C] C3 — Entity Coverage | {url[:60]}")
         c3_output = await run_c3(
             c1_output=c1_output,
@@ -205,6 +232,7 @@ class ModuleCRunner:
         )
 
         # ── C6: Missing Information Analysis ─────────────────────────────
+        self._emit_progress(job_id, 4, total_stages, "c6", "Finding missing information gaps")
         logger.info(f"[MODULE_C] C6 — Missing Information | {url[:60]}")
         c6_output = await run_c6(
             c3_output=c3_output,
@@ -214,6 +242,7 @@ class ModuleCRunner:
         )
 
         # ── C4: Answer Completeness Score ────────────────────────────────
+        self._emit_progress(job_id, 5, total_stages, "c4", "Scoring answer completeness")
         logger.info(f"[MODULE_C] C4 — Answer Completeness | {url[:60]}")
         c4_output = await run_c4(
             visible_text=c5_output.get("visible_text", ""),
@@ -222,9 +251,11 @@ class ModuleCRunner:
         )
 
         # ── C2: Bulk — skipped for single-page; run via run_bulk_audit() ─
+        self._emit_progress(job_id, 6, total_stages, "c2", "Skipping bulk audit for single-page analysis")
         c2_output: Dict[str, Any] = {}
 
         # ── C7: Live LLM Answer Simulation (most expensive) ─────────────
+        self._emit_progress(job_id, 7, total_stages, "c7", "Running AI answer simulation")
         logger.info(f"[MODULE_C] C7 — LLM Answer Simulation | {url[:60]}")
         c7_output = await run_c7(
             visible_text=c5_output.get("visible_text", ""),
@@ -235,6 +266,7 @@ class ModuleCRunner:
         c7_raw_answers: Dict[str, List[str]] = c7_output.get("raw_answers", {})
 
         # ── C9: Multi-Model Insights ─────────────────────────────────────
+        self._emit_progress(job_id, 8, total_stages, "c9", "Comparing cross-model response quality")
         logger.info(f"[MODULE_C] C9 — Multi-Model Insights | {url[:60]}")
         c9_output = await run_c9(
             domain=domain,
@@ -243,6 +275,7 @@ class ModuleCRunner:
         )
 
         # ── C8: Page-Level Improvement Actions (final aggregation) ───────
+        self._emit_progress(job_id, 9, total_stages, "c8", "Generating improvement actions")
         logger.info(f"[MODULE_C] C8 — Improvement Actions | {url[:60]}")
         c8_output = run_c8(
             c1_output=c1_output,
@@ -282,6 +315,7 @@ class ModuleCRunner:
         # ── Persist to aeo_analysis collection ───────────────────────────
         try:
             from utils.storage import save_aeo_analysis
+            self._emit_progress(job_id, total_stages, total_stages, "persist", "Saving analysis results")
             await save_aeo_analysis(src_id, url, result)
         except Exception as e:
             logger.error(f"[MODULE_C] Failed to save AEO analysis: {e}")

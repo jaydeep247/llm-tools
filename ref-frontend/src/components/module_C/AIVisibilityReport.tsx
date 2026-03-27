@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -20,10 +20,11 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useGetVisibilityReportQuery, useRunModuleCAnalysisMutation } from '@/store/api/module_C/moduleCApi'
-import { useGetJobStatusQuery } from '@/store/api/jobApi'
+import { useGetVisibilityReportQuery } from '@/store/api/module_C/moduleCApi'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import type { AIVisibilityIssue, AIVisibilityRecommendation } from '@/store/api/module_C/moduleCApi'
+import { useModuleCAnalysis } from '@/hooks/useModuleCAnalysis'
+import ModuleCProgressLoader from './ModuleCProgressLoader'
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -149,42 +150,38 @@ function RecommendationCard({ rec, index }: { rec: AIVisibilityRecommendation; i
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function AIVisibilityReport({ jobId, url = '' }: AIVisibilityReportProps) {
-  const [analysisJobId, setAnalysisJobId] = useState<string | null>(null)
-
   const { data, isLoading, isFetching, refetch } = useGetVisibilityReportQuery(jobId || '', {
     skip: !jobId,
     refetchOnMountOrArgChange: true,
   })
 
-  const [runAnalysis] = useRunModuleCAnalysisMutation()
-
-  const { data: analysisJobData } = useGetJobStatusQuery(analysisJobId || '', {
-    skip: !analysisJobId,
-    pollingInterval: analysisJobId ? 2000 : 0,
+  const { isAnalyzing, progress, phaseLabel, runAnalysis } = useModuleCAnalysis({
+    jobId,
+    url,
+    onCompleted: refetch,
   })
 
-  useEffect(() => {
-    if (analysisJobData?.status === 'COMPLETED' || analysisJobData?.status === 'FAILED') {
-      setAnalysisJobId(null)
-      if (analysisJobData?.status === 'COMPLETED') refetch()
-    }
-  }, [analysisJobData?.status, refetch])
-
   const handleRunAnalysis = async () => {
-    if (!jobId) return
     try {
-      const result = await runAnalysis({ jobId, url }).unwrap()
-      if (result.data?.analysisJobId) setAnalysisJobId(result.data.analysisJobId)
+      await runAnalysis()
     } catch (error) {
       console.error('Failed to start analysis:', error)
     }
   }
 
-  const isAnalyzing = !!analysisJobId
-
   const report = data?.data?.data ?? null
   const reportUrl = data?.data?.url ?? ''
   const timestamp = data?.data?.timestamp ?? ''
+
+  if (isAnalyzing) {
+    return (
+      <ModuleCProgressLoader
+        progress={progress}
+        phaseLabel={phaseLabel}
+        title="Building AI Visibility Report"
+      />
+    )
+  }
 
   // ── Loading ──
   if (isLoading || isFetching) {

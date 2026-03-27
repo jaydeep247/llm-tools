@@ -5,15 +5,15 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Loader2, Brain, Rocket, CheckCircle, AlertCircle, RefreshCw, BarChart3, GitCompare, Zap, Eye } from 'lucide-react'
+import { Loader2, Brain, Rocket, CheckCircle, AlertCircle, BarChart3, GitCompare, Zap, Eye } from 'lucide-react'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
 import { 
-  useRunModuleCAnalysisMutation, 
   useGetModuleCResultQuery,
   useGetSessionModuleCResultsQuery,
 } from '@/store/api/module_C/moduleCApi'
-import { useGetJobStatusQuery } from '@/store/api/jobApi'
+import { useModuleCAnalysis } from '@/hooks/useModuleCAnalysis'
+import ModuleCProgressLoader from './ModuleCProgressLoader'
 import AIVisibilityScorecards from './AIVisibilityScorecards'
 import EntityGapAnalysis from './EntityGapAnalysis'
 import AIAnswerPreview from './AIAnswerPreview'
@@ -35,7 +35,6 @@ export default function AIIntelligenceModule({ url, sessionId, jobId }: AIIntell
   const subtab = searchParams.get('subtab') || 'aeo'
   const [auditMode, setAuditMode] = useState<'single' | 'bulk'>(subtab === 'bulk' ? 'bulk' : 'single')
   const [sitemapUrl, setSitemapUrl] = useState('')
-  const [analysisJobId, setAnalysisJobId] = useState<string | null>(null)
   const [activeSubTab, setActiveSubTab] = useState<'overview' | 'entities' | 'answers' | 'models' | 'actions'>('overview')
   
   // Ensure URL always has subtab parameter
@@ -55,9 +54,6 @@ export default function AIIntelligenceModule({ url, sessionId, jobId }: AIIntell
     router.replace(`${pathname}?${params.toString()}`, { scroll: false })
   }
   
-  // RTK Query mutations and queries
-  const [runModuleCAnalysis, { isLoading: isRunning }] = useRunModuleCAnalysisMutation()
-  
   // Fetch existing AEO results from database
   const { 
     data: existingAeoData, 
@@ -70,24 +66,13 @@ export default function AIIntelligenceModule({ url, sessionId, jobId }: AIIntell
     refetchOnReconnect: true,
   })
 
-  // Poll for analysis job status when we have an analysisJobId
-  const { 
-    data: analysisJobData,
-    isLoading: isLoadingAnalysisJob 
-  } = useGetJobStatusQuery(analysisJobId || '', {
-    skip: !analysisJobId,
-    pollingInterval: analysisJobId ? 2000 : 0,
-  })
+  const websiteUrl = (url || '').trim()
 
-  // Check if analysis job is complete and refetch results
-  useEffect(() => {
-    if (analysisJobData?.status === 'COMPLETED') {
-      setAnalysisJobId(null) // Stop polling
-      refetchAeoResults() // Refresh the results
-    } else if (analysisJobData?.status === 'FAILED') {
-      setAnalysisJobId(null) // Stop polling
-    }
-  }, [analysisJobData, refetchAeoResults])
+  const { isAnalyzing, progress, phaseLabel, runAnalysis } = useModuleCAnalysis({
+    jobId,
+    url: websiteUrl,
+    onCompleted: refetchAeoResults,
+  })
 
   // Auto-populate sitemap URL when switching to bulk mode
   useEffect(() => {
@@ -99,21 +84,16 @@ export default function AIIntelligenceModule({ url, sessionId, jobId }: AIIntell
       }
     }
   }, [auditMode, url, sitemapUrl])
-
-  const websiteUrl = (url || '').trim()
   
   const handleSingleAnalyze = useCallback(async () => {
     if (!websiteUrl || !jobId) return
     
     try {
-      const result = await runModuleCAnalysis({ jobId, url: websiteUrl }).unwrap()
-      if (result.data?.analysisJobId) {
-        setAnalysisJobId(result.data.analysisJobId)
-      }
+      await runAnalysis()
     } catch (error) {
       console.error('Failed to start Module C analysis:', error)
     }
-  }, [websiteUrl, jobId, runModuleCAnalysis])
+  }, [websiteUrl, jobId, runAnalysis])
 
   const handleBulkAnalyze = () => {
     // TODO: Implement bulk analysis
@@ -122,7 +102,6 @@ export default function AIIntelligenceModule({ url, sessionId, jobId }: AIIntell
   }
 
   // Determine loading state
-  const isAnalyzing = isRunning || !!analysisJobId
   const isLoadingSingleData = isAnalyzing || isLoadingExisting
   
   // Extract results from the API response
@@ -210,17 +189,18 @@ export default function AIIntelligenceModule({ url, sessionId, jobId }: AIIntell
 
           {/* Loading State */}
           {isLoadingSingleData && (
-            <div className="p-8 text-center border border-border rounded-lg bg-muted/50">
-              <Loader2 className="w-10 h-10 mx-auto mb-4 text-primary animate-spin" />
-              <p className="text-sm text-muted-foreground">
-                {isLoadingExisting ? 'Loading existing analysis...' : 
-                 analysisJobId ? 'Running AEO analysis... This may take a few minutes.' : 
-                 'Starting analysis...'}
-              </p>
-              {analysisJobData?.status && (
-                <Badge variant="outline" className="mt-2">
-                  Status: {analysisJobData.status}
-                </Badge>
+            <div>
+              {isAnalyzing ? (
+                <ModuleCProgressLoader
+                  progress={progress}
+                  phaseLabel={phaseLabel}
+                  title="Running AEO Analysis"
+                />
+              ) : (
+                <div className="p-8 text-center border border-border rounded-lg bg-muted/50">
+                  <Loader2 className="w-10 h-10 mx-auto mb-4 text-primary animate-spin" />
+                  <p className="text-sm text-muted-foreground">Loading existing analysis...</p>
+                </div>
               )}
             </div>
           )}
@@ -228,24 +208,12 @@ export default function AIIntelligenceModule({ url, sessionId, jobId }: AIIntell
           {/* Results Display */}
           {hasExistingData && !isLoadingSingleData && (
             <div className="space-y-4">
-              {/* Top bar: timestamp + re-run */}
+              {/* Top bar: timestamp */}
               <div className="flex items-center justify-between">
                 <Badge variant="outline" className="text-xs">
                   <CheckCircle className="w-3 h-3 mr-1" />
                   Analysis completed • {aeoResult?.timestamp ? new Date(aeoResult.timestamp).toLocaleString() : 'Unknown'}
                 </Badge>
-                <Button
-                  onClick={handleSingleAnalyze}
-                  disabled={!websiteUrl || isAnalyzing}
-                  size="sm"
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer"
-                >
-                  {isAnalyzing ? (
-                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Re-analyzing...</>
-                  ) : (
-                    <><RefreshCw className="w-4 h-4 mr-2" />Run New Analysis</>
-                  )}
-                </Button>
               </div>
 
               {/* Sub-tab navigation */}

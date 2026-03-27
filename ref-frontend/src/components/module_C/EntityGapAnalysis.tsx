@@ -1,10 +1,9 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
-import { Button } from '@/components/ui/button'
+import { useState, useMemo } from 'react'
 import { Badge } from '@/components/ui/badge'
 import {
-  Loader2, Database, AlertTriangle, XCircle, RefreshCw,
+  Loader2, Database, AlertTriangle, XCircle,
   Hash, Target, AlertCircle, ChevronDown, ChevronUp
 } from 'lucide-react'
 import {
@@ -14,8 +13,9 @@ import {
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
 import { FieldTooltip } from '@/components/module_A/FieldTooltip'
-import { useGetModuleCResultQuery, useRunModuleCAnalysisMutation } from '@/store/api/module_C/moduleCApi'
-import { useGetJobStatusQuery } from '@/store/api/jobApi'
+import { useGetModuleCResultQuery } from '@/store/api/module_C/moduleCApi'
+import { useModuleCAnalysis } from '@/hooks/useModuleCAnalysis'
+import ModuleCProgressLoader from './ModuleCProgressLoader'
 
 interface EntityGapAnalysisProps {
   jobId?: string | null
@@ -72,33 +72,24 @@ function Section({ title, icon, children, defaultOpen = true, badge }: {
 }
 
 export default function EntityGapAnalysis({ jobId, url }: EntityGapAnalysisProps) {
-  const [analysisJobId, setAnalysisJobId] = useState<string | null>(null)
   const [showAllMissing, setShowAllMissing] = useState(false)
   const [showAllFacts, setShowAllFacts] = useState(false)
 
   const { data: moduleCData, isLoading: isLoadingData, refetch: refetchData } = useGetModuleCResultQuery(jobId || '', {
     skip: !jobId, refetchOnMountOrArgChange: true,
   })
-  const [runAnalysis, { isLoading: isRunning }] = useRunModuleCAnalysisMutation()
-  const { data: analysisJobData } = useGetJobStatusQuery(analysisJobId || '', {
-    skip: !analysisJobId, pollingInterval: analysisJobId ? 2000 : 0,
+  const { isAnalyzing, progress, phaseLabel, runAnalysis } = useModuleCAnalysis({
+    jobId,
+    url: url || '',
+    onCompleted: refetchData,
   })
 
-  useEffect(() => {
-    const status = analysisJobData?.status?.toUpperCase()
-    if (status === 'COMPLETED') { setAnalysisJobId(null); refetchData() }
-    else if (status === 'FAILED') { setAnalysisJobId(null) }
-  }, [analysisJobData, refetchData])
-
   const handleRunAnalysis = async () => {
-    if (!jobId) return
     try {
-      const result = await runAnalysis({ jobId, url: url || '' }).unwrap()
-      if (result.data?.analysisJobId) setAnalysisJobId(result.data.analysisJobId)
+      await runAnalysis()
     } catch (e) { console.error(e) }
   }
 
-  const isAnalyzing = isRunning || !!analysisJobId
   const result = moduleCData?.data
   const modules = result?.modules || {}
   const hasData = !!result
@@ -150,22 +141,23 @@ export default function EntityGapAnalysis({ jobId, url }: EntityGapAnalysisProps
           <h2 className="text-xl font-semibold text-white">Entity &amp; Knowledge Gap Analysis</h2>
           <p className="text-sm text-zinc-400 mt-0.5">What your page is missing that AI engines expect to find</p>
         </div>
-        {hasData && (
-          <Button onClick={handleRunAnalysis} disabled={!jobId || isAnalyzing} variant="outline" size="sm"
-            className="bg-zinc-800/50 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white">
-            <RefreshCw className={cn('w-4 h-4 mr-2', isAnalyzing && 'animate-spin')} />
-            Re-analyze
-          </Button>
-        )}
       </div>
 
-      {(isLoadingData || isAnalyzing) && (
+      {isLoadingData && (
         <div className="flex items-center justify-center p-16 border border-zinc-800 rounded-2xl bg-zinc-800/30">
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
-            <p className="text-sm text-zinc-400">{isAnalyzing ? 'Running analysis...' : 'Loading...'}</p>
+            <p className="text-sm text-zinc-400">Loading...</p>
           </div>
         </div>
+      )}
+
+      {isAnalyzing && (
+        <ModuleCProgressLoader
+          progress={progress}
+          phaseLabel={phaseLabel}
+          title="Analyzing Entity and Gap Coverage"
+        />
       )}
 
       {!hasData && !isLoadingData && !isAnalyzing && jobId && (

@@ -241,6 +241,19 @@ def start_queue_worker() -> None:
         pipe.expire(f"job:{job_id}", 3600 * 24)
         pipe.execute()
 
+        try:
+            # Mark running immediately so socket consumers can move to live mode
+            # without waiting for terminal events.
+            dispatch_redis.set(f"job:{job_id}:status", "running")
+            dispatch_redis.hset(f"job:{job_id}", mapping={"status": "RUNNING"})
+            publisher.emit_event(job_id, "JOB_STARTED", {
+                "status": "running",
+                "sessionId": session_id,
+                "projectId": project_id,
+            })
+        except Exception as pub_err:
+            logger.warning(f"[QUEUE] Failed to emit JOB_STARTED for {job_id}: {pub_err}")
+
         future = executor.submit(run_job_in_worker, payload, job_type)
 
         def when_done(f) -> None:
