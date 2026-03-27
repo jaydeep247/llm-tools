@@ -63,11 +63,30 @@ export class AuthService {
     const hashedPassword = await PasswordUtil.hash(data.password);
 
     // Create user
-    const user = await this.userRepository.create({
-      ...data,
-      password: hashedPassword,
-      authProvider: 'email',
-    });
+    let user;
+    try {
+      user = await this.userRepository.create({
+        ...data,
+        password: hashedPassword,
+        authProvider: 'email',
+      });
+    } catch (createError: any) {
+      // Race condition: another request created the user between our check and create.
+      // Re-fetch to throw the correct domain error instead of a raw DB error.
+      if (
+        createError.message?.includes('already exists') ||
+        createError.message?.includes('already linked')
+      ) {
+        const raceUser = await this.userRepository.findByEmail(data.email);
+        if (raceUser) {
+          if (raceUser.authProvider === 'google' || raceUser.authProvider === 'both') {
+            throw new Error('Account already exists. Please log in using Google.');
+          }
+          throw new Error('User with this email already exists');
+        }
+      }
+      throw createError;
+    }
 
     return this.buildAuthResponse(user);
   }
@@ -124,14 +143,18 @@ export class AuthService {
       throw new Error('Google account does not have a verified email address.');
     }
 
+    // Case 1 & 2: Check if user exists by Google ID or Email concurrently
+    const [userByGoogleId, userByEmail] = await Promise.all([
+      this.userRepository.findByGoogleId(googleId),
+      this.userRepository.findByEmail(email)
+    ]);
+
     // Case 1: existing account linked to this Google ID
-    const userByGoogleId = await this.userRepository.findByGoogleId(googleId);
     if (userByGoogleId) {
       return this.buildAuthResponse(userByGoogleId);
     }
 
     // Case 2: existing email/password account — link Google to it
-    const userByEmail = await this.userRepository.findByEmail(email);
     if (userByEmail) {
       if (userByEmail.googleId && userByEmail.googleId !== googleId) {
         throw new Error('This email is already linked to another Google account. Please log in with Google.');
@@ -217,6 +240,66 @@ export class AuthService {
   async verifyToken(token: string): Promise<AuthResponse['user']> {
     const payload = JwtUtil.verify(token);
     return this.getUserProfile(payload.userId);
+  }
+
+  /**
+   * Refresh a user token
+   */
+  async refreshToken(userId: string): Promise<string> {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    return JwtUtil.sign({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+    });
+  }
+
+  /**
+   * Generate OAuth URL for Google Analytics connection
+   * Uses a separate OAuth2 flow from login — different scopes, different purpose
+   */
+  async getAnalyticsAuthUrl(): Promise<{ url: string }> {
+    if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) {
+      throw new Error('Google Analytics OAuth is not configured on this server.');
+    }
+    const client = new OAuth2Client({
+      clientId: env.GOOGLE_CLIENT_ID,
+      clientSecret: env.GOOGLE_CLIENT_SECRET,
+      redirectUri: env.GOOGLE_ANALYTICS_REDIRECT_URI,
+    });
+    const url = client.generateAuthUrl({
+      access_type: 'offline',
+      prompt: 'consent',
+      scope: ['https://www.googleapis.com/auth/analytics.readonly'],
+    });
+    return { url };
+  }
+
+  /**
+   * Exchange authorization code for Analytics tokens and persist under googleAnalytics field
+   * NEVER touches login tokens — stored at a completely separate path in the user document
+   */
+  async exchangeAnalyticsCode(userId: string, code: string): Promise<void> {
+    if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) {
+      throw new Error('Google Analytics OAuth is not configured on this server.');
+    }
+    const client = new OAuth2Client({
+      clientId: env.GOOGLE_CLIENT_ID,
+      clientSecret: env.GOOGLE_CLIENT_SECRET,
+      redirectUri: env.GOOGLE_ANALYTICS_REDIRECT_URI,
+    });
+    const { tokens } = await client.getToken(code);
+    await this.userRepository.update(userId, {
+      googleAnalytics: {
+        connected: true,
+        accessToken: tokens.access_token ?? null,
+        refreshToken: tokens.refresh_token ?? null,
+        expiryDate: tokens.expiry_date ?? null,
+      },
+    });
   }
 }
 

@@ -4,6 +4,7 @@ import { ResponseUtil } from '../../utils/response';
 import { signupSchema, loginSchema, googleAuthSchema } from './auth.validator';
 import { logger } from '../../shared/logger/logger';
 import { cookieConfig, COOKIE_NAME } from '../../config/cookie';
+import { env } from '../../config/env';
 
 export class AuthController {
   private authService: AuthService;
@@ -34,6 +35,18 @@ export class AuthController {
       }
       if (error.message === 'Account already exists. Please log in using Google.') {
         return ResponseUtil.error(res, error.message, undefined, 409);
+      }
+      // Fallback for any other Google-account conflict surfaced from the repository
+      if (
+        error.message === 'This Google account is already linked to another user' ||
+        error.message === 'This email is already linked to another Google account. Please log in with Google.'
+      ) {
+        return ResponseUtil.error(
+          res,
+          'An account with this email already exists. Please sign in using Google.',
+          undefined,
+          409
+        );
       }
       if (error.name === 'ZodError') {
         return ResponseUtil.error(res, 'Validation failed', error.errors);
@@ -84,6 +97,27 @@ export class AuthController {
   };
 
   /**
+   * Silent token refresh
+   */
+  refresh = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      if (!req.user || !req.user.userId) {
+        return ResponseUtil.unauthorized(res, 'Invalid session');
+      }
+
+      // We rely on authMiddleware to have verified the existing token
+      // Re-issue a fresh token
+      const token = await this.authService.refreshToken(req.user.userId);
+      res.cookie(COOKIE_NAME, token, cookieConfig);
+
+      return ResponseUtil.success(res, 'Token refreshed successfully');
+    } catch (error: any) {
+      logger.error(`Refresh token error: ${error.message}`);
+      return ResponseUtil.unauthorized(res, 'Session expired. Please log in again.');
+    }
+  };
+
+  /**
    * Get current user
    */
   getCurrentUser = async (req: Request, res: Response): Promise<Response> => {
@@ -102,6 +136,49 @@ export class AuthController {
         return ResponseUtil.unauthorized(res, 'User not found');
       }
       return ResponseUtil.serverError(res, 'Failed to retrieve user');
+    }
+  };
+
+  /**
+   * Initiate Google Analytics OAuth flow
+   * Redirects browser to Google consent screen with analytics.readonly scope.
+   * COMPLETELY separate from login — does not touch login tokens.
+   */
+  initiateAnalyticsOAuth = async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const { url } = await this.authService.getAnalyticsAuthUrl();
+      res.redirect(url);
+    } catch (error: any) {
+      logger.error(`Analytics OAuth initiate error: ${error.message}`);
+      res.redirect(`${env.FRONTEND_URL}/onboarding?ga_error=server_error`);
+    }
+  };
+
+  /**
+   * Handle Google Analytics OAuth callback
+   * Exchanges authorization code for tokens and stores under user.googleAnalytics — never touches login tokens.
+   */
+  analyticsOAuthCallback = async (req: Request, res: Response): Promise<void> => {
+    const { code, error } = req.query;
+
+    if (error || !code) {
+      const reason = encodeURIComponent((error as string) || 'access_denied');
+      res.redirect(`${env.FRONTEND_URL}/onboarding?ga_error=${reason}`);
+      return;
+    }
+
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.redirect(`${env.FRONTEND_URL}/onboarding?ga_error=unauthorized`);
+      return;
+    }
+
+    try {
+      await this.authService.exchangeAnalyticsCode(userId, code as string);
+      res.redirect(`${env.FRONTEND_URL}/onboarding?ga_connected=1`);
+    } catch (error: any) {
+      logger.error(`Analytics OAuth callback error: ${error.message}`);
+      res.redirect(`${env.FRONTEND_URL}/onboarding?ga_error=token_exchange_failed`);
     }
   };
 

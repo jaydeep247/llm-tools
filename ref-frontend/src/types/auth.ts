@@ -17,6 +17,10 @@ export interface User {
     organizationType?: string;
     focusArea?: string;
   };
+  /** Google Analytics integration status — separate from login OAuth */
+  googleAnalytics?: {
+    connected: boolean;
+  };
 }
 
 export interface SignupRequest {

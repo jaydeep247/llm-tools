@@ -1,11 +1,12 @@
 'use client'
 
+import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
-import { Lock, Bell, Palette, Shield } from 'lucide-react'
+import { Lock, Bell, Palette, Shield, Loader2 } from 'lucide-react'
 import {
   Select,
   SelectContent,
@@ -15,6 +16,26 @@ import {
 } from '@/components/ui/select'
 
 export default function SettingsPage() {
+  const { user, isLoading } = useAuth()
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center pt-20">
+        <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
+      </div>
+    )
+  }
+
+  // Guard: if auth data isn't available yet (e.g. brief window before first fetch
+  // or after an error) keep showing the spinner rather than rendering placeholder values.
+  if (!user) {
+    return (
+      <div className="flex h-full items-center justify-center pt-20">
+        <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4 sm:space-y-6 md:space-y-8 animate-fade-in-hero">
       {/* Header */}
@@ -63,14 +84,16 @@ export default function SettingsPage() {
         <TabsContent value="account" className="space-y-6">
           <div className="rounded-2xl border border-zinc-800 bg-[#111113] p-6">
             <h2 className="text-xl font-bold text-white mb-6">Profile Information</h2>
-            <div className="space-y-6 max-w-2xl">
+            {/* key={user.id} forces inputs to remount with correct defaultValue
+                when user data arrives — prevents blank fields after Google sign-in */}
+            <div key={user.id} className="space-y-6 max-w-2xl">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="fullname" className="text-white/80 font-semibold text-sm">Full Name</Label>
                   <Input 
                     id="fullname" 
                     placeholder="John Doe" 
-                    defaultValue="John Doe"
+                    defaultValue={user?.name || "John Doe"}
                     className="bg-[#1A1A1A] border border-zinc-800 text-white placeholder:text-white/30 hover:border-zinc-700 focus:border-white/30 transition-colors rounded-lg text-sm h-10"
                   />
                 </div>
@@ -80,8 +103,9 @@ export default function SettingsPage() {
                     id="email" 
                     type="email"
                     placeholder="john@example.com" 
-                    defaultValue="john@example.com"
-                    className="bg-[#1A1A1A] border border-zinc-800 text-white placeholder:text-white/30 hover:border-zinc-700 focus:border-white/30 transition-colors rounded-lg text-sm h-10"
+                    defaultValue={user?.email || "john@example.com"}
+                    disabled
+                    className="bg-[#1A1A1A] border border-zinc-800 text-white/50 placeholder:text-white/30 hover:border-zinc-700 focus:border-white/30 transition-colors rounded-lg text-sm h-10 opacity-70 cursor-not-allowed"
                   />
                 </div>
               </div>

@@ -117,15 +117,26 @@ export default function SigninClient() {
 
         setError("")
 
-        try {
-          const authResponse = await googleAuth({
-            idToken: response.credential,
-          }).unwrap()
+        let retries = 0;
+        const maxRetries = 2;
+        const tryGoogleAuth = async () => {
+          if (!response.credential) return;
+          try {
+            const authResponse = await googleAuth({
+              idToken: response.credential,
+            }).unwrap()
 
-          handleAuthSuccess(authResponse)
-        } catch (err: any) {
-          setError(getErrorMessage(err))
-        }
+            handleAuthSuccess(authResponse)
+          } catch (err: any) {
+            if (retries < maxRetries && (err?.status === 'FETCH_ERROR' || err?.status === 502 || err?.status === 503 || err?.status === 504)) {
+              retries++;
+              setTimeout(tryGoogleAuth, 1000 * retries); // exponential backoff
+            } else {
+              setError(getErrorMessage(err))
+            }
+          }
+        };
+        tryGoogleAuth();
       },
       auto_select: false,
       cancel_on_tap_outside: true,
@@ -168,7 +179,21 @@ export default function SigninClient() {
     } catch (err: any) {
       const errorMessage = getErrorMessage(err)
 
-      setError(errorMessage)
+      // If the email belongs to a Google-only account, auto-switch to login
+      // mode and surface a clear message so the user knows what to do next.
+      const isGoogleConflict =
+        errorMessage.includes('already exists') &&
+        (errorMessage.toLowerCase().includes('google') || errorMessage.toLowerCase().includes('sign in using google'))
+      if (isGoogleConflict && !isLogin) {
+        setIsTransitioning(true)
+        setTimeout(() => {
+          setIsLogin(true)
+          setIsTransitioning(false)
+          setError('This email is already registered with Google. Please use "Continue with Google" or fill in your password below.')
+        }, 150)
+      } else {
+        setError(errorMessage)
+      }
 
       if (process.env.NODE_ENV === "development") {
         console.warn("Auth warning:", errorMessage)
@@ -190,6 +215,9 @@ export default function SigninClient() {
           src="https://accounts.google.com/gsi/client"
           strategy="afterInteractive"
           onLoad={() => {
+            setIsGoogleScriptLoaded(true)
+          }}
+          onReady={() => {
             setIsGoogleScriptLoaded(true)
           }}
           onError={() => {
@@ -364,7 +392,14 @@ export default function SigninClient() {
               className={`min-h-11 w-full flex items-center justify-center overflow-hidden rounded-xl ${
                 isGoogleLoading ? "pointer-events-none opacity-60" : ""
               }`}
-            />
+            >
+              {googleClientId && !isGoogleScriptLoaded && (
+                <div className="flex w-full items-center justify-center gap-2 px-4 py-3 bg-white border border-slate-200 rounded-xl h-[44px]">
+                  <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
+                  <span className="text-sm font-medium text-slate-500">Loading...</span>
+                </div>
+              )}
+            </div>
 
             {!googleClientId && (
               <button

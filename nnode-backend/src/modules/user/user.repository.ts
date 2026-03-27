@@ -22,7 +22,11 @@ export class UserRepository {
       ...(data.password !== undefined && { password: data.password }),
       name: data.name,
       role: data.role ?? UserRole.ANALYST,
-      googleId: data.googleId,
+      // Only include googleId when it has a real value.
+      // Omitting the field entirely prevents MongoDB from storing null and
+      // avoids false 11000 duplicate-key errors on the unique googleId index
+      // when multiple email-only users are created.
+      ...(data.googleId != null && { googleId: data.googleId }),
       authProvider: data.authProvider ?? 'email',
       createdAt: now,
       updatedAt: now,

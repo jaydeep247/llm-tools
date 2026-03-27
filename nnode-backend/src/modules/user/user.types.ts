@@ -2,6 +2,13 @@ import { UserRole } from '../../shared/constants/roles';
 
 export type AuthProvider = 'email' | 'google' | 'both';
 
+export interface GoogleAnalyticsIntegration {
+  connected: boolean;
+  accessToken?: string | null;
+  refreshToken?: string | null;
+  expiryDate?: number | null;
+}
+
 export interface UserEntity {
   id: string;
   email: string;
@@ -19,6 +26,8 @@ export interface UserEntity {
     organizationType?: string;
     focusArea?: string;
   };
+  /** Google Analytics integration — stored separately from login tokens */
+  googleAnalytics?: GoogleAnalyticsIntegration;
 }
 
 export type UserResponse = Omit<UserEntity, 'password'>;
@@ -46,6 +55,7 @@ export interface UpdateUserDto {
     organizationType?: string;
     focusArea?: string;
   };
+  googleAnalytics?: GoogleAnalyticsIntegration;
 }
 
 export interface UserFilters {

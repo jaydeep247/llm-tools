@@ -1,8 +1,8 @@
 
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useRef, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { useUpdateUserMutation } from '@/store/api/userApi'
 import { useCreateProjectMutation } from '@/store/api/projectApi'
@@ -14,8 +14,21 @@ import { OnboardingLayout } from '@/components/onboarding/layout'
 import { StepWelcome } from '@/components/onboarding/steps/step-welcome'
 import { StepCreateProject } from '@/components/onboarding/steps/step-create-project'
 import { StepStartSession } from '@/components/onboarding/steps/step-start-session'
+import { StepConnectAnalytics } from '@/components/onboarding/steps/step-connect-analytics'
 
-const TOTAL_STEPS = 3
+const TOTAL_STEPS = 4
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api/v1'
+
+/** Key used to persist brand-onboarding redirect params across the GA OAuth round-trip */
+const GA_REDIRECT_PARAMS_KEY = 'onboarding_brand_params'
+
+interface BrandRedirectParams {
+  projectId: string
+  url: string
+  sessionId: string
+  jobId: string
+}
 
 const LEFT_PANEL_CONTENT = [
   { // 0: Welcome
@@ -45,15 +58,97 @@ const LEFT_PANEL_CONTENT = [
       role: "Data Analyst"
     }
   },
+  { // 3: Connect Google Analytics
+    title: "Supercharge your insights with real traffic data.",
+    description: "Link Google Analytics to get audience behaviour, traffic trends, and AI-powered recommendations tailored to your brand.",
+    testimonial: {
+      quote: "Connecting Analytics turned our raw data into a story we could finally act on.",
+      author: "Marcus Reid",
+      role: "Head of Growth"
+    }
+  },
 ]
 
-export default function OnboardingPage() {
+function LoadingScreen() {
+  return (
+    <div className="h-screen w-full bg-zinc-950 flex items-center justify-center">
+      <div className="w-5 h-5 rounded-full border-2 border-white/20 border-t-white animate-spin" />
+    </div>
+  )
+}
+
+function OnboardingContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, isLoading: isAuthLoading } = useAuth()
   const { toast } = useToast()
 
   const skipGuardRedirect = useRef(false)
+  const gaCallbackHandled = useRef(false)
 
+  const [updateUser] = useUpdateUserMutation()
+  const [createProject, { isLoading: isCreatingProject }] = useCreateProjectMutation()
+  const [createSession] = useCreateSessionMutation()
+  const [createJob] = useCreateJobMutation()
+
+  const [currentStepIndex, setCurrentStepIndex] = useState(0)
+  const [createdProjectId, setCreatedProjectId] = useState<string | null>(null)
+  const [isStartingSession, setIsStartingSession] = useState(false)
+  const [brandRedirectParams, setBrandRedirectParams] = useState<BrandRedirectParams | null>(null)
+  const [gaStatus, setGaStatus] = useState<'connected' | 'error' | undefined>(undefined)
+  const [gaError, setGaError] = useState<string | undefined>(undefined)
+
+  // Handle GA OAuth callback params returned by the backend redirect
+  useEffect(() => {
+    if (gaCallbackHandled.current) return
+    const gaConnected = searchParams.get('ga_connected')
+    const gaErrorParam = searchParams.get('ga_error')
+
+    if (!gaConnected && !gaErrorParam) return
+    gaCallbackHandled.current = true
+
+    // Clean the URL so params don't persist on refresh
+    const cleanUrl = window.location.pathname
+    window.history.replaceState({}, '', cleanUrl)
+
+    // Restore brand-onboarding params from sessionStorage
+    const stored = sessionStorage.getItem(GA_REDIRECT_PARAMS_KEY)
+    const params: BrandRedirectParams | null = stored ? JSON.parse(stored) : null
+
+    if (gaConnected === '1') {
+      setGaStatus('connected')
+      setBrandRedirectParams(params)
+      setCurrentStepIndex(3)
+      skipGuardRedirect.current = true
+      // Auto-proceed to brand-onboarding after a short success moment
+      setTimeout(() => {
+        sessionStorage.removeItem(GA_REDIRECT_PARAMS_KEY)
+        if (params) {
+          const qs = new URLSearchParams(params as unknown as Record<string, string>)
+          router.push(`/brand-onboarding?${qs.toString()}`)
+        } else {
+          router.push('/dashboard')
+        }
+      }, 1500)
+    } else if (gaErrorParam) {
+      setGaStatus('error')
+      setGaError(gaErrorParam)
+      setBrandRedirectParams(params)
+      setCurrentStepIndex(3)
+      skipGuardRedirect.current = true
+      toast({
+        title: gaErrorParam === 'access_denied' ? 'Permission denied' : 'Connection failed',
+        description:
+          gaErrorParam === 'access_denied'
+            ? 'You can skip this step and connect Google Analytics later from settings.'
+            : 'Could not connect Google Analytics. Please try again.',
+        variant: 'destructive',
+      })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+
+  // Guard: redirect away if user already completed onboarding
   useEffect(() => {
     if (isAuthLoading) return
     if (skipGuardRedirect.current) return
@@ -64,15 +159,6 @@ export default function OnboardingPage() {
       window.location.replace('/signin')
     }
   }, [user, isAuthLoading, router])
-
-  const [updateUser] = useUpdateUserMutation()
-  const [createProject, { isLoading: isCreatingProject }] = useCreateProjectMutation()
-  const [createSession] = useCreateSessionMutation()
-  const [createJob] = useCreateJobMutation()
-
-  const [currentStepIndex, setCurrentStepIndex] = useState(0)
-  const [createdProjectId, setCreatedProjectId] = useState<string | null>(null)
-  const [isStartingSession, setIsStartingSession] = useState(false)
 
   const handleNext = async () => {
     if (currentStepIndex === 0 && user) {
@@ -115,7 +201,7 @@ export default function OnboardingPage() {
     }
   }
 
-  // Step 2: user entered URL — create session + start quick_start job, then redirect to brand-onboarding
+  // Step 2: create session + job, then proceed to GA step (step 3) instead of jumping straight to brand-onboarding
   const handleStartSession = async (url: string) => {
     if (!createdProjectId) {
       router.push('/dashboard')
@@ -134,21 +220,42 @@ export default function OnboardingPage() {
         data: { url: normalizedUrl, jobType: 'MODULE_E_QUICK_START' },
       }).unwrap()
 
-      // Redirect to brand-onboarding with all context — quick_start is now running in background
-      const params = new URLSearchParams({
+      const params: BrandRedirectParams = {
         projectId: createdProjectId,
         url: normalizedUrl,
         sessionId,
         jobId: jobResult.job.id,
-      })
-      router.push(`/brand-onboarding?${params.toString()}`)
+      }
+      setBrandRedirectParams(params)
+      setCurrentStepIndex(3)
     } catch (error: any) {
       toast({
         title: 'Failed to start session',
         description: error?.data?.error || 'Please try again.',
         variant: 'destructive',
       })
+    } finally {
       setIsStartingSession(false)
+    }
+  }
+
+  /** Redirect to Google OAuth for Analytics — persists brand params in sessionStorage first */
+  const handleConnectGA = () => {
+    if (brandRedirectParams) {
+      sessionStorage.setItem(GA_REDIRECT_PARAMS_KEY, JSON.stringify(brandRedirectParams))
+    }
+    // Full-page redirect to backend OAuth initiation endpoint
+    window.location.href = `${API_BASE_URL}/auth/google/analytics`
+  }
+
+  /** Skip GA — go straight to brand-onboarding */
+  const handleSkipGA = () => {
+    sessionStorage.removeItem(GA_REDIRECT_PARAMS_KEY)
+    if (brandRedirectParams) {
+      const qs = new URLSearchParams(brandRedirectParams as unknown as Record<string, string>)
+      router.push(`/brand-onboarding?${qs.toString()}`)
+    } else {
+      router.push('/dashboard')
     }
   }
 
@@ -157,11 +264,7 @@ export default function OnboardingPage() {
   }
 
   if (isAuthLoading || !user || (user.hasNew === false && !skipGuardRedirect.current)) {
-    return (
-      <div className="h-screen w-full bg-zinc-950 flex items-center justify-center">
-        <div className="w-5 h-5 rounded-full border-2 border-white/20 border-t-white animate-spin" />
-      </div>
-    )
+    return <LoadingScreen />
   }
 
   const renderStep = () => {
@@ -190,6 +293,18 @@ export default function OnboardingPage() {
             totalSteps={TOTAL_STEPS}
           />
         )
+      case 3:
+        return (
+          <StepConnectAnalytics
+            onConnect={handleConnectGA}
+            onSkip={handleSkipGA}
+            onBack={handleBack}
+            gaStatus={gaStatus}
+            gaError={gaError}
+            currentStep={currentStepIndex}
+            totalSteps={TOTAL_STEPS}
+          />
+        )
       default:
         return null
     }
@@ -207,5 +322,13 @@ export default function OnboardingPage() {
         </div>
       </AnimatePresence>
     </OnboardingLayout>
+  )
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={<LoadingScreen />}>
+      <OnboardingContent />
+    </Suspense>
   )
 }

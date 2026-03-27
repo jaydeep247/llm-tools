@@ -10,7 +10,14 @@ export const authApi = baseApi.injectEndpoints({
         body: data,
       }),
       transformResponse: (response: { data: AuthResponse }) => response.data,
-      invalidatesTags: ['Auth', 'User'],
+      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          dispatch(
+            authApi.util.upsertQueryData('getMe', undefined, { user: data.user })
+          );
+        } catch {}
+      },
     }),
     
     login: builder.mutation<AuthResponse, LoginRequest>({
@@ -20,7 +27,14 @@ export const authApi = baseApi.injectEndpoints({
         body: credentials,
       }),
       transformResponse: (response: { data: AuthResponse }) => response.data,
-      invalidatesTags: ['Auth', 'User'],
+      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          dispatch(
+            authApi.util.upsertQueryData('getMe', undefined, { user: data.user })
+          );
+        } catch {}
+      },
     }),
 
     googleAuth: builder.mutation<AuthResponse, GoogleAuthRequest>({
@@ -30,7 +44,14 @@ export const authApi = baseApi.injectEndpoints({
         body: data,
       }),
       transformResponse: (response: { data: AuthResponse }) => response.data,
-      invalidatesTags: ['Auth', 'User'],
+      async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          dispatch(
+            authApi.util.upsertQueryData('getMe', undefined, { user: data.user })
+          );
+        } catch {}
+      },
     }),
     
     logout: builder.mutation<void, void>({
@@ -52,6 +73,13 @@ export const authApi = baseApi.injectEndpoints({
       },
     }),
     
+    refresh: builder.mutation<void, void>({
+      query: () => ({
+        url: '/auth/refresh',
+        method: 'POST',
+      }),
+    }),
+    
     getMe: builder.query<{ user: User }, void>({
       query: () => '/auth/me',
       transformResponse: (response: { data: User }) => ({ user: response.data }),
@@ -65,6 +93,7 @@ export const {
   useLoginMutation,
   useGoogleAuthMutation,
   useLogoutMutation,
+  useRefreshMutation,
   useGetMeQuery,
   useLazyGetMeQuery,
 } = authApi;

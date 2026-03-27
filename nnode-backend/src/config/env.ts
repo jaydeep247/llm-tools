@@ -48,6 +48,16 @@ const envSchema = z.object({
 
   // Google OAuth 2.0
   GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+
+  // Google Analytics OAuth — separate from login OAuth
+  GOOGLE_ANALYTICS_REDIRECT_URI: z
+    .string()
+    .optional()
+    .default('http://localhost:3004/api/v1/auth/google/analytics/callback'),
+
+  // Frontend URL for post-OAuth redirects
+  FRONTEND_URL: z.string().optional().default('http://localhost:3000'),
 });
 
 const isLocalInfraUrl = (value: string): boolean => {
