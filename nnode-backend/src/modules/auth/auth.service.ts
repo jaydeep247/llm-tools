@@ -17,6 +17,26 @@ export class AuthService {
     this.userRepository = new UserRepository();
   }
 
+  private getOnboardingState(user: UserEntity): UserEntity['onboardingState'] {
+    if (user.onboardingState) {
+      return user.onboardingState;
+    }
+
+    if (user.hasNew === false) {
+      return {
+        status: 'completed',
+        resumePath: '/dashboard',
+      };
+    }
+
+    return {
+      status: 'in_progress',
+      currentFlow: 'core',
+      currentStep: 0,
+      resumePath: '/onboarding',
+    };
+  }
+
   /**
    * Build a sanitised AuthResponse from a UserEntity
    */
@@ -33,6 +53,7 @@ export class AuthService {
         name: user.name,
         role: user.role as unknown as UserRole,
         hasNew: user.hasNew,
+        onboardingState: this.getOnboardingState(user),
         onboardingData: user.onboardingData,
       },
       token,
@@ -230,6 +251,7 @@ export class AuthService {
       name: user.name,
       role: user.role as unknown as UserRole,
       hasNew: user.hasNew,
+      onboardingState: this.getOnboardingState(user),
       onboardingData: user.onboardingData,
     };
   }

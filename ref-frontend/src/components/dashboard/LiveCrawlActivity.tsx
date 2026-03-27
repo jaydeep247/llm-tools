@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Activity, Globe, Wifi, ExternalLink, ChevronRight, CheckCircle2, FileText, ArrowRight } from 'lucide-react'
+import { io, Socket } from 'socket.io-client'
 import { useGetProjectSessionsQuery } from '@/store/api/sessionApi'
 import { useGetSessionJobsQuery, useGetJobSnapshotQuery, useGetJobSummaryQuery } from '@/store/api/jobApi'
 import type { Project } from '@/store/api/projectApi'
@@ -15,6 +16,8 @@ interface JobInfo {
   projectId: string
   projectName: string
 }
+
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || ''
 
 // ─── Per-project watcher ──────────────────────────────────────────────────────
 
@@ -94,6 +97,43 @@ function SnapshotFeeder({ jobId, onLinks }: { jobId: string; onLinks: (jobId: st
   return null
 }
 
+// ─── Live socket feeder (per page_crawled event) ────────────────────────────
+
+function JobSocketFeeder({
+  jobId,
+  onPage,
+}: {
+  jobId: string
+  onPage: (jobId: string, url: string) => void
+}) {
+  useEffect(() => {
+    if (!jobId) return
+
+    const socket: Socket = io(SOCKET_URL, {
+      path: '/socket.io',
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+    })
+
+    socket.on('connect', () => {
+      socket.emit('join-job', jobId)
+    })
+
+    socket.on('crawl:progress', (event: { jobId: string; url?: string }) => {
+      if (event.jobId !== jobId || !event.url) return
+      onPage(jobId, event.url)
+    })
+
+    return () => {
+      socket.emit('leave-job', jobId)
+      socket.disconnect()
+    }
+  }, [jobId, onPage])
+
+  return null
+}
+
 // ─── Completed job summary fetcher ────────────────────────────────────────────
 
 function CompletedJobSummaryFetcher({ jobId, onSummary }: { jobId: string; onSummary: (jobId: string, pages: number) => void }) {
@@ -157,6 +197,31 @@ export function LiveCrawlActivity({ projects }: Props) {
     setJobLinks((prev) => ({ ...prev, [jobId]: urls }))
   }, [])
 
+  const handleLivePage = useCallback((jobId: string, url: string) => {
+    setJobLinks((prev) => {
+      const existing = prev[jobId] ?? []
+      if (existing.includes(url)) return prev
+      return { ...prev, [jobId]: [url, ...existing].slice(0, 300) }
+    })
+
+    if (seenUrls.current.has(url)) return
+    seenUrls.current.add(url)
+
+    setDisplayUrls((prev) => [{ url, key: `${url}-${Date.now()}` }, ...prev].slice(0, 30))
+    setNewKeys((prev) => {
+      const next = new Set(prev)
+      next.add(url)
+      return next
+    })
+    setTimeout(() => {
+      setNewKeys((prev) => {
+        const next = new Set(prev)
+        next.delete(url)
+        return next
+      })
+    }, 600)
+  }, [])
+
   const handleSummary = useCallback((jobId: string, pages: number) => {
     setJobPageCounts((prev) => ({ ...prev, [jobId]: pages }))
   }, [])
@@ -190,6 +255,9 @@ export function LiveCrawlActivity({ projects }: Props) {
       ))}
       {activeJobs.map((j) => (
         <SnapshotFeeder key={j.jobId} jobId={j.jobId} onLinks={handleLinks} />
+      ))}
+      {activeJobs.map((j) => (
+        <JobSocketFeeder key={`sock-${j.jobId}`} jobId={j.jobId} onPage={handleLivePage} />
       ))}
       {recentlyCompleted.map((j) => (
         <CompletedJobSummaryFetcher key={j.jobId} jobId={j.jobId} onSummary={handleSummary} />

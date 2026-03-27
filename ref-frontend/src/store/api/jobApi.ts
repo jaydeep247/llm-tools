@@ -132,6 +132,8 @@ export interface JobSnapshot {
   projectId?: string;
   sessionId?: string;
   pagesCrawled?: number;
+  lastCrawledUrl?: string;    // Most recently crawled URL (for refresh hydration)
+  lastCrawledTitle?: string;
   steps?: Record<string, string>;  // Step statuses for quick-start jobs
 }
 

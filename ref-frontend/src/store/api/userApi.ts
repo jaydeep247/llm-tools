@@ -1,5 +1,6 @@
 import { baseApi } from './baseApi';
 import { User } from '@/types/auth';
+import { authApi } from './authApi';
 
 export const userApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
@@ -10,6 +11,14 @@ export const userApi = baseApi.injectEndpoints({
         body: data,
       }),
       transformResponse: (response: { data: User }) => response.data,
+      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          dispatch(
+            authApi.util.upsertQueryData('getMe', undefined, { user: data })
+          );
+        } catch {}
+      },
       invalidatesTags: ['User'],
     }),
   }),

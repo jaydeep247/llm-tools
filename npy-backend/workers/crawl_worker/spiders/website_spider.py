@@ -65,9 +65,11 @@ class WebsiteSpider(RedisSpider):
     # the frontend smooth progress updates.
     LINK_FOUND_EMIT_INTERVAL = 25
 
-    # Emit a page_crawled event only every N pages processed.
-    # Reduces ~15k events to ~3 000 while keeping the progress bar live.
-    PAGE_CRAWLED_EMIT_INTERVAL = 5
+    # Emit a page_crawled event for EVERY page processed.
+    # This gives the frontend smooth, link-by-link live updates.
+    # The Node consumer forwards these directly via socket (not batched)
+    # so the overhead per message is minimal (one lightweight JSON event).
+    PAGE_CRAWLED_EMIT_INTERVAL = 1
 
     
     def __init__(
@@ -1139,13 +1141,11 @@ class WebsiteSpider(RedisSpider):
         _total_str = str(_total) if _total > 0 else '?'
         logger.info(f"[CRAWL] 🔗 {self.pages_crawled} / {_total_str} urls crawled")
 
-        # Emit page_crawled event for progress tracking.
-        # Throttled to every PAGE_CRAWLED_EMIT_INTERVAL pages to reduce
-        # RabbitMQ volume on large crawls; always emit the first page.
-        if self.job_id and (
-            self.pages_crawled == 1
-            or (self.pages_crawled % self.PAGE_CRAWLED_EMIT_INTERVAL) == 0
-        ):
+        # Emit page_crawled event for every page — gives the frontend a
+        # continuous, link-by-link live update stream.  The Node consumer
+        # forwards these directly via socket.io without batching so the
+        # UI receives each URL as soon as it is crawled.
+        if self.job_id:
             publisher.emit_event(self.job_id, 'page_crawled', {
                 'url': response.url,
                 'title': response.css('title::text').get() or '',

@@ -18,7 +18,9 @@ export interface JobSnapshot {
   startedAt?: number;     // epoch ms - when job started
   projectId?: string;
   sessionId?: string;
-  pagesCrawled?: number;  // Final count from completion event
+  pagesCrawled?: number;  // Authoritative counter from spider payload
+  lastCrawledUrl?: string; // Most recently crawled URL (for banner display on refresh)
+  lastCrawledTitle?: string;
   steps?: Record<string, string>;  // Step statuses for quick-start jobs (e.g. { brand_analysis: 'completed' })
 }
 
@@ -233,6 +235,7 @@ export class LiveJobService {
       // This is separate from links discovered
       const pagesKey = `job:${jobId}:pages`;
       const pagesCountKey = `job:${jobId}:pages_count`;
+      const lastUrlKey = `job:${jobId}:last_url`;
       if (eventType === 'page_crawled') {
           const compactPage = this.toCompactLinkEntry(event);
           if (compactPage) {
@@ -240,9 +243,21 @@ export class LiveJobService {
           }
           pipeline.ltrim(pagesKey, -MAX_LINKS, -1);
           pipeline.expire(pagesKey, REDIS_TTL);
-          // Increment the real-time counter
-          pipeline.incr(pagesCountKey);
-          pipeline.expire(pagesCountKey, REDIS_TTL);
+          // Use the authoritative pages_crawled counter from the spider payload
+          // rather than INCR (which counts events received, not pages processed).
+          // This keeps Redis in sync even if events arrive out-of-order or are
+          // replayed after a reconnect.
+          if (payload?.pages_crawled !== undefined) {
+            pipeline.set(pagesCountKey, String(payload.pages_crawled));
+            pipeline.expire(pagesCountKey, REDIS_TTL);
+          }
+          // Persist the last crawled URL so snapshot hydration on refresh
+          // can immediately show the most recent URL without waiting for a
+          // socket reconnect.
+          if (payload?.url) {
+            pipeline.set(lastUrlKey, JSON.stringify({ url: payload.url, title: payload.title || '', t: Date.now() }));
+            pipeline.expire(lastUrlKey, REDIS_TTL);
+          }
       }
 
       // 3b. Store quick-start step statuses in a dedicated hash
@@ -303,6 +318,7 @@ export class LiveJobService {
     const startedAtKey = `job:${jobId}:startedAt`;
     const metaKey = `job:${jobId}:meta`;
     const pagesCountKey = `job:${jobId}:pages_count`;
+    const lastUrlKey = `job:${jobId}:last_url`;
     const legacyHashKey = `job:${jobId}`;
     const stepsKey = `job:${jobId}:steps`;  // Quick-start step statuses
 
@@ -319,6 +335,7 @@ export class LiveJobService {
         .get(pagesCountKey)
         .hgetall(stepsKey)
         .hget(legacyHashKey, 'status')
+        .get(lastUrlKey)
         .exec();
 
       if (!raw) {
@@ -335,6 +352,7 @@ export class LiveJobService {
         pagesCountResult,
         stepsResult,
         legacyStatusResult,
+        lastUrlResult,
       ] = raw;
 
       const status = statusResult[1] as string | null;
@@ -346,6 +364,7 @@ export class LiveJobService {
       const pagesCountRaw = pagesCountResult[1] as string | null;
       const stepsRaw = (stepsResult[1] as Record<string, string>) || {};
       const legacyStatus = legacyStatusResult[1] as string | null;
+      const lastUrlRaw = lastUrlResult[1] as string | null;
 
       // Parse metadata
       let projectId: string | undefined;
@@ -405,6 +424,19 @@ export class LiveJobService {
 
       const pagesCrawled = pagesCountRaw ? parseInt(pagesCountRaw, 10) : undefined;
 
+      // Parse last crawled URL for refresh hydration
+      let lastCrawledUrl: string | undefined;
+      let lastCrawledTitle: string | undefined;
+      if (lastUrlRaw) {
+        try {
+          const parsed = JSON.parse(lastUrlRaw);
+          lastCrawledUrl = parsed.url || undefined;
+          lastCrawledTitle = parsed.title || undefined;
+        } catch {
+          lastCrawledUrl = lastUrlRaw;
+        }
+      }
+
       return {
         jobId,
         status: status || legacyStatus || 'pending',
@@ -416,6 +448,8 @@ export class LiveJobService {
         projectId,
         sessionId,
         pagesCrawled,
+        lastCrawledUrl,
+        lastCrawledTitle,
         steps: stepsRaw && Object.keys(stepsRaw).length > 0 ? stepsRaw : undefined,
       };
     } catch (error) {
@@ -461,6 +495,7 @@ export class LiveJobService {
       `job:${jobId}:meta`,
       `job:${jobId}:pages`,
       `job:${jobId}:pages_count`,
+      `job:${jobId}:last_url`,
       `job:${jobId}:steps`,
       `job:${jobId}:cancelled`,
     ];

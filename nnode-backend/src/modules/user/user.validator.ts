@@ -18,6 +18,12 @@ export const updateUserSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').optional(),
   role: z.enum([UserRole.CXO, UserRole.CMO, UserRole.SEO_MANAGER, UserRole.CONTENT_MANAGER, UserRole.ANALYST]).optional(),
   hasNew: z.boolean().optional(),
+  onboardingState: z.object({
+    status: z.enum(['in_progress', 'completed']),
+    currentFlow: z.enum(['core', 'brand']).optional(),
+    currentStep: z.number().int().min(0).optional(),
+    resumePath: z.string().min(1).optional(),
+  }).optional(),
   onboardingData: z.object({
     role: z.string().optional(),
     organizationType: z.string().optional(),

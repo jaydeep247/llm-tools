@@ -6,12 +6,20 @@ export enum UserRole {
   ANALYST = 'ANALYST',
 }
 
+export interface OnboardingState {
+  status: 'in_progress' | 'completed';
+  currentFlow?: 'core' | 'brand';
+  currentStep?: number;
+  resumePath?: string;
+}
+
 export interface User {
   id: string;
   email: string;
   name: string;
   role: UserRole;
   hasNew?: boolean;
+  onboardingState?: OnboardingState;
   onboardingData?: {
     role?: string;
     organizationType?: string;

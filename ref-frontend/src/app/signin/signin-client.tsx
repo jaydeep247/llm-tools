@@ -7,6 +7,7 @@ import { useGoogleAuthMutation, useLoginMutation, useSignupMutation } from "@/st
 import { useRouter } from "next/navigation"
 import { AuthResponse, UserRole } from "@/types/auth"
 import Link from "next/link"
+import { getOnboardingResumePath, requiresOnboarding } from "@/lib/onboarding"
 
 declare global {
   interface Window {
@@ -92,8 +93,8 @@ export default function SigninClient() {
   }
 
   const handleAuthSuccess = (response: AuthResponse) => {
-    if (response.user.hasNew) {
-      router.replace("/onboarding")
+    if (requiresOnboarding(response.user)) {
+      router.replace(getOnboardingResumePath(response.user))
       return
     }
 

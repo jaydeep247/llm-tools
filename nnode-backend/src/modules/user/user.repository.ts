@@ -31,6 +31,12 @@ export class UserRepository {
       createdAt: now,
       updatedAt: now,
       hasNew: true, // Default to true for new users
+      onboardingState: {
+        status: 'in_progress',
+        currentFlow: 'core',
+        currentStep: 0,
+        resumePath: '/onboarding',
+      },
     };
     try {
       await db.collection<UserEntity>('users').insertOne(user);

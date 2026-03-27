@@ -4,12 +4,14 @@ import { configureStore } from '@reduxjs/toolkit';
 import { baseApi } from './api/baseApi';
 import liveJobReducer from './slices/liveJobSlice';
 import jobProgressReducer from './slices/jobProgressSlice';
+import crawlProgressReducer from './slices/crawlProgressSlice';
 
 export const store = configureStore({
   reducer: {
     [baseApi.reducerPath]: baseApi.reducer,
     liveJob: liveJobReducer,
     jobProgress: jobProgressReducer,
+    crawlProgress: crawlProgressReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

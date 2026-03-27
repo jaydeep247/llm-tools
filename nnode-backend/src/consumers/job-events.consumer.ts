@@ -12,6 +12,12 @@ const ROUTING_KEY_PATTERN = 'job.#';
 const BATCH_INTERVAL_MS = 500;
 const PREFETCH_COUNT = 50;
 
+const NON_BATCHED_EVENT_TYPES = new Set([
+  'page_crawled',
+  'CRAWL_STATUS_UPDATED',
+  'CRAWL_PAUSED',
+]);
+
 // Buffer for batching events: jobId -> events[]
 const eventBuffers = new Map<string, JobEvent[]>();
 const flushTimers = new Map<string, NodeJS.Timeout>();
@@ -168,6 +174,9 @@ export const startJobEventsConsumer = async () => {
             io.to(`job:${event.jobId}`).emit('crawl:progress', {
               jobId: event.jobId,
               pages_crawled: pagesCrawled,
+              url: event.payload?.url,
+              title: event.payload?.title,
+              crawled_at: event.payload?.crawled_at,
             });
           } catch (e) { logger.error('Socket emit error (crawl:progress):', e); }
         }
@@ -203,8 +212,9 @@ export const startJobEventsConsumer = async () => {
         // Skip adding terminal events here as they are handled above
         const isTerminal = ['JOB_COMPLETED', 'JOB_FAILED'].includes(event.eventType) || 
                           (event.payload && ['completed', 'failed'].includes(event.payload.status));
+        const isNonBatched = NON_BATCHED_EVENT_TYPES.has(event.eventType);
                           
-        if (!isTerminal) {
+        if (!isTerminal && !isNonBatched) {
             if (!eventBuffers.has(jobId)) {
               eventBuffers.set(jobId, []);
               // Schedule flush

@@ -27,6 +27,8 @@ import { useGetModuleFResultQuery } from '@/store/api/module_F/moduleFApi'
 import { useGetProjectQuery } from '@/store/api/projectApi'
 import { useGetSessionQuery } from '@/store/api/sessionApi'
 import { useGetSessionJobsQuery, useGetJobPagesQuery, useGetJobLinksQuery, useGetJobSitemapsQuery, useGetJobFieldsQuery, useGetJobSiteStructureQuery, useRetryJobMutation, useGetJobSummaryQuery, useGetJobSnapshotQuery } from '@/store/api/jobApi'
+import { useAppSelector } from '@/store/hooks'
+import { selectCrawlProgressByJobId } from '@/store/slices/crawlProgressSlice'
 import { formatDurationHHMMSSMS, formatDurationReadable } from '@/utils/formatDuration'
 
 interface LogEntry {
@@ -175,6 +177,7 @@ export default function SessionDetailPage() {
     skip: !snapshotJobId,
     refetchOnMountOrArgChange: true,
   })
+  const persistedCrawlProgress = useAppSelector(selectCrawlProgressByJobId(snapshotJobId || ''))
   
   const { data: moduleFQueryData, isLoading: isLoadingModuleF, refetch: refetchModuleF } = useGetModuleFResultQuery(jobId || '', {
     skip: !jobId,
@@ -567,11 +570,23 @@ export default function SessionDetailPage() {
     }
   })
 
-  const totalPagesCount =
-    pagesResult?.pagination?.total ??
-    session?.totalPages ??
-    jobSummary?.session?.total_pages ??
-    transformedPages.length
+  const totalPagesCount = Math.max(
+    pagesResult?.pagination?.total ?? 0,
+    session?.totalPages ?? 0,
+    jobSummary?.session?.total_pages ?? 0,
+    transformedPages.length,
+    jobSnapshot?.pagesCrawled ?? 0,
+    persistedCrawlProgress?.pagesCrawled ?? 0,
+  )
+
+  const bannerTotalPages = Math.max(
+    Number((crawlJob as any)?.config?.maxPages || (crawlJob as any)?.config?.max_pages || 0),
+    Number((quickStartJob as any)?.config?.maxPages || (quickStartJob as any)?.config?.max_pages || 0),
+    Number(latestJob?.config?.maxPages || latestJob?.config?.max_pages || 0),
+    Number(persistedCrawlProgress?.totalPages || 0),
+    totalPagesCount,
+    100,
+  )
 
   // Transform data for Crawled Data Table
   const pagesData = {
@@ -746,13 +761,24 @@ export default function SessionDetailPage() {
         setCrawlStatus(mappedStatus === 'idle' && jobSummary?.session?.status ? 
           jobSummary.session.status as 'completed' | 'cancelled' : mappedStatus)
       }
-      // Use session.totalPages first, fallback to jobSummary
-      setPageCount(session.totalPages || jobSummary?.session?.total_pages || 0)
+      // Use the highest known value so UI never regresses on refresh/reconnect.
+      const nextCount = Math.max(
+        session.totalPages || 0,
+        jobSummary?.session?.total_pages || 0,
+        jobSnapshot?.pagesCrawled || 0,
+        persistedCrawlProgress?.pagesCrawled || 0,
+      )
+      setPageCount(prev => Math.max(prev, nextCount))
     } else if (jobSummary?.session) {
       // No session but we have jobSummary
       const summaryStatus = jobSummary.session.status?.toLowerCase() as 'idle' | 'running' | 'auditing' | 'completed' | 'cancelled'
       setCrawlStatus(summaryStatus || 'completed')
-      setPageCount(jobSummary.session.total_pages || 0)
+      const nextCount = Math.max(
+        jobSummary.session.total_pages || 0,
+        jobSnapshot?.pagesCrawled || 0,
+        persistedCrawlProgress?.pagesCrawled || 0,
+      )
+      setPageCount(prev => Math.max(prev, nextCount))
     }
     
     // Use jobSummary for more accurate data when available
@@ -760,7 +786,7 @@ export default function SessionDetailPage() {
       const summarySession = jobSummary.session
       // Set page count from job summary if session doesn't have it
       if (!session?.totalPages && summarySession.total_pages) {
-        setPageCount(summarySession.total_pages)
+        setPageCount(prev => Math.max(prev, summarySession.total_pages || 0, persistedCrawlProgress?.pagesCrawled || 0))
       }
       // Set crawl start time from job summary if not already set
       if (!crawlStartTime && summarySession.started_at) {
@@ -780,7 +806,7 @@ export default function SessionDetailPage() {
         })
       }
     }
-  }, [session, jobSummary])
+  }, [session, jobSummary, jobSnapshot?.pagesCrawled, persistedCrawlProgress?.pagesCrawled])
 
   // Timer for elapsed time display
   useEffect(() => {
@@ -1054,11 +1080,34 @@ export default function SessionDetailPage() {
                       if (snapshotJobId) resumeCrawl(snapshotJobId)
                     }}
                     pagesCrawled={jobSnapshot?.pagesCrawled ?? 0}
-                    totalPages={100}
+                    totalPages={bannerTotalPages}
+                    maxPages={
+                      Number((crawlJob as any)?.config?.maxPages || (crawlJob as any)?.config?.max_pages || 0) ||
+                      Number((quickStartJob as any)?.config?.maxPages || (quickStartJob as any)?.config?.max_pages || 0) ||
+                      null
+                    }
+                    maxConcurrency={
+                      Number(jobSummary?.session?.max_concurrency || 0) ||
+                      Number((crawlJob as any)?.config?.maxConcurrency || (crawlJob as any)?.config?.max_concurrency || 0) ||
+                      undefined
+                    }
+                    allowSubdomains={
+                      typeof jobSummary?.session?.allow_subdomains === 'boolean'
+                        ? jobSummary.session.allow_subdomains
+                        : undefined
+                    }
+                    crawlStartedAt={jobSummary?.session?.started_at || jobSnapshot?.startedAt || latestJob?.startedAt || session?.startedAt || null}
+                    crawlCompletedAt={jobSummary?.session?.completed_at || latestJob?.completedAt || null}
+                    crawlUpdatedAt={(quickStartResult as any)?.data?.crawlUpdatedAt || null}
+                    startUrl={jobSummary?.session?.start_url || session?.startUrl || null}
+                    totalLinks={jobSummary?.session?.total_links}
+                    totalSitemaps={jobSummary?.session?.total_sitemaps}
+                    totalFields={jobSummary?.session?.total_fields}
                     currentUrl={
-                      jobSnapshot?.links && jobSnapshot.links.length > 0
+                      jobSnapshot?.lastCrawledUrl ||
+                      (jobSnapshot?.links && jobSnapshot.links.length > 0
                         ? [...jobSnapshot.links].sort((a, b) => b.timestamp - a.timestamp)[0]?.url
-                        : session?.startUrl
+                        : session?.startUrl)
                     }
                   />
                 ) : undefined

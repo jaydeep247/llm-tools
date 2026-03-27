@@ -1,47 +1,118 @@
 'use client'
 
-/**
- * CrawlStatusBanner
- *
- * Shows the live crawl state for a Quick Start background crawl.
- * Combines:
- *   - Polling via `initialStatus` prop (parent drives the base value)
- *   - Socket.IO `crawl:status` events from the Node.js consumer for
- *     instant updates (no polling lag).
- *
- * States handled:
- *   running   → animated pulsing indicicator, "Crawling in progress"
- *   completed → green tick,                  "Crawling completed"
- *   failed    → red icon,                    "Crawling failed"
- *   cancelled → grey icon,                   "Crawling cancelled"
- *   null      → nothing rendered
- */
-
-import { useEffect, useRef, useState } from 'react'
-import { io, Socket } from 'socket.io-client'
-import { CheckCircle, AlertCircle, Globe, XCircle, PauseCircle } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type ElementType } from 'react'
+import { io, type Socket } from 'socket.io-client'
+import {
+  CheckCircle,
+  AlertCircle,
+  Globe,
+  XCircle,
+  PauseCircle,
+  Activity,
+  Database,
+} from 'lucide-react'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { selectCrawlProgressByJobId, upsertCrawlProgress } from '@/store/slices/crawlProgressSlice'
 
 type CrawlStatus = 'running' | 'completed' | 'failed' | 'cancelled' | 'paused' | null
 
 interface CrawlStatusBannerProps {
-  /** The Quick Start job ID — used to join the correct socket room. */
   jobId: string | null
-  /** Initial value from the last API poll. Component overrides this with
-   *  live socket data once connected. */
   initialStatus: CrawlStatus
-  /** Optional callback for "View pages" button */
   onViewPages?: () => void
-  /** Callback invoked when the user clicks "Continue crawl" (paused state). */
   onResume?: () => void
-  /** Live pages crawled count (from jobSnapshot) */
   pagesCrawled?: number
-  /** Total pages goal (defaults to 100) */
   totalPages?: number
-  /** Most recently crawled URL */
   currentUrl?: string
+  componentTitle?: string
+  crawlStartedAt?: string | number | null
+  crawlCompletedAt?: string | number | null
+  crawlUpdatedAt?: string | number | null
+  startUrl?: string | null
+  totalLinks?: number
+  totalSitemaps?: number
+  totalFields?: number
+  allowSubdomains?: boolean
+  maxConcurrency?: number
+  maxPages?: number | null
 }
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || ''
+
+type StatusStyle = {
+  label: string
+  chip: string
+  border: string
+  iconColor: string
+  icon: ElementType
+}
+
+const STATUS_STYLES: Record<Exclude<CrawlStatus, null>, StatusStyle> = {
+  running: {
+    label: 'Running',
+    chip: 'text-amber-300 bg-amber-500/10 border-amber-500/30',
+    border: 'border-amber-500/25',
+    iconColor: 'text-amber-400',
+    icon: Activity,
+  },
+  paused: {
+    label: 'Paused',
+    chip: 'text-amber-300 bg-amber-500/10 border-amber-500/30',
+    border: 'border-amber-500/25',
+    iconColor: 'text-amber-400',
+    icon: PauseCircle,
+  },
+  completed: {
+    label: 'Completed',
+    chip: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/30',
+    border: 'border-emerald-500/25',
+    iconColor: 'text-emerald-400',
+    icon: CheckCircle,
+  },
+  failed: {
+    label: 'Failed',
+    chip: 'text-rose-300 bg-rose-500/10 border-rose-500/30',
+    border: 'border-rose-500/25',
+    iconColor: 'text-rose-400',
+    icon: XCircle,
+  },
+  cancelled: {
+    label: 'Cancelled',
+    chip: 'text-zinc-300 bg-zinc-500/10 border-zinc-500/30',
+    border: 'border-zinc-500/25',
+    iconColor: 'text-zinc-400',
+    icon: AlertCircle,
+  },
+}
+
+function parseTime(value?: string | number | null): number | null {
+  if (value === undefined || value === null) return null
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null
+  const ms = new Date(value).getTime()
+  return Number.isNaN(ms) ? null : ms
+}
+
+function formatDuration(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return '0s'
+  const totalSeconds = Math.floor(ms / 1000)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+
+  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`
+  if (minutes > 0) return `${minutes}m ${seconds}s`
+  return `${seconds}s`
+}
+
+function formatTimestamp(ms: number | null): string {
+  if (!ms) return '-'
+  return new Date(ms).toLocaleString()
+}
+
+function displayBool(value?: boolean): string {
+  if (value === undefined) return '-'
+  return value ? 'Yes' : 'No'
+}
 
 export function CrawlStatusBanner({
   jobId,
@@ -49,43 +120,80 @@ export function CrawlStatusBanner({
   onViewPages,
   onResume,
   pagesCrawled: pagesCrawledProp = 0,
-  totalPages = 100,
+  totalPages = 0,
   currentUrl,
+  componentTitle = 'Background Crawl',
+  crawlStartedAt,
+  crawlCompletedAt,
+  crawlUpdatedAt,
+  startUrl,
+  totalLinks,
+  totalSitemaps,
+  totalFields,
+  allowSubdomains,
+  maxConcurrency,
+  maxPages,
 }: CrawlStatusBannerProps) {
-  const [status, setStatus] = useState<CrawlStatus>(initialStatus)
-  // Live counter driven by crawl:progress socket events; falls back to the
-  // parent-polled prop so the value is never stale on initial mount.
-  const [livePagesCrawled, setLivePagesCrawled] = useState<number>(pagesCrawledProp)
+  const dispatch = useAppDispatch()
+  const persisted = useAppSelector(selectCrawlProgressByJobId(jobId ?? ''))
+  const persistedStatus = persisted?.status === 'idle' ? null : persisted?.status
+
+  const [status, setStatus] = useState<CrawlStatus>(() => initialStatus ?? (persistedStatus as CrawlStatus) ?? null)
+  const [livePagesCrawled, setLivePagesCrawled] = useState<number>(Math.max(pagesCrawledProp, persisted?.pagesCrawled ?? 0))
+  const [liveCurrentUrl, setLiveCurrentUrl] = useState<string>(currentUrl || persisted?.lastUrl || '')
+  const [liveCrawledAt, setLiveCrawledAt] = useState<number | null>(null)
+  const [now, setNow] = useState<number>(Date.now())
   const socketRef = useRef<Socket | null>(null)
 
-  // Keep local status in sync when the parent polling drives changes
-  // (e.g. on initial mount before socket connects).
   useEffect(() => {
     setStatus(prev => {
-      // Never downgrade a truly terminal status via a polling update.
-      // 'paused' is NOT terminal — it can be overridden by 'running' on resume.
       const terminal = ['completed', 'failed', 'cancelled']
       if (prev && terminal.includes(prev)) return prev
-      return initialStatus
+      return initialStatus ?? (persistedStatus as CrawlStatus) ?? prev
     })
-  }, [initialStatus])
+  }, [initialStatus, persistedStatus])
 
-  // Keep livePagesCrawled in sync with the parent's polling value, but only
-  // if the socket hasn't already reported a higher number (avoids going
-  // backwards on a late poll response).
   useEffect(() => {
-    setLivePagesCrawled(prev => Math.max(prev, pagesCrawledProp))
-  }, [pagesCrawledProp])
+    setLivePagesCrawled(prev => Math.max(prev, pagesCrawledProp, persisted?.pagesCrawled ?? 0))
+  }, [pagesCrawledProp, persisted?.pagesCrawled])
 
-  // Socket subscription — live crawl:status events
+  useEffect(() => {
+    if (currentUrl) {
+      setLiveCurrentUrl(currentUrl)
+    } else if (!liveCurrentUrl && persisted?.lastUrl) {
+      setLiveCurrentUrl(persisted.lastUrl)
+    }
+  }, [currentUrl, liveCurrentUrl, persisted?.lastUrl])
+
+  useEffect(() => {
+    if (!jobId) return
+    dispatch(
+      upsertCrawlProgress({
+        jobId,
+        pagesCrawled: Math.max(pagesCrawledProp, persisted?.pagesCrawled ?? 0),
+        lastUrl: currentUrl || persisted?.lastUrl,
+        status: (initialStatus ?? persistedStatus ?? undefined) as any,
+        totalPages: totalPages > 0 ? totalPages : maxPages ?? null,
+      }),
+    )
+  }, [
+    jobId,
+    pagesCrawledProp,
+    currentUrl,
+    initialStatus,
+    persisted?.pagesCrawled,
+    persisted?.lastUrl,
+    persistedStatus,
+    totalPages,
+    maxPages,
+    dispatch,
+  ])
+
   useEffect(() => {
     if (!jobId) return
 
     const socket = io(SOCKET_URL, {
       path: '/socket.io',
-      // Allow polling as a fallback so the initial connection succeeds even if
-      // the WebSocket upgrade is momentarily rejected (avoids the console error
-      // the user sees on first load).  Once connected, socket.io upgrades to WS.
       transports: ['websocket', 'polling'],
       reconnectionAttempts: 5,
     })
@@ -95,235 +203,214 @@ export function CrawlStatusBanner({
       socket.emit('join-job', jobId)
     })
 
-    // Live page counter — updates the progress bar without polling lag.
-    socket.on('crawl:progress', (data: { jobId: string; pages_crawled: number }) => {
+    socket.on('crawl:progress', (data: { jobId: string; pages_crawled: number; url?: string; title?: string; crawled_at?: string }) => {
       if (data.jobId !== jobId) return
-      setLivePagesCrawled(prev => Math.max(prev, data.pages_crawled))
+      const nextCount = Number.isFinite(data.pages_crawled) ? data.pages_crawled : 0
+      setLivePagesCrawled(prev => Math.max(prev, nextCount))
+      if (data.url) {
+        setLiveCurrentUrl(data.url)
+      }
+      if (data.crawled_at) {
+        const ts = parseTime(data.crawled_at)
+        if (ts) setLiveCrawledAt(ts)
+      }
+      dispatch(
+        upsertCrawlProgress({
+          jobId,
+          pagesCrawled: nextCount,
+          lastUrl: data.url,
+          lastTitle: data.title,
+          totalPages: totalPages > 0 ? totalPages : maxPages ?? null,
+          status: 'running',
+        }),
+      )
     })
 
     socket.on('crawl:status', (data: { jobId: string; crawl_status: CrawlStatus }) => {
       if (data.jobId !== jobId) return
       setStatus(prev => {
-        // Never downgrade a truly terminal status via socket either.
-        // 'paused' is NOT terminal — socket 'running' after resume is allowed.
         const terminal = ['completed', 'failed', 'cancelled']
         if (prev && terminal.includes(prev)) return prev
         return data.crawl_status
       })
+      if (data.crawl_status) {
+        dispatch(
+          upsertCrawlProgress({
+            jobId,
+            status: data.crawl_status,
+            totalPages: totalPages > 0 ? totalPages : maxPages ?? null,
+          }),
+        )
+      }
     })
 
     return () => {
       if (socket.connected) {
         socket.emit('leave-job', jobId)
-        socket.disconnect()
       }
+      socket.disconnect()
       socketRef.current = null
     }
-  }, [jobId])
+  }, [jobId, totalPages, maxPages, dispatch])
 
-  /* ------------------------------------------------------------------ */
-  /*  Unknown / not-yet-loaded state — show a subtle neutral banner     */
-  /*  so the component is always visible once a jobId is provided.      */
-  /* ------------------------------------------------------------------ */
-  if (!status) {
+  const activeStatus: CrawlStatus = status ?? initialStatus ?? (persistedStatus as CrawlStatus) ?? null
+
+  useEffect(() => {
+    const isRunning = activeStatus === 'running'
+    if (!isRunning) return
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(timer)
+  }, [activeStatus])
+
+  const startedAtMs = parseTime(crawlStartedAt)
+  const completedAtMs = parseTime(crawlCompletedAt)
+  const updatedAtMs = parseTime(crawlUpdatedAt) ?? liveCrawledAt ?? parseTime(persisted?.updatedAt)
+
+  const elapsedMs = useMemo(() => {
+    if (!startedAtMs) return 0
+    if (activeStatus === 'running') {
+      return Math.max(0, now - startedAtMs)
+    }
+    if (activeStatus === 'paused') {
+      if (updatedAtMs) return Math.max(0, updatedAtMs - startedAtMs)
+      return Math.max(0, now - startedAtMs)
+    }
+    if (completedAtMs) {
+      return Math.max(0, completedAtMs - startedAtMs)
+    }
+    if (updatedAtMs) {
+      return Math.max(0, updatedAtMs - startedAtMs)
+    }
+    return 0
+  }, [startedAtMs, activeStatus, now, completedAtMs, updatedAtMs])
+
+  const effectiveTotalPages = Math.max(totalPages || 0, maxPages || 0, persisted?.totalPages || 0)
+  const percent = effectiveTotalPages > 0 ? Math.min(100, Math.round((livePagesCrawled / effectiveTotalPages) * 100)) : 0
+
+  if (!activeStatus) {
     return (
       <div className="rounded-2xl border border-zinc-700/40 bg-[#0D0D10] overflow-hidden h-full flex flex-col">
-        <div className="flex items-center gap-2.5 px-5 py-3.5 flex-1">
-          <span className="h-2 w-2 rounded-full bg-zinc-600 shrink-0" />
-          <span className="text-sm font-semibold text-zinc-400">Background crawl</span>
-          <span className="text-[10px] text-zinc-500 bg-zinc-800/50 px-2 py-0.5 rounded-full select-none">
-            checking…
+        <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-800/60">
+          <h3 className="text-sm font-semibold text-white">{componentTitle}</h3>
+          <span className="text-[10px] text-zinc-500 bg-zinc-800/60 border border-zinc-700/50 px-2 py-0.5 rounded-full">checking</span>
+        </div>
+        <div className="px-5 py-4 text-xs text-zinc-500">Waiting for crawl metadata...</div>
+      </div>
+    )
+  }
+
+  const statusMeta = STATUS_STYLES[activeStatus]
+  const StatusIcon = statusMeta.icon
+
+  return (
+    <div className={`rounded-2xl border bg-[#0D0D10] overflow-hidden h-full flex flex-col ${statusMeta.border}`}>
+      <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-800/60">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <h3 className="text-sm font-semibold text-white truncate">{componentTitle}</h3>
+          <span className={`inline-flex items-center gap-1 text-[10px] border px-2 py-0.5 rounded-full ${statusMeta.chip}`}>
+            <StatusIcon className={`h-3 w-3 ${statusMeta.iconColor}`} />
+            {statusMeta.label}
           </span>
         </div>
+        {onViewPages && (
+          <button
+            onClick={onViewPages}
+            className="text-[11px] text-zinc-400 hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
+          >
+            View pages <Globe className="h-3 w-3" />
+          </button>
+        )}
       </div>
-    )
-  }
 
-  /* ------------------------------------------------------------------ */
-  /*  Running state                                                       */
-  /* ------------------------------------------------------------------ */
-  if (status === 'running') {
-    const pct = Math.min(100, totalPages > 0 ? Math.round((livePagesCrawled / totalPages) * 100) : 0)
-    return (
-      <div className="rounded-2xl border border-zinc-800 bg-[#111113] overflow-hidden h-full flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-800/60">
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-2.5 w-2.5 shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
-            </span>
-            <span className="text-sm font-semibold text-white">Crawling</span>
-            <span className="text-[10px] text-amber-400 font-medium bg-amber-500/10 px-1.5 py-0.5 rounded-full animate-pulse select-none">
-              LIVE
-            </span>
-          </div>
-          {onViewPages && (
-            <button
-              onClick={onViewPages}
-              className="text-[11px] text-zinc-400 hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
-            >
-              View <Globe className="h-3 w-3" />
-            </button>
-          )}
-        </div>
-
-        {/* Progress area — styled like progress page */}
-        <div className="px-5 py-4 flex-1 flex flex-col justify-center space-y-4">
-          {/* Percentage + pages label */}
-          <div className="flex items-end justify-between">
-            <span className="text-zinc-500 text-xs font-mono uppercase tracking-widest">
-              Progress
-            </span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-xs text-zinc-500 tabular-nums">
-                <span className="font-semibold text-zinc-300">{livePagesCrawled}</span>
-                <span className="text-zinc-600"> / </span>{totalPages} pages
-              </span>
-              <span className="text-3xl font-bold font-mono tabular-nums text-white">
-                {pct}%
-              </span>
+      <div className="px-5 py-4 space-y-4">
+        <div className="space-y-2.5">
+          <div className="flex items-end justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-[11px] text-zinc-500 uppercase tracking-wider">Pages Indexed</p>
+              <p className="text-2xl font-bold text-white tabular-nums leading-tight">
+                {livePagesCrawled.toLocaleString()}
+                {effectiveTotalPages > 0 && (
+                  <span className="text-sm text-zinc-500 font-medium"> / {effectiveTotalPages.toLocaleString()}</span>
+                )}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-[11px] text-zinc-500 uppercase tracking-wider">Crawl Time</p>
+              <p className="text-base font-semibold text-zinc-200 tabular-nums">{formatDuration(elapsedMs)}</p>
             </div>
           </div>
 
-          {/* Thick progress bar with shimmer */}
-          <div className="space-y-1.5">
-            <div className="w-full h-4 bg-white/6 rounded-full overflow-hidden border border-white/5">
-              <div
-                className="h-full rounded-full bg-linear-to-r from-amber-600 via-amber-400 to-amber-300 transition-all duration-700 ease-out relative overflow-hidden"
-                style={{ width: `${pct}%` }}
-              >
-                {/* Shimmer animation */}
-                <span
-                  className="absolute inset-0 bg-linear-to-r from-transparent via-white/25 to-transparent animate-shimmer"
+          {effectiveTotalPages > 0 && (
+            <div className="space-y-1.5">
+              <div className="w-full h-3 bg-white/6 rounded-full overflow-hidden border border-white/5">
+                <div
+                  className="h-full rounded-full bg-linear-to-r from-amber-600 via-amber-400 to-amber-300 transition-all duration-700 ease-out"
+                  style={{ width: `${percent}%` }}
                 />
               </div>
-            </div>
-            {/* Track labels */}
-            <div className="flex justify-between">
-              <span className="text-zinc-600 text-[10px] font-mono">0%</span>
-              <span className="text-zinc-600 text-[10px] font-mono">100%</span>
-            </div>
-          </div>
-
-          {/* Current URL — below the progress bar */}
-          {currentUrl && (
-            <div className="flex items-center gap-2 min-w-0 pt-1">
-              <Globe className="h-3.5 w-3.5 text-zinc-600 shrink-0" />
-              <span className="text-xs text-zinc-400 font-mono truncate">
-                {currentUrl}
-              </span>
+              <div className="flex justify-between text-[10px] text-zinc-600 font-mono">
+                <span>0%</span>
+                <span>{percent}%</span>
+              </div>
             </div>
           )}
         </div>
-      </div>
-    )
-  }
 
-  /* ------------------------------------------------------------------ */
-  /*  Paused state                                                        */
-  /* ------------------------------------------------------------------ */
-  if (status === 'paused') {
-    return (
-      <div className="rounded-2xl border border-amber-500/25 bg-[#0D0D10] overflow-hidden h-full flex flex-col">
-        <div className="flex items-center justify-between px-5 py-3.5">
-          <div className="flex items-center gap-2.5">
-            <PauseCircle className="h-4 w-4 text-amber-400 shrink-0" />
-            <span className="text-sm font-semibold text-white">100 pages indexed — crawl paused</span>
-            <span className="text-[10px] text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full select-none">
-              paused
-            </span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 px-3 py-2.5">
+            <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Last Update</p>
+            <p className="text-xs text-zinc-300 mt-1 truncate">{formatTimestamp(updatedAtMs)}</p>
           </div>
-          {onViewPages && (
-            <button
-              onClick={onViewPages}
-              className="text-[11px] text-zinc-400 hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
-            >
-              View pages <Globe className="h-3 w-3" />
-            </button>
-          )}
+          <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 px-3 py-2.5">
+            <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Started At</p>
+            <p className="text-xs text-zinc-300 mt-1 truncate">{formatTimestamp(startedAtMs)}</p>
+          </div>
+          <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 px-3 py-2.5 flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Allow Subdomains</p>
+              <p className="text-xs text-zinc-200 mt-1">{displayBool(allowSubdomains)}</p>
+            </div>
+            <Database className="h-3.5 w-3.5 text-zinc-600 shrink-0" />
+          </div>
+          <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 px-3 py-2.5 flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Max Pages</p>
+              <p className="text-xs text-zinc-200 mt-1 tabular-nums">
+                {typeof maxPages === 'number' && maxPages > 0
+                  ? maxPages.toLocaleString()
+                  : effectiveTotalPages > 0
+                    ? effectiveTotalPages.toLocaleString()
+                    : '-'}
+              </p>
+            </div>
+            <Activity className="h-3.5 w-3.5 text-zinc-600 shrink-0" />
+          </div>
         </div>
-        <div className="px-5 pb-3 border-t border-zinc-800/40 pt-3 flex items-center justify-between gap-3">
-          <p className="text-[11px] text-zinc-500 leading-relaxed">
-            The initial 100 pages have been indexed. Click <strong className="text-zinc-300">Continue crawl</strong> to
-            index the rest of the site.
-          </p>
-          {onResume && (
+
+        <div className="space-y-2">
+          <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 px-3 py-2.5">
+            <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Start URL</p>
+            <p className="text-xs text-zinc-300 mt-1 truncate">{startUrl || '-'}</p>
+          </div>
+          <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 px-3 py-2.5">
+            <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Current URL</p>
+            <p className="text-xs text-zinc-300 mt-1 truncate">{liveCurrentUrl || '-'}</p>
+          </div>
+        </div>
+
+        {activeStatus === 'paused' && onResume && (
+          <div className="pt-1 flex items-center justify-end">
             <button
               onClick={() => {
-                // Optimistically transition: button disappears immediately
-                // without waiting for the socket to confirm 'running'.
                 setStatus('running')
                 onResume()
               }}
-              className="shrink-0 text-[11px] font-semibold text-amber-400 border border-amber-500/40 hover:bg-amber-500/10 px-3 py-1 rounded-lg transition-colors cursor-pointer"
+              className="text-[12px] font-semibold text-black bg-amber-400 border border-amber-300 hover:bg-amber-300 px-3.5 py-1.5 rounded-lg transition-colors shadow-[0_0_0_1px_rgba(251,191,36,0.35)] cursor-pointer"
             >
               Continue crawl
             </button>
-          )}
-        </div>
-      </div>
-    )
-  }
-
-  /* ------------------------------------------------------------------ */
-  /*  Completed state                                                     */
-  /* ------------------------------------------------------------------ */
-  if (status === 'completed') {
-    return (
-      <div className="rounded-2xl border border-emerald-500/20 bg-[#0D0D10] overflow-hidden h-full flex flex-col">
-        <div className="flex items-center justify-between px-5 py-3.5">
-          <div className="flex items-center gap-2.5">
-            <CheckCircle className="h-4 w-4 text-emerald-400 shrink-0" />
-            <span className="text-sm font-semibold text-white">Background crawl completed</span>
-            <span className="text-[10px] text-zinc-400 bg-zinc-700/40 px-2 py-0.5 rounded-full select-none">
-              done
-            </span>
           </div>
-          {onViewPages && (
-            <button
-              onClick={onViewPages}
-              className="text-[11px] text-zinc-400 hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
-            >
-              View pages <Globe className="h-3 w-3" />
-            </button>
-          )}
-        </div>
-        <div className="px-5 pb-3 border-t border-zinc-800/40 pt-3">
-          <p className="text-[11px] text-zinc-500 leading-relaxed">
-            All pages have been indexed. Head to the <strong className="text-zinc-300">Crawler</strong> tab
-            to explore the full site data.
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  /* ------------------------------------------------------------------ */
-  /*  Failed state                                                        */
-  /* ------------------------------------------------------------------ */
-  if (status === 'failed') {
-    return (
-      <div className="rounded-2xl border border-rose-500/20 bg-[#0D0D10] overflow-hidden h-full flex flex-col">
-        <div className="flex items-center gap-2.5 px-5 py-3.5 flex-1">
-          <XCircle className="h-4 w-4 text-rose-400 shrink-0" />
-          <span className="text-sm font-semibold text-white">Background crawl failed</span>
-          <span className="text-[10px] text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full select-none">
-            failed
-          </span>
-        </div>
-      </div>
-    )
-  }
-
-  /* ------------------------------------------------------------------ */
-  /*  Cancelled state                                                     */
-  /* ------------------------------------------------------------------ */
-  return (
-    <div className="rounded-2xl border border-zinc-700/40 bg-[#0D0D10] overflow-hidden h-full flex flex-col">
-      <div className="flex items-center gap-2.5 px-5 py-3.5 flex-1">
-        <AlertCircle className="h-4 w-4 text-zinc-500 shrink-0" />
-        <span className="text-sm font-semibold text-zinc-400">Background crawl cancelled</span>
+        )}
       </div>
     </div>
   )

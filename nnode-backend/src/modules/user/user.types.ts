@@ -9,6 +9,13 @@ export interface GoogleAnalyticsIntegration {
   expiryDate?: number | null;
 }
 
+export interface OnboardingState {
+  status: 'in_progress' | 'completed';
+  currentFlow?: 'core' | 'brand';
+  currentStep?: number;
+  resumePath?: string;
+}
+
 export interface UserEntity {
   id: string;
   email: string;
@@ -21,6 +28,7 @@ export interface UserEntity {
   createdAt: Date;
   updatedAt: Date;
   hasNew?: boolean;
+  onboardingState?: OnboardingState;
   onboardingData?: {
     role?: string;
     organizationType?: string;
@@ -50,6 +58,7 @@ export interface UpdateUserDto {
   googleId?: string;
   authProvider?: AuthProvider;
   hasNew?: boolean;
+  onboardingState?: OnboardingState;
   onboardingData?: {
     role?: string;
     organizationType?: string;

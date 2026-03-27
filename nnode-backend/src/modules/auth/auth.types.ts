@@ -24,6 +24,12 @@ export interface AuthResponse {
     name: string;
     role: UserRole;
     hasNew?: boolean;
+    onboardingState?: {
+      status: 'in_progress' | 'completed';
+      currentFlow?: 'core' | 'brand';
+      currentStep?: number;
+      resumePath?: string;
+    };
     onboardingData?: {
       role?: string;
       organizationType?: string;

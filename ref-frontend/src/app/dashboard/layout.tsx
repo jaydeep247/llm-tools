@@ -6,6 +6,7 @@ import { Navbar } from '@/components/dashboard/navbar'
 import { Sidebar } from '@/components/dashboard/sidebar'
 import { ThemeProvider } from '@/components/common/theme-provider'
 import { useAuth } from '@/hooks/useAuth'
+import { getOnboardingResumePath, requiresOnboarding } from '@/lib/onboarding'
 
 export default function DashboardLayout({
   children,
@@ -21,8 +22,8 @@ export default function DashboardLayout({
     if (isAuthLoading) return
     if (!user) {
       window.location.replace('/signin')
-    } else if (user?.hasNew === true) {
-      router.replace('/onboarding')
+    } else if (requiresOnboarding(user)) {
+      router.replace(getOnboardingResumePath(user))
     }
   }, [user, isAuthLoading, router])
 
@@ -31,7 +32,7 @@ export default function DashboardLayout({
   const isJobProgressPage = pathname?.includes('/jobs/') && pathname?.includes('/progress')
 
   // Show spinner while auth is resolving or while redirect is pending
-  if (isAuthLoading || !user || user?.hasNew === true) {
+  if (isAuthLoading || !user || requiresOnboarding(user)) {
     return (
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
         <div className="h-screen w-full bg-[#09090B] flex items-center justify-center">

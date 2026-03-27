@@ -15,6 +15,7 @@ import { StepWelcome } from '@/components/onboarding/steps/step-welcome'
 import { StepCreateProject } from '@/components/onboarding/steps/step-create-project'
 import { StepStartSession } from '@/components/onboarding/steps/step-start-session'
 import { StepConnectAnalytics } from '@/components/onboarding/steps/step-connect-analytics'
+import { hasCompletedOnboarding } from '@/lib/onboarding'
 
 const TOTAL_STEPS = 4
 
@@ -28,6 +29,37 @@ interface BrandRedirectParams {
   url: string
   sessionId: string
   jobId: string
+}
+
+function buildCoreOnboardingPath(stepIndex: number, projectId?: string | null, brandParams?: BrandRedirectParams | null) {
+  const params = new URLSearchParams()
+  params.set('step', String(stepIndex + 1))
+
+  const resolvedProjectId = brandParams?.projectId ?? projectId
+  if (stepIndex >= 2 && resolvedProjectId) {
+    params.set('projectId', resolvedProjectId)
+  }
+
+  if (stepIndex >= 3 && brandParams) {
+    params.set('projectId', brandParams.projectId)
+    params.set('sessionId', brandParams.sessionId)
+    params.set('jobId', brandParams.jobId)
+    params.set('url', brandParams.url)
+  }
+
+  return `/onboarding?${params.toString()}`
+}
+
+function buildBrandOnboardingPath(params: BrandRedirectParams, stepIndex = 0) {
+  const search = new URLSearchParams({
+    projectId: params.projectId,
+    url: params.url,
+    sessionId: params.sessionId,
+    jobId: params.jobId,
+    step: String(stepIndex + 1),
+  })
+
+  return `/brand-onboarding?${search.toString()}`
 }
 
 const LEFT_PANEL_CONTENT = [
@@ -91,12 +123,88 @@ function OnboardingContent() {
   const [createSession] = useCreateSessionMutation()
   const [createJob] = useCreateJobMutation()
 
-  const [currentStepIndex, setCurrentStepIndex] = useState(0)
-  const [createdProjectId, setCreatedProjectId] = useState<string | null>(null)
+  const projectIdParam = searchParams.get('projectId')
+  const sessionIdParam = searchParams.get('sessionId')
+  const jobIdParam = searchParams.get('jobId')
+  const urlParam = searchParams.get('url')
+
+  const initialBrandRedirectParams: BrandRedirectParams | null =
+    projectIdParam && sessionIdParam && jobIdParam && urlParam
+      ? {
+          projectId: projectIdParam,
+          sessionId: sessionIdParam,
+          jobId: jobIdParam,
+          url: urlParam,
+        }
+      : null
+
+  const initialStepIndex = (() => {
+    const rawStep = parseInt(searchParams.get('step') ?? '', 10)
+    let stepIndex = rawStep >= 1 && rawStep <= TOTAL_STEPS ? rawStep - 1 : 0
+
+    if (stepIndex >= 3 && !initialBrandRedirectParams) {
+      stepIndex = projectIdParam ? 2 : 1
+    } else if (stepIndex >= 2 && !projectIdParam) {
+      stepIndex = 1
+    }
+
+    return stepIndex
+  })()
+
+  const [currentStepIndex, setCurrentStepIndex] = useState(initialStepIndex)
+  const [createdProjectId, setCreatedProjectId] = useState<string | null>(projectIdParam)
   const [isStartingSession, setIsStartingSession] = useState(false)
-  const [brandRedirectParams, setBrandRedirectParams] = useState<BrandRedirectParams | null>(null)
+  const [brandRedirectParams, setBrandRedirectParams] = useState<BrandRedirectParams | null>(initialBrandRedirectParams)
   const [gaStatus, setGaStatus] = useState<'connected' | 'error' | undefined>(undefined)
   const [gaError, setGaError] = useState<string | undefined>(undefined)
+
+  const persistCoreProgress = async (stepIndex: number, projectId = createdProjectId, params = brandRedirectParams) => {
+    if (!user) return
+
+    try {
+      await updateUser({
+        id: user.id,
+        data: {
+          onboardingState: {
+            status: 'in_progress',
+            currentFlow: 'core',
+            currentStep: stepIndex,
+            resumePath: buildCoreOnboardingPath(stepIndex, projectId, params),
+          },
+        },
+      }).unwrap()
+    } catch {
+      toast({
+        title: 'Could not save onboarding progress',
+        description: 'Your current step may not be restored automatically next time.',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const persistBrandEntry = async (params: BrandRedirectParams, stepIndex = 0) => {
+    if (!user) return
+
+    try {
+      await updateUser({
+        id: user.id,
+        data: {
+          onboardingState: {
+            status: 'in_progress',
+            currentFlow: 'brand',
+            currentStep: stepIndex,
+            resumePath: buildBrandOnboardingPath(params, stepIndex),
+          },
+        },
+      }).unwrap()
+    } catch {
+      toast({
+        title: 'Could not save onboarding progress',
+        description: 'Your current step may not be restored automatically next time.',
+        variant: 'destructive',
+      })
+    }
+  }
 
   // Handle GA OAuth callback params returned by the backend redirect
   useEffect(() => {
@@ -120,12 +228,14 @@ function OnboardingContent() {
       setBrandRedirectParams(params)
       setCurrentStepIndex(3)
       skipGuardRedirect.current = true
+      if (params) {
+        void persistBrandEntry(params, 0)
+      }
       // Auto-proceed to brand-onboarding after a short success moment
       setTimeout(() => {
         sessionStorage.removeItem(GA_REDIRECT_PARAMS_KEY)
         if (params) {
-          const qs = new URLSearchParams(params as unknown as Record<string, string>)
-          router.push(`/brand-onboarding?${qs.toString()}`)
+          router.push(buildBrandOnboardingPath(params, 0))
         } else {
           router.push('/dashboard')
         }
@@ -136,6 +246,7 @@ function OnboardingContent() {
       setBrandRedirectParams(params)
       setCurrentStepIndex(3)
       skipGuardRedirect.current = true
+      void persistCoreProgress(3, params?.projectId ?? projectIdParam, params)
       toast({
         title: gaErrorParam === 'access_denied' ? 'Permission denied' : 'Connection failed',
         description:
@@ -152,7 +263,7 @@ function OnboardingContent() {
   useEffect(() => {
     if (isAuthLoading) return
     if (skipGuardRedirect.current) return
-    if (user && user.hasNew === false) {
+    if (user && hasCompletedOnboarding(user)) {
       router.replace('/dashboard')
     }
     if (!user) {
@@ -161,28 +272,18 @@ function OnboardingContent() {
   }, [user, isAuthLoading, router])
 
   const handleNext = async () => {
-    if (currentStepIndex === 0 && user) {
-      skipGuardRedirect.current = true
-      try {
-        await updateUser({ id: user.id, data: { hasNew: false } }).unwrap()
-      } catch {
-        skipGuardRedirect.current = false
-        toast({
-          title: "Something went wrong",
-          description: "Please try again.",
-          variant: "destructive",
-        })
-        return
-      }
-    }
     if (currentStepIndex < TOTAL_STEPS - 1) {
-      setCurrentStepIndex(prev => prev + 1)
+      const nextStepIndex = currentStepIndex + 1
+      setCurrentStepIndex(nextStepIndex)
+      void persistCoreProgress(nextStepIndex)
     }
   }
 
   const handleBack = () => {
     if (currentStepIndex > 0) {
-      setCurrentStepIndex(prev => prev - 1)
+      const previousStepIndex = currentStepIndex - 1
+      setCurrentStepIndex(previousStepIndex)
+      void persistCoreProgress(previousStepIndex)
     }
   }
 
@@ -192,6 +293,7 @@ function OnboardingContent() {
       setCreatedProjectId(result.project.id)
       toast({ title: "Project created!", description: `"${name}" is ready.` })
       setCurrentStepIndex(2)
+      void persistCoreProgress(2, result.project.id, null)
     } catch (error: any) {
       toast({
         title: "Failed to create project",
@@ -228,6 +330,7 @@ function OnboardingContent() {
       }
       setBrandRedirectParams(params)
       setCurrentStepIndex(3)
+      void persistCoreProgress(3, createdProjectId, params)
     } catch (error: any) {
       toast({
         title: 'Failed to start session',
@@ -243,6 +346,7 @@ function OnboardingContent() {
   const handleConnectGA = () => {
     if (brandRedirectParams) {
       sessionStorage.setItem(GA_REDIRECT_PARAMS_KEY, JSON.stringify(brandRedirectParams))
+      void persistCoreProgress(3, brandRedirectParams.projectId, brandRedirectParams)
     }
     // Full-page redirect to backend OAuth initiation endpoint
     window.location.href = `${API_BASE_URL}/auth/google/analytics`
@@ -252,18 +356,20 @@ function OnboardingContent() {
   const handleSkipGA = () => {
     sessionStorage.removeItem(GA_REDIRECT_PARAMS_KEY)
     if (brandRedirectParams) {
-      const qs = new URLSearchParams(brandRedirectParams as unknown as Record<string, string>)
-      router.push(`/brand-onboarding?${qs.toString()}`)
+      const destination = buildBrandOnboardingPath(brandRedirectParams, 0)
+      void persistBrandEntry(brandRedirectParams, 0)
+      router.push(destination)
     } else {
       router.push('/dashboard')
     }
   }
 
   const handleSkipToDashboard = () => {
+    void persistCoreProgress(currentStepIndex)
     router.push('/dashboard')
   }
 
-  if (isAuthLoading || !user || (user.hasNew === false && !skipGuardRedirect.current)) {
+  if (isAuthLoading || !user || (hasCompletedOnboarding(user) && !skipGuardRedirect.current)) {
     return <LoadingScreen />
   }
 

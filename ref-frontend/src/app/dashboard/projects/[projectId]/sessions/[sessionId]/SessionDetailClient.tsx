@@ -18,6 +18,8 @@ import { useGetSessionQuery } from '@/store/api/sessionApi'
 import { useGetSessionJobsQuery, useGetJobPagesQuery, useGetJobLinksQuery, useGetJobSitemapsQuery, useGetJobFieldsQuery, useGetJobSiteStructureQuery, useRetryJobMutation, useGetJobSummaryQuery, useGetJobSnapshotQuery } from '@/store/api/jobApi'
 import { useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
 import { useGetQuickStartResultQuery, useResumeCrawlMutation } from '@/store/api/quick_start/quickStartApi'
+import { useAppSelector } from '@/store/hooks'
+import { selectCrawlProgressByJobId } from '@/store/slices/crawlProgressSlice'
 import { formatDurationHHMMSSMS, formatDurationReadable } from '@/utils/formatDuration'
 
 interface LogEntry {
@@ -148,6 +150,7 @@ export default function SessionDetailClient() {
       pollingInterval: isSnapshotJobRunning ? 8000 : 0,
     }
   )
+  const persistedCrawlProgress = useAppSelector(selectCrawlProgressByJobId(snapshotJobId || ''))
 
   const isLoadingResults = isLoadingPagesRaw || isLoadingLinksRaw || isLoadingFieldsRaw || isLoadingSitemapsRaw
   const refetchJobResults = () => {
@@ -537,8 +540,23 @@ export default function SessionDetailClient() {
   }})
 
   const totalPagesCount =
-    jobSnapshot?.pagesCrawled ??
-    (uniqueRawPages.length > 0 ? uniqueRawPages.length : (pagesResult?.pagination?.total ?? session?.totalPages ?? jobSummary?.session?.total_pages ?? 0))
+    Math.max(
+      jobSnapshot?.pagesCrawled ?? 0,
+      persistedCrawlProgress?.pagesCrawled ?? 0,
+      uniqueRawPages.length > 0 ? uniqueRawPages.length : 0,
+      pagesResult?.pagination?.total ?? 0,
+      session?.totalPages ?? 0,
+      jobSummary?.session?.total_pages ?? 0,
+    )
+
+  const bannerTotalPages = Math.max(
+    Number(crawlJob?.config?.maxPages || crawlJob?.config?.max_pages || 0),
+    Number(quickStartJob?.config?.maxPages || quickStartJob?.config?.max_pages || 0),
+    Number(latestJob?.config?.maxPages || latestJob?.config?.max_pages || 0),
+    Number(persistedCrawlProgress?.totalPages || 0),
+    totalPagesCount,
+    100,
+  )
 
   // Transform data for Crawled Data Table
   const pagesData = { 
@@ -717,14 +735,13 @@ export default function SessionDetailClient() {
       // This fixes the issue where Redis counter is inflated (70) vs actual DB count (35)
       const dbTotal = pagesResult?.pagination?.total;
       
-      if (typeof dbTotal === 'number' && dbTotal > 0) {
-        setPageCount(dbTotal);
-      } else if (jobSnapshot?.pagesCrawled !== undefined && (actualStatus === 'running' || actualStatus === 'auditing')) {
-        // Only fallback to Redis if DB count is not yet available
-        setPageCount(jobSnapshot.pagesCrawled)
-      } else {
-        setPageCount(session.totalPages || jobSummary?.session?.total_pages || 0)
-      }
+      const candidate =
+        typeof dbTotal === 'number' && dbTotal > 0
+          ? dbTotal
+          : jobSnapshot?.pagesCrawled !== undefined && (actualStatus === 'running' || actualStatus === 'auditing')
+            ? jobSnapshot.pagesCrawled
+            : (session.totalPages || jobSummary?.session?.total_pages || 0)
+      setPageCount(prev => Math.max(prev, candidate, persistedCrawlProgress?.pagesCrawled ?? 0))
 
     } else if (jobSummary?.session) {
       // No session but we have jobSummary
@@ -732,15 +749,17 @@ export default function SessionDetailClient() {
       setCrawlStatus(summaryStatus || 'completed')
       
       const dbTotal = pagesResult?.pagination?.total;
-      if (typeof dbTotal === 'number' && dbTotal > 0) {
-        setPageCount(dbTotal);
-      } else if (jobSnapshot?.pagesCrawled !== undefined && (summaryStatus === 'running' || summaryStatus === 'auditing')) {
-        setPageCount(jobSnapshot.pagesCrawled)
-      } else {
-        const uniqueCount = uniqueRawPages.length
-        const realTimeCount = uniqueCount > 0 ? uniqueCount : pagesResult?.pagination?.total
-        setPageCount(typeof realTimeCount === 'number' ? realTimeCount : (jobSummary.session.total_pages || 0))
-      }
+      const candidate =
+        typeof dbTotal === 'number' && dbTotal > 0
+          ? dbTotal
+          : jobSnapshot?.pagesCrawled !== undefined && (summaryStatus === 'running' || summaryStatus === 'auditing')
+            ? jobSnapshot.pagesCrawled
+            : (() => {
+                const uniqueCount = uniqueRawPages.length
+                const realTimeCount = uniqueCount > 0 ? uniqueCount : pagesResult?.pagination?.total
+                return typeof realTimeCount === 'number' ? realTimeCount : (jobSummary.session.total_pages || 0)
+              })()
+      setPageCount(prev => Math.max(prev, candidate, persistedCrawlProgress?.pagesCrawled ?? 0))
     }
     
     // Use jobSummary for more accurate data when available
@@ -748,7 +767,7 @@ export default function SessionDetailClient() {
       const summarySession = jobSummary.session
       // Set page count from job summary if session doesn't have it and snapshot is missing
       if (!session?.totalPages && summarySession.total_pages && pagesResult?.pagination?.total === undefined && jobSnapshot?.pagesCrawled === undefined) {
-        setPageCount(summarySession.total_pages)
+        setPageCount(prev => Math.max(prev, summarySession.total_pages || 0, persistedCrawlProgress?.pagesCrawled ?? 0))
       }
       // Set crawl start time from job summary if not already set
       if (!crawlStartTime && summarySession.started_at) {
@@ -780,7 +799,7 @@ export default function SessionDetailClient() {
         })
       }
     }
-  }, [session, jobSummary, pagesResult, jobSnapshot])
+  }, [session, jobSummary, pagesResult, jobSnapshot, uniqueRawPages.length, persistedCrawlProgress?.pagesCrawled])
 
   // Timer for elapsed time display
   useEffect(() => {
@@ -1120,11 +1139,34 @@ export default function SessionDetailClient() {
                       }
                     }}
                     pagesCrawled={jobSnapshot?.pagesCrawled ?? 0}
-                    totalPages={100}
+                    totalPages={bannerTotalPages}
+                    maxPages={
+                      Number(crawlJob?.config?.maxPages || crawlJob?.config?.max_pages || 0) ||
+                      Number(quickStartJob?.config?.maxPages || quickStartJob?.config?.max_pages || 0) ||
+                      null
+                    }
+                    maxConcurrency={
+                      Number(jobSummary?.session?.max_concurrency || 0) ||
+                      Number(crawlJob?.config?.maxConcurrency || crawlJob?.config?.max_concurrency || 0) ||
+                      undefined
+                    }
+                    allowSubdomains={
+                      typeof jobSummary?.session?.allow_subdomains === 'boolean'
+                        ? jobSummary.session.allow_subdomains
+                        : undefined
+                    }
+                    crawlStartedAt={jobSummary?.session?.started_at || jobSnapshot?.startedAt || latestJob?.startedAt || session?.startedAt || null}
+                    crawlCompletedAt={jobSummary?.session?.completed_at || latestJob?.completedAt || null}
+                    crawlUpdatedAt={quickStartResult?.data?.crawlUpdatedAt || null}
+                    startUrl={jobSummary?.session?.start_url || session?.startUrl || null}
+                    totalLinks={jobSummary?.session?.total_links}
+                    totalSitemaps={jobSummary?.session?.total_sitemaps}
+                    totalFields={jobSummary?.session?.total_fields}
                     currentUrl={
-                      jobSnapshot?.links && jobSnapshot.links.length > 0
+                      jobSnapshot?.lastCrawledUrl ||
+                      (jobSnapshot?.links && jobSnapshot.links.length > 0
                         ? [...jobSnapshot.links].sort((a, b) => b.timestamp - a.timestamp)[0]?.url
-                        : session?.startUrl
+                        : session?.startUrl)
                     }
                   />
                 ) : undefined

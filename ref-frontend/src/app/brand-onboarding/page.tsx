@@ -16,12 +16,15 @@ import {
 } from '@/store/api/brandOnboardingApi'
 import type { GeneratedPrompt, PromptResult } from '@/store/api/brandOnboardingApi'
 import { AnimatePresence } from 'framer-motion'
+import { useUpdateUserMutation } from '@/store/api/userApi'
+import { useToast } from '@/hooks/use-toast'
 
 import { OnboardingLayout } from '@/components/onboarding/layout'
 import { StepBrandReady } from '@/components/brand-onboarding/step-brand-ready'
 import { StepBrandTopics } from '@/components/brand-onboarding/step-brand-topics'
 import { StepBrandPrompts } from '@/components/brand-onboarding/step-brand-prompts'
 import { StepBrandResults } from '@/components/brand-onboarding/step-brand-results'
+import { hasCompletedOnboarding } from '@/lib/onboarding'
 
 const TOTAL_STEPS = 4
 
@@ -72,6 +75,23 @@ function LoadingSpinner() {
   )
 }
 
+function buildBrandOnboardingPath(params: {
+  projectId: string
+  url: string
+  sessionId: string
+  jobId: string
+}, stepIndex: number) {
+  const search = new URLSearchParams({
+    projectId: params.projectId,
+    url: params.url,
+    sessionId: params.sessionId,
+    jobId: params.jobId,
+    step: String(stepIndex + 1),
+  })
+
+  return `/brand-onboarding?${search.toString()}`
+}
+
 export default function BrandOnboardingPage() {
   return (
     <Suspense fallback={<LoadingSpinner />}>
@@ -85,9 +105,11 @@ function BrandOnboardingContent() {
   const searchParams = useSearchParams()
   const pathname = usePathname()
   const { user, isLoading: isAuthLoading } = useAuth()
+  const { toast } = useToast()
 
   const projectId = searchParams.get('projectId')
   const rawUrl = searchParams.get('url') ?? ''
+  const sessionId = searchParams.get('sessionId') ?? ''
   const jobId = searchParams.get('jobId') ?? ''
 
   // Read initial step from URL (1-indexed in URL, 0-indexed in state)
@@ -104,6 +126,7 @@ function BrandOnboardingContent() {
   const [saveBrandPrompts] = useSaveBrandPromptsMutation()
   const [executeBrandPrompts] = useExecuteBrandPromptsMutation()
   const [fetchOnboardingData] = useLazyGetOnboardingDataQuery()
+  const [updateUser] = useUpdateUserMutation()
   const descriptionFetched = useRef(false)
   const onboardingDataFetched = useRef(false)
 
@@ -122,13 +145,38 @@ function BrandOnboardingContent() {
   const [promptResults, setPromptResults] = useState<PromptResult[]>([])
   const [isExecutingPrompts, setIsExecutingPrompts] = useState(false)
 
+  const persistBrandProgress = async (step: number) => {
+    if (!user || !projectId || !rawUrl || !sessionId || !jobId) return
+
+    try {
+      await updateUser({
+        id: user.id,
+        data: {
+          onboardingState: {
+            status: 'in_progress',
+            currentFlow: 'brand',
+            currentStep: step,
+            resumePath: buildBrandOnboardingPath({ projectId, url: rawUrl, sessionId, jobId }, step),
+          },
+        },
+      }).unwrap()
+    } catch {
+      toast({
+        title: 'Could not save onboarding progress',
+        description: 'Your current step may not be restored automatically next time.',
+        variant: 'destructive',
+      })
+    }
+  }
+
   // Update URL ?step= when currentStep changes (1-indexed in URL)
   const goToStep = useCallback((step: number) => {
     setCurrentStep(step)
     const params = new URLSearchParams(searchParams.toString())
     params.set('step', String(step + 1))
     router.replace(`${pathname}?${params.toString()}`, { scroll: false })
-  }, [searchParams, pathname, router])
+    void persistBrandProgress(step)
+  }, [pathname, persistBrandProgress, router, searchParams])
 
   // Infer brand name from URL domain (same logic as Python backend)
   const brandName = (() => {
@@ -147,8 +195,12 @@ function BrandOnboardingContent() {
     if (isAuthLoading) return
     if (!user) {
       window.location.replace('/signin')
+      return
     }
-  }, [user, isAuthLoading])
+    if (hasCompletedOnboarding(user)) {
+      router.replace('/dashboard')
+    }
+  }, [user, isAuthLoading, router])
 
   // Fetch brand description: first try stored (from quick_start precompute),
   // then fall back to generating via POST
@@ -316,6 +368,7 @@ function BrandOnboardingContent() {
   }
 
   const handleSkip = () => {
+    void persistBrandProgress(currentStep)
     router.push('/dashboard')
   }
 
@@ -385,11 +438,32 @@ function BrandOnboardingContent() {
               results={promptResults}
               isLoading={isExecutingPrompts}
               brandName={brandName}
-              onDashboard={() => {
-                if (jobId) {
-                  router.push(`/dashboard/jobs/${jobId}/progress`)
-                } else {
-                  router.push('/dashboard')
+              onDashboard={async () => {
+                try {
+                  await updateUser({
+                    id: user.id,
+                    data: {
+                      hasNew: false,
+                      onboardingState: {
+                        status: 'completed',
+                        currentFlow: 'brand',
+                        currentStep: 3,
+                        resumePath: '/dashboard',
+                      },
+                    },
+                  }).unwrap()
+
+                  if (jobId) {
+                    router.push(`/dashboard/jobs/${jobId}/progress`)
+                  } else {
+                    router.push('/dashboard')
+                  }
+                } catch {
+                  toast({
+                    title: 'Could not finish onboarding',
+                    description: 'Please try again before leaving this page.',
+                    variant: 'destructive',
+                  })
                 }
               }}
             />
