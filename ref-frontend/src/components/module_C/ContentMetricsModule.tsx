@@ -300,6 +300,19 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
     }
   }
 
+  useEffect(() => {
+    if (!jobId) return
+    let timer: any
+    if (isWaitingForAnalysis) {
+      timer = setInterval(() => {
+        refetch()
+      }, 5000)
+    }
+    return () => {
+      if (timer) clearInterval(timer)
+    }
+  }, [isWaitingForAnalysis, jobId, refetch])
+
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'text-green-500'
     if (score >= 60) return 'text-yellow-500'
@@ -312,7 +325,7 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
     'commercial',
     'comparative',
     'transactional',
-    'agent_style'
+    'agent'
   ]
 
   return (
@@ -597,7 +610,7 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
                           commercial: 'Commercial',
                           comparative: 'Comparative',
                           transactional: 'Transactional',
-                          agent_style: 'Agent-style'
+                          agent: 'Agent-style'
                         }
 
                         const iconMap: Record<string, React.ReactNode> = {
@@ -605,7 +618,7 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
                           commercial: <ShoppingBag className="w-4 h-4 text-blue-400" />,
                           comparative: <Scale className="w-4 h-4 text-orange-400" />,
                           transactional: <CreditCard className="w-4 h-4 text-emerald-400" />,
-                          agent_style: <Bot className="w-4 h-4 text-cyan-400" />
+                          agent: <Bot className="w-4 h-4 text-cyan-400" />
                         }
 
                         return (
