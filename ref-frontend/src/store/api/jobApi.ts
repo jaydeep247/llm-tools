@@ -195,6 +195,7 @@ export interface PerformanceAuditItem {
 }
 
 export type ContentAuditMetricType =
+  | 'page-metrics'
   | 'keyword-metrics'
   | 'performance-metrics'
   | 'content-metrics'
@@ -448,7 +449,7 @@ export const jobApi = baseApi.injectEndpoints({
     }),
 
     runContentAuditMetric: builder.mutation<
-      { accepted: boolean; job_id: string; metric: ContentAuditMetricType; urls: string[] },
+      { accepted: boolean; job_id: string; metric: ContentAuditMetricType; urls: string[]; run_at?: string },
       { jobId: string; metric: ContentAuditMetricType; urls: string[] }
     >({
       query: ({ jobId, metric, urls }) => ({
@@ -456,9 +457,8 @@ export const jobApi = baseApi.injectEndpoints({
         method: 'POST',
         body: { urls },
       }),
-      transformResponse: (response: { success: boolean; data: { accepted: boolean; job_id: string; metric: ContentAuditMetricType; urls: string[] } }) =>
+      transformResponse: (response: { success: boolean; data: { accepted: boolean; job_id: string; metric: ContentAuditMetricType; urls: string[]; run_at?: string } }) =>
         response.data,
-      invalidatesTags: (result, error, { jobId }) => [{ type: 'Job', id: jobId }],
     }),
 
     generateJobSchema: builder.mutation<

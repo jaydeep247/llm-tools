@@ -27,6 +27,7 @@ async def _generate_questions(
     page_topic: str,
     primary_keyword: str,
     page_type: str,
+    content_excerpt: str,
 ) -> List[str]:
     """Generate the 15 most important questions users ask about this topic."""
 
@@ -34,6 +35,7 @@ async def _generate_questions(
         f"Page topic: {page_topic}\n"
         f"Primary keyword: {primary_keyword}\n"
         f"Page type: {page_type}\n"
+        f"Content excerpt: {content_excerpt[:1500]}\n"
     )
 
     resp = await execute_task(
@@ -46,7 +48,9 @@ async def _generate_questions(
                         "You are a search intent analyst. Given a webpage topic, "
                         "generate the 15 most important questions users ask that this page should answer. "
                         'Return JSON: {"questions": ["q1", "q2", ...]} '
-                        "Focus on: informational, comparative, and how-to questions."
+                        "Focus on: informational, comparative, and how-to questions. "
+                        "Use the content excerpt to stay grounded in the exact page. "
+                        "Do not ask generic company questions unless the page signals clearly support them."
                     ),
                 },
                 {"role": "user", "content": prompt},
@@ -213,7 +217,12 @@ async def run_c4(
         primary_keyword = page_topic
 
     # Step 1: Generate questions
-    questions = await _generate_questions(page_topic, primary_keyword, page_type)
+    questions = await _generate_questions(
+        page_topic,
+        primary_keyword,
+        page_type,
+        visible_text,
+    )
     if not questions:
         logger.warning("[C4] No questions generated — returning zero score")
         return {

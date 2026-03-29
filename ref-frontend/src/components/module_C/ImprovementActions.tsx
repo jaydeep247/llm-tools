@@ -67,10 +67,10 @@ function PieTooltip({ active, payload }: any) {
 function ActionCard({ action, index }: { action: any; index: number }) {
   const [expanded, setExpanded] = useState(false)
   const priority = action.priority ?? 'Low'
-  const impact = action.impact ?? 0
+  const impact = action.impact_points ?? action.impact ?? 0
   const type = action.type ?? action.action_type ?? ''
-  const category = action.category ?? ''
-  const description = action.description ?? action.suggestion ?? action.recommendation ?? ''
+  const category = action.category ?? action.aivs_dimension ?? ''
+  const description = action.action ?? action.description ?? action.suggestion ?? action.recommendation ?? ''
 
   return (
     <div className="border border-zinc-800 rounded-xl overflow-hidden">
@@ -141,7 +141,7 @@ export default function ImprovementActions({ jobId, url }: ImprovementActionsPro
   const [filterPriority, setFilterPriority] = useState<'All' | 'High' | 'Medium' | 'Low'>('All')
   const [filterCategory, setFilterCategory] = useState<string>('All')
 
-  const { data: moduleCData, isLoading: isLoadingData, refetch: refetchData } = useGetModuleCResultQuery(jobId || '', {
+  const { data: moduleCData, isLoading: isLoadingData, refetch: refetchData } = useGetModuleCResultQuery({ jobId: jobId || '', url }, {
     skip: !jobId, refetchOnMountOrArgChange: true,
   })
   const { isAnalyzing, progress, phaseLabel, runAnalysis } = useModuleCAnalysis({
@@ -167,8 +167,45 @@ export default function ImprovementActions({ jobId, url }: ImprovementActionsPro
   const lowPriority = pageAct?.low_priority ?? 0
   const currentScore = pageAct?.current_llm_friendliness ?? 0
   const predictedScore = pageAct?.predicted_llm_friendliness ?? 0
-  const scoreDelta = pageAct?.predicted_llm_friendliness_delta ?? 0
-  const actions: any[] = pageAct?.actions ?? []
+  const scoreDelta = pageAct?.predicted_llm_friendliness_delta ?? Math.max(0, predictedScore - currentScore)
+
+  const actions: any[] = useMemo(() => {
+    const rawActions: any[] = pageAct?.actions ?? []
+    const totalWeight = rawActions.reduce((sum, action) => {
+      const weight = typeof action?.dimension_weight === 'number' ? action.dimension_weight : 0
+      return sum + Math.max(weight, 0)
+    }, 0)
+
+    const priorityRank: Record<string, number> = { High: 0, Medium: 1, Low: 2, high: 0, medium: 1, low: 2 }
+
+    return rawActions
+      .map((action) => {
+        const explicitImpact = typeof action?.impact_points === 'number'
+          ? action.impact_points
+          : typeof action?.impact === 'number'
+            ? action.impact
+            : null
+
+        const derivedImpact = explicitImpact ?? (
+          totalWeight > 0 && typeof action?.dimension_weight === 'number'
+            ? Number(((scoreDelta * action.dimension_weight) / totalWeight).toFixed(1))
+            : 0
+        )
+
+        return {
+          ...action,
+          impact_points: derivedImpact,
+          impact: derivedImpact,
+          category: action.category ?? action.aivs_dimension ?? '',
+          description: action.action ?? action.description ?? action.suggestion ?? action.recommendation ?? '',
+        }
+      })
+      .sort((left, right) => {
+        const priorityDiff = (priorityRank[left.priority] ?? 99) - (priorityRank[right.priority] ?? 99)
+        if (priorityDiff !== 0) return priorityDiff
+        return (right.impact_points ?? 0) - (left.impact_points ?? 0)
+      })
+  }, [pageAct, scoreDelta])
 
   // Get unique categories
   const categories = useMemo(() => {

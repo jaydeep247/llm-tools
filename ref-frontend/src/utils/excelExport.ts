@@ -53,6 +53,300 @@ export function addSheet(wb: XLSX.WorkBook, data: Record<string, any>[], sheetNa
   XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31)) // Excel sheet name limit 31 chars
 }
 
+type ContentAuditExportColumn = {
+  group: string
+  label: string
+  value: (row: any) => string | number | null
+}
+
+function firstDefined(...values: any[]) {
+  for (const value of values) {
+    if (value !== undefined && value !== null && value !== '') {
+      return value
+    }
+  }
+
+  return null
+}
+
+function getNestedValue(source: any, path: string[]) {
+  return path.reduce<any>((current, key) => current?.[key], source)
+}
+
+function getContentAuditValue(row: any, key: string, nestedPaths: string[][] = []) {
+  const fields = row?.fields ?? {}
+  return firstDefined(
+    row?.[key],
+    fields?.[key],
+    ...nestedPaths.map((path) => getNestedValue(fields, path)),
+  )
+}
+
+function formatDateOnly(value: any) {
+  if (!value) return ''
+  const stringValue = String(value)
+  return stringValue.includes('T') ? stringValue.split('T')[0] : stringValue
+}
+
+function formatPublishedUpgrade(row: any) {
+  const published = formatDateOnly(firstDefined(
+    row?.publishedDate,
+    row?.fields?.publishedDate,
+    row?.fields?.content_matrix?.publishedDate,
+    row?.fields?.page_matrix?.publishedDate,
+  ))
+  const upgrade = formatDateOnly(firstDefined(
+    row?.upgradeDate,
+    row?.fields?.upgradeDate,
+    row?.fields?.content_matrix?.upgradeDate,
+    row?.fields?.page_matrix?.upgradeDate,
+  ))
+
+  if (published && upgrade) return `${published} / ${upgrade}`
+  return published || upgrade || ''
+}
+
+function normalizeCellValue(value: any) {
+  if (value === undefined || value === null) return ''
+  if (typeof value === 'object') return JSON.stringify(value)
+  return value
+}
+
+const CONTENT_AUDIT_GROUP_COLORS: Record<string, string> = {
+  'Page Metrics': 'FFF2CC',
+  'Keyword Metrics': 'DAEEF3',
+  'Performance Metrics': 'D9E2F3',
+  'Content Metrics': 'E4DFEC',
+  'Backlink Metrics': 'D9D2E9',
+}
+
+function applyContentAuditHeaderStyles(ws: XLSX.WorkSheet, columnCount: number) {
+  for (let columnIndex = 0; columnIndex < columnCount; columnIndex += 1) {
+    const groupName = CONTENT_AUDIT_EXPORT_COLUMNS[columnIndex]?.group
+    const fillColor = CONTENT_AUDIT_GROUP_COLORS[groupName] || 'E5E7EB'
+
+    const groupAddress = XLSX.utils.encode_cell({ r: 0, c: columnIndex })
+    if (ws[groupAddress]) {
+      ws[groupAddress].s = {
+        font: { bold: true, sz: 14, color: { rgb: '000000' } },
+        fill: { fgColor: { rgb: fillColor } },
+        alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+        border: {
+          top: { style: 'thin', color: { rgb: '374151' } },
+          bottom: { style: 'thin', color: { rgb: '374151' } },
+          left: { style: 'thin', color: { rgb: '374151' } },
+          right: { style: 'thin', color: { rgb: '374151' } },
+        },
+      }
+    }
+
+    const subHeaderAddress = XLSX.utils.encode_cell({ r: 1, c: columnIndex })
+    if (ws[subHeaderAddress]) {
+      ws[subHeaderAddress].s = {
+        font: { bold: true, sz: 10, color: { rgb: '000000' } },
+        fill: { fgColor: { rgb: fillColor } },
+        alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+        border: {
+          top: { style: 'thin', color: { rgb: '4B5563' } },
+          bottom: { style: 'thin', color: { rgb: '4B5563' } },
+          left: { style: 'thin', color: { rgb: '4B5563' } },
+          right: { style: 'thin', color: { rgb: '4B5563' } },
+        },
+      }
+    }
+  }
+}
+
+const CONTENT_AUDIT_EXPORT_COLUMNS: ContentAuditExportColumn[] = [
+  {
+    group: 'Page Metrics',
+    label: 'URL',
+    value: (row) => firstDefined(row?.url, row?.fields?.url),
+  },
+  {
+    group: 'Page Metrics',
+    label: 'Page Category',
+    value: (row) => getContentAuditValue(row, 'pageCategory', [['page_matrix', 'page_category']]),
+  },
+  {
+    group: 'Page Metrics',
+    label: 'Post Category Type',
+    value: (row) => getContentAuditValue(row, 'postCategoryType', [['page_matrix', 'post_category_type']]),
+  },
+  {
+    group: 'Page Metrics',
+    label: 'Page Type (Hub/Spoke/Sub-Spoke)',
+    value: (row) => getContentAuditValue(row, 'pageType', [['page_matrix', 'page_type']]),
+  },
+  {
+    group: 'Page Metrics',
+    label: 'Post Type',
+    value: (row) => getContentAuditValue(row, 'postType', [['page_matrix', 'post_type']]),
+  },
+  {
+    group: 'Page Metrics',
+    label: 'Intent',
+    value: (row) => getContentAuditValue(row, 'intent', [['page_matrix', 'intent']]),
+  },
+  {
+    group: 'Page Metrics',
+    label: 'Status Code',
+    value: (row) => firstDefined(row?.statusCode, row?.status_code, row?.fields?.website_crawler?.status_code),
+  },
+  {
+    group: 'Keyword Metrics',
+    label: 'Volume (Global)',
+    value: (row) => getContentAuditValue(row, 'volume_global', [['Keyword_analysis', 'volume_global']]),
+  },
+  {
+    group: 'Keyword Metrics',
+    label: 'Volume (US)',
+    value: (row) => getContentAuditValue(row, 'volume_us', [['Keyword_analysis', 'volume_us']]),
+  },
+  {
+    group: 'Keyword Metrics',
+    label: 'KDs (US)',
+    value: (row) => getContentAuditValue(row, 'kd_us', [['Keyword_analysis', 'kd_us']]),
+  },
+  {
+    group: 'Keyword Metrics',
+    label: 'CPC ($)',
+    value: (row) => getContentAuditValue(row, 'cpc_usd', [['Keyword_analysis', 'cpc_usd']]),
+  },
+  {
+    group: 'Keyword Metrics',
+    label: 'Current Ranking',
+    value: (row) => getContentAuditValue(row, 'currentRanking', [['performance_metrics', 'currentRanking'], ['page_matrix', 'currentRanking']]),
+  },
+  {
+    group: 'Performance Metrics',
+    label: '30 Days GA Traffic',
+    value: (row) => getContentAuditValue(row, 'ga30DaysTraffic', [['performance_metrics', 'ga30DaysTraffic'], ['page_matrix', 'ga30DaysTraffic']]),
+  },
+  {
+    group: 'Performance Metrics',
+    label: 'Overall Keywords',
+    value: (row) => getContentAuditValue(row, 'overallKeywords', [['performance_metrics', 'overallKeywords'], ['page_matrix', 'overallKeywords']]),
+  },
+  {
+    group: 'Performance Metrics',
+    label: '1st Page Keywords',
+    value: (row) => getContentAuditValue(row, 'firstPageKeywords', [['performance_metrics', 'firstPageKeywords'], ['page_matrix', 'firstPageKeywords']]),
+  },
+  {
+    group: 'Content Metrics',
+    label: 'Current Word Count',
+    value: (row) => getContentAuditValue(row, 'currentWordCount', [['content_matrix', 'currentWordCount'], ['page_matrix', 'currentWordCount']]),
+  },
+  {
+    group: 'Content Metrics',
+    label: 'SERP Intent Word Count',
+    value: (row) => getContentAuditValue(row, 'serpIntentWordCount', [['content_matrix', 'serpIntentWordCount'], ['page_matrix', 'serpIntentWordCount']]),
+  },
+  {
+    group: 'Content Metrics',
+    label: 'Need to Add Word Counts',
+    value: (row) => getContentAuditValue(row, 'needToAddWordCount', [['content_matrix', 'needToAddWordCount'], ['page_matrix', 'needToAddWordCount']]),
+  },
+  {
+    group: 'Content Metrics',
+    label: 'Published/Upgrade',
+    value: (row) => formatPublishedUpgrade(row),
+  },
+  {
+    group: 'Backlink Metrics',
+    label: 'PR Score',
+    value: (row) => getContentAuditValue(row, 'pr_score', [['backlink_metrics', 'pr_score']]),
+  },
+  {
+    group: 'Backlink Metrics',
+    label: 'Inlinks',
+    value: (row) => firstDefined(row?.inlinks, row?.fields?.inlinks, row?.fields?.website_crawler?.inlinks),
+  },
+  {
+    group: 'Backlink Metrics',
+    label: 'Internal Outlinks (Internal Links)',
+    value: (row) => getContentAuditValue(row, 'internal_outlinks', [['backlink_metrics', 'internal_outlinks']]),
+  },
+  {
+    group: 'Backlink Metrics',
+    label: 'External Outlinks (External Links)',
+    value: (row) => getContentAuditValue(row, 'external_outlinks', [['backlink_metrics', 'external_outlinks']]),
+  },
+  {
+    group: 'Backlink Metrics',
+    label: 'Internal Links/External Links Ratio',
+    value: (row) => getContentAuditValue(row, 'link_ratio', [['backlink_metrics', 'link_ratio']]),
+  },
+  {
+    group: 'Backlink Metrics',
+    label: 'Minimum Required Referring Domains',
+    value: (row) => getContentAuditValue(row, 'min_required_rds', [['backlink_metrics', 'min_required_rds']]),
+  },
+  {
+    group: 'Backlink Metrics',
+    label: 'Current Referring Domains',
+    value: (row) => getContentAuditValue(row, 'current_referring_domains', [['backlink_metrics', 'current_referring_domains']]),
+  },
+  {
+    group: 'Backlink Metrics',
+    label: 'Need to Acquire Referring Domains',
+    value: (row) => getContentAuditValue(row, 'rds_to_acquire', [['backlink_metrics', 'rds_to_acquire']]),
+  },
+]
+
+export function addContentAuditSheet(wb: XLSX.WorkBook, data: any[], sheetName = 'Content Audit') {
+  const uniqueRows: any[] = []
+  const seenUrls = new Set<string>()
+
+  for (const row of data || []) {
+    const url = String(firstDefined(row?.url, row?.fields?.url) || '').trim()
+    if (!url || seenUrls.has(url)) continue
+    seenUrls.add(url)
+    uniqueRows.push(row)
+  }
+
+  const headerRow = CONTENT_AUDIT_EXPORT_COLUMNS.map((column) => column.group)
+  const subHeaderRow = CONTENT_AUDIT_EXPORT_COLUMNS.map((column) => column.label)
+  const dataRows = uniqueRows.map((row) =>
+    CONTENT_AUDIT_EXPORT_COLUMNS.map((column) => normalizeCellValue(column.value(row))),
+  )
+  const ws = XLSX.utils.aoa_to_sheet([headerRow, subHeaderRow, ...dataRows])
+
+  const merges: XLSX.Range[] = []
+  let groupStart = 0
+  for (let columnIndex = 1; columnIndex <= CONTENT_AUDIT_EXPORT_COLUMNS.length; columnIndex += 1) {
+    const nextGroup = CONTENT_AUDIT_EXPORT_COLUMNS[columnIndex]?.group
+    const currentGroup = CONTENT_AUDIT_EXPORT_COLUMNS[groupStart]?.group
+    if (columnIndex === CONTENT_AUDIT_EXPORT_COLUMNS.length || nextGroup !== currentGroup) {
+      if (columnIndex - groupStart > 1) {
+        merges.push({
+          s: { r: 0, c: groupStart },
+          e: { r: 0, c: columnIndex - 1 },
+        })
+      }
+      groupStart = columnIndex
+    }
+  }
+
+  ws['!merges'] = merges
+  ws['!rows'] = [{ hpt: 24 }, { hpt: 30 }]
+  ws['!freeze'] = { xSplit: 0, ySplit: 2 }
+  ws['!cols'] = CONTENT_AUDIT_EXPORT_COLUMNS.map((column, columnIndex) => {
+    const maxDataLength = dataRows.reduce((maxLength, dataRow) => {
+      const cellValue = String(dataRow[columnIndex] ?? '')
+      return Math.max(maxLength, cellValue.length)
+    }, 0)
+
+    return {
+      wch: Math.min(48, Math.max(14, column.group.length + 2, column.label.length + 2, maxDataLength + 2)),
+    }
+  })
+
+  applyContentAuditHeaderStyles(ws, CONTENT_AUDIT_EXPORT_COLUMNS.length)
+  XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31))
+}
+
 // ─── Module A helpers ────────────────────────────────────────────────────────
 
 export function transformCrawledDataForExcel(pages: any[]) {

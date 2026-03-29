@@ -2,19 +2,23 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Literal, Optional
+from urllib.parse import urlparse
 
-import aiohttp
 from pymongo import UpdateOne
 
 from modules.module_A.ContentAudit.BacklinkMetrics import extract_backlink_metrics_batch
 from modules.module_A.ContentAudit.ContentMetrics import extract_content_metrics
+from modules.module_A.ContentAudit.KeywordFinder import KeywordBundle
 from modules.module_A.ContentAudit.KeywordMetrics import extract_keyword_metrics, extract_keyword_metrics_batch
+from modules.module_A.ContentAudit.PageMetrics import extract_page_metrics
 from modules.module_A.ContentAudit.PerformanceMetrics import extract_performance_metrics_batch
 from utils.mongo import mongo_manager
+from utils.storage import load_raw_html
 
 logger = logging.getLogger("content_audit_http")
 
 MetricType = Literal[
+    "page-metrics",
     "keyword-metrics",
     "performance-metrics",
     "content-metrics",
@@ -65,41 +69,126 @@ def _resolve_target_urls(job_id: str, urls: Optional[List[str]]) -> List[str]:
     return [str(doc["url"]) for doc in docs if doc.get("url")]
 
 
-async def _fetch_html_documents(urls: List[str], concurrency: int = 5) -> Dict[str, Dict[str, Any]]:
-    if not urls:
+def _url_depth(url: str) -> int:
+    path = urlparse(url).path
+    return len([segment for segment in path.split("/") if segment])
+
+
+def _keyword_bundle_from_doc(field_doc: Dict[str, Any]) -> KeywordBundle:
+    payload = field_doc.get("keyword_bundle") or {}
+    if not isinstance(payload, dict):
+        payload = {}
+
+    return KeywordBundle(
+        primary_keyword=str(payload.get("primary_keyword") or field_doc.get("main_keyword") or ""),
+        keyword_source=str(payload.get("keyword_source") or field_doc.get("keyword_source") or ""),
+        all_keywords=list(payload.get("all_keywords") or []),
+        ranked_keywords=list(payload.get("ranked_keywords") or []),
+        related_keywords=list(payload.get("related_keywords") or []),
+        on_page_keywords=list(payload.get("on_page_keywords") or []),
+        question_keywords=list(payload.get("question_keywords") or []),
+        long_tail_keywords=list(payload.get("long_tail_keywords") or []),
+        entity_keywords=list(payload.get("entity_keywords") or []),
+        intent=str(payload.get("intent") or "I"),
+        post_category_type=str(payload.get("post_category_type") or "other"),
+    )
+
+
+async def _load_stored_html_documents(
+    job_id: str,
+    page_docs: List[Dict[str, Any]],
+    concurrency: int = 10,
+) -> Dict[str, Dict[str, Any]]:
+    if not page_docs:
         return {}
 
-    timeout = aiohttp.ClientTimeout(total=30)
     semaphore = asyncio.Semaphore(concurrency)
 
-    async def _fetch_one(session: aiohttp.ClientSession, url: str) -> tuple[str, Dict[str, Any]]:
+    async def _load_one(page_doc: Dict[str, Any]) -> tuple[str, Dict[str, Any]]:
+        url = str(page_doc.get("url") or "")
+        raw_html_filename = str(page_doc.get("raw_html_filename") or "").strip()
+
         async with semaphore:
             try:
-                async with session.get(url, allow_redirects=True) as response:
-                    html = await response.text(errors="ignore")
+                if not raw_html_filename:
                     return url, {
-                        "html_content": html,
-                        "response_headers": dict(response.headers),
-                        "final_url": str(response.url),
-                        "status_code": response.status,
+                        "html_content": "",
+                        "error": "missing-raw-html-filename",
                     }
+
+                html_content = await load_raw_html(job_id, raw_html_filename)
+                return url, {
+                    "html_content": html_content or "",
+                    "error": None if html_content else "missing-raw-html",
+                }
             except Exception as exc:
-                logger.warning("Content audit HTML fetch failed for %s: %s", url, exc)
+                logger.warning("Content audit HTML load failed for %s: %s", url, exc)
                 return url, {
                     "html_content": "",
-                    "response_headers": {},
                     "error": str(exc),
                 }
 
-    async with aiohttp.ClientSession(timeout=timeout) as session:
-        results = await asyncio.gather(*[_fetch_one(session, url) for url in urls])
-    return {url: payload for url, payload in results}
+    results = await asyncio.gather(*[_load_one(page_doc) for page_doc in page_docs])
+    return {url: payload for url, payload in results if url}
+
+
+def _build_crawl_graph_lookup(field_docs: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    urls = [str(doc.get("url") or "") for doc in field_docs if doc.get("url")]
+    url_set = set(urls)
+    incoming_links: Dict[str, List[str]] = {url: [] for url in urls}
+    outlink_counts: Dict[str, int] = {url: 0 for url in urls}
+
+    for doc in field_docs:
+        source_url = str(doc.get("url") or "")
+        if not source_url:
+            continue
+
+        raw_targets = doc.get("outlink_url_list") or []
+        unique_targets: List[str] = []
+        seen_targets = set()
+        for raw_target in raw_targets:
+            target_url = str(raw_target or "").strip()
+            if not target_url or target_url == source_url or target_url not in url_set:
+                continue
+            if target_url in seen_targets:
+                continue
+            seen_targets.add(target_url)
+            unique_targets.append(target_url)
+
+        outlink_counts[source_url] = len(unique_targets)
+        for target_url in unique_targets:
+            incoming_links.setdefault(target_url, []).append(source_url)
+
+    hub_urls = {
+        url
+        for url in urls
+        if len(incoming_links.get(url, [])) >= 30 and _url_depth(url) <= 2
+    }
+
+    graph_lookup: Dict[str, Dict[str, Any]] = {}
+    for url in urls:
+        incoming = incoming_links.get(url, [])
+        graph_lookup[url] = {
+            "inlink_count": len(incoming),
+            "outlink_count": outlink_counts.get(url, 0),
+            "internal_outlinks": outlink_counts.get(url, 0),
+            "incoming_links": incoming,
+            "pointed_by_hub": any(source in hub_urls for source in incoming),
+            "pointed_only_by_spoke": bool(incoming) and all(source not in hub_urls for source in incoming),
+        }
+
+    return graph_lookup
 
 
 async def _resolve_main_keyword(field_doc: Dict[str, Any], page_doc: Dict[str, Any]) -> tuple[str, str]:
     existing_keyword = (field_doc.get("main_keyword") or "").strip()
     if existing_keyword:
         return existing_keyword, str(field_doc.get("keyword_source") or "provided")
+
+    keyword_bundle = field_doc.get("keyword_bundle") or {}
+    bundle_keyword = str(keyword_bundle.get("primary_keyword") or "").strip()
+    if bundle_keyword:
+        return bundle_keyword, str(keyword_bundle.get("keyword_source") or field_doc.get("keyword_source") or "")
 
     resolved = await extract_keyword_metrics(
         url=str(field_doc.get("url") or page_doc.get("url") or ""),
@@ -113,17 +202,105 @@ async def _resolve_main_keyword(field_doc: Dict[str, Any], page_doc: Dict[str, A
     )
 
 
-async def _run_keyword_metrics(job_id: str, urls: List[str], run_at: str) -> int:
+async def _run_page_metrics(job_id: str, urls: List[str], run_at: str) -> int:
     page_docs = list(
         mongo_manager.pages.find(
             {"jobId": job_id, "url": {"$in": urls}},
-            {"_id": 0, "url": 1, "title": 1, "h1_tags": 1},
+            {
+                "_id": 0,
+                "url": 1,
+                "title": 1,
+                "h1_tags": 1,
+                "status_code": 1,
+                "response_time": 1,
+                "page_size_bytes": 1,
+                "raw_html_filename": 1,
+            },
         )
     )
     field_docs = list(
         mongo_manager.fields.find(
             {"jobId": job_id, "url": {"$in": urls}},
-            {"_id": 0, "url": 1, "main_keyword": 1, "keyword_source": 1},
+            {
+                "_id": 0,
+                "url": 1,
+                "main_keyword": 1,
+                "keyword_source": 1,
+                "keyword_bundle": 1,
+            },
+        )
+    )
+    graph_docs = list(
+        mongo_manager.fields.find(
+            {"jobId": job_id},
+            {"_id": 0, "url": 1, "outlink_url_list": 1},
+        )
+    )
+
+    pages_by_url = _build_lookup(page_docs)
+    fields_by_url = _build_lookup(field_docs)
+    html_by_url = await _load_stored_html_documents(job_id, page_docs)
+    crawl_graph_by_url = _build_crawl_graph_lookup(graph_docs)
+
+    operations = []
+    for url in urls:
+        page_doc = pages_by_url.get(url, {"url": url})
+        field_doc = fields_by_url.get(url, {"url": url})
+        keyword_bundle = _keyword_bundle_from_doc(field_doc)
+        html_payload = html_by_url.get(url, {})
+        html_content = str(html_payload.get("html_content") or "")
+        main_keyword = keyword_bundle.primary_keyword or str(field_doc.get("main_keyword") or "")
+
+        result = extract_page_metrics(
+            url=url,
+            html_content=html_content,
+            response_status=int(page_doc.get("status_code") or 0),
+            response_headers={},
+            response_time_ms=float(page_doc.get("response_time") or 0),
+            final_url=url,
+            raw_body_size=int(page_doc.get("page_size_bytes") or 0),
+            redirect_urls=[],
+            main_keyword=main_keyword,
+            keyword_bundle=keyword_bundle,
+            title=str(page_doc.get("title") or ""),
+            h1=_first_h1(page_doc),
+            crawl_graph=crawl_graph_by_url.get(url) or {},
+        )
+
+        operations.append(
+            UpdateOne(
+                {"jobId": job_id, "url": url},
+                {
+                    "$set": {
+                        "main_keyword": main_keyword or None,
+                        "keyword_source": keyword_bundle.keyword_source or None,
+                        "page_matrix": result,
+                        "page_metrics_last_run_at": run_at,
+                    },
+                    "$setOnInsert": {"createdAt": datetime.now(timezone.utc)},
+                },
+                upsert=True,
+            )
+        )
+
+    if not operations:
+        return 0
+
+    write_result = mongo_manager.fields.bulk_write(operations, ordered=False)
+    return int(write_result.modified_count)
+
+
+async def _run_keyword_metrics(job_id: str, urls: List[str], run_at: str) -> int:
+    page_docs = list(
+        mongo_manager.pages.find(
+            {"jobId": job_id, "url": {"$in": urls}},
+            {"_id": 0, "url": 1, "title": 1, "h1_tags": 1, "status_code": 1},
+        )
+    )
+    field_docs = list(
+        mongo_manager.fields.find(
+            {"jobId": job_id, "url": {"$in": urls}},
+            {"_id": 0, "url": 1, "main_keyword": 1, "keyword_source": 1, "keyword_bundle": 1},
         )
     )
 
@@ -141,6 +318,7 @@ async def _run_keyword_metrics(job_id: str, urls: List[str], run_at: str) -> int
             {
                 "url": url,
                 "main_keyword": main_keyword,
+                "status_code": page_doc.get("status_code"),
                 "volume_global": None,
                 "volume_us": None,
                 "kd_us": None,
@@ -161,15 +339,17 @@ async def _run_keyword_metrics(job_id: str, urls: List[str], run_at: str) -> int
                     "$set": {
                         "main_keyword": result.get("main_keyword"),
                         "keyword_source": keyword_sources.get(url) or None,
+                        "status_code": result.get("status_code"),
                         "volume_global": result.get("volume_global"),
                         "volume_us": result.get("volume_us"),
                         "kd_us": result.get("kd_us"),
                         "cpc_usd": result.get("cpc_usd"),
                         "keyword_metrics_audit_log": result.get("audit_log") or {},
                         "keyword_metrics_last_run_at": run_at,
-                    }
+                    },
+                    "$setOnInsert": {"createdAt": datetime.now(timezone.utc)},
                 },
-                upsert=False,
+                upsert=True,
             )
         )
 
@@ -190,7 +370,7 @@ async def _run_performance_metrics(job_id: str, urls: List[str], run_at: str) ->
     field_docs = list(
         mongo_manager.fields.find(
             {"jobId": job_id, "url": {"$in": urls}},
-            {"_id": 0, "url": 1, "main_keyword": 1, "performance_metrics": 1},
+            {"_id": 0, "url": 1, "main_keyword": 1, "keyword_bundle": 1, "performance_metrics": 1},
         )
     )
 
@@ -231,9 +411,10 @@ async def _run_performance_metrics(job_id: str, urls: List[str], run_at: str) ->
                         "performance_metrics.firstPageKeywords": result.get("firstPageKeywords"),
                         "performance_metrics_audit_log": result.get("audit_log") or {},
                         "performance_metrics_last_run_at": run_at,
-                    }
+                    },
+                    "$setOnInsert": {"createdAt": datetime.now(timezone.utc)},
                 },
-                upsert=False,
+                upsert=True,
             )
         )
 
@@ -307,9 +488,10 @@ async def _run_backlink_metrics(job_id: str, urls: List[str], run_at: str) -> in
                         "rds_to_acquire": result.get("rds_to_acquire"),
                         "backlink_audit_log": result.get("audit_log") or {},
                         "backlink_metrics_last_run_at": run_at,
-                    }
+                    },
+                    "$setOnInsert": {"createdAt": datetime.now(timezone.utc)},
                 },
-                upsert=False,
+                upsert=True,
             )
         )
 
@@ -344,30 +526,31 @@ async def _run_content_metrics(job_id: str, urls: List[str], run_at: str) -> int
     page_docs = list(
         mongo_manager.pages.find(
             {"jobId": job_id, "url": {"$in": urls}},
-            {"_id": 0, "url": 1, "title": 1, "h1_tags": 1, "word_count": 1},
+            {"_id": 0, "url": 1, "title": 1, "h1_tags": 1, "word_count": 1, "raw_html_filename": 1},
         )
     )
     field_docs = list(
         mongo_manager.fields.find(
             {"jobId": job_id, "url": {"$in": urls}},
-            {"_id": 0, "url": 1, "main_keyword": 1, "content_matrix": 1},
+            {"_id": 0, "url": 1, "main_keyword": 1, "keyword_bundle": 1, "content_matrix": 1},
         )
     )
 
     pages_by_url = _build_lookup(page_docs)
     fields_by_url = _build_lookup(field_docs)
-    html_by_url = await _fetch_html_documents(urls)
+    html_by_url = await _load_stored_html_documents(job_id, page_docs)
 
     operations = []
     for url in urls:
         page_doc = pages_by_url.get(url, {"url": url})
         field_doc = fields_by_url.get(url, {"url": url})
         fetch_payload = html_by_url.get(url, {})
+        keyword_bundle = _keyword_bundle_from_doc(field_doc)
         result = await extract_content_metrics(
             url=url,
             html_content=str(fetch_payload.get("html_content") or ""),
-            main_keyword=str(field_doc.get("main_keyword") or ""),
-            response_headers=fetch_payload.get("response_headers") or {},
+            main_keyword=keyword_bundle.primary_keyword or str(field_doc.get("main_keyword") or ""),
+            response_headers={},
             existing_item={},
             h1=_first_h1(page_doc),
             title=str(page_doc.get("title") or ""),
@@ -391,9 +574,10 @@ async def _run_content_metrics(job_id: str, urls: List[str], run_at: str) -> int
                         "content_matrix": content_matrix,
                         "content_metrics_audit_log": audit_log,
                         "content_metrics_last_run_at": run_at,
-                    }
+                    },
+                    "$setOnInsert": {"createdAt": datetime.now(timezone.utc)},
                 },
-                upsert=False,
+                upsert=True,
             )
         )
 
@@ -404,9 +588,10 @@ async def _run_content_metrics(job_id: str, urls: List[str], run_at: str) -> int
     return int(write_result.modified_count)
 
 
-async def run_content_audit_metric(job_id: str, metric: MetricType, urls: Optional[List[str]] = None) -> Dict[str, Any]:
+async def run_content_audit_metric(job_id: str, metric: MetricType, urls: Optional[List[str]] = None, run_at: Optional[str] = None) -> Dict[str, Any]:
     target_urls = _resolve_target_urls(job_id, urls)
-    run_at = _utc_now_iso()
+    if run_at is None:
+        run_at = _utc_now_iso()
 
     if not target_urls:
         return {
@@ -417,7 +602,9 @@ async def run_content_audit_metric(job_id: str, metric: MetricType, urls: Option
             "updated_count": 0,
         }
 
-    if metric == "keyword-metrics":
+    if metric == "page-metrics":
+        updated_count = await _run_page_metrics(job_id, target_urls, run_at)
+    elif metric == "keyword-metrics":
         updated_count = await _run_keyword_metrics(job_id, target_urls, run_at)
     elif metric == "performance-metrics":
         updated_count = await _run_performance_metrics(job_id, target_urls, run_at)
@@ -437,9 +624,9 @@ async def run_content_audit_metric(job_id: str, metric: MetricType, urls: Option
     }
 
 
-async def schedule_content_audit_metric(job_id: str, metric: MetricType, urls: Optional[List[str]] = None) -> None:
+async def schedule_content_audit_metric(job_id: str, metric: MetricType, urls: Optional[List[str]] = None, run_at: Optional[str] = None) -> None:
     try:
-        result = await run_content_audit_metric(job_id=job_id, metric=metric, urls=urls)
+        result = await run_content_audit_metric(job_id=job_id, metric=metric, urls=urls, run_at=run_at)
         logger.info(
             "Content audit metric run completed | job=%s metric=%s urls=%d updated=%d",
             job_id,

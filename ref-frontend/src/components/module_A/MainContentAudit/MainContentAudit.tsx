@@ -1,10 +1,13 @@
 import { useState } from 'react'
+import { Download } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { PageMetrics } from './PageMetrics'
 import { KeywordMetrics } from './KeywordMetrics'
 import { PerformanceMetrics } from './PerformanceMetrics'
 import { ContentMetrics } from './ContentMetrics'
 import { BacklinkMetrics } from './BacklinkMetrics'
 import { Recommendations } from './Recommendations'
+import { addContentAuditSheet, createWorkbook, downloadWorkbook } from '@/utils/excelExport'
 
 interface MainContentAuditProps {
   pageMetricsData: any[]
@@ -27,6 +30,14 @@ export function MainContentAudit({
 }: MainContentAuditProps) {
   const [activeTab, setActiveTab] = useState('page-metrics')
 
+  const handleExport = () => {
+    const workbook = createWorkbook()
+    const exportDate = new Date().toISOString().split('T')[0]
+
+    addContentAuditSheet(workbook, pageMetricsData, 'Content Audit')
+    downloadWorkbook(workbook, `content-audit-${sessionId}-${exportDate}`)
+  }
+
   const tabs = [
     { id: 'page-metrics', label: 'Page Metrics' },
     { id: 'keyword-metrics', label: 'Keyword Metrics' },
@@ -39,20 +50,32 @@ export function MainContentAudit({
   return (
     <div className="flex flex-col h-full gap-3 -mt-2">
       {/* Tab Navigation */}
-      <div className="flex flex-wrap items-center gap-2 pb-1">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 text-sm font-medium rounded-full cursor-pointer transition-colors border ${
-              activeTab === tab.id
-                ? 'bg-white text-black border-white'
-                : 'bg-[#111113] text-zinc-400 border-zinc-800 hover:text-zinc-200 hover:border-zinc-700'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-1">
+        <div className="flex flex-wrap items-center gap-2">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-2 text-sm font-medium rounded-full cursor-pointer transition-colors border ${
+                activeTab === tab.id
+                  ? 'bg-white text-black border-white'
+                  : 'bg-[#111113] text-zinc-400 border-zinc-800 hover:text-zinc-200 hover:border-zinc-700'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <Button
+          onClick={handleExport}
+          variant="outline"
+          size="sm"
+          disabled={isLoadingMetrics}
+          className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl"
+        >
+          <Download className="h-4 w-4 mr-2" />
+          Export Sheet
+        </Button>
       </div>
 
       {/* Tab Content */}
@@ -62,6 +85,7 @@ export function MainContentAudit({
             data={pageMetricsData} 
             isLoading={isLoadingMetrics} 
             onRefresh={onRefreshMetrics} 
+            jobId={jobId}
           />
         )}
         {activeTab === 'keyword-metrics' && (

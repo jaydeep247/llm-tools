@@ -150,7 +150,7 @@ function RecommendationCard({ rec, index }: { rec: AIVisibilityRecommendation; i
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function AIVisibilityReport({ jobId, url = '' }: AIVisibilityReportProps) {
-  const { data, isLoading, isFetching, refetch } = useGetVisibilityReportQuery(jobId || '', {
+  const { data, isLoading, isFetching, refetch } = useGetVisibilityReportQuery({ jobId: jobId || '', url }, {
     skip: !jobId,
     refetchOnMountOrArgChange: true,
   })

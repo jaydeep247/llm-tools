@@ -88,6 +88,78 @@ def _load_industry(source_job_id: str) -> str:
     return ""
 
 
+def _is_homepage_url(url: str) -> bool:
+    """Return True when the URL points to the site homepage/root."""
+    try:
+        parsed = urlparse(url if url.startswith(("http://", "https://")) else f"https://{url}")
+        path = (parsed.path or "").strip("/")
+        return path == ""
+    except Exception:
+        return False
+
+
+async def _fetch_page_html(url: str) -> str:
+    """
+    Fetch page HTML live.
+
+    This is required for non-homepage URLs because the crawler currently stores
+    only the homepage HTML in S3 under the crawl job id. Page-level metadata is
+    persisted in MongoDB, but page-level HTML is not.
+    """
+    try:
+        async with aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=15),
+            headers={"User-Agent": "Mozilla/5.0 (compatible; YogreetBot/1.0)"},
+        ) as session:
+            async with session.get(url) as resp:
+                if resp.status != 200:
+                    logger.warning(f"[MODULE_C] Failed to fetch page HTML ({resp.status}) for {url}")
+                    return ""
+                return await resp.text()
+    except Exception as e:
+        logger.warning(f"[MODULE_C] Failed live HTML fetch for {url}: {e}")
+        return ""
+
+
+async def _resolve_html_content(
+    source_job_id: str,
+    url: str,
+    page_meta: Optional[Dict[str, Any]] = None,
+) -> str:
+    """
+    Resolve the correct HTML for the target page.
+
+    Rules:
+      - Homepage/root URL: prefer the homepage HTML saved in S3 by crawl job.
+      - Non-homepage URL: fetch live HTML because S3 only stores homepage HTML.
+      - If the preferred source fails, fall back to the other source.
+    """
+    raw_html_filename = (page_meta or {}).get("raw_html_filename") or ""
+
+    if raw_html_filename:
+        html = await load_raw_html(source_job_id, raw_html_filename)
+        if html:
+            return html
+
+    is_homepage = _is_homepage_url(url)
+
+    if is_homepage:
+        html = await load_raw_html(source_job_id)
+        if html:
+            return html
+        return await _fetch_page_html(url)
+
+    html = await _fetch_page_html(url)
+    if html:
+        return html
+
+    logger.warning(
+        f"[MODULE_C] Falling back to crawl-job HTML for non-homepage URL {url}. "
+        "This may reduce accuracy if the live fetch failed."
+    )
+    return await load_raw_html(source_job_id)
+
+
 async def _fetch_robots_txt(domain: str) -> str:
     """
     Fetch robots.txt live from the domain. This is NOT stored by the
@@ -171,13 +243,16 @@ class ModuleCRunner:
         # ── Resolve source_job_id (falls back to job_id for backwards compat)
         src_id = source_job_id or job_id
 
-        # ── Load HTML from S3 (stored by crawler under the crawl job_id) ──
+        # ── Load page metadata from crawl DB (status_code, response_time…)
+        page_meta = _load_page_metadata(src_id, url)
+
+        # ── Resolve page HTML ────────────────────────────────────────────
         if not html_content:
-            html_content = await load_raw_html(src_id)
+            html_content = await _resolve_html_content(src_id, url, page_meta)
         if not html_content:
-            logger.error(f"[MODULE_C] HTML not found for source job {src_id}")
+            logger.error(f"[MODULE_C] HTML not found for source job {src_id} / url {url}")
             return {
-                "error": "HTML not found in S3. Run CRAWLER job first or provide htmlContent.",
+                "error": "HTML not found. Run CRAWLER first, provide htmlContent, or ensure the target URL is fetchable.",
                 "job_id": job_id,
             }
 
@@ -189,8 +264,6 @@ class ModuleCRunner:
         if not industry:
             industry = _load_industry(src_id)
 
-        # ── Load page metadata from crawl DB (status_code, response_time…)
-        page_meta = _load_page_metadata(src_id, url)
         status_code = page_meta.get("status_code", 200)
         download_latency = page_meta.get("response_time", 0) or 0
 
@@ -217,6 +290,7 @@ class ModuleCRunner:
             download_latency_s=download_latency,
             status_code=status_code,
             industry=industry,
+            page_meta=page_meta,
         )
 
         page_topic = c1_output.get("page_topic", "")
@@ -301,7 +375,12 @@ class ModuleCRunner:
             "industry": industry,
             "overall_score": overall_score,
             "modules": {
-                "entity_extraction": c5_output,
+                "entity_extraction": {
+                    **c5_output,
+                    # Expose the crawl-spider word count for UI display so users
+                    # see the real page size, not the extracted-text size.
+                    "word_count": c5_output.get("crawl_word_count") or c5_output.get("word_count", 0),
+                },
                 "aeo_checker": c1_output,
                 "entity_coverage": c3_output,
                 "missing_info": c6_output,
@@ -341,18 +420,18 @@ class ModuleCRunner:
         """Run a single submodule of Module C."""
         src_id = source_job_id or job_id
 
+        page_meta = _load_page_metadata(src_id, url)
+
         if not html_content:
-            html_content = await load_raw_html(src_id)
+            html_content = await _resolve_html_content(src_id, url, page_meta)
         if not html_content:
             logger.error(f"[MODULE_C] HTML not found for job {src_id} ({submodule})")
-            return {"error": "HTML not found in S3. Run CRAWLER job first or provide htmlContent."}
+            return {"error": "HTML not found. Run CRAWLER first, provide htmlContent, or ensure the target URL is fetchable."}
 
         if not domain:
             domain = _domain_from_url(url)
         if not industry:
             industry = _load_industry(src_id)
-
-        page_meta = _load_page_metadata(src_id, url)
 
         try:
             c5_output = run_c5(html_content, word_count=page_meta.get("word_count", 0))
@@ -368,6 +447,7 @@ class ModuleCRunner:
                     download_latency_s=page_meta.get("response_time", 0) or 0,
                     status_code=page_meta.get("status_code", 200),
                     industry=industry,
+                    page_meta=page_meta,
                 )
 
             # For deeper submodules, build prerequisites in chain
@@ -378,6 +458,7 @@ class ModuleCRunner:
                 download_latency_s=page_meta.get("response_time", 0) or 0,
                 status_code=page_meta.get("status_code", 200),
                 industry=industry,
+                page_meta=page_meta,
             )
 
             if submodule == "c3":

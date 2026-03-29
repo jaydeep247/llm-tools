@@ -38,6 +38,7 @@ async def _detect_missing_facts(
         f'verifiable claims that authoritative content on this topic should contain.\n'
         f'2. Check which of these are missing from the provided content.\n\n'
         f'Page content: {content_snippet}\n\n'
+        f'Only include facts that are appropriate for this exact page/topic, not generic industry trivia.\n'
         f'Return JSON: {{"expected_facts": ["..."], "missing_facts": ["..."], "present_facts": ["..."]}}'
     )
 

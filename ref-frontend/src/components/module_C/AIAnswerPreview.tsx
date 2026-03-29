@@ -88,7 +88,7 @@ export default function AIAnswerPreview({ jobId, url }: AIAnswerPreviewProps) {
   const [activeModelTab, setActiveModelTab] = useState<'openai' | 'gemini' | 'claude'>('gemini')
   const [showAllPrompts, setShowAllPrompts] = useState(false)
 
-  const { data: moduleCData, isLoading: isLoadingData, refetch: refetchData } = useGetModuleCResultQuery(jobId || '', {
+  const { data: moduleCData, isLoading: isLoadingData, refetch: refetchData } = useGetModuleCResultQuery({ jobId: jobId || '', url }, {
     skip: !jobId, refetchOnMountOrArgChange: true,
   })
   const { isAnalyzing, progress, phaseLabel, runAnalysis } = useModuleCAnalysis({

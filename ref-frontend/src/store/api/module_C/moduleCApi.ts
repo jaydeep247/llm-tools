@@ -3,11 +3,15 @@ import { baseApi } from '../baseApi'
 // ─── New C1-C9 module shape interfaces ─────────────────────────────────────
 
 export interface C5EntityExtraction {
-  entities?: Array<{ text: string; label: string; count?: number }>
-  topics?: string[]
+  total_entities_detected?: number
+  entity_types_breakdown?: Record<string, string[] | number>
+  entities?: Array<[string, string]> | Array<{ text: string; label: string; count?: number }>
+  filtered_entities?: Array<[string, string]>
+  js_rendered_warning?: boolean
   visible_text?: string
   word_count?: number
-  sentence_count?: number
+  crawl_word_count?: number
+  entity_density?: number
 }
 
 export interface C1AeoChecker {
@@ -150,7 +154,14 @@ export interface C8PageActions {
     dimension_weight: number
     competitor_has_it: boolean
     priority: string
+    impact?: number
+    impact_points?: number
   }>
+}
+
+export interface ModuleCQueryArgs {
+  jobId: string
+  url?: string
 }
 
 export interface ModuleCModules {
@@ -280,9 +291,12 @@ export interface AIVisibilityReportResponse {
 export const moduleCApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     // Get Module C result for a specific job
-    getModuleCResult: builder.query<ModuleCResultResponse, string>({
-      query: (jobId) => `/module-c/jobs/${jobId}`,
-      providesTags: (_result, _error, jobId) => [{ type: 'ModuleC' as const, id: jobId }],
+    getModuleCResult: builder.query<ModuleCResultResponse, ModuleCQueryArgs>({
+      query: ({ jobId, url }) => ({
+        url: `/module-c/jobs/${jobId}`,
+        params: url ? { url } : undefined,
+      }),
+      providesTags: (_result, _error, { jobId }) => [{ type: 'ModuleC' as const, id: jobId }],
     }),
 
     // Get all Module C results for a job (multiple URLs)
@@ -367,15 +381,21 @@ export const moduleCApi = baseApi.injectEndpoints({
     }),
 
     // Get Summary (overall score + all module scores)
-    getModuleSummary: builder.query<ModuleSummaryResponse, string>({
-      query: (jobId) => `/module-c/jobs/${jobId}/summary`,
-      providesTags: (_result, _error, jobId) => [{ type: 'ModuleC' as const, id: `summary-${jobId}` }],
+    getModuleSummary: builder.query<ModuleSummaryResponse, ModuleCQueryArgs>({
+      query: ({ jobId, url }) => ({
+        url: `/module-c/jobs/${jobId}/summary`,
+        params: url ? { url } : undefined,
+      }),
+      providesTags: (_result, _error, { jobId }) => [{ type: 'ModuleC' as const, id: `summary-${jobId}` }],
     }),
 
     // Get AI Visibility Report
-    getVisibilityReport: builder.query<AIVisibilityReportResponse, string>({
-      query: (jobId) => `/module-c/jobs/${jobId}/visibility-report`,
-      providesTags: (_result, _error, jobId) => [{ type: 'ModuleC' as const, id: `visibility-report-${jobId}` }],
+    getVisibilityReport: builder.query<AIVisibilityReportResponse, ModuleCQueryArgs>({
+      query: ({ jobId, url }) => ({
+        url: `/module-c/jobs/${jobId}/visibility-report`,
+        params: url ? { url } : undefined,
+      }),
+      providesTags: (_result, _error, { jobId }) => [{ type: 'ModuleC' as const, id: `visibility-report-${jobId}` }],
     }),
   }),
 })

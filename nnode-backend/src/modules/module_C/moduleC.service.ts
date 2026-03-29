@@ -3,6 +3,22 @@ import { logger } from '../../shared/logger/logger';
 import { ModuleCResult } from './moduleC.types';
 
 export class ModuleCService {
+  private async findLatestResult(db: any, jobIds: string[], url?: string | null, projection?: any): Promise<any | null> {
+    const collection = db.collection('module_c');
+
+    const filter: any = { jobId: { $in: jobIds } };
+    if (url) {
+      const normalizedUrl = url.endsWith('/') ? url.slice(0, -1) : url;
+      const altUrl = url.endsWith('/') ? url : `${url}/`;
+      filter.$or = [{ url: normalizedUrl }, { url: altUrl }, { url }];
+    }
+
+    return collection.findOne(filter, {
+      sort: { timestamp: -1 },
+      ...(projection ? { projection } : {}),
+    });
+  }
+
   /**
    * Get effective job IDs (includes the requested jobId and any analysis jobs that used it as a source)
    */
@@ -22,17 +38,11 @@ export class ModuleCService {
   /**
    * Get Module C (AEO) analysis result for a specific job
    */
-  async getModuleCResult(jobId: string, _userId: string): Promise<ModuleCResult | null> {
+  async getModuleCResult(jobId: string, _userId: string, url?: string | null): Promise<ModuleCResult | null> {
     try {
       const db = await connectToMongo();
       const jobIds = await this.getEffectiveJobIds(db, jobId);
-      const collection = db.collection('module_c');
-      
-      // Find the most recent analysis for this job
-      const result = await collection.findOne(
-        { jobId: { $in: jobIds } },
-        { sort: { timestamp: -1 } }
-      );
+      const result = await this.findLatestResult(db, jobIds, url);
 
       if (!result) {
         return null;
@@ -73,20 +83,7 @@ export class ModuleCService {
     try {
       const db = await connectToMongo();
       const jobIds = await this.getEffectiveJobIds(db, jobId);
-      const collection = db.collection('module_c');
-      
-      // Normalize URL for matching
-      const normalizedUrl = url.endsWith('/') ? url.slice(0, -1) : url;
-      const altUrl = url.endsWith('/') ? url : url + '/';
-      
-      const result = await collection.findOne({
-        jobId: { $in: jobIds },
-        $or: [
-          { url: normalizedUrl },
-          { url: altUrl },
-          { url }
-        ]
-      });
+      const result = await this.findLatestResult(db, jobIds, url);
 
       return result as unknown as ModuleCResult;
     } catch (error: any) {
@@ -129,24 +126,16 @@ export class ModuleCService {
   /**
    * Get a specific module field from Module C result
    */
-  async getModuleField(jobId: string, field: string): Promise<any> {
+  async getModuleField(jobId: string, field: string, url?: string | null): Promise<any> {
     try {
       const db = await connectToMongo();
       const jobIds = await this.getEffectiveJobIds(db, jobId);
-      const collection = db.collection('module_c');
-      
-      const result = await collection.findOne(
-        { jobId: { $in: jobIds } },
-        { 
-          sort: { timestamp: -1 },
-          projection: { 
-            jobId: 1, 
-            url: 1, 
-            [`modules.${field}`]: 1,
-            timestamp: 1 
-          }
-        }
-      );
+      const result = await this.findLatestResult(db, jobIds, url, {
+        jobId: 1,
+        url: 1,
+        [`modules.${field}`]: 1,
+        timestamp: 1,
+      });
 
       if (!result) {
         return null;
@@ -167,16 +156,11 @@ export class ModuleCService {
   /**
    * Get summary with overall score and all module scores
    */
-  async getSummary(jobId: string): Promise<any> {
+  async getSummary(jobId: string, url?: string | null): Promise<any> {
     try {
       const db = await connectToMongo();
       const jobIds = await this.getEffectiveJobIds(db, jobId);
-      const collection = db.collection('module_c');
-      
-      const result = await collection.findOne(
-        { jobId: { $in: jobIds } },
-        { sort: { timestamp: -1 } }
-      );
+      const result = await this.findLatestResult(db, jobIds, url);
 
       if (!result) {
         return null;
@@ -215,24 +199,16 @@ export class ModuleCService {
   /**
    * Get AI Visibility Report for a job
    */
-  async getVisibilityReport(jobId: string): Promise<any> {
+  async getVisibilityReport(jobId: string, url?: string | null): Promise<any> {
     try {
       const db = await connectToMongo();
       const jobIds = await this.getEffectiveJobIds(db, jobId);
-      const collection = db.collection('module_c');
-
-      const result = await collection.findOne(
-        { jobId: { $in: jobIds } },
-        {
-          sort: { timestamp: -1 },
-          projection: {
-            jobId: 1,
-            url: 1,
-            'modules.ai_visibility_report': 1,
-            timestamp: 1,
-          },
-        }
-      );
+      const result = await this.findLatestResult(db, jobIds, url, {
+        jobId: 1,
+        url: 1,
+        'modules.ai_visibility_report': 1,
+        timestamp: 1,
+      });
 
       if (!result) {
         return null;

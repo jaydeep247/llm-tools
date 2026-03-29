@@ -4,6 +4,11 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { useRunContentAuditMetricMutation, type ContentAuditMetricType } from '@/store/api/jobApi'
 
+interface PersistedState {
+  runAt: number
+  urls: string[]
+}
+
 type UrlRow = {
   url: string
 }
@@ -30,6 +35,55 @@ function toTimestamp(value: string | null | undefined): number | null {
   return Number.isNaN(parsed) ? null : parsed
 }
 
+function normalizeUrlKey(value: string | null | undefined): string {
+  const trimmed = value?.trim() ?? ''
+  if (!trimmed) {
+    return ''
+  }
+
+  try {
+    const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+    const parsed = new URL(withProtocol)
+    const pathname = parsed.pathname !== '/' ? parsed.pathname.replace(/\/+$/, '') : '/'
+    const search = parsed.search || ''
+    return `${parsed.protocol}//${parsed.host.toLowerCase()}${pathname}${search}`
+  } catch {
+    return trimmed.replace(/\/+$/, '')
+  }
+}
+
+function readPersistedState(storageKey: string | null): PersistedState | null {
+  if (!storageKey || typeof window === 'undefined') {
+    return null
+  }
+
+  try {
+    const raw = localStorage.getItem(storageKey)
+    if (!raw) {
+      return null
+    }
+
+    const parsed = JSON.parse(raw)
+    if (typeof parsed === 'number') {
+      return { runAt: parsed, urls: [] }
+    }
+
+    if (
+      typeof parsed?.runAt !== 'number'
+      || !Array.isArray(parsed?.urls)
+    ) {
+      return null
+    }
+
+    return {
+      runAt: parsed.runAt,
+      urls: parsed.urls.filter((url: unknown): url is string => typeof url === 'string'),
+    }
+  } catch {
+    return null
+  }
+}
+
 export function useContentAuditMetricRunner<T extends UrlRow>({
   jobId,
   metric,
@@ -45,35 +99,44 @@ export function useContentAuditMetricRunner<T extends UrlRow>({
   const storageKey =
     persistLoading && jobId ? `ca-run-${jobId}-${metric}` : null
 
-  // Stored as JSON: { runAt: number, urls: string[] }
-  interface PersistedState { runAt: number; urls: string[] }
+  const [persistedState, setPersistedState] = useState<PersistedState | null>(() => readPersistedState(storageKey))
 
-  const [persistedState, setPersistedState] = useState<PersistedState | null>(() => {
-    if (!storageKey || typeof window === 'undefined') return null
-    try {
-      const raw = localStorage.getItem(storageKey)
-      if (!raw) return null
-      const parsed = JSON.parse(raw)
-      // Support legacy format (plain number)
-      if (typeof parsed === 'number') return { runAt: parsed, urls: [] }
-      return parsed as PersistedState
-    } catch {
-      return null
-    }
-  })
+  useEffect(() => {
+    setPersistedState(readPersistedState(storageKey))
+  }, [storageKey])
+
+  // ── Staleness safety net: clear persisted state if stuck too long ──────
+  const STALE_TIMEOUT_MS = 10 * 60 * 1000 // 10 minutes
 
   // Detect when the persisted run is complete: every tracked URL has lastRunAt >= runAt
   useEffect(() => {
     if (!persistedState || !storageKey || data.length === 0) return
     const { runAt, urls: trackedUrls } = persistedState
+
+    // Safety net: if the persisted state is older than 10 minutes, clear it
+    if (Date.now() - runAt > STALE_TIMEOUT_MS) {
+      localStorage.removeItem(storageKey)
+      setPersistedState(null)
+      return
+    }
+
     // If we have a specific URL list, check only those; otherwise check all rows
+    const trackedUrlSet = new Set(trackedUrls.map((url) => normalizeUrlKey(url)))
     const rowsToCheck = trackedUrls.length > 0
-      ? data.filter((row) => trackedUrls.includes(row.url))
+      ? data.filter((row) => trackedUrlSet.has(normalizeUrlKey(row.url)))
       : data
-    if (rowsToCheck.length === 0) return
+
+    // If tracked URLs are no longer in the data, clear the stuck state
+    if (rowsToCheck.length === 0) {
+      localStorage.removeItem(storageKey)
+      setPersistedState(null)
+      return
+    }
+
     const allComplete = rowsToCheck.every((row) => {
       const ts = toTimestamp(getLastRunAt(row))
-      return ts !== null && ts >= runAt - 1000
+      // Use 30s tolerance to handle clock skew between browser and server (Docker)
+      return ts !== null && ts >= runAt - 30_000
     })
     if (allComplete) {
       localStorage.removeItem(storageKey)
@@ -85,7 +148,6 @@ export function useContentAuditMetricRunner<T extends UrlRow>({
   // double-polling), keep refreshing at 3-second intervals.
   useEffect(() => {
     if (!persistedState || !onRefresh || Object.keys(pendingRuns).length > 0) return
-    onRefresh()
     const intervalId = window.setInterval(onRefresh, 3000)
     return () => window.clearInterval(intervalId)
   }, [persistedState, onRefresh, pendingRuns])
@@ -97,13 +159,31 @@ export function useContentAuditMetricRunner<T extends UrlRow>({
     return data
       .map((row) => row.url)
       .filter((url) => {
-        if (!url || seen.has(url)) {
+        const normalizedUrl = normalizeUrlKey(url)
+        if (!normalizedUrl || seen.has(normalizedUrl)) {
           return false
         }
-        seen.add(url)
+        seen.add(normalizedUrl)
         return true
       })
   }, [data])
+
+  const isPersistedBulkRun = useMemo(() => {
+    if (!persistedState) {
+      return false
+    }
+
+    if (persistedState.urls.length === 0) {
+      return true
+    }
+
+    if (allUrls.length === 0) {
+      return persistedState.urls.length > 1
+    }
+
+    const persistedUrls = new Set(persistedState.urls.map((url) => normalizeUrlKey(url)))
+    return allUrls.every((url) => persistedUrls.has(url))
+  }, [allUrls, persistedState])
 
   useEffect(() => {
     if (!Object.keys(pendingRuns).length) {
@@ -112,14 +192,15 @@ export function useContentAuditMetricRunner<T extends UrlRow>({
 
     const completed = new Set<string>()
     data.forEach((row) => {
-      const startedAt = pendingRuns[row.url]
+      const rowKey = normalizeUrlKey(row.url)
+      const startedAt = pendingRuns[rowKey]
       if (!startedAt) {
         return
       }
 
       const lastRunAt = toTimestamp(getLastRunAt(row))
-      if (lastRunAt != null && lastRunAt >= startedAt - 1000) {
-        completed.add(row.url)
+      if (lastRunAt != null && lastRunAt >= startedAt - 30_000) {
+        completed.add(rowKey)
       }
     })
 
@@ -141,7 +222,6 @@ export function useContentAuditMetricRunner<T extends UrlRow>({
       return
     }
 
-    onRefresh()
     const intervalId = window.setInterval(() => {
       onRefresh()
     }, 3000)
@@ -155,36 +235,61 @@ export function useContentAuditMetricRunner<T extends UrlRow>({
     setPendingRuns((current) => {
       const next = { ...current }
       urls.forEach((url) => {
-        delete next[url]
+        delete next[normalizeUrlKey(url)]
       })
       return next
     })
   }
 
-  const runUrls = async (urls: string[]) => {
-    const cleanedUrls = urls.filter((url) => url && !pendingRuns[url])
+  const runUrls = async (urls: string[], options?: { persist?: boolean }) => {
+    const cleanedUrls = urls.filter((url) => {
+      const normalizedUrl = normalizeUrlKey(url)
+      return Boolean(normalizedUrl) && !pendingRuns[normalizedUrl]
+    })
     if (!jobId || !cleanedUrls.length) {
       return
     }
 
-    const startedAt = Date.now()
+    const trackedUrlKeys = cleanedUrls.map((url) => normalizeUrlKey(url))
+    const shouldPersist = Boolean(storageKey && options?.persist)
+
+    const fallbackStartedAt = Date.now()
     setPendingRuns((current) => ({
       ...current,
-      ...Object.fromEntries(cleanedUrls.map((url) => [url, startedAt])),
+      ...Object.fromEntries(trackedUrlKeys.map((url) => [url, fallbackStartedAt])),
     }))
 
-    // Persist to localStorage so the loading indicator survives page refreshes
-    if (storageKey) {
-      const state: PersistedState = { runAt: startedAt, urls: cleanedUrls }
+    // Persist only true bulk runs so single-row actions stay row-scoped.
+    if (shouldPersist && storageKey) {
+      const state: PersistedState = { runAt: fallbackStartedAt, urls: trackedUrlKeys }
       localStorage.setItem(storageKey, JSON.stringify(state))
       setPersistedState(state)
     }
 
     try {
-      await runMetric({ jobId, metric, urls: cleanedUrls }).unwrap()
-      onRefresh?.()
+      const result = await runMetric({ jobId, metric, urls: cleanedUrls }).unwrap()
+
+      // Use the server's run_at timestamp if available to avoid clock skew issues
+      const serverRunAt = result.run_at ? toTimestamp(result.run_at) : null
+      if (serverRunAt) {
+        setPendingRuns((current) => ({
+          ...current,
+          ...Object.fromEntries(trackedUrlKeys.map((url) => [url, serverRunAt])),
+        }))
+
+        if (shouldPersist && storageKey) {
+          const state: PersistedState = { runAt: serverRunAt, urls: trackedUrlKeys }
+          localStorage.setItem(storageKey, JSON.stringify(state))
+          setPersistedState(state)
+        }
+      }
     } catch (error) {
       clearPending(cleanedUrls)
+      // Clear persisted state on error so loading doesn't persist
+      if (storageKey) {
+        localStorage.removeItem(storageKey)
+        setPersistedState(null)
+      }
       throw error
     }
   }
@@ -192,9 +297,9 @@ export function useContentAuditMetricRunner<T extends UrlRow>({
   const hasPendingRuns = Object.keys(pendingRuns).length > 0
 
   return {
-    runOne: (url: string) => runUrls([url]),
-    runAll: () => runUrls(allUrls),
-    isRunning: (url: string) => Boolean(pendingRuns[url]),
+    runOne: (url: string) => runUrls([url], { persist: false }),
+    runAll: () => runUrls(allUrls, { persist: true }),
+    isRunning: (url: string) => Boolean(pendingRuns[normalizeUrlKey(url)]),
     pendingCount: Object.keys(pendingRuns).length,
     hasPendingRuns,
     isSubmitting,
@@ -208,6 +313,6 @@ export function useContentAuditMetricRunner<T extends UrlRow>({
      * True only while the persisted bulk run has not yet completed.
      * Use for full-table loading indicators (does NOT trigger on single-URL runs).
      */
-    isBulkProcessing: persistedState !== null,
+    isBulkProcessing: isPersistedBulkRun,
   }
 }

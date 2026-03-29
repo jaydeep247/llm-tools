@@ -199,6 +199,24 @@ def _assign_priority(action: Dict[str, Any]) -> str:
     return "Low"
 
 
+def _estimate_action_impact(action: Dict[str, Any]) -> float:
+        """
+        Estimate the individual contribution of a single action to the overall
+        LLM-Friendliness score in points.
+
+        This is the action-level equivalent of C8's composite score simulation:
+            action impact = component delta × component weight
+        """
+        delta_info = IMPROVEMENT_DELTAS.get(action.get("action_type", ""))
+        if not delta_info:
+                return 0.0
+
+        component = delta_info.get("component")
+        delta = float(delta_info.get("delta", 0.0))
+        weight = float(COMPONENT_WEIGHTS.get(component, 0.0))
+        return round(delta * weight, 1)
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 #  Field 3 — Predicted improvement delta
 # ═════════════════════════════════════════════════════════════════════════════
@@ -281,6 +299,9 @@ def run_c8(
 
     # Assign priority
     for action in actions:
+        impact_points = _estimate_action_impact(action)
+        action["impact_points"] = impact_points
+        action["impact"] = impact_points
         action["priority"] = _assign_priority(action)
 
     # Sort: High → Medium → Low

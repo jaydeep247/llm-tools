@@ -11,7 +11,7 @@ Produces per-page scores stored in DB + aggregated summary:
 import asyncio
 import logging
 from statistics import mean
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import aiohttp
 
@@ -34,8 +34,13 @@ def _is_entity_deficient(page: Dict[str, Any]) -> bool:
 
 
 def _is_weak_content(page: Dict[str, Any]) -> bool:
-    """Word count < 300 OR factual density < 2.0 OR structure signals < 2."""
-    wc = page.get("word_count", 0)
+    """Word count < 300 OR factual density < 2.0 OR structure signals < 2.
+    
+    Uses crawl_word_count (from spider) for the volume threshold — this is the
+    true page size, not the extracted-text size from trafilatura.
+    """
+    # Prefer crawl word count (true page size); fall back to extracted count
+    wc = page.get("crawl_word_count") or page.get("word_count", 0)
     fact_density = page.get("sub_scores", {}).get("content", {}).get("factual_density_per_500w", 0)
     sig_count = page.get("sub_scores", {}).get("structure", {}).get("signal_count", 0)
     return wc < 300 or fact_density < 2.0 or sig_count < 2
@@ -50,16 +55,19 @@ async def _analyze_page(
     url: str,
     robots_txt: str = "",
     industry: str = "",
+    page_meta: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Run C5 → C1 on a single page and return combined result."""
-    c5 = run_c5(html)
-    c1 = await run_c1(html, url, c5, robots_txt=robots_txt, industry=industry)
+    c5 = run_c5(html, word_count=(page_meta or {}).get("word_count", 0))
+    c1 = await run_c1(html, url, c5, robots_txt=robots_txt, industry=industry,
+                      page_meta=page_meta)
 
     return {
         "url": url,
         "llm_friendliness_score": c1["llm_friendliness_score"],
         "page_type": c1["page_type"],
-        "word_count": c1["word_count"],
+        "word_count": c5.get("crawl_word_count") or c5["word_count"],
+        "crawl_word_count": c5.get("crawl_word_count", 0),
         "entity_density": c5["entity_density"],
         "entity_ratio": c1["entity_ratio"],
         "readability": c1["readability"],
@@ -131,9 +139,20 @@ async def run_c2_from_crawl(
     from utils.mongo import mongo_manager
 
     pages = list(
-        mongo_manager.db.crawled_pages.find(
+        mongo_manager.db.pages.find(
             {"jobId": job_id},
-            {"url": 1, "jobId": 1, "_id": 0},
+            {
+                "_id": 0,
+                "url": 1,
+                "jobId": 1,
+                "title": 1,
+                "meta_description": 1,
+                "h1_tags": 1,
+                "word_count": 1,
+                "status_code": 1,
+                "response_time": 1,
+                "crawl_depth": 1,
+            },
         ).limit(200)
     )
 
@@ -142,17 +161,40 @@ async def run_c2_from_crawl(
         return {"error": "No crawled pages found", "total_pages": 0}
 
     results: List[Dict[str, Any]] = []
-    for page_doc in pages:
-        url = page_doc.get("url", "")
-        page_job_id = page_doc.get("jobId", job_id)
-        try:
-            html = await load_raw_html(page_job_id)
-            if not html:
-                continue
-            result = await _analyze_page(html, url, robots_txt, industry)
-            results.append(result)
-        except Exception as e:
-            logger.error(f"[C2] Failed on {url}: {e}")
+    async with aiohttp.ClientSession(
+        timeout=aiohttp.ClientTimeout(total=15),
+        headers={"User-Agent": "Mozilla/5.0 YogreetBot/1.0"},
+    ) as session:
+        for page_doc in pages:
+            url = page_doc.get("url", "")
+            try:
+                html = ""
+                raw_html_filename = page_doc.get("raw_html_filename") or ""
+                if raw_html_filename:
+                    html = await load_raw_html(job_id, raw_html_filename)
+
+                if not html and page_doc.get("crawl_depth", 0) == 0:
+                    html = await load_raw_html(job_id)
+
+                if not html and url:
+                    async with session.get(url) as resp:
+                        if resp.status == 200:
+                            html = await resp.text()
+
+                if not html:
+                    logger.warning(f"[C2] No HTML available for {url}")
+                    continue
+
+                result = await _analyze_page(
+                    html,
+                    url,
+                    robots_txt,
+                    industry,
+                    page_meta=page_doc,
+                )
+                results.append(result)
+            except Exception as e:
+                logger.error(f"[C2] Failed on {url}: {e}")
 
     summary = _aggregate(results)
 

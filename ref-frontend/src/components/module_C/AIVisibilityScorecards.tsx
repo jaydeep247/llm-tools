@@ -140,7 +140,7 @@ function MetricCard({ label, value, sublabel, tooltip, icon, accent = 'blue', la
 }
 
 export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisibilityScorecardsProps) {
-  const { data: moduleCData, isLoading: isLoadingData, refetch: refetchData } = useGetModuleCResultQuery(jobId || '', { 
+  const { data: moduleCData, isLoading: isLoadingData, refetch: refetchData } = useGetModuleCResultQuery({ jobId: jobId || '', url }, { 
     skip: !jobId, refetchOnMountOrArgChange: true, refetchOnFocus: true, refetchOnReconnect: true,
   })
   const { isAnalyzing, progress, phaseLabel, runAnalysis } = useModuleCAnalysis({

@@ -7,8 +7,10 @@ import scrapy
 from scrapy.http import Response, HtmlResponse
 from typing import Dict, Any, Optional, List
 from datetime import datetime
+from dataclasses import asdict
 from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 import asyncio
+import hashlib
 import re
 import xml.etree.ElementTree as ET
 import gzip
@@ -39,13 +41,25 @@ from modules.module_A.WebsiteCrawler.metrics import (
     link_analysis,
     similarity,
 )
-from modules.module_A.ContentAudit import run_content_audit
+from modules.module_A.ContentAudit.KeywordFinder import KeywordBundle, resolve_keywords
 from modules.module_A.Wordcount_analysis import wordcount_extractor
 from modules.module_A.Broken_links_checker import broken_link_checker
 from modules.module_A.Redirects_audit import redirect_audit
 from modules.module_A.Text_Quality_Analyzer import text_quality_analyzer
 from modules.module_A.recommendations import generate_recommendations
 from modules.module_B.keywords import Keyword, extract_keywords_from_html
+
+
+HTTP_STATUS_REASONS = {
+    200: 'OK', 201: 'Created', 204: 'No Content',
+    301: 'Moved Permanently', 302: 'Found', 303: 'See Other',
+    304: 'Not Modified', 307: 'Temporary Redirect', 308: 'Permanent Redirect',
+    400: 'Bad Request', 401: 'Unauthorized', 403: 'Forbidden',
+    404: 'Not Found', 405: 'Method Not Allowed', 408: 'Request Timeout',
+    410: 'Gone', 429: 'Too Many Requests',
+    500: 'Internal Server Error', 502: 'Bad Gateway',
+    503: 'Service Unavailable', 504: 'Gateway Timeout',
+}
 
 
 class WebsiteSpider(RedisSpider):
@@ -835,22 +849,19 @@ class WebsiteSpider(RedisSpider):
             page_item['folder_depth'] = folder_depth
             if self.job_id:
                 page_item['job_id'] = self.job_id
-                
-            # Populating minimal page_matrix for non-HTML (especially 3xx redirects)
-            _non_html_audit = await run_content_audit(
-                url=response.url,
-                html_content="",
-                response_status=response.status,
-                response_headers={k.decode('utf-8'): v[0].decode('utf-8') for k, v in response.headers.items()},
-                response_time_ms=(response.meta.get('download_latency', 0)),
-                final_url=response.url,
-                raw_body_size=len(response.body),
+
+            keyword_bundle = KeywordBundle(
+                primary_keyword=self.main_keyword or "",
+                keyword_source="provided" if self.main_keyword else "",
             )
             page_item['fields'] = {
-                'status': str(response.status),
-                'page_matrix': _non_html_audit.get('page_metrics', {}),
-                'main_keyword': self.main_keyword or "",
-                'backlink_metrics': _non_html_audit.get('backlink_metrics', {}) or {},
+                'status': HTTP_STATUS_REASONS.get(response.status, str(response.status)),
+                'main_keyword': keyword_bundle.primary_keyword,
+                'keyword_source': keyword_bundle.keyword_source,
+                'keyword_bundle': asdict(keyword_bundle),
+                'internal_outlinks': 0,
+                'external_outlinks': 0,
+                'outlink_url_list': [],
             }
 
             self.pages_crawled += 1
@@ -875,15 +886,21 @@ class WebsiteSpider(RedisSpider):
             return
             
         # ==================================================================
-        # SAVE RAW HTML (For Post-Crawl Moudles)
+        # SAVE RAW HTML (For Post-Crawl Modules)
         # ==================================================================
-        # Only save for the homepage/start_url (depth 0) to handle redirects
-        if crawl_depth == 0:
-            try:
-                from utils.storage import save_raw_html_sync
+        raw_html_filename = ""
+        try:
+            from utils.storage import save_raw_html_sync
+
+            url_hash = hashlib.sha256(response.url.encode("utf-8")).hexdigest()[:24]
+            raw_html_filename = f"pages/{url_hash}.html"
+            save_raw_html_sync(self.job_id, response.text, raw_html_filename)
+
+            # Keep the legacy homepage object for backward compatibility.
+            if crawl_depth == 0:
                 save_raw_html_sync(self.job_id, response.text)
-            except Exception as e:
-                logger.error(f"Failed to save raw HTML: {e}")
+        except Exception as e:
+            logger.error(f"Failed to save raw HTML: {e}")
             
         basic_fields = BasicExtractor.extract(response, start_time)
         seo_fields = SeoExtractor.extract(response)
@@ -900,6 +917,7 @@ class WebsiteSpider(RedisSpider):
         page_item.update(advanced_fields)
         page_item['crawl_depth'] = crawl_depth
         page_item['folder_depth'] = folder_depth
+        page_item['raw_html_filename'] = raw_html_filename
         if self.job_id:
             page_item['job_id'] = self.job_id
         
@@ -1000,44 +1018,18 @@ class WebsiteSpider(RedisSpider):
             lang_guess=page_item.get('language') or ''
         )
 
-        # HTTP status reason phrase mapping (Screaming Frog compatible)
-        HTTP_STATUS_REASONS = {
-            200: 'OK', 201: 'Created', 204: 'No Content',
-            301: 'Moved Permanently', 302: 'Found', 303: 'See Other',
-            304: 'Not Modified', 307: 'Temporary Redirect', 308: 'Permanent Redirect',
-            400: 'Bad Request', 401: 'Unauthorized', 403: 'Forbidden',
-            404: 'Not Found', 405: 'Method Not Allowed', 408: 'Request Timeout',
-            410: 'Gone', 429: 'Too Many Requests',
-            500: 'Internal Server Error', 502: 'Bad Gateway',
-            503: 'Service Unavailable', 504: 'Gateway Timeout',
-        }
         status_reason = HTTP_STATUS_REASONS.get(response.status, str(response.status))
 
-        content_audit_result = await run_content_audit(
+        keyword_bundle = await resolve_keywords(
             url=response.url,
             html_content=response.text,
-            response_status=response.status,
-            response_headers={k.decode('utf-8'): v[0].decode('utf-8') for k, v in response.headers.items()},
-            response_time_ms=(response.meta.get('download_latency', datetime.now().timestamp() - start_time)),
-            final_url=response.url,
-            raw_body_size=len(response.body),
-            redirect_urls=response.request.meta.get('redirect_urls', []),
             main_keyword=self.main_keyword,
-            ga_property_id=self.ga_property_id,
-            site_domain=f"{urlparse(response.url).scheme}://{urlparse(response.url).netloc}",
-            internal_outlinks=outlink_stats.get('internal_outlinks'),
-            external_outlinks=outlink_stats.get('external_outlinks'),
-            outlink_url_list=outlink_stats.get('outlink_url_list'),
             h1=(page_item.get('h1_tags') or [''])[0],
             title=page_item.get('title', ''),
         )
 
-        backlink_metrics_result = content_audit_result.get('backlink_metrics', {}) or {}
-        keyword_metrics_result = content_audit_result.get('keyword_metrics', {}) or {}
-
-        # Per-page resolved keyword (from title/H1), falls back to site-level keyword
         resolved_keyword = (
-            keyword_metrics_result.get('main_keyword')
+            keyword_bundle.primary_keyword
             or self.main_keyword
             or ""
         )
@@ -1046,12 +1038,14 @@ class WebsiteSpider(RedisSpider):
             # Status (Screaming Frog compatible reason phrase)
             'status': status_reason,
 
-            # Per-page keyword resolved by KeywordMetrics sub-module
+            # Per-page keyword bundle resolved during crawl; all other content audit
+            # modules run manually after crawl completion.
             'main_keyword': resolved_keyword,
-            'keyword_source': keyword_metrics_result.get('keyword_source', ''),
-
-            # Backlink metrics (crawl-time fields 2-4 + post-crawl placeholders)
-            'backlink_metrics': backlink_metrics_result,
+            'keyword_source': keyword_bundle.keyword_source,
+            'keyword_bundle': asdict(keyword_bundle),
+            'internal_outlinks': outlink_stats.get('internal_outlinks'),
+            'external_outlinks': outlink_stats.get('external_outlinks'),
+            'outlink_url_list': outlink_stats.get('outlink_url_list'),
             
             'website_crawler': {
                 # Pixel Widths
@@ -1106,15 +1100,6 @@ class WebsiteSpider(RedisSpider):
                 
                 'url_encoded_address': response.url,
             },
-            
-            # Content Audit (Orchestrator)
-            'page_matrix': content_audit_result.get('page_metrics', {}),
-
-            # Content Metrics (SEO content quality signals)
-            'content_matrix': content_audit_result.get('content_metrics', {}),
-
-            # Root level performance metrics
-            'performance_metrics': content_audit_result.get('performance_metrics', {}),
             
             # Text Quality Analyzer (New Consolidated Module)
             'Text Quality Analyzer': tq_results,

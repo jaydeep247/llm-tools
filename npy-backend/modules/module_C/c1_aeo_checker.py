@@ -183,13 +183,21 @@ def _score_content(
     word_count: int,
     entity_density: float,
     html: str,
+    page_url: str,
 ) -> Dict[str, Any]:
     """
     Entity density    → 0-100  (weight 0.30)
     Factual density   → 0-100  (weight 0.30)
     E-E-A-T signals   → 0-100  (weight 0.40)
+
+    word_count MUST be the length of visible_text (not the crawl-spider word count).
+    C5 now always sets word_count from its extracted text, so this is guaranteed.
+    As a safety net we also re-derive it here from visible_text directly.
     """
     details: Dict[str, Any] = {}
+
+    # Safety: always use visible_text length — never a stale value
+    actual_wc = len(visible_text.split()) if visible_text else 0
 
     # ── Entity density score ──────────────────────────────────────────────
     # >8 ent/500w = 100, 5-8 = 75, 3-5 = 50, <3 = 25
@@ -211,7 +219,8 @@ def _score_content(
         re.IGNORECASE,
     )
     fact_sents = sum(1 for s in sentences if fact_pattern.search(s))
-    norm_500 = (fact_sents / max(word_count, 1)) * 500
+    # Use actual visible-text word count — avoids: 0 / 2388 * 500 = 0
+    norm_500 = (fact_sents / max(actual_wc, 1)) * 500
     if norm_500 > 6:
         fact_score = 100
     elif norm_500 >= 4:
@@ -248,9 +257,10 @@ def _score_content(
         eeat += 20
 
     # 5. External citation links
+    page_domain = urlparse(page_url).netloc.replace("www.", "")
     ext_links = [
         a for a in soup.find_all("a", href=True)
-        if a["href"].startswith("http") and not _is_same_domain(a["href"], "")
+        if a["href"].startswith("http") and not _is_same_domain(a["href"], page_domain)
     ]
     if len(ext_links) >= 2:
         eeat += 20
@@ -310,10 +320,15 @@ def _score_tech_hygiene(html: str, url: str, status_code: int = 200) -> Dict[str
     details["has_noindex"] = bool(has_noindex)
 
     # internal links
-    internal_links = [
-        a for a in soup.find_all("a", href=True)
-        if domain in urlparse(a["href"]).netloc.replace("www.", "")
-    ]
+    internal_links = []
+    for a in soup.find_all("a", href=True):
+        href = (a.get("href") or "").strip()
+        if not href or href.startswith(("#", "mailto:", "tel:", "javascript:")):
+            continue
+        parsed_href = urlparse(href)
+        href_domain = parsed_href.netloc.replace("www.", "")
+        if not href_domain or href_domain == domain:
+            internal_links.append(a)
     il_count = len(internal_links)
     if il_count >= 3:
         score += 25
@@ -396,21 +411,43 @@ async def _compute_entity_ratio(
     detected_entities: List[Tuple[str, str]],
     page_topic: str,
     industry: str = "",
+    page_title: str = "",
+    meta_desc: str = "",
+    page_type: str = "other",
+    page_url: str = "",
 ) -> Dict[str, Any]:
     """
-    Step 1: detected set from C5.
-    Step 2: generate expected entity list via LLM.
+    Step 1: detected set from C5 spaCy NER.
+    Step 2: generate expected entity list via LLM (25 entities per-page-topic).
     Step 3: compute ratio = matched / expected.
+
+    Matching uses a HYBRID approach:
+      - For all entity types: check if name appears in spaCy detected set.
+      - Additionally: check if the name phrase occurs verbatim in visible_text
+        (case-insensitive).  This captures CONCEPT-type entities ("SEO", "ROI",
+        "digital marketing") which spaCy does not label as named entities but
+        which are clearly "present" on the page when the text mentions them.
     """
     detected_set = {e.lower() for e, _ in detected_entities}
+    visible_lower = visible_text.lower()
 
     prompt_text = (
-        f"For a webpage about \"{page_topic}\" in the \"{industry}\" industry, "
-        "list exactly 25 named entities (people, organizations, products, locations, "
-        "concepts, statistics) that a well-optimized, authoritative page on this topic "
-        "MUST contain to be cited by LLMs answering questions about it.\n"
-        'Return JSON: {"expected_entities": [{"name": "...", "type": "PERSON|ORG|PRODUCT|LOCATION|CONCEPT", '
-        '"importance": "critical|important|supporting"}]}'
+        "Generate the expected entity set for THIS SPECIFIC PAGE, not for the general industry.\n\n"
+        f"Page topic/H1: {page_topic or 'N/A'}\n"
+        f"Page title: {page_title or 'N/A'}\n"
+        f"Meta description: {meta_desc or 'N/A'}\n"
+        f"Page type: {page_type or 'other'}\n"
+        f"Page URL: {page_url or 'N/A'}\n"
+        f"Industry context: {industry or 'N/A'}\n"
+        f"Visible content excerpt: {visible_text[:1500]}\n\n"
+        "List exactly 25 entities/terms that authoritative content on this exact page should contain.\n"
+        "Rules:\n"
+        "- Ground the list in the page signals above.\n"
+        "- Prefer entities likely to appear verbatim in the page copy.\n"
+        "- Include brand, services, products, organizations, locations, notable concepts, and key statistics/benchmarks only if they are directly relevant to this page.\n"
+        "- Do NOT invent broad generic buzzwords unless they are clearly implied by the page signals.\n"
+        "- Avoid duplicate or near-duplicate entities.\n"
+        'Return JSON: {"expected_entities": [{"name": "...", "type": "PERSON|ORG|PRODUCT|LOCATION|CONCEPT", "importance": "critical|important|supporting"}]}'
     )
 
     resp = await execute_task(
@@ -435,7 +472,20 @@ async def _compute_entity_ratio(
             logger.warning("[C1] Failed to parse expected entities from LLM")
 
     expected_set = {e["name"].lower() for e in expected_entities if e.get("name")}
-    matched = detected_set & expected_set
+
+    # Hybrid match: spaCy NER hit OR verbatim phrase in visible_text
+    matched: set = set()
+    for ent in expected_entities:
+        name_lower = (ent.get("name") or "").lower()
+        if not name_lower:
+            continue
+        if name_lower in detected_set:
+            matched.add(name_lower)
+        elif name_lower in visible_lower:
+            # Phrase is present in page text even if spaCy didn't tag it
+            matched.add(name_lower)
+
+    missing_set = expected_set - matched
     ratio = len(matched) / len(expected_set) if expected_set else 0.0
 
     return {
@@ -446,7 +496,7 @@ async def _compute_entity_ratio(
         "detected_count": len(detected_set),
         "expected_entities": expected_entities,
         "matched_entities": list(matched),
-        "missing_entities": list(expected_set - detected_set),
+        "missing_entities": list(missing_set),
     }
 
 
@@ -520,6 +570,7 @@ async def run_c1(
     download_latency_s: float = 0.0,
     status_code: int = 200,
     industry: str = "",
+    page_meta: Optional[Dict] = None,
 ) -> Dict[str, Any]:
     """
     Run full C1 AEO Checker.
@@ -532,18 +583,21 @@ async def run_c1(
         download_latency_s: Page response latency in seconds.
         status_code: HTTP status code for the page.
         industry: Industry/niche for entity generation.
+        page_meta: Optional crawl metadata dict (from MongoDB pages collection).
+                   Used for reliable H1 text when the HTML has inline elements
+                   whose spaces get collapsed by naïve text extraction.
 
     Returns:
         Dict with llm_friendliness_score, sub-scores, entity_ratio, readability, etc.
     """
     visible_text = c5_output["visible_text"]
-    word_count = c5_output["word_count"]
+    word_count = c5_output["word_count"]       # From visible_text (correct)
     entity_density = c5_output["entity_density"]
 
     # ── Sub-component scores ──────────────────────────────────────────────
     crawl = _score_crawl_access(html, robots_txt, download_latency_s)
     schema = _score_schema(html)
-    content = _score_content(visible_text, word_count, entity_density, html)
+    content = _score_content(visible_text, word_count, entity_density, html, url)
     tech = _score_tech_hygiene(html, url, status_code)
     structure = _score_structure(html)
 
@@ -556,16 +610,50 @@ async def run_c1(
         1,
     )
 
-    # ── Entity Presence Ratio (async — LLM call) ─────────────────────────
-    soup = BeautifulSoup(html, "html.parser")
-    h1_tag = soup.find("h1")
-    h1_text = h1_tag.get_text(strip=True) if h1_tag else ""
-    meta = soup.find("meta", attrs={"name": "description"})
-    meta_desc = meta.get("content", "") if meta else ""
-    page_topic = h1_text or meta_desc or url
+    # ── Page topic derivation ────────────────────────────────────────────
+    # Priority: (1) page_meta h1_tags from spider (already clean), 
+    #           (2) BS4 extraction with space-preserving separator,
+    #           (3) meta description, (4) URL
+    h1_text = ""
+    meta_desc = ""
 
+    if page_meta:
+        h1_list = page_meta.get("h1_tags") or []
+        if h1_list:
+            h1_text = h1_list[0] if isinstance(h1_list[0], str) else ""
+        meta_desc = page_meta.get("meta_description") or ""
+
+    if not h1_text:
+        soup = BeautifulSoup(html, "html.parser")
+        h1_tag = soup.find("h1")
+        if h1_tag:
+            # separator=" " preserves spaces between inline child elements
+            # (e.g. <h1>The Only<span>Digital</span>Agency</h1>)
+            h1_text = re.sub(r"\s+", " ", h1_tag.get_text(separator=" ", strip=True)).strip()
+        if not meta_desc:
+            meta_tag = soup.find("meta", attrs={"name": "description"})
+            meta_desc = (meta_tag.get("content") or "") if meta_tag else ""
+
+    page_title = ""
+    if page_meta:
+        page_title = page_meta.get("title") or ""
+    if not page_title:
+        soup = BeautifulSoup(html, "html.parser")
+        page_title = soup.title.get_text(strip=True) if soup.title else ""
+
+    page_topic = h1_text or meta_desc or page_title or urlparse(url).netloc
+    page_type = detect_page_type(url, h1_text, meta_desc)
+
+    # ── Entity Presence Ratio (async — LLM call) ─────────────────────────
     entity_ratio_data = await _compute_entity_ratio(
-        visible_text, c5_output["filtered_entities"], page_topic, industry
+        visible_text,
+        c5_output["filtered_entities"],
+        page_topic,
+        industry,
+        page_title=page_title,
+        meta_desc=meta_desc,
+        page_type=page_type,
+        page_url=url,
     )
 
     # ── Structured Data Completeness (Field 3) ───────────────────────────
@@ -581,9 +669,6 @@ async def run_c1(
 
     # ── Readability Score (Field 4) ───────────────────────────────────────
     readability = _score_readability(visible_text)
-
-    # ── Page type detection ───────────────────────────────────────────────
-    page_type = detect_page_type(url, h1_text, meta_desc)
 
     return {
         "llm_friendliness_score": llm_friendliness,

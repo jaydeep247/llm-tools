@@ -25,7 +25,7 @@ interface EntityGapAnalysisProps {
 const TOOLTIPS = {
   totalEntities: 'Total named entities detected on the page using NLP. Includes persons, organisations, locations, products, concepts, etc.',
   entityTypes: 'Distribution of entity types found. A balanced mix signals comprehensive, well-structured content.',
-  entityDensity: 'Percentage of total words that are named entities. 3-8% is a healthy range for LLM-optimised content.',
+  entityDensity: 'Detected entities per 500 visible words. Higher values usually indicate richer topical coverage, as long as the content stays natural.',
   wordCount: 'Total visible word count after stripping HTML. Used to calibrate entity density and readability metrics.',
   entityCoveragePct: 'What percentage of the expected topical entities are actually present on the page.',
   matchedCount: 'Number of expected entities your page explicitly mentions.',
@@ -75,7 +75,7 @@ export default function EntityGapAnalysis({ jobId, url }: EntityGapAnalysisProps
   const [showAllMissing, setShowAllMissing] = useState(false)
   const [showAllFacts, setShowAllFacts] = useState(false)
 
-  const { data: moduleCData, isLoading: isLoadingData, refetch: refetchData } = useGetModuleCResultQuery(jobId || '', {
+  const { data: moduleCData, isLoading: isLoadingData, refetch: refetchData } = useGetModuleCResultQuery({ jobId: jobId || '', url }, {
     skip: !jobId, refetchOnMountOrArgChange: true,
   })
   const { isAnalyzing, progress, phaseLabel, runAnalysis } = useModuleCAnalysis({
@@ -101,8 +101,14 @@ export default function EntityGapAnalysis({ jobId, url }: EntityGapAnalysisProps
   const entityTypeData = useMemo(() => {
     if (!entityExt?.entity_types_breakdown) return []
     const colors = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4','#ec4899','#84cc16']
-    return Object.entries(entityExt.entity_types_breakdown as Record<string, number>)
-      .map(([name, value], i) => ({ name, value, fill: colors[i % colors.length] }))
+    return Object.entries(entityExt.entity_types_breakdown as Record<string, string[] | number>)
+      .map(([name, rawValue], i) => {
+        const entities = Array.isArray(rawValue) ? rawValue : []
+        const examples = entities.slice(0, 3)
+        const value = typeof rawValue === 'number' ? rawValue : entities.length
+        return { name, value, fill: colors[i % colors.length], examples }
+      })
+      .filter(({ value }) => value > 0)
       .sort((a, b) => b.value - a.value)
   }, [entityExt])
 
@@ -198,7 +204,7 @@ export default function EntityGapAnalysis({ jobId, url }: EntityGapAnalysisProps
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
               {[
                 { label: 'Total Detected', val: entityExt?.total_entities_detected ?? 0, tip: TOOLTIPS.totalEntities, color: 'text-blue-400' },
-                { label: 'Entity Density', val: `${(entityExt?.entity_density ?? 0).toFixed(1)}%`, tip: TOOLTIPS.entityDensity, color: 'text-purple-400' },
+                { label: 'Density / 500w', val: (entityExt?.entity_density ?? 0).toFixed(1), tip: TOOLTIPS.entityDensity, color: 'text-purple-400' },
                 { label: 'Word Count', val: (entityExt?.word_count ?? 0).toLocaleString(), tip: TOOLTIPS.wordCount, color: 'text-cyan-400' },
                 { label: 'Unique Types', val: Object.keys(entityExt?.entity_types_breakdown ?? {}).length, tip: TOOLTIPS.entityTypes, color: 'text-amber-400' },
               ].map(({ label, val, tip, color }) => (
@@ -230,13 +236,20 @@ export default function EntityGapAnalysis({ jobId, url }: EntityGapAnalysisProps
                     </BarChart>
                   </ResponsiveContainer>
                   <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
-                    {entityTypeData.map(({ name, value, fill }: any) => (
-                      <div key={name} className="flex items-center justify-between py-1.5 px-2 rounded-lg bg-zinc-800/40">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: fill }} />
-                          <span className="text-xs text-zinc-300">{name}</span>
+                    {entityTypeData.map(({ name, value, fill, examples }: any) => (
+                      <div key={name} className="py-1.5 px-2 rounded-lg bg-zinc-800/40">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: fill }} />
+                            <span className="text-xs text-zinc-300">{name}</span>
+                          </div>
+                          <span className="text-xs font-semibold text-white">{value}</span>
                         </div>
-                        <span className="text-xs font-semibold text-white">{value}</span>
+                        {examples.length > 0 && (
+                          <p className="mt-1 pl-4 text-[10px] text-zinc-500 truncate">
+                            {examples.join(', ')}
+                          </p>
+                        )}
                       </div>
                     ))}
                   </div>

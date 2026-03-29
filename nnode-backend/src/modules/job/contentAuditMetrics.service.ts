@@ -2,6 +2,7 @@ import { env } from '../../config/env';
 import { logger } from '../../shared/logger/logger';
 
 export type ContentAuditMetricType =
+  | 'page-metrics'
   | 'keyword-metrics'
   | 'performance-metrics'
   | 'content-metrics'
@@ -13,6 +14,7 @@ export class ContentAuditMetricsService {
     job_id: string;
     metric: ContentAuditMetricType;
     urls: string[];
+    run_at?: string;
   }> {
     const endpoint = `${env.NPY_BACKEND_URL}/content-audit/metrics/run`;
 
@@ -44,6 +46,7 @@ export class ContentAuditMetricsService {
       job_id: string;
       metric: ContentAuditMetricType;
       urls: string[];
+      run_at?: string;
     };
   }
 }

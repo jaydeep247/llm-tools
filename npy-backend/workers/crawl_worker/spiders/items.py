@@ -102,6 +102,7 @@ class PageItem(scrapy.Item):
     # Size
     page_size_bytes = scrapy.Field()
     html_size_bytes = scrapy.Field()
+    raw_html_filename = scrapy.Field()
 
     # New computed fields (module_A metrics)
     fields = scrapy.Field()

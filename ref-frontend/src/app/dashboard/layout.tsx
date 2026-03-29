@@ -18,21 +18,23 @@ export default function DashboardLayout({
   const router = useRouter()
   const { user, isLoading: isAuthLoading } = useAuth()
 
+  const isProjectFlowPage = pathname?.startsWith('/dashboard/projects/')
+  const isSessionPage = pathname?.includes('/sessions/')
+  const isJobProgressPage = pathname?.includes('/jobs/') && pathname?.includes('/progress')
+  const shouldBypassOnboardingRedirect = isProjectFlowPage || isSessionPage || isJobProgressPage
+  const shouldRedirectToOnboarding = !!user && requiresOnboarding(user) && !shouldBypassOnboardingRedirect
+
   useEffect(() => {
     if (isAuthLoading) return
     if (!user) {
       window.location.replace('/signin')
-    } else if (requiresOnboarding(user)) {
+    } else if (shouldRedirectToOnboarding) {
       router.replace(getOnboardingResumePath(user))
     }
-  }, [user, isAuthLoading, router])
-
-  // Session pages and job progress pages get full-screen experiences (no dashboard chrome)
-  const isSessionPage = pathname?.includes('/sessions/')
-  const isJobProgressPage = pathname?.includes('/jobs/') && pathname?.includes('/progress')
+  }, [user, isAuthLoading, router, shouldRedirectToOnboarding])
 
   // Show spinner while auth is resolving or while redirect is pending
-  if (isAuthLoading || !user || requiresOnboarding(user)) {
+  if (isAuthLoading || !user || shouldRedirectToOnboarding) {
     return (
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
         <div className="h-screen w-full bg-[#09090B] flex items-center justify-center">

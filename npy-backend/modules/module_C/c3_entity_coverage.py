@@ -130,8 +130,11 @@ async def compute_entity_relevance(
     for ent_text, ent_label in detected_entities:
         ent_lower = ent_text.lower()
 
-        # TF-IDF weight (normalized frequency)
-        tf = word_freq.get(ent_lower, 0) / max(total_words, 1)
+        # TF-IDF-like weight (normalized phrase frequency).
+        # Using word_freq[ent_lower] fails for multi-word entities such as
+        # "digital marketing" because the token map only contains single words.
+        phrase_hits = visible_text.lower().count(ent_lower)
+        tf = phrase_hits / max(total_words, 1)
         tfidf_weight = min(1.0, tf * 100)  # scale up
 
         # Co-occurrence with primary entities (same sentence)

@@ -59,7 +59,7 @@ export default function AIIntelligenceModule({ url, sessionId, jobId }: AIIntell
     data: existingAeoData, 
     isLoading: isLoadingExisting, 
     refetch: refetchAeoResults 
-  } = useGetModuleCResultQuery(jobId || '', { 
+  } = useGetModuleCResultQuery({ jobId: jobId || '', url }, { 
     skip: !jobId || auditMode !== 'single',
     refetchOnMountOrArgChange: true,
     refetchOnFocus: true,

@@ -15,7 +15,6 @@ Results are written back to the `fields` collection under each page's
 `website_crawler` sub-document.
 """
 
-import asyncio
 import math
 from typing import List, Dict, Any, Optional
 
@@ -27,7 +26,6 @@ from modules.module_A.WebsiteCrawler.metrics.similarity import (
     hamming_distance,
     calculate_similarity_score,
 )
-from modules.module_A.ContentAudit.KeywordMetrics import extract_keyword_metrics_batch
 
 # Hamming distance threshold (out of 64 bits):
 # ≤ 3 bits difference ≈ 95.3% identical content → near-duplicate
@@ -241,74 +239,7 @@ def run_post_crawl_analysis(job_id: str) -> None:
                 exc_info=True,
             )
 
-        # ------------------------------------------------------------------
-        # 5. Keyword Metrics batch (volume_global, volume_us, kd_us, cpc_usd)
-        # NOTE: Backlink Metrics are intentionally excluded here — they are
-        # only computed on-demand via the manual "Run" action in the frontend.
-        # ------------------------------------------------------------------
-        keyword_items: List[Dict[str, Any]] = []
-        for doc in docs:
-            url = doc.get("url")
-            if not url:
-                continue
-            keyword_items.append(
-                {
-                    "url": url,
-                    "main_keyword": doc.get("main_keyword", "") or "",
-                    "volume_global": doc.get("volume_global"),
-                    "volume_us": doc.get("volume_us"),
-                    "kd_us": doc.get("kd_us"),
-                    "cpc_usd": doc.get("cpc_usd"),
-                }
-            )
-
-        if keyword_items:
-            loop = asyncio.new_event_loop()
-            try:
-                asyncio.set_event_loop(loop)
-                km_results = loop.run_until_complete(
-                    extract_keyword_metrics_batch(keyword_items)
-                )
-            finally:
-                loop.close()
-                asyncio.set_event_loop(None)
-
-            km_results_by_url = {
-                r.get("url"): r for r in (km_results or []) if r.get("url")
-            }
-
-            km_ops = []
-            for item in keyword_items:
-                url = item["url"]
-                km_res = km_results_by_url.get(url)
-                if not km_res:
-                    continue
-
-                km_ops.append(
-                    UpdateOne(
-                        {"jobId": job_id, "url": url},
-                        {
-                            "$set": {
-                                "volume_global": km_res.get("volume_global"),
-                                "volume_us": km_res.get("volume_us"),
-                                "kd_us": km_res.get("kd_us"),
-                                "cpc_usd": km_res.get("cpc_usd"),
-                                "keyword_metrics_audit_log": km_res.get("audit_log") or {},
-                            }
-                        },
-                    )
-                )
-
-            if km_ops:
-                mongo_manager.fields.bulk_write(km_ops, ordered=False)
-                logger.info(
-                    "[POST-CRAWL] Keyword metrics: wrote %d updates for job %s",
-                    len(km_ops),
-                    job_id,
-                )
-
-        # NOTE: Performance Metrics are intentionally excluded here — they are
-        # only computed on-demand via the manual "Run" action in the frontend.
+        # Content audit metrics now run only via explicit manual triggers.
 
     except Exception:
         import traceback

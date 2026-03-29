@@ -3,7 +3,7 @@ import { ResponseUtil } from '../../utils/response';
 import { ModuleCService } from './moduleC.service';
 import { JobService } from '../job/job.service';
 import { JobConflictError, JobType } from '../job/job.types';
-import { jobIdParamSchema, sessionParamSchema, runModuleCSchema } from './moduleC.validator';
+import { jobIdParamSchema, sessionParamSchema, runModuleCSchema, moduleCUrlQuerySchema } from './moduleC.validator';
 import { logger } from '../../shared/logger/logger';
 
 export class ModuleCController {
@@ -38,11 +38,12 @@ export class ModuleCController {
     try {
       const userId = req.user!.userId;
       const { jobId } = jobIdParamSchema.parse(req.params);
+      const { url } = moduleCUrlQuerySchema.parse(req.query || {});
 
       // Verify job access
       await this.jobService.getJobById(userId, jobId);
 
-      const result = await this.moduleCService.getModuleCResult(jobId, userId);
+      const result = await this.moduleCService.getModuleCResult(jobId, userId, url);
       if (!result) {
         return ResponseUtil.success(res, 'Module C result not found', null);
       }
@@ -162,9 +163,10 @@ export class ModuleCController {
       try {
         const userId = req.user!.userId;
         const { jobId } = jobIdParamSchema.parse(req.params);
+        const { url } = moduleCUrlQuerySchema.parse(req.query || {});
 
         await this.jobService.getJobById(userId, jobId);
-        const result = await this.moduleCService.getModuleField(jobId, field);
+        const result = await this.moduleCService.getModuleField(jobId, field, url);
 
         return ResponseUtil.success(res, `${label} data retrieved`, result);
       } catch (error: any) {
@@ -192,9 +194,10 @@ export class ModuleCController {
     try {
       const userId = req.user!.userId;
       const { jobId } = jobIdParamSchema.parse(req.params);
+      const { url } = moduleCUrlQuerySchema.parse(req.query || {});
 
       await this.jobService.getJobById(userId, jobId);
-      const result = await this.moduleCService.getSummary(jobId);
+      const result = await this.moduleCService.getSummary(jobId, url);
       
       return ResponseUtil.success(res, 'Module C summary retrieved', result);
     } catch (error: any) {
@@ -210,9 +213,10 @@ export class ModuleCController {
     try {
       const userId = req.user!.userId;
       const { jobId } = jobIdParamSchema.parse(req.params);
+      const { url } = moduleCUrlQuerySchema.parse(req.query || {});
 
       await this.jobService.getJobById(userId, jobId);
-      const result = await this.moduleCService.getVisibilityReport(jobId);
+      const result = await this.moduleCService.getVisibilityReport(jobId, url);
 
       return ResponseUtil.success(res, 'AI Visibility Report retrieved', result);
     } catch (error: any) {

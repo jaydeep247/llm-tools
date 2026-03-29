@@ -23,6 +23,7 @@ interface KeywordMetricRow {
   title?: string
   fields?: Record<string, any>
   main_keyword?: string | null
+  status_code?: number | null
   volume_global?: number | null
   volume_us?: number | null
   kd_us?: number | null
@@ -51,6 +52,10 @@ const COLUMN_CATEGORIES: ColumnCategory[] = [
     columns: ['url', 'title', 'main_keyword'],
   },
   {
+    name: 'Crawl',
+    columns: ['status_code'],
+  },
+  {
     name: 'Search Volume',
     columns: ['volume_global', 'volume_us'],
   },
@@ -64,15 +69,17 @@ const FIELD_DESCRIPTIONS: Partial<Record<keyof KeywordMetricRow, string>> = {
   url: 'Full web address of the analyzed page. Click to open in a new tab.',
   title: 'Page title (if available).',
   main_keyword: 'Primary keyword assigned to this page.',
-  volume_global: 'Global monthly search volume from Google Ads (all locations).',
-  volume_us: 'US monthly search volume from Google Ads (location: United States).',
+  status_code: 'HTTP response status code returned by the server when the page was crawled (200 = OK, 301 = redirect, 404 = not found, 500 = server error).',
+  volume_global: 'Global monthly search volume from Google Ads (all locations, no location filter).',
+  volume_us: 'US monthly search volume from Google Ads (location: United States, code 2840).',
   kd_us: 'Keyword Difficulty score (0–100) for US SERP. Lower is easier to rank.',
-  cpc_usd: 'Average Cost Per Click in USD from Google Ads.',
+  cpc_usd: 'Average Cost Per Click in USD from Google Ads (US location).',
 }
 
 const DEFAULT_VISIBLE_COLUMNS: Set<keyof KeywordMetricRow> = new Set([
   'url',
   'main_keyword',
+  'status_code',
   'volume_global',
   'volume_us',
   'kd_us',
@@ -117,6 +124,7 @@ export function KeywordMetrics({
       seen.add(url)
 
       const main_keyword = getRowValue(row, 'main_keyword')
+      const status_code = getRowValue(row, 'status_code')
       const volume_global = getRowValue(row, 'volume_global')
       const volume_us = getRowValue(row, 'volume_us')
       const kd_us = getRowValue(row, 'kd_us')
@@ -128,6 +136,7 @@ export function KeywordMetrics({
         title: row.title ?? getRowValue(row, 'title') ?? '',
         fields: row.fields ?? {},
         main_keyword: main_keyword === '' ? null : main_keyword ?? null,
+        status_code: status_code === '' ? null : status_code ?? null,
         volume_global: volume_global === '' ? null : volume_global ?? null,
         volume_us: volume_us === '' ? null : volume_us ?? null,
         kd_us: kd_us === '' ? null : kd_us ?? null,
@@ -252,6 +261,7 @@ export function KeywordMetrics({
       url: 'URL',
       title: 'Title',
       main_keyword: 'Main Keyword',
+      status_code: 'Status Code',
       volume_global: 'Volume (Global)',
       volume_us: 'Volume (US)',
       kd_us: 'KD (US)',
@@ -263,6 +273,7 @@ export function KeywordMetrics({
   const sortableColumns: Set<keyof KeywordMetricRow> = new Set([
     'url',
     'main_keyword',
+    'status_code',
     'volume_global',
     'volume_us',
     'kd_us',
@@ -324,6 +335,23 @@ export function KeywordMetrics({
       case 'main_keyword':
         if (!value) return <span className="text-zinc-600 text-xs select-none">—</span>
         return <span className="text-zinc-200">{String(value)}</span>
+
+      case 'status_code': {
+        if (value === undefined || value === null) return <span className="text-zinc-600 text-xs select-none">—</span>
+        const code = Number(value)
+        if (Number.isNaN(code)) return <span className="text-zinc-600 text-xs select-none">—</span>
+        const statusColor =
+          code >= 500
+            ? 'bg-red-600/20 text-red-300 border-red-600/30'
+            : code >= 400
+              ? 'bg-orange-500/20 text-orange-300 border-orange-500/30'
+              : code >= 300
+                ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
+                : code === 200
+                  ? 'bg-green-500/20 text-green-300 border-green-500/30'
+                  : 'bg-zinc-700/30 text-zinc-200 border-zinc-600/30'
+        return <Badge className={statusColor}>{code}</Badge>
+      }
 
       case 'volume_global':
       case 'volume_us': {

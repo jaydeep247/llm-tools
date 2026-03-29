@@ -10,6 +10,7 @@ from .KeywordMetrics import extract_keyword_metrics
 from .PerformanceMetrics import extract_performance_metrics
 from .ContentMetrics import extract_content_metrics
 from .BacklinkMetrics import extract_crawltime_backlink_fields
+from .KeywordFinder import resolve_keywords, KeywordBundle
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,35 @@ async def run_content_audit(
     Returns a dictionary mapping sub-module names to their respective results.
     """
 
+    # 0. Keyword Resolution — MUST run first; all sub-modules share this bundle.
+    try:
+        keyword_bundle: KeywordBundle = await resolve_keywords(
+            url=url,
+            html_content=html_content,
+            main_keyword=main_keyword,
+            title=title,
+            h1=h1,
+            location_code=kwargs.get("location_code", 2840),
+            language_code=kwargs.get("language_code", "en"),
+            skip_api=kwargs.get("skip_keyword_api", False),
+        )
+        # Use the resolved primary keyword for all downstream modules
+        resolved_keyword = keyword_bundle.primary_keyword or main_keyword
+        logger.info(
+            "[ContentAudit] Keyword resolved for %s → '%s' (%s)",
+            url, resolved_keyword, keyword_bundle.keyword_source,
+        )
+    except Exception as e:
+        logger.error(f"Error resolving keywords for {url}: {e}")
+        keyword_bundle = KeywordBundle(
+            primary_keyword=main_keyword,
+            keyword_source="provided" if main_keyword else "",
+        )
+        resolved_keyword = main_keyword
+
+    # Inject bundle into kwargs so sub-modules that accept **kwargs can use it
+    kwargs["keyword_bundle"] = keyword_bundle
+
     # 1. Page Metrics (Fully Functional)
     try:
         page_metrics_result = extract_page_metrics(
@@ -51,6 +81,11 @@ async def run_content_audit(
             final_url=final_url,
             raw_body_size=raw_body_size,
             redirect_urls=redirect_urls,
+            main_keyword=resolved_keyword,
+            keyword_bundle=keyword_bundle,
+            title=title,
+            h1=h1,
+            crawl_graph=kwargs.get("crawl_graph"),
         )
     except Exception as e:
         logger.error(f"Error extracting page metrics for {url}: {e}")
@@ -61,10 +96,11 @@ async def run_content_audit(
         keyword_metrics_result = await extract_keyword_metrics(
             url=url,
             html_content=html_content,
-            main_keyword=main_keyword,
+            main_keyword=resolved_keyword,
             title=title,
             h1=h1,
             existing_item=existing_item,
+            keyword_bundle=keyword_bundle,
         )
     except Exception as e:
         logger.error(f"Error extracting keyword metrics for {url}: {e}")
@@ -75,7 +111,7 @@ async def run_content_audit(
         performance_metrics_result = await extract_performance_metrics(
             url=url,
             html_content=html_content,
-            main_keyword=main_keyword,
+            main_keyword=resolved_keyword,
             ga_property_id=ga_property_id,
             response_headers=response_headers,
             existing_item=existing_item,
@@ -92,7 +128,7 @@ async def run_content_audit(
         content_metrics_result = await extract_content_metrics(
             url=url,
             html_content=html_content,
-            main_keyword=main_keyword,
+            main_keyword=resolved_keyword,
             response_headers=response_headers,
             existing_item=existing_item,
             h1=h1,
@@ -119,6 +155,19 @@ async def run_content_audit(
         backlink_metrics_result = {"error": str(e)}
 
     return {
+        "keyword_bundle": {
+            "primary_keyword": keyword_bundle.primary_keyword,
+            "keyword_source": keyword_bundle.keyword_source,
+            "intent": keyword_bundle.intent,
+            "post_category_type": keyword_bundle.post_category_type,
+            "all_keywords": keyword_bundle.all_keywords,
+            "ranked_keywords": keyword_bundle.ranked_keywords,
+            "related_keywords": keyword_bundle.related_keywords,
+            "on_page_keywords": keyword_bundle.on_page_keywords,
+            "question_keywords": keyword_bundle.question_keywords,
+            "long_tail_keywords": keyword_bundle.long_tail_keywords,
+            "entity_keywords": keyword_bundle.entity_keywords,
+        },
         "page_metrics": page_metrics_result,
         "keyword_metrics": keyword_metrics_result,
         "performance_metrics": performance_metrics_result,

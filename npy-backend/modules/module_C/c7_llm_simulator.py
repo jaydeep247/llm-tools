@@ -32,12 +32,13 @@ TARGET_MODELS = {
 #  Pre-step — Generate prompts for the page
 # ═════════════════════════════════════════════════════════════════════════════
 
-async def _generate_prompts(page_topic: str) -> List[str]:
+async def _generate_prompts(page_topic: str, page_excerpt: str) -> List[str]:
     """Generate 5 realistic user prompts that would cause LLMs to cite this page."""
     prompt = (
         f'For a page about "{page_topic}", generate 5 realistic user prompts '
         f"that would cause an LLM to potentially cite or reference content from this page. "
         f"Include: 1 informational, 1 commercial, 1 comparative, 1 how-to, 1 specific question. "
+        f"Ground the prompts in this content excerpt so they reflect the actual page, not generic industry prompts: {page_excerpt[:1200]} "
         f'Return JSON: {{"prompts": [...]}}'
     )
 
@@ -384,7 +385,7 @@ async def run_c7(
         accuracy, completeness, consistency, raw model responses.
     """
     # Pre-step: generate prompts
-    prompts = await _generate_prompts(page_topic)
+    prompts = await _generate_prompts(page_topic, visible_text)
 
     # Execute prompts across all models
     model_responses = await _execute_all_prompts(prompts, visible_text[:1000])

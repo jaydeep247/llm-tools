@@ -17,6 +17,12 @@ def extract_page_metrics(
     final_url: str = None,
     raw_body_size: int = 0,
     redirect_urls: list = None,
+    # Module 1 enrichment inputs
+    main_keyword: str = "",
+    keyword_bundle=None,
+    title: str = "",
+    h1: str = "",
+    crawl_graph: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Extract page metrics from a crawled page.
@@ -48,13 +54,18 @@ def extract_page_metrics(
     if redirect_urls:
         existing_data['redirect_urls'] = redirect_urls
 
-    # 5. Advanced Page Metrics
+    # 5. Advanced Page Metrics (Module 1 fields + canonical/indexability)
     advanced_metrics, audit_log = extract_advanced_page_metrics(
         url=final_url,
         existing_data=existing_data,
         html_content=html_content,
         headers=response_headers,
-        status_code=response_status
+        status_code=response_status,
+        main_keyword=main_keyword,
+        keyword_bundle=keyword_bundle,
+        title=title,
+        h1=h1,
+        crawl_graph=crawl_graph or {},
     )
     
     # Assemble final metrics object

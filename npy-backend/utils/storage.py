@@ -41,7 +41,7 @@ def _ensure_s3_enabled() -> bool:
 
 # ─── ASYNC FUNCTIONS ─────────────────────────────────────────────────────────
 
-async def save_raw_html(job_id: str, html_content: str) -> str:
+async def save_raw_html(job_id: str, html_content: str, filename: str = "source.html") -> str:
     """
     Saves raw HTML content to S3 bucket ONLY.
     Local filesystem storage is NO LONGER SUPPORTED.
@@ -49,6 +49,7 @@ async def save_raw_html(job_id: str, html_content: str) -> str:
     Args:
         job_id: Job identifier
         html_content: HTML content to save
+        filename: File name/key within the job folder
         
     Returns:
         S3 URI of the saved file, or empty string if S3 is unavailable
@@ -61,21 +62,22 @@ async def save_raw_html(job_id: str, html_content: str) -> str:
     
     try:
         s3 = _get_s3_client()
-        uri = await s3.save(job_id, html_content)
-        logger.info(f"[S3] ✅ HTML saved for job {job_id} ({len(html_content)} bytes)")
+        uri = await s3.save(job_id, html_content, filename)
+        logger.info(f"[S3] ✅ HTML saved for job {job_id}/{filename} ({len(html_content)} bytes)")
         return uri
     except Exception as e:
         logger.error(f"[S3] ❌ Failed to save HTML to S3: {e}")
         return ""
 
 
-async def load_raw_html(job_id: str) -> str:
+async def load_raw_html(job_id: str, filename: str = "source.html") -> str:
     """
     Loads raw HTML content from S3 bucket ONLY.
     Local filesystem storage is NO LONGER SUPPORTED.
     
     Args:
         job_id: Job identifier
+        filename: File name/key within the job folder
         
     Returns:
         HTML content as string, or empty string if not found / S3 unavailable
@@ -85,12 +87,12 @@ async def load_raw_html(job_id: str) -> str:
     
     try:
         s3 = _get_s3_client()
-        content = await s3.load(job_id)
+        content = await s3.load(job_id, filename)
         if content:
-            logger.info(f"[S3] ✅ HTML loaded from S3 for job {job_id} ({len(content)} bytes)")
+            logger.info(f"[S3] ✅ HTML loaded from S3 for job {job_id}/{filename} ({len(content)} bytes)")
             return content
         else:
-            logger.warning(f"[S3] ⚠️  HTML not found in S3 for job {job_id}")
+            logger.warning(f"[S3] ⚠️  HTML not found in S3 for job {job_id}/{filename}")
             return ""
     except Exception as e:
         logger.error(f"[S3] ❌ Failed to load HTML from S3: {e}")
@@ -99,7 +101,7 @@ async def load_raw_html(job_id: str) -> str:
 
 # ─── SYNC FUNCTIONS ──────────────────────────────────────────────────────────
 
-def save_raw_html_sync(job_id: str, html_content: str) -> str:
+def save_raw_html_sync(job_id: str, html_content: str, filename: str = "source.html") -> str:
     """
     Synchronous version of save_raw_html for use in non-async contexts (e.g. Scrapy).
     Uses S3 bucket ONLY - NO local filesystem fallback.
@@ -107,6 +109,7 @@ def save_raw_html_sync(job_id: str, html_content: str) -> str:
     Args:
         job_id: Job identifier
         html_content: HTML content to save
+        filename: File name/key within the job folder
         
     Returns:
         S3 URI of the saved file, or empty string if S3 is unavailable
@@ -119,21 +122,22 @@ def save_raw_html_sync(job_id: str, html_content: str) -> str:
     
     try:
         s3 = _get_s3_client()
-        uri = s3.save_sync(job_id, html_content)
-        logger.info(f"[S3] ✅ HTML saved (sync) for job {job_id} ({len(html_content)} bytes)")
+        uri = s3.save_sync(job_id, html_content, filename)
+        logger.info(f"[S3] ✅ HTML saved (sync) for job {job_id}/{filename} ({len(html_content)} bytes)")
         return uri
     except Exception as e:
         logger.error(f"[S3] ❌ Failed to save HTML to S3 (sync): {e}")
         return ""
 
 
-def load_raw_html_sync(job_id: str) -> str:
+def load_raw_html_sync(job_id: str, filename: str = "source.html") -> str:
     """
     Synchronous version of load_raw_html.
     Uses S3 bucket ONLY - NO local filesystem fallback.
     
     Args:
         job_id: Job identifier
+        filename: File name/key within the job folder
         
     Returns:
         HTML content as string, or empty string if not found / S3 unavailable
@@ -143,12 +147,12 @@ def load_raw_html_sync(job_id: str) -> str:
     
     try:
         s3 = _get_s3_client()
-        content = s3.load_sync(job_id)
+        content = s3.load_sync(job_id, filename)
         if content:
-            logger.info(f"[S3] ✅ HTML loaded (sync) from S3 for job {job_id} ({len(content)} bytes)")
+            logger.info(f"[S3] ✅ HTML loaded (sync) from S3 for job {job_id}/{filename} ({len(content)} bytes)")
             return content
         else:
-            logger.warning(f"[S3] ⚠️  HTML not found in S3 for job {job_id}")
+            logger.warning(f"[S3] ⚠️  HTML not found in S3 for job {job_id}/{filename}")
             return ""
     except Exception as e:
         logger.error(f"[S3] ❌ Failed to load HTML from S3 (sync): {e}")

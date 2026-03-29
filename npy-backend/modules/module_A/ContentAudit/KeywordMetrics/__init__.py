@@ -276,8 +276,14 @@ def _all_fields_present(item: Dict[str, Any]) -> bool:
 
 async def _fetch_search_volume(keywords: List[str]) -> Dict[str, Dict[str, Any]]:
     """
-    Single API call for US location (2840).
-    Returns {original_keyword_str: {volume_us, volume_global, cpc_usd}}.
+    TWO separate API calls to Keywords Data API:
+      Call 1: no location_code          → volume_global (worldwide estimate)
+      Call 2: location_code=2840 (US)   → volume_us + cpc_usd
+
+    Returns {original_keyword_str: {volume_global, volume_us, cpc_usd}}.
+
+    Note: search_volume/live only accepts ONE task per POST; two separate
+    calls are required to get global and US volumes independently.
 
     For each input keyword up to 3 candidate phrases are generated
     (full, 5-word truncation, stop-word-stripped core) and sent in the
@@ -290,8 +296,6 @@ async def _fetch_search_volume(keywords: List[str]) -> Dict[str, Dict[str, Any]]
     cache: Dict[str, Dict[str, Any]] = {}
 
     # ── Build candidate API keywords and reverse map ───────────────────
-    # kw_to_candidates : original_kw → ordered candidate list
-    # api_kw_to_originals : api_kw → [original_kws that listed it as a candidate]
     kw_to_candidates: Dict[str, List[str]] = {}
     api_kw_to_originals: Dict[str, List[str]] = {}
 
@@ -312,7 +316,43 @@ async def _fetch_search_volume(keywords: List[str]) -> Dict[str, Dict[str, Any]]
     )
 
     try:
-        resp = await execute_task(
+        # ── Call 1: Global volume (no location_code) ──────────────────
+        global_vol: Dict[str, int] = {}
+        resp_global = await execute_task(
+            task_name="keywords_search_volume",
+            input_data={
+                "endpoint": "/keywords_data/google_ads/search_volume/live",
+                "payload": [
+                    {
+                        "keywords": api_keywords,
+                        "language_code": "en",
+                    }
+                ],
+            },
+            provider="dataforseo",
+        )
+        if resp_global and resp_global.success:
+            t0 = ((resp_global.data or {}).get("tasks") or [{}])[0]
+            if t0.get("status_code") == 20000:
+                for entry in (t0.get("result") or []):
+                    api_kw = (entry.get("keyword") or "").strip().lower()
+                    sv = entry.get("search_volume")
+                    if api_kw and sv is not None:
+                        global_vol[api_kw] = sv
+            else:
+                logger.warning(
+                    "[KM] Global volume task status %s: %s",
+                    t0.get("status_code"), t0.get("status_message"),
+                )
+        else:
+            logger.warning(
+                "[KM] Global volume API call failed: %s",
+                resp_global.error if resp_global else "no response",
+            )
+
+        # ── Call 2: US volume + CPC (location_code=2840) ─────────────
+        us_vol: Dict[str, Dict[str, Any]] = {}
+        resp_us = await execute_task(
             task_name="keywords_search_volume",
             input_data={
                 "endpoint": "/keywords_data/google_ads/search_volume/live",
@@ -321,59 +361,61 @@ async def _fetch_search_volume(keywords: List[str]) -> Dict[str, Dict[str, Any]]
                         "keywords": api_keywords,
                         "location_code": 2840,
                         "language_code": "en",
-                    },
+                    }
                 ],
             },
             provider="dataforseo",
         )
-
-        if not (resp and resp.success):
+        if resp_us and resp_us.success:
+            t1 = ((resp_us.data or {}).get("tasks") or [{}])[0]
+            if t1.get("status_code") == 20000:
+                for entry in (t1.get("result") or []):
+                    api_kw = (entry.get("keyword") or "").strip().lower()
+                    if api_kw:
+                        us_vol[api_kw] = {
+                            "volume_us": entry.get("search_volume"),
+                            "cpc_usd": entry.get("cpc"),
+                        }
+            else:
+                logger.warning(
+                    "[KM] US volume task status %s: %s",
+                    t1.get("status_code"), t1.get("status_message"),
+                )
+        else:
             logger.warning(
-                "[KM] Keywords Data API failed: %s",
-                resp.error if resp else "no response",
+                "[KM] US volume API call failed: %s",
+                resp_us.error if resp_us else "no response",
             )
-            return cache
 
-        tasks_data = (resp.data or {}).get("tasks", [])
-        if not tasks_data:
-            return cache
-
-        task0 = tasks_data[0]
-        status = task0.get("status_code")
-        if status != 20000:
-            logger.warning(
-                "[KM] Keywords Data API task status %s: %s",
-                status, task0.get("status_message"),
-            )
-            return cache
-
-        # Build a map: api_kw_returned → data  (only when search_volume is non-null)
-        api_results: Dict[str, Dict[str, Any]] = {}
-        for entry in (task0.get("result") or []):
-            api_kw = (entry.get("keyword") or "").strip().lower()
-            sv = entry.get("search_volume")
-            if api_kw and sv is not None:
-                api_results[api_kw] = {
-                    "volume_us": sv,
-                    "volume_global": sv,
-                    "cpc_usd": entry.get("cpc"),
-                }
-
-        # For each original keyword, walk its candidate list in priority order;
-        # use the first candidate that has non-null search volume.
+        # ── Map both result sets back to original keywords ──────────────
         resolved_via_fallback = 0
         for kw, candidates in kw_to_candidates.items():
+            vol_global = None
+            vol_us = None
+            cpc_usd = None
             for idx, api_kw in enumerate(candidates):
-                if api_kw in api_results:
-                    cache[kw] = api_results[api_kw]
+                if vol_global is None and api_kw in global_vol:
+                    vol_global = global_vol[api_kw]
                     if idx > 0:
                         resolved_via_fallback += 1
+                if vol_us is None and api_kw in us_vol:
+                    us_data = us_vol[api_kw]
+                    vol_us = us_data["volume_us"]
+                    cpc_usd = us_data["cpc_usd"]
+                if vol_global is not None and vol_us is not None:
                     break
+
+            if vol_global is not None or vol_us is not None:
+                cache[kw] = {
+                    "volume_global": vol_global,
+                    "volume_us": vol_us,
+                    "cpc_usd": cpc_usd,
+                }
 
         if resolved_via_fallback:
             logger.info(
-                "[KM] Volume: %d/%d keywords resolved via shorter fallback phrase",
-                resolved_via_fallback, len(keywords),
+                "[KM] Volume: %d keywords resolved via shorter fallback phrase",
+                resolved_via_fallback,
             )
 
     except Exception as exc:
@@ -510,10 +552,10 @@ async def extract_keyword_metrics_batch(
     Each item dict must contain at minimum:
         url, main_keyword
     and may already contain:
-        volume_global, volume_us, kd_us, cpc_usd
+        volume_global, volume_us, kd_us, cpc_usd, status_code
 
-    Returns a list of result dicts (same order as input) with the 4 fields
-    plus an audit_log.
+    Returns a list of result dicts (same order as input) with the 5 fields
+    (status_code is a passthrough from the crawl layer) plus an audit_log.
     """
     if not items:
         return []
@@ -560,22 +602,22 @@ async def extract_keyword_metrics_batch(
     logger.info(
         "[KM] Total URLs in batch: %d | Unique keywords to fetch volume: %d | "
         "Unique keywords to fetch KD: %d | Keywords already cached: %d | "
-        "Keywords Data API calls required: %d | KD Labs API calls required: %d",
+        "Keywords Data API calls required: %d (global+US) | KD Labs API calls required: %d",
         total_urls,
         len(keywords_to_fetch_volume),
         len(keywords_to_fetch_kd),
         len(keywords_already_cached),
-        1 if keywords_to_fetch_volume else 0,
+        2 if keywords_to_fetch_volume else 0,
         1 if keywords_to_fetch_kd else 0,
     )
 
-    # ─── Step 2: Fetch volume + CPC (single API call) ─────────────────────
+    # ─── Step 2: Fetch volume + CPC (2 API calls: global + US) ───────────
     keyword_cache: Dict[str, Dict[str, Any]] = {}
     volume_api_calls = 0
 
     if keywords_to_fetch_volume:
         keyword_cache = await _fetch_search_volume(keywords_to_fetch_volume)
-        volume_api_calls = 1
+        volume_api_calls = 2  # 1 global call + 1 US call
 
     # ─── Step 3: Fetch KD via DataForSEO Labs (single batch call) ───────
     kd_cache: Dict[str, int] = {}
@@ -598,7 +640,7 @@ async def extract_keyword_metrics_batch(
         kw_lower = kw_raw.lower()
         audit_log: Dict[str, str] = {}
 
-        # No keyword → skip all 4 fields
+        # No keyword → skip all 4 API-driven fields (status_code still passes through)
         if not kw_raw:
             audit_log["volume_global"] = "SKIPPED-NO-KEYWORD"
             audit_log["volume_us"] = "SKIPPED-NO-KEYWORD"
@@ -608,6 +650,7 @@ async def extract_keyword_metrics_batch(
             results.append({
                 "url": url,
                 "main_keyword": None,
+                "status_code": item.get("status_code"),
                 "volume_global": None,
                 "volume_us": None,
                 "kd_us": None,
@@ -677,6 +720,7 @@ async def extract_keyword_metrics_batch(
         results.append({
             "url": url,
             "main_keyword": kw_raw,
+            "status_code": item.get("status_code"),
             "volume_global": volume_global,
             "volume_us": volume_us,
             "kd_us": kd_us,
@@ -689,7 +733,7 @@ async def extract_keyword_metrics_batch(
     fill_rate = round(fields_fetched / max(total_fields, 1) * 100, 1)
     logger.info(
         "[KM] ═══ Batch Summary ═══\n"
-        "  Keywords Data API calls made:  %d  (%d unique keywords, up to 3x candidates)\n"
+        "  Keywords Data API calls made:  %d  (%d unique keywords — 1 global + 1 US)\n"
         "  KD Labs API calls made:        %d  (%d unique keywords, up to 3x candidates)\n"
         "  Fields found (no fetch):       %d\n"
         "  Fields fetched:                %d  (%.1f%% fill rate)\n"

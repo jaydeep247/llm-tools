@@ -5,7 +5,7 @@ from fastapi import APIRouter, BackgroundTasks
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
 
-from .service import MetricType, schedule_content_audit_metric
+from .service import MetricType, schedule_content_audit_metric, _utc_now_iso
 
 logger = logging.getLogger("content_audit_http")
 
@@ -38,17 +38,20 @@ class ContentAuditMetricRunRequest(BaseModel):
 @router.post("/metrics/run")
 async def run_content_audit_metrics(body: ContentAuditMetricRunRequest, background_tasks: BackgroundTasks):
     try:
+        run_at = _utc_now_iso()
         background_tasks.add_task(
             schedule_content_audit_metric,
             job_id=body.job_id,
             metric=body.metric,
             urls=body.urls,
+            run_at=run_at,
         )
         return {
             "accepted": True,
             "job_id": body.job_id,
             "metric": body.metric,
             "urls": body.urls or [],
+            "run_at": run_at,
         }
     except Exception as exc:
         logger.error("Failed to schedule content audit metric run: %s", exc, exc_info=True)

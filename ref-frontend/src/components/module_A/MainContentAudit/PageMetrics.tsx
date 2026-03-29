@@ -15,11 +15,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { FieldTooltip } from '../FieldTooltip'
+import { useContentAuditMetricRunner } from './useContentAuditMetricRunner'
 
 interface PageMetric {
   id?: string | number
   url: string
   title: string
+  fields?: Record<string, any>
   description?: string
   titleLength?: number
   titlePixelWidth?: number
@@ -77,6 +79,7 @@ interface PageMetricsTableProps {
   isLoading?: boolean
   onRefresh?: () => void
   onExport?: () => void
+  jobId?: string | null
 }
 
 type SortField = keyof PageMetric
@@ -164,7 +167,8 @@ export function PageMetrics({
   data = [], 
   isLoading = false,
   onRefresh,
-  onExport 
+  onExport,
+  jobId,
 }: PageMetricsTableProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [urlFilter, setUrlFilter] = useState('')
@@ -188,11 +192,23 @@ export function PageMetrics({
       if (key) {
         seen.add(key)
       }
-      result.push(page)
+      result.push({
+        ...page,
+        fields: page.fields ?? {},
+      })
     })
 
     return result
   }, [data])
+
+  const metricRunner = useContentAuditMetricRunner({
+    jobId,
+    metric: 'page-metrics',
+    data: uniqueData,
+    onRefresh,
+    getLastRunAt: (row) => row.fields?.page_metrics_last_run_at,
+    persistLoading: true,
+  })
 
   // Filter data based on search and URL filter
   const filteredData = useMemo(() => {
@@ -425,13 +441,13 @@ export function PageMetrics({
         const statusColor = value === 'OK' ? 'bg-green-500/20 text-green-300 border-green-500/30' :
                            value === 'Missing' ? 'bg-red-500/20 text-red-300 border-red-500/30' :
                            'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
-        return <Badge className={statusColor}>{value}</Badge>
+        return <Badge className={statusColor}>{String(value)}</Badge>
       case 'canonicalValidationStatus':
         if (!value) return 'N/A'
         const validColor = value === 'Valid' ? 'bg-green-500/20 text-green-300 border-green-500/30' :
                           value === 'Missing' ? 'bg-gray-500/20 text-gray-300 border-gray-500/30' :
                           'bg-red-500/20 text-red-300 border-red-500/30'
-        return <Badge className={validColor}>{value}</Badge>
+        return <Badge className={validColor}>{String(value)}</Badge>
       case 'hasTables':
       case 'hasFaqs':
       case 'viewportPresent':
@@ -552,6 +568,16 @@ export function PageMetrics({
             </div>
           </div>
           <div className="flex gap-2">
+            <Button
+              onClick={() => metricRunner.runAll()}
+              variant="outline"
+              size="sm"
+              className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-xl"
+              disabled={!jobId || uniqueData.length === 0 || metricRunner.isProcessing || metricRunner.isSubmitting}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${metricRunner.isProcessing ? 'animate-spin' : ''}`} />
+              {metricRunner.isProcessing ? `Running${metricRunner.pendingCount > 0 ? ` ${metricRunner.pendingCount}` : ''}...` : 'Run All URLs'}
+            </Button>
             {onRefresh && (
               <Button
                 onClick={onRefresh}
@@ -697,22 +723,25 @@ export function PageMetrics({
             <table className="w-full text-sm">
               <thead className="bg-zinc-900/80 border-b border-zinc-800 sticky top-0 z-10">
                 <tr>
+                  <th className="px-3 py-3 text-left font-medium text-zinc-300 uppercase tracking-wider text-xs whitespace-nowrap">
+                    Action
+                  </th>
                   {orderedVisibleColumns.map(column => renderTableHeader(column))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-800">
-                {isLoading ? (
+                {isLoading || metricRunner.isBulkProcessing ? (
                   <tr>
-                    <td colSpan={visibleColumns.size} className="px-4 py-12 text-center">
+                    <td colSpan={visibleColumns.size + 1} className="px-4 py-12 text-center">
                       <div className="flex items-center justify-center gap-2 text-zinc-400">
                         <RefreshCw className="h-5 w-5 animate-spin" />
-                        <span>Loading data...</span>
+                        <span>{metricRunner.isBulkProcessing ? 'Processing page metrics...' : 'Loading data...'}</span>
                       </div>
                     </td>
                   </tr>
                 ) : paginatedData.length === 0 ? (
                   <tr>
-                    <td colSpan={visibleColumns.size} className="px-4 py-12 text-center text-zinc-400">
+                    <td colSpan={visibleColumns.size + 1} className="px-4 py-12 text-center text-zinc-400">
                       No pages found. {(searchQuery || urlFilter) && 'Try adjusting your filters.'}
                     </td>
                   </tr>
@@ -722,6 +751,20 @@ export function PageMetrics({
                       key={page.id ?? page.url ?? index}
                       className="hover:bg-zinc-800/50 transition-colors"
                     >
+                      <td className="px-3 py-2 text-center whitespace-nowrap">
+                        {(metricRunner.isRunning(page.url) || !page.fields?.page_metrics_last_run_at) && (
+                          <Button
+                            onClick={() => metricRunner.runOne(page.url)}
+                            variant="outline"
+                            size="sm"
+                            disabled={!jobId || metricRunner.isRunning(page.url)}
+                            className="bg-zinc-900 border-zinc-700 text-zinc-200 hover:bg-zinc-800 hover:text-white rounded-lg h-8 px-3"
+                          >
+                            <RefreshCw className={`h-4 w-4 mr-2 ${metricRunner.isRunning(page.url) ? 'animate-spin' : ''}`} />
+                            {metricRunner.isRunning(page.url) ? 'Running' : 'Run'}
+                          </Button>
+                        )}
+                      </td>
                       {orderedVisibleColumns.map((column) => (
                         <td key={String(column)} className="px-3 py-2 text-zinc-200 text-center whitespace-normal overflow-wrap-break-word">
                           {renderCellContent(page, column)}

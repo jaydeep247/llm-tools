@@ -40,8 +40,8 @@ def classify_page_types(items: List[Dict[str, Any]]) -> Dict[str, Any]:
         outlinks = item.get('outlink_count', 0)
         depth = item['folder_depth']
         
-        # Rule 1: Hub
-        if inlinks > 20 and outlinks > 10 and depth <= 2:
+        # Rule 1: Hub — spec §1.4: ≥30 inlinks AND url_depth ≤ 2
+        if inlinks >= 30 and depth <= 2:
             item['page_type'] = 'Hub'
             stats["Hubs"] += 1
             confirmed_hubs.add(item['url'])
@@ -50,28 +50,23 @@ def classify_page_types(items: List[Dict[str, Any]]) -> Dict[str, Any]:
     for item in items:
         if item.get('page_type'):
             continue
-            
+
+        inlinks = item.get('inlink_count', 0)
         depth = item['folder_depth']
         incoming_urls = item.get('incoming_links', [])
         pointed_to_by_hub = item.get('pointed_by_hub', False) or any(url in confirmed_hubs for url in incoming_urls)
-        
-        # Rule 2: Spoke = pointed to by a Hub page AND folder_depth == 3
-        if pointed_to_by_hub and depth == 3:
+
+        # Rule 2: Spoke — spec §1.4: ≥10 inlinks OR pointed to by a Hub
+        if inlinks >= 10 or pointed_to_by_hub:
             item['page_type'] = 'Spoke'
             stats["Spokes"] += 1
             continue
-            
+
         pointed_only_by_spoke = item.get('pointed_only_by_spoke', False)
-        
-        # Rule 3: Sub-Spoke = folder_depth >= 4 OR pointed to only by Spoke pages
-        if depth >= 4 or pointed_only_by_spoke:
-            item['page_type'] = 'Sub-Spoke'
-            stats["Sub-Spokes"] += 1
-            continue
-            
-        # If not matched, leave it None so the caller's fallback can process it
-        item['page_type'] = None
-        stats["Unknown"] += 1
+
+        # Rule 3: Sub-Spoke — everything else
+        item['page_type'] = 'Sub-Spoke'
+        stats["Sub-Spokes"] += 1
 
     # Clean up temporary fields if we added them
     for item in items:

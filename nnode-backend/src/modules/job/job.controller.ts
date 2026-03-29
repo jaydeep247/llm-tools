@@ -33,6 +33,7 @@ export class JobController {
   private parseContentAuditMetric(metricParam?: string): ContentAuditMetricType {
     const metric = String(metricParam || '').trim() as ContentAuditMetricType;
     const supportedMetrics: ContentAuditMetricType[] = [
+      'page-metrics',
       'keyword-metrics',
       'performance-metrics',
       'content-metrics',

@@ -205,7 +205,7 @@ export default function ModuleCExport({ jobId, sessionName = 'session' }: Module
   const [expanded, setExpanded] = useState(true)
   const [downloading, setDownloading] = useState<string | null>(null)
 
-  const { data: moduleCData, isLoading } = useGetModuleCResultQuery(jobId ?? '', {
+  const { data: moduleCData, isLoading } = useGetModuleCResultQuery({ jobId: jobId ?? '' }, {
     skip: !jobId,
     refetchOnMountOrArgChange: true,
   })

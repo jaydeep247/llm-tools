@@ -83,7 +83,7 @@ function ConsistencyGauge({ score, flag }: { score: number; flag?: string }) {
 export default function ModelComparison({ jobId, url }: ModelComparisonProps) {
   const [expandedSection, setExpandedSection] = useState<string | null>(null)
 
-  const { data: moduleCData, isLoading: isLoadingData, refetch: refetchData } = useGetModuleCResultQuery(jobId || '', {
+  const { data: moduleCData, isLoading: isLoadingData, refetch: refetchData } = useGetModuleCResultQuery({ jobId: jobId || '', url }, {
     skip: !jobId, refetchOnMountOrArgChange: true,
   })
   const { isAnalyzing, progress, phaseLabel, runAnalysis } = useModuleCAnalysis({

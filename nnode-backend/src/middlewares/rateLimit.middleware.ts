@@ -94,16 +94,27 @@ const shared: Partial<Options> = {
 // ─── Exportable limiters ────────────────────────────────────────────────────
 
 /**
+ * Read-only polling paths that the frontend hits at high frequency.
+ * These are safe GET endpoints (no mutations) and are throttled client-side
+ * by polling intervals, so they are exempt from the global counter.
+ */
+const POLLING_GET_RE = /\/snapshot(?:\/|$)|\/jobs(?:\/|$)|\/summary(?:\/|$)|\/results\/|\/site-structure(?:\/|$)|\/projects\/[^/]+$/;
+
+/**
  * GLOBAL guard — applies to every route as a last-resort safety net.
- * 1 000 requests per IP per 15 minutes (~67 req/min average).
- * Load-balancer health probes are exempt.
+ * 3 000 requests per IP per 15 minutes (~200 req/min average).
+ * High-frequency read-only polling GETs, health probes, and session checks
+ * are exempt so they don't exhaust the shared IP budget.
  */
 export const globalRateLimit = rateLimit({
   ...shared,
   windowMs: 15 * 60 * 1000,
-  max: 1000,
+  max: 3000,
   store: new RedisRateLimitStore('global', 15 * 60 * 1000),
-  skip: (req) => req.path.endsWith('/health') || req.path.endsWith('/auth/me'),
+  skip: (req) =>
+    req.path.endsWith('/health') ||
+    req.path.endsWith('/auth/me') ||
+    (req.method === 'GET' && POLLING_GET_RE.test(req.path)),
   message: { success: false, message: 'Too many requests, please try again later.' },
 });
 
