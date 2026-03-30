@@ -54,7 +54,7 @@ const COLUMN_CATEGORIES: ColumnCategory[] = [
 const FIELD_DESCRIPTIONS: Partial<Record<keyof PerformanceMetric, string>> = {
   url: 'Full web address of the analyzed page. Click to open in a new tab.',
   currentRanking: 'Current SERP ranking position for the primary keyword.',
-  ga30DaysTraffic: 'Estimated monthly organic traffic for this URL from DataForSEO Labs.',
+  ga30DaysTraffic: 'Google Analytics 4 sessions for this page in the last 30 days.',
   overallKeywords: 'Total number of keywords this page ranks for across all positions.',
   firstPageKeywords: 'Number of keywords ranking on the first page of search results.',
   timestamp: 'Date and time when this data was collected.',
@@ -112,6 +112,7 @@ export function PerformanceMetrics({
     data: uniqueData,
     onRefresh,
     getLastRunAt: (row) => row.fields?.performance_metrics_last_run_at,
+    persistLoading: true,
   })
 
   // Filter data based on search and URL filter
@@ -236,7 +237,7 @@ export function PerformanceMetrics({
     const labels: Record<string, string> = {
       url: 'URL',
       currentRanking: 'Current Ranking',
-      ga30DaysTraffic: 'Organic Traffic (Est.)',
+      ga30DaysTraffic: '30 Days GA Traffic',
       overallKeywords: 'Overall Keywords',
       firstPageKeywords: '1st Page Keywords',
       timestamp: 'Timestamp'
@@ -361,11 +362,11 @@ export function PerformanceMetrics({
               onClick={() => metricRunner.runAll()}
               variant="outline"
               size="sm"
-              disabled={!jobId || uniqueData.length === 0 || metricRunner.hasPendingRuns || metricRunner.isSubmitting}
+              disabled={!jobId || uniqueData.length === 0 || metricRunner.isProcessing || metricRunner.isSubmitting}
               className="bg-white text-black border-white hover:bg-zinc-100 rounded-xl"
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${metricRunner.hasPendingRuns ? 'animate-spin' : ''}`} />
-              {metricRunner.hasPendingRuns ? `Running ${metricRunner.pendingCount}...` : 'Run All URLs'}
+              <RefreshCw className={`h-4 w-4 mr-2 ${metricRunner.isProcessing ? 'animate-spin' : ''}`} />
+              {metricRunner.isProcessing ? `Running ${metricRunner.pendingCount}...` : 'Run All URLs'}
             </Button>
             {onRefresh && (
               <Button
@@ -404,7 +405,7 @@ export function PerformanceMetrics({
             <div className="text-xl font-bold text-white mt-1">{filteredData.length}</div>
           </div>
           <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
-            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Avg Organic Traffic</div>
+            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Avg GA Traffic (30d)</div>
             <div className="text-xl font-bold text-white mt-1">{avgGA.toLocaleString()}</div>
           </div>
         </div>

@@ -12,6 +12,7 @@ import { Recommendations } from '@/components/module_A/MainContentAudit/Recommen
 import { AIIntelligenceModule, ContentMetricsModule } from '@/components/module_C'
 import { AICitationRanking, SentimentTracking, CompetitorMentionsSection, ShareOfVoiceSection, BrandAnalysisSection, TrendsByModelSection, DashboardOverview } from '@/components/module_E'
 import { ExportsTab } from '@/components/session/exports'
+import { GA4TrafficSection } from '@/components/ga4'
 // import { useGetDataListQuery, useCheckLinksMutation, useGetLinkStatsQuery, useLazyGetPageLinksQuery } from '@/store/api/module_A/dataApi'
 import { useGetProjectQuery } from '@/store/api/projectApi'
 import { useGetSessionQuery } from '@/store/api/sessionApi'
@@ -20,6 +21,7 @@ import { useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
 import { useGetQuickStartResultQuery, useResumeCrawlMutation } from '@/store/api/quick_start/quickStartApi'
 import { useAppSelector } from '@/store/hooks'
 import { selectCrawlProgressByJobId } from '@/store/slices/crawlProgressSlice'
+import { useContentAuditSocket } from '@/hooks/useContentAuditSocket'
 import { formatDurationHHMMSSMS, formatDurationReadable } from '@/utils/formatDuration'
 
 interface LogEntry {
@@ -53,6 +55,9 @@ export default function SessionDetailClient() {
   const jobs = jobsData?.data ? [...jobsData.data].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : []
   const latestJob = jobs.length > 0 ? jobs[0] : null
   const jobId = latestJob?.id
+
+  // Socket listener: invalidates RTK Query cache when content audit metrics finish
+  useContentAuditSocket(jobId)
 
   // Find the Quick Start job — check BOTH type AND jobType fields so that
   // sessions created before the type-mirror fix (which had type:'CRAWL' but
@@ -1444,6 +1449,13 @@ export default function SessionDetailClient() {
           </div>
         )}
 
+        {/* GA4 Traffic Analysis — rendered by new GA4 module */}
+        {activeSection === 'ga4-traffic' && (
+          <div>
+            <GA4TrafficSection sessionUrl={session?.startUrl} jobId={jobId} />
+          </div>
+        )}
+
         {/* SERP Analyzer */}
         {activeSection === 'serp-analyzer' && (
           <div>
@@ -1588,7 +1600,7 @@ export default function SessionDetailClient() {
         )}
 
         {/* Placeholder for other tabs */}
-        {activeSection !== 'crawler' && activeSection !== 'crawled-data' && activeSection !== 'page-metrics' && activeSection !== 'text-quality' && activeSection !== 'wordcount' && activeSection !== 'broken-links' && activeSection !== 'audit-checker' && activeSection !== 'link-analysis' && activeSection !== 'performance' && activeSection !== 'recommendations' && activeSection !== 'schema-generator' && activeSection !== 'ai-intelligence' && activeSection !== 'module-e' && activeSection !== 'content-metrics' && activeSection !== 'discover-prompts' && activeSection !== 'topic-clusters' && activeSection !== 'content-matrix' && activeSection !== 'keyword-intelligence' && activeSection !== 'exports' && activeSection !== 'serp-analyzer' && (
+        {activeSection !== 'crawler' && activeSection !== 'crawled-data' && activeSection !== 'page-metrics' && activeSection !== 'text-quality' && activeSection !== 'wordcount' && activeSection !== 'broken-links' && activeSection !== 'audit-checker' && activeSection !== 'link-analysis' && activeSection !== 'performance' && activeSection !== 'ga4-traffic' && activeSection !== 'recommendations' && activeSection !== 'schema-generator' && activeSection !== 'ai-intelligence' && activeSection !== 'module-e' && activeSection !== 'content-metrics' && activeSection !== 'discover-prompts' && activeSection !== 'topic-clusters' && activeSection !== 'content-matrix' && activeSection !== 'keyword-intelligence' && activeSection !== 'exports' && activeSection !== 'serp-analyzer' && (
           <div className="rounded-2xl p-8 border border-zinc-800 bg-[#111113] text-center">
             <h2 className="text-xl font-semibold text-white mb-2">
               {activeSection.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}

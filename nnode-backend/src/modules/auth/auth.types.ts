@@ -35,6 +35,10 @@ export interface AuthResponse {
       organizationType?: string;
       focusArea?: string;
     };
+    googleAnalytics?: {
+      connected: boolean;
+      selectedPropertyId?: string | null;
+    };
   };
   token: string;
 }

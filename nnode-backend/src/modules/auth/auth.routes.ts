@@ -14,8 +14,7 @@ router.post('/login', credentialRateLimit, authController.login);
 // Google OAuth — same credential rate limit to prevent token-stuffing attacks
 router.post('/google', credentialRateLimit, authController.googleAuth);
 
-// Google Analytics OAuth — separate integration, does not affect login tokens
-// Both routes are protected: user must be authenticated (cookie sent automatically by browser)
+// Google Analytics OAuth — separate integration
 router.get('/google/analytics', authMiddleware, authController.initiateAnalyticsOAuth);
 router.get('/google/analytics/callback', authMiddleware, authController.analyticsOAuthCallback);
 

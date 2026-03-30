@@ -42,6 +42,7 @@ const menuItems = [
   { id: 'link-analysis', label: 'Link Analysis', icon: Network },
   { id: 'site-structure', label: 'Site Structure', icon: GitBranch },
   { id: 'performance', label: 'Performance Audits', icon: Gauge },
+  { id: 'ga4-traffic', label: 'GA4 Traffic Analysis', icon: BarChart3 },
   { id: 'recommendations', label: 'Recommendations', icon: Lightbulb },
   { id: 'schema-generator', label: 'Schema Generator', icon: Code },
   { id: 'module-e', label: 'Brand Intelligence', icon: Activity },

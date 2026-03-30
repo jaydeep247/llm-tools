@@ -7,6 +7,7 @@ export interface GoogleAnalyticsIntegration {
   accessToken?: string | null;
   refreshToken?: string | null;
   expiryDate?: number | null;
+  selectedPropertyId?: string | null;
 }
 
 export interface OnboardingState {
@@ -34,7 +35,6 @@ export interface UserEntity {
     organizationType?: string;
     focusArea?: string;
   };
-  /** Google Analytics integration — stored separately from login tokens */
   googleAnalytics?: GoogleAnalyticsIntegration;
 }
 

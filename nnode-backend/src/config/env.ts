@@ -50,7 +50,7 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
 
-  // Google Analytics OAuth — separate from login OAuth
+  // Google Analytics OAuth redirect
   GOOGLE_ANALYTICS_REDIRECT_URI: z
     .string()
     .optional()

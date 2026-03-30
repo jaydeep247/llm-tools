@@ -12,6 +12,7 @@ from modules.module_A.ContentAudit.KeywordFinder import KeywordBundle
 from modules.module_A.ContentAudit.KeywordMetrics import extract_keyword_metrics, extract_keyword_metrics_batch
 from modules.module_A.ContentAudit.PageMetrics import extract_page_metrics
 from modules.module_A.ContentAudit.PerformanceMetrics import extract_performance_metrics_batch
+from utils.event_publisher import publisher
 from utils.mongo import mongo_manager
 from utils.storage import load_raw_html
 
@@ -634,5 +635,20 @@ async def schedule_content_audit_metric(job_id: str, metric: MetricType, urls: O
             result["urls_processed"],
             result["updated_count"],
         )
-    except Exception:
+        publisher.emit_event(
+            job_id=job_id,
+            event_type="CONTENT_AUDIT_COMPLETED",
+            payload={
+                "metric": metric,
+                "urls_processed": result["urls_processed"],
+                "updated_count": result["updated_count"],
+                "run_at": result.get("run_at"),
+            },
+        )
+    except Exception as exc:
         logger.exception("Content audit metric run failed | job=%s metric=%s", job_id, metric)
+        publisher.emit_event(
+            job_id=job_id,
+            event_type="CONTENT_AUDIT_FAILED",
+            payload={"metric": metric, "error": str(exc)},
+        )

@@ -16,6 +16,8 @@ const NON_BATCHED_EVENT_TYPES = new Set([
   'page_crawled',
   'CRAWL_STATUS_UPDATED',
   'CRAWL_PAUSED',
+  'CONTENT_AUDIT_COMPLETED',
+  'CONTENT_AUDIT_FAILED',
 ]);
 
 // Buffer for batching events: jobId -> events[]
@@ -204,6 +206,23 @@ export const startJobEventsConsumer = async () => {
               updatedAt: new Date().toISOString(),
             });
           } catch (e) { logger.error('Socket emit error (crawl:paused):', e); }
+        }
+
+        // 2e. Content audit metric completed — push immediately so frontend
+        //     can invalidate RTK Query cache and stop loading spinners.
+        if (event.eventType === 'CONTENT_AUDIT_COMPLETED' || event.eventType === 'CONTENT_AUDIT_FAILED') {
+          try {
+            const io = getIo();
+            io.to(`job:${event.jobId}`).emit('content-audit:completed', {
+              jobId: event.jobId,
+              metric: event.payload?.metric,
+              status: event.eventType === 'CONTENT_AUDIT_COMPLETED' ? 'completed' : 'failed',
+              run_at: event.payload?.run_at,
+              urls_processed: event.payload?.urls_processed,
+              updated_count: event.payload?.updated_count,
+              error: event.payload?.error,
+            });
+          } catch (e) { logger.error('Socket emit error (content-audit:completed):', e); }
         }
 
         // 3. Buffer for WebSocket Broadcast (for non-terminal events)

@@ -170,6 +170,7 @@ export function BacklinkMetrics({
     data: normalizedData,
     onRefresh,
     getLastRunAt: (row) => row.fields?.backlink_metrics_last_run_at,
+    persistLoading: true,
   })
 
   const filteredData = useMemo(() => {
@@ -423,11 +424,11 @@ export function BacklinkMetrics({
               onClick={() => metricRunner.runAll()}
               variant="outline"
               size="sm"
-              disabled={!jobId || normalizedData.length === 0 || metricRunner.hasPendingRuns || metricRunner.isSubmitting}
+              disabled={!jobId || normalizedData.length === 0 || metricRunner.isProcessing || metricRunner.isSubmitting}
               className="bg-white text-black border-white hover:bg-zinc-100 rounded-xl"
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${metricRunner.hasPendingRuns ? 'animate-spin' : ''}`} />
-              {metricRunner.hasPendingRuns ? `Running ${metricRunner.pendingCount}...` : 'Run All URLs'}
+              <RefreshCw className={`h-4 w-4 mr-2 ${metricRunner.isProcessing ? 'animate-spin' : ''}`} />
+              {metricRunner.isProcessing ? `Running ${metricRunner.pendingCount}...` : 'Run All URLs'}
             </Button>
             {onRefresh && (
               <Button

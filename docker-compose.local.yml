@@ -48,7 +48,6 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       COOKIE_SECRET: ${COOKIE_SECRET}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-904802294750-6l7h0olnfrpi83fkt3pml5ng2mqk0ntv.apps.googleusercontent.com}
-      # Required for Google Analytics OAuth integration
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       GOOGLE_ANALYTICS_REDIRECT_URI: ${GOOGLE_ANALYTICS_REDIRECT_URI:-http://localhost:3004/api/v1/auth/google/analytics/callback}
       # Frontend URL used for post-OAuth redirects — must match where the frontend is served
@@ -96,11 +95,6 @@ services:
       # DataForSEO Credentials
       DATAFORSEO_LOGIN: ${DATAFORSEO_LOGIN}
       DATAFORSEO_PASSWORD: ${DATAFORSEO_PASSWORD}
-      # Google Analytics
-      GA_PROPERTY_ID: ${GA_PROPERTY_ID:-}
-      GA_SERVICE_ACCOUNT_JSON: /app/ga-credentials.json
-    volumes:
-      - ./ga-credentials.json:/app/ga-credentials.json:ro
 
   ref-frontend:
     build:

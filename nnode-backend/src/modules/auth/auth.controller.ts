@@ -140,13 +140,13 @@ export class AuthController {
   };
 
   /**
-   * Initiate Google Analytics OAuth flow
-   * Redirects browser to Google consent screen with analytics.readonly scope.
-   * COMPLETELY separate from login — does not touch login tokens.
+   * Initiate Google Analytics OAuth flow.
    */
-  initiateAnalyticsOAuth = async (_req: Request, res: Response): Promise<void> => {
+  initiateAnalyticsOAuth = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { url } = await this.authService.getAnalyticsAuthUrl();
+      const { returnUrl } = req.query as Record<string, string>;
+      const safeReturnUrl = returnUrl && /^\//.test(returnUrl) ? returnUrl : undefined;
+      const { url } = await this.authService.getAnalyticsAuthUrl(safeReturnUrl);
       res.redirect(url);
     } catch (error: any) {
       logger.error(`Analytics OAuth initiate error: ${error.message}`);
@@ -155,11 +155,10 @@ export class AuthController {
   };
 
   /**
-   * Handle Google Analytics OAuth callback
-   * Exchanges authorization code for tokens and stores under user.googleAnalytics — never touches login tokens.
+   * Handle Google Analytics OAuth callback.
    */
   analyticsOAuthCallback = async (req: Request, res: Response): Promise<void> => {
-    const { code, error } = req.query;
+    const { code, error, state } = req.query;
 
     if (error || !code) {
       const reason = encodeURIComponent((error as string) || 'access_denied');
@@ -175,7 +174,21 @@ export class AuthController {
 
     try {
       await this.authService.exchangeAnalyticsCode(userId, code as string);
-      res.redirect(`${env.FRONTEND_URL}/onboarding?ga_connected=1`);
+
+      let redirectTarget = `${env.FRONTEND_URL}/onboarding?ga_connected=1`;
+      if (state && typeof state === 'string') {
+        try {
+          const decoded = JSON.parse(Buffer.from(state, 'base64').toString()) as Record<string, unknown>;
+          if (typeof decoded.returnUrl === 'string' && decoded.returnUrl.startsWith('/')) {
+            const sep = decoded.returnUrl.includes('?') ? '&' : '?';
+            redirectTarget = `${env.FRONTEND_URL}${decoded.returnUrl}${sep}ga_connected=1`;
+          }
+        } catch {
+          // Malformed state — fall back to onboarding
+        }
+      }
+
+      res.redirect(redirectTarget);
     } catch (error: any) {
       logger.error(`Analytics OAuth callback error: ${error.message}`);
       res.redirect(`${env.FRONTEND_URL}/onboarding?ga_error=token_exchange_failed`);

@@ -41,7 +41,6 @@ import {
   FileCheck,
   Users,
   Code2,
-  Plug,
   DollarSign,
   Map,
   MousePointer,
@@ -52,6 +51,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useGetGA4StatusQuery } from '@/store/api/ga4Api'
 
 const sectionColors: Record<string, string> = {
   overview: 'text-amber-400',
@@ -175,7 +175,7 @@ export const sessionSections: Section[] = [
     label: 'Impact Analytics',
     icon: TrendingUp,
     children: [
-      { id: 'impact-overview', label: 'GA4 Connection', icon: Plug },
+      { id: 'ga4-traffic', label: 'GA4 Traffic Analysis', icon: BarChart3 },
       { id: 'content-roi', label: 'LLM Traffic', icon: DollarSign },
       { id: 'attribution-soon', label: 'Top Landing Pages', icon: Map },
       { id: 'events-and-Conversions', label: 'Events & Conversions', icon: MousePointer },
@@ -194,6 +194,8 @@ export function SessionSidebar({
 }: SessionSidebarProps) {
   const dashboard = sessionSections[0]
   const sectionsWithChildren = sessionSections.filter((s) => s.children.length > 0)
+  const { data: ga4Status } = useGetGA4StatusQuery()
+  const ga4Connected = ga4Status?.connected === true
 
   const navRef = useRef<HTMLDivElement>(null)
 
@@ -343,6 +345,16 @@ export function SessionSidebar({
                         >
                           {child.label}
                         </span>
+                        {/* GA4 connection status dot */}
+                        {child.id === 'ga4-traffic' && !collapsed && (
+                          <span
+                            className={cn(
+                              'ml-auto w-1.5 h-1.5 rounded-full shrink-0',
+                              ga4Connected ? 'bg-emerald-500' : 'bg-zinc-600'
+                            )}
+                            title={ga4Connected ? 'GA4 Connected' : 'GA4 Not Connected'}
+                          />
+                        )}
                       </button>
 
                       {/* Hover tooltip in collapsed mode */}

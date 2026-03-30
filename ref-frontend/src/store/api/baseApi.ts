@@ -27,6 +27,7 @@ export const baseApi = createApi({
     'ModuleC',
     'ModuleF',
     'QuickStart',
+    'GA4',
   ],
   endpoints: () => ({}),
 });

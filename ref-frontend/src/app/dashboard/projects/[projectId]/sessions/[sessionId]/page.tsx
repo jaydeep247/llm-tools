@@ -19,6 +19,7 @@ import CompetitorGrowthTrends from '@/components/module_F/CompetitorGrowthTrends
 import GapOpportunities from '@/components/module_F/GapOpportunities'
 import CompetitorCitedURLs from '@/components/module_F/CompetitorCitedURLs'
 import { ExportsTab } from '@/components/session/exports'
+import { GA4TrafficSection } from '@/components/ga4'
 import { BrandOnboardingResultsPanel } from '@/components/brand-onboarding/BrandOnboardingResultsPanel'
 import { useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
 import { useGetQuickStartResultQuery, useResumeCrawlMutation } from '@/store/api/quick_start/quickStartApi'
@@ -29,6 +30,7 @@ import { useGetSessionQuery } from '@/store/api/sessionApi'
 import { useGetSessionJobsQuery, useGetJobPagesQuery, useGetJobLinksQuery, useGetJobSitemapsQuery, useGetJobFieldsQuery, useGetJobSiteStructureQuery, useRetryJobMutation, useGetJobSummaryQuery, useGetJobSnapshotQuery } from '@/store/api/jobApi'
 import { useAppSelector } from '@/store/hooks'
 import { selectCrawlProgressByJobId } from '@/store/slices/crawlProgressSlice'
+import { useContentAuditSocket } from '@/hooks/useContentAuditSocket'
 import { formatDurationHHMMSSMS, formatDurationReadable } from '@/utils/formatDuration'
 
 interface LogEntry {
@@ -218,6 +220,15 @@ export default function SessionDetailPage() {
     refetchFieldsRaw()
     refetchSitemapsRaw()
   }
+  const contentAuditJobId = crawlJob?.id ?? jobId ?? null
+
+  useContentAuditSocket(contentAuditJobId, {
+    onCompleted: (completedJobId) => {
+      if (completedJobId === contentAuditJobId) {
+        refetchJobResults()
+      }
+    },
+  })
 
   const isLoading = isLoadingSession || isLoadingProject || isLoadingJobs || (!!jobId && isLoadingResults)
   const error = sessionError ? 'Failed to load session' : null
@@ -1199,6 +1210,11 @@ export default function SessionDetailPage() {
           <div className="h-[calc(100vh-64px)] p-4 sm:p-6">
             <PromptTrackingPanel jobId={jobId || null} />
           </div>
+        )}
+
+        {/* GA4 Traffic Analysis — rendered by new GA4 module */}
+        {activeSection === 'ga4-traffic' && (
+          <GA4TrafficSection sessionUrl={session?.startUrl} jobId={jobId || null} />
         )}
 
         {/* Show Performance Audits on performance tab (now handled in Content Audit) */}

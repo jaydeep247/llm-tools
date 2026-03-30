@@ -55,6 +55,9 @@ export class AuthService {
         hasNew: user.hasNew,
         onboardingState: this.getOnboardingState(user),
         onboardingData: user.onboardingData,
+        googleAnalytics: user.googleAnalytics
+          ? { connected: user.googleAnalytics.connected, selectedPropertyId: user.googleAnalytics.selectedPropertyId }
+          : undefined,
       },
       token,
     };
@@ -253,6 +256,9 @@ export class AuthService {
       hasNew: user.hasNew,
       onboardingState: this.getOnboardingState(user),
       onboardingData: user.onboardingData,
+      googleAnalytics: user.googleAnalytics
+        ? { connected: user.googleAnalytics.connected, selectedPropertyId: user.googleAnalytics.selectedPropertyId }
+        : undefined,
     };
   }
 
@@ -280,10 +286,10 @@ export class AuthService {
   }
 
   /**
-   * Generate OAuth URL for Google Analytics connection
-   * Uses a separate OAuth2 flow from login — different scopes, different purpose
+   * Generate OAuth URL for Google Analytics connection.
+   * Separate flow from login — different scopes.
    */
-  async getAnalyticsAuthUrl(): Promise<{ url: string }> {
+  async getAnalyticsAuthUrl(returnUrl?: string): Promise<{ url: string }> {
     if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) {
       throw new Error('Google Analytics OAuth is not configured on this server.');
     }
@@ -292,17 +298,22 @@ export class AuthService {
       clientSecret: env.GOOGLE_CLIENT_SECRET,
       redirectUri: env.GOOGLE_ANALYTICS_REDIRECT_URI,
     });
+
+    const state = returnUrl
+      ? Buffer.from(JSON.stringify({ returnUrl })).toString('base64')
+      : undefined;
+
     const url = client.generateAuthUrl({
       access_type: 'offline',
       prompt: 'consent',
       scope: ['https://www.googleapis.com/auth/analytics.readonly'],
+      ...(state ? { state } : {}),
     });
     return { url };
   }
 
   /**
-   * Exchange authorization code for Analytics tokens and persist under googleAnalytics field
-   * NEVER touches login tokens — stored at a completely separate path in the user document
+   * Exchange authorization code for Analytics tokens and persist.
    */
   async exchangeAnalyticsCode(userId: string, code: string): Promise<void> {
     if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) {
@@ -323,5 +334,21 @@ export class AuthService {
       },
     });
   }
+
+  /**
+   * Disconnect Google Analytics integration.
+   */
+  async disconnectAnalytics(userId: string): Promise<void> {
+    await this.userRepository.update(userId, {
+      googleAnalytics: {
+        connected: false,
+        accessToken: null,
+        refreshToken: null,
+        expiryDate: null,
+        selectedPropertyId: null,
+      },
+    });
+  }
+
 }
 

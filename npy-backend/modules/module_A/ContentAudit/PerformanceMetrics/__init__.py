@@ -1,23 +1,25 @@
 """
 Performance Metrics Sub-module.
 
-This implementation follows a two-source DataForSEO Labs flow:
+Data sources:
+  1. DataForSEO Labs ranked_keywords/live  (fields 3.1, 3.3, 3.4)
+     - Call A: no position filter  → total_count = overallKeywords;
+               scan items for main keyword → rank_group = currentRanking
+     - Call B: rank_absolute <= 10 → total_count = firstPageKeywords
 
-1. URL-level keywords and ranking
-     POST /v3/dataforseo_labs/google/ranked_keywords/live
+  2. GA4 30-day traffic is fetched via user OAuth from the Node backend (field 3.2)
+     - Stored in ga30DaysTraffic when available
 
-2. Domain-level organic traffic
-     POST /v3/dataforseo_labs/google/historical_bulk_traffic_estimation/live
-
-Fields:
-    - currentRanking: rank of the page for its main keyword
-    - ga30DaysTraffic: estimated organic traffic for the domain (legacy key retained)
-    - overallKeywords: total ranking keywords for the URL
-    - firstPageKeywords: URL keywords ranking in positions 1-10
+Fields stored:
+    currentRanking    – rank_group for the page's main keyword (int or "100+")
+    ga30DaysTraffic   – GA4 sessions for the page in the last 30 days (int)
+    overallKeywords   – total ranked keywords for the URL
+    firstPageKeywords – ranked keywords in positions 1–10
 """
 
 import asyncio
 import logging
+import os
 import re
 from datetime import date, timedelta
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
@@ -48,6 +50,15 @@ def _extract_domain(url: str) -> str:
     return host.split(":", 1)[0]
 
 
+def _url_to_page_path(url: str) -> str:
+    """Return the path portion of a URL suitable for GA4 pagePath dimension."""
+    parts = urlsplit(str(url or "").strip())
+    path = parts.path or "/"
+    if not path.startswith("/"):
+        path = "/" + path
+    return path
+
+
 def _last_30_day_range() -> Tuple[str, str]:
     today = date.today()
     start = today - timedelta(days=30)
@@ -55,6 +66,14 @@ def _last_30_day_range() -> Tuple[str, str]:
 
 
 def _target_variants(url: str) -> List[str]:
+    """
+    Build DataForSEO-compatible target variants from a crawled URL.
+
+    DataForSEO ranked_keywords/live expects the target WITHOUT the protocol
+    prefix (e.g. ``attrock.com/blog/`` not ``https://attrock.com/blog/``).
+    For the root page (``/``) we emit just the bare domain so that the API
+    returns domain-wide keyword counts.
+    """
     raw = str(url or "").strip()
     if not raw:
         return []
@@ -66,14 +85,25 @@ def _target_variants(url: str) -> List[str]:
         if normalized and normalized not in variants:
             variants.append(normalized)
 
-    _add(raw)
-
     parts = urlsplit(raw)
-    if parts.scheme and parts.netloc:
-        path = parts.path or ""
-        if path and path != "/":
-            toggled_path = path[:-1] if path.endswith("/") else f"{path}/"
-            _add(urlunsplit((parts.scheme, parts.netloc, toggled_path, parts.query, parts.fragment)))
+    host = (parts.netloc or "").strip()
+    path = (parts.path or "").strip()
+
+    if host:
+        # Strip www. prefix — DataForSEO normalises it anyway
+        bare_host = host.lower().removeprefix("www.")
+        if not path or path == "/":
+            # Root URL → use bare domain (returns domain-wide keywords)
+            _add(bare_host)
+        else:
+            # Page URL → domain + path, with and without trailing slash
+            _add(f"{bare_host}{path}")
+            toggled = path[:-1] if path.endswith("/") else f"{path}/"
+            _add(f"{bare_host}{toggled}")
+    else:
+        # Fallback: use the raw value stripped of any protocol
+        stripped = re.sub(r"^https?://", "", raw)
+        _add(stripped)
 
     return variants
 
@@ -140,96 +170,154 @@ def _classify_task_response(resp: Any) -> Tuple[APIStatus, str, Optional[Dict[st
     return "api_error", status_message or f"status {status_code}", task
 
 
-async def _fetch_ranked_keywords_snapshot(url: str) -> Dict[str, Any]:
+async def _ranked_keywords_call(
+    target: str,
+    *,
+    filters: Optional[List] = None,
+    limit: int = 1000,
+    skip_cache: bool = False,
+) -> Tuple[APIStatus, str, Dict[str, Any]]:
+    """Single ranked_keywords/live API call. Returns (status, message, result_dict)."""
     if not execute_task:
-        return {
-            "status": "api_error",
-            "message": "DataForSEO executor unavailable",
-            "metrics": {},
-            "items": [],
-            "total_count": 0,
-            "url": url,
-        }
+        return "api_error", "DataForSEO executor unavailable", {}
 
-    last_failure: Optional[Dict[str, Any]] = None
-    for target in _target_variants(url):
-        try:
-            resp = await execute_task(
-                task_name="domain_analytics_keywords",
-                input_data={
-                    "endpoint": "/dataforseo_labs/google/ranked_keywords/live",
-                    "payload": [
-                        {
-                            "target": target,
-                            "location_code": 2840,
-                            "language_code": "en",
-                            "item_types": ["organic"],
-                            "historical_serp_mode": "live",
-                            "limit": 1000,
-                            "filters": [["keyword_data.keyword_info.search_volume", ">", 0]],
-                        }
-                    ],
-                },
-                provider="dataforseo",
-            )
-        except Exception as exc:
-            logger.error("[PM][LABS] %s | exception for target=%s: %s", url, target, exc, exc_info=True)
-            last_failure = {
-                "status": "api_error",
-                "message": str(exc),
-                "metrics": {},
-                "items": [],
-                "total_count": 0,
-                "url": url,
-            }
-            continue
+    payload: Dict[str, Any] = {
+        "target": target,
+        "location_code": 2840,
+        "language_code": "en",
+        "item_types": ["organic"],
+        "limit": limit,
+    }
+    if filters:
+        payload["filters"] = filters
 
-        status, message, task = _classify_task_response(resp)
-        if status != "ok":
-            logger.warning("[PM][LABS] %s | %s for target=%s: %s", url, status, target, message)
-            failure = {
-                "status": status,
-                "message": message,
-                "metrics": {},
-                "items": [],
-                "total_count": 0,
-                "url": url,
-            }
-            if status == "rate_limit":
-                return failure
-            last_failure = failure
-            continue
+    try:
+        resp = await execute_task(
+            task_name="domain_analytics_keywords",
+            input_data={
+                "endpoint": "/dataforseo_labs/google/ranked_keywords/live",
+                "payload": [payload],
+            },
+            provider="dataforseo",
+            options={"skip_cache": skip_cache},
+        )
+    except Exception as exc:
+        logger.error("[PM][LABS] exception for target=%s: %s", target, exc, exc_info=True)
+        return "api_error", str(exc), {}
 
-        result_list = (task or {}).get("result") or []
-        result = result_list[0] if result_list else {}
-        snapshot = {
-            "status": "ok",
-            "message": message,
-            "metrics": result.get("metrics") or {},
-            "items": result.get("items") or [],
-            "total_count": int(result.get("total_count") or 0),
-            "items_count": int(result.get("items_count") or 0),
-            "url": url,
-            "target": target,
-        }
+    status, message, task = _classify_task_response(resp)
+    if status != "ok":
+        logger.warning("[PM][LABS] API %s for target=%s filters=%s: %s", status, target, filters, message)
+        return status, message, {}
 
-        if snapshot["total_count"] > 0 or snapshot["items"]:
-            return snapshot
+    result_list = (task or {}).get("result") or []
+    result = result_list[0] if result_list else {}
+    tc = result.get("total_count")
+    ic = result.get("items_count")
+    logger.debug("[PM][LABS] target=%s filters=%s total_count=%s items_count=%s", target, filters, tc, ic)
+    return "ok", message, result
 
-        if last_failure is None:
-            last_failure = snapshot
 
-    return last_failure or {
+def _build_url_filter(domain: str, path: str) -> Optional[List]:
+    """
+    Build a DataForSEO ``like`` filter on ``ranked_serp_element.serp_item.url``
+    so the API returns only keywords where the specified page (or section) ranks.
+
+    For the root path (``/``) no URL filter is needed — the domain-level query
+    already returns all keywords.
+    """
+    if not path or path == "/":
+        return None
+    # ``like`` with ``%`` wildcards matches any keyword whose ranking URL
+    # contains the domain + path prefix (captures sub-pages too).
+    return ["ranked_serp_element.serp_item.url", "like", f"%{domain}{path}%"]
+
+
+async def _fetch_ranked_keywords_snapshot(url: str, *, force_refresh: bool = False) -> Dict[str, Any]:
+    """
+    Two parallel DataForSEO calls per URL:
+      Call A – URL filter (no rank filter)  → total_count = overallKeywords
+               + items scanned for main keyword → rank_group = currentRanking
+      Call B – URL filter + rank_absolute ≤ 10 → total_count = firstPageKeywords
+
+    The ``target`` is always the bare domain.  Per-page scoping is achieved via
+    a ``like`` filter on ``ranked_serp_element.serp_item.url``.
+
+    When force_refresh=True the orchestrator's disk cache is bypassed.
+    """
+    empty = {
         "status": "api_error",
         "message": "no DataForSEO response",
-        "metrics": {},
         "items": [],
-        "total_count": 0,
+        "total_count_all": 0,
+        "total_count_first_page": 0,
         "url": url,
     }
 
+    domain = _extract_domain(url)
+    if not domain:
+        return empty
 
-async def _fetch_ranked_keywords_snapshots(urls: List[str], concurrency: int = 5) -> Dict[str, Dict[str, Any]]:
+    parts = urlsplit(str(url or "").strip())
+    path = parts.path or "/"
+
+    url_filter = _build_url_filter(domain, path)
+
+    # Build filter lists for the two calls
+    filters_a: Optional[List] = None
+    filters_b: List = [["ranked_serp_element.serp_item.rank_absolute", "<=", 10]]
+
+    if url_filter:
+        filters_a = [url_filter]
+        filters_b = [url_filter, "and", ["ranked_serp_element.serp_item.rank_absolute", "<=", 10]]
+
+    # Fire both calls in parallel
+    (status_a, msg_a, result_a), (status_b, msg_b, result_b) = await asyncio.gather(
+        _ranked_keywords_call(domain, filters=filters_a, limit=1000, skip_cache=force_refresh),
+        _ranked_keywords_call(domain, filters=filters_b, limit=1000, skip_cache=force_refresh),
+    )
+
+    if status_a == "rate_limit":
+        return {**empty, "status": "rate_limit", "message": msg_a}
+
+    if status_a != "ok":
+        return {**empty, "status": status_a, "message": msg_a}
+
+    total_count_all = int(result_a.get("total_count") or 0)
+    items = result_a.get("items") or []
+
+    total_count_first_page = 0
+    if status_b == "ok":
+        total_count_first_page = int(result_b.get("total_count") or 0)
+    else:
+        logger.warning("[PM][LABS] Call-B %s for domain=%s path=%s: %s", status_b, domain, path, msg_b)
+
+    snapshot = {
+        "status": "ok",
+        "message": msg_a,
+        "items": items,
+        "total_count_all": total_count_all,
+        "total_count_first_page": total_count_first_page,
+        "url": url,
+        "target": domain,
+    }
+
+    if total_count_all > 0 or items:
+        logger.info(
+            "[PM][LABS] ✓ domain=%s path=%s  overall=%d  fp=%d  items=%d",
+            domain, path, total_count_all, total_count_first_page, len(items),
+        )
+        return snapshot
+
+    logger.info("[PM][LABS] ✗ no data for url=%s domain=%s path=%s", url, domain, path)
+    return {**empty, "status": "ok", "message": msg_a}
+
+
+async def _fetch_ranked_keywords_snapshots(
+    urls: List[str],
+    concurrency: int = 5,
+    force_refresh: bool = False,
+) -> Dict[str, Dict[str, Any]]:
     if not urls:
         return {}
 
@@ -237,109 +325,19 @@ async def _fetch_ranked_keywords_snapshots(urls: List[str], concurrency: int = 5
 
     async def _fetch_one(target_url: str) -> Tuple[str, Dict[str, Any]]:
         async with semaphore:
-            return target_url, await _fetch_ranked_keywords_snapshot(target_url)
+            return target_url, await _fetch_ranked_keywords_snapshot(
+                target_url, force_refresh=force_refresh
+            )
 
     results = await asyncio.gather(*[_fetch_one(url) for url in urls])
     return {url: snapshot for url, snapshot in results}
 
 
-async def _fetch_url_traffic_snapshots(urls: List[str]) -> Dict[str, Dict[str, Any]]:
-    """
-    Fetch per-URL organic traffic using dataforseo_labs bulk_traffic_estimation/live.
-    This endpoint accepts full URLs as targets and returns URL-scoped ETV per target.
-    Results are keyed by the lowercased URL.
-    """
-    if not execute_task or not urls:
-        return {}
-
-    results: Dict[str, Dict[str, Any]] = {}
-
-    for index in range(0, len(urls), 1000):
-        chunk = urls[index:index + 1000]
-        try:
-            resp = await execute_task(
-                task_name="traffic_analytics",
-                input_data={
-                    "endpoint": "/dataforseo_labs/google/bulk_traffic_estimation/live",
-                    "payload": [
-                        {
-                            "targets": chunk,
-                            "location_code": 2840,
-                            "language_code": "en",
-                        }
-                    ],
-                },
-                provider="dataforseo",
-            )
-        except Exception as exc:
-            logger.error("[PM][BTE] chunk exception: %s", exc, exc_info=True)
-            for url in chunk:
-                results[url.lower()] = {
-                    "status": "api_error",
-                    "message": str(exc),
-                    "etv": None,
-                }
-            continue
-
-        status, message, task = _classify_task_response(resp)
-        if status != "ok":
-            logger.warning("[PM][BTE] %s | %s", status, message)
-            for url in chunk:
-                results[url.lower()] = {
-                    "status": status,
-                    "message": message,
-                    "etv": None,
-                }
-            continue
-
-        result_list = (task or {}).get("result") or []
-        result = result_list[0] if result_list else {}
-        items = result.get("items") or []
-        for item in items:
-            target = str(item.get("target") or "").strip()
-            if not target:
-                continue
-            metrics = item.get("metrics") or {}
-            organic = metrics.get("organic") or {}
-            etv = _to_int(organic.get("etv"))
-            results[target.lower()] = {
-                "status": "ok",
-                "message": message,
-                "etv": etv,
-            }
-
-        for url in chunk:
-            results.setdefault(url.lower(), {
-                "status": "ok",
-                "message": message,
-                "etv": None,
-            })
-
-    return results
-
-
-def _extract_keyword_metrics(snapshot: Dict[str, Any]) -> Tuple[int, int]:
-    items = snapshot.get("items") or []
-    total_count = int(snapshot.get("total_count") or 0)
-
-    keyword_count = total_count or len(items)
-    first_page_count = sum(
-        1
-        for item in items
-        if (_to_int(((item.get("ranked_serp_element") or {}).get("serp_item") or {}).get("rank_absolute")) or 999) <= 10
-    )
-
-    if not first_page_count:
-        organic = (snapshot.get("metrics") or {}).get("organic") or {}
-        first_page_count = sum(
-            int(organic.get(bucket) or 0)
-            for bucket in ("pos_1", "pos_2_3", "pos_4_10")
-        )
-
-    return keyword_count, first_page_count
-
-
 def _extract_rank_from_items(main_keyword: str, items: List[Dict[str, Any]]) -> Union[int, str]:
+    """
+    Scan ranked_keywords items for the main keyword.
+    Returns rank_group (spec 3.1) if found, else "100+".
+    """
     variants = set(_keyword_variants(main_keyword))
     if not variants:
         return "100+"
@@ -359,21 +357,26 @@ def _extract_rank_from_items(main_keyword: str, items: List[Dict[str, Any]]) -> 
         if not candidates.intersection(variants):
             continue
 
-        rank_absolute = _to_int(serp_item.get("rank_absolute"))
-        if rank_absolute is None:
+        # Spec 3.1: use rank_group, not rank_absolute
+        rank_group = _to_int(serp_item.get("rank_group"))
+        if rank_group is None:
             continue
 
-        if best_rank is None or rank_absolute < best_rank:
-            best_rank = rank_absolute
+        if best_rank is None or rank_group < best_rank:
+            best_rank = rank_group
 
     return best_rank if best_rank is not None else "100+"
 
+
+
+# ---------------------------------------------------------------------------
+# Public API — single-item (kept for backward compat with orchestrator)
+# ---------------------------------------------------------------------------
 
 async def extract_performance_metrics(
     url: str,
     html_content: str = "",
     main_keyword: str = "",
-    ga_property_id: str = None,
     response_headers: Dict[str, str] = None,
     existing_item: Dict[str, Any] = None,
     h1: str = "",
@@ -391,6 +394,10 @@ async def extract_performance_metrics(
     }
 
 
+# ---------------------------------------------------------------------------
+# Public API — batch
+# ---------------------------------------------------------------------------
+
 async def extract_performance_metrics_batch(
     items: List[Dict[str, Any]],
     force_refresh: bool = False,
@@ -399,9 +406,7 @@ async def extract_performance_metrics_batch(
         return []
 
     urls_to_fetch: List[str] = []
-    traffic_urls_to_fetch: List[str] = []
     seen_urls: set = set()
-    seen_traffic_urls: set = set()
 
     for item in items:
         url = item.get("url", "")
@@ -414,35 +419,22 @@ async def extract_performance_metrics_batch(
                 bool(keyword) and not _is_valid_ranking(item.get("currentRanking")),
             ]
         )
-        needs_traffic = force_refresh or not _has_numeric_value(item.get("ga30DaysTraffic"))
 
         if needs_keyword_snapshot and url and url not in seen_urls:
             seen_urls.add(url)
             urls_to_fetch.append(url)
 
-        # bulk_traffic_estimation/live accepts full URLs — returns per-URL ETV.
-        if needs_traffic and url and url.lower() not in seen_traffic_urls:
-            seen_traffic_urls.add(url.lower())
-            traffic_urls_to_fetch.append(url)
-
     logger.info(
-        "[PM][BATCH] Ranked keyword snapshots: %d URL(s) | traffic snapshots: %d URL(s)",
+        "[PM][BATCH] ranked_keywords snapshots: %d URL(s)",
         len(urls_to_fetch),
-        len(traffic_urls_to_fetch),
     )
 
-    snapshots, traffic_snapshots = await asyncio.gather(
-        _fetch_ranked_keywords_snapshots(urls_to_fetch),
-        _fetch_url_traffic_snapshots(traffic_urls_to_fetch),
-    )
+    snapshots = await _fetch_ranked_keywords_snapshots(urls_to_fetch, force_refresh=force_refresh)
 
     output: List[Dict[str, Any]] = []
     keyword_fetched_count = 0
     keyword_rate_limit_count = 0
     keyword_api_error_count = 0
-    traffic_fetched_count = 0
-    traffic_rate_limit_count = 0
-    traffic_api_error_count = 0
     ranking_not_found_count = 0
 
     for item in items:
@@ -450,50 +442,43 @@ async def extract_performance_metrics_batch(
         keyword = (item.get("main_keyword") or "").strip()
         domain = _extract_domain(url)
         snapshot = snapshots.get(url)
-        traffic_snapshot = traffic_snapshots.get(url.lower())
 
         current_ranking = item.get("currentRanking")
         traffic = item.get("ga30DaysTraffic")
         overall_keywords = item.get("overallKeywords")
         first_page_keywords = item.get("firstPageKeywords")
 
-        audit_ranking = "FOUND" if _is_valid_ranking(current_ranking) else "SKIPPED-NO-KEYWORD" if not keyword else "PENDING"
-        audit_traffic = "FOUND" if _has_numeric_value(traffic) else "PENDING"
+        audit_ranking = (
+            "FOUND" if _is_valid_ranking(current_ranking)
+            else "SKIPPED-NO-KEYWORD" if not keyword
+            else "PENDING"
+        )
+        audit_traffic = "FOUND" if _has_numeric_value(traffic) else "SKIPPED-GA4-VIA-FRONTEND"
         audit_overall = "FOUND" if _has_numeric_value(overall_keywords) else "PENDING"
         audit_first_page = "FOUND" if _has_numeric_value(first_page_keywords) else "PENDING"
 
+        # ── DataForSEO snapshot ──────────────────────────────────────────────
         if snapshot:
             status = snapshot.get("status")
             if status == "ok":
                 keyword_fetched_count += 1
-                ranked_overall, ranked_first_page = _extract_keyword_metrics(snapshot)
 
                 if force_refresh or audit_overall == "PENDING":
-                    overall_keywords = ranked_overall
-                    audit_overall = "FETCHED" if overall_keywords not in (None, 0) else "FETCHED-ZERO"
+                    overall_keywords = snapshot["total_count_all"]
+                    audit_overall = "FETCHED" if overall_keywords else "FETCHED-ZERO"
 
                 if force_refresh or audit_first_page == "PENDING":
-                    first_page_keywords = ranked_first_page
-                    audit_first_page = "FETCHED" if first_page_keywords not in (None, 0) else "FETCHED-ZERO"
+                    first_page_keywords = snapshot["total_count_first_page"]
+                    audit_first_page = "FETCHED" if first_page_keywords else "FETCHED-ZERO"
 
-                # Use URL-level ETV from ranked_keywords/live first (URL-scoped).
-                # bulk_traffic_estimation will fill in the rest below.
-                if force_refresh or audit_traffic == "PENDING":
-                    kw_etv = _to_int(((snapshot.get("metrics") or {}).get("organic") or {}).get("etv"))
-                    if kw_etv is not None:
-                        traffic = kw_etv
-                        audit_traffic = "FETCHED" if kw_etv != 0 else "FETCHED-ZERO"
-
-                if keyword:
-                    if force_refresh or audit_ranking == "PENDING":
-                        current_ranking = _extract_rank_from_items(keyword, snapshot.get("items") or [])
-                        if current_ranking == "100+":
-                            ranking_not_found_count += 1
-                            audit_ranking = "FETCHED-NOT-RANKING"
-                        else:
-                            audit_ranking = "FETCHED"
-                else:
-                    current_ranking = item.get("currentRanking")
+                if keyword and (force_refresh or audit_ranking == "PENDING"):
+                    current_ranking = _extract_rank_from_items(keyword, snapshot.get("items") or [])
+                    if current_ranking == "100+":
+                        ranking_not_found_count += 1
+                        audit_ranking = "FETCHED-NOT-RANKING"
+                    else:
+                        audit_ranking = "FETCHED"
+                elif not keyword:
                     audit_ranking = "SKIPPED-NO-KEYWORD"
 
             else:
@@ -511,26 +496,7 @@ async def extract_performance_metrics_batch(
                 if keyword and (force_refresh or audit_ranking == "PENDING"):
                     audit_ranking = unavailable
 
-        if traffic_snapshot:
-            traffic_status = traffic_snapshot.get("status")
-            if traffic_status == "ok":
-                traffic_fetched_count += 1
-                # Use bulk_traffic_estimation ETV only when ranked_keywords gave no result.
-                if force_refresh or audit_traffic == "PENDING":
-                    bte_etv = traffic_snapshot.get("etv")
-                    if bte_etv is not None:
-                        traffic = bte_etv
-                        audit_traffic = "FETCHED" if bte_etv != 0 else "FETCHED-ZERO"
-            else:
-                if traffic_status == "rate_limit":
-                    traffic_rate_limit_count += 1
-                    unavailable = "UNAVAILABLE-RATE-LIMIT"
-                else:
-                    traffic_api_error_count += 1
-                    unavailable = "UNAVAILABLE-API"
-
-                if force_refresh or audit_traffic == "PENDING":
-                    audit_traffic = unavailable
+        # ── GA4 traffic is now fetched via user OAuth from the frontend/nnode-backend ──
 
         output.append(
             {
@@ -555,26 +521,17 @@ async def extract_performance_metrics_batch(
         "═══════════════════════════════════════════════════\n"
         "  PERFORMANCE METRICS — BATCH SUMMARY\n"
         "═══════════════════════════════════════════════════\n"
-        "  URLs processed:                 %d\n"
-        "  Ranked keyword API calls:       %d\n"
-        "  Successful keyword snapshots:   %d\n"
-        "  Keyword rate-limited:           %d\n"
-        "  Keyword API errors:             %d\n"
-        "  Traffic API calls:              %d (URL-level)\n"
-        "  Successful traffic snapshots:   %d\n"
-        "  Traffic rate-limited:           %d\n"
-        "  Traffic API errors:             %d\n"
-        "  Ranking not found:              %d\n"
+        "  URLs processed:               %d\n"
+        "  Keyword snapshots (ok):        %d  / %d fetched\n"
+        "  Keyword rate-limited:          %d\n"
+        "  Keyword API errors:            %d\n"
+        "  Ranking not found (100+):      %d\n"
         "═══════════════════════════════════════════════════",
         len(items),
-        len(urls_to_fetch),
         keyword_fetched_count,
+        len(urls_to_fetch),
         keyword_rate_limit_count,
         keyword_api_error_count,
-        (len(traffic_urls_to_fetch) + 999) // 1000 if traffic_urls_to_fetch else 0,
-        traffic_fetched_count,
-        traffic_rate_limit_count,
-        traffic_api_error_count,
         ranking_not_found_count,
     )
 

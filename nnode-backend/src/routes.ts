@@ -14,6 +14,7 @@ import moduleFRoutes from './modules/module_F/moduleF.routes';
 import quickStartRoutes from './modules/quick_start/quickStart.routes';
 import brandOnboardingRoutes from './modules/brand_onboarding/brandOnboarding.routes';
 import fieldsRoutes from './modules/fields/fields.routes';
+import ga4Routes from './modules/ga4/ga4.routes';
 
 const router = Router();
 
@@ -39,5 +40,6 @@ router.use('/', moduleFRoutes);
 router.use('/', quickStartRoutes);
 router.use('/', brandOnboardingRoutes);
 router.use('/', fieldsRoutes);
+router.use('/', ga4Routes);
 
 export default router;
