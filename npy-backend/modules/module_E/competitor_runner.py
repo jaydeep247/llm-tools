@@ -20,15 +20,18 @@ async def run_competitor_analysis(job_id: str, url: str, html_content: str = Non
     # For now, we'll let the analyzer auto-discover via DataForSEO if not provided
     
     brand_name = None
+    keywords = None
     try:
         existing = mongo_manager.module_e.find_one({"jobId": job_id})
         if existing:
             # Try content_consistency mandate first (most reliable)
-            brand_name = (
-                existing.get("content_consistency", {})
-                .get("mandate", {})
-                .get("brand_name")
-            )
+            mandate = existing.get("content_consistency", {}).get("mandate", {})
+            brand_name = mandate.get("brand_name")
+            
+            # Extract keywords from mandate or entity_coverage if available
+            if not keywords:
+                keywords = existing.get("entity_coverage", {}).get("expected", [])
+            
             # Fallback: brand_analysis
             if not brand_name:
                 brand_name = existing.get("brand_analysis", {}).get("brand_name")
@@ -36,7 +39,7 @@ async def run_competitor_analysis(job_id: str, url: str, html_content: str = Non
         logger.warning(f"Could not read existing module_e doc: {e}")
 
     try:
-        results = await analyzer.analyze(url, brand_name=brand_name)
+        results = await analyzer.analyze(url, brand_name=brand_name, keywords=keywords)
 
         ai_sov = results.get("ai_sov") or {}
         competitor_mentions_data = results.get("mentions") or {}
@@ -72,6 +75,7 @@ async def run_competitor_analysis(job_id: str, url: str, html_content: str = Non
                     "jobId": job_id,
                     "competitor_mentions": results.get("mentions"),
                     "ai_share_of_voice": ai_sov,
+                    "competitive_leaderboard": results.get("competitive_leaderboard"),
                     "sov_recommendations": sov_recommendations,
                     "updatedAt": datetime.utcnow(),
                     "createdAt": datetime.utcnow(),
