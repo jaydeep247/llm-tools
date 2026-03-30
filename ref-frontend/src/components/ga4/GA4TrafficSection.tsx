@@ -8,14 +8,17 @@ import {
   ChevronDown,
   AlertCircle,
   CheckCircle2,
+  ChevronUp,
   Loader2,
   TrendingUp,
   Unplug,
   Copy,
   Check,
   Info,
+  Search,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   useGetGA4StatusQuery,
   useListGA4PropertiesQuery,
@@ -23,6 +26,7 @@ import {
   useSelectGA4PropertyMutation,
   useDisconnectGA4Mutation,
   GA4Property,
+  GA4PageTraffic,
 } from '@/store/api/ga4Api'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api/v1'
@@ -209,14 +213,14 @@ function PropertySelector({
         className="flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-800/60 border border-zinc-700/60 text-sm text-zinc-200 hover:bg-zinc-700/60 transition-colors cursor-pointer"
       >
         <BarChart3 className="w-4 h-4 text-emerald-400 shrink-0" />
-        <span className="truncate max-w-[240px]">
+        <span className="truncate max-w-60">
           {selected ? selected.displayName : 'Select GA4 property…'}
         </span>
         <ChevronDown className="w-3.5 h-3.5 shrink-0 text-zinc-400 ml-1" />
       </button>
 
       {open && (
-        <div className="absolute z-50 top-full mt-1 left-0 min-w-[280px] max-w-sm rounded-xl bg-zinc-900 border border-zinc-700 shadow-xl overflow-hidden">
+        <div className="absolute z-50 top-full mt-1 left-0 min-w-70 max-w-sm rounded-xl bg-zinc-900 border border-zinc-700 shadow-xl overflow-hidden">
           {properties.map((prop) => (
             <button
               key={prop.id}
@@ -239,83 +243,238 @@ function PropertySelector({
   )
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fmtDuration(seconds: number): string {
+  if (seconds < 60) return `${Math.round(seconds)}s`
+  const m = Math.floor(seconds / 60)
+  const s = Math.round(seconds % 60)
+  return `${m}m ${s}s`
+}
+
 // ── Per-page traffic table ────────────────────────────────────────────────────
+const ITEMS_PER_PAGE = 20
+
+const TABLE_COLS: { key: keyof GA4PageTraffic | 'fullUrl'; label: string }[] = [
+  { key: 'pageTitle',           label: 'Page Title' },
+  { key: 'fullUrl',             label: 'Full URL' },
+  { key: 'sessions',            label: 'Sessions' },
+  { key: 'views',               label: 'Views' },
+  { key: 'activeUsers',         label: 'Active Users' },
+  { key: 'viewsPerActiveUser',  label: 'Views / Active User' },
+  { key: 'avgEngagementTime',   label: 'Avg Engagement Time' },
+  { key: 'eventCount',          label: 'Event Count' },
+  { key: 'keyEvents',           label: 'Key Events' },
+]
+
+type SortKey = keyof GA4PageTraffic
+
 function TrafficTable({
   pages,
   sessionUrl,
 }: {
-  pages: { pagePath: string; sessions: number }[]
+  pages: GA4PageTraffic[]
   sessionUrl?: string
 }) {
-  const [search, setSearch] = useState('')
+  const [search, setSearch]       = useState('')
+  const [currentPage, setPage]    = useState(1)
+  const [sortKey, setSortKey]     = useState<SortKey>('views')
+  const [sortDir, setSortDir]     = useState<'asc' | 'desc'>('desc')
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    else { setSortKey(key); setSortDir('desc') }
+  }
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return pages
-    const q = search.toLowerCase()
-    return pages.filter((p) => p.pagePath.toLowerCase().includes(q))
+    const q = search.trim().toLowerCase()
+    return q
+      ? pages.filter((p) => p.pagePath.toLowerCase().includes(q) || p.pageTitle.toLowerCase().includes(q))
+      : pages
   }, [pages, search])
 
+  const sorted = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      const av = a[sortKey], bv = b[sortKey]
+      if (av == null && bv == null) return 0
+      if (av == null) return 1
+      if (bv == null) return -1
+      if (typeof av === 'number' && typeof bv === 'number')
+        return sortDir === 'asc' ? av - bv : bv - av
+      return sortDir === 'asc'
+        ? String(av).localeCompare(String(bv))
+        : String(bv).localeCompare(String(av))
+    })
+  }, [filtered, sortKey, sortDir])
+
+  const totalPages = Math.ceil(sorted.length / ITEMS_PER_PAGE)
+  const paginated  = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE
+    return sorted.slice(start, start + ITEMS_PER_PAGE)
+  }, [sorted, currentPage])
+
+  const sortableKeys: Set<SortKey> = new Set(['pageTitle', 'pagePath', 'sessions', 'views', 'activeUsers', 'viewsPerActiveUser', 'avgEngagementTime', 'eventCount', 'keyEvents'])
+
   return (
-    <div className="rounded-xl border border-zinc-700/50 overflow-hidden">
-      <div className="px-4 py-3 border-b border-zinc-800/60 flex items-center gap-3 bg-zinc-900/40">
-        <input
-          type="text"
-          placeholder="Filter by page path…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 bg-transparent text-sm text-zinc-200 placeholder:text-zinc-500 outline-none"
-        />
+    <div className="flex flex-col gap-3">
+      {/* Search */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+          <Input
+            placeholder="Search by page title or URL path…"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+            className="pl-10 bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-500 text-sm rounded-xl"
+          />
+        </div>
         <span className="text-xs text-zinc-500 shrink-0">{filtered.length} pages</span>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-xs">
-          <thead>
-            <tr className="bg-zinc-800/40">
-              <th className="px-4 py-2.5 text-left text-zinc-300 font-semibold">Page Path</th>
-              <th className="px-4 py-2.5 text-right text-zinc-300 font-semibold">30-Day Sessions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.slice(0, 200).map((page, i) => {
-              const fullUrl = sessionUrl
-                ? `${sessionUrl.replace(/\/$/, '')}${page.pagePath}`
-                : page.pagePath
-              return (
-                <tr
-                  key={i}
-                  className="border-t border-zinc-800/40 hover:bg-zinc-800/20 transition-colors"
-                >
-                  <td className="px-4 py-2.5 max-w-md">
-                    <a
-                      href={fullUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-400 hover:text-blue-300 flex items-center gap-1 group"
+      {/* Table */}
+      <div className="rounded-xl border border-zinc-800 bg-[#111113] overflow-hidden">
+        <div className="overflow-x-auto overflow-y-auto max-w-full custom-scrollbar" style={{ maxHeight: '60vh' }}>
+          <table className="w-full text-sm">
+            <thead className="bg-zinc-900/80 border-b border-zinc-800 sticky top-0 z-10">
+              <tr>
+                {TABLE_COLS.map((col) => {
+                  const isSortable = col.key !== 'fullUrl' && sortableKeys.has(col.key as SortKey)
+                  const isActive   = sortKey === col.key
+                  return (
+                    <th
+                      key={col.key}
+                      onClick={isSortable ? () => handleSort(col.key as SortKey) : undefined}
+                      className={`px-3 py-2 text-center text-xs font-semibold text-zinc-200 whitespace-nowrap ${
+                        isSortable ? 'cursor-pointer hover:bg-zinc-800/50' : ''
+                      }`}
                     >
-                      <span className="truncate">{page.pagePath}</span>
-                      <ExternalLink className="w-3 h-3 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </a>
-                  </td>
-                  <td className="px-4 py-2.5 text-right text-zinc-200 font-medium">
-                    {page.sessions.toLocaleString()}
+                      <div className="flex items-center justify-center gap-1">
+                        {col.label}
+                        {isSortable && isActive && (
+                          sortDir === 'asc'
+                            ? <ChevronUp className="h-3 w-3" />
+                            : <ChevronDown className="h-3 w-3" />
+                        )}
+                      </div>
+                    </th>
+                  )
+                })}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-800">
+              {paginated.length === 0 ? (
+                <tr>
+                  <td colSpan={TABLE_COLS.length} className="px-4 py-12 text-center text-zinc-400">
+                    No pages match your search.
                   </td>
                 </tr>
-              )
-            })}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={2} className="px-4 py-8 text-center text-zinc-500 text-sm">
-                  No pages match your filter.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              ) : (
+                paginated.map((page, i) => {
+                  const fullUrl = sessionUrl
+                    ? `${sessionUrl.replace(/\/$/, '')}${page.pagePath}`
+                    : page.pagePath
+                  return (
+                    <tr key={i} className="hover:bg-zinc-800/50 transition-colors">
+                      {/* Page Title */}
+                      <td className="px-3 py-2 text-zinc-200 whitespace-normal">
+                        <span className="text-zinc-100 font-medium">
+                          {page.pageTitle || '(not set)'}
+                        </span>
+                      </td>
+                      {/* Full URL */}
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        <a
+                          href={fullUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-400 hover:text-blue-300 flex items-center gap-1 group"
+                        >
+                          <span>{fullUrl}</span>
+                          <ExternalLink className="h-3 w-3 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </a>
+                      </td>
+                      {/* Sessions */}
+                      <td className="px-3 py-2 text-center text-zinc-200 tabular-nums">
+                        {page.sessions.toLocaleString()}
+                      </td>
+                      {/* Views */}
+                      <td className="px-3 py-2 text-center text-zinc-200 font-medium tabular-nums">
+                        {page.views.toLocaleString()}
+                      </td>
+                      {/* Active Users */}
+                      <td className="px-3 py-2 text-center text-zinc-200 tabular-nums">
+                        {page.activeUsers.toLocaleString()}
+                      </td>
+                      {/* Views / Active User */}
+                      <td className="px-3 py-2 text-center text-zinc-200 tabular-nums">
+                        {page.viewsPerActiveUser.toFixed(2)}
+                      </td>
+                      {/* Avg Engagement Time */}
+                      <td className="px-3 py-2 text-center text-zinc-200 tabular-nums">
+                        {fmtDuration(page.avgEngagementTime)}
+                      </td>
+                      {/* Event Count */}
+                      <td className="px-3 py-2 text-center text-zinc-200 tabular-nums">
+                        {page.eventCount.toLocaleString()}
+                      </td>
+                      {/* Key Events */}
+                      <td className="px-3 py-2 text-center text-zinc-200 tabular-nums">
+                        {page.keyEvents.toLocaleString()}
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
-      {filtered.length > 200 && (
-        <div className="px-4 py-2 border-t border-zinc-800/60 text-xs text-zinc-500 bg-zinc-900/40">
-          Showing first 200 of {filtered.length} pages
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-zinc-500">
+            Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, sorted.length)} of {sorted.length}
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline" size="sm"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white disabled:opacity-40 rounded-xl"
+            >
+              Previous
+            </Button>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum: number
+                if (totalPages <= 5)              pageNum = i + 1
+                else if (currentPage <= 3)        pageNum = i + 1
+                else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i
+                else                              pageNum = currentPage - 2 + i
+                return (
+                  <Button
+                    key={pageNum} variant="outline" size="sm"
+                    onClick={() => setPage(pageNum)}
+                    className={`rounded-xl ${
+                      currentPage === pageNum
+                        ? 'bg-white text-black border-white'
+                        : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white'
+                    }`}
+                  >
+                    {pageNum}
+                  </Button>
+                )
+              })}
+            </div>
+            <Button
+              variant="outline" size="sm"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white disabled:opacity-40 rounded-xl"
+            >
+              Next
+            </Button>
+          </div>
         </div>
       )}
     </div>
@@ -402,8 +561,8 @@ export function GA4TrafficSection({ sessionUrl, jobId }: GA4TrafficSectionProps)
   return (
     <div className="space-y-4">
       {/* Main panel */}
-      <div className="rounded-2xl border border-zinc-700/60 bg-[#0D0D10] overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-zinc-800/60">
+      <div className="rounded-2xl border border-zinc-700/60 bg-[#0D0D10]">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-zinc-800/60 rounded-t-2xl overflow-visible relative z-10">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
               <BarChart3 className="w-4 h-4 text-emerald-400" />
@@ -491,23 +650,40 @@ export function GA4TrafficSection({ sessionUrl, jobId }: GA4TrafficSectionProps)
         {/* Summary */}
         {trafficData && !isDataLoading && (
           <div className="p-5">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="rounded-xl border border-emerald-500/20 bg-[#0D0D10] p-4 flex items-center gap-3">
-                <TrendingUp className="w-5 h-5 text-emerald-400" />
-                <div>
-                  <p className="text-xl font-bold text-white leading-none">
-                    {trafficData.totalSessions.toLocaleString()}
-                  </p>
-                  <p className="text-[11px] text-zinc-400 mt-0.5">Total Sessions (30 days)</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3.5 flex items-center gap-3">
+                <TrendingUp className="w-4 h-4 text-emerald-400 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-base font-bold text-white leading-none tabular-nums">{trafficData.totalSessions.toLocaleString()}</p>
+                  <p className="text-[11px] text-zinc-400 mt-0.5">Sessions</p>
                 </div>
               </div>
-              <div className="rounded-xl border border-zinc-700/40 bg-[#0D0D10] p-4 flex items-center gap-3">
-                <BarChart3 className="w-5 h-5 text-blue-400" />
-                <div>
-                  <p className="text-xl font-bold text-white leading-none">
-                    {trafficData.pages.length.toLocaleString()}
-                  </p>
-                  <p className="text-[11px] text-zinc-400 mt-0.5">Pages with traffic</p>
+              <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3.5 flex items-center gap-3">
+                <BarChart3 className="w-4 h-4 text-blue-400 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-base font-bold text-white leading-none tabular-nums">{trafficData.totalViews.toLocaleString()}</p>
+                  <p className="text-[11px] text-zinc-400 mt-0.5">Views</p>
+                </div>
+              </div>
+              <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-3.5 flex items-center gap-3">
+                <CheckCircle2 className="w-4 h-4 text-purple-400 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-base font-bold text-white leading-none tabular-nums">{trafficData.totalActiveUsers.toLocaleString()}</p>
+                  <p className="text-[11px] text-zinc-400 mt-0.5">Active Users</p>
+                </div>
+              </div>
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3.5 flex items-center gap-3">
+                <TrendingUp className="w-4 h-4 text-amber-400 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-base font-bold text-white leading-none tabular-nums">{trafficData.totalEventCount.toLocaleString()}</p>
+                  <p className="text-[11px] text-zinc-400 mt-0.5">Event Count</p>
+                </div>
+              </div>
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3.5 flex items-center gap-3">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-base font-bold text-white leading-none tabular-nums">{trafficData.totalKeyEvents.toLocaleString()}</p>
+                  <p className="text-[11px] text-zinc-400 mt-0.5">Key Events</p>
                 </div>
               </div>
             </div>
@@ -535,9 +711,9 @@ export function GA4TrafficSection({ sessionUrl, jobId }: GA4TrafficSectionProps)
       {trafficData && trafficData.pages.length > 0 && !isDataLoading && (
         <div>
           <h4 className="text-sm font-semibold text-white mb-3 px-1">
-            Sessions by Page
+            Pages and Screens
             <span className="ml-2 text-xs font-normal text-zinc-400">
-              ({trafficData.pages.length} pages · last 30 days)
+              ({trafficData.pages.length} pages · {trafficData.dateRange.startDate} – {trafficData.dateRange.endDate})
             </span>
           </h4>
           <TrafficTable pages={trafficData.pages} sessionUrl={sessionUrl} />

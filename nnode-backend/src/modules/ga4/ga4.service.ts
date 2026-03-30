@@ -141,10 +141,17 @@ export class GA4Service {
       : `properties/${propertyId}`;
 
     const requestBody = {
-      dimensions: [{ name: 'pagePath' }],
-      metrics: [{ name: 'sessions' }],
+      dimensions: [{ name: 'pageTitle' }, { name: 'pagePath' }],
+      metrics: [
+        { name: 'sessions' },
+        { name: 'screenPageViews' },
+        { name: 'activeUsers' },
+        { name: 'userEngagementDuration' },
+        { name: 'eventCount' },
+        { name: 'conversions' },
+      ],
       dateRanges: [{ startDate, endDate }],
-      orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+      orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
       limit: 10000,
       metricAggregations: ['TOTAL'],
     };
@@ -168,15 +175,40 @@ export class GA4Service {
 
     const data = (await res.json()) as any;
 
-    const pages: GA4PageTraffic[] = (data.rows ?? []).map((row: any) => ({
-      pagePath: row.dimensionValues?.[0]?.value ?? '/',
-      sessions: parseInt(row.metricValues?.[0]?.value ?? '0', 10),
-    }));
+    const pages: GA4PageTraffic[] = (data.rows ?? []).map((row: any) => {
+      const views = parseInt(row.metricValues?.[1]?.value ?? '0', 10);
+      const activeUsers = parseInt(row.metricValues?.[2]?.value ?? '0', 10);
+      const totalEngagement = parseFloat(row.metricValues?.[3]?.value ?? '0');
+      return {
+        pageTitle: row.dimensionValues?.[0]?.value ?? '(not set)',
+        pagePath: row.dimensionValues?.[1]?.value ?? '/',
+        sessions: parseInt(row.metricValues?.[0]?.value ?? '0', 10),
+        views,
+        activeUsers,
+        viewsPerActiveUser: activeUsers > 0 ? parseFloat((views / activeUsers).toFixed(2)) : 0,
+        avgEngagementTime: activeUsers > 0 ? parseFloat((totalEngagement / activeUsers).toFixed(1)) : 0,
+        eventCount: parseInt(row.metricValues?.[4]?.value ?? '0', 10),
+        keyEvents: parseInt(row.metricValues?.[5]?.value ?? '0', 10),
+      };
+    });
 
     const totalsRow = (data.totals ?? [])[0]?.metricValues ?? [];
     const totalSessions = parseInt(totalsRow[0]?.value ?? '0', 10);
+    const totalViews = parseInt(totalsRow[1]?.value ?? '0', 10);
+    const totalActiveUsers = parseInt(totalsRow[2]?.value ?? '0', 10);
+    const totalEventCount = parseInt(totalsRow[4]?.value ?? '0', 10);
+    const totalKeyEvents = parseInt(totalsRow[5]?.value ?? '0', 10);
 
-    return { propertyId, dateRange: { startDate, endDate }, totalSessions, pages };
+    return {
+      propertyId,
+      dateRange: { startDate, endDate },
+      totalSessions,
+      totalViews,
+      totalActiveUsers,
+      totalEventCount,
+      totalKeyEvents,
+      pages,
+    };
   }
 
   /**

@@ -32,7 +32,63 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+_SERP_HOST_EXCLUDE_SUFFIXES = (
+    "reddit.com",
+    "quora.com",
+    "youtube.com",
+    "facebook.com",
+    "instagram.com",
+    "tiktok.com",
+    "x.com",
+    "twitter.com",
+    "linkedin.com",
+    "pinterest.com",
+    "yelp.com",
+)
+_SERP_PATH_EXCLUDE_HINTS = (
+    "/search",
+    "/directory/",
+    "/list/",
+    "/watch",
+)
+_SERP_TITLE_EXCLUDE_HINTS = (
+    "top ",
+    "best ",
+    "reviews",
+    "vs ",
+)
+_SERP_INTENT_TERMS = {
+    "agency",
+    "agencies",
+    "company",
+    "companies",
+    "service",
+    "services",
+    "consulting",
+    "consultancy",
+}
+
+
 # ── Word-count & date helpers ──────────────────────────────────────────────────
+
+def _coerce_non_negative_int(value: Any) -> Optional[int]:
+    """Best-effort integer coercion for persisted metric values."""
+    if value is None or value == "":
+        return None
+    try:
+        normalized = int(value)
+    except (TypeError, ValueError):
+        return None
+    return normalized if normalized >= 0 else None
+
+
+def _keyword_from_keyword_bundle(keyword_bundle: Any) -> str:
+    """Use the crawl-time keyword bundle as the SERP keyword source."""
+    if not keyword_bundle:
+        return ""
+    if isinstance(keyword_bundle, dict):
+        return str(keyword_bundle.get("primary_keyword") or keyword_bundle.get("primaryKeyword") or "").strip()
+    return str(getattr(keyword_bundle, "primary_keyword", "") or "").strip()
 
 def _normalise_iso_date(raw: Optional[str]) -> Optional[str]:
     """Normalise any date/datetime string to YYYY-MM-DD. Returns None on failure."""
@@ -93,6 +149,232 @@ def _extract_word_count_from_html(html_content: str) -> int:
     except Exception as exc:
         logger.debug(f"BeautifulSoup word count failed: {exc}")
         return 0
+
+
+def _count_words(text: str) -> int:
+    """Count words in plain text with a stable regex-based tokenizer."""
+    if not text:
+        return 0
+    return len(re.findall(r"\b[\w'-]+\b", text))
+
+
+def _tokenise_text(text: str) -> list[str]:
+    """Tokenize free text into lowercase alphanumeric tokens."""
+    return [token for token in re.findall(r"[a-z0-9]+", str(text or "").lower()) if len(token) > 2]
+
+
+def _is_excluded_serp_result(url: str, title: str) -> bool:
+    """Filter out non-content SERP results (UGC/social directories/listings)."""
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return True
+
+    host = (parsed.netloc or "").lower().replace("www.", "")
+    path = (parsed.path or "").lower()
+    title_l = str(title or "").strip().lower()
+
+    if any(host.endswith(suffix) for suffix in _SERP_HOST_EXCLUDE_SUFFIXES):
+        return True
+    if any(hint in path for hint in _SERP_PATH_EXCLUDE_HINTS):
+        return True
+    if parsed.query:
+        return True
+    if any(title_l.startswith(hint) for hint in _SERP_TITLE_EXCLUDE_HINTS):
+        return True
+
+    return False
+
+
+def _is_intent_aligned_serp_item(keyword: str, item: Dict[str, Any]) -> bool:
+    """
+    Ensure selected SERP pages match the keyword intent before benchmarking.
+
+    This avoids skew from forum/listing pages and improves comparability for
+    service-style commercial keywords.
+    """
+    url = str(item.get("url") or "").strip()
+    title = str(item.get("title") or "").strip()
+    if not url or _is_excluded_serp_result(url, title):
+        return False
+
+    keyword_tokens = set(_tokenise_text(keyword))
+    if not keyword_tokens:
+        return True
+
+    path = (urlparse(url).path or "").replace("-", " ")
+    haystack_tokens = set(_tokenise_text(f"{title} {path}"))
+    token_overlap = len(keyword_tokens & haystack_tokens)
+    if token_overlap < min(2, len(keyword_tokens)):
+        return False
+
+    if keyword_tokens & _SERP_INTENT_TERMS and not (haystack_tokens & _SERP_INTENT_TERMS):
+        return False
+
+    return True
+
+
+def _select_serp_candidate_urls(keyword: str, items: list[Dict[str, Any]], limit: int = 10) -> list[str]:
+    """Select up to `limit` organic URLs, prioritizing intent-aligned content pages."""
+    aligned: list[str] = []
+    fallback: list[str] = []
+    seen: set[str] = set()
+
+    for item in items:
+        if item.get("type") != "organic":
+            continue
+
+        url = str(item.get("url") or "").strip()
+        if not url or url in seen:
+            continue
+        seen.add(url)
+
+        title = str(item.get("title") or "").strip()
+        if _is_excluded_serp_result(url, title):
+            continue
+
+        if _is_intent_aligned_serp_item(keyword, item):
+            aligned.append(url)
+        else:
+            fallback.append(url)
+
+    selected = (aligned + fallback)[:limit]
+    return selected
+
+
+def _remove_outliers_iqr(values: list[int]) -> list[int]:
+    """Remove extreme outliers using IQR, preserving original values on edge cases."""
+    cleaned = [int(v) for v in values if int(v) > 0]
+    if len(cleaned) < 4:
+        return cleaned
+
+    ordered = sorted(cleaned)
+    try:
+        quartiles = statistics.quantiles(ordered, n=4, method="inclusive")
+    except Exception:
+        return ordered
+
+    q1, q3 = quartiles[0], quartiles[2]
+    iqr = q3 - q1
+    if iqr <= 0:
+        return ordered
+
+    lower_bound = q1 - (1.5 * iqr)
+    upper_bound = q3 + (1.5 * iqr)
+    filtered = [value for value in ordered if lower_bound <= value <= upper_bound]
+    return filtered or ordered
+
+
+def _compute_serp_intent_benchmark(word_counts: list[int]) -> Optional[int]:
+    """
+    Compute a robust SERP benchmark from cleaned word counts.
+
+    Method:
+      1. Remove extreme outliers (IQR).
+      2. Build a substantive cohort (counts >= dynamic median floor).
+      3. Use top substantive cluster average (rounded to nearest 100) when available.
+      4. Fallback to median for sparse cohorts.
+    """
+    filtered = _remove_outliers_iqr(word_counts)
+    if not filtered:
+        return None
+
+    median_floor = max(1200, int(statistics.median(filtered)))
+    substantive = [value for value in filtered if value >= median_floor]
+    if len(substantive) >= 3:
+        top_cluster = sorted(substantive, reverse=True)[:3]
+        return int(round((sum(top_cluster) / len(top_cluster)) / 100.0) * 100)
+    if len(substantive) >= 2:
+        return int(round((sum(substantive) / len(substantive)) / 100.0) * 100)
+    if len(filtered) >= 3:
+        return int(statistics.median(filtered))
+
+    return int(round(sum(filtered) / len(filtered)))
+
+
+def _extract_word_count_from_markdown(markdown: str) -> Optional[int]:
+    """Count words from markdown/plain text when DataForSEO provides it."""
+    if not markdown:
+        return None
+    normalized = re.sub(r"\s+", " ", str(markdown)).strip()
+    count = _count_words(normalized)
+    return count if count > 0 else None
+
+
+def _extract_word_count_from_structured_page_content(page_content: Any) -> Optional[int]:
+    """
+    Count words from DataForSEO's current structured `page_content` response.
+
+    Newer `on_page/content_parsing` responses do not expose
+    `meta.content.plain_text_word_count`; instead they return nested text blocks.
+    """
+    if not page_content:
+        return None
+
+    allowed_string_keys = {"text", "h_title", "main_title", "title", "subtitle", "description"}
+    skipped_keys = {
+        "url",
+        "urls",
+        "image_url",
+        "cache_url",
+        "related_search_url",
+        "xpath",
+        "fetch_time",
+        "language",
+        "author",
+        "type",
+    }
+
+    unique_strings: list[str] = []
+    seen_strings: set[str] = set()
+
+    def visit(value: Any, key: Optional[str] = None) -> None:
+        if isinstance(value, dict):
+            for child_key, child_value in value.items():
+                if child_key in skipped_keys:
+                    continue
+                visit(child_value, child_key)
+            return
+
+        if isinstance(value, list):
+            for child in value:
+                visit(child, key)
+            return
+
+        if not isinstance(value, str) or key not in allowed_string_keys:
+            return
+
+        normalized = re.sub(r"\s+", " ", value).strip()
+        if len(normalized) < 2:
+            return
+
+        dedupe_key = normalized.lower()
+        if dedupe_key in seen_strings:
+            return
+
+        seen_strings.add(dedupe_key)
+        unique_strings.append(normalized)
+
+    visit(page_content)
+
+    count = sum(_count_words(text) for text in unique_strings)
+    return count if count > 0 else None
+
+
+def _extract_word_count_from_onpage_item(item: Dict[str, Any]) -> Optional[int]:
+    """Support both legacy and current DataForSEO on-page parsing payloads."""
+    direct_count = _coerce_non_negative_int(
+        item.get("word_count")
+        or (((item.get("meta") or {}).get("content") or {}).get("plain_text_word_count"))
+    )
+    if direct_count is not None:
+        return direct_count
+
+    markdown_count = _extract_word_count_from_markdown(str(item.get("page_as_markdown") or ""))
+    if markdown_count is not None:
+        return markdown_count
+
+    return _extract_word_count_from_structured_page_content(item.get("page_content"))
 
 
 def _extract_dates(
@@ -233,14 +515,14 @@ async def _try_wordpress_dates(page_url: str) -> tuple:
     return None, None
 
 
-async def _fetch_serp_intent_word_count(keyword: str) -> int:
-    """Compute the median word count of top-10 organic SERP results for *keyword*."""
+async def _fetch_serp_intent_word_count(keyword: str) -> Optional[int]:
+    """Compute a robust SERP intent word-count benchmark for *keyword*."""
     if not execute_task:
-        logger.warning("[CM][SERP] execute_task not available — serpIntentWordCount=0.")
-        return 0
+        logger.warning("[CM][SERP] execute_task not available — serpIntentWordCount=null.")
+        return None
     if not keyword:
-        logger.info("[CM][SERP] No keyword — serpIntentWordCount=0.")
-        return 0
+        logger.info("[CM][SERP] No keyword — serpIntentWordCount=null.")
+        return None
     logger.info(f"[CM][SERP] Fetching SERP top-10 word counts for keyword={keyword!r}")
 
     async def _run_serp():
@@ -258,44 +540,51 @@ async def _fetch_serp_intent_word_count(keyword: str) -> int:
             provider="dataforseo",
         )
         if not (serp_resp and serp_resp.success):
-            return 0
+            return None
         tasks_data = (serp_resp.data or {}).get("tasks", [])
         if not tasks_data:
-            return 0
+            return None
         items = tasks_data[0].get("result", [{}])[0].get("items", [])
-        organic_urls = [
-            item["url"] for item in items
-            if item.get("type") == "organic" and item.get("url")
-        ][:10]
+        organic_urls = _select_serp_candidate_urls(keyword, items, limit=10)
         if not organic_urls:
-            return 0
+            return None
 
-        word_counts: list[int] = []
-        for target_url in organic_urls:
-            try:
-                onpage_resp = await execute_task(
-                    task_name="onpage_content_parsing",
-                    input_data={
-                        "endpoint": "/on_page/content_parsing/live",
-                        "payload": [{"url": target_url}],
-                    },
-                    provider="dataforseo",
-                )
-                if onpage_resp and onpage_resp.success:
+        sem = asyncio.Semaphore(4)
+
+        async def _fetch_onpage_word_count(target_url: str) -> Optional[int]:
+            async with sem:
+                try:
+                    onpage_resp = await execute_task(
+                        task_name="onpage_content_parsing",
+                        input_data={
+                            "endpoint": "/on_page/content_parsing/live",
+                            "payload": [{"url": target_url}],
+                        },
+                        provider="dataforseo",
+                    )
+                    if not (onpage_resp and onpage_resp.success):
+                        return None
+
                     result_items = (
                         (onpage_resp.data or {})
                         .get("tasks", [{}])[0]
                         .get("result", [{}])[0]
                         .get("items", [])
                     )
-                    if result_items:
-                        wc = result_items[0].get("meta", {}).get("content", {}).get("plain_text_word_count", 0)
-                        if wc and int(wc) > 0:
-                            word_counts.append(int(wc))
-            except Exception as exc:
-                logger.warning(f"[CM][SERP] On-page parse failed for {target_url}: {exc}")
+                    if not result_items:
+                        return None
+                    return _extract_word_count_from_onpage_item(result_items[0])
+                except Exception as exc:
+                    logger.warning(f"[CM][SERP] On-page parse failed for {target_url}: {exc}")
+                    return None
 
-        return int(statistics.median(word_counts)) if word_counts else 0
+        candidate_counts = await asyncio.gather(*[_fetch_onpage_word_count(url) for url in organic_urls])
+        word_counts: list[int] = []
+        for wc in candidate_counts:
+            if wc and int(wc) > 0:
+                word_counts.append(int(wc))
+
+        return _compute_serp_intent_benchmark(word_counts)
 
     def _run_in_new_loop():
         loop = asyncio.new_event_loop()
@@ -311,7 +600,7 @@ async def _fetch_serp_intent_word_count(keyword: str) -> int:
             return pool.submit(_run_in_new_loop).result(timeout=120)
     except Exception as exc:
         logger.error(f"[CM][SERP] FAILED for keyword={keyword!r}: {exc}", exc_info=True)
-        return 0
+        return None
 
 
 def _derive_keyword(main_keyword: str, h1: str, title: str) -> str:
@@ -346,29 +635,38 @@ async def extract_content_metrics(
     Returns a dict with 5 fields:
       currentWordCount, serpIntentWordCount, needToAddWordCount,
       publishedDate, upgradeDate.
-    Returns {} on empty HTML.
+    Uses crawl-time `word_count` when available and leaves keyword-driven
+    SERP fields null when no crawl keyword bundle target exists.
     """
-    if not html_content:
+    response_headers = response_headers or {}
+    if not (html_content or kwargs.get("word_count") is not None or url):
         return {}
 
     existing = existing_item or {}
 
     try:
         # ── Current word count ──────────────────────────────────────────────
-        existing_wc = existing.get("currentWordCount") or 0
-        if existing_wc > 0:
-            current_word_count = int(existing_wc)
+        crawl_word_count = _coerce_non_negative_int(kwargs.get("word_count"))
+        existing_wc = _coerce_non_negative_int(existing.get("currentWordCount"))
+        if crawl_word_count is not None:
+            current_word_count = crawl_word_count
+        elif existing_wc is not None:
+            current_word_count = existing_wc
         else:
-            current_word_count = int(kwargs.get("word_count") or 0)
-            if not current_word_count:
+            current_word_count = None
+            if html_content:
                 current_word_count = _extract_word_count_from_html(html_content)
 
         # ── SERP intent word count ─────────────────────────────────────────
-        # TODO: Re-enable when DataForSEO SERP calls are needed
-        serp_intent_word_count = 0
+        serp_keyword = _keyword_from_keyword_bundle(kwargs.get("keyword_bundle"))
+        serp_intent_word_count = None
+        if serp_keyword:
+            serp_intent_word_count = await _fetch_serp_intent_word_count(serp_keyword)
 
         # ── Word-count gap ─────────────────────────────────────────────────
-        need_to_add_word_count = max(0, serp_intent_word_count - current_word_count)
+        need_to_add_word_count = None
+        if serp_intent_word_count is not None:
+            need_to_add_word_count = max(0, serp_intent_word_count - int(current_word_count or 0))
 
         # ── Published & Upgrade dates ──────────────────────────────────────
         existing_pub = existing.get("publishedDate")
@@ -378,11 +676,13 @@ async def extract_content_metrics(
             published_date = existing_pub
             upgrade_date = existing_mod
         else:
-            extracted_pub, extracted_mod = _extract_dates(html_content, response_headers, url)
+            extracted_pub, extracted_mod = (None, None)
+            if html_content or response_headers:
+                extracted_pub, extracted_mod = _extract_dates(html_content, response_headers, url)
             published_date = existing_pub or extracted_pub
             upgrade_date = existing_mod or extracted_mod
 
-            if not published_date or not upgrade_date:
+            if url and (not published_date or not upgrade_date):
                 wp_pub, wp_mod = await _try_wordpress_dates(url)
                 if not published_date and wp_pub:
                     published_date = wp_pub

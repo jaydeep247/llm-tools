@@ -8,14 +8,25 @@ export interface GA4Property {
 }
 
 export interface GA4PageTraffic {
+  pageTitle: string;
   pagePath: string;
   sessions: number;
+  views: number;
+  activeUsers: number;
+  viewsPerActiveUser: number;
+  avgEngagementTime: number; // seconds
+  eventCount: number;
+  keyEvents: number;
 }
 
 export interface GA4TrafficResponse {
   propertyId: string;
   dateRange: { startDate: string; endDate: string };
   totalSessions: number;
+  totalViews: number;
+  totalActiveUsers: number;
+  totalEventCount: number;
+  totalKeyEvents: number;
   pages: GA4PageTraffic[];
 }
 

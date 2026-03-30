@@ -439,8 +439,8 @@ async def _run_backlink_metrics(job_id: str, urls: List[str], run_at: str) -> in
                 "outlink_url_list": 1,
                 "inlinks": 1,
                 "pr_score": 1,
-                "current_referring_domains": 1,
-                "min_required_rds": 1,
+                "current_ref_domains": 1,
+                "min_required_ref_domains": 1,
                 "backlink_metrics": 1,
             },
         )
@@ -461,8 +461,8 @@ async def _run_backlink_metrics(job_id: str, urls: List[str], run_at: str) -> in
                 "external_outlinks": doc.get("external_outlinks", backlink_metrics.get("external_outlinks")),
                 "outlink_url_list": doc.get("outlink_url_list") or backlink_metrics.get("outlink_url_list") or [],
                 "pr_score": None if force_refresh else doc.get("pr_score", backlink_metrics.get("pr_score")),
-                "current_referring_domains": None if force_refresh else doc.get("current_referring_domains", backlink_metrics.get("current_referring_domains")),
-                "min_required_rds": None if force_refresh else doc.get("min_required_rds", backlink_metrics.get("min_required_rds")),
+                "current_ref_domains": None if force_refresh else doc.get("current_ref_domains", backlink_metrics.get("current_ref_domains")),
+                "min_required_ref_domains": None if force_refresh else doc.get("min_required_ref_domains", backlink_metrics.get("min_required_ref_domains")),
             }
         )
 
@@ -481,12 +481,11 @@ async def _run_backlink_metrics(job_id: str, urls: List[str], run_at: str) -> in
                         "inlinks": result.get("inlinks"),
                         "internal_outlinks": result.get("internal_outlinks"),
                         "external_outlinks": result.get("external_outlinks"),
-                        "link_ratio": result.get("link_ratio"),
-                        "link_ratio_pass": result.get("link_ratio_pass"),
+                        "internal_external_ratio": result.get("internal_external_ratio"),
                         "pr_score": result.get("pr_score"),
-                        "current_referring_domains": result.get("current_referring_domains"),
-                        "min_required_rds": result.get("min_required_rds"),
-                        "rds_to_acquire": result.get("rds_to_acquire"),
+                        "current_ref_domains": result.get("current_ref_domains"),
+                        "min_required_ref_domains": result.get("min_required_ref_domains"),
+                        "need_to_acquire_ref_domains": result.get("need_to_acquire_ref_domains"),
                         "backlink_audit_log": result.get("audit_log") or {},
                         "backlink_metrics_last_run_at": run_at,
                     },
@@ -507,11 +506,11 @@ def _build_content_audit_log(result: Dict[str, Any], fetch_payload: Dict[str, An
     if not fetch_payload.get("html_content"):
         error = fetch_payload.get("error")
         return {
-            "currentWordCount": "ERROR-NO-HTML",
-            "serpIntentWordCount": "ERROR-NO-HTML",
-            "needToAddWordCount": "ERROR-NO-HTML",
-            "publishedDate": f"ERROR-{error}" if error else "ERROR-NO-HTML",
-            "upgradeDate": f"ERROR-{error}" if error else "ERROR-NO-HTML",
+            "currentWordCount": "CRAWL" if result.get("currentWordCount") is not None else (f"ERROR-{error}" if error else "NULL"),
+            "serpIntentWordCount": "FETCHED" if result.get("serpIntentWordCount") is not None else "NULL",
+            "needToAddWordCount": "COMPUTED" if result.get("needToAddWordCount") is not None else "NULL",
+            "publishedDate": "FETCHED" if result.get("publishedDate") else (f"ERROR-{error}" if error else "NULL"),
+            "upgradeDate": "FETCHED" if result.get("upgradeDate") else (f"ERROR-{error}" if error else "NULL"),
         }
 
     return {
@@ -550,12 +549,13 @@ async def _run_content_metrics(job_id: str, urls: List[str], run_at: str) -> int
         result = await extract_content_metrics(
             url=url,
             html_content=str(fetch_payload.get("html_content") or ""),
-            main_keyword=keyword_bundle.primary_keyword or str(field_doc.get("main_keyword") or ""),
+            main_keyword=str(field_doc.get("main_keyword") or ""),
             response_headers={},
-            existing_item={},
+            existing_item=field_doc.get("content_matrix") or {},
+            keyword_bundle=keyword_bundle,
             h1=_first_h1(page_doc),
             title=str(page_doc.get("title") or ""),
-            word_count=page_doc.get("word_count") or 0,
+            word_count=page_doc.get("word_count"),
         )
 
         content_matrix = {

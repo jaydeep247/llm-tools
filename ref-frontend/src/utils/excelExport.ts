@@ -265,33 +265,33 @@ const CONTENT_AUDIT_EXPORT_COLUMNS: ContentAuditExportColumn[] = [
   },
   {
     group: 'Backlink Metrics',
-    label: 'Internal Outlinks (Internal Links)',
+    label: 'Internal Outlinks',
     value: (row) => getContentAuditValue(row, 'internal_outlinks', [['backlink_metrics', 'internal_outlinks']]),
   },
   {
     group: 'Backlink Metrics',
-    label: 'External Outlinks (External Links)',
+    label: 'External Outlinks',
     value: (row) => getContentAuditValue(row, 'external_outlinks', [['backlink_metrics', 'external_outlinks']]),
   },
   {
     group: 'Backlink Metrics',
-    label: 'Internal Links/External Links Ratio',
-    value: (row) => getContentAuditValue(row, 'link_ratio', [['backlink_metrics', 'link_ratio']]),
+    label: 'Internal/External Ratio',
+    value: (row) => getContentAuditValue(row, 'internal_external_ratio', [['backlink_metrics', 'internal_external_ratio']]),
   },
   {
     group: 'Backlink Metrics',
     label: 'Minimum Required Referring Domains',
-    value: (row) => getContentAuditValue(row, 'min_required_rds', [['backlink_metrics', 'min_required_rds']]),
+    value: (row) => getContentAuditValue(row, 'min_required_ref_domains', [['backlink_metrics', 'min_required_ref_domains']]),
   },
   {
     group: 'Backlink Metrics',
     label: 'Current Referring Domains',
-    value: (row) => getContentAuditValue(row, 'current_referring_domains', [['backlink_metrics', 'current_referring_domains']]),
+    value: (row) => getContentAuditValue(row, 'current_ref_domains', [['backlink_metrics', 'current_ref_domains']]),
   },
   {
     group: 'Backlink Metrics',
     label: 'Need to Acquire Referring Domains',
-    value: (row) => getContentAuditValue(row, 'rds_to_acquire', [['backlink_metrics', 'rds_to_acquire']]),
+    value: (row) => getContentAuditValue(row, 'need_to_acquire_ref_domains', [['backlink_metrics', 'need_to_acquire_ref_domains']]),
   },
 ]
 

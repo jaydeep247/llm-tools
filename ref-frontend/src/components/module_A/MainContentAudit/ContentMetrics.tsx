@@ -63,9 +63,9 @@ const COLUMN_CATEGORIES: ColumnCategory[] = [
 
 const FIELD_DESCRIPTIONS: Partial<Record<keyof ContentMetric, string>> = {
   url: 'Full web address of the analyzed page. Click to open in a new tab.',
-  currentWordCount: 'Total word count of the page content extracted from HTML.',
-  serpIntentWordCount: 'Median word count of the top-ranking SERP pages for the target keyword.',
-  needToAddWordCount: 'Difference between SERP intent word count and current word count. Negative means content is longer.',
+  currentWordCount: 'Authoritative word count captured during crawl time for this page.',
+  serpIntentWordCount: 'Median word count of top-ranking SERP pages for the crawl keyword target, when a keyword bundle target exists.',
+  needToAddWordCount: 'Gap between SERP intent word count and current word count. Blank when no keyword-driven SERP target applies.',
   publishedDate: 'Date the page was first published.',
   upgradeDate: 'Date the page was last updated/modified.',
 }

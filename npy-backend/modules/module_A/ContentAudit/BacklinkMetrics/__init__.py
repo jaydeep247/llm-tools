@@ -5,17 +5,17 @@ Extracts 8 backlink-related fields per URL in two separate phases:
 
   Crawl-time  (synchronous, zero API cost)
   ──────────────────────────────────────────
-  2. internal_outlinks    – links from this page to same domain
-  3. external_outlinks    – links from this page to other domains
-  4. link_ratio           – internal / external  (target ≥ 4.0)
+  2. internal_outlinks          – links from this page to same domain
+  3. external_outlinks          – links from this page to other domains
+  4. internal_external_ratio    – internal / external  (target ≥ 4.0)
 
   Post-crawl  (async, DataForSEO API)
   ──────────────────────────────────────────
-  1. inlinks              – internal pages linking TO this URL
-  5. pr_score             – DataForSEO page-level rank
-  6. current_referring_domains – unique external domains linking here
-  7. min_required_rds     – median RDs of top-10 SERP competitors
-  8. rds_to_acquire       – gap to be competitive
+  1. inlinks                    – internal pages linking TO this URL
+  5. pr_score                   – DataForSEO page-level rank
+  6. current_ref_domains        – unique external domains linking here
+  7. min_required_ref_domains   – median RDs of top-10 SERP competitors
+  8. need_to_acquire_ref_domains – gap to be competitive (can be negative)
 
 Public API
 ──────────
@@ -90,7 +90,7 @@ def _compute_outlinks(links: List[str], site_domain: str) -> tuple:
     return internal, external, internal_urls
 
 
-def _compute_link_ratio(
+def _compute_internal_external_ratio(
     internal_outlinks: int,
     external_outlinks: int,
 ) -> Optional[float]:
@@ -297,19 +297,18 @@ def extract_crawltime_backlink_fields(
         else:
             audit_log["external_outlinks"] = "FOUND"
 
-    # ── Field 4: Link ratio (always recomputed from current values) ────────────
-    link_ratio = _compute_link_ratio(internal_outlinks or 0, external_outlinks or 0)
-    link_ratio_pass = link_ratio is not None and link_ratio >= 4.0
-    audit_log["link_ratio"] = "COMPUTED"
+    # ── Field 4: Internal/External ratio (always recomputed from current values) ─
+    internal_external_ratio = _compute_internal_external_ratio(internal_outlinks or 0, external_outlinks or 0)
+    audit_log["internal_external_ratio"] = "COMPUTED"
 
     # Fields 1, 5-8 are deferred to the post-crawl batch step.
     # Keep explicit audit-log states so downstream consumers can
     # distinguish crawl-time extraction vs post-crawl API fills.
     audit_log["inlinks"] = "NULL-POST-CRAWL"
     audit_log["pr_score"] = "NULL"
-    audit_log["current_referring_domains"] = "NULL"
-    audit_log["min_required_rds"] = "NULL"
-    audit_log["rds_to_acquire"] = "NULL"
+    audit_log["current_ref_domains"] = "NULL"
+    audit_log["min_required_ref_domains"] = "NULL"
+    audit_log["need_to_acquire_ref_domains"] = "NULL"
 
     return {
         "url": url,
@@ -317,12 +316,11 @@ def extract_crawltime_backlink_fields(
         "internal_outlinks": internal_outlinks,
         "external_outlinks": external_outlinks,
         "outlink_url_list": outlink_url_list or [],
-        "link_ratio": link_ratio,
-        "link_ratio_pass": link_ratio_pass,
+        "internal_external_ratio": internal_external_ratio,
         "pr_score": None,
-        "current_referring_domains": None,
-        "min_required_rds": None,
-        "rds_to_acquire": None,
+        "current_ref_domains": None,
+        "min_required_ref_domains": None,
+        "need_to_acquire_ref_domains": None,
         "audit_log": audit_log,
     }
 
@@ -369,7 +367,7 @@ async def extract_backlink_metrics_batch(
             continue
 
         pr_existing = item.get("pr_score")
-        current_rd_existing = item.get("current_referring_domains")
+        current_rd_existing = item.get("current_ref_domains")
 
         # Spec: pr_score counts as "FOUND" only when value > 0.
         try:
@@ -377,7 +375,7 @@ async def extract_backlink_metrics_batch(
         except Exception:
             pr_found = False
 
-        # Spec: current_referring_domains counts as "FOUND" when not null/empty (0 is valid).
+        # Spec: current_ref_domains counts as "FOUND" when not null/empty (0 is valid).
         curr_found = current_rd_existing is not None and current_rd_existing != ""
 
         if not pr_found or not curr_found:
@@ -390,13 +388,13 @@ async def extract_backlink_metrics_batch(
     bl_data = await _fetch_backlinks_summary(urls_needing_api) if urls_needing_api else {}
     api_calls_backlinks = (len(urls_needing_api) + 99) // 100 if urls_needing_api else 0
 
-    # ── Step 3: Min Required RDs — one SERP call per unique keyword ───────────
+    # ── Step 3: Min Required Ref Domains — one SERP call per unique keyword ──
     keywords_needing_rds = set()
     for item in items:
         kw = (item.get("main_keyword") or "").strip()
         if not kw:
             continue
-        min_existing = item.get("min_required_rds")
+        min_existing = item.get("min_required_ref_domains")
         if min_existing is None or min_existing == "":
             keywords_needing_rds.add(kw)
 
@@ -441,14 +439,13 @@ async def extract_backlink_metrics_batch(
         audit_log["internal_outlinks"] = "FOUND" if internal_outlinks_existing not in (None, "") else "EXTRACTING"
         audit_log["external_outlinks"] = "FOUND" if external_outlinks_existing not in (None, "") else "EXTRACTING"
 
-        # Field 4: Link ratio — always recomputed
-        link_ratio = _compute_link_ratio(internal_outlinks, external_outlinks)
-        link_ratio_pass = link_ratio is not None and link_ratio >= 4.0
-        audit_log["link_ratio"] = "COMPUTED"
+        # Field 4: Internal/External ratio — always recomputed
+        internal_external_ratio = _compute_internal_external_ratio(internal_outlinks, external_outlinks)
+        audit_log["internal_external_ratio"] = "COMPUTED"
 
         # Fields 5 & 6: From batch API response
         pr_existing = item.get("pr_score")
-        current_rd_existing = item.get("current_referring_domains")
+        current_rd_existing = item.get("current_ref_domains")
 
         try:
             pr_found = pr_existing is not None and pr_existing != "" and float(pr_existing) > 0
@@ -471,35 +468,35 @@ async def extract_backlink_metrics_batch(
                 audit_log["pr_score"] = "NULL"
 
         if curr_found:
-            current_referring_domains = int(current_rd_existing)
-            audit_log["current_referring_domains"] = "FOUND"
+            current_ref_domains = int(current_rd_existing)
+            audit_log["current_ref_domains"] = "FOUND"
         else:
             if api_url in bl_data:
-                current_referring_domains = int(page_api.get("referring_domains", 0) or 0)
-                audit_log["current_referring_domains"] = "FETCHED"
+                current_ref_domains = int(page_api.get("referring_domains", 0) or 0)
+                audit_log["current_ref_domains"] = "FETCHED"
             else:
-                current_referring_domains = None
-                audit_log["current_referring_domains"] = "NULL"
+                current_ref_domains = None
+                audit_log["current_ref_domains"] = "NULL"
 
-        # Field 7: Min Required RDs (existing item overrides cache/API)
-        min_required_existing = item.get("min_required_rds")
+        # Field 7: Min Required Ref Domains (existing item overrides cache/API)
+        min_required_existing = item.get("min_required_ref_domains")
         if min_required_existing is not None and min_required_existing != "":
-            min_required_rds = int(min_required_existing)
-            audit_log["min_required_rds"] = "FOUND"
+            min_required_ref_domains = int(min_required_existing)
+            audit_log["min_required_ref_domains"] = "FOUND"
         elif not main_keyword:
-            min_required_rds = None
-            audit_log["min_required_rds"] = "SKIPPED-NO-KEYWORD"
+            min_required_ref_domains = None
+            audit_log["min_required_ref_domains"] = "SKIPPED-NO-KEYWORD"
         else:
-            min_required_rds = _MIN_RDS_CACHE.get(main_keyword)
-            audit_log["min_required_rds"] = "FETCHED" if min_required_rds is not None else "NULL"
+            min_required_ref_domains = _MIN_RDS_CACHE.get(main_keyword)
+            audit_log["min_required_ref_domains"] = "FETCHED" if min_required_ref_domains is not None else "NULL"
 
-        # Field 8: RDs to acquire — always recomputed
-        if min_required_rds is None or current_referring_domains is None:
-            rds_to_acquire = None
-            audit_log["rds_to_acquire"] = "NULL"
+        # Field 8: Need to acquire ref domains — allows negative (already above target)
+        if current_ref_domains is None:
+            need_to_acquire_ref_domains = None
+            audit_log["need_to_acquire_ref_domains"] = "NULL"
         else:
-            rds_to_acquire = max(0, min_required_rds - current_referring_domains)
-            audit_log["rds_to_acquire"] = "COMPUTED"
+            need_to_acquire_ref_domains = (min_required_ref_domains or 0) - current_ref_domains
+            audit_log["need_to_acquire_ref_domains"] = "COMPUTED"
 
         result = {
             "url": url,
@@ -507,12 +504,11 @@ async def extract_backlink_metrics_batch(
             "internal_outlinks": internal_outlinks,
             "external_outlinks": external_outlinks,
             "outlink_url_list": outlink_url_list,
-            "link_ratio": link_ratio,
-            "link_ratio_pass": link_ratio_pass,
+            "internal_external_ratio": internal_external_ratio,
             "pr_score": pr_score,
-            "current_referring_domains": current_referring_domains,
-            "min_required_rds": min_required_rds,
-            "rds_to_acquire": rds_to_acquire,
+            "current_ref_domains": current_ref_domains,
+            "min_required_ref_domains": min_required_ref_domains,
+            "need_to_acquire_ref_domains": need_to_acquire_ref_domains,
             "audit_log": audit_log,
         }
         results.append(result)
@@ -525,11 +521,11 @@ async def extract_backlink_metrics_batch(
             else:
                 fields_null += 1
 
-        if link_ratio is not None and link_ratio < 4.0:
+        if internal_external_ratio is not None and internal_external_ratio < 4.0:
             ratio_flagged += 1
-        if rds_to_acquire and rds_to_acquire > 0:
+        if need_to_acquire_ref_domains is not None and need_to_acquire_ref_domains > 0:
             pages_needing_rds += 1
-            rd_gaps.append(rds_to_acquire)
+            rd_gaps.append(need_to_acquire_ref_domains)
 
     avg_gap = round(sum(rd_gaps) / len(rd_gaps), 1) if rd_gaps else 0
     logger.info(

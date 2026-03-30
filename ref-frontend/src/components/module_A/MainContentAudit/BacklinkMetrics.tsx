@@ -22,15 +22,14 @@ interface BacklinkMetricRow {
   url: string
   title?: string
   fields?: Record<string, any>
+  pr_score?: number | null
   inlinks?: number | null
   internal_outlinks?: number | null
   external_outlinks?: number | null
-  link_ratio?: number | null
-  link_ratio_pass?: boolean | null
-  pr_score?: number | null
-  current_referring_domains?: number | null
-  min_required_rds?: number | null
-  rds_to_acquire?: number | null
+  internal_external_ratio?: number | null
+  min_required_ref_domains?: number | null
+  current_ref_domains?: number | null
+  need_to_acquire_ref_domains?: number | null
 }
 
 interface BacklinkMetricsTableProps {
@@ -52,47 +51,40 @@ type ColumnCategory = {
 const COLUMN_CATEGORIES: ColumnCategory[] = [
   {
     name: 'Basic Info',
-    columns: ['url', 'title', 'inlinks', 'link_ratio_pass'],
+    columns: ['url', 'pr_score', 'inlinks'],
   },
   {
     name: 'Links',
-    columns: ['internal_outlinks', 'external_outlinks', 'link_ratio'],
+    columns: ['internal_outlinks', 'external_outlinks', 'internal_external_ratio'],
   },
   {
     name: 'Referring Domains',
-    columns: ['pr_score', 'current_referring_domains'],
-  },
-  {
-    name: 'Competitor Benchmark',
-    columns: ['min_required_rds', 'rds_to_acquire'],
+    columns: ['min_required_ref_domains', 'current_ref_domains', 'need_to_acquire_ref_domains'],
   },
 ]
 
 const FIELD_DESCRIPTIONS: Partial<Record<keyof BacklinkMetricRow, string>> = {
   url: 'Full web address of the analyzed page. Click to open in a new tab.',
-  title: 'Page title (if available).',
+  pr_score: 'DataForSEO page-level rank score for this URL.',
   inlinks: 'Number of internal pages that link TO this URL (post-crawl).',
   internal_outlinks: 'Number of links from this page to other pages on the same domain.',
   external_outlinks: 'Number of links from this page to different domains.',
-  link_ratio: 'internal_outlinks / external_outlinks. Target is >= 4.0.',
-  link_ratio_pass: 'Whether link_ratio meets the >= 4.0 threshold.',
-  pr_score: 'DataForSEO page-level rank score for this URL.',
-  current_referring_domains: 'Unique external domains linking TO this page.',
-  min_required_rds: 'Median referring domains of top SERP competitors (benchmark).',
-  rds_to_acquire: 'How many more referring domains this page needs to be competitive.',
+  internal_external_ratio: 'internal_outlinks / external_outlinks ratio.',
+  min_required_ref_domains: 'Median referring domains of top SERP competitors (benchmark).',
+  current_ref_domains: 'Unique external domains linking TO this page.',
+  need_to_acquire_ref_domains: 'Gap: min_required - current. Negative means already above target.',
 }
 
 const DEFAULT_VISIBLE_COLUMNS: Set<keyof BacklinkMetricRow> = new Set([
   'url',
+  'pr_score',
   'inlinks',
   'internal_outlinks',
   'external_outlinks',
-  'link_ratio',
-  'link_ratio_pass',
-  'pr_score',
-  'current_referring_domains',
-  'min_required_rds',
-  'rds_to_acquire',
+  'internal_external_ratio',
+  'min_required_ref_domains',
+  'current_ref_domains',
+  'need_to_acquire_ref_domains',
 ])
 
 function getRowValue(row: any, key: keyof BacklinkMetricRow): any {
@@ -134,30 +126,28 @@ export function BacklinkMetrics({
       if (seen.has(url)) return
       seen.add(url)
 
+      const pr_score = getRowValue(row, 'pr_score')
       const inlinks = getRowValue(row, 'inlinks')
       const internal_outlinks = getRowValue(row, 'internal_outlinks')
       const external_outlinks = getRowValue(row, 'external_outlinks')
-      const link_ratio = getRowValue(row, 'link_ratio')
-      const link_ratio_pass = getRowValue(row, 'link_ratio_pass')
-      const pr_score = getRowValue(row, 'pr_score')
-      const current_referring_domains = getRowValue(row, 'current_referring_domains')
-      const min_required_rds = getRowValue(row, 'min_required_rds')
-      const rds_to_acquire = getRowValue(row, 'rds_to_acquire')
+      const internal_external_ratio = getRowValue(row, 'internal_external_ratio')
+      const min_required_ref_domains = getRowValue(row, 'min_required_ref_domains')
+      const current_ref_domains = getRowValue(row, 'current_ref_domains')
+      const need_to_acquire_ref_domains = getRowValue(row, 'need_to_acquire_ref_domains')
 
       result.push({
         id: row.id ?? row._id,
         url: String(url),
         title: row.title ?? getRowValue(row, 'title') ?? '',
         fields: row.fields ?? {},
+        pr_score: pr_score === '' ? null : pr_score ?? null,
         inlinks: inlinks === '' ? null : inlinks ?? null,
         internal_outlinks: internal_outlinks === '' ? null : internal_outlinks ?? null,
         external_outlinks: external_outlinks === '' ? null : external_outlinks ?? null,
-        link_ratio: link_ratio === '' ? null : link_ratio ?? null,
-        link_ratio_pass: link_ratio_pass === '' ? null : link_ratio_pass ?? null,
-        pr_score: pr_score === '' ? null : pr_score ?? null,
-        current_referring_domains: current_referring_domains === '' ? null : current_referring_domains ?? null,
-        min_required_rds: min_required_rds === '' ? null : min_required_rds ?? null,
-        rds_to_acquire: rds_to_acquire === '' ? null : rds_to_acquire ?? null,
+        internal_external_ratio: internal_external_ratio === '' ? null : internal_external_ratio ?? null,
+        min_required_ref_domains: min_required_ref_domains === '' ? null : min_required_ref_domains ?? null,
+        current_ref_domains: current_ref_domains === '' ? null : current_ref_domains ?? null,
+        need_to_acquire_ref_domains: need_to_acquire_ref_domains === '' ? null : need_to_acquire_ref_domains ?? null,
       })
     })
 
@@ -282,30 +272,28 @@ export function BacklinkMetrics({
   const getColumnLabel = (column: keyof BacklinkMetricRow): string => {
     const labels: Record<string, string> = {
       url: 'URL',
-      title: 'Title',
+      pr_score: 'PR Score',
       inlinks: 'Inlinks',
       internal_outlinks: 'Internal Outlinks',
       external_outlinks: 'External Outlinks',
-      link_ratio: 'Link Ratio',
-      link_ratio_pass: 'Link Ratio Pass',
-      pr_score: 'PR Score',
-      current_referring_domains: 'Current RDs',
-      min_required_rds: 'Min Required RDs',
-      rds_to_acquire: 'Need to Acquire RDs',
+      internal_external_ratio: 'Internal/External Ratio',
+      min_required_ref_domains: 'Min Required Ref Domains',
+      current_ref_domains: 'Current Ref Domains',
+      need_to_acquire_ref_domains: 'Need to Acquire Ref Domains',
     }
     return labels[String(column)] || String(column)
   }
 
   const sortableColumns: Set<keyof BacklinkMetricRow> = new Set([
     'url',
+    'pr_score',
     'inlinks',
     'internal_outlinks',
     'external_outlinks',
-    'link_ratio',
-    'pr_score',
-    'current_referring_domains',
-    'min_required_rds',
-    'rds_to_acquire',
+    'internal_external_ratio',
+    'min_required_ref_domains',
+    'current_ref_domains',
+    'need_to_acquire_ref_domains',
   ])
 
   const SortIcon = ({ field }: { field: SortField }) => {
@@ -351,28 +339,19 @@ export function BacklinkMetrics({
           </a>
         )
 
-      case 'link_ratio_pass': {
-        if (value === undefined || value === null) return <span className="text-zinc-600 text-xs select-none">—</span>
-        const passed = Boolean(value)
-        const color = passed
-          ? 'bg-green-500/20 text-green-300 border-green-500/30'
-          : 'bg-red-500/20 text-red-300 border-red-500/30'
-        return <Badge className={color}>{passed ? 'Pass' : 'Fail'}</Badge>
-      }
-
+      case 'pr_score':
       case 'inlinks':
       case 'internal_outlinks':
       case 'external_outlinks':
-      case 'link_ratio':
-      case 'pr_score':
-      case 'current_referring_domains':
-      case 'min_required_rds':
-      case 'rds_to_acquire': {
+      case 'internal_external_ratio':
+      case 'min_required_ref_domains':
+      case 'current_ref_domains':
+      case 'need_to_acquire_ref_domains': {
         if (value === undefined || value === null) return <span className="text-zinc-600 text-xs select-none">—</span>
         const num = Number(value)
         if (Number.isNaN(num)) return <span className="text-zinc-600 text-xs select-none">—</span>
 
-        if (column === 'rds_to_acquire') {
+        if (column === 'need_to_acquire_ref_domains') {
           const color =
             num <= 0
               ? 'bg-green-500/20 text-green-300 border-green-500/30'
@@ -382,12 +361,8 @@ export function BacklinkMetrics({
           return <Badge className={color}>{num.toLocaleString()}</Badge>
         }
 
-        if (column === 'link_ratio') {
-          const passed = num >= 4.0
-          const color = passed
-            ? 'bg-green-500/20 text-green-300 border-green-500/30'
-            : 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
-          return <Badge className={color}>{num.toFixed(2)}</Badge>
+        if (column === 'internal_external_ratio') {
+          return <Badge className="bg-zinc-700/30 text-zinc-200 border-zinc-600/30">{num.toFixed(2)}</Badge>
         }
 
         return <Badge className="bg-zinc-700/30 text-zinc-200 border-zinc-600/30">{num.toLocaleString()}</Badge>
@@ -398,7 +373,7 @@ export function BacklinkMetrics({
     }
   }
 
-  const needsMoreRds = normalizedData.filter((r) => (r.rds_to_acquire ?? 0) > 0).length
+  const needsMoreRds = normalizedData.filter((r) => (r.need_to_acquire_ref_domains ?? 0) > 0).length
 
   return (
     <div className="flex flex-col h-full gap-4">
@@ -457,7 +432,7 @@ export function BacklinkMetrics({
         </div>
 
         {/* Stats strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
             <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Total Pages</div>
             <div className="text-xl font-bold text-white mt-1">{normalizedData.length}</div>
@@ -469,12 +444,6 @@ export function BacklinkMetrics({
           <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
             <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Needs More RDs</div>
             <div className="text-xl font-bold text-white mt-1">{needsMoreRds}</div>
-          </div>
-          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
-            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Link Ratio Pass</div>
-            <div className="text-xl font-bold text-white mt-1">
-              {normalizedData.filter((r) => r.link_ratio_pass === true).length}
-            </div>
           </div>
         </div>
       </div>
