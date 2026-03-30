@@ -5,11 +5,12 @@ import re
 from typing import Dict, Any, List, Optional
 from urllib.parse import urlparse
 from orchestrator.checkpoint.executor import execute_task
+from .competitive_leaderboard import CompetitiveLeaderboard
 
 logger = logging.getLogger("module_e_competitors")
 
 # Platforms that appear in DataForSEO keyword overlap but are NOT real business competitors.
-# These are social media, UGC portals, and reference sites.
+# These are social media, UGC portals, reference sites, and common tools (if brand is an agency).
 SOCIAL_MEDIA_BLOCKLIST: set = {
     "youtube.com", "reddit.com", "instagram.com", "facebook.com",
     "twitter.com", "x.com", "tiktok.com", "pinterest.com",
@@ -17,6 +18,7 @@ SOCIAL_MEDIA_BLOCKLIST: set = {
     "medium.com", "quora.com", "wikipedia.org", "wikihow.com",
     "blogger.com", "wordpress.com", "wix.com", "squarespace.com",
     "yelp.com", "trustpilot.com", "google.com", "bing.com",
+    "moz.com", "semrush.com", "ahrefs.com", "yoast.com", "hubspot.com",
 }
 
 
@@ -35,7 +37,7 @@ class CompetitorAnalyzer:
       - SOV = brand appearances / total appearances (brand + all competitors)
     """
 
-    async def analyze(self, url: str, competitor_domains: Optional[List[str]] = None, brand_name: Optional[str] = None) -> Dict[str, Any]:
+    async def analyze(self, url: str, competitor_domains: Optional[List[str]] = None, brand_name: Optional[str] = None, keywords: Optional[List[str]] = None) -> Dict[str, Any]:
         """Runs the complete competitor analysis suite."""
         domain = self._extract_domain(url)
         if not brand_name:
@@ -65,6 +67,13 @@ class CompetitorAnalyzer:
             logger.error(f"AI SOV analysis failed: {e}")
             sov = {"error": str(e)}
 
+        # 4. Generate Competitive Leaderboard (Planner-Executor-Validator-Refactorer pattern)
+        try:
+            leaderboard = await self._generate_competitive_leaderboard(industry, brand_name, domain, keywords)
+        except Exception as e:
+            logger.error(f"Leaderboard generation failed: {e}")
+            leaderboard = {"error": str(e)}
+
         return {
             "domain": domain,
             "brand_name": brand_name,
@@ -72,7 +81,13 @@ class CompetitorAnalyzer:
             "competitors": competitor_domains,
             "mentions": mentions,
             "ai_sov": sov,
+            "competitive_leaderboard": leaderboard,
         }
+
+    async def _generate_competitive_leaderboard(self, industry: str, brand_name: str, domain: str, keywords: Optional[List[str]] = None) -> Dict[str, Any]:
+        """Produces a competitive leaderboard based on keywords, prompts, or industry."""
+        leaderboard_gen = CompetitiveLeaderboard()
+        return await leaderboard_gen.generate(industry, brand_name, domain, keywords)
 
     # ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -137,17 +152,17 @@ Return ONLY valid JSON (no markdown):
     ) -> List[str]:
         """
         Strategy:
-          1. Try DataForSEO organic competitors (keyword-overlap based)
-          2. If DataForSEO returns nothing → Return empty list (AI fallback disabled by user request)
+          1. AI-First: Ask LLM to find real business competitors (most accurate for agencies).
+          2. Fallback: DataForSEO organic competitors if AI returns nothing.
         """
-        # Step 1: DataForSEO
-        dfs_competitors = await self._discover_via_dataforseo(domain)
-        if dfs_competitors:
-            return dfs_competitors
-
-        # Step 2: AI Fallback — used when DataForSEO returns nothing or only social media
+        # Step 1: AI Discovery (Preferred for understanding business vs keyword competition)
         ai_competitors = await self._discover_via_ai(brand_name, industry, service_type)
-        return ai_competitors
+        if ai_competitors:
+            return ai_competitors
+
+        # Step 2: DataForSEO Fallback
+        dfs_competitors = await self._discover_via_dataforseo(domain)
+        return dfs_competitors
 
     async def _discover_via_dataforseo(self, domain: str) -> List[str]:
         """Calls DataForSEO competitors_domain endpoint."""
@@ -178,15 +193,21 @@ Return ONLY valid JSON (no markdown):
                 return []
             items = result[0].get("items") or []
 
-            # Extract domains, excluding the target domain itself and social/UGC platforms
+            # Extract domains, excluding the target domain itself and social/UGC/TOOL platforms
             domain_root = domain.replace("www.", "")
-            competitors = [
-                item.get("domain") for item in items
-                if item.get("domain")
-                and item.get("domain") != domain
-                and item.get("domain") != domain_root
-                and item.get("domain") not in SOCIAL_MEDIA_BLOCKLIST
-            ]
+            competitors = []
+            for item in items:
+                comp_domain = item.get("domain")
+                if not comp_domain:
+                    continue
+                
+                # Normalize and check blocklist
+                clean_comp = comp_domain.lower().replace("www.", "").rstrip("/")
+                if (comp_domain != domain and 
+                    comp_domain != domain_root and 
+                    clean_comp not in SOCIAL_MEDIA_BLOCKLIST and
+                    comp_domain not in SOCIAL_MEDIA_BLOCKLIST):
+                    competitors.append(comp_domain)
 
             return competitors[:5]
 
@@ -207,15 +228,19 @@ Return ONLY valid JSON (no markdown):
         """
         prompt = f"""You are a market research analyst.
 
-The brand "{brand_name}" operates in the "{industry}" industry, specifically providing "{service_type}".
+The brand "{brand_name}" is a SERVICE-BASED agency/business in the "{industry}" industry, specifically providing "{service_type}".
 
-List the top 5 real, well-known competitor companies in the same space.
+List the top 5 REAL BUSINESS competitors that are also AGENCIES or SERVICE PROVIDERS.
+Do NOT list software tools, SaaS platforms, or SEO utilities (e.g., do NOT list Moz, Semrush, Ahrefs, Yoast, HubSpot).
+We only want other agencies or companies that a client would hire instead of "{brand_name}".
+
 Return ONLY a valid JSON array of their primary website domains (no www, no https):
 ["competitor1.com", "competitor2.com", "competitor3.com", "competitor4.com", "competitor5.com"]
 
 Rules:
+- NO software/SaaS tools (Moz, Semrush, etc. are forbidden)
+- Only direct service-provider competitors
 - Use real, existing companies only
-- Use their primary domain (e.g. "hubspot.com" not "www.hubspot.com")
 - No explanations, just the JSON array"""
 
         try:

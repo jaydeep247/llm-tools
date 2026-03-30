@@ -129,6 +129,7 @@ export const sessionSections: Section[] = [
       { id: 'discover-prompts', label: 'Discover Prompts', icon: Compass },
       { id: 'topic-clusters', label: 'Clusters & Intent', icon: Network },
       { id: 'content-matrix', label: 'Difficulty & Opportunity', icon: Table2 },
+      { id: 'prompt-recommendations', label: 'Recommendations', icon: Lightbulb },
       { id: 'content-brief-builder', label: 'Content Brief Builder', icon: FilePen },
       { id: 'add-to-Tracking', label: 'Add to Tracking', icon: Plus },
     ],

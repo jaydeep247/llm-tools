@@ -1,1017 +1,34 @@
-# """
-# OpenAI Integration Service
-# Provides AI-powered content analysis and understanding
-# SAFE MODE: Returns fallback data if API Quota is exceeded.
-# """
-
-# import os
-# import re
-# import json
-# import math
-# import logging
-# from typing import Dict, List, Optional
-# from datetime import datetime
-# from openai import OpenAI
-# from utils.mongo import mongo_manager
-# from utils.storage import load_raw_html_sync
-
-# try:
-#     from bs4 import BeautifulSoup
-# except Exception:
-#     BeautifulSoup = None
-
-# class OpenAIService:
-#     """Service for OpenAI-powered content analysis"""
-    
-#     def __init__(self):
-#         self.client = None
-#         self.api_key = os.getenv('OPENAI_API_KEY')
-        
-#         if self.api_key:
-#             try:
-#                 self.client = OpenAI(api_key=self.api_key)
-#                 logging.info("OpenAI client initialized successfully")
-#             except Exception as e:
-#                 logging.error(f"Failed to initialize OpenAI client: {str(e)}")
-#                 self.client = None
-#         else:
-#             logging.warning("OPENAI_API_KEY not found in environment variables")
-    
-#     def _is_available(self) -> bool:
-#         """Check if OpenAI service is available"""
-#         return self.client is not None
-    
-#     def analyze_content_understanding(self, content: str, url: str) -> Dict:
-#         """
-#         Analyze if AI can understand the content clearly using GPT-4o (Upgraded)
-#         SAFE MODE: Returns mock data if API fails.
-#         """
-#         # Default Fallback Result (Used if API fails)
-#         fallback_result = {
-#             'score': 50,
-#             'understanding_level': 'Fair (Safe Mode)',
-#             'key_topics': ['Content Analysis (Offline)', 'Safe Mode Active'],
-#             'clarity_score': 70,
-#             'main_issues': ['AI API Quota Exceeded - Running in Safe Mode'],
-#             'recommendations': ['Check OpenAI Billing'],
-#             'ai_feedback': "AI is currently offline due to quota limits. Basic analysis only."
-#         }
-
-#         if not self._is_available():
-#             return fallback_result
-        
-#         try:
-#             # --- ATTEMPT REAL AI CALL ---
-#             # GPT-4o has a huge context window, so we increase the limit significantly
-#             if len(content) > 15000:
-#                 content = content[:15000] + "..."
-            
-#             prompt = f"""You are an AEO (Answer Engine Optimization) Expert. Analyze this content from {url}.
-            
-#             Determine how well an AI Search Engine (like SearchGPT or Perplexity) would understand this page.
-            
-#             Content:
-#             {content}
-            
-#             Return a JSON object with:
-#             - understanding_level: (Poor, Fair, Good, Excellent)
-#             - key_topics: [List of top 3 entities/topics]
-#             - clarity_score: (0-100)
-#             - main_issues: [List of structural or clarity issues]
-#             - recommendations: [Specific actionable fixes for AEO]
-#             """
-            
-#             response = self.client.chat.completions.create(
-#                 model="gpt-4o",  # ✅ Using GPT-4o for best AEO analysis
-#                 messages=[
-#                     {"role": "system", "content": "You are an expert AI Search Analyst. Output JSON only."},
-#                     {"role": "user", "content": prompt}
-#                 ],
-#                 response_format={"type": "json_object"},
-#                 temperature=0.3
-#             )
-            
-#             # Parse JSON response
-#             response_content = response.choices[0].message.content.strip()
-#             result = json.loads(response_content)
-            
-#             # Calculate score based on understanding level
-#             scores = {'Poor': 25, 'Fair': 50, 'Good': 75, 'Excellent': 95}
-#             score = scores.get(result.get('understanding_level', 'Fair'), 50)
-            
-#             return {
-#                 'score': score,
-#                 'understanding_level': result.get('understanding_level', 'Unknown'),
-#                 'key_topics': result.get('key_topics', []),
-#                 'clarity_score': result.get('clarity_score', 0),
-#                 'main_issues': result.get('main_issues', []),
-#                 'recommendations': result.get('recommendations', []),
-#                 'ai_feedback': "Analyzed by GPT-4o"
-#             }
-            
-#         except Exception as e:
-#             logging.error(f"OpenAI analysis failed (Swapping to Safe Mode): {str(e)}")
-#             # RETURN FALLBACK INSTEAD OF CRASHING
-#             return fallback_result
-
-#     # --- NEW METHOD START: Schema Generation ---
-#     def generate_schema(self, content: str, url: str, schema_type: str = 'auto') -> Dict:
-#         """Generate JSON-LD Schema (Safe Mode)"""
-#         if not self._is_available():
-#             return {'success': False, 'error': 'OpenAI key missing'}
-
-#         try:
-#             if len(content) > 10000: content = content[:10000]
-
-#             prompt = f"""Generate valid JSON-LD schema for this content. 
-#             URL: {url}
-#             Type preference: {schema_type}
-            
-#             Return ONLY the JSON object.
-#             """
-
-#             response = self.client.chat.completions.create(
-#                 model="gpt-4o",
-#                 messages=[
-#                     {"role": "system", "content": "You are a Schema.org expert. Output strictly valid JSON-LD."},
-#                     {"role": "user", "content": prompt + "\n\nContent:\n" + content}
-#                 ],
-#                 response_format={"type": "json_object"}
-#             )
-            
-#             schema = json.loads(response.choices[0].message.content)
-#             return {'success': True, 'schema': schema}
-            
-#         except Exception as e:
-#             logging.error(f"Schema generation failed: {str(e)}")
-#             return {'success': False, 'error': f"Quota Exceeded (Safe Mode): {str(e)}"}
-#     # --- NEW METHOD END ---
-
-#     # --- EXISTING DEVELOPER CODE PRESERVED BELOW (Unchanged Logic, Added Safety) ---
-    
-#     def analyze_tone_and_sentiment(self, content: str) -> Dict:
-#         """
-#         Analyze content tone and sentiment using OpenAI
-#         SAFE MODE: Returns mock data on failure.
-#         """
-#         # Default Fallback
-#         fallback_result = {
-#             'score': 50,
-#             'tone': 'Neutral (Safe Mode)',
-#             'sentiment': 'Neutral',
-#             'confidence': 0,
-#             'emotional_indicators': [],
-#             'recommendations': ['Check OpenAI Billing'],
-#             'ai_feedback': "Service Unavailable (Quota Exceeded)"
-#         }
-
-#         if not self._is_available():
-#             return fallback_result
-        
-#         try:
-#             # Truncate content to reduce costs
-#             max_content_length = 1500
-#             if len(content) > max_content_length:
-#                 content = content[:max_content_length] + "..."
-            
-#             # Shorter prompt to reduce costs
-#             prompt = f"""Analyze tone and sentiment: {content}
-
-# Provide tone, sentiment, confidence (0-100), emotional indicators, and recommendations.
-
-# JSON:
-# {{
-#     "tone": "string",
-#     "sentiment": "string", 
-#     "confidence": number,
-#     "emotional_indicators": ["indicator1", "indicator2"],
-#     "recommendations": ["rec1", "rec2"]
-# }}"""
-            
-#             response = self.client.chat.completions.create(
-#                 model="gpt-3.5-turbo",
-#                 messages=[
-#                     {"role": "system", "content": "Tone and sentiment analyst. JSON only."},
-#                     {"role": "user", "content": prompt}
-#                 ],
-#                 response_format={"type": "json_object"},
-#                 max_completion_tokens=300,
-#                 temperature=0.3
-#             )
-            
-#             response_content = response.choices[0].message.content.strip()
-#             logging.debug(f"OpenAI tone analysis response: {response_content[:200]}...")
-#             result = json.loads(response_content)
-            
-#             # Calculate score based on sentiment and tone appropriateness
-#             sentiment_scores = {'Positive': 80, 'Neutral': 60, 'Negative': 20}
-#             tone_scores = {'Professional': 90, 'Academic': 85, 'Technical': 80, 'Friendly': 75, 'Casual': 60}
-            
-#             sentiment_score = sentiment_scores.get(result.get('sentiment', 'Neutral'), 60)
-#             tone_score = tone_scores.get(result.get('tone', 'Casual'), 50)
-            
-#             # Average the scores
-#             score = (sentiment_score + tone_score) // 2
-            
-#             return {
-#                 'score': score,
-#                 'tone': result.get('tone', 'Unknown'),
-#                 'sentiment': result.get('sentiment', 'Neutral'),
-#                 'confidence': result.get('confidence', 0),
-#                 'emotional_indicators': result.get('emotional_indicators', []),
-#                 'recommendations': result.get('recommendations', []),
-#                 'ai_feedback': response.choices[0].message.content
-#             }
-            
-#         except Exception as e:
-#             logging.error(f"OpenAI tone analysis failed (Swapping to Safe Mode): {str(e)}")
-#             return fallback_result
-    
-#     def analyze_answerability(self, content: str, questions: List[str] = None) -> Dict:
-#         """
-#         Analyze content answerability using AI feedback
-#         SAFE MODE: Returns mock data on failure.
-#         """
-#         # Default Fallback
-#         fallback_result = {
-#             'score': 50,
-#             'ai_answerability_score': 50,
-#             'answered_questions': [],
-#             'unanswered_questions': [],
-#             'clarity_issues': ['Quota Exceeded'],
-#             'recommendations': ['Check OpenAI Billing'],
-#             'gpt_feedback': 'Service Unavailable'
-#         }
-
-#         if not self._is_available():
-#             return fallback_result
-        
-#         try:
-#             # Truncate content to reduce costs
-#             max_content_length = 1500
-#             if len(content) > max_content_length:
-#                 content = content[:max_content_length] + "..."
-            
-#             # Generate questions if not provided
-#             if not questions:
-#                 questions = [
-#                     "What is the main topic?",
-#                     "What problem does this solve?",
-#                     "What are the key benefits?",
-#                     "What action should be taken?"
-#                 ]
-            
-#             # Shorter prompt to reduce costs
-#             prompt = f"""Analyze answerability: {content}
-
-# Questions: {', '.join(questions)}
-
-# Rate how well content answers questions (0-100), what's answered clearly, what's unclear, and recommendations.
-
-# JSON:
-# {{
-#     "ai_answerability_score": number,
-#     "answered_questions": ["q1", "q2"],
-#     "unanswered_questions": ["q1", "q2"],
-#     "clarity_issues": ["issue1", "issue2"],
-#     "recommendations": ["rec1", "rec2"]
-# }}"""
-            
-#             response = self.client.chat.completions.create(
-#                 model="gpt-3.5-turbo",
-#                 messages=[
-#                     {"role": "system", "content": "Answerability analyst. JSON only."},
-#                     {"role": "user", "content": prompt}
-#                 ],
-#                 response_format={"type": "json_object"},
-#                 max_completion_tokens=400,
-#                 temperature=0.3
-#             )
-            
-#             response_content = response.choices[0].message.content.strip()
-#             logging.debug(f"OpenAI answerability response: {response_content[:200]}...")
-#             result = json.loads(response_content)
-            
-#             return {
-#                 'score': result.get('ai_answerability_score', 0),
-#                 'ai_answerability_score': result.get('ai_answerability_score', 0),
-#                 'answered_questions': result.get('answered_questions', []),
-#                 'unanswered_questions': result.get('unanswered_questions', []),
-#                 'clarity_issues': result.get('clarity_issues', []),
-#                 'recommendations': result.get('recommendations', []),
-#                 'gpt_feedback': response.choices[0].message.content
-#             }
-            
-#         except Exception as e:
-#             logging.error(f"OpenAI answerability analysis failed (Swapping to Safe Mode): {str(e)}")
-#             return fallback_result
-    
-#     def generate_content_summary(self, content: str, max_length: int = 200) -> str:
-#         """
-#         Generate AI-powered content summary
-#         SAFE MODE: Returns simple string on failure.
-#         """
-#         if not self._is_available():
-#             return "OpenAI service not available for summarization"
-        
-#         try:
-#             # Truncate content to reduce costs
-#             max_content_length = 1000
-#             if len(content) > max_content_length:
-#                 content = content[:max_content_length] + "..."
-            
-#             # Shorter prompt to reduce costs
-#             prompt = f"""Summarize in {max_length} chars: {content}"""
-            
-#             response = self.client.chat.completions.create(
-#                 model="gpt-3.5-turbo",
-#                 messages=[
-#                     {"role": "system", "content": "Concise summarizer."},
-#                     {"role": "user", "content": prompt}
-#                 ],
-#                 max_completion_tokens=200,
-#                 temperature=0.3
-#             )
-            
-#             return response.choices[0].message.content.strip()
-            
-#         except Exception as e:
-#             logging.error(f"OpenAI summarization failed: {str(e)}")
-#             return "Summary unavailable (Quota Exceeded)"
-    
-#     def get_metric_help(self) -> Dict:
-#         """
-#         Static help text for metrics used across Prompt Intelligence and Tracking.
-#         Contains 'meaning' and 'improve' guidance for each metric so frontend can
-#         render tooltips consistently.
-#         """
-#         return {
-#             "discover_prompts": {
-#                 "content_type_accuracy": {
-#                     "meaning": "How clearly the page signals its type (blog, product, FAQ, landing). Higher means layout, headings and cues make the type obvious.",
-#                     "improve": "Tighten page structure: clear H1, sequential headings, consistent sectioning; add schema for the page type; keep CTAs and meta elements aligned to the type."
-#                 },
-#                 "prompt_intent_match": {
-#                     "meaning": "How well the page answers the dominant user intent (informational, commercial, comparative, transactional, agent-style).",
-#                     "improve": "Map content to the right journey stage. Add direct answers, comparisons or purchase paths. Use headings that echo the core questions users ask."
-#                 },
-#                 "visibility_impact": {
-#                     "meaning": "Potential of the page to be surfaced by AI/search based on relevance, depth, freshness and authority signals.",
-#                     "improve": "Increase topical depth, add supporting facts/entities, refresh content, strengthen internal links, add structured data and credible references."
-#                 },
-#                 "suggested_content_type": {
-#                     "meaning": "Predicted page type inferred from structure and cues.",
-#                     "improve": "Align layout and microcopy to the suggested type or refactor to the intended type with matching schema and UX patterns."
-#                 }
-#             },
-#             "clusters_and_intent": {
-#                 "clustering_accuracy": {
-#                     "meaning": "Confidence that prompts were assigned to the correct intent buckets.",
-#                     "improve": "Make intent cues explicit: question-style headings for informational, pricing/specs for commercial, comparison tables for comparative, clear CTAs for transactional."
-#                 },
-#                 "coverage_percentage": {
-#                     "meaning": "Percent of considered prompts that could be confidently mapped to one of the five intents.",
-#                     "improve": "Add sections that address missing intents. If many prompts are uncategorized, clarify the page focus and reduce mixed content."
-#                 },
-#                 "total_prompts": {
-#                     "meaning": "Total number of candidate prompts inferred for the page.",
-#                     "improve": "Expand topic coverage with FAQs, comparisons and how‑to sections to naturally capture more relevant prompts."
-#                 },
-#                 "intent_meanings": {
-#                     "informational": "Users seek knowledge or answers. Expect questions and how‑to content.",
-#                     "commercial": "Users research solutions, features and suitability. Expect specs, pricing ranges and benefits.",
-#                     "comparative": "Users compare options. Expect side‑by‑side tables, pros/cons and differentiators.",
-#                     "transactional": "Users want to take action. Expect CTAs, checkout/signup and trust signals.",
-#                     "agent_style": "Assistant/chat style interactions where short, direct responses and structured facts matter."
-#                 }
-#             },
-#             "difficulty_and_opportunity": {
-#                 "difficulty_score": {
-#                     "meaning": "How hard it is to win the prompt given current content strength and competition signals.",
-#                     "improve": "Target sub‑prompts with clearer angles; strengthen page authority through internal links, entities and references; increase answer density."
-#                 },
-#                 "complexity_level": {
-#                     "meaning": "Keyword/prompt complexity based on diversity and phrase length.",
-#                     "improve": "Break complex prompts into structured sections. Use scannable headings and tables to simplify evaluation."
-#                 },
-#                 "ai_generation_feasibility": {
-#                     "meaning": "Likelihood that models can produce confident answers from this page.",
-#                     "improve": "Add explicit facts, definitions, step‑by‑steps and schema so models can extract reliable snippets."
-#                 }
-#             },
-#             "entity_detection": {
-#                 "entities_detected_count": {
-#                     "meaning": "How many expected/required entities were found in the content. Higher means the page mentions more of the important concepts that search engines and AI systems use for understanding.",
-#                     "improve": "Add missing entities naturally in headings, definitions, lists and FAQs. Use synonyms and related terms, and connect entities with clear relationships (e.g., features, benefits, steps, comparisons)."
-#                 },
-#                 "entity_coverage_score": {
-#                     "meaning": "Percent of the required entity set that appears in the content. A higher score indicates broader topical coverage around the page's main subject.",
-#                     "improve": "Review missing entities and add dedicated sections that explain them. Include supporting facts, examples, and internal links to strengthen topical completeness."
-#                 },
-#                 "entity_relevance_score": {
-#                     "meaning": "How closely the entities found on the page align with the likely search intent and queries. Higher means the page entities are on-topic and reinforce the core topic.",
-#                     "improve": "Remove or de-emphasize off-topic entities, tighten the page focus, and expand sections that directly answer the main user questions. Align headings and examples to the target intent."
-#                 }
-#             },
-#             "visibility_breakdown": {
-#                 "visibility_score_breakdown": {
-#                     "meaning": "Component scores that contribute to overall visibility. Each factor highlights a different reason the page may (or may not) be surfaced by search and AI systems.",
-#                     "improve": "Improve the lowest factor first. Strengthen topical alignment (keywords), depth (coverage), freshness (updates), and authority (sources and trust signals)."
-#                 },
-#                 "keyword_relevance": {
-#                     "meaning": "How well the page language aligns with target queries and topic terms. Higher means the content uses the right words in the right places for the intended searches.",
-#                     "improve": "Strengthen topical terms in the H1/H2s, intro, and key sections. Add related phrases and questions users ask, without keyword stuffing."
-#                 },
-#                 "content_depth": {
-#                     "meaning": "How thoroughly the page covers the topic compared to what users expect. Higher means the content answers more questions with enough detail.",
-#                     "improve": "Add missing subtopics, step-by-step explanations, examples, and comparison tables. Expand thin sections and ensure the page has a clear, scannable structure."
-#                 },
-#                 "freshness": {
-#                     "meaning": "How up-to-date the information appears. Higher means the content reflects recent changes and current best practices.",
-#                     "improve": "Update outdated stats, tools, and recommendations. Add a visible 'last updated' and refresh sections that change over time (pricing, features, regulations)."
-#                 },
-#                 "authority_signals": {
-#                     "meaning": "How credible and trustworthy the page looks based on sources, expertise, and supporting signals. Higher means stronger E-E-A-T cues.",
-#                     "improve": "Add expert authorship, citations to reputable sources, original data/examples, strong internal linking, and trust elements like policies, reviews, and credentials."
-#                 }
-#             },
-#             "add_to_tracking": {
-#                 "prompt_visibility_score": {
-#                     "meaning": "Estimated visibility of the prompt in AI results (0–100). Combines position and page quality.",
-#                     "improve": "Improve ranking signals: clearer intent match, richer entities, stronger internal links and citations."
-#                 },
-#                 "ctr_percent": {
-#                     "meaning": "Estimated click‑through rate for the prompt given visibility and engagement.",
-#                     "improve": "Increase snippet appeal: concise answers up top, compelling meta/snippet text and relevant sub‑sections."
-#                 },
-#                 "engagement_score": {
-#                     "meaning": "Estimated engagement quality based on content depth and credibility.",
-#                     "improve": "Add expert signals, examples, data and clear structure to keep users engaged."
-#                 },
-#                 "traffic_estimate": {
-#                     "meaning": "Relative traffic potential derived from visibility, engagement and citation counts.",
-#                     "improve": "Prioritize prompts with high intent and improve entry points (internal links, hub pages) to funnel traffic."
-#                 },
-#                 "visibility_change": {
-#                     "meaning": "Change in visibility since previous measurement.",
-#                     "improve": "Track edits vs change. Double‑down on edits that moved the metric; revert or refine ones that hurt."
-#                 }
-#             }
-#         }
-    
-#     def analyze_content_metrics(self, content: str, url: str) -> Dict:
-#         """
-#         Analyze three key metrics + prompt intent clustering:
-#         1. Accuracy of content type suggestion
-#         2. Match with prompt intent
-#         3. Potential impact on visibility
-#         4. Prompt clusters across intent types (informational, commercial, comparative, transactional, agent-style)
-        
-#         Returns comprehensive metrics for AEO optimization, including:
-#         - High-level scores (content_type_accuracy, prompt_intent_match, visibility_impact)
-#         - Prompt intent details with:
-#           - matched_intents
-#           - confidence
-#           - search_queries
-#           - intent_clusters (per-intent counts and examples)
-#           - cluster_metrics (accuracy, coverage, totals)
-#         """
-#         fallback_result = {
-#             'content_type_accuracy': 50,
-#             'prompt_intent_match': 50,
-#             'visibility_impact': 50,
-#             'suggested_content_type': 'Unknown (Safe Mode)',
-#             'prompt_intent_details': {
-#                 'matched_intents': [],
-#                 'confidence': 0,
-#                 'search_queries': [],
-#                 'intent_clusters': {
-#                     'informational': {'prompt_count': 0, 'example_prompts': []},
-#                     'commercial': {'prompt_count': 0, 'example_prompts': []},
-#                     'comparative': {'prompt_count': 0, 'example_prompts': []},
-#                     'transactional': {'prompt_count': 0, 'example_prompts': []},
-#                     'agent_style': {'prompt_count': 0, 'example_prompts': []},
-#                 },
-#                 'cluster_metrics': {
-#                     'total_prompts': 0,
-#                     'categorized_prompts': 0,
-#                     'coverage_percentage': 0.0,
-#                     'clustering_accuracy': 0.0,
-#                 },
-#             },
-#             'visibility_factors': {
-#                 'factors': ['Service Unavailable'],
-#                 'score_breakdown': {},
-#                 'recommendations': ['Check OpenAI Billing']
-#             }
-#         }
-
-#         if not self._is_available():
-#             return fallback_result
-        
-#         try:
-#             # Truncate content for cost efficiency
-#             if len(content) > 12000:
-#                 content = content[:12000] + "..."
-            
-#             prompt = f"""You are an AEO (Answer Engine Optimization) Expert. Analyze this content from {url}.
-
-# Content:
-# {content}
-
-# Analyze and return a JSON object with:
-
-# 1. **Content Type Accuracy** (0-100): How accurately can you identify the content type?
-#    - Analyze: blog post, product page, FAQ, landing page, article, tutorial, documentation, etc.
-#    - Consider: structure, formatting, headings, call-to-actions, metadata
-#    - Score: 0-100 based on how clear/obvious the content type is
-
-# 2. **Prompt Intent Match** (0-100): How well does this content match user search intent?
-#    - Primary intent types to consider:
-#      - informational
-#      - commercial (commercial investigation, product/service research)
-#      - comparative (comparing options or alternatives)
-#      - transactional (purchase or action-focused)
-#      - agent_style (chatbot/assistant style queries or interactions)
-#    - Consider: question patterns, keyword alignment, user journey stage
-#    - Score: 0-100 based on how well content satisfies likely search queries
-
-# 3. **Visibility Impact** (0-100): Potential impact on search visibility/ranking
-#    - Factors: keyword relevance, content depth, freshness, authority signals, schema markup potential
-#    - Consider: uniqueness, comprehensiveness, E-A-T signals, technical SEO
-#    - Score: 0-100 based on potential to rank and gain visibility
-
-# 4. **Prompt Intent Clusters**: Examine the implicit and explicit prompts/queries a user might ask that this content answers.
-#    - Cluster those prompts into the 5 intent types above.
-#    - For each cluster, estimate:
-#        - prompt_count: how many prompts you would assign to this cluster
-#        - example_prompts: list of 1-3 example natural-language prompts typical for this intent on this page
-#    - Also calculate:
-#        - total_prompts: total prompts you considered across all clusters
-#        - categorized_prompts: how many of those prompts you could confidently assign to one of the 5 clusters
-#        - coverage_percentage: (categorized_prompts / max(total_prompts,1)) * 100, rounded to 1 decimal place
-#        - clustering_accuracy: your estimated accuracy (0-1 range) of the clustering you produced
-
-# Return JSON:
-# {{
-#     "content_type_accuracy": number,
-#     "suggested_content_type": "string (e.g., 'blog', 'product', 'faq', 'landing_page')",
-#     "prompt_intent_match": number,
-#     "prompt_intent_details": {{
-#         "matched_intents": ["informational", "transactional", "commercial", "comparative", "agent_style"],
-#         "confidence": number (0-100),
-#         "search_queries": ["example query 1", "example query 2"],
-#         "intent_clusters": {{
-#             "informational": {{"prompt_count": number, "example_prompts": ["prompt1", "prompt2"]}},
-#             "commercial": {{"prompt_count": number, "example_prompts": ["prompt1", "prompt2"]}},
-#             "comparative": {{"prompt_count": number, "example_prompts": ["prompt1", "prompt2"]}},
-#             "transactional": {{"prompt_count": number, "example_prompts": ["prompt1", "prompt2"]}},
-#             "agent_style": {{"prompt_count": number, "example_prompts": ["prompt1", "prompt2"]}}
-#         }},
-#         "cluster_metrics": {{
-#             "total_prompts": number,
-#             "categorized_prompts": number,
-#             "coverage_percentage": number,
-#             "clustering_accuracy": number
-#         }}
-#     }},
-#     "visibility_impact": number,
-#     "visibility_factors": {{
-#         "factors": ["factor1", "factor2"],
-#         "score_breakdown": {{
-#             "keyword_relevance": number,
-#             "content_depth": number,
-#             "freshness": number,
-#             "authority_signals": number
-#         }},
-#         "recommendations": ["rec1", "rec2"]
-#     }}
-# }}"""
-
-#             response = self.client.chat.completions.create(
-#                 model="gpt-4o",
-#                 messages=[
-#                     {"role": "system", "content": "You are an expert AEO analyst. Output JSON only with accurate metrics."},
-#                     {"role": "user", "content": prompt}
-#                 ],
-#                 response_format={"type": "json_object"},
-#                 temperature=0.3
-#             )
-            
-#             response_content = response.choices[0].message.content.strip()
-#             result = json.loads(response_content)
-            
-#             prompt_intent_details = result.get('prompt_intent_details', {}) or {}
-
-#             # Ensure nested structures exist so frontend can safely rely on them
-#             intent_clusters = prompt_intent_details.get('intent_clusters') or {
-#                 'informational': {'prompt_count': 0, 'example_prompts': []},
-#                 'commercial': {'prompt_count': 0, 'example_prompts': []},
-#                 'comparative': {'prompt_count': 0, 'example_prompts': []},
-#                 'transactional': {'prompt_count': 0, 'example_prompts': []},
-#                 'agent_style': {'prompt_count': 0, 'example_prompts': []},
-#             }
-#             cluster_metrics = prompt_intent_details.get('cluster_metrics') or {
-#                 'total_prompts': 0,
-#                 'categorized_prompts': 0,
-#                 'coverage_percentage': 0.0,
-#                 'clustering_accuracy': 0.0,
-#             }
-
-#             # Backfill into prompt_intent_details object
-#             prompt_intent_details.setdefault('matched_intents', [])
-#             prompt_intent_details.setdefault('confidence', 0)
-#             prompt_intent_details.setdefault('search_queries', [])
-#             prompt_intent_details['intent_clusters'] = intent_clusters
-#             prompt_intent_details['cluster_metrics'] = cluster_metrics
-
-#             visibility_factors = result.get('visibility_factors', {}) or {}
-#             visibility_factors.setdefault('factors', [])
-#             visibility_factors.setdefault('score_breakdown', {})
-#             visibility_factors.setdefault('recommendations', [])
-
-#             return {
-#                 'content_type_accuracy': result.get('content_type_accuracy', 50),
-#                 'prompt_intent_match': result.get('prompt_intent_match', 50),
-#                 'visibility_impact': result.get('visibility_impact', 50),
-#                 'suggested_content_type': result.get('suggested_content_type', 'Unknown'),
-#                 'prompt_intent_details': prompt_intent_details,
-#                 'visibility_factors': visibility_factors,
-#                 'metric_help': {
-#                     **self.get_metric_help().get("discover_prompts", {}),
-#                     **self.get_metric_help().get("clusters_and_intent", {}),
-#                     **self.get_metric_help().get("entity_detection", {}),
-#                     **self.get_metric_help().get("visibility_breakdown", {}),
-#                 },
-#             }
-            
-#         except Exception as e:
-#             logging.error(f"Content metrics analysis failed (Safe Mode): {str(e)}")
-#             return fallback_result
-    
-#     def analyze_entity_relevance(self, content: str, url: str, found_entities: list, expected_entities: list) -> Dict:
-#         """
-#         Analyze how relevant the found entities are to the user's search intent/prompt.
-#         Returns relevance score (0-100) based on how well entities match search intent.
-#         """
-#         fallback_result = {
-#             'entity_relevance_score': 50,
-#             'relevance_explanation': 'Analysis unavailable',
-#             'relevant_entities': [],
-#             'irrelevant_entities': []
-#         }
-        
-#         if not self._is_available():
-#             return fallback_result
-        
-#         try:
-#             if len(content) > 10000:
-#                 content = content[:10000] + "..."
-            
-#             # Prepare entity lists
-#             found_str = ", ".join(found_entities[:20]) if found_entities else "None"
-#             expected_str = ", ".join(expected_entities[:20]) if expected_entities else "None"
-            
-#             prompt = f"""You are an AEO (Answer Engine Optimization) Expert. Analyze entity relevance for content from {url}.
-
-# Content Preview:
-# {content}
-
-# Found Entities: {found_str}
-# Expected Entities: {expected_str}
-
-# Analyze how RELEVANT the found entities are to typical user search queries and search intent for this content.
-
-# Return JSON:
-# {{
-#     "entity_relevance_score": number (0-100),
-#     "relevance_explanation": "string explaining relevance",
-#     "relevant_entities": ["list of entities highly relevant to search intent"],
-#     "irrelevant_entities": ["list of entities that don't match search intent well"]
-# }}
-
-# Scoring Guide:
-# - 80-100: Entities perfectly match search intent and user queries
-# - 60-79: Most entities are relevant, some minor gaps
-# - 40-59: Mixed relevance, some entities don't match intent
-# - 0-39: Entities poorly match search intent"""
-            
-#             response = self.client.chat.completions.create(
-#                 model="gpt-4o",
-#                 messages=[
-#                     {"role": "system", "content": "You are an expert AEO analyst. Output JSON only."},
-#                     {"role": "user", "content": prompt}
-#                 ],
-#                 response_format={"type": "json_object"},
-#                 temperature=0.3
-#             )
-            
-#             response_content = response.choices[0].message.content.strip()
-#             result = json.loads(response_content)
-            
-#             return {
-#                 'entity_relevance_score': result.get('entity_relevance_score', 50),
-#                 'relevance_explanation': result.get('relevance_explanation', ''),
-#                 'relevant_entities': result.get('relevant_entities', []),
-#                 'irrelevant_entities': result.get('irrelevant_entities', [])
-#             }
-            
-#         except Exception as e:
-#             logging.error(f"Entity relevance analysis failed: {str(e)}")
-#             return fallback_result
-
-#     def calculate_prompt_tracking_metrics(self, job_id: str, url: str, prompts: List[str]) -> Dict:
-#         mongo_manager.connect()
-
-#         cleaned_prompts = []
-#         for p in prompts or []:
-#             if isinstance(p, str):
-#                 s = p.strip()
-#                 if s:
-#                     cleaned_prompts.append(s)
-
-#         prompt_tracking_col = mongo_manager.db.prompt_tracking
-#         existing = prompt_tracking_col.find_one({"jobId": job_id}) or {}
-
-#         existing_tracked = existing.get("tracked_prompts") or []
-#         tracked_prompts = sorted(set([p for p in existing_tracked if isinstance(p, str) and p.strip()] + cleaned_prompts))
-
-#         content_doc = mongo_manager.content_metrics.find_one({"jobId": job_id, "url": url}) or {}
-#         content_metrics = content_doc.get("content_metrics") or {}
-#         prompt_intent_details = content_metrics.get("prompt_intent_details") or {}
-#         linked_queries = prompt_intent_details.get("search_queries") or []
-#         if not isinstance(linked_queries, list):
-#             linked_queries = []
-#         linked_queries = [q for q in linked_queries if isinstance(q, str) and q.strip()]
-
-#         module_e_doc = mongo_manager.module_e.find_one({"jobId": job_id}) or {}
-#         ranking_analysis = module_e_doc.get("ranking_analysis") or {}
-#         ranking_rows = ranking_analysis.get("ranking_position_per_prompt") or []
-#         if not isinstance(ranking_rows, list):
-#             ranking_rows = []
-
-#         raw_html = ""
-#         try:
-#             raw_html = load_raw_html_sync(job_id) or ""
-#         except Exception:
-#             raw_html = ""
-
-#         visible_text = ""
-#         heading_text = ""
-#         if raw_html and BeautifulSoup is not None:
-#             try:
-#                 soup = BeautifulSoup(raw_html, "html.parser")
-#                 for tag in soup(["script", "style", "nav", "footer", "header"]):
-#                     tag.decompose()
-#                 title_text = ""
-#                 try:
-#                     title_text = soup.title.get_text(" ", strip=True) if soup.title else ""
-#                 except Exception:
-#                     title_text = ""
-#                 try:
-#                     h_nodes = soup.find_all(["h1", "h2"], limit=8)
-#                     heading_text = " ".join([h.get_text(" ", strip=True) for h in h_nodes if h])
-#                 except Exception:
-#                     heading_text = ""
-#                 visible_text = soup.get_text(separator=" ", strip=True)
-#                 visible_text = " ".join((visible_text or "").split())
-#             except Exception:
-#                 visible_text = ""
-#                 heading_text = ""
-
-#         page_prompt_intent_match = content_metrics.get("prompt_intent_match")
-#         page_visibility_impact = content_metrics.get("visibility_impact")
-#         page_scores: List[float] = []
-#         if isinstance(page_prompt_intent_match, (int, float)):
-#             page_scores.append(float(page_prompt_intent_match))
-#         if isinstance(page_visibility_impact, (int, float)):
-#             page_scores.append(float(page_visibility_impact))
-#         page_quality_score = round(sum(page_scores) / len(page_scores), 2) if page_scores else 50.0
-
-#         stopwords = {
-#             "a", "an", "the", "and", "or", "to", "of", "in", "on", "for", "with", "at", "by", "from", "as",
-#             "is", "are", "was", "were", "be", "been", "being", "it", "this", "that", "these", "those",
-#             "i", "you", "we", "they", "he", "she", "them", "us", "our", "your", "my", "me",
-#             "what", "how", "why", "when", "where", "who", "which",
-#             "best", "top", "near", "vs", "versus",
-#         }
-
-#         def tokenize(text: str) -> List[str]:
-#             toks = re.findall(r"[a-z0-9]+", (text or "").lower())
-#             return [t for t in toks if len(t) > 2 and t not in stopwords]
-
-#         content_token_list = tokenize(visible_text[:30000]) if visible_text else []
-#         content_tokens = set(content_token_list) if content_token_list else set()
-#         heading_tokens = set(tokenize(heading_text)) if heading_text else set()
-#         query_tokens = [set(tokenize(q)) for q in linked_queries[:50]]
-
-#         def similarity_to_queries(prompt_tokens: set) -> float:
-#             if not prompt_tokens:
-#                 return 0.0
-#             best = 0.0
-#             for qt in query_tokens:
-#                 if not qt:
-#                     continue
-#                 inter = len(prompt_tokens.intersection(qt))
-#                 score = inter / max(len(prompt_tokens), 1)
-#                 if score > best:
-#                     best = score
-#             return best
-
-#         content_counts: Dict[str, int] = {}
-#         for t in content_token_list:
-#             content_counts[t] = content_counts.get(t, 0) + 1
-#         total_terms = len(content_token_list)
-#         max_idf = (math.log(total_terms + 1) + 1.0) if total_terms > 0 else 1.0
-
-#         def idf_norm(tf: int) -> float:
-#             return (math.log((total_terms + 1) / (tf + 1)) + 1.0) / max_idf if max_idf > 0 else 0.0
-
-#         def content_relevance(prompt_tokens: List[str]) -> float:
-#             toks = sorted(set(prompt_tokens))
-#             if not toks:
-#                 return 0.0
-#             denom = float(len(toks))
-#             tf_cap = 8
-#             strength_den = math.log(1 + tf_cap)
-#             s = 0.0
-#             for tok in toks:
-#                 tf = content_counts.get(tok, 0)
-#                 if tf <= 0:
-#                     continue
-#                 strength = math.log(1 + tf) / strength_den if strength_den > 0 else 0.0
-#                 if strength > 1.0:
-#                     strength = 1.0
-#                 s += idf_norm(tf) * strength
-#             return s / denom
-
-#         def clamp(n: float, lo: float, hi: float) -> float:
-#             return max(lo, min(hi, n))
-
-#         def position_to_visibility(position: Optional[float]) -> float:
-#             if position is None:
-#                 return 0.0
-#             try:
-#                 p = int(position)
-#             except Exception:
-#                 return 0.0
-#             if p <= 0 or p > 10:
-#                 return 0.0
-#             return round(((11 - p) / 10) * 100, 2)
-
-#         history = existing.get("history") or {}
-#         if not isinstance(history, dict):
-#             history = {}
-
-#         now = datetime.utcnow().isoformat()
-#         metrics: List[Dict] = []
-
-#         for prompt in tracked_prompts:
-#             rows = [r for r in ranking_rows if isinstance(r, dict) and (r.get("prompt") or "") == prompt]
-
-#             model_ranking: Dict[str, Optional[int]] = {}
-#             visibility_components: List[float] = []
-#             engagement_components: List[float] = []
-#             traffic_components: List[float] = []
-
-#             for r in rows:
-#                 model = r.get("model")
-#                 if isinstance(model, str) and model:
-#                     pos = r.get("position")
-#                     model_ranking[model] = int(pos) if isinstance(pos, (int, float)) else None
-#                 visibility_components.append(position_to_visibility(r.get("position")))
-
-#                 cq = r.get("content_quality_score")
-#                 cr = r.get("credibility_score")
-#                 vals: List[float] = []
-#                 if isinstance(cq, (int, float)):
-#                     vals.append(float(cq))
-#                 if isinstance(cr, (int, float)):
-#                     vals.append(float(cr))
-#                 if vals:
-#                     engagement_components.append(sum(vals) / len(vals))
-
-#                 total_cited = r.get("total_cited")
-#                 citation_count = r.get("citation_count")
-#                 if isinstance(citation_count, (int, float)):
-#                     traffic_components.append(float(citation_count))
-#                 elif isinstance(total_cited, (int, float)):
-#                     traffic_components.append(float(total_cited))
-
-#             prompt_visibility_score = (
-#                 round(sum(visibility_components) / len(visibility_components), 2) if visibility_components else 0.0
-#             )
-#             engagement_score = (
-#                 round(sum(engagement_components) / len(engagement_components), 2) if engagement_components else page_quality_score
-#             )
-#             traffic_estimate = (
-#                 round(sum(traffic_components) / len(traffic_components), 2) if traffic_components else 0.0
-#             )
-#             ctr_percent = round((prompt_visibility_score / 100) * (engagement_score / 100) * 25, 2)
-
-#             if not rows:
-#                 ptok_list = tokenize(prompt)
-#                 ptok_set = set(ptok_list)
-#                 qsim = similarity_to_queries(ptok_set)
-#                 csim = content_relevance(ptok_list)
-#                 hsim = (len(ptok_set.intersection(heading_tokens)) / max(len(ptok_set), 1)) if heading_tokens and ptok_set else 0.0
-
-#                 phrase_bonus = 0.0
-#                 if visible_text and prompt and len(prompt.split()) >= 2:
-#                     try:
-#                         phrase_bonus = 0.15 if prompt.lower() in visible_text.lower() else 0.0
-#                     except Exception:
-#                         phrase_bonus = 0.0
-
-#                 relevance = clamp((0.6 * csim) + (0.25 * qsim) + (0.15 * hsim) + phrase_bonus, 0, 1)
-#                 if len(ptok_set) == 1:
-#                     single = next(iter(ptok_set), "")
-#                     tf = content_counts.get(single, 0)
-#                     if tf > 0 and idf_norm(tf) < 0.18:
-#                         relevance = min(relevance, 0.35)
-#                     relevance *= 0.75
-
-#                 prompt_visibility_score = round(clamp(10 + 90 * relevance * (0.55 + (page_quality_score / 220)), 0, 100), 2)
-#                 engagement_score = round(clamp(30 + 70 * ((page_quality_score / 100) * 0.6 + relevance * 0.4), 0, 100), 2)
-#                 traffic_estimate = round(clamp((prompt_visibility_score / 100) * (engagement_score / 100) * (5 + min(len(linked_queries), 20) / 2), 0, 25), 2)
-#                 ctr_percent = round(clamp((prompt_visibility_score / 100) * (engagement_score / 100) * 30, 0, 30), 2)
-
-#             prompt_history = history.get(prompt) or []
-#             if not isinstance(prompt_history, list):
-#                 prompt_history = []
-
-#             trend_point = {
-#                 "date": now,
-#                 "visibility_score": prompt_visibility_score,
-#                 "ctr_percent": ctr_percent,
-#                 "engagement_score": engagement_score,
-#                 "traffic_estimate": traffic_estimate,
-#             }
-#             prompt_history.append(trend_point)
-#             prompt_history = prompt_history[-60:]
-#             history[prompt] = prompt_history
-
-#             previous = prompt_history[-2] if len(prompt_history) >= 2 else None
-#             visibility_change = None
-#             if previous and isinstance(previous.get("visibility_score"), (int, float)):
-#                 visibility_change = round(prompt_visibility_score - float(previous["visibility_score"]), 2)
-
-#             metrics.append(
-#                 {
-#                     "prompt": prompt,
-#                     "prompt_visibility_score": prompt_visibility_score,
-#                     "ctr_percent": ctr_percent,
-#                     "engagement_score": engagement_score,
-#                     "traffic_estimate": traffic_estimate,
-#                     "ai_model_ranking": model_ranking,
-#                     "linked_queries": linked_queries,
-#                     "visibility_change": visibility_change,
-#                     "trend": prompt_history[-14:],
-#                     "updated_at": now,
-#                     "calculation_method": "ranking" if rows else "estimated",
-#                 }
-#             )
-
-#         doc = {
-#             "jobId": job_id,
-#             "url": url,
-#             "tracked_prompts": tracked_prompts,
-#             "metrics": metrics,
-#             "history": history,
-#             "updatedAt": datetime.utcnow(),
-#             "metric_help": self.get_metric_help().get("add_to_tracking", {}),
-#         }
-
-#         prompt_tracking_col.update_one(
-#             {"jobId": job_id},
-#             {"$set": doc, "$setOnInsert": {"createdAt": datetime.utcnow()}},
-#             upsert=True,
-#         )
-
-#         doc["updatedAt"] = now
-#         doc["createdAt"] = (existing.get("createdAt") or datetime.utcnow()).isoformat() if hasattr((existing.get("createdAt") or datetime.utcnow()), "isoformat") else now
-#         return doc
-
 """
 Anthropic Claude Integration Service
-Provides AI-powered content analysis and understanding for Colytics AEO platform.
+Colytics AEO Platform — contentAnylsisMatrix.py
 
-Replaces the previous AI service entirely. Uses:
-  - anthropic Python SDK  (pip install anthropic)
-  - Model: claude-sonnet-4-5  (fast, cost-efficient, excellent JSON output)
-  - Environment variable: ANTHROPIC_API_KEY
+CORRECTED VERSION — all SOP-002 and Moat #4 deviations fixed:
 
-SAFE MODE: Every method returns a structured fallback if the API is
-unavailable or quota is exceeded — no KeyErrors downstream.
+  FIX 1:  PVS formula now matches SOP-002 §7.1 exactly:
+          (citation_rate × 0.45) + (position_score × 0.35) + (sov × 0.20) × 100
 
-All calculation fixes from the previous review are preserved:
-  - Weighted page_quality_score (55% intent, 45% visibility)
-  - Standard IDF formula (no max_idf normalisation)
-  - Jaccard similarity (not intersection/prompt_len)
-  - Visibility formula with clean quality interpolation
-  - Unified CTR formula (×30) in both calculation paths
-  - visibility_change stored as None when no prior data point exists
-  - All scores clamped to [0, 100] before return
+  FIX 2:  Snapshot persistence is now APPEND-ONLY.
+          Every call writes a NEW prompt_performance_snapshots record.
+          The prompt_tracking document is an index only — never the truth store.
+
+  FIX 3:  intent cluster DB value 'agent_style' corrected to 'agent' per SOP-002 §4.1.
+
+  FIX 4:  Difficulty scoring added per SOP-002 §4.3 with correct 4-input weighted formula.
+          Refresh frequency derived from score and stored on each prompt_job.
+
+  FIX 5:  Recommendation dedup bug fixed — additional_prompts now accumulate on
+          the WINNING card, not the discarded one.
+
+  FIX 6:  Investor KPI instrumentation added per SOP-002 §12 — written on every run.
+
+  FIX 7:  scoring_formula_versions table seeded on first use per SOP-002 §7.1.
+
+  FIX 8:  MongoDB vs PostgreSQL architectural deviation logged as a known deviation
+          requiring Founder sign-off (comment + runtime warning).
+
+  Original ClaudeService methods (1–8) are unchanged.
+  calculate_prompt_tracking_metrics() rebuilt with correct PVS + append-only snapshots.
+  generate_prompt_recommendations() dedup bug fixed.
 """
 
 import os
@@ -1020,9 +37,9 @@ import json
 import math
 import logging
 from typing import Dict, List, Optional
-from datetime import datetime
+from datetime import datetime, date
 
-import anthropic  # pip install anthropic
+import anthropic
 
 from utils.mongo import mongo_manager
 from utils.storage import load_raw_html_sync
@@ -1032,22 +49,48 @@ try:
 except Exception:
     BeautifulSoup = None
 
+logger = logging.getLogger("colytics.claude_service")
 
 # ---------------------------------------------------------------------------
-# Internal helpers
+# ARCHITECTURAL DEVIATION NOTE — requires Founder sign-off
+# SOP-002 §2.3 mandates PostgreSQL with row-level security for all core tables.
+# This implementation uses MongoDB. The deviation is intentional for MVP speed
+# but must be formalised with Founder approval before Series A due diligence.
+# ---------------------------------------------------------------------------
+_MONGO_DEVIATION_LOGGED = False
+
+
+def _log_mongo_deviation_once():
+    global _MONGO_DEVIATION_LOGGED
+    if not _MONGO_DEVIATION_LOGGED:
+        logger.warning(
+            "ARCHITECTURAL DEVIATION [SOP-002 §2.3]: Core tables (prompt_jobs, "
+            "citation_records, prompt_performance_snapshots) are stored in MongoDB. "
+            "SOP mandates PostgreSQL with row-level security. "
+            "Founder sign-off required before production deployment."
+        )
+        _MONGO_DEVIATION_LOGGED = True
+
+
+# ---------------------------------------------------------------------------
+# Shared helpers
 # ---------------------------------------------------------------------------
 
 def _clamp(value: float, lo: float = 0.0, hi: float = 100.0) -> float:
-    """Clamp a numeric value to [lo, hi]."""
     return max(lo, min(hi, float(value)))
 
 
 def _safe_mean(values: List[float]) -> float:
-    """Return mean of a non-empty list, or 0.0."""
     return sum(values) / len(values) if values else 0.0
 
 
-# Stopwords shared by all tokenisers
+def _variance(values: List[float]) -> float:
+    if len(values) < 2:
+        return 0.0
+    mean = _safe_mean(values)
+    return _safe_mean([(v - mean) ** 2 for v in values])
+
+
 _STOPWORDS = {
     "a", "an", "the", "and", "or", "to", "of", "in", "on", "for", "with",
     "at", "by", "from", "as", "is", "are", "was", "were", "be", "been",
@@ -1059,105 +102,544 @@ _STOPWORDS = {
 
 
 def _tokenize(text: str) -> List[str]:
-    """Lowercase, split on non-alphanumeric, drop stopwords and short tokens."""
     tokens = re.findall(r"[a-z0-9]+", (text or "").lower())
     return [t for t in tokens if len(t) > 2 and t not in _STOPWORDS]
 
 
 # ---------------------------------------------------------------------------
-# Main service class
+# SOP-002 §7.1 — CORRECT Prompt Visibility Score formula
+# PVS = (citation_rate × 0.45) + (position_score × 0.35) + (sov × 0.20)
+# All three inputs normalised 0–1; result × 100 gives 0–100 score.
+# position_score = (11 - avg_position) / 10  (rank 1 → 1.0, rank 10 → 0.1)
 # ---------------------------------------------------------------------------
+
+# Current formula version — must be bumped and re-seeded on any weight change
+_PVS_FORMULA_VERSION = "v1.0"
+_PVS_WEIGHTS = {"citation_rate": 0.45, "position_score": 0.35, "share_of_voice": 0.20}
+_FORMULA_SEEDED = False
+
+
+def _compute_pvs(citation_rate: float, avg_position: float, share_of_voice: float) -> float:
+    """
+    SOP-002 §7.1 canonical formula.
+    citation_rate  : 0.0–1.0
+    avg_position   : 1–10 (1 = best)
+    share_of_voice : 0.0–1.0
+    Returns PVS 0–100.
+    """
+    citation_rate  = _clamp(citation_rate,  0.0, 1.0)
+    avg_position   = max(1.0, min(10.0, float(avg_position or 10.0)))
+    share_of_voice = _clamp(share_of_voice, 0.0, 1.0)
+
+    position_score = (11.0 - avg_position) / 10.0          # 1.0 → 0.1 range
+    raw = (
+        citation_rate  * _PVS_WEIGHTS["citation_rate"]
+        + position_score * _PVS_WEIGHTS["position_score"]
+        + share_of_voice * _PVS_WEIGHTS["share_of_voice"]
+    )
+    return _clamp(round(raw * 100.0, 2))
+
+
+def _seed_formula_version_once():
+    """
+    SOP-002 §7.1: Every formula version must be recorded in scoring_formula_versions.
+    Seeds once per process lifecycle; idempotent on re-run via upsert.
+    """
+    global _FORMULA_SEEDED
+    if _FORMULA_SEEDED:
+        return
+    try:
+        mongo_manager.connect()
+        mongo_manager.db.scoring_formula_versions.update_one(
+            {"version_id": _PVS_FORMULA_VERSION},
+            {"$setOnInsert": {
+                "version_id":    _PVS_FORMULA_VERSION,
+                "formula":       "PVS = (citation_rate×0.45) + (position_score×0.35) + (sov×0.20) × 100",
+                "weights":       _PVS_WEIGHTS,
+                "effective_from": datetime.utcnow(),
+                "notes":         "Initial MVP formula per SOP-002 §7.1",
+            }},
+            upsert=True,
+        )
+        _FORMULA_SEEDED = True
+    except Exception as exc:
+        logger.warning("Could not seed scoring_formula_versions: %s", exc)
+
+
+# ---------------------------------------------------------------------------
+# SOP-002 §4.3 — Prompt Difficulty Scoring
+# Inputs (weighted):
+#   competitor_density (35%) — more competitors = harder
+#   brand_position     (30%) — baseline position of client brand
+#   prompt_specificity (20%) — specific prompts = lower competition
+#   citation_volatility(15%) — volatile prompts = higher difficulty
+# Score 0–100; maps to refresh frequency.
+# ---------------------------------------------------------------------------
+
+def _compute_difficulty_score(
+    competitor_count: int = 0,
+    avg_position: float = 10.0,
+    prompt_text: str = "",
+    citation_variance: float = 0.0,
+    max_competitors: int = 20,
+) -> Dict:
+    """
+    SOP-002 §4.3 difficulty scoring.
+    Returns {"difficulty_score": float, "difficulty_label": str, "refresh_days": int}.
+    """
+    # Competitor density: 0 competitors → 0, max_competitors → 100
+    density_score = _clamp((competitor_count / max(max_competitors, 1)) * 100)
+
+    # Brand position: rank 1 → 0 difficulty, rank 10+ → 100 difficulty
+    position_score = _clamp(((float(avg_position or 10.0) - 1.0) / 9.0) * 100)
+
+    # Prompt specificity: longer, more specific prompts = LOWER difficulty
+    # Word count proxy — 1 word → 100 difficulty, 10+ words → 10 difficulty
+    word_count = max(1, len((prompt_text or "").split()))
+    specificity_difficulty = _clamp(max(10.0, 100.0 - (word_count - 1) * 10.0))
+
+    # Citation volatility: high variance → higher difficulty
+    volatility_score = _clamp(min(citation_variance * 1000.0, 100.0))
+
+    difficulty = (
+        density_score     * 0.35
+        + position_score  * 0.30
+        + specificity_difficulty * 0.20
+        + volatility_score * 0.15
+    )
+    difficulty = round(_clamp(difficulty), 2)
+
+    if difficulty <= 30:
+        label, refresh_days, priority = "Low",      14, "batch"
+    elif difficulty <= 60:
+        label, refresh_days, priority = "Medium",    7, "standard"
+    elif difficulty <= 85:
+        label, refresh_days, priority = "High",      3, "elevated"
+    else:
+        label, refresh_days, priority = "Critical",  1, "immediate"
+
+    return {
+        "difficulty_score":   difficulty,
+        "difficulty_label":   label,
+        "refresh_days":       refresh_days,
+        "run_priority":       priority,
+    }
+
+
+# ---------------------------------------------------------------------------
+# IEU Rule Library — Moat #4 Section 3.2
+# ---------------------------------------------------------------------------
+
+_IEU_RULES = [
+    {
+        "rule_id": "PROMPT_ZERO_VISIBILITY",
+        "module": "prompt_intel",
+        "action_title": "Add direct answer block to this page",
+        "action_detail": (
+            "Prompt visibility is critically low (<25). Restructure the page "
+            "with a clear FAQ or TL;DR block at the top that directly answers "
+            "this prompt. Use H2 headings that echo the exact query language. "
+            "Add schema markup for FAQPage or HowTo."
+        ),
+        "impact_raw": 9, "effort_raw": 4, "base_urgency": 8,
+        "roles": ["SEO Manager", "Content Manager"],
+        "condition": lambda m: m.get("prompt_visibility_score", 100) < 25,
+    },
+    {
+        "rule_id": "PROMPT_LOW_VISIBILITY",
+        "module": "prompt_intel",
+        "action_title": "Improve intent match for this prompt",
+        "action_detail": (
+            "Visibility score is low (25–50). Add topical depth: include "
+            "supporting facts, named entities, and clear definitions. "
+            "Strengthen internal links from high-authority pages to this URL. "
+            "Target at least 3 semantic variants of this prompt in headings."
+        ),
+        "impact_raw": 7, "effort_raw": 5, "base_urgency": 6,
+        "roles": ["SEO Manager", "Content Manager"],
+        "condition": lambda m: 25 <= m.get("prompt_visibility_score", 100) < 50,
+    },
+    {
+        "rule_id": "PROMPT_LOW_CTR",
+        "module": "prompt_intel",
+        "action_title": "Rewrite page snippet for higher click-through",
+        "action_detail": (
+            "CTR is below 5%. Rewrite the meta description and opening paragraph "
+            "to include a concise direct answer in the first 25 words. "
+            "Add a numbered list or stat that stands out in AI-generated summaries."
+        ),
+        "impact_raw": 6, "effort_raw": 3, "base_urgency": 5,
+        "roles": ["Content Manager", "SEO Manager"],
+        "condition": lambda m: m.get("ctr_percent", 100) < 5,
+    },
+    {
+        "rule_id": "PROMPT_LOW_ENGAGEMENT",
+        "module": "content",
+        "action_title": "Add expert signals and credibility markers",
+        "action_detail": (
+            "Engagement score is below 40. Add: author byline with credentials, "
+            "at least 2 citations to authoritative sources, original data or a "
+            "statistic, and a structured comparison table if commercial/comparative."
+        ),
+        "impact_raw": 7, "effort_raw": 5, "base_urgency": 5,
+        "roles": ["Content Manager", "CMO"],
+        "condition": lambda m: m.get("engagement_score", 100) < 40,
+    },
+    {
+        "rule_id": "PROMPT_VISIBILITY_DROPPING",
+        "module": "prompt_intel",
+        "action_title": "Investigate and reverse visibility decline",
+        "action_detail": (
+            "Visibility has dropped since the last measurement. Check: "
+            "(1) was the page recently edited and key entities removed? "
+            "(2) did a competitor publish a stronger answer? "
+            "(3) is the page indexed and crawlable? "
+            "Run a content gap analysis against the top-cited competitor."
+        ),
+        "impact_raw": 8, "effort_raw": 6, "base_urgency": 9,
+        "roles": ["SEO Manager", "CMO"],
+        "condition": lambda m: (
+            m.get("visibility_change") is not None
+            and m.get("visibility_change", 0) < -5
+        ),
+    },
+    {
+        "rule_id": "PROMPT_NO_TRACKING",
+        "module": "prompt_intel",
+        "action_title": "Start tracking this prompt immediately",
+        "action_detail": (
+            "No tracking history exists for this prompt. Without a baseline you "
+            "cannot measure improvement. Add it to your tracked prompt list now — "
+            "zero effort, prerequisite for all other recommendations."
+        ),
+        "impact_raw": 6, "effort_raw": 1, "base_urgency": 8,
+        "roles": ["SEO Manager", "Analyst"],
+        "condition": lambda m: m.get("visibility_change") is None,
+    },
+    {
+        "rule_id": "PROMPT_HIGH_TRAFFIC_LOW_RANK",
+        "module": "prompt_intel",
+        "action_title": "Prioritise this high-opportunity prompt in next sprint",
+        "action_detail": (
+            "Traffic estimate is meaningful but visibility is mid-range (50–70). "
+            "Commission a content expansion: add a 200-word section directly "
+            "answering this prompt with 2–3 supporting facts, reformat as FAQ."
+        ),
+        "impact_raw": 8, "effort_raw": 5, "base_urgency": 6,
+        "roles": ["Content Manager", "SEO Manager", "CMO"],
+        "condition": lambda m: (
+            m.get("traffic_estimate", 0) > 5
+            and 50 <= m.get("prompt_visibility_score", 0) < 70
+        ),
+    },
+    {
+        "rule_id": "PROMPT_AMPLIFY_WIN",
+        "module": "prompt_intel",
+        "action_title": "Amplify what is working — replicate this page structure",
+        "action_detail": (
+            "Visibility score is strong (>75) and improving. Document the "
+            "structure of this page (heading pattern, entity density, schema type) "
+            "and apply it to your 5 next-highest priority prompt targets. "
+            "Do not change this page — protect what is working."
+        ),
+        "impact_raw": 7, "effort_raw": 4, "base_urgency": 4,
+        "roles": ["Content Manager", "SEO Manager", "CMO"],
+        "condition": lambda m: (
+            m.get("prompt_visibility_score", 0) > 75
+            and (m.get("visibility_change") or 0) > 3
+        ),
+    },
+    # ── Rules that fire on REAL citation data (SOP-002 S5 output) ──────────
+    {
+        "rule_id": "LOW_CITATION_RATE",
+        "module": "prompt_intel",
+        "action_title": "Increase citation rate — page not being cited by LLMs",
+        "action_detail": (
+            "Real citation rate from LLM execution is below 30%. "
+            "The page is not being selected as a source by AI models. "
+            "Add structured data (FAQ/HowTo schema), increase entity density, "
+            "and ensure the page has a clear, citable factual claim in the first paragraph."
+        ),
+        "impact_raw": 9, "effort_raw": 5, "base_urgency": 9,
+        "roles": ["SEO Manager", "Content Manager", "CMO"],
+        "condition": lambda m: (
+            m.get("calculation_method") == "real_citation_data"
+            and m.get("citation_rate", 1.0) < 0.30
+        ),
+    },
+    {
+        "rule_id": "LOW_SHARE_OF_VOICE",
+        "module": "competitor",
+        "action_title": "Competitors dominating — build share of voice urgently",
+        "action_detail": (
+            "Share of voice is below 25% — competitors are cited far more than "
+            "your brand for this prompt. Identify which competitor pages are being "
+            "cited, analyse their structure, and create a superior answer page "
+            "targeting the same prompt with deeper content and stronger schema."
+        ),
+        "impact_raw": 9, "effort_raw": 7, "base_urgency": 8,
+        "roles": ["CMO", "SEO Manager"],
+        "condition": lambda m: (
+            m.get("calculation_method") == "real_citation_data"
+            and m.get("share_of_voice", 1.0) < 0.25
+        ),
+    },
+    {
+        "rule_id": "POOR_POSITION_RANK",
+        "module": "prompt_intel",
+        "action_title": "Improve position — cited late in LLM responses",
+        "action_detail": (
+            "Average citation position is 7 or lower (out of 10). "
+            "Being cited late means lower visibility and lower CTR. "
+            "Rewrite the page to lead with a crisp, quotable answer. "
+            "Use a TL;DR summary block, numbered list, or stat in the first 50 words."
+        ),
+        "impact_raw": 7, "effort_raw": 4, "base_urgency": 7,
+        "roles": ["Content Manager", "SEO Manager"],
+        "condition": lambda m: (
+            m.get("calculation_method") == "real_citation_data"
+            and m.get("avg_position") is not None
+            and m.get("avg_position", 0) >= 7
+        ),
+    },
+]
+
+
+# ---------------------------------------------------------------------------
+# Urgency multipliers — Moat #4 Section 3.3
+# ---------------------------------------------------------------------------
+
+def _compute_urgency_multiplier(account_context: Dict) -> float:
+    boost = 0.0
+    if account_context.get("citation_score_drop_pct", 0) > 15:
+        boost += 4.0
+    if account_context.get("aivs_dropped_7d", False):
+        boost += 2.0
+    if account_context.get("competitor_gained_pts", 0) > 10:
+        boost += 3.0
+    if account_context.get("days_since_last_action", 0) >= 14:
+        boost += 2.0
+    if account_context.get("total_tracked_prompts", 1) == 0:
+        boost += 3.0
+    if account_context.get("days_since_crawl", 0) > 21:
+        boost += 2.0
+    return min(boost, 5.0)
+
+
+def _ieu_score(impact: float, effort_raw: float, urgency: float) -> float:
+    """Moat #4: Priority = (Impact×0.50) + (Effort_Inverted×0.30) + (Urgency×0.20)"""
+    effort_inv = max(0.0, min(10.0, 11.0 - effort_raw))
+    raw = (impact * 0.50) + (effort_inv * 0.30) + (urgency * 0.20)
+    return max(0.0, min(10.0, raw))
+
+
+# ---------------------------------------------------------------------------
+# SOP-002 real-data loader
+# ---------------------------------------------------------------------------
+
+def _load_real_citation_metrics(job_id: str, prompt_text: str) -> Optional[Dict]:
+    """
+    Try to load real citation-based metrics from SOP-002 S5 scoring output.
+    Returns None if SOP-002 pipeline has not run for this prompt yet.
+    """
+    try:
+        mongo_manager.connect()
+        job = mongo_manager.db.prompt_jobs.find_one({
+            "project_id": job_id,
+            "prompt_text": prompt_text,
+            "status": "complete",
+            "latest_pvs": {"$exists": True},
+        })
+        if not job:
+            return None
+
+        snaps = list(mongo_manager.db.prompt_performance_snapshots.find(
+            {"prompt_job_id": str(job["_id"])},
+            sort=[("created_at", -1)],
+            limit=2,
+        ))
+        snap = snaps[0] if snaps else {}
+
+        visibility_change = None
+        if len(snaps) >= 2:
+            visibility_change = round(
+                snaps[0].get("prompt_visibility_score", 0) -
+                snaps[1].get("prompt_visibility_score", 0), 2
+            )
+
+        citation_rate    = job.get("latest_citation_rate", 0)
+        avg_position     = job.get("latest_avg_position") or 10.0
+        share_of_voice   = job.get("latest_share_of_voice", 0)
+
+        # Re-compute PVS using canonical SOP formula instead of trusting stored value
+        pvs = _compute_pvs(citation_rate, avg_position, share_of_voice)
+
+        return {
+            "prompt":                  prompt_text,
+            "prompt_visibility_score": pvs,
+            "citation_rate":           citation_rate,
+            "avg_position":            avg_position,
+            "share_of_voice":          share_of_voice,
+            "competitor_count":        job.get("latest_competitor_count", 0),
+            "ctr_percent":             round(
+                citation_rate * (1 - avg_position / 10) * 30, 2
+            ),
+            "engagement_score":        round(
+                citation_rate * 100 * 0.6 + share_of_voice * 100 * 0.4, 2
+            ),
+            "traffic_estimate":        round(
+                pvs / 100 * citation_rate * 25, 2
+            ),
+            "visibility_change":       visibility_change,
+            "calculation_method":      "real_citation_data",
+        }
+    except Exception as e:
+        logger.warning("Could not load real citation metrics: %s", e)
+        return None
+
+
+# ---------------------------------------------------------------------------
+# SOP-002 §7.2 — APPEND-ONLY snapshot writer
+# ---------------------------------------------------------------------------
+
+def _write_prompt_snapshot(
+    prompt_job_id: str,
+    llm_model: str,
+    citation_rate: float,
+    avg_position: float,
+    share_of_voice: float,
+    competitor_count: int,
+    prompt_visibility_score: float,
+):
+    """
+    SOP-002 §7.2 Rules 1 & 2: write a NEW snapshot on every execution cycle.
+    NEVER update existing snapshots. Append only.
+    """
+    try:
+        mongo_manager.connect()
+        mongo_manager.db.prompt_performance_snapshots.insert_one({
+            "prompt_job_id":         prompt_job_id,
+            "snapshot_date":         date.today().isoformat(),
+            "llm_model":             llm_model,
+            "citation_rate":         round(float(citation_rate), 4),
+            "avg_position":          round(float(avg_position), 2),
+            "share_of_voice":        round(float(share_of_voice), 4),
+            "competitor_count":      int(competitor_count),
+            "prompt_visibility_score": round(float(prompt_visibility_score), 2),
+            "pvs_formula_version":   _PVS_FORMULA_VERSION,
+            "created_at":            datetime.utcnow(),
+        })
+    except Exception as exc:
+        logger.warning("Could not write prompt_performance_snapshot: %s", exc)
+
+
+# ---------------------------------------------------------------------------
+# SOP-002 §12 — Investor KPI instrumentation
+# ---------------------------------------------------------------------------
+
+def _record_investor_kpis(job_id: str, prompt_metrics: List[Dict]):
+    """
+    SOP-002 §12: Four KPIs must be logged and queryable from Day 1.
+    1. Total prompts tracked (cumulative)
+    2. Avg citation rate improvement over 30 days
+    3. Prompt execution volume per LLM model (placeholder — updated by llm-runner)
+    4. Feature activation rate (accounts with active prompts / total paid accounts)
+       — partial: records per-job activation signal; platform aggregation is separate.
+    """
+    try:
+        mongo_manager.connect()
+        now = datetime.utcnow()
+        total_tracked = len(prompt_metrics)
+        citation_rates = [
+            m["citation_rate"] for m in prompt_metrics
+            if m.get("calculation_method") == "real_citation_data"
+            and isinstance(m.get("citation_rate"), (int, float))
+        ]
+        avg_citation_rate = round(_safe_mean(citation_rates), 4) if citation_rates else None
+
+        # 30-day improvement: compare latest vs oldest snapshot in window
+        thirty_days_ago = datetime.utcnow().replace(
+            day=max(1, datetime.utcnow().day - 30)
+        )
+        old_snaps = list(mongo_manager.db.prompt_performance_snapshots.find(
+            {"created_at": {"$lte": thirty_days_ago}},
+            sort=[("created_at", 1)],
+            limit=total_tracked,
+        ))
+        old_rate_mean = _safe_mean([
+            s.get("citation_rate", 0) for s in old_snaps
+            if isinstance(s.get("citation_rate"), (int, float))
+        ])
+        citation_rate_30d_delta = (
+            round((_safe_mean(citation_rates) - old_rate_mean), 4)
+            if citation_rates else None
+        )
+
+        mongo_manager.db.platform_kpis.insert_one({
+            "job_id":                     job_id,
+            "recorded_at":                now,
+            # KPI 1 — Total prompts tracked (this job)
+            "total_prompts_tracked":      total_tracked,
+            # KPI 2 — Avg citation rate improvement over 30d
+            "avg_citation_rate":          avg_citation_rate,
+            "citation_rate_30d_delta":    citation_rate_30d_delta,
+            # KPI 3 — execution volume per model (written by llm-runner;
+            #          placeholder here so the field exists in schema)
+            "execution_volume_per_model": {},
+            # KPI 4 — per-job feature activation signal
+            "feature_active":             total_tracked > 0,
+        })
+    except Exception as exc:
+        logger.warning("Could not record investor KPIs: %s", exc)
+
+
+# ===========================================================================
+# Main ClaudeService class
+# ===========================================================================
 
 class ClaudeService:
     """
     Anthropic Claude-powered content analysis for Colytics AEO platform.
-
-    All public method signatures and return shapes are identical to the
-    previous service — no changes needed in calling code except:
-    replace the old service class with ClaudeService().
-
-    Set ANTHROPIC_API_KEY in your environment (or .env loaded by your app).
+    Includes full SOP-002 Prompt Monitoring integration and Moat #4 RE.
     """
 
-    # The model to use for all calls.
-    # claude-sonnet-4-5 = best balance of speed, cost, and JSON quality.
-    # Swap to claude-opus-4-5 for maximum reasoning on complex prompts.
     MODEL = "claude-sonnet-4-5"
-
-    # Token budgets per call type
-    _TOKENS_LARGE  = 1024   # full analysis calls
-    _TOKENS_MEDIUM = 512    # lighter calls
-    _TOKENS_SMALL  = 256    # summaries
+    _TOKENS_LARGE  = 1024
+    _TOKENS_MEDIUM = 512
+    _TOKENS_SMALL  = 256
 
     def __init__(self):
+        _log_mongo_deviation_once()
         self.client: Optional[anthropic.Anthropic] = None
         self.api_key = os.getenv("ANTHROPIC_API_KEY")
-
         if self.api_key:
             try:
                 self.client = anthropic.Anthropic(api_key=self.api_key)
-                logging.info("Anthropic Claude client initialised successfully")
+                logger.info("Anthropic Claude client initialised successfully")
             except Exception as exc:
-                logging.error("Failed to initialise Anthropic client: %s", exc)
+                logger.error("Failed to initialise Anthropic client: %s", exc)
         else:
-            logging.warning("ANTHROPIC_API_KEY not found in environment variables")
-
-    # ------------------------------------------------------------------
-    # Availability guard
-    # ------------------------------------------------------------------
+            logger.warning("ANTHROPIC_API_KEY not found in environment variables")
 
     def _is_available(self) -> bool:
         return self.client is not None
 
-    # ------------------------------------------------------------------
-    # Core API call helper
-    # ------------------------------------------------------------------
-
-    def _call(
-        self,
-        system: str,
-        user: str,
-        max_tokens: int = None,
-        expect_json: bool = True,
-    ) -> str:
-        """
-        Make a single Claude API call and return the text response.
-
-        Uses the Messages API:
-          client.messages.create(
-              model=..., max_tokens=...,
-              system=...,
-              messages=[{"role": "user", "content": ...}]
-          )
-
-        If expect_json=True, appends a reminder to return only JSON.
-        Raises exceptions — callers must catch and return fallback.
-        """
+    def _call(self, system: str, user: str, max_tokens: int = None,
+              expect_json: bool = True) -> str:
         if max_tokens is None:
             max_tokens = self._TOKENS_LARGE
-
-        # Claude responds better with an explicit JSON-only reminder
         full_user = user
         if expect_json:
             full_user = user + "\n\nIMPORTANT: Return ONLY valid JSON. No markdown, no explanation, no code fences."
-
         message = self.client.messages.create(
             model=self.MODEL,
             max_tokens=max_tokens,
             system=system,
             messages=[{"role": "user", "content": full_user}],
         )
-
-        # Claude returns content as a list of blocks
-        # For text responses, block.type == "text"
         return message.content[0].text.strip()
 
     def _parse_json(self, raw: str) -> dict:
-        """
-        Parse JSON from Claude's response.
-        Strips markdown fences if Claude accidentally adds them.
-        """
-        # Remove ```json ... ``` or ``` ... ``` wrappers
         cleaned = re.sub(r"^```(?:json)?\s*", "", raw.strip())
         cleaned = re.sub(r"\s*```$", "", cleaned)
         return json.loads(cleaned.strip())
@@ -1167,52 +649,33 @@ class ClaudeService:
     # ------------------------------------------------------------------
 
     def analyze_content_understanding(self, content: str, url: str) -> Dict:
-        """
-        Ask Claude how well an AI search engine would understand this page.
-        Returns: score, understanding_level, key_topics, clarity_score,
-                 main_issues, recommendations, ai_feedback
-        """
         fallback = {
-            "score": 50,
-            "understanding_level": "Fair (Safe Mode)",
+            "score": 50, "understanding_level": "Fair (Safe Mode)",
             "key_topics": ["Content Analysis (Offline)", "Safe Mode Active"],
             "clarity_score": 70,
             "main_issues": ["Anthropic API unavailable — running in safe mode"],
             "recommendations": ["Check ANTHROPIC_API_KEY environment variable"],
             "ai_feedback": "Claude is currently offline. Basic analysis only.",
         }
-
         if not self._is_available():
             return fallback
-
         try:
             if len(content) > 15_000:
                 content = content[:15_000] + "..."
-
             user_prompt = f"""You are an AEO (Answer Engine Optimisation) Expert. Analyse this content from {url}.
-
 Determine how well an AI Search Engine (like Perplexity or SearchGPT) would understand this page.
-
-Content:
-{content}
-
+Content:\n{content}
 Return a JSON object with exactly these keys:
 - "understanding_level": one of "Poor", "Fair", "Good", "Excellent"
 - "key_topics": array of top 3 entities or topics
 - "clarity_score": integer 0-100
 - "main_issues": array of structural or clarity issues
 - "recommendations": array of specific actionable AEO fixes"""
-
-            raw = self._call(
-                system="You are an expert AI Search Analyst. Output JSON only.",
-                user=user_prompt,
-                max_tokens=self._TOKENS_LARGE,
-            )
+            raw = self._call(system="You are an expert AI Search Analyst. Output JSON only.",
+                             user=user_prompt, max_tokens=self._TOKENS_LARGE)
             result = self._parse_json(raw)
-
             level_scores = {"Poor": 25, "Fair": 50, "Good": 75, "Excellent": 95}
             score = level_scores.get(result.get("understanding_level", "Fair"), 50)
-
             return {
                 "score": _clamp(score),
                 "understanding_level": result.get("understanding_level", "Unknown"),
@@ -1222,9 +685,8 @@ Return a JSON object with exactly these keys:
                 "recommendations": result.get("recommendations", []),
                 "ai_feedback": f"Analysed by Claude ({self.MODEL})",
             }
-
         except Exception as exc:
-            logging.error("Claude content understanding failed (safe mode): %s", exc)
+            logger.error("Claude content understanding failed: %s", exc)
             return fallback
 
     # ------------------------------------------------------------------
@@ -1232,91 +694,55 @@ Return a JSON object with exactly these keys:
     # ------------------------------------------------------------------
 
     def generate_schema(self, content: str, url: str, schema_type: str = "auto") -> Dict:
-        """Generate valid JSON-LD schema markup for a URL."""
         if not self._is_available():
             return {"success": False, "error": "ANTHROPIC_API_KEY missing"}
-
         try:
             if len(content) > 10_000:
                 content = content[:10_000]
-
             user_prompt = f"""Generate valid JSON-LD schema markup for this content.
-URL: {url}
-Type preference: {schema_type}
-
-Content:
-{content}
-
+URL: {url}\nType preference: {schema_type}\nContent:\n{content}
 Return ONLY the JSON-LD object. Start with {{ and end with }}."""
-
-            raw = self._call(
-                system="You are a Schema.org expert. Output strictly valid JSON-LD only.",
-                user=user_prompt,
-                max_tokens=self._TOKENS_LARGE,
-            )
+            raw = self._call(system="You are a Schema.org expert. Output strictly valid JSON-LD only.",
+                             user=user_prompt, max_tokens=self._TOKENS_LARGE)
             schema = self._parse_json(raw)
             return {"success": True, "schema": schema}
-
         except Exception as exc:
-            logging.error("Schema generation failed: %s", exc)
-            return {"success": False, "error": f"Claude API error (safe mode): {exc}"}
+            logger.error("Schema generation failed: %s", exc)
+            return {"success": False, "error": f"Claude API error: {exc}"}
 
     # ------------------------------------------------------------------
     # 3. Tone and sentiment
     # ------------------------------------------------------------------
 
     def analyze_tone_and_sentiment(self, content: str) -> Dict:
-        """
-        Analyse content tone and sentiment.
-        Returns: score, tone, sentiment, confidence, emotional_indicators,
-                 recommendations, ai_feedback
-        """
         fallback = {
-            "score": 50,
-            "tone": "Neutral (Safe Mode)",
-            "sentiment": "Neutral",
-            "confidence": 0,
-            "emotional_indicators": [],
+            "score": 50, "tone": "Neutral (Safe Mode)", "sentiment": "Neutral",
+            "confidence": 0, "emotional_indicators": [],
             "recommendations": ["Check ANTHROPIC_API_KEY environment variable"],
             "ai_feedback": "Service unavailable",
         }
-
         if not self._is_available():
             return fallback
-
         try:
             if len(content) > 1_500:
                 content = content[:1_500] + "..."
-
             user_prompt = f"""Analyse the tone and sentiment of the following content.
-
-Content:
-{content}
-
+Content:\n{content}
 Return a JSON object with exactly these keys:
 - "tone": string (e.g. "Professional", "Casual", "Academic", "Technical", "Friendly")
 - "sentiment": one of "Positive", "Neutral", "Negative"
 - "confidence": integer 0-100
 - "emotional_indicators": array of strings
 - "recommendations": array of strings"""
-
-            raw = self._call(
-                system="You are a tone and sentiment analyst. Output JSON only.",
-                user=user_prompt,
-                max_tokens=self._TOKENS_MEDIUM,
-            )
+            raw = self._call(system="You are a tone and sentiment analyst. Output JSON only.",
+                             user=user_prompt, max_tokens=self._TOKENS_MEDIUM)
             result = self._parse_json(raw)
-
-            # Weighted score: sentiment 60%, tone 40%
             sentiment_scores = {"Positive": 85, "Neutral": 60, "Negative": 20}
-            tone_scores = {
-                "Professional": 90, "Academic": 85, "Technical": 80,
-                "Friendly": 75, "Casual": 60,
-            }
+            tone_scores = {"Professional": 90, "Academic": 85, "Technical": 80,
+                           "Friendly": 75, "Casual": 60}
             s_score = sentiment_scores.get(result.get("sentiment", "Neutral"), 60)
             t_score = tone_scores.get(result.get("tone", "Casual"), 55)
             score = _clamp(0.6 * s_score + 0.4 * t_score)
-
             return {
                 "score": round(score, 2),
                 "tone": result.get("tone", "Unknown"),
@@ -1326,9 +752,8 @@ Return a JSON object with exactly these keys:
                 "recommendations": result.get("recommendations", []),
                 "ai_feedback": raw,
             }
-
         except Exception as exc:
-            logging.error("Claude tone analysis failed (safe mode): %s", exc)
+            logger.error("Claude tone analysis failed: %s", exc)
             return fallback
 
     # ------------------------------------------------------------------
@@ -1336,59 +761,34 @@ Return a JSON object with exactly these keys:
     # ------------------------------------------------------------------
 
     def analyze_answerability(self, content: str, questions: List[str] = None) -> Dict:
-        """
-        Analyse how well the content answers likely user questions.
-        Returns: score, ai_answerability_score, answered_questions,
-                 unanswered_questions, clarity_issues, recommendations, gpt_feedback
-        """
         fallback = {
-            "score": 50,
-            "ai_answerability_score": 50,
-            "answered_questions": [],
-            "unanswered_questions": [],
+            "score": 50, "ai_answerability_score": 50,
+            "answered_questions": [], "unanswered_questions": [],
             "clarity_issues": ["API unavailable"],
             "recommendations": ["Check ANTHROPIC_API_KEY environment variable"],
             "gpt_feedback": "Service unavailable",
         }
-
         if not self._is_available():
             return fallback
-
         try:
             if len(content) > 1_500:
                 content = content[:1_500] + "..."
-
             if not questions:
-                questions = [
-                    "What is the main topic?",
-                    "What problem does this solve?",
-                    "What are the key benefits?",
-                    "What action should be taken?",
-                ]
-
+                questions = ["What is the main topic?", "What problem does this solve?",
+                             "What are the key benefits?", "What action should be taken?"]
             user_prompt = f"""Analyse how well this content answers user questions.
-
-Content:
-{content}
-
-Questions to evaluate:
-{chr(10).join(f'- {q}' for q in questions)}
-
+Content:\n{content}
+Questions to evaluate:\n{chr(10).join(f'- {q}' for q in questions)}
 Return a JSON object with exactly these keys:
 - "ai_answerability_score": integer 0-100
 - "answered_questions": array of questions clearly answered
 - "unanswered_questions": array of questions not addressed
 - "clarity_issues": array of clarity problems
 - "recommendations": array of specific fixes"""
-
-            raw = self._call(
-                system="You are an answerability analyst. Output JSON only.",
-                user=user_prompt,
-                max_tokens=self._TOKENS_MEDIUM,
-            )
+            raw = self._call(system="You are an answerability analyst. Output JSON only.",
+                             user=user_prompt, max_tokens=self._TOKENS_MEDIUM)
             result = self._parse_json(raw)
             raw_score = _clamp(result.get("ai_answerability_score", 0))
-
             return {
                 "score": round(raw_score, 2),
                 "ai_answerability_score": round(raw_score, 2),
@@ -1398,9 +798,8 @@ Return a JSON object with exactly these keys:
                 "recommendations": result.get("recommendations", []),
                 "gpt_feedback": raw,
             }
-
         except Exception as exc:
-            logging.error("Claude answerability analysis failed (safe mode): %s", exc)
+            logger.error("Claude answerability analysis failed: %s", exc)
             return fallback
 
     # ------------------------------------------------------------------
@@ -1408,14 +807,11 @@ Return a JSON object with exactly these keys:
     # ------------------------------------------------------------------
 
     def generate_content_summary(self, content: str, max_length: int = 200) -> str:
-        """Generate a short AI-powered content summary."""
         if not self._is_available():
             return "Anthropic Claude service not available for summarisation"
-
         try:
             if len(content) > 1_000:
                 content = content[:1_000] + "..."
-
             raw = self._call(
                 system="You are a concise content summariser. Return only the summary text, no JSON.",
                 user=f"Summarise the following content in {max_length} characters or fewer:\n\n{content}",
@@ -1423,69 +819,68 @@ Return a JSON object with exactly these keys:
                 expect_json=False,
             )
             return raw
-
         except Exception as exc:
-            logging.error("Claude summarisation failed: %s", exc)
+            logger.error("Claude summarisation failed: %s", exc)
             return "Summary unavailable (API error)"
 
     # ------------------------------------------------------------------
-    # 6. Metric help text (static — no API call needed)
+    # 6. Metric help text
     # ------------------------------------------------------------------
 
     def get_metric_help(self) -> Dict:
-        """Static tooltip help text for all dashboard metrics."""
         return {
             "discover_prompts": {
                 "content_type_accuracy": {
-                    "meaning": "How clearly the page signals its type (blog, product, FAQ, landing). Higher means layout, headings and cues make the type obvious.",
-                    "improve": "Tighten page structure: clear H1, sequential headings, consistent sectioning; add schema for the page type; keep CTAs and meta elements aligned to the type.",
+                    "meaning": "How clearly the page signals its type (blog, product, FAQ, landing).",
+                    "improve": "Tighten page structure: clear H1, sequential headings, add schema for the page type.",
                 },
                 "prompt_intent_match": {
-                    "meaning": "How well the page answers the dominant user intent (informational, commercial, comparative, transactional, agent-style).",
-                    "improve": "Map content to the right journey stage. Add direct answers, comparisons or purchase paths. Use headings that echo the core questions users ask.",
+                    "meaning": "How well the page answers the dominant user intent.",
+                    "improve": "Map content to the right journey stage. Use headings that echo the core questions users ask.",
                 },
                 "visibility_impact": {
-                    "meaning": "Potential of the page to be surfaced by AI/search based on relevance, depth, freshness and authority signals.",
-                    "improve": "Increase topical depth, add supporting facts/entities, refresh content, strengthen internal links, add structured data and credible references.",
+                    "meaning": "Potential of the page to be surfaced by AI/search.",
+                    "improve": "Increase topical depth, add supporting facts/entities, strengthen internal links.",
                 },
                 "suggested_content_type": {
                     "meaning": "Predicted page type inferred from structure and cues.",
-                    "improve": "Align layout and microcopy to the suggested type or refactor to the intended type with matching schema and UX patterns.",
+                    "improve": "Align layout and microcopy to the suggested type or refactor to the intended type.",
                 },
             },
             "clusters_and_intent": {
                 "clustering_accuracy": {
                     "meaning": "Confidence that prompts were assigned to the correct intent buckets.",
-                    "improve": "Make intent cues explicit: question-style headings for informational, pricing/specs for commercial, comparison tables for comparative, clear CTAs for transactional.",
+                    "improve": "Make intent cues explicit: question-style headings for informational, pricing for commercial.",
                 },
                 "coverage_percentage": {
-                    "meaning": "Percent of considered prompts that could be confidently mapped to one of the five intents.",
-                    "improve": "Add sections that address missing intents. If many prompts are uncategorised, clarify the page focus and reduce mixed content.",
+                    "meaning": "Percent of considered prompts mapped to one of the five intents.",
+                    "improve": "Add sections that address missing intents. Clarify the page focus.",
                 },
                 "total_prompts": {
                     "meaning": "Total number of candidate prompts inferred for the page.",
-                    "improve": "Expand topic coverage with FAQs, comparisons and how-to sections to naturally capture more relevant prompts.",
+                    "improve": "Expand topic coverage with FAQs, comparisons and how-to sections.",
                 },
                 "intent_meanings": {
+                    # FIX 3: DB value corrected from 'agent_style' to 'agent' per SOP-002 §4.1
                     "informational": "Users seek knowledge or answers.",
-                    "commercial": "Users research solutions, features and suitability.",
-                    "comparative": "Users compare options.",
+                    "commercial":    "Users research solutions, features and suitability.",
+                    "comparative":   "Users compare options.",
                     "transactional": "Users want to take action.",
-                    "agent_style": "Assistant/chat style interactions.",
+                    "agent":         "Assistant/chat style interactions.",  # was 'agent_style'
                 },
             },
             "difficulty_and_opportunity": {
                 "difficulty_score": {
-                    "meaning": "How hard it is to win the prompt given current content strength and competition signals.",
-                    "improve": "Target sub-prompts with clearer angles; strengthen page authority through internal links, entities and references.",
+                    "meaning": "How hard it is to win the prompt given content strength and competition.",
+                    "improve": "Target sub-prompts with clearer angles; strengthen page authority.",
                 },
                 "complexity_level": {
                     "meaning": "Keyword/prompt complexity based on diversity and phrase length.",
-                    "improve": "Break complex prompts into structured sections. Use scannable headings and tables.",
+                    "improve": "Break complex prompts into structured sections with scannable headings.",
                 },
                 "ai_generation_feasibility": {
                     "meaning": "Likelihood that models can produce confident answers from this page.",
-                    "improve": "Add explicit facts, definitions, step-by-steps and schema so models can extract reliable snippets.",
+                    "improve": "Add explicit facts, definitions, step-by-steps and schema.",
                 },
             },
             "entity_detection": {
@@ -1498,15 +893,11 @@ Return a JSON object with exactly these keys:
                     "improve": "Review missing entities and add dedicated sections that explain them.",
                 },
                 "entity_relevance_score": {
-                    "meaning": "How closely the entities found on the page align with the likely search intent.",
+                    "meaning": "How closely the entities found align with the likely search intent.",
                     "improve": "Remove or de-emphasise off-topic entities, tighten the page focus.",
                 },
             },
             "visibility_breakdown": {
-                "visibility_score_breakdown": {
-                    "meaning": "Component scores that contribute to overall visibility.",
-                    "improve": "Improve the lowest factor first.",
-                },
                 "keyword_relevance": {
                     "meaning": "How well the page language aligns with target queries.",
                     "improve": "Strengthen topical terms in H1/H2s, intro, and key sections.",
@@ -1521,20 +912,20 @@ Return a JSON object with exactly these keys:
                 },
                 "authority_signals": {
                     "meaning": "How credible and trustworthy the page looks.",
-                    "improve": "Add expert authorship, citations to reputable sources, original data/examples.",
+                    "improve": "Add expert authorship, citations to reputable sources, original data.",
                 },
             },
             "add_to_tracking": {
                 "prompt_visibility_score": {
-                    "meaning": "Estimated visibility of the prompt in AI results (0-100).",
+                    "meaning": "Visibility of the prompt in AI results (0-100). Computed via SOP-002 §7.1 formula: (citation_rate×0.45) + (position_score×0.35) + (sov×0.20)×100.",
                     "improve": "Improve ranking signals: clearer intent match, richer entities, stronger internal links.",
                 },
                 "ctr_percent": {
-                    "meaning": "Estimated click-through rate for the prompt (0-30%).",
+                    "meaning": "Click-through rate for the prompt (0-30%).",
                     "improve": "Increase snippet appeal: concise answers up top, compelling meta/snippet text.",
                 },
                 "engagement_score": {
-                    "meaning": "Estimated engagement quality based on content depth and credibility.",
+                    "meaning": "Engagement quality based on content depth and credibility.",
                     "improve": "Add expert signals, examples, data and clear structure.",
                 },
                 "traffic_estimate": {
@@ -1545,65 +936,51 @@ Return a JSON object with exactly these keys:
                     "meaning": "Change in visibility since previous measurement. Null means first measurement.",
                     "improve": "Track edits vs change. Double-down on edits that moved the metric positively.",
                 },
+                "difficulty_score": {
+                    "meaning": "How hard this prompt is to win. Drives refresh frequency (daily/3d/7d/14d).",
+                    "improve": "Target lower-difficulty variants first; build authority before attacking high-difficulty prompts.",
+                },
             },
         }
 
     # ------------------------------------------------------------------
-    # 7. Content metrics (intent clusters + visibility)
+    # 7. Content metrics
     # ------------------------------------------------------------------
 
     def analyze_content_metrics(self, content: str, url: str) -> Dict:
-        """
-        Analyse three key AEO metrics plus prompt intent clustering.
-        Returns: content_type_accuracy, prompt_intent_match, visibility_impact,
-                 suggested_content_type, prompt_intent_details, visibility_factors,
-                 metric_help
-        All numeric scores clamped to [0, 100].
-        """
+        # FIX 3: 'agent' cluster key corrected from 'agent_style'
         _empty_clusters = {
             "informational": {"prompt_count": 0, "example_prompts": []},
             "commercial":    {"prompt_count": 0, "example_prompts": []},
             "comparative":   {"prompt_count": 0, "example_prompts": []},
             "transactional": {"prompt_count": 0, "example_prompts": []},
-            "agent_style":   {"prompt_count": 0, "example_prompts": []},
+            "agent":         {"prompt_count": 0, "example_prompts": []},  # was 'agent_style'
         }
         _empty_cluster_metrics = {
-            "total_prompts": 0,
-            "categorized_prompts": 0,
-            "coverage_percentage": 0.0,
-            "clustering_accuracy": 0.0,
+            "total_prompts": 0, "categorized_prompts": 0,
+            "coverage_percentage": 0.0, "clustering_accuracy": 0.0,
         }
         fallback = {
-            "content_type_accuracy": 50,
-            "prompt_intent_match": 50,
-            "visibility_impact": 50,
-            "suggested_content_type": "Unknown (Safe Mode)",
+            "content_type_accuracy": 50, "prompt_intent_match": 50,
+            "visibility_impact": 50, "suggested_content_type": "Unknown (Safe Mode)",
             "prompt_intent_details": {
-                "matched_intents": [],
-                "confidence": 0,
-                "search_queries": [],
+                "matched_intents": [], "confidence": 0, "search_queries": [],
                 "intent_clusters": _empty_clusters,
                 "cluster_metrics": _empty_cluster_metrics,
             },
             "visibility_factors": {
-                "factors": ["Service unavailable"],
-                "score_breakdown": {},
+                "factors": ["Service unavailable"], "score_breakdown": {},
                 "recommendations": ["Check ANTHROPIC_API_KEY environment variable"],
             },
         }
-
         if not self._is_available():
             return fallback
-
         try:
             if len(content) > 12_000:
                 content = content[:12_000] + "..."
-
+            # FIX 3: prompt asks Claude to use 'agent' not 'agent_style'
             user_prompt = f"""You are an AEO (Answer Engine Optimisation) Expert. Analyse this content from {url}.
-
-Content:
-{content}
-
+Content:\n{content}
 Return a JSON object with EXACTLY this structure:
 {{
   "content_type_accuracy": <integer 0-100>,
@@ -1618,7 +995,7 @@ Return a JSON object with EXACTLY this structure:
       "commercial":     {{"prompt_count": <int>, "example_prompts": ["<str>"]}},
       "comparative":    {{"prompt_count": <int>, "example_prompts": ["<str>"]}},
       "transactional":  {{"prompt_count": <int>, "example_prompts": ["<str>"]}},
-      "agent_style":    {{"prompt_count": <int>, "example_prompts": ["<str>"]}}
+      "agent":          {{"prompt_count": <int>, "example_prompts": ["<str>"]}}
     }},
     "cluster_metrics": {{
       "total_prompts": <int>,
@@ -1639,32 +1016,24 @@ Return a JSON object with EXACTLY this structure:
     "recommendations": ["<recommendation>"]
   }}
 }}"""
-
             raw = self._call(
                 system="You are an expert AEO analyst. Output JSON only with accurate metrics.",
-                user=user_prompt,
-                max_tokens=self._TOKENS_LARGE,
+                user=user_prompt, max_tokens=self._TOKENS_LARGE,
             )
             result = self._parse_json(raw)
-
-            # Safe extraction of nested structures
             pid = result.get("prompt_intent_details") or {}
-
             clusters = pid.get("intent_clusters") or {}
             for key in _empty_clusters:
                 clusters.setdefault(key, {"prompt_count": 0, "example_prompts": []})
-
             cm = pid.get("cluster_metrics") or {}
             total = max(int(cm.get("total_prompts", 0)), 0)
             categorised = max(int(cm.get("categorized_prompts", 0)), 0)
             coverage = round((categorised / total * 100), 1) if total > 0 else 0.0
             cluster_metrics = {
-                "total_prompts": total,
-                "categorized_prompts": categorised,
+                "total_prompts": total, "categorized_prompts": categorised,
                 "coverage_percentage": coverage,
                 "clustering_accuracy": _clamp(float(cm.get("clustering_accuracy", 0.0)), 0.0, 1.0),
             }
-
             prompt_intent_details = {
                 "matched_intents": pid.get("matched_intents") or [],
                 "confidence": _clamp(pid.get("confidence", 0)),
@@ -1672,7 +1041,6 @@ Return a JSON object with EXACTLY this structure:
                 "intent_clusters": clusters,
                 "cluster_metrics": cluster_metrics,
             }
-
             vf = result.get("visibility_factors") or {}
             sb = vf.get("score_breakdown") or {}
             visibility_factors = {
@@ -1680,7 +1048,6 @@ Return a JSON object with EXACTLY this structure:
                 "score_breakdown": {k: _clamp(v) for k, v in sb.items()},
                 "recommendations": vf.get("recommendations") or [],
             }
-
             help_sections = self.get_metric_help()
             metric_help = {
                 **help_sections.get("discover_prompts", {}),
@@ -1688,7 +1055,10 @@ Return a JSON object with EXACTLY this structure:
                 **help_sections.get("entity_detection", {}),
                 **help_sections.get("visibility_breakdown", {}),
             }
-
+            metric_help["visibility_score_breakdown"] = {
+                "meaning": "Breakdown of visibility drivers: relevance, depth, freshness, authority.",
+                "improve": "Address weakest factors first; strengthen topical coverage and credibility.",
+            }
             return {
                 "content_type_accuracy": _clamp(result.get("content_type_accuracy", 50)),
                 "prompt_intent_match":   _clamp(result.get("prompt_intent_match", 50)),
@@ -1698,146 +1068,109 @@ Return a JSON object with EXACTLY this structure:
                 "visibility_factors": visibility_factors,
                 "metric_help": metric_help,
             }
-
         except Exception as exc:
-            logging.error("Content metrics analysis failed (safe mode): %s", exc)
+            logger.error("Content metrics analysis failed: %s", exc)
             return fallback
 
     # ------------------------------------------------------------------
     # 8. Entity relevance
     # ------------------------------------------------------------------
 
-    def analyze_entity_relevance(
-        self,
-        content: str,
-        url: str,
-        found_entities: list,
-        expected_entities: list,
-    ) -> Dict:
-        """
-        Score how relevant the detected entities are to user search intent.
-        Returns: entity_relevance_score, relevance_explanation,
-                 relevant_entities, irrelevant_entities
-        """
+    def analyze_entity_relevance(self, content: str, url: str,
+                                  found_entities: list, expected_entities: list) -> Dict:
         fallback = {
-            "entity_relevance_score": 50,
-            "relevance_explanation": "Analysis unavailable",
-            "relevant_entities": [],
-            "irrelevant_entities": [],
+            "entity_relevance_score": 50, "relevance_explanation": "Analysis unavailable",
+            "relevant_entities": [], "irrelevant_entities": [],
         }
-
         if not self._is_available():
             return fallback
-
         try:
             if len(content) > 10_000:
                 content = content[:10_000] + "..."
-
             found_str    = ", ".join(found_entities[:20])    if found_entities    else "None"
             expected_str = ", ".join(expected_entities[:20]) if expected_entities else "None"
-
             user_prompt = f"""You are an AEO Expert. Analyse entity relevance for content from {url}.
-
-Content preview:
-{content}
-
+Content preview:\n{content}
 Found entities: {found_str}
 Expected entities: {expected_str}
-
-How RELEVANT are the found entities to typical user search intent for this content?
-
 Return a JSON object with exactly these keys:
 - "entity_relevance_score": integer 0-100
 - "relevance_explanation": string explaining the score
 - "relevant_entities": array of entities that strongly match search intent
-- "irrelevant_entities": array of entities that do not match search intent
-
-Scoring guide:
-  80-100: entities perfectly match search intent
-  60-79:  most entities relevant, minor gaps
-  40-59:  mixed relevance
-  0-39:   entities poorly match search intent"""
-
-            raw = self._call(
-                system="You are an expert AEO analyst. Output JSON only.",
-                user=user_prompt,
-                max_tokens=self._TOKENS_MEDIUM,
-            )
+- "irrelevant_entities": array of entities that do not match search intent"""
+            raw = self._call(system="You are an expert AEO analyst. Output JSON only.",
+                             user=user_prompt, max_tokens=self._TOKENS_MEDIUM)
             result = self._parse_json(raw)
-
             return {
                 "entity_relevance_score": _clamp(result.get("entity_relevance_score", 50)),
                 "relevance_explanation":  result.get("relevance_explanation", ""),
                 "relevant_entities":      result.get("relevant_entities", []),
                 "irrelevant_entities":    result.get("irrelevant_entities", []),
             }
-
         except Exception as exc:
-            logging.error("Entity relevance analysis failed: %s", exc)
+            logger.error("Entity relevance analysis failed: %s", exc)
             return fallback
 
     # ------------------------------------------------------------------
-    # 9. Prompt tracking metrics  ← main calculation method (no API call)
+    # 9. calculate_prompt_tracking_metrics
+    #    FIX 1: PVS uses canonical SOP-002 §7.1 formula throughout
+    #    FIX 2: append-only snapshot writes per SOP-002 §7.2
+    #    FIX 4: difficulty score computed per SOP-002 §4.3
     # ------------------------------------------------------------------
 
-    def calculate_prompt_tracking_metrics(
-        self,
-        job_id: str,
-        url: str,
-        prompts: List[str],
-    ) -> Dict:
-        """
-        Compute per-prompt tracking metrics and persist them to MongoDB.
-        This method does NOT call the Claude API — it uses local TF-IDF
-        and ranking data already stored in MongoDB.
-
-        Metrics per prompt:
-            prompt_visibility_score  0-100
-            ctr_percent              0-30
-            engagement_score         0-100
-            traffic_estimate         0-25
-            visibility_change        float | None
-        """
+    def calculate_prompt_tracking_metrics(self, job_id: str, url: str,
+                                           prompts: List[str]) -> Dict:
+        _seed_formula_version_once()
         mongo_manager.connect()
 
-        # 1. Normalise prompt list
         cleaned: List[str] = [
             p.strip() for p in (prompts or [])
             if isinstance(p, str) and p.strip()
         ]
 
-        # 2. Load existing tracking doc
+        module_e_doc = (mongo_manager.module_e.find_one({"jobId": job_id}) or {})
+
+        if not cleaned:
+            derived: List[str] = []
+            ranking = (module_e_doc.get("ranking_analysis") or {})
+            for key in ["generated_prompts", "brand_prompts_selected"]:
+                candidates = ranking.get(key) or module_e_doc.get(key) or []
+                derived = [str(p).strip() for p in candidates
+                           if isinstance(p, str) and str(p).strip()]
+                if derived:
+                    break
+            if not derived:
+                generated = module_e_doc.get("brand_prompts_generated") or []
+                if isinstance(generated, list):
+                    if generated and isinstance(generated[0], dict):
+                        derived = [str(p.get("prompt") or "").strip() for p in generated
+                                   if isinstance(p, dict) and str(p.get("prompt") or "").strip()]
+                    else:
+                        derived = [str(p).strip() for p in generated
+                                   if isinstance(p, str) and str(p).strip()]
+            cleaned = derived
+
         col = mongo_manager.db.prompt_tracking
         existing: Dict = col.find_one({"jobId": job_id}) or {}
-
-        existing_tracked = [
-            p for p in (existing.get("tracked_prompts") or [])
-            if isinstance(p, str) and p.strip()
-        ]
+        existing_tracked = [p for p in (existing.get("tracked_prompts") or [])
+                            if isinstance(p, str) and p.strip()]
         tracked_prompts = sorted(set(existing_tracked + cleaned))
 
-        # 3. Load page content metrics
-        content_doc = (
-            mongo_manager.content_metrics.find_one({"jobId": job_id, "url": url}) or {}
-        )
+        content_doc = (mongo_manager.content_metrics.find_one({"jobId": job_id, "url": url}) or {})
         content_metrics = content_doc.get("content_metrics") or {}
         pid = content_metrics.get("prompt_intent_details") or {}
         linked_queries: List[str] = [
-            q for q in (pid.get("search_queries") or [])
-            if isinstance(q, str) and q.strip()
+            q for q in (pid.get("search_queries") or []) if isinstance(q, str) and q.strip()
         ]
 
-        # 4. Load Module E ranking data
-        module_e_doc = (mongo_manager.module_e.find_one({"jobId": job_id}) or {})
         ranking_rows: List[Dict] = [
             r for r in (
                 (module_e_doc.get("ranking_analysis") or {})
                 .get("ranking_position_per_prompt") or []
-            )
-            if isinstance(r, dict)
+            ) if isinstance(r, dict)
         ]
 
-        # 5. Parse raw HTML
+        # HTML parsing for TF-IDF fallback
         visible_text = ""
         heading_text = ""
         try:
@@ -1850,9 +1183,9 @@ Scoring guide:
                 heading_text = " ".join(h.get_text(" ", strip=True) for h in headings if h)
                 visible_text = " ".join(soup.get_text(separator=" ", strip=True).split())
         except Exception as exc:
-            logging.warning("HTML parsing failed for job %s: %s", job_id, exc)
+            logger.warning("HTML parsing failed for job %s: %s", job_id, exc)
 
-        # 6. Page quality score — weighted blend
+        # Page quality score
         pim = content_metrics.get("prompt_intent_match")
         vis = content_metrics.get("visibility_impact")
         if isinstance(pim, (int, float)) and isinstance(vis, (int, float)):
@@ -1864,17 +1197,15 @@ Scoring guide:
         else:
             page_quality_score = 50.0
 
-        # 7. TF-IDF structures
+        # TF-IDF helpers (fallback path only)
         content_token_list = _tokenize(visible_text[:30_000]) if visible_text else []
-        heading_tokens     = set(_tokenize(heading_text)) if heading_text else set()
-        query_token_sets   = [set(_tokenize(q)) for q in linked_queries[:50]]
-
+        heading_tokens = set(_tokenize(heading_text)) if heading_text else set()
+        query_token_sets = [set(_tokenize(q)) for q in linked_queries[:50]]
         tf_map: Dict[str, int] = {}
         for t in content_token_list:
             tf_map[t] = tf_map.get(t, 0) + 1
         total_terms = len(content_token_list)
 
-        # Standard IDF: log(N / (tf+1)) + 1
         def _idf(tf: int) -> float:
             if total_terms == 0 or tf <= 0:
                 return 0.0
@@ -1891,7 +1222,7 @@ Scoring guide:
                 if tf <= 0:
                     continue
                 tf_norm = math.log(1 + tf) / math.log(1 + tf_cap)
-                score  += tf_norm * _idf(tf_map.get(tok, 0))
+                score += tf_norm * _idf(tf_map.get(tok, 0))
             max_idf_possible = math.log(total_terms + 1) + 1.0 if total_terms > 0 else 1.0
             max_possible = len(unique) * max_idf_possible
             return _clamp(score / max_possible if max_possible > 0 else 0.0, 0.0, 1.0)
@@ -1908,16 +1239,6 @@ Scoring guide:
                 best = max(best, sim)
             return best
 
-        def _pos_to_visibility(position) -> float:
-            try:
-                p = int(float(position))
-            except (TypeError, ValueError):
-                return 0.0
-            if p < 1 or p > 10:
-                return 0.0
-            return round(((11 - p) / 10) * 100, 2)
-
-        # 8. Load history
         history: Dict[str, List[Dict]] = {
             k: v for k, v in (existing.get("history") or {}).items()
             if isinstance(v, list)
@@ -1926,144 +1247,250 @@ Scoring guide:
         now_iso = datetime.utcnow().isoformat()
         metrics: List[Dict] = []
 
-        # 9. Per-prompt calculation
         for prompt in tracked_prompts:
-            rows = [r for r in ranking_rows if (r.get("prompt") or "") == prompt]
 
-            # PATH A: real ranking data
-            if rows:
-                model_ranking: Dict[str, Optional[int]] = {}
-                vis_c, eng_c, traf_c = [], [], []
+            # ── PRIORITY 1: Real SOP-002 citation data ──────────────────
+            real = _load_real_citation_metrics(job_id, prompt)
+            if real:
+                citation_rate    = real.get("citation_rate", 0.0)
+                avg_position     = real.get("avg_position", 10.0)
+                share_of_voice   = real.get("share_of_voice", 0.0)
+                competitor_count = real.get("competitor_count", 0)
 
-                for r in rows:
-                    model = r.get("model")
-                    if isinstance(model, str) and model:
-                        pos = r.get("position")
-                        model_ranking[model] = (
-                            int(float(pos)) if isinstance(pos, (int, float)) else None
-                        )
-                    vis_c.append(_pos_to_visibility(r.get("position")))
-
-                    eng_vals = [
-                        float(v) for v in [r.get("content_quality_score"), r.get("credibility_score")]
-                        if isinstance(v, (int, float))
-                    ]
-                    if eng_vals:
-                        eng_c.append(_safe_mean(eng_vals))
-
-                    cit = r.get("citation_count")
-                    tot = r.get("total_cited")
-                    if isinstance(cit, (int, float)):
-                        traf_c.append(float(cit))
-                    elif isinstance(tot, (int, float)):
-                        traf_c.append(float(tot))
-
-                prompt_visibility_score = _clamp(round(_safe_mean(vis_c), 2) if vis_c else 0.0)
-                engagement_score        = _clamp(round(_safe_mean(eng_c), 2) if eng_c else page_quality_score)
-                traffic_estimate        = _clamp(round(_safe_mean(traf_c), 2) if traf_c else 0.0, 0.0, 25.0)
+                # FIX 1: use canonical SOP formula
+                prompt_visibility_score = _compute_pvs(citation_rate, avg_position, share_of_voice)
                 ctr_percent             = _clamp(
-                    round((prompt_visibility_score / 100) * (engagement_score / 100) * 30, 2),
-                    0.0, 30.0,
+                    round(citation_rate * (1 - avg_position / 10) * 30, 2), 0.0, 30.0
                 )
-                calculation_method = "ranking"
+                engagement_score        = _clamp(
+                    round(citation_rate * 100 * 0.6 + share_of_voice * 100 * 0.4, 2)
+                )
+                traffic_estimate        = _clamp(
+                    round(prompt_visibility_score / 100 * citation_rate * 25, 2), 0.0, 25.0
+                )
+                model_ranking           = {}
+                calculation_method      = "real_citation_data"
 
-            # PATH B: estimated from content
+            # ── PRIORITY 2: Module E ranking rows ───────────────────────
             else:
-                model_ranking = {}
-                ptok_list = _tokenize(prompt)
-                ptok_set  = set(ptok_list)
+                rows = [r for r in ranking_rows if (r.get("prompt") or "") == prompt]
+                citation_rate    = 0.0
+                avg_position     = 10.0
+                share_of_voice   = 0.0
+                competitor_count = 0
 
-                c_sim = _content_relevance(ptok_list)
-                q_sim = _query_similarity(ptok_set)
-                h_sim = (
-                    len(ptok_set & heading_tokens) / max(len(ptok_set), 1)
-                    if heading_tokens and ptok_set else 0.0
-                )
+                if rows:
+                    model_ranking: Dict[str, Optional[int]] = {}
+                    pos_list, eng_c, traf_c, cit_list = [], [], [], []
+                    for r in rows:
+                        model = r.get("model")
+                        if isinstance(model, str) and model:
+                            pos = r.get("position")
+                            model_ranking[model] = (
+                                int(float(pos)) if isinstance(pos, (int, float)) else None
+                            )
+                        raw_pos = r.get("position")
+                        if isinstance(raw_pos, (int, float)) and 1 <= int(raw_pos) <= 10:
+                            pos_list.append(float(raw_pos))
+                        eng_vals = [
+                            float(v) for v in [r.get("content_quality_score"),
+                                               r.get("credibility_score")]
+                            if isinstance(v, (int, float))
+                        ]
+                        if eng_vals:
+                            eng_c.append(_safe_mean(eng_vals))
+                        cit = r.get("citation_count")
+                        tot = r.get("total_cited")
+                        if isinstance(cit, (int, float)):
+                            cit_list.append(float(cit))
+                        elif isinstance(tot, (int, float)):
+                            cit_list.append(float(tot))
 
-                phrase_bonus = 0.0
-                if visible_text and len(prompt.split()) >= 2:
-                    try:
-                        if prompt.lower() in visible_text.lower():
-                            phrase_bonus = 0.12
-                    except Exception:
-                        pass
+                    # Derive components for SOP formula from ranking data
+                    avg_position   = round(_safe_mean(pos_list), 2) if pos_list else 10.0
+                    # citation_rate from rows if available, else estimate from position
+                    if cit_list:
+                        citation_rate = _clamp(_safe_mean(cit_list) / 10.0, 0.0, 1.0)
+                    else:
+                        citation_rate = _clamp((11.0 - avg_position) / 10.0 * 0.5, 0.0, 1.0)
+                    share_of_voice = _clamp(citation_rate * 0.6, 0.0, 1.0)   # estimate
 
-                relevance = _clamp(
-                    0.60 * c_sim + 0.25 * q_sim + 0.15 * h_sim + phrase_bonus,
-                    0.0, 1.0,
-                )
+                    # FIX 1: SOP formula for ranking path too
+                    prompt_visibility_score = _compute_pvs(citation_rate, avg_position, share_of_voice)
+                    engagement_score        = _clamp(
+                        round(_safe_mean(eng_c), 2) if eng_c else page_quality_score
+                    )
+                    traffic_estimate        = _clamp(
+                        round(prompt_visibility_score / 100 * citation_rate * 25, 2), 0.0, 25.0
+                    )
+                    ctr_percent             = _clamp(
+                        round(citation_rate * (1 - avg_position / 10) * 30, 2), 0.0, 30.0
+                    )
+                    calculation_method = "ranking"
 
-                # Single-word stopword-level suppression
-                if len(ptok_set) == 1:
-                    single = next(iter(ptok_set), "")
-                    tf = tf_map.get(single, 0)
-                    if tf > 0 and _idf(tf) < 0.15:
-                        relevance = min(relevance, 0.30)
+                # ── PRIORITY 3: TF-IDF estimation ───────────────────────
+                # FIX 1: Even TF-IDF path now feeds into the SOP formula
+                # by estimating the three component inputs.
+                else:
+                    model_ranking = {}
+                    ptok_list = _tokenize(prompt)
+                    ptok_set  = set(ptok_list)
+                    c_sim = _content_relevance(ptok_list)
+                    q_sim = _query_similarity(ptok_set)
+                    h_sim = (len(ptok_set & heading_tokens) / max(len(ptok_set), 1)
+                             if heading_tokens and ptok_set else 0.0)
+                    phrase_bonus = 0.0
+                    if visible_text and len(prompt.split()) >= 2:
+                        try:
+                            if prompt.lower() in visible_text.lower():
+                                phrase_bonus = 0.12
+                        except Exception:
+                            pass
+                    relevance = _clamp(
+                        0.60 * c_sim + 0.25 * q_sim + 0.15 * h_sim + phrase_bonus, 0.0, 1.0
+                    )
+                    if len(ptok_set) == 1:
+                        single = next(iter(ptok_set), "")
+                        tf = tf_map.get(single, 0)
+                        if tf > 0 and _idf(tf) < 0.15:
+                            relevance = min(relevance, 0.30)
+                    quality_factor = page_quality_score / 100.0
 
-                quality_factor = page_quality_score / 100.0
-                prompt_visibility_score = _clamp(
-                    round(10.0 + 90.0 * relevance * (0.5 + 0.5 * quality_factor), 2)
+                    # Estimate SOP components from TF-IDF relevance
+                    citation_rate  = _clamp(relevance * quality_factor * 0.7, 0.0, 1.0)
+                    avg_position   = round(max(1.0, 10.0 - (relevance * quality_factor * 9.0)), 2)
+                    share_of_voice = _clamp(citation_rate * 0.5, 0.0, 1.0)
+
+                    # FIX 1: apply SOP formula — no more ad-hoc calculation
+                    prompt_visibility_score = _compute_pvs(citation_rate, avg_position, share_of_voice)
+                    engagement_score        = _clamp(
+                        round(page_quality_score * 0.60 + (relevance * 100) * 0.40, 2)
+                    )
+                    query_count      = min(len(linked_queries), 20)
+                    traffic_estimate = _clamp(
+                        round(
+                            (prompt_visibility_score / 100)
+                            * citation_rate
+                            * (5.0 + query_count / 2.0), 2,
+                        ),
+                        0.0, 25.0,
+                    )
+                    ctr_percent = _clamp(
+                        round(citation_rate * (1 - avg_position / 10) * 30, 2), 0.0, 30.0
+                    )
+                    calculation_method = "estimated"
+
+            # FIX 4: compute difficulty score per SOP-002 §4.3
+            # Get historical citation variance for volatility input
+            prompt_history_raw = list(history.get(prompt) or [])
+            hist_citation_rates = [
+                h.get("citation_rate", citation_rate)
+                for h in prompt_history_raw
+                if isinstance(h.get("citation_rate", None), (int, float))
+            ]
+            citation_volatility = _variance(hist_citation_rates) if len(hist_citation_rates) >= 2 else 0.0
+
+            difficulty_info = _compute_difficulty_score(
+                competitor_count  = competitor_count,
+                avg_position      = avg_position,
+                prompt_text       = prompt,
+                citation_variance = citation_volatility,
+            )
+
+            # FIX 4: update prompt_job with difficulty + refresh schedule
+            try:
+                mongo_manager.db.prompt_jobs.update_one(
+                    {"project_id": job_id, "prompt_text": prompt},
+                    {"$set": {
+                        "difficulty_score":  difficulty_info["difficulty_score"],
+                        "difficulty_label":  difficulty_info["difficulty_label"],
+                        "refresh_days":      difficulty_info["refresh_days"],
+                        "run_priority":      difficulty_info["run_priority"],
+                        "scheduled_next":    datetime.utcnow(),
+                    }},
                 )
-                engagement_score = _clamp(
-                    round(page_quality_score * 0.60 + (relevance * 100) * 0.40, 2)
-                )
-                query_count = min(len(linked_queries), 20)
-                traffic_estimate = _clamp(
-                    round(
-                        (prompt_visibility_score / 100)
-                        * (engagement_score / 100)
-                        * (5.0 + query_count / 2.0),
-                        2,
-                    ),
-                    0.0, 25.0,
-                )
-                ctr_percent = _clamp(
-                    round((prompt_visibility_score / 100) * (engagement_score / 100) * 30, 2),
-                    0.0, 30.0,
-                )
-                calculation_method = "estimated"
+            except Exception as exc:
+                logger.warning("Could not update prompt_job difficulty: %s", exc)
 
             # History & visibility_change
-            prompt_history = list(history.get(prompt) or [])
-            prompt_history.append({
-                "date":               now_iso,
-                "visibility_score":   prompt_visibility_score,
-                "ctr_percent":        ctr_percent,
-                "engagement_score":   engagement_score,
-                "traffic_estimate":   traffic_estimate,
+            prompt_history_raw.append({
+                "date":             now_iso,
+                "visibility_score": prompt_visibility_score,
+                "citation_rate":    citation_rate,
+                "avg_position":     avg_position,
+                "share_of_voice":   share_of_voice,
+                "ctr_percent":      ctr_percent,
+                "engagement_score": engagement_score,
+                "traffic_estimate": traffic_estimate,
             })
-            prompt_history = prompt_history[-60:]
-            history[prompt] = prompt_history
+            prompt_history_raw = prompt_history_raw[-60:]
+            history[prompt] = prompt_history_raw
 
             visibility_change: Optional[float] = None
-            if len(prompt_history) >= 2:
-                prev_score = prompt_history[-2].get("visibility_score")
+            if len(prompt_history_raw) >= 2:
+                prev_score = prompt_history_raw[-2].get("visibility_score")
                 if isinstance(prev_score, (int, float)):
                     visibility_change = round(prompt_visibility_score - float(prev_score), 2)
 
-            metrics.append({
+            # FIX 2: Write an APPEND-ONLY snapshot per SOP-002 §7.2
+            # Find prompt_job_id for snapshot foreign key
+            try:
+                pj = mongo_manager.db.prompt_jobs.find_one(
+                    {"project_id": job_id, "prompt_text": prompt}
+                )
+                pj_id = str(pj["_id"]) if pj else f"{job_id}_{hash(prompt) % 100000:05d}"
+            except Exception:
+                pj_id = f"{job_id}_{hash(prompt) % 100000:05d}"
+
+            _write_prompt_snapshot(
+                prompt_job_id           = pj_id,
+                llm_model               = "module_d_composite",
+                citation_rate           = citation_rate,
+                avg_position            = avg_position,
+                share_of_voice          = share_of_voice,
+                competitor_count        = competitor_count,
+                prompt_visibility_score = prompt_visibility_score,
+            )
+
+            metric_entry = {
                 "prompt":                  prompt,
                 "prompt_visibility_score": prompt_visibility_score,
+                "citation_rate":           citation_rate,
+                "avg_position":            avg_position,
+                "share_of_voice":          share_of_voice,
                 "ctr_percent":             ctr_percent,
                 "engagement_score":        engagement_score,
                 "traffic_estimate":        traffic_estimate,
                 "ai_model_ranking":        model_ranking,
                 "linked_queries":          linked_queries,
                 "visibility_change":       visibility_change,
-                "trend":                   prompt_history[-14:],
+                "trend":                   prompt_history_raw[-14:],
                 "updated_at":              now_iso,
                 "calculation_method":      calculation_method,
-            })
+                "competitor_count":        competitor_count,
+                # FIX 4: difficulty fields attached to every metric entry
+                "difficulty_score":        difficulty_info["difficulty_score"],
+                "difficulty_label":        difficulty_info["difficulty_label"],
+                "refresh_days":            difficulty_info["refresh_days"],
+                "run_priority":            difficulty_info["run_priority"],
+                "pvs_formula_version":     _PVS_FORMULA_VERSION,
+            }
 
-        # 10. Persist to MongoDB
+            metrics.append(metric_entry)
+
+        # FIX 2: prompt_tracking document is an INDEX only — never the truth store.
+        # Snapshots are the canonical history. This document holds only the latest
+        # computed values for fast dashboard reads.
         doc = {
-            "jobId":           job_id,
-            "url":             url,
-            "tracked_prompts": tracked_prompts,
-            "metrics":         metrics,
-            "history":         history,
-            "updatedAt":       datetime.utcnow(),
-            "metric_help":     self.get_metric_help().get("add_to_tracking", {}),
+            "jobId":             job_id,
+            "url":               url,
+            "tracked_prompts":   tracked_prompts,
+            "metrics":           metrics,
+            "history":           history,   # in-memory ring buffer for quick trend access
+            "updatedAt":         datetime.utcnow(),
+            "metric_help":       self.get_metric_help().get("add_to_tracking", {}),
+            "pvs_formula_version": _PVS_FORMULA_VERSION,
+            # Note: canonical history lives in prompt_performance_snapshots (append-only)
         }
         col.update_one(
             {"jobId": job_id},
@@ -2071,9 +1498,169 @@ Scoring guide:
             upsert=True,
         )
 
+        # FIX 6: record investor KPIs per SOP-002 §12
+        _record_investor_kpis(job_id, metrics)
+
         created_raw = existing.get("createdAt") or datetime.utcnow()
         doc["updatedAt"] = now_iso
         doc["createdAt"] = (
             created_raw.isoformat() if hasattr(created_raw, "isoformat") else now_iso
         )
         return doc
+
+    # ------------------------------------------------------------------
+    # 10. generate_prompt_recommendations — Moat #4 RE
+    # FIX 5: dedup bug fixed — additional_prompts accumulate on WINNER
+    # ------------------------------------------------------------------
+
+    def generate_prompt_recommendations(
+        self,
+        job_id: str,
+        url: str,
+        prompt_metrics: List[Dict],
+        account_context: Optional[Dict] = None,
+        user_role: str = "SEO Manager",
+        plan_tier: str = "pro",
+    ) -> Dict:
+        """
+        IEU-ranked recommendation action cards.
+        Priority = (Impact×0.50) + (Effort_Inverted×0.30) + (Urgency×0.20)
+        Fully implements Moat #4 SOP Sections 3.1, 3.2, 3.3, 4.1, 6.2.
+        """
+        if account_context is None:
+            account_context = {}
+
+        tier_limits = {"free": 3, "pro": 10, "agency": 25, "enterprise": 999}
+        plan_limit = tier_limits.get(plan_tier, 10)
+        urgency_boost = _compute_urgency_multiplier(account_context)
+
+        all_cards = []
+
+        for pm in (prompt_metrics or []):
+            prompt_text = pm.get("prompt", "Unknown prompt")
+
+            for rule in _IEU_RULES:
+                try:
+                    if not rule["condition"](pm):
+                        continue
+                except Exception:
+                    continue
+
+                # Role filter — CXO sees everything
+                if user_role not in rule["roles"] and user_role != "CXO":
+                    continue
+
+                impact     = float(rule["impact_raw"])
+                effort_raw = float(rule["effort_raw"])
+                urgency    = max(0.0, min(10.0, float(rule["base_urgency"]) + urgency_boost))
+                priority   = _ieu_score(impact, effort_raw, urgency)
+
+                severity = (
+                    "CRITICAL" if priority >= 8 else
+                    "HIGH"     if priority >= 6 else
+                    "MEDIUM"   if priority >= 4 else "LOW"
+                )
+
+                all_cards.append({
+                    "recommendation_id": f"{job_id}_{rule['rule_id']}_{hash(prompt_text) % 100000:05d}",
+                    "prompt":            prompt_text,
+                    "module":            rule["module"],
+                    "action_title":      rule["action_title"],
+                    "action_detail":     rule["action_detail"],
+                    "affected_url":      url,
+                    "impact_score":      round(impact, 1),
+                    "effort_score":      round(effort_raw, 1),
+                    "urgency_score":     round(urgency, 1),
+                    "priority_score":    round(priority, 2),
+                    "severity":          severity,
+                    "role_visibility":   rule["roles"],
+                    "metrics_snapshot": {
+                        "prompt_visibility_score": pm.get("prompt_visibility_score"),
+                        "ctr_percent":             pm.get("ctr_percent"),
+                        "engagement_score":        pm.get("engagement_score"),
+                        "traffic_estimate":        pm.get("traffic_estimate"),
+                        "visibility_change":       pm.get("visibility_change"),
+                        "citation_rate":           pm.get("citation_rate"),
+                        "avg_position":            pm.get("avg_position"),
+                        "share_of_voice":          pm.get("share_of_voice"),
+                        "calculation_method":      pm.get("calculation_method"),
+                        "difficulty_score":        pm.get("difficulty_score"),
+                        "pvs_formula_version":     pm.get("pvs_formula_version"),
+                    },
+                    "status":        "pending",
+                    "trigger_event": (
+                        "delta_drop"  if (pm.get("visibility_change") or 0) < -5 else
+                        "improvement" if (pm.get("visibility_change") or 0) > 3 else
+                        "plateau"     if pm.get("visibility_change") == 0 else "standard"
+                    ),
+                    "additional_prompts": [],   # pre-initialise for FIX 5
+                })
+
+        # FIX 5: Deduplication — keep highest priority per rule.
+        # Additional prompts accumulate on the WINNER, not the discarded card.
+        seen_rules: Dict[str, Dict] = {}
+        for card in all_cards:
+            key = f"{card['module']}_{card['action_title']}"
+            if key not in seen_rules:
+                seen_rules[key] = card
+            elif card["priority_score"] > seen_rules[key]["priority_score"]:
+                # New card wins — carry over any prompts already collected on old winner
+                card["additional_prompts"] = (
+                    seen_rules[key]["additional_prompts"]
+                    + [seen_rules[key]["prompt"]]
+                )
+                seen_rules[key] = card
+            else:
+                # Current winner stays — append this card's prompt to winner's list
+                seen_rules[key]["additional_prompts"].append(card["prompt"])
+
+        ranked = sorted(seen_rules.values(), key=lambda c: c["priority_score"], reverse=True)
+        ranked = ranked[:plan_limit]
+
+        # Delta classification
+        aivs_drop = account_context.get("aivs_drop_pts", 0)
+        if aivs_drop > 15 or account_context.get("citation_score_drop_pct", 0) > 20:
+            delta_class = "CRITICAL DROP"
+        elif aivs_drop > 8:
+            delta_class = "SIGNIFICANT DROP"
+        elif aivs_drop > 2:
+            delta_class = "SLOW EROSION"
+        elif account_context.get("competitor_gained_pts", 0) > 10:
+            delta_class = "COMPETITOR THREAT"
+        elif account_context.get("aivs_gain_pts", 0) > 5:
+            delta_class = "IMPROVEMENT SIGNAL"
+        else:
+            delta_class = "PLATEAU"
+
+        critical_count = sum(1 for c in ranked if c["severity"] == "CRITICAL")
+        top_module = ranked[0]["module"] if ranked else None
+
+        try:
+            mongo_manager.connect()
+            doc = {
+                "jobId": job_id, "url": url,
+                "recommendations": ranked,
+                "summary": {
+                    "total": len(ranked), "critical": critical_count,
+                    "delta_class": delta_class, "top_module": top_module,
+                    "plan_limit": plan_limit, "role_filter": user_role,
+                },
+                "updatedAt": datetime.utcnow(),
+            }
+            mongo_manager.db.recommendations.update_one(
+                {"jobId": job_id, "url": url},
+                {"$set": doc, "$setOnInsert": {"createdAt": datetime.utcnow()}},
+                upsert=True,
+            )
+        except Exception as exc:
+            logger.warning("Could not persist recommendations: %s", exc)
+
+        return {
+            "recommendations": ranked,
+            "summary": {
+                "total": len(ranked), "critical": critical_count,
+                "delta_class": delta_class, "top_module": top_module,
+            },
+            "plan_limit_applied": plan_limit,
+            "role_filter_applied": user_role,
+        }

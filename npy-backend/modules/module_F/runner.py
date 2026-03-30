@@ -82,31 +82,57 @@ def _extract_prompts_from_module_e(
     doc: Dict[str, Any],
     topic: Optional[str] = None,
 ) -> List[str]:
-    prompts: List[str] = []
-    ranking = doc.get("ranking_analysis") or doc.get("ranking") or {}
-    ranking_prompts = ranking.get("generated_prompts") or []
-    if ranking_prompts:
-        prompts = [str(p).strip() for p in ranking_prompts if str(p or "").strip()]
-    if not prompts:
-        selected = doc.get("brand_prompts_selected") or []
-        if selected:
-            prompts = [str(p).strip() for p in selected if str(p or "").strip()]
-    if not prompts:
-        generated = doc.get("brand_prompts_generated") or []
-        if isinstance(generated, list):
-            if generated and isinstance(generated[0], dict):
-                prompts = [
-                    str(p.get("prompt") or "").strip()
-                    for p in generated
-                    if str(p.get("prompt") or "").strip()
-                ]
+    """
+    SOP §3 — Extract prompts for visibility analysis.
+    
+    Refined logic:
+    1. Collect ALL generated prompts (both brand_prompts_selected AND brand_prompts_generated).
+    2. Fallback to ranking_analysis prompts if empty.
+    3. Fallback to content_consistency prompts if empty.
+    4. Fallback to topic-based defaults if all else fails.
+    """
+    prompts_set: set = set()
+
+    # 1. Collect from brand_prompts_selected (the ones user chose)
+    selected = doc.get("brand_prompts_selected") or []
+    for p in selected:
+        val = str(p or "").strip()
+        if val:
+            prompts_set.add(val)
+
+    # 2. Collect from brand_prompts_generated (the ones AI produced during onboarding)
+    generated = doc.get("brand_prompts_generated") or []
+    if isinstance(generated, list):
+        for p in generated:
+            if isinstance(p, dict):
+                val = str(p.get("prompt") or "").strip()
             else:
-                prompts = [str(p or "").strip() for p in generated if str(p or "").strip()]
-    if not prompts:
+                val = str(p or "").strip()
+            if val:
+                prompts_set.add(val)
+
+    # 3. If still empty, check ranking_analysis
+    if not prompts_set:
+        ranking = doc.get("ranking_analysis") or doc.get("ranking") or {}
+        ranking_prompts = ranking.get("generated_prompts") or []
+        for p in ranking_prompts:
+            val = str(p or "").strip()
+            if val:
+                prompts_set.add(val)
+
+    # 4. If still empty, check content_consistency
+    if not prompts_set:
         cc = doc.get("content_consistency") or {}
         cc_prompts = cc.get("generated_prompts") or cc.get("prompts") or []
-        if cc_prompts:
-            prompts = [str(p).strip() for p in cc_prompts if str(p or "").strip()]
+        for p in cc_prompts:
+            val = str(p or "").strip()
+            if val:
+                prompts_set.add(val)
+
+    # Convert back to list
+    prompts = list(prompts_set)
+
+    # 5. Final fallback to topic-based defaults
     if not prompts and topic:
         prompts = [
             f"What are the best {topic} solutions?",
@@ -115,6 +141,7 @@ def _extract_prompts_from_module_e(
             f"Compare {topic} services",
             f"Reviews for {topic} companies",
         ]
+    
     return prompts
 
 
