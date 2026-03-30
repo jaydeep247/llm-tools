@@ -107,12 +107,15 @@ def analyze_outlinks(links: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Analyze collected links to generate statistics.
     Expects list of dicts with 'is_internal', 'target_url', 'rel'.
+
+    Both internal_outlinks and external_outlinks are UNIQUE counts (matching
+    Screaming Frog behaviour) so internal_external_ratio is computed from
+    de-duplicated values.
     """
     total = len(links)
     unique_outlinks = set()
-    unique_external_outlinks = set()
-    internal_count = 0
-    external_count = 0
+    unique_internal_outlinks: set = set()
+    unique_external_outlinks: set = set()
     js_outlinks = 0
     external_js_outlinks = 0
     
@@ -123,9 +126,8 @@ def analyze_outlinks(links: List[Dict[str, Any]]) -> Dict[str, Any]:
         is_internal = link.get('is_internal', False)
         
         if is_internal:
-            internal_count += 1
+            unique_internal_outlinks.add(url)
         else:
-            external_count += 1
             unique_external_outlinks.add(url)
             
         # Check for JS links (heuristic)
@@ -138,11 +140,9 @@ def analyze_outlinks(links: List[Dict[str, Any]]) -> Dict[str, Any]:
         'outlinks': total,
         'unique_outlinks': len(unique_outlinks),
         'unique_js_outlinks': js_outlinks,
-        'internal_outlinks': internal_count,
-        'external_outlinks': external_count,
+        'internal_outlinks': len(unique_internal_outlinks),
+        'external_outlinks': len(unique_external_outlinks),
         'unique_external_outlinks': len(unique_external_outlinks),
         'unique_external_js_outlinks': external_js_outlinks,
-        'outlink_url_list': [
-            link.get('target_url', '') for link in links if link.get('is_internal', False)
-        ],
+        'outlink_url_list': list(unique_internal_outlinks),
     }

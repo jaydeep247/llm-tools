@@ -101,9 +101,9 @@ def run_post_crawl_analysis(job_id: str) -> None:
             {
                 "url": 1,
                 "main_keyword": 1,
-                "backlink_metrics.internal_outlinks": 1,
-                "backlink_metrics.external_outlinks": 1,
-                "backlink_metrics.outlink_url_list": 1,
+                "internal_outlinks": 1,
+                "external_outlinks": 1,
+                "outlink_url_list": 1,
                 "website_crawler.simhash": 1,
                 "Keyword_analysis": 1,
                 "volume_global": 1,

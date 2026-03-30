@@ -859,9 +859,10 @@ class WebsiteSpider(RedisSpider):
                 'main_keyword': keyword_bundle.primary_keyword,
                 'keyword_source': keyword_bundle.keyword_source,
                 'keyword_bundle': asdict(keyword_bundle),
-                'internal_outlinks': 0,
-                'external_outlinks': 0,
+                'internal_outlinks': None,
+                'external_outlinks': None,
                 'outlink_url_list': [],
+                'internal_external_ratio': None,
             }
 
             self.pages_crawled += 1
@@ -1046,6 +1047,10 @@ class WebsiteSpider(RedisSpider):
             'internal_outlinks': outlink_stats.get('internal_outlinks'),
             'external_outlinks': outlink_stats.get('external_outlinks'),
             'outlink_url_list': outlink_stats.get('outlink_url_list'),
+            'internal_external_ratio': (
+                round(outlink_stats['internal_outlinks'] / outlink_stats['external_outlinks'], 2)
+                if outlink_stats.get('external_outlinks') else None
+            ),
             
             'website_crawler': {
                 # Pixel Widths

@@ -105,15 +105,20 @@ def _compute_internal_external_ratio(
 def compute_inlinks_for_batch(all_items: List[Dict[str, Any]]) -> Dict[str, int]:
     """
     Build a full inlink graph from all crawled items.
-    Returns {target_url: inlink_count}.
-    Must be called after the complete crawl so every item's outlink_url_list
-    is available.
+    Returns {normalized_target_url: inlink_count}.
+
+    URLs are normalized (trailing slash stripped) so that
+    https://attrock.com  and  https://attrock.com/  are treated as the
+    same target — fixing the common mismatch where Scrapy stores a page
+    without a trailing slash but link hrefs resolve to the slash variant.
     """
     link_graph: Dict[str, set] = defaultdict(set)
     for item in all_items:
-        source = item.get("url", "")
+        source = _normalize_url_for_api(item.get("url", ""))
         for target in item.get("outlink_url_list") or []:
-            link_graph[target].add(source)
+            norm_target = _normalize_url_for_api(target)
+            if norm_target:
+                link_graph[norm_target].add(source)
     return {url: len(sources) for url, sources in link_graph.items()}
 
 
@@ -420,12 +425,14 @@ async def extract_backlink_metrics_batch(
         audit_log: Dict[str, str] = {}
 
         # Field 1: Inlinks from graph
+        # Normalize the lookup key so trailing-slash variants resolve to the
+        # same entry (e.g. https://attrock.com == https://attrock.com/).
         inlinks_existing = item.get("inlinks")
         if inlinks_existing is not None and inlinks_existing != "":
             inlinks = int(inlinks_existing)
             audit_log["inlinks"] = "FOUND"
         else:
-            inlinks = inlink_map.get(url, 0)
+            inlinks = inlink_map.get(_normalize_url_for_api(url), 0)
             audit_log["inlinks"] = "EXTRACTING"
 
         # Fields 2 & 3: From stored crawl-time data
@@ -433,14 +440,15 @@ async def extract_backlink_metrics_batch(
         external_outlinks_existing = item.get("external_outlinks")
         outlink_url_list = item.get("outlink_url_list") or []
 
-        internal_outlinks = int(internal_outlinks_existing) if internal_outlinks_existing not in (None, "") else 0
-        external_outlinks = int(external_outlinks_existing) if external_outlinks_existing not in (None, "") else 0
+        internal_outlinks = int(internal_outlinks_existing) if internal_outlinks_existing not in (None, "") else None
+        external_outlinks = int(external_outlinks_existing) if external_outlinks_existing not in (None, "") else None
 
-        audit_log["internal_outlinks"] = "FOUND" if internal_outlinks_existing not in (None, "") else "EXTRACTING"
-        audit_log["external_outlinks"] = "FOUND" if external_outlinks_existing not in (None, "") else "EXTRACTING"
+        audit_log["internal_outlinks"] = "FOUND" if internal_outlinks_existing not in (None, "") else "NULL-REDIRECT"
+        audit_log["external_outlinks"] = "FOUND" if external_outlinks_existing not in (None, "") else "NULL-REDIRECT"
 
-        # Field 4: Internal/External ratio — always recomputed
-        internal_external_ratio = _compute_internal_external_ratio(internal_outlinks, external_outlinks)
+        # Field 4: Internal/External ratio — always recomputed from unique counts.
+        # Passes None through _compute_internal_external_ratio which treats it as 0.
+        internal_external_ratio = _compute_internal_external_ratio(internal_outlinks or 0, external_outlinks or 0)
         audit_log["internal_external_ratio"] = "COMPUTED"
 
         # Fields 5 & 6: From batch API response
@@ -477,6 +485,13 @@ async def extract_backlink_metrics_batch(
             else:
                 current_ref_domains = None
                 audit_log["current_ref_domains"] = "NULL"
+
+        # Redirect / non-HTML pages: outlink data is absent (internal_outlinks=None).
+        # Referring-domain metrics are meaningless for pages whose content was never
+        # crawled — null them out so the frontend shows "-" consistently.
+        if internal_outlinks is None:
+            current_ref_domains = None
+            audit_log["current_ref_domains"] = "NULL-REDIRECT"
 
         # Field 7: Min Required Ref Domains (existing item overrides cache/API)
         min_required_existing = item.get("min_required_ref_domains")
