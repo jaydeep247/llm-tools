@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PageMetrics } from './PageMetrics'
@@ -17,6 +16,8 @@ interface MainContentAuditProps {
   sessionId: string | number
   jobId: string | null
   sessionStatus?: 'idle' | 'running' | 'auditing' | 'completed' | 'cancelled'
+  activeTab?: string
+  onTabChange?: (tab: string) => void
 }
 
 export function MainContentAudit({
@@ -26,9 +27,10 @@ export function MainContentAudit({
   onRefreshMetrics,
   sessionId,
   jobId,
-  sessionStatus
+  sessionStatus,
+  activeTab = 'page-metrics',
+  onTabChange,
 }: MainContentAuditProps) {
-  const [activeTab, setActiveTab] = useState('page-metrics')
 
   const handleExport = () => {
     const workbook = createWorkbook()
@@ -55,7 +57,7 @@ export function MainContentAudit({
           {tabs.map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => onTabChange ? onTabChange(tab.id) : undefined}
               className={`px-4 py-2 text-sm font-medium rounded-full cursor-pointer transition-colors border ${
                 activeTab === tab.id
                   ? 'bg-white text-black border-white'

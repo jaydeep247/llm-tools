@@ -29,6 +29,11 @@ class LinkExtractor:
         
         for link in response.css('a[href]'):
             href = link.css('::attr(href)').get()
+            if not href:
+                continue
+            # Strip whitespace to prevent trailing-space variants being treated
+            # as different URLs during deduplication (e.g. "/path/ " vs "/path/")
+            href = href.strip()
             if not href or href.startswith('#') or href.startswith('javascript:') or href.startswith('mailto:') or href.startswith('tel:'):
                 continue
             

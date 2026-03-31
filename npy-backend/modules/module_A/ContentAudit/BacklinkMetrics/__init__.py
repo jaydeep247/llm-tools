@@ -25,10 +25,11 @@ Public API
 """
 import asyncio
 import logging
+import re
 import statistics
 from collections import defaultdict
 from typing import Any, Dict, List, Optional
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 
 from bs4 import BeautifulSoup
 
@@ -43,15 +44,29 @@ logger = logging.getLogger(__name__)
 _MIN_RDS_CACHE: Dict[str, int] = {}
 
 def _normalize_url_for_api(url: Any) -> str:
-    """Normalize URLs so DataForSEO results map back reliably."""
+    """Normalize URLs so DataForSEO results map back reliably.
+
+    Strips whitespace, collapses redundant forward-slashes in the path
+    (e.g. //slug/ → /slug/), and removes a trailing slash so that
+    https://example.com/page and https://example.com/page/ are treated
+    as the same key for both API lookups and the inlink graph.
+    """
     if url is None:
         return ""
     u = str(url).strip()
     if not u:
         return ""
-    # Remove a single trailing slash to avoid https://x vs https://x/ mismatches.
-    if u.endswith("/") and len(u) > 1:
-        u = u[:-1]
+    try:
+        parsed = urlparse(u)
+        path = re.sub(r'/+', '/', parsed.path) if parsed.path else '/'
+        # Strip trailing slash unconditionally (root '/' → '' → bare host)
+        if path.endswith('/'):
+            path = path[:-1]
+        u = urlunparse((parsed.scheme, parsed.netloc, path,
+                        parsed.params, parsed.query, ''))
+    except Exception:
+        if u.endswith('/') and len(u) > 1:
+            u = u[:-1]
     return u
 
 
@@ -73,21 +88,39 @@ def _compute_outlinks(links: List[str], site_domain: str) -> tuple:
     """
     Split raw href list into internal / external counts.
     Returns (internal_outlinks, external_outlinks, internal_url_list).
+
+    Uses set-based deduplication with URL normalisation (trailing whitespace,
+    double-slashes, trailing slash, www prefix) so counts match the
+    Screaming Frog compatible values produced by analyze_outlinks().
     """
-    site_netloc = urlparse(site_domain).netloc
-    internal: int = 0
-    external: int = 0
-    internal_urls: List[str] = []
+    raw_netloc = urlparse(site_domain).netloc
+    site_netloc = raw_netloc.replace('www.', '', 1) if raw_netloc.startswith('www.') else raw_netloc
+
+    internal_urls: set = set()
+    external_urls: set = set()
 
     for link in links:
-        netloc = urlparse(link).netloc
-        if netloc in ("", site_netloc):
-            internal += 1
-            internal_urls.append(link)
-        else:
-            external += 1
+        link = link.strip()
+        if not link:
+            continue
+        try:
+            parsed = urlparse(link)
+            netloc = parsed.netloc
+            netloc_norm = netloc.replace('www.', '', 1) if netloc.startswith('www.') else netloc
+            # Normalise path: collapse double-slashes and strip trailing slash
+            path = re.sub(r'/+', '/', parsed.path) if parsed.path else '/'
+            if path.endswith('/'):
+                path = path[:-1]
+            norm_link = urlunparse((parsed.scheme, netloc, path,
+                                    parsed.params, parsed.query, ''))
+            if netloc_norm in ('', site_netloc):
+                internal_urls.add(norm_link)
+            else:
+                external_urls.add(norm_link)
+        except Exception:
+            pass
 
-    return internal, external, internal_urls
+    return len(internal_urls), len(external_urls), list(internal_urls)
 
 
 def _compute_internal_external_ratio(

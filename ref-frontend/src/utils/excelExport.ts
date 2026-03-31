@@ -220,11 +220,6 @@ const CONTENT_AUDIT_EXPORT_COLUMNS: ContentAuditExportColumn[] = [
   },
   {
     group: 'Performance Metrics',
-    label: '30 Days GA Traffic',
-    value: (row) => getContentAuditValue(row, 'ga30DaysTraffic', [['performance_metrics', 'ga30DaysTraffic'], ['page_matrix', 'ga30DaysTraffic']]),
-  },
-  {
-    group: 'Performance Metrics',
     label: 'Overall Keywords',
     value: (row) => getContentAuditValue(row, 'overallKeywords', [['performance_metrics', 'overallKeywords'], ['page_matrix', 'overallKeywords']]),
   },

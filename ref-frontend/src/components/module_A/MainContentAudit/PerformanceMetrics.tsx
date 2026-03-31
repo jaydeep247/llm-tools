@@ -22,7 +22,6 @@ export interface PerformanceMetric {
   url: string
   fields?: Record<string, any>
   currentRanking?: number | string | null
-  ga30DaysTraffic?: number | null
   overallKeywords?: number | null
   firstPageKeywords?: number | null
   timestamp?: string
@@ -47,14 +46,13 @@ type ColumnCategory = {
 const COLUMN_CATEGORIES: ColumnCategory[] = [
   {
     name: 'Ranking & Traffic',
-    columns: ['url', 'currentRanking', 'ga30DaysTraffic', 'overallKeywords', 'firstPageKeywords']
+    columns: ['url', 'currentRanking', 'overallKeywords', 'firstPageKeywords']
   }
 ]
 
 const FIELD_DESCRIPTIONS: Partial<Record<keyof PerformanceMetric, string>> = {
   url: 'Full web address of the analyzed page. Click to open in a new tab.',
   currentRanking: 'Current SERP ranking position for the primary keyword.',
-  ga30DaysTraffic: 'Google Analytics 4 sessions for this page in the last 30 days.',
   overallKeywords: 'Total number of keywords this page ranks for across all positions.',
   firstPageKeywords: 'Number of keywords ranking on the first page of search results.',
   timestamp: 'Date and time when this data was collected.',
@@ -63,7 +61,6 @@ const FIELD_DESCRIPTIONS: Partial<Record<keyof PerformanceMetric, string>> = {
 const DEFAULT_VISIBLE_COLUMNS: Set<keyof PerformanceMetric> = new Set([
   'url', 
   'currentRanking',
-  'ga30DaysTraffic', 
   'overallKeywords', 
   'firstPageKeywords'
 ] as (keyof PerformanceMetric)[])
@@ -237,7 +234,6 @@ export function PerformanceMetrics({
     const labels: Record<string, string> = {
       url: 'URL',
       currentRanking: 'Current Ranking',
-      ga30DaysTraffic: '30 Days GA Traffic',
       overallKeywords: 'Overall Keywords',
       firstPageKeywords: '1st Page Keywords',
       timestamp: 'Timestamp'
@@ -247,7 +243,7 @@ export function PerformanceMetrics({
 
   // Columns that support sorting
   const sortableColumns: Set<keyof PerformanceMetric> = new Set([
-    'url', 'currentRanking', 'ga30DaysTraffic', 'overallKeywords', 'firstPageKeywords', 'timestamp'
+    'url', 'currentRanking', 'overallKeywords', 'firstPageKeywords', 'timestamp'
   ] as (keyof PerformanceMetric)[])
 
   const renderTableHeader = (column: keyof PerformanceMetric) => {
@@ -313,14 +309,6 @@ export function PerformanceMetrics({
         return <Badge className={color}>{v}</Badge>
       }
 
-      case 'ga30DaysTraffic': {
-        const v = Number(value)
-        const color = v >= 1000 ? 'bg-green-500/20 text-green-300 border-green-500/30' :
-                      v >= 100  ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' :
-                                  'bg-zinc-700/40 text-zinc-300 border-zinc-600/30'
-        return <Badge className={color}>{v.toLocaleString()}</Badge>
-      }
-
       case 'overallKeywords':
       case 'firstPageKeywords':
         return <span className="font-mono text-zinc-300">{Number(value).toLocaleString()}</span>
@@ -333,9 +321,7 @@ export function PerformanceMetrics({
     }
   }
 
-  const avgGA = uniqueData.length
-    ? Math.round(uniqueData.reduce((sum, p) => sum + (p.ga30DaysTraffic ?? 0), 0) / uniqueData.length)
-    : 0
+
 
   return (
     <div className="flex flex-col h-full gap-4">
@@ -404,10 +390,7 @@ export function PerformanceMetrics({
             <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Filtered</div>
             <div className="text-xl font-bold text-white mt-1">{filteredData.length}</div>
           </div>
-          <div className="bg-[#111113] border border-zinc-800 rounded-xl p-3">
-            <div className="text-[11px] text-zinc-500 uppercase tracking-wider">Avg GA Traffic (30d)</div>
-            <div className="text-xl font-bold text-white mt-1">{avgGA.toLocaleString()}</div>
-          </div>
+
         </div>
       </div>
 

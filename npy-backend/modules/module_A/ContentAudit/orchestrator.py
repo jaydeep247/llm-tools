@@ -49,9 +49,6 @@ async def run_content_audit(
             main_keyword=main_keyword,
             title=title,
             h1=h1,
-            location_code=kwargs.get("location_code", 2840),
-            language_code=kwargs.get("language_code", "en"),
-            skip_api=kwargs.get("skip_keyword_api", False),
         )
         # Use the resolved primary keyword for all downstream modules
         resolved_keyword = keyword_bundle.primary_keyword or main_keyword
@@ -160,13 +157,6 @@ async def run_content_audit(
             "keyword_source": keyword_bundle.keyword_source,
             "intent": keyword_bundle.intent,
             "post_category_type": keyword_bundle.post_category_type,
-            "all_keywords": keyword_bundle.all_keywords,
-            "ranked_keywords": keyword_bundle.ranked_keywords,
-            "related_keywords": keyword_bundle.related_keywords,
-            "on_page_keywords": keyword_bundle.on_page_keywords,
-            "question_keywords": keyword_bundle.question_keywords,
-            "long_tail_keywords": keyword_bundle.long_tail_keywords,
-            "entity_keywords": keyword_bundle.entity_keywords,
         },
         "page_metrics": page_metrics_result,
         "keyword_metrics": keyword_metrics_result,

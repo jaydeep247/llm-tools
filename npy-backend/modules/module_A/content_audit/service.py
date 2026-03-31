@@ -83,13 +83,6 @@ def _keyword_bundle_from_doc(field_doc: Dict[str, Any]) -> KeywordBundle:
     return KeywordBundle(
         primary_keyword=str(payload.get("primary_keyword") or field_doc.get("main_keyword") or ""),
         keyword_source=str(payload.get("keyword_source") or field_doc.get("keyword_source") or ""),
-        all_keywords=list(payload.get("all_keywords") or []),
-        ranked_keywords=list(payload.get("ranked_keywords") or []),
-        related_keywords=list(payload.get("related_keywords") or []),
-        on_page_keywords=list(payload.get("on_page_keywords") or []),
-        question_keywords=list(payload.get("question_keywords") or []),
-        long_tail_keywords=list(payload.get("long_tail_keywords") or []),
-        entity_keywords=list(payload.get("entity_keywords") or []),
         intent=str(payload.get("intent") or "I"),
         post_category_type=str(payload.get("post_category_type") or "other"),
     )
@@ -309,17 +302,33 @@ async def _run_keyword_metrics(job_id: str, urls: List[str], run_at: str) -> int
     fields_by_url = _build_lookup(field_docs)
 
     batch_items: List[Dict[str, Any]] = []
-    keyword_sources: Dict[str, str] = {}
     for url in urls:
         field_doc = fields_by_url.get(url, {"url": url})
         page_doc = pages_by_url.get(url, {"url": url})
-        main_keyword, keyword_source = await _resolve_main_keyword(field_doc, page_doc)
-        keyword_sources[url] = keyword_source
+
+        # Preserve user-provided keywords; all others are re-selected by volume.
+        existing_kw = (field_doc.get("main_keyword") or "").strip()
+        existing_src = (field_doc.get("keyword_source") or "").strip()
+
+        # Use the primary keyword from the keyword bundle (resolved during crawl)
+        kb_data = field_doc.get("keyword_bundle") or {}
+        bundle_kw = str(kb_data.get("primary_keyword") or "").strip()
+
+        # Determine main_keyword: user-provided takes priority, then bundle
+        if existing_src == "provided" and existing_kw:
+            main_kw = existing_kw
+        elif bundle_kw:
+            main_kw = bundle_kw
+        elif existing_kw:
+            main_kw = existing_kw
+        else:
+            main_kw = ""
+
         batch_items.append(
             {
                 "url": url,
-                "main_keyword": main_keyword,
                 "status_code": page_doc.get("status_code"),
+                "main_keyword": main_kw,
                 "volume_global": None,
                 "volume_us": None,
                 "kd_us": None,
@@ -339,13 +348,17 @@ async def _run_keyword_metrics(job_id: str, urls: List[str], run_at: str) -> int
                 {
                     "$set": {
                         "main_keyword": result.get("main_keyword"),
-                        "keyword_source": keyword_sources.get(url) or None,
+                        "keyword_source": result.get("keyword_source") or None,
                         "status_code": result.get("status_code"),
                         "volume_global": result.get("volume_global"),
                         "volume_us": result.get("volume_us"),
                         "kd_us": result.get("kd_us"),
                         "cpc_usd": result.get("cpc_usd"),
-                        "keyword_metrics_audit_log": result.get("audit_log") or {},
+                        "keyword_metrics_audit_log": {
+                            k: v for k, v in (result.get("audit_log") or {}).items()
+                            if k != "candidate_rankings"
+                        },
+                        "keyword_candidate_rankings": result.get("keywords_api_table") or [],
                         "keyword_metrics_last_run_at": run_at,
                     },
                     "$setOnInsert": {"createdAt": datetime.now(timezone.utc)},
@@ -389,7 +402,6 @@ async def _run_performance_metrics(job_id: str, urls: List[str], run_at: str) ->
                 "url": url,
                 "main_keyword": main_keyword,
                 "currentRanking": performance_metrics.get("currentRanking"),
-                "ga30DaysTraffic": performance_metrics.get("ga30DaysTraffic"),
                 "overallKeywords": performance_metrics.get("overallKeywords"),
                 "firstPageKeywords": performance_metrics.get("firstPageKeywords"),
             }
@@ -407,7 +419,6 @@ async def _run_performance_metrics(job_id: str, urls: List[str], run_at: str) ->
                 {
                     "$set": {
                         "performance_metrics.currentRanking": result.get("currentRanking"),
-                        "performance_metrics.ga30DaysTraffic": result.get("ga30DaysTraffic"),
                         "performance_metrics.overallKeywords": result.get("overallKeywords"),
                         "performance_metrics.firstPageKeywords": result.get("firstPageKeywords"),
                         "performance_metrics_audit_log": result.get("audit_log") or {},

@@ -243,6 +243,7 @@ export default function SessionDetailPage() {
   }, [searchParams, projectId, sessionId, router])
 
   const tab = searchParams.get('tab') || 'dashboard'
+  const subtab = searchParams.get('subtab') || 'page-metrics'
 
   const activeSection = tab
 
@@ -254,7 +255,7 @@ export default function SessionDetailPage() {
   useEffect(() => {
     if (prevTabRef.current !== activeSection) {
       prevTabRef.current = activeSection
-      const dataTabs = ['crawled-data', 'technical-audit', 'content-audit', 'page-metrics', 'text-quality', 'wordcount', 'broken-links', 'link-analysis', 'url-explorer', 'performance-audits', 'schema-generator', 'site-structure', 'exports']
+      const dataTabs = ['crawled-data', 'technical-audit', 'content-audit', 'text-quality', 'wordcount', 'broken-links', 'link-analysis', 'url-explorer', 'performance-audits', 'schema-generator', 'site-structure', 'exports']
       if (dataTabs.includes(activeSection) && jobId) {
         refetchPagesRaw()
         refetchFieldsRaw()
@@ -554,7 +555,6 @@ export default function SessionDetailPage() {
       timestamp: page.timestamp || new Date().toISOString(),
 
       // --- Performance Metrics ---
-      ga30DaysTraffic: pmMetrics?.ga30DaysTraffic ?? pageMatrix?.ga30DaysTraffic ?? crawlerData?.ga30DaysTraffic ?? 0,
       currentRanking: pmMetrics?.currentRanking ?? pageMatrix?.currentRanking ?? crawlerData?.currentRanking ?? null,
       overallKeywords: pmMetrics?.overallKeywords ?? pageMatrix?.overallKeywords ?? crawlerData?.overallKeywords ?? 0,
       firstPageKeywords: pmMetrics?.firstPageKeywords ?? pageMatrix?.firstPageKeywords ?? crawlerData?.firstPageKeywords ?? 0,
@@ -1142,8 +1142,8 @@ export default function SessionDetailPage() {
           </div>
         )}
 
-        {/* Show Page Metrics Table on page-metrics / content-audit tab */}
-        {(activeSection === 'page-metrics' || activeSection === 'content-audit') && (
+        {/* Show Content Audit on content-audit tab — subtab param drives the inner tab */}
+        {activeSection === 'content-audit' && (
           <div className="h-[calc(100vh-133px)] -mx-11 md:-mx-8 px-6 pb-6 pt-2">
             <MainContentAudit
               pageMetricsData={pageMetricsData?.data || []}
@@ -1153,6 +1153,13 @@ export default function SessionDetailPage() {
               sessionId={sessionId}
               jobId={crawlJob?.id ?? jobId ?? null}
               sessionStatus={session?.status as any}
+              activeTab={subtab}
+              onTabChange={(newSubtab) => {
+                const p = new URLSearchParams(searchParams.toString())
+                p.set('tab', 'content-audit')
+                p.set('subtab', newSubtab)
+                router.push(`/dashboard/projects/${projectId}/sessions/${sessionId}?${p.toString()}`, { scroll: false })
+              }}
             />
           </div>
         )}

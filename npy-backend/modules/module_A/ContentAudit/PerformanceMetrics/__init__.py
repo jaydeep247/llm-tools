@@ -7,12 +7,8 @@ Data sources:
                scan items for main keyword → rank_group = currentRanking
      - Call B: rank_absolute <= 10 → total_count = firstPageKeywords
 
-  2. GA4 30-day traffic is fetched via user OAuth from the Node backend (field 3.2)
-     - Stored in ga30DaysTraffic when available
-
 Fields stored:
     currentRanking    – rank_group for the page's main keyword (int or "100+")
-    ga30DaysTraffic   – GA4 sessions for the page in the last 30 days (int)
     overallKeywords   – total ranked keywords for the URL
     firstPageKeywords – ranked keywords in positions 1–10
 """
@@ -170,11 +166,21 @@ def _classify_task_response(resp: Any) -> Tuple[APIStatus, str, Optional[Dict[st
     return "api_error", status_message or f"status {status_code}", task
 
 
+def _normalize_url_key(url: str) -> str:
+    """Normalize URL for matching: strip protocol, www, trailing slash, lowercase."""
+    url = str(url or "").strip().lower()
+    url = re.sub(r"^https?://", "", url)
+    if url.startswith("www."):
+        url = url[4:]
+    return url.rstrip("/")
+
+
 async def _ranked_keywords_call(
     target: str,
     *,
     filters: Optional[List] = None,
     limit: int = 1000,
+    offset: int = 0,
     skip_cache: bool = False,
 ) -> Tuple[APIStatus, str, Dict[str, Any]]:
     """Single ranked_keywords/live API call. Returns (status, message, result_dict)."""
@@ -187,6 +193,7 @@ async def _ranked_keywords_call(
         "language_code": "en",
         "item_types": ["organic"],
         "limit": limit,
+        "offset": offset,
     }
     if filters:
         payload["filters"] = filters
@@ -218,119 +225,84 @@ async def _ranked_keywords_call(
     return "ok", message, result
 
 
-def _build_url_filter(domain: str, path: str) -> Optional[List]:
-    """
-    Build a DataForSEO ``like`` filter on ``ranked_serp_element.serp_item.url``
-    so the API returns only keywords where the specified page (or section) ranks.
-
-    For the root path (``/``) no URL filter is needed — the domain-level query
-    already returns all keywords.
-    """
-    if not path or path == "/":
-        return None
-    # ``like`` with ``%`` wildcards matches any keyword whose ranking URL
-    # contains the domain + path prefix (captures sub-pages too).
-    return ["ranked_serp_element.serp_item.url", "like", f"%{domain}{path}%"]
-
-
-async def _fetch_ranked_keywords_snapshot(url: str, *, force_refresh: bool = False) -> Dict[str, Any]:
-    """
-    Two parallel DataForSEO calls per URL:
-      Call A – URL filter (no rank filter)  → total_count = overallKeywords
-               + items scanned for main keyword → rank_group = currentRanking
-      Call B – URL filter + rank_absolute ≤ 10 → total_count = firstPageKeywords
-
-    The ``target`` is always the bare domain.  Per-page scoping is achieved via
-    a ``like`` filter on ``ranked_serp_element.serp_item.url``.
-
-    When force_refresh=True the orchestrator's disk cache is bypassed.
-    """
-    empty = {
-        "status": "api_error",
-        "message": "no DataForSEO response",
-        "items": [],
-        "total_count_all": 0,
-        "total_count_first_page": 0,
-        "url": url,
-    }
-
-    domain = _extract_domain(url)
-    if not domain:
-        return empty
-
-    parts = urlsplit(str(url or "").strip())
-    path = parts.path or "/"
-
-    url_filter = _build_url_filter(domain, path)
-
-    # Build filter lists for the two calls
-    filters_a: Optional[List] = None
-    filters_b: List = [["ranked_serp_element.serp_item.rank_absolute", "<=", 10]]
-
-    if url_filter:
-        filters_a = [url_filter]
-        filters_b = [url_filter, "and", ["ranked_serp_element.serp_item.rank_absolute", "<=", 10]]
-
-    # Fire both calls in parallel
-    (status_a, msg_a, result_a), (status_b, msg_b, result_b) = await asyncio.gather(
-        _ranked_keywords_call(domain, filters=filters_a, limit=1000, skip_cache=force_refresh),
-        _ranked_keywords_call(domain, filters=filters_b, limit=1000, skip_cache=force_refresh),
-    )
-
-    if status_a == "rate_limit":
-        return {**empty, "status": "rate_limit", "message": msg_a}
-
-    if status_a != "ok":
-        return {**empty, "status": status_a, "message": msg_a}
-
-    total_count_all = int(result_a.get("total_count") or 0)
-    items = result_a.get("items") or []
-
-    total_count_first_page = 0
-    if status_b == "ok":
-        total_count_first_page = int(result_b.get("total_count") or 0)
-    else:
-        logger.warning("[PM][LABS] Call-B %s for domain=%s path=%s: %s", status_b, domain, path, msg_b)
-
-    snapshot = {
-        "status": "ok",
-        "message": msg_a,
-        "items": items,
-        "total_count_all": total_count_all,
-        "total_count_first_page": total_count_first_page,
-        "url": url,
-        "target": domain,
-    }
-
-    if total_count_all > 0 or items:
-        logger.info(
-            "[PM][LABS] ✓ domain=%s path=%s  overall=%d  fp=%d  items=%d",
-            domain, path, total_count_all, total_count_first_page, len(items),
-        )
-        return snapshot
-
-    logger.info("[PM][LABS] ✗ no data for url=%s domain=%s path=%s", url, domain, path)
-    return {**empty, "status": "ok", "message": msg_a}
-
-
-async def _fetch_ranked_keywords_snapshots(
-    urls: List[str],
-    concurrency: int = 5,
+async def _fetch_domain_keyword_groups(
+    domain: str,
+    *,
     force_refresh: bool = False,
-) -> Dict[str, Dict[str, Any]]:
-    if not urls:
-        return {}
+    max_total: int = 10000,
+) -> Tuple[APIStatus, str, Dict[str, Dict[str, Any]]]:
+    """
+    Fetch ALL ranked keywords for a domain via paginated calls, then group
+    by SERP URL.  Returns (status, message, url_groups) where url_groups maps
+    ``normalized_url_key`` → {"overall": int, "first_page": int, "items": [...]}.
 
-    semaphore = asyncio.Semaphore(concurrency)
+    Falls back to empty dict if the domain has more than *max_total* keywords
+    (caller should use per-URL calls instead).
+    """
+    # Probe call to learn total_count
+    status, msg, probe = await _ranked_keywords_call(
+        domain, limit=1, skip_cache=force_refresh,
+    )
+    if status != "ok":
+        return status, msg, {}
 
-    async def _fetch_one(target_url: str) -> Tuple[str, Dict[str, Any]]:
-        async with semaphore:
-            return target_url, await _fetch_ranked_keywords_snapshot(
-                target_url, force_refresh=force_refresh
-            )
+    total = int(probe.get("total_count") or 0)
+    if total == 0:
+        logger.info("[PM][DOMAIN] %s has 0 keywords", domain)
+        return "ok", msg, {}
+    if total > max_total:
+        logger.info(
+            "[PM][DOMAIN] %s has %d keywords (> %d), skipping domain-level aggregation",
+            domain, total, max_total,
+        )
+        return "ok", msg, {}  # caller will fall back
 
-    results = await asyncio.gather(*[_fetch_one(url) for url in urls])
-    return {url: snapshot for url, snapshot in results}
+    # Paginate through ALL items
+    all_items: List[Dict[str, Any]] = []
+    offset = 0
+    page_size = 1000
+    while offset < total:
+        s, m, result = await _ranked_keywords_call(
+            domain, limit=page_size, offset=offset, skip_cache=force_refresh,
+        )
+        if s == "rate_limit":
+            return "rate_limit", m, {}
+        if s != "ok":
+            break
+        items = result.get("items") or []
+        all_items.extend(items)
+        if len(items) < page_size:
+            break
+        offset += page_size
+
+    logger.info("[PM][DOMAIN] %s  total_count=%d  fetched=%d items in %d pages",
+                domain, total, len(all_items), (offset // page_size) + 1)
+
+    # Group by SERP URL
+    url_groups: Dict[str, Dict[str, Any]] = {}
+    for item in all_items:
+        serp = (item.get("ranked_serp_element") or {}).get("serp_item") or {}
+        serp_url = (serp.get("url") or "").strip()
+        if not serp_url:
+            continue
+
+        key = _normalize_url_key(serp_url)
+        if key not in url_groups:
+            url_groups[key] = {"overall": 0, "first_page": 0, "items": []}
+
+        url_groups[key]["overall"] += 1
+        url_groups[key]["items"].append(item)
+
+        rank_group = serp.get("rank_group")
+        if rank_group is not None:
+            try:
+                if int(rank_group) <= 10:
+                    url_groups[key]["first_page"] += 1
+            except (TypeError, ValueError):
+                pass
+
+    logger.info("[PM][DOMAIN] %s  unique URLs in SERP data: %d", domain, len(url_groups))
+    return "ok", msg, url_groups
 
 
 def _extract_rank_from_items(main_keyword: str, items: List[Dict[str, Any]]) -> Union[int, str]:
@@ -388,7 +360,6 @@ async def extract_performance_metrics(
 
     return {
         "currentRanking": pm.get("currentRanking"),
-        "ga30DaysTraffic": pm.get("ga30DaysTraffic"),
         "overallKeywords": pm.get("overallKeywords"),
         "firstPageKeywords": pm.get("firstPageKeywords"),
     }
@@ -405,32 +376,35 @@ async def extract_performance_metrics_batch(
     if not items:
         return []
 
-    urls_to_fetch: List[str] = []
-    seen_urls: set = set()
-
+    # ── Group input URLs by domain ───────────────────────────────────────
+    domain_urls: Dict[str, List[str]] = {}
     for item in items:
         url = item.get("url", "")
-        keyword = (item.get("main_keyword") or "").strip()
+        if not url:
+            continue
+        domain = _extract_domain(url)
+        if domain:
+            domain_urls.setdefault(domain, []).append(url)
 
-        needs_keyword_snapshot = force_refresh or any(
-            [
-                not _has_numeric_value(item.get("overallKeywords")),
-                not _has_numeric_value(item.get("firstPageKeywords")),
-                bool(keyword) and not _is_valid_ranking(item.get("currentRanking")),
-            ]
+    # ── Fetch domain-level keyword groups (paginated, ~5 calls per domain) ─
+    domain_groups: Dict[str, Dict[str, Dict[str, Any]]] = {}
+    domain_statuses: Dict[str, APIStatus] = {}
+    for domain, urls in domain_urls.items():
+        status, msg, groups = await _fetch_domain_keyword_groups(
+            domain, force_refresh=force_refresh,
         )
+        domain_statuses[domain] = status
+        if groups:
+            domain_groups[domain] = groups
 
-        if needs_keyword_snapshot and url and url not in seen_urls:
-            seen_urls.add(url)
-            urls_to_fetch.append(url)
-
+    total_api_urls = sum(len(g) for g in domain_groups.values())
     logger.info(
-        "[PM][BATCH] ranked_keywords snapshots: %d URL(s)",
-        len(urls_to_fetch),
+        "[PM][BATCH] domain-level aggregation: %d domain(s), %d unique SERP URLs found",
+        len(domain_groups),
+        total_api_urls,
     )
 
-    snapshots = await _fetch_ranked_keywords_snapshots(urls_to_fetch, force_refresh=force_refresh)
-
+    # ── Build output ─────────────────────────────────────────────────────
     output: List[Dict[str, Any]] = []
     keyword_fetched_count = 0
     keyword_rate_limit_count = 0
@@ -441,10 +415,9 @@ async def extract_performance_metrics_batch(
         url = item.get("url", "")
         keyword = (item.get("main_keyword") or "").strip()
         domain = _extract_domain(url)
-        snapshot = snapshots.get(url)
+        url_key = _normalize_url_key(url)
 
         current_ranking = item.get("currentRanking")
-        traffic = item.get("ga30DaysTraffic")
         overall_keywords = item.get("overallKeywords")
         first_page_keywords = item.get("firstPageKeywords")
 
@@ -453,26 +426,45 @@ async def extract_performance_metrics_batch(
             else "SKIPPED-NO-KEYWORD" if not keyword
             else "PENDING"
         )
-        audit_traffic = "FOUND" if _has_numeric_value(traffic) else "SKIPPED-GA4-VIA-FRONTEND"
         audit_overall = "FOUND" if _has_numeric_value(overall_keywords) else "PENDING"
         audit_first_page = "FOUND" if _has_numeric_value(first_page_keywords) else "PENDING"
 
-        # ── DataForSEO snapshot ──────────────────────────────────────────────
-        if snapshot:
-            status = snapshot.get("status")
-            if status == "ok":
-                keyword_fetched_count += 1
+        domain_status = domain_statuses.get(domain, "api_error")
 
+        if domain_status == "rate_limit":
+            keyword_rate_limit_count += 1
+            unavailable = "UNAVAILABLE-RATE-LIMIT"
+            if force_refresh or audit_overall == "PENDING":
+                audit_overall = unavailable
+            if force_refresh or audit_first_page == "PENDING":
+                audit_first_page = unavailable
+            if keyword and (force_refresh or audit_ranking == "PENDING"):
+                audit_ranking = unavailable
+        elif domain_status != "ok":
+            keyword_api_error_count += 1
+            unavailable = "UNAVAILABLE-API"
+            if force_refresh or audit_overall == "PENDING":
+                audit_overall = unavailable
+            if force_refresh or audit_first_page == "PENDING":
+                audit_first_page = unavailable
+            if keyword and (force_refresh or audit_ranking == "PENDING"):
+                audit_ranking = unavailable
+        elif domain in domain_groups:
+            # Domain was fetched successfully — look up this URL
+            url_group = domain_groups[domain].get(url_key)
+            keyword_fetched_count += 1
+
+            if url_group:
                 if force_refresh or audit_overall == "PENDING":
-                    overall_keywords = snapshot["total_count_all"]
+                    overall_keywords = url_group["overall"]
                     audit_overall = "FETCHED" if overall_keywords else "FETCHED-ZERO"
 
                 if force_refresh or audit_first_page == "PENDING":
-                    first_page_keywords = snapshot["total_count_first_page"]
+                    first_page_keywords = url_group["first_page"]
                     audit_first_page = "FETCHED" if first_page_keywords else "FETCHED-ZERO"
 
                 if keyword and (force_refresh or audit_ranking == "PENDING"):
-                    current_ranking = _extract_rank_from_items(keyword, snapshot.get("items") or [])
+                    current_ranking = _extract_rank_from_items(keyword, url_group.get("items") or [])
                     if current_ranking == "100+":
                         ranking_not_found_count += 1
                         audit_ranking = "FETCHED-NOT-RANKING"
@@ -480,23 +472,20 @@ async def extract_performance_metrics_batch(
                         audit_ranking = "FETCHED"
                 elif not keyword:
                     audit_ranking = "SKIPPED-NO-KEYWORD"
-
             else:
-                if status == "rate_limit":
-                    keyword_rate_limit_count += 1
-                    unavailable = "UNAVAILABLE-RATE-LIMIT"
-                else:
-                    keyword_api_error_count += 1
-                    unavailable = "UNAVAILABLE-API"
-
+                # URL not present in any SERP data — genuinely has 0 keywords
                 if force_refresh or audit_overall == "PENDING":
-                    audit_overall = unavailable
+                    overall_keywords = 0
+                    audit_overall = "FETCHED-ZERO"
                 if force_refresh or audit_first_page == "PENDING":
-                    audit_first_page = unavailable
+                    first_page_keywords = 0
+                    audit_first_page = "FETCHED-ZERO"
                 if keyword and (force_refresh or audit_ranking == "PENDING"):
-                    audit_ranking = unavailable
-
-        # ── GA4 traffic is now fetched via user OAuth from the frontend/nnode-backend ──
+                    current_ranking = "100+"
+                    ranking_not_found_count += 1
+                    audit_ranking = "FETCHED-NOT-RANKING"
+                elif not keyword:
+                    audit_ranking = "SKIPPED-NO-KEYWORD"
 
         output.append(
             {
@@ -504,12 +493,10 @@ async def extract_performance_metrics_batch(
                 "domain": domain,
                 "main_keyword": keyword,
                 "currentRanking": current_ranking,
-                "ga30DaysTraffic": _to_int(traffic),
                 "overallKeywords": _to_int(overall_keywords),
                 "firstPageKeywords": _to_int(first_page_keywords),
                 "audit_log": {
                     "currentRanking": audit_ranking,
-                    "ga30DaysTraffic": audit_traffic,
                     "overallKeywords": audit_overall,
                     "firstPageKeywords": audit_first_page,
                 },
@@ -522,14 +509,13 @@ async def extract_performance_metrics_batch(
         "  PERFORMANCE METRICS — BATCH SUMMARY\n"
         "═══════════════════════════════════════════════════\n"
         "  URLs processed:               %d\n"
-        "  Keyword snapshots (ok):        %d  / %d fetched\n"
+        "  Keyword data resolved (ok):    %d\n"
         "  Keyword rate-limited:          %d\n"
         "  Keyword API errors:            %d\n"
         "  Ranking not found (100+):      %d\n"
         "═══════════════════════════════════════════════════",
         len(items),
         keyword_fetched_count,
-        len(urls_to_fetch),
         keyword_rate_limit_count,
         keyword_api_error_count,
         ranking_not_found_count,
