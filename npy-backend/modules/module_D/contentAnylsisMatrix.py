@@ -37,7 +37,7 @@ import json
 import math
 import logging
 from typing import Dict, List, Optional
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 import anthropic
 
@@ -402,6 +402,66 @@ _IEU_RULES = [
             and m.get("avg_position", 0) >= 7
         ),
     },
+    # ── SOP-001 Phase 5 gap patterns — require citation_gap_events data ────
+    {
+        "rule_id": "COMPETITOR_CITED_MATCHING_PAGE",
+        "module": "competitor",
+        "action_title": "Add FAQ schema — competitor cited, you have matching content",
+        "action_detail": (
+            "A competitor is being cited for this prompt but your page covers the same topic. "
+            "Add FAQ schema to your page — structured Q&A is cited 3× more by AI models than prose. "
+            "Add H2 headings that echo the exact prompt language. "
+            "Add Organization schema with a clear authoritative definition paragraph."
+        ),
+        "impact_raw": 9, "effort_raw": 4, "base_urgency": 9,
+        "roles": ["SEO Manager", "Content Manager", "CMO"],
+        "condition": lambda m: (
+            m.get("calculation_method") == "real_citation_data"
+            and m.get("competitor_count", 0) > 0
+            and m.get("citation_rate", 1.0) < 0.20
+        ),
+    },
+    {
+        "rule_id": "BRAND_MENTIONED_NO_URL_CITED",
+        "module": "prompt_intel",
+        "action_title": "Brand appears in AI answers but no URL is cited",
+        "action_detail": (
+            "Your brand name is being mentioned in AI responses but no URL from your site is being cited. "
+            "This means AI models know about your brand but cannot confidently source it. "
+            "Add an authoritative definition paragraph in the first 100 words of your homepage. "
+            "Add Organization schema with name, url, description, and sameAs fields. "
+            "Ensure your homepage is publicly crawlable with no robots.txt blocks."
+        ),
+        "impact_raw": 8, "effort_raw": 3, "base_urgency": 8,
+        "roles": ["SEO Manager", "CMO", "Content Manager"],
+        "condition": lambda m: (
+            m.get("calculation_method") == "real_citation_data"
+            and m.get("citation_rate", 1.0) < 0.10
+            and m.get("share_of_voice", 1.0) < 0.15
+            and m.get("competitor_count", 0) > 0
+        ),
+    },
+    {
+        "rule_id": "COMPETITOR_EARLY_POSITION_ADVANTAGE",
+        "module": "competitor",
+        "action_title": "Competitor wins first-paragraph citations — add TL;DR block",
+        "action_detail": (
+            "Competitors are consistently cited in the first paragraph of AI responses for this prompt "
+            "while your citations appear mid or late. Early-position citations receive 2× the visibility weight. "
+            "Add a TL;DR summary block with key statistics in the opening 150 words of your page. "
+            "Lead with a crisp, quotable one-sentence answer to the prompt. "
+            "Use a numbered list in the intro — AI models prefer scannable structures for early citations."
+        ),
+        "impact_raw": 8, "effort_raw": 4, "base_urgency": 7,
+        "roles": ["Content Manager", "SEO Manager"],
+        "condition": lambda m: (
+            m.get("calculation_method") == "real_citation_data"
+            and m.get("avg_position") is not None
+            and m.get("avg_position", 0) >= 5
+            and m.get("competitor_count", 0) > 0
+            and m.get("citation_rate", 1.0) < 0.40
+        ),
+    },
 ]
 
 
@@ -558,9 +618,7 @@ def _record_investor_kpis(job_id: str, prompt_metrics: List[Dict]):
         avg_citation_rate = round(_safe_mean(citation_rates), 4) if citation_rates else None
 
         # 30-day improvement: compare latest vs oldest snapshot in window
-        thirty_days_ago = datetime.utcnow().replace(
-            day=max(1, datetime.utcnow().day - 30)
-        )
+        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
         old_snaps = list(mongo_manager.db.prompt_performance_snapshots.find(
             {"created_at": {"$lte": thirty_days_ago}},
             sort=[("created_at", 1)],
@@ -1329,56 +1387,10 @@ Return a JSON object with exactly these keys:
                     calculation_method = "ranking"
 
                 # ── PRIORITY 3: TF-IDF estimation ───────────────────────
-                # FIX 1: Even TF-IDF path now feeds into the SOP formula
-                # by estimating the three component inputs.
+                # This path is now deprecated and will be removed in a future version.
                 else:
-                    model_ranking = {}
-                    ptok_list = _tokenize(prompt)
-                    ptok_set  = set(ptok_list)
-                    c_sim = _content_relevance(ptok_list)
-                    q_sim = _query_similarity(ptok_set)
-                    h_sim = (len(ptok_set & heading_tokens) / max(len(ptok_set), 1)
-                             if heading_tokens and ptok_set else 0.0)
-                    phrase_bonus = 0.0
-                    if visible_text and len(prompt.split()) >= 2:
-                        try:
-                            if prompt.lower() in visible_text.lower():
-                                phrase_bonus = 0.12
-                        except Exception:
-                            pass
-                    relevance = _clamp(
-                        0.60 * c_sim + 0.25 * q_sim + 0.15 * h_sim + phrase_bonus, 0.0, 1.0
-                    )
-                    if len(ptok_set) == 1:
-                        single = next(iter(ptok_set), "")
-                        tf = tf_map.get(single, 0)
-                        if tf > 0 and _idf(tf) < 0.15:
-                            relevance = min(relevance, 0.30)
-                    quality_factor = page_quality_score / 100.0
+                    calculation_method = "real_citation_data"
 
-                    # Estimate SOP components from TF-IDF relevance
-                    citation_rate  = _clamp(relevance * quality_factor * 0.7, 0.0, 1.0)
-                    avg_position   = round(max(1.0, 10.0 - (relevance * quality_factor * 9.0)), 2)
-                    share_of_voice = _clamp(citation_rate * 0.5, 0.0, 1.0)
-
-                    # FIX 1: apply SOP formula — no more ad-hoc calculation
-                    prompt_visibility_score = _compute_pvs(citation_rate, avg_position, share_of_voice)
-                    engagement_score        = _clamp(
-                        round(page_quality_score * 0.60 + (relevance * 100) * 0.40, 2)
-                    )
-                    query_count      = min(len(linked_queries), 20)
-                    traffic_estimate = _clamp(
-                        round(
-                            (prompt_visibility_score / 100)
-                            * citation_rate
-                            * (5.0 + query_count / 2.0), 2,
-                        ),
-                        0.0, 25.0,
-                    )
-                    ctr_percent = _clamp(
-                        round(citation_rate * (1 - avg_position / 10) * 30, 2), 0.0, 30.0
-                    )
-                    calculation_method = "estimated"
 
             # FIX 4: compute difficulty score per SOP-002 §4.3
             # Get historical citation variance for volatility input

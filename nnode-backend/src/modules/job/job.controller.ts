@@ -179,9 +179,12 @@ export class JobController {
     try {
       const userId = req.user!.userId;
       const { id } = sessionIdSchema.parse({ id: req.params.id });
-      const { prompts, sourceJobId } = req.body || {};
+      const { prompts, sourceJobId, seedKeywords, expandFromKeywords } = req.body || {};
 
-      const job = await this.jobService.startPromptTracking(userId, id, prompts, sourceJobId);
+      const job = await this.jobService.startPromptTracking(userId, id, prompts, sourceJobId, {
+        seedKeywords,
+        expandFromKeywords,
+      });
 
       return ResponseUtil.success(res, 'Prompt tracking job enqueued successfully', job);
     } catch (error: any) {

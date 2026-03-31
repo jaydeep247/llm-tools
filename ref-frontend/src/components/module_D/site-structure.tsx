@@ -358,7 +358,10 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
       .filter(Boolean)
     if (prompts.length === 0) return
 
-    await startPromptTracking({ jobId, prompts }).unwrap()
+    await startPromptTracking({
+      jobId,
+      prompts,
+    }).unwrap()
     setPromptText('')
     setPendingPrompts(Array.from(new Set(prompts)))
     setIsPromptPolling(true)
@@ -519,6 +522,9 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
             )}
             placeholder={'One prompt per line\nExample: best running shoes for flat feet'}
           />
+          <div className="text-[11px] text-zinc-500">
+            Onboarding prompts are auto-used by default when available. Add extra prompts here only if needed.
+          </div>
           <div className="flex items-center gap-3">
             <Button
               size="sm"
@@ -534,6 +540,48 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
           </div>
         </div>
       </SectionCard>
+
+      {promptTrackingDoc?.prompt_intelligence && (
+        <SectionCard title="Prompt Intelligence Summary">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+            <div className="rounded-lg border border-zinc-800/70 bg-zinc-900/30 p-3">
+              <div className="text-zinc-500">Source Mode</div>
+              <div className="text-zinc-200 font-mono">{promptTrackingDoc.prompt_intelligence.prompt_source_mode ?? 'unknown'}</div>
+            </div>
+            <div className="rounded-lg border border-zinc-800/70 bg-zinc-900/30 p-3">
+              <div className="text-zinc-500">Onboarding Prompts</div>
+              <div className="text-zinc-200 font-mono">{promptTrackingDoc.prompt_intelligence.onboarding_prompts_count ?? 0}</div>
+            </div>
+            <div className="rounded-lg border border-zinc-800/70 bg-zinc-900/30 p-3">
+              <div className="text-zinc-500">Manual Prompts</div>
+              <div className="text-zinc-200 font-mono">{promptTrackingDoc.prompt_intelligence.manual_prompts_count ?? 0}</div>
+            </div>
+            <div className="rounded-lg border border-zinc-800/70 bg-zinc-900/30 p-3">
+              <div className="text-zinc-500">Final Prompts</div>
+              <div className="text-zinc-200 font-mono">{promptTrackingDoc.prompt_intelligence.total_prompts_final ?? 0}</div>
+            </div>
+            <div className="rounded-lg border border-zinc-800/70 bg-zinc-900/30 p-3 md:col-span-2">
+              <div className="text-zinc-500">Dedup Drops</div>
+              <div className="text-zinc-200 font-mono">
+                {(
+                  (promptTrackingDoc.prompt_intelligence.dedup_summary?.dropped_exact_duplicates ?? 0) +
+                  (promptTrackingDoc.prompt_intelligence.dedup_summary?.dropped_near_duplicates ?? 0)
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+            {Object.entries(promptTrackingDoc.prompt_intelligence.intent_cluster_distribution || {}).map(([intent, count]) => (
+              <span
+                key={intent}
+                className="px-2 py-1 rounded-full border border-zinc-800 bg-zinc-900/40 text-zinc-300"
+              >
+                {intent}: {count}
+              </span>
+            ))}
+          </div>
+        </SectionCard>
+      )}
 
       {promptTrackingDoc?.metrics?.length ? (
         <SectionCard title="Prompt Metrics" contentClassName="p-0">
