@@ -1,7 +1,7 @@
 'use client'
 
-import { useParams, useRouter } from 'next/navigation'
-import { useEffect, useState, useMemo, useRef } from 'react'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useEffect, useState, useMemo, useRef, Suspense } from 'react'
 import { Loader2, BarChart3 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import Aurora from '@/components/animations/Aurora'
@@ -9,6 +9,8 @@ import { useGetJobSnapshotQuery } from '@/store/api/jobApi'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { updateJobProgress, clearJobProgress, selectStoredPercent } from '@/store/slices/jobProgressSlice'
 import { io, Socket } from 'socket.io-client'
+import { useAuth } from '@/hooks/useAuth'
+import { BrandOnboardingModal } from '@/components/brand-onboarding/BrandOnboardingModal'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -46,9 +48,28 @@ const TOTAL_STEPS = STEP_DEFINITIONS.length
 // ─── Main Component ─────────────────────────────────────────────────────
 
 export default function JobProgressPage() {
+  return (
+    <Suspense>
+      <JobProgressContent />
+    </Suspense>
+  )
+}
+
+function JobProgressContent() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const jobId = params.jobId as string
+
+  // ── URL param fallback for jobMeta (set by project page or brand-onboarding) ──
+  const projectIdFromUrl = searchParams.get('projectId') ?? undefined
+  const sessionIdFromUrl = searchParams.get('sessionId') ?? undefined
+  const urlFromUrl = searchParams.get('url') ?? ''
+  const showBrandOnboarding = searchParams.get('showBrandOnboarding') === '1'
+
+  // ── Brand onboarding overlay state ───────────────────────────────────
+  const { user } = useAuth()
+  const [brandOnboardingVisible, setBrandOnboardingVisible] = useState(showBrandOnboarding)
 
   // ── RTK: persisted progress ──────────────────────────────────────────
   const dispatch = useAppDispatch()
@@ -58,7 +79,11 @@ export default function JobProgressPage() {
   // ── Core state ────────────────────────────────────────────────────────
   const [jobStatus, setJobStatus] = useState<JobStatus>('pending')
   const [snapshotAt, setSnapshotAt] = useState<number | null>(null)
-  const [jobMeta, setJobMeta] = useState<{ projectId?: string; sessionId?: string }>({})
+  // Seed jobMeta from URL params immediately so the redirect fires even if the
+  // snapshot doesn't include projectId/sessionId.
+  const [jobMeta, setJobMeta] = useState<{ projectId?: string; sessionId?: string }>(
+    () => ({ projectId: projectIdFromUrl, sessionId: sessionIdFromUrl }),
+  )
   const [steps, setSteps] = useState<Record<string, StepStatus>>(() => {
     const initial: Record<string, StepStatus> = {}
     STEP_DEFINITIONS.forEach(s => { initial[s.id] = 'pending' })
@@ -122,7 +147,11 @@ export default function JobProgressPage() {
     }
 
     if (snapshot.projectId || snapshot.sessionId) {
-      setJobMeta({ projectId: snapshot.projectId, sessionId: snapshot.sessionId })
+      // Merge snapshot values with URL-param seed; snapshot takes precedence.
+      setJobMeta(prev => ({
+        projectId: snapshot.projectId || prev.projectId,
+        sessionId: snapshot.sessionId || prev.sessionId,
+      }))
     }
 
     // Hydrate step statuses from snapshot
@@ -212,7 +241,7 @@ export default function JobProgressPage() {
     }
   }, [jobId, snapshotAt])
 
-  // ── Redirect on completion — immediate ────────────────────────────────
+  // ── Redirect on completion — waits for brand onboarding if active ────
   useEffect(() => {
     if (jobStatus !== 'completed' && jobStatus !== 'failed' && jobStatus !== 'cancelled') return
 
@@ -227,6 +256,10 @@ export default function JobProgressPage() {
       })
     }
 
+    // Don't redirect while brand onboarding is still running — this effect will
+    // re-fire automatically when brandOnboardingVisible goes false (complete/skip).
+    if (brandOnboardingVisible) return
+
     // If job was already done when the page loaded (back-navigation), skip instantly.
     // If it just completed live, give a brief visual feedback window.
     const delay = alreadyCompletedOnMountRef.current ? 0 : 1500
@@ -240,7 +273,7 @@ export default function JobProgressPage() {
     }, delay)
 
     return () => clearTimeout(timer)
-  }, [jobStatus, jobMeta.projectId, jobMeta.sessionId, router])
+  }, [jobStatus, jobMeta.projectId, jobMeta.sessionId, router, brandOnboardingVisible])
 
   // ── Derived values ────────────────────────────────────────────────────
   const completedCount = useMemo(
@@ -296,13 +329,32 @@ export default function JobProgressPage() {
   const phaseLabel = activeStep?.label ?? (isTerminal ? '' : 'Initializing...')
 
   // ── Loading state ─────────────────────────────────────────────────────
+  // Compute the brand onboarding modal once — rendered in BOTH the loading
+  // state and the main render so it shows immediately without waiting for the
+  // snapshot to resolve.
+  const brandOnboardingOverlay = brandOnboardingVisible && projectIdFromUrl && sessionIdFromUrl && jobId && user ? (
+    <BrandOnboardingModal
+      open
+      projectId={projectIdFromUrl}
+      url={urlFromUrl}
+      sessionId={sessionIdFromUrl}
+      jobId={jobId}
+      user={user}
+      onComplete={() => setBrandOnboardingVisible(false)}
+      onSkip={() => setBrandOnboardingVisible(false)}
+    />
+  ) : null
+
   if (isSnapshotLoading || snapshotAt === null) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="flex flex-col items-center gap-6">
-          <Loader2 className="h-16 w-16 text-white/60 animate-spin" />
+      <>
+        <div className="min-h-screen bg-black flex items-center justify-center">
+          <div className="flex flex-col items-center gap-6">
+            <Loader2 className="h-16 w-16 text-white/60 animate-spin" />
+          </div>
         </div>
-      </div>
+        {brandOnboardingOverlay}
+      </>
     )
   }
 
@@ -412,6 +464,9 @@ export default function JobProgressPage() {
           </div>
         </div>
       </div>
+
+      {/* Brand onboarding overlay — shown when user starts a session from project page */}
+      {brandOnboardingOverlay}
     </div>
   )
 }

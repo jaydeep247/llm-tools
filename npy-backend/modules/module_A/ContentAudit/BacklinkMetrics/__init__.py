@@ -29,7 +29,7 @@ import re
 import statistics
 from collections import defaultdict
 from typing import Any, Dict, List, Optional
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
 from bs4 import BeautifulSoup
 
@@ -40,16 +40,25 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# Tracking query parameters stripped during normalisation
+_TRACKING_PARAMS = frozenset({
+    "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
+    "utm_id", "utm_source_platform", "utm_creative_format", "utm_marketing_tactic",
+    "fbclid", "gclid", "gclsrc", "dclid", "msclkid", "twclid",
+    "mc_cid", "mc_eid", "oly_anon_id", "oly_enc_id",
+    "vero_id", "vero_conv", "_hsenc", "_hsmi", "hsa_cam",
+    "ref", "ref_src",
+})
+
 # ── Per-process keyword → min_required_rds cache ──────────────────────────────
 _MIN_RDS_CACHE: Dict[str, int] = {}
 
 def _normalize_url_for_api(url: Any) -> str:
-    """Normalize URLs so DataForSEO results map back reliably.
+    """Canonical normalisation for API lookups and the inlink graph.
 
-    Strips whitespace, collapses redundant forward-slashes in the path
-    (e.g. //slug/ → /slug/), and removes a trailing slash so that
-    https://example.com/page and https://example.com/page/ are treated
-    as the same key for both API lookups and the inlink graph.
+    Steps: strip whitespace, lowercase host, https scheme, remove
+    fragment, strip tracking params, collapse double-slashes, strip
+    trailing slash.
     """
     if url is None:
         return ""
@@ -58,12 +67,21 @@ def _normalize_url_for_api(url: Any) -> str:
         return ""
     try:
         parsed = urlparse(u)
+        scheme = "https"
+        netloc = (parsed.netloc or "").lower()
         path = re.sub(r'/+', '/', parsed.path) if parsed.path else '/'
-        # Strip trailing slash unconditionally (root '/' → '' → bare host)
-        if path.endswith('/'):
+        if path != '/' and path.endswith('/'):
             path = path[:-1]
-        u = urlunparse((parsed.scheme, parsed.netloc, path,
-                        parsed.params, parsed.query, ''))
+        if parsed.query:
+            kept = {
+                k: v
+                for k, v in parse_qs(parsed.query, keep_blank_values=True).items()
+                if k.lower() not in _TRACKING_PARAMS
+            }
+            query = urlencode(kept, doseq=True) if kept else ""
+        else:
+            query = ""
+        u = urlunparse((scheme, netloc, path, parsed.params, query, ''))
     except Exception:
         if u.endswith('/') and len(u) > 1:
             u = u[:-1]
@@ -89,12 +107,12 @@ def _compute_outlinks(links: List[str], site_domain: str) -> tuple:
     Split raw href list into internal / external counts.
     Returns (internal_outlinks, external_outlinks, internal_url_list).
 
-    Uses set-based deduplication with URL normalisation (trailing whitespace,
-    double-slashes, trailing slash, www prefix) so counts match the
-    Screaming Frog compatible values produced by analyze_outlinks().
+    Uses _normalize_url_for_api for full canonical normalisation (scheme,
+    host case, trailing slash, fragments, tracking params).
     """
     raw_netloc = urlparse(site_domain).netloc
     site_netloc = raw_netloc.replace('www.', '', 1) if raw_netloc.startswith('www.') else raw_netloc
+    site_netloc = site_netloc.lower()
 
     internal_urls: set = set()
     external_urls: set = set()
@@ -104,15 +122,12 @@ def _compute_outlinks(links: List[str], site_domain: str) -> tuple:
         if not link:
             continue
         try:
-            parsed = urlparse(link)
-            netloc = parsed.netloc
-            netloc_norm = netloc.replace('www.', '', 1) if netloc.startswith('www.') else netloc
-            # Normalise path: collapse double-slashes and strip trailing slash
-            path = re.sub(r'/+', '/', parsed.path) if parsed.path else '/'
-            if path.endswith('/'):
-                path = path[:-1]
-            norm_link = urlunparse((parsed.scheme, netloc, path,
-                                    parsed.params, parsed.query, ''))
+            norm_link = _normalize_url_for_api(link)
+            if not norm_link:
+                continue
+            parsed = urlparse(norm_link)
+            netloc_norm = (parsed.netloc or "").lower()
+            netloc_norm = netloc_norm.replace('www.', '', 1) if netloc_norm.startswith('www.') else netloc_norm
             if netloc_norm in ('', site_netloc):
                 internal_urls.add(norm_link)
             else:
@@ -140,17 +155,18 @@ def compute_inlinks_for_batch(all_items: List[Dict[str, Any]]) -> Dict[str, int]
     Build a full inlink graph from all crawled items.
     Returns {normalized_target_url: inlink_count}.
 
-    URLs are normalized (trailing slash stripped) so that
-    https://attrock.com  and  https://attrock.com/  are treated as the
-    same target — fixing the common mismatch where Scrapy stores a page
-    without a trailing slash but link hrefs resolve to the slash variant.
+    Self-links are excluded: a page linking to itself does not count as
+    an inlink.  URLs are normalised (scheme, trailing slash, tracking
+    params, fragments stripped) so variants resolve to the same node.
     """
     link_graph: Dict[str, set] = defaultdict(set)
     for item in all_items:
         source = _normalize_url_for_api(item.get("url", ""))
+        if not source:
+            continue
         for target in item.get("outlink_url_list") or []:
             norm_target = _normalize_url_for_api(target)
-            if norm_target:
+            if norm_target and norm_target != source:  # skip self-links
                 link_graph[norm_target].add(source)
     return {url: len(sources) for url, sources in link_graph.items()}
 

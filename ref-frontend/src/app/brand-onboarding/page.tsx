@@ -369,7 +369,20 @@ function BrandOnboardingContent() {
 
   const handleSkip = () => {
     void persistBrandProgress(currentStep)
-    router.push('/dashboard')
+    // If we have all the identifiers, navigate to the session directly.
+    // Otherwise fall back to the progress page (jobId still gets us close),
+    // and finally fall back to the dashboard.
+    if (projectId && sessionId) {
+      router.push(`/dashboard/projects/${projectId}/sessions/${sessionId}`)
+    } else if (jobId) {
+      const params = new URLSearchParams()
+      if (projectId) params.set('projectId', projectId)
+      if (sessionId) params.set('sessionId', sessionId)
+      const query = params.toString()
+      router.push(`/dashboard/jobs/${jobId}/progress${query ? `?${query}` : ''}`)
+    } else {
+      router.push('/dashboard')
+    }
   }
 
   if (isAuthLoading || !user) {
@@ -454,7 +467,13 @@ function BrandOnboardingContent() {
                   }).unwrap()
 
                   if (jobId) {
-                    router.push(`/dashboard/jobs/${jobId}/progress`)
+                    // Include projectId + sessionId so the progress page can redirect
+                    // to the session even when the snapshot doesn't carry those fields.
+                    const params = new URLSearchParams()
+                    if (projectId) params.set('projectId', projectId)
+                    if (sessionId) params.set('sessionId', sessionId)
+                    const query = params.toString()
+                    router.push(`/dashboard/jobs/${jobId}/progress${query ? `?${query}` : ''}`)
                   } else {
                     router.push('/dashboard')
                   }

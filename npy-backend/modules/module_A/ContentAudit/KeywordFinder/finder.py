@@ -67,15 +67,52 @@ def _leading_clause(text: str) -> str:
     return parts[0] if parts else ""
 
 
+_STOP_WORDS = frozenset({
+    "that", "which", "who", "whom", "whose", "where", "when",
+    "and", "or", "but", "nor", "so", "yet", "for", "with",
+    "without", "to", "from", "in", "on", "at", "by", "of",
+    "is", "are", "was", "were", "be", "been", "being",
+    "can", "could", "will", "would", "shall", "should",
+    "may", "might", "must", "do", "does", "did",
+    "the", "a", "an", "its", "our", "your", "their",
+})
+
+
+_ARTICLE_WORDS = frozenset({"a", "an", "the"})
+
+
+def _shorten_keyword(phrase: str, max_words: int = 5) -> str:
+    """
+    Truncate a long keyword phrase at the first stop word after the core.
+
+    E.g. "fomo review that boosts engagement and conversion" → "fomo review".
+    Articles (a, an, the) never trigger a cut since they bind to the next noun.
+    """
+    words = phrase.split()
+    # Always scan for a natural cut point (stop word after a content word).
+    for i in range(2, len(words)):
+        w = words[i].lower()
+        prev = words[i - 1].lower()
+        if w in _STOP_WORDS and w not in _ARTICLE_WORDS and prev not in _STOP_WORDS:
+            shortened = " ".join(words[:i])
+            if len(shortened.split()) >= 2:
+                return shortened
+    # No suitable cut point — hard-truncate at max_words
+    return " ".join(words[:max_words])
+
+
 def _keyword_from_title(title: str) -> str:
-    """Strip brand suffix (after |, –, —) and return the leading clause."""
+    """Strip brand suffix (after |, –, —), take leading clause, shorten."""
     if not title or not title.strip():
         return ""
     parts = _BRAND_SPLIT_RE.split(title, maxsplit=1)
     candidate = parts[0].strip()
     clause = _leading_clause(candidate)
     result = clause if clause and len(clause.split()) >= 2 else candidate
-    return result.strip() if len(result.strip()) >= 3 else ""
+    result = result.strip()
+    if len(result) < 3:
+        return ""
+    return _shorten_keyword(result)
 
 
 def _keyword_from_slug(url: str) -> str:
@@ -229,7 +266,7 @@ async def resolve_keywords(
 
     # Priority 3: <h1> tag
     if not primary_keyword and h1 and len(h1.strip()) >= 3:
-        primary_keyword = _sanitize(h1.strip())
+        primary_keyword = _sanitize(_shorten_keyword(h1.strip()))
         keyword_source = "h1"
 
     # Priority 4: <meta description>
@@ -237,7 +274,7 @@ async def resolve_keywords(
         clause = _leading_clause(meta_desc)
         candidate = clause if clause and len(clause.split()) >= 2 else meta_desc[:80]
         if candidate and len(candidate.strip()) >= 3:
-            primary_keyword = _sanitize(candidate.strip())
+            primary_keyword = _sanitize(_shorten_keyword(candidate.strip()))
             keyword_source = "meta_desc"
 
     # Priority 5: URL slug

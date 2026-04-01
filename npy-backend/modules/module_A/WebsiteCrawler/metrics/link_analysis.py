@@ -7,7 +7,17 @@ Ported from node-backend/src/utils/linkScoreCalculator.ts
 import math
 import re
 from typing import List, Dict, Any, Optional
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
+
+# Tracking query parameters stripped during normalisation
+_TRACKING_PARAMS = frozenset({
+    "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
+    "utm_id", "utm_source_platform", "utm_creative_format", "utm_marketing_tactic",
+    "fbclid", "gclid", "gclsrc", "dclid", "msclkid", "twclid",
+    "mc_cid", "mc_eid", "oly_anon_id", "oly_enc_id",
+    "vero_id", "vero_conv", "_hsenc", "_hsmi", "hsa_cam",
+    "ref", "ref_src",
+})
 
 # ==========================================
 # Link Score Calculator
@@ -103,14 +113,16 @@ def calculate_link_score(inlinks: List[Dict[str, Any]], crawl_depth: int) -> flo
 
 def _normalize_outlink_url(url: str) -> str:
     """
-    Normalise a resolved outlink URL for deduplication purposes.
+    Canonical normalisation for deduplication of outlink URLs.
 
-    Three transformations applied:
-      1. Strip surrounding whitespace (e.g. href="/path/ " in source HTML)
-      2. Collapse multiple consecutive forward-slashes in the path to one
-         (e.g. https://example.com//slug/ → https://example.com/slug/)
-      3. Strip a trailing slash from non-root paths for consistent comparison
-         (e.g. https://example.com/page/ == https://example.com/page)
+    Transformations:
+      1. Strip whitespace
+      2. Lowercase scheme + host
+      3. Normalise http → https
+      4. Remove URL fragments (#section)
+      5. Strip UTM / tracking query parameters
+      6. Collapse redundant path slashes to one
+      7. Strip trailing slash from non-root paths
     """
     if not url:
         return url
@@ -119,14 +131,21 @@ def _normalize_outlink_url(url: str) -> str:
         return url
     try:
         parsed = urlparse(url)
-        # Collapse // → / in path (but never touch the scheme's ://)
+        scheme = "https"
+        netloc = (parsed.netloc or "").lower()
         path = re.sub(r'/+', '/', parsed.path) if parsed.path else '/'
-        # Strip trailing slash unconditionally – root '/' becomes '' which
-        # urlunparse renders as the bare host (https://attrock.com)
-        if path.endswith('/'):
+        if path != '/' and path.endswith('/'):
             path = path[:-1]
-        return urlunparse((parsed.scheme, parsed.netloc, path,
-                           parsed.params, parsed.query, ''))
+        if parsed.query:
+            kept = {
+                k: v
+                for k, v in parse_qs(parsed.query, keep_blank_values=True).items()
+                if k.lower() not in _TRACKING_PARAMS
+            }
+            query = urlencode(kept, doseq=True) if kept else ""
+        else:
+            query = ""
+        return urlunparse((scheme, netloc, path, parsed.params, query, ''))
     except Exception:
         if url.endswith('/') and len(url) > 1:
             return url[:-1]

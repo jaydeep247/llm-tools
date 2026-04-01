@@ -42,6 +42,7 @@ interface StepBrandResultsProps {
   isLoading: boolean
   brandName: string
   onDashboard: () => void
+  onRetry?: () => void
 }
 
 function ScoreBadge({ score }: { score: number }) {
@@ -257,7 +258,7 @@ function PromptResultCard({ result, index }: { result: PromptResult; index: numb
   )
 }
 
-export function StepBrandResults({ results, isLoading, brandName, onDashboard }: StepBrandResultsProps) {
+export function StepBrandResults({ results, isLoading, brandName, onDashboard, onRetry }: StepBrandResultsProps) {
   // Compute summary stats per provider
   const summaryByProvider = useMemo(() => {
     return Object.keys(PROVIDER_META).reduce((acc, provider) => {
@@ -301,6 +302,46 @@ export function StepBrandResults({ results, isLoading, brandName, onDashboard }:
             Sending your prompts to GPT, Gemini, and Claude and analyzing each response for brand mentions.
             This may take a minute...
           </p>
+        </div>
+      </motion.div>
+    )
+  }
+
+  if (results.length === 0) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -20 }}
+        className="flex flex-col items-center justify-center h-full gap-5"
+      >
+        <div className="w-12 h-12 bg-zinc-100 rounded-2xl flex items-center justify-center border border-zinc-200">
+          <BarChart3 className="w-6 h-6 text-zinc-400" />
+        </div>
+        <div className="text-center">
+          <h2 className="text-xl font-bold text-zinc-900 mb-2">Analysis could not be completed</h2>
+          <p className="text-sm text-zinc-500 max-w-sm">
+            The brand visibility analysis did not return results. This can happen due to slow AI responses.
+            Please retry or continue to your dashboard.
+          </p>
+        </div>
+        <div className="flex flex-col gap-2 w-full max-w-xs">
+          {onRetry && (
+            <Button
+              onClick={onRetry}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-11 text-sm font-medium rounded-xl"
+            >
+              Retry Analysis
+            </Button>
+          )}
+          <Button
+            onClick={onDashboard}
+            variant="outline"
+            className="w-full h-11 text-sm font-medium rounded-xl"
+          >
+            Skip & Go to Dashboard
+            <ArrowRight className="w-4 h-4 ml-2" />
+          </Button>
         </div>
       </motion.div>
     )

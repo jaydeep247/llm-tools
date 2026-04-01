@@ -98,10 +98,12 @@ export default function SessionDetailPage() {
     if (!session || isLoadingSession || isLoadingJobs) return
     const blockedStatuses = ['pending', 'created', 'running', 'auditing']
     if (blockedStatuses.includes((session.status || '').toLowerCase())) {
-      // Find the most relevant active job to send the user to
-      const activeJob =
-        jobs.find(j => ['running', 'pending', 'RUNNING', 'PENDING'].includes(j.status)) ||
-        jobs[jobs.length - 1]
+      // Only redirect to progress if there is an actually running or pending job.
+      // Do NOT fall back to a completed job — that would create a redirect loop
+      // between the session page and the (already-finished) progress page.
+      const activeJob = jobs.find(j =>
+        ['running', 'pending', 'RUNNING', 'PENDING'].includes(j.status),
+      )
       if (activeJob?.id) {
         router.replace(`/dashboard/jobs/${activeJob.id}/progress`)
       }

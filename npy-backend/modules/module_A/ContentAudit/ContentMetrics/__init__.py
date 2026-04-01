@@ -242,54 +242,17 @@ def _select_serp_candidate_urls(keyword: str, items: list[Dict[str, Any]], limit
     return selected
 
 
-def _remove_outliers_iqr(values: list[int]) -> list[int]:
-    """Remove extreme outliers using IQR, preserving original values on edge cases."""
-    cleaned = [int(v) for v in values if int(v) > 0]
-    if len(cleaned) < 4:
-        return cleaned
-
-    ordered = sorted(cleaned)
-    try:
-        quartiles = statistics.quantiles(ordered, n=4, method="inclusive")
-    except Exception:
-        return ordered
-
-    q1, q3 = quartiles[0], quartiles[2]
-    iqr = q3 - q1
-    if iqr <= 0:
-        return ordered
-
-    lower_bound = q1 - (1.5 * iqr)
-    upper_bound = q3 + (1.5 * iqr)
-    filtered = [value for value in ordered if lower_bound <= value <= upper_bound]
-    return filtered or ordered
-
-
 def _compute_serp_intent_benchmark(word_counts: list[int]) -> Optional[int]:
     """
-    Compute a robust SERP benchmark from cleaned word counts.
+    Compute SERP intent word-count benchmark as the **median** of positive counts.
 
-    Method:
-      1. Remove extreme outliers (IQR).
-      2. Build a substantive cohort (counts >= dynamic median floor).
-      3. Use top substantive cluster average (rounded to nearest 100) when available.
-      4. Fallback to median for sparse cohorts.
+    Median is preferred over average because it is resistant to outliers
+    (e.g. a 10,000-word Wikipedia page won't inflate the target).
     """
-    filtered = _remove_outliers_iqr(word_counts)
-    if not filtered:
+    positive = [int(v) for v in word_counts if int(v) > 0]
+    if not positive:
         return None
-
-    median_floor = max(1200, int(statistics.median(filtered)))
-    substantive = [value for value in filtered if value >= median_floor]
-    if len(substantive) >= 3:
-        top_cluster = sorted(substantive, reverse=True)[:3]
-        return int(round((sum(top_cluster) / len(top_cluster)) / 100.0) * 100)
-    if len(substantive) >= 2:
-        return int(round((sum(substantive) / len(substantive)) / 100.0) * 100)
-    if len(filtered) >= 3:
-        return int(statistics.median(filtered))
-
-    return int(round(sum(filtered) / len(filtered)))
+    return int(statistics.median(positive))
 
 
 def _extract_word_count_from_markdown(markdown: str) -> Optional[int]:
@@ -646,19 +609,23 @@ async def extract_content_metrics(
 
     try:
         # ── Current word count ──────────────────────────────────────────────
+        # Prefer main-body extraction (trafilatura / readability) over the
+        # raw crawl word_count so that the comparison with
+        # serpIntentWordCount (also body-only) is apples-to-apples.
         crawl_word_count = _coerce_non_negative_int(kwargs.get("word_count"))
         existing_wc = _coerce_non_negative_int(existing.get("currentWordCount"))
-        if crawl_word_count is not None:
+        current_word_count = None
+        if html_content:
+            current_word_count = _extract_word_count_from_html(html_content)
+        if current_word_count is None and crawl_word_count is not None:
             current_word_count = crawl_word_count
-        elif existing_wc is not None:
+        if current_word_count is None and existing_wc is not None:
             current_word_count = existing_wc
-        else:
-            current_word_count = None
-            if html_content:
-                current_word_count = _extract_word_count_from_html(html_content)
 
         # ── SERP intent word count ─────────────────────────────────────────
         serp_keyword = _keyword_from_keyword_bundle(kwargs.get("keyword_bundle"))
+        if not serp_keyword:
+            serp_keyword = _derive_keyword(main_keyword, h1, title)
         serp_intent_word_count = None
         if serp_keyword:
             serp_intent_word_count = await _fetch_serp_intent_word_count(serp_keyword)

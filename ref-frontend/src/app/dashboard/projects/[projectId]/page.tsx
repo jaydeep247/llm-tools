@@ -13,12 +13,14 @@ import { ProjectDeleteDialog } from '@/components/dashboard/ProjectDeleteDialog'
 import { useConfirm } from '@/components/ui/ConfirmDialog'
 import { ProjectDetailSkeleton, TableRowSkeleton } from '@/components/ui/PageLoader'
 import type { CrawlSession } from '@/store/api/sessionApi'
+import { useAuth } from '@/hooks/useAuth'
 
 export default function ProjectDetailPage() {
   const params = useParams()
   const router = useRouter()
   const projectId = params.projectId as string
 
+  const { user } = useAuth()
   const { data: projectData, isLoading: isLoadingProject, error: projectError } = useGetProjectQuery(projectId, { refetchOnMountOrArgChange: true })
   const { data: sessionsData, isLoading: isLoadingSessions } = useGetProjectSessionsQuery({ projectId }, { refetchOnMountOrArgChange: true })
   const [createSession, { isLoading: isCreatingSession }] = useCreateSessionMutation()
@@ -163,8 +165,14 @@ export default function ProjectDetailPage() {
         data: { url: normalizedUrl, jobType: 'MODULE_E_QUICK_START' },
       }).unwrap()
 
-      // Step 3: Navigate to progress page — it auto-redirects to dashboard on completion
-      router.push(`/dashboard/jobs/${jobResult.job.id}/progress`)
+      // Step 3: Navigate to the progress page, overlaying brand onboarding.
+      const progressParams = new URLSearchParams({
+        projectId,
+        sessionId,
+        url: normalizedUrl,
+        showBrandOnboarding: '1',
+      })
+      router.push(`/dashboard/jobs/${jobResult.job.id}/progress?${progressParams.toString()}`)
     } catch (err: any) {
       setError(err?.data?.message || err?.message || 'Failed to start session')
     }
