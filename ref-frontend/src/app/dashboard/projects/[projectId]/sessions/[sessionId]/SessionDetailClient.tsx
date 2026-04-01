@@ -385,6 +385,7 @@ export default function SessionDetailClient() {
     closestDuplicateSimilarity: crawlerData.closest_near_duplicate_similarity || crawlerData.closest_near_duplicate_match || 0,
     closestDuplicateUrl: crawlerData.closest_near_duplicate_url || '',
 
+    inlinks: fieldData.inlinks ?? 0,
     linkScore: 0,
     semanticSimilarityScore: crawlerData.semantic_similarity_score || 0,
     semanticRelevanceScore: crawlerData.semantic_relevance_score || 0,
@@ -620,8 +621,8 @@ export default function SessionDetailClient() {
             url: page.url,
             title: page.title,
             outlinks: pageLinks.length,
-            inlinks: 0, 
-            uniqueInlinks: 0,
+            inlinks: page.inlinks ?? 0, 
+            uniqueInlinks: page.inlinks ?? 0,
             uniqueJsInlinks: 0,
             percentOfTotal: 0,
             externalOutlinks: externalOut,

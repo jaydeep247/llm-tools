@@ -176,6 +176,7 @@ class WebsiteSpider(RedisSpider):
         self.should_stop = False
         self.seen_urls = set()
         self.emitted_urls = set()  # Track URLs already emitted via link_found
+        self.redirect_map = {}  # {original_normalized_url: final_normalized_url}
 
         if start_urls is not None:
             self.start_urls = start_urls
@@ -999,6 +1000,16 @@ class WebsiteSpider(RedisSpider):
         
         redirect_urls = response.request.meta.get('redirect_urls', [])
         redirect_reasons = response.request.meta.get('redirect_reasons', [])
+
+        # Fix 4: Build redirect_map — every intermediate URL maps to the
+        # final destination so the inlink builder can attribute links correctly.
+        if redirect_urls:
+            final_norm = self.normalize_url(response.url)
+            for redir_url in redirect_urls:
+                orig_norm = self.normalize_url(redir_url)
+                if orig_norm and final_norm and orig_norm != final_norm:
+                    self.redirect_map[orig_norm] = final_norm
+
         hops = []
         for i, url in enumerate(redirect_urls):
             hops.append({
@@ -1039,6 +1050,9 @@ class WebsiteSpider(RedisSpider):
             # Status (Screaming Frog compatible reason phrase)
             'status': status_reason,
 
+            # Canonical URL for post-crawl inlink resolution
+            'canonical_url': page_item.get('canonical_url') or '',
+
             # Per-page keyword bundle resolved during crawl; all other content audit
             # modules run manually after crawl completion.
             'main_keyword': resolved_keyword,
@@ -1051,7 +1065,7 @@ class WebsiteSpider(RedisSpider):
                 round(outlink_stats['internal_outlinks'] / outlink_stats['external_outlinks'], 2)
                 if outlink_stats.get('external_outlinks') else None
             ),
-            
+
             'website_crawler': {
                 # Pixel Widths
                 'title_pixel_width': title_pixel_width,
@@ -1115,6 +1129,16 @@ class WebsiteSpider(RedisSpider):
             'Redirects_audit': redirect_audit_report,
             'Keyword_analysis': keyword_analysis
         }
+
+        # ── Debug: confirm outlinks are being stored per page ─────────────
+        _oul = outlink_stats.get('outlink_url_list') or []
+        logger.debug(
+            "[INLINK-DEBUG] CRAWLED %s | internal_outlinks=%d | outlink_url_list=%d sample=%s",
+            response.url,
+            outlink_stats.get('internal_outlinks', 0),
+            len(_oul),
+            _oul[:3] if _oul else "[]",
+        )
 
         # Generate prioritised recommendations from the assembled fields
         rec_result = generate_recommendations(page_item)

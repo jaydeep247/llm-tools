@@ -119,10 +119,11 @@ def _normalize_outlink_url(url: str) -> str:
       1. Strip whitespace
       2. Lowercase scheme + host
       3. Normalise http → https
-      4. Remove URL fragments (#section)
-      5. Strip UTM / tracking query parameters
-      6. Collapse redundant path slashes to one
-      7. Strip trailing slash from non-root paths
+      4. Normalise www → non-www (consistent with inlink graph)
+      5. Remove URL fragments (#section)
+      6. Strip ALL query parameters (consistent with inlink graph)
+      7. Collapse redundant path slashes to one
+      8. Strip trailing slash from non-root paths
     """
     if not url:
         return url
@@ -133,19 +134,17 @@ def _normalize_outlink_url(url: str) -> str:
         parsed = urlparse(url)
         scheme = "https"
         netloc = (parsed.netloc or "").lower()
+        # Strip www. for consistent matching with inlink graph
+        netloc = netloc.replace("www.", "", 1) if netloc.startswith("www.") else netloc
         path = re.sub(r'/+', '/', parsed.path) if parsed.path else '/'
         if path != '/' and path.endswith('/'):
             path = path[:-1]
-        if parsed.query:
-            kept = {
-                k: v
-                for k, v in parse_qs(parsed.query, keep_blank_values=True).items()
-                if k.lower() not in _TRACKING_PARAMS
-            }
-            query = urlencode(kept, doseq=True) if kept else ""
-        else:
-            query = ""
-        return urlunparse((scheme, netloc, path, parsed.params, query, ''))
+        # Strip ALL query params for consistent inlink matching
+        root = f"{scheme}://{netloc}/"
+        clean = f"{scheme}://{netloc}{path}"
+        if clean != root:
+            clean = clean.rstrip("/")
+        return clean
     except Exception:
         if url.endswith('/') and len(url) > 1:
             return url[:-1]

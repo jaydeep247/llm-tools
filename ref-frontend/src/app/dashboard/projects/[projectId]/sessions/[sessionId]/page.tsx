@@ -534,9 +534,9 @@ export default function SessionDetailPage() {
       h2_2: Array.isArray(page.h2_tags) && page.h2_tags.length > 1 ? page.h2_tags[1] : '',
       h2_2Length: Array.isArray(page.h2_tags) && page.h2_tags.length > 1 ? page.h2_tags[1].length : 0,
 
-      // Inlinks (computed from raw links data)
-      inlinks: inlinksMap.get(page.url)?.total || 0,
-      uniqueInlinks: inlinksMap.get(page.url)?.unique || 0,
+      // Inlinks (from backend-computed field, fallback to raw links map)
+      inlinks: fieldData.inlinks ?? inlinksMap.get(page.url)?.total ?? 0,
+      uniqueInlinks: fieldData.unique_inlinks ?? inlinksMap.get(page.url)?.unique ?? 0,
       uniqueJsInlinks: inlinksMap.get(page.url)?.uniqueJs || 0,
       status: (() => {
         const code = statusCode;
@@ -660,9 +660,9 @@ export default function SessionDetailPage() {
         url: page.url,
         title: page.title,
         outlinks: pageLinks.length,
-        inlinks: 0,
-        uniqueInlinks: 0,
-        uniqueJsInlinks: 0,
+        inlinks: page.inlinks ?? 0,
+        uniqueInlinks: page.uniqueInlinks ?? 0,
+        uniqueJsInlinks: page.uniqueJsInlinks ?? 0,
         percentOfTotal: 0,
         externalOutlinks: externalOut,
         internalOutlinks: internalOut,

@@ -83,6 +83,11 @@ class MongoPipeline:
                 'linksFound': self.total_counts['links'],
             }
 
+            # Store redirect_map from spider for post-crawl inlink resolution
+            redirect_map = getattr(spider, 'redirect_map', {})
+            if redirect_map:
+                crawl_stats['redirect_map'] = redirect_map
+
             # Run heavy post-crawl analysis in background so completion status is
             # visible immediately and does not block the request lifecycle.
             def _log_post_analysis_error(failure):

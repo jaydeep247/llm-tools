@@ -58,8 +58,15 @@ HTTPCACHE_ENABLED = False
 LOG_LEVEL = 'ERROR'
 LOG_ENABLED = True
 
-# Disable Scrapy RedirectMiddleware to handle them manually
-REDIRECT_ENABLED = False
+# Disable Scrapy RedirectMiddleware — the spider handles redirects manually
+# and populates redirect_urls in response.meta for inlink attribution (Fix 4).
+# Set REDIRECT_ENABLED=True here to enable auto-follow and get redirect_urls
+# populated automatically; the spider's manual redirect blocks act as fallback.
+REDIRECT_ENABLED = True
+REDIRECT_MAX_TIMES = 10
+
+# No depth limit — deep pages must be reachable for complete inlink graph (Fix 7)
+DEPTH_LIMIT = 0
 
 EXTENSIONS = {
     'workers.crawl_worker.extensions.log_filter.SuppressEngineSlotNoise': 100,

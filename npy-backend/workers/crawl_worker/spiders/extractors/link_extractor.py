@@ -40,8 +40,9 @@ def _normalize_url(url: str) -> str:
     """
     Canonical normalisation for a fully-resolved URL.
 
-    Steps: lowercase host, https scheme, strip fragment, strip tracking
-    params, collapse double-slashes in path, strip trailing slash.
+    Steps: lowercase host, https scheme, strip www, strip fragment,
+    strip ALL query params, collapse double-slashes in path, strip
+    trailing slash.
     """
     if not url:
         return url
@@ -49,20 +50,17 @@ def _normalize_url(url: str) -> str:
         parsed = urlparse(url)
         scheme = "https"  # normalise http→https
         netloc = (parsed.netloc or "").lower()
+        # Strip www. for consistent matching with inlink graph
+        netloc = netloc.replace("www.", "", 1) if netloc.startswith("www.") else netloc
         path = re.sub(r"/+", "/", parsed.path) if parsed.path else "/"
         if path != "/" and path.endswith("/"):
             path = path[:-1]
-        # Strip tracking query params
-        if parsed.query:
-            kept = {
-                k: v
-                for k, v in parse_qs(parsed.query, keep_blank_values=True).items()
-                if k.lower() not in _TRACKING_PARAMS
-            }
-            query = urlencode(kept, doseq=True) if kept else ""
-        else:
-            query = ""
-        return urlunparse((scheme, netloc, path, parsed.params, query, ""))
+        # Strip ALL query params for consistent inlink matching
+        root = f"{scheme}://{netloc}/"
+        clean = f"{scheme}://{netloc}{path}"
+        if clean != root:
+            clean = clean.rstrip("/")
+        return clean
     except Exception:
         return url
 
@@ -145,6 +143,90 @@ class LinkExtractor:
                 "nofollow": nofollow,
                 "rel": rel,
             })
+
+        # ── Additional link sources for comprehensive inlink graph ────────
+        def _add_extra_link(href_raw, rel_tag=""):
+            if not href_raw:
+                return
+            href_raw = href_raw.strip()
+            if (
+                not href_raw
+                or href_raw.startswith("#")
+                or href_raw.startswith("javascript:")
+                or href_raw.startswith("mailto:")
+                or href_raw.startswith("tel:")
+            ):
+                return
+            t_url = _normalize_url(response.urljoin(href_raw))
+            t_internal = LinkExtractor._is_internal(
+                t_url, allowed_host, allow_subdomains,
+            )
+            links.append({
+                "source_url": source_url,
+                "target_url": t_url,
+                "is_internal": t_internal,
+                "anchor_text": "",
+                "nofollow": False,
+                "rel": rel_tag,
+            })
+
+        # Canonical tag
+        for href in response.css("link[rel='canonical']::attr(href)").getall():
+            _add_extra_link(href, "canonical")
+
+        # Pagination (next / prev)
+        for href in response.css("link[rel='next']::attr(href)").getall():
+            _add_extra_link(href, "next")
+        for href in response.css("link[rel='prev']::attr(href)").getall():
+            _add_extra_link(href, "prev")
+
+        # Hreflang alternates
+        for href in response.css("link[rel='alternate']::attr(href)").getall():
+            _add_extra_link(href, "alternate")
+
+        # Form actions
+        for action in response.css("form::attr(action)").getall():
+            _add_extra_link(action, "form-action")
+
+        # Iframes
+        for src in response.css("iframe::attr(src)").getall():
+            _add_extra_link(src, "iframe")
+
+        # data-href / data-url attributes (JS-style links)
+        for href in response.css("[data-href]::attr(data-href)").getall():
+            _add_extra_link(href, "data-href")
+        for href in response.css("[data-url]::attr(data-url)").getall():
+            _add_extra_link(href, "data-url")
+
+        # onclick handlers — extract URLs from location.href assignments
+        for val in response.css("[onclick]::attr(onclick)").getall():
+            for found_url in re.findall(r"location\.href=['\"]([^'\"]+)['\"]", val):
+                _add_extra_link(found_url, "onclick")
+
+        # Image map area tags
+        for href in response.css("map area::attr(href)").getall():
+            _add_extra_link(href, "area")
+
+        # Meta refresh soft redirects
+        meta_refresh = response.css(
+            "meta[http-equiv='refresh']::attr(content)"
+        ).get()
+        if meta_refresh:
+            for found_url in re.findall(r"url=([^\s;]+)", meta_refresh, re.IGNORECASE):
+                _add_extra_link(found_url, "meta-refresh")
+
+        # SVG anchor tags (both href and xlink:href)
+        for href in response.css("svg a::attr(href)").getall():
+            _add_extra_link(href, "svg")
+        # xlink:href requires XPath — CSS namespace prefix crashes lxml
+        for href in response.xpath("//*[local-name()='a']/@*[name()='xlink:href']").getall():
+            _add_extra_link(href, "svg-xlink")
+
+        # HTTP Link response header (canonical/pagination via header)
+        link_header = response.headers.get("Link", b"").decode("utf-8", errors="ignore")
+        if link_header:
+            for found_url in re.findall(r"<([^>]+)>", link_header):
+                _add_extra_link(found_url, "http-link-header")
 
         return links
 

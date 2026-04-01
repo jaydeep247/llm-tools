@@ -29,7 +29,7 @@ import re
 import statistics
 from collections import defaultdict
 from typing import Any, Dict, List, Optional
-from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
+from urllib.parse import urlparse, urlunparse, parse_qs, urlencode, urljoin
 
 from bs4 import BeautifulSoup
 
@@ -89,6 +89,60 @@ def _normalize_url_for_api(url: Any) -> str:
 
 
 # ── HTML link extraction (fallback when spider data is unavailable) ────────────
+
+
+def _normalize_for_inlinks(raw_url: Any, base_url: str = "", base_domain: str = "") -> Optional[str]:
+    """Normalise a URL for inlink graph construction.
+
+    Unlike _normalize_url_for_api (which keeps non-tracking query params),
+    this strips ALL query params and fragments to maximise inlink matching.
+
+    Steps: resolve relative → absolute, filter external, strip fragment,
+    strip ALL query params, normalise scheme to https, lowercase, collapse
+    double-slashes, strip trailing slash.
+    """
+    if raw_url is None:
+        return None
+    u = str(raw_url).strip()
+    if not u:
+        return None
+    try:
+        # Step 1: Resolve relative → absolute
+        if base_url:
+            absolute = urljoin(base_url, u)
+        else:
+            absolute = u
+
+        # Step 2: Filter external
+        if base_domain:
+            bd_parsed = urlparse(base_domain)
+            bd_netloc = (bd_parsed.netloc or "").lower()
+            bd_netloc = bd_netloc.replace("www.", "", 1) if bd_netloc.startswith("www.") else bd_netloc
+            abs_parsed_tmp = urlparse(absolute)
+            abs_netloc = (abs_parsed_tmp.netloc or "").lower()
+            abs_netloc = abs_netloc.replace("www.", "", 1) if abs_netloc.startswith("www.") else abs_netloc
+            if abs_netloc != bd_netloc and not abs_netloc.endswith("." + bd_netloc):
+                return None
+
+        parsed = urlparse(absolute)
+        scheme = "https"
+        netloc = (parsed.netloc or "").lower()
+        # Strip www. so www.example.com and example.com resolve to same key
+        netloc = netloc.replace("www.", "", 1) if netloc.startswith("www.") else netloc
+        path = re.sub(r'/+', '/', parsed.path) if parsed.path else '/'
+
+        # Build clean URL: scheme + host + path only (no query, no fragment)
+        clean = f"{scheme}://{netloc}{path}"
+        clean = clean.lower()
+
+        # Strip trailing slash (keep root "/" as-is)
+        root = f"{scheme}://{netloc}/"
+        if clean != root:
+            clean = clean.rstrip("/")
+
+        return clean
+    except Exception:
+        return None
 
 def _extract_links_from_html(html_content: str) -> List[str]:
     """Return all href values from anchor tags."""
@@ -150,25 +204,155 @@ def _compute_internal_external_ratio(
 
 # ── Inlink graph (post-crawl) ──────────────────────────────────────────────────
 
-def compute_inlinks_for_batch(all_items: List[Dict[str, Any]]) -> Dict[str, int]:
+def compute_inlinks_for_batch(
+    all_items: List[Dict[str, Any]],
+    redirect_map: Optional[Dict[str, str]] = None,
+    sitemap_urls: Optional[List[str]] = None,
+) -> Dict[str, int]:
     """
     Build a full inlink graph from all crawled items.
     Returns {normalized_target_url: inlink_count}.
 
-    Self-links are excluded: a page linking to itself does not count as
-    an inlink.  URLs are normalised (scheme, trailing slash, tracking
-    params, fragments stripped) so variants resolve to the same node.
+    Improvements:
+    - Uses _normalize_for_inlinks to strip ALL query params / fragments
+      so URL variants resolve to the same node.
+    - Builds a canonical_map from each item's canonical_url and resolves
+      targets through it so inlinks attribute to the canonical page.
+    - Applies redirect_map so inlinks target the final destination URL.
+    - Pre-initialises every crawled URL (ensures orphan pages get 0).
+    - Pre-seeds sitemap-discovered URLs (orphan detection for uncrawled pages).
+    - Uses sets for source deduplication (prevents inflated counts).
+    - Self-links are excluded.
     """
-    link_graph: Dict[str, set] = defaultdict(set)
+    # Derive base_domain from first item
+    base_domain = ""
     for item in all_items:
-        source = _normalize_url_for_api(item.get("url", ""))
+        url = item.get("url", "")
+        if url:
+            p = urlparse(url)
+            base_domain = f"https://{(p.netloc or '').lower()}"
+            break
+
+    # ── Build canonical map: {normalised_page_url: normalised_canonical_url}
+    canonical_map: Dict[str, str] = {}
+    for item in all_items:
+        source_url = item.get("url", "")
+        canonical_url = item.get("canonical_url") or ""
+        if canonical_url and source_url:
+            norm_source = _normalize_for_inlinks(source_url, base_domain=base_domain)
+            norm_canonical = _normalize_for_inlinks(
+                canonical_url, base_url=source_url, base_domain=base_domain,
+            )
+            if norm_source and norm_canonical and norm_source != norm_canonical:
+                canonical_map[norm_source] = norm_canonical
+
+    # ── Initialise inlink map with all crawled URLs
+    link_graph: Dict[str, set] = {}
+    for item in all_items:
+        norm_url = _normalize_for_inlinks(item.get("url", ""), base_domain=base_domain)
+        if norm_url:
+            link_graph[norm_url] = set()
+
+    # ── Pre-seed sitemap-discovered URLs (Fix 6) ──────────────────────
+    # Pages in sitemap but never linked from crawled pages start at 0 (Orphan)
+    if sitemap_urls:
+        seeded = 0
+        for smap_url in sitemap_urls:
+            norm_smap = _normalize_for_inlinks(smap_url, base_domain=base_domain)
+            if norm_smap and norm_smap not in link_graph:
+                link_graph[norm_smap] = set()
+                seeded += 1
+        logger.debug("[INLINK-DEBUG] sitemap_urls seeded=%d", seeded)
+
+    # ── Normalise redirect_map keys/values for consistent matching ────
+    norm_redirect_map: Dict[str, str] = {}
+    if redirect_map:
+        for orig, final in redirect_map.items():
+            norm_orig = _normalize_for_inlinks(orig, base_domain=base_domain)
+            norm_final = _normalize_for_inlinks(final, base_domain=base_domain)
+            if norm_orig and norm_final and norm_orig != norm_final:
+                norm_redirect_map[norm_orig] = norm_final
+
+    logger.debug(
+        "[INLINK-DEBUG] compute_inlinks_for_batch | items=%d | "
+        "base_domain='%s' | canonical_overrides=%d | redirect_overrides=%d | "
+        "graph_init_keys=%d",
+        len(all_items), base_domain, len(canonical_map),
+        len(norm_redirect_map), len(link_graph),
+    )
+
+    # ── Build the graph
+    total_outlinks_processed = 0
+    targets_matched = 0
+    targets_missed = 0
+    targets_filtered_external = 0
+    targets_self_skipped = 0
+    for item in all_items:
+        source = _normalize_for_inlinks(item.get("url", ""), base_domain=base_domain)
         if not source:
             continue
         for target in item.get("outlink_url_list") or []:
-            norm_target = _normalize_url_for_api(target)
-            if norm_target and norm_target != source:  # skip self-links
-                link_graph[norm_target].add(source)
-    return {url: len(sources) for url, sources in link_graph.items()}
+            total_outlinks_processed += 1
+            norm_target = _normalize_for_inlinks(
+                target, base_url=source, base_domain=base_domain,
+            )
+            if not norm_target:
+                targets_filtered_external += 1
+                continue
+            # Resolve canonical — attribute link to canonical target,
+            # but fall back to original if canonical target wasn't crawled
+            resolved = canonical_map.get(norm_target, norm_target)
+            final_target = resolved if resolved in link_graph else norm_target
+            # Resolve redirects — attribute link to final destination (Fix 4)
+            final_target = norm_redirect_map.get(final_target, final_target)
+            if final_target == source:
+                targets_self_skipped += 1
+            elif final_target in link_graph:
+                link_graph[final_target].add(source)
+                targets_matched += 1
+            else:
+                targets_missed += 1
+
+    logger.debug(
+        "[INLINK-DEBUG] graph_build_done | outlinks_processed=%d | "
+        "matched=%d | missed_not_in_graph=%d | filtered_external=%d | "
+        "self_skipped=%d",
+        total_outlinks_processed, targets_matched, targets_missed,
+        targets_filtered_external, targets_self_skipped,
+    )
+
+    result = {url: len(sources) for url, sources in link_graph.items()}
+    nonzero = sum(1 for c in result.values() if c > 0)
+    logger.debug(
+        "[INLINK-DEBUG] final_result | total_keys=%d | nonzero=%d",
+        len(result), nonzero,
+    )
+
+    if targets_missed > 0:
+        # Log a sample miss for debugging
+        for item in all_items:
+            source = _normalize_for_inlinks(item.get("url", ""), base_domain=base_domain)
+            if not source:
+                continue
+            for target in item.get("outlink_url_list") or []:
+                norm_target = _normalize_for_inlinks(
+                    target, base_url=source, base_domain=base_domain,
+                )
+                if norm_target and norm_target not in link_graph:
+                    resolved = canonical_map.get(norm_target, norm_target)
+                    logger.warning(
+                        "[INLINK-DEBUG] SAMPLE MISS | raw='%s' norm='%s' "
+                        "resolved='%s' in_graph=%s | graph_sample=%s",
+                        target, norm_target, resolved,
+                        resolved in link_graph,
+                        list(link_graph.keys())[:3],
+                    )
+                    break
+            else:
+                continue
+            break
+
+    return result
 
 
 # ── DataForSEO helpers ─────────────────────────────────────────────────────────
@@ -481,7 +665,9 @@ async def extract_backlink_metrics_batch(
             inlinks = int(inlinks_existing)
             audit_log["inlinks"] = "FOUND"
         else:
-            inlinks = inlink_map.get(_normalize_url_for_api(url), 0)
+            inlinks = inlink_map.get(
+                _normalize_for_inlinks(url, base_domain=site_domain), 0,
+            )
             audit_log["inlinks"] = "EXTRACTING"
 
         # Fields 2 & 3: From stored crawl-time data

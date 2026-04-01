@@ -444,6 +444,7 @@ async def _run_backlink_metrics(job_id: str, urls: List[str], run_at: str) -> in
             {
                 "_id": 0,
                 "url": 1,
+                "canonical_url": 1,
                 "main_keyword": 1,
                 "internal_outlinks": 1,
                 "external_outlinks": 1,
@@ -466,8 +467,9 @@ async def _run_backlink_metrics(job_id: str, urls: List[str], run_at: str) -> in
         batch_items.append(
             {
                 "url": url,
+                "canonical_url": doc.get("canonical_url") or "",
                 "main_keyword": doc.get("main_keyword") or "",
-                "inlinks": doc.get("inlinks"),
+                "inlinks": None if force_refresh else doc.get("inlinks"),
                 "internal_outlinks": doc.get("internal_outlinks", backlink_metrics.get("internal_outlinks")),
                 "external_outlinks": doc.get("external_outlinks", backlink_metrics.get("external_outlinks")),
                 "outlink_url_list": doc.get("outlink_url_list") or backlink_metrics.get("outlink_url_list") or [],
