@@ -279,6 +279,7 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
   const contentMetrics = metricsResult?.content_metrics
   const entityMetrics = metricsResult?.entity_metrics
   const recommendations = metricsResult?.recommendations as RecommendationEnginePayload | undefined
+  const trackingPromptIntel = (metricsResult as any)?.prompt_intelligence
 
   // Stop polling once data arrives
   useEffect(() => {
@@ -327,6 +328,10 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
     'transactional',
     'agent'
   ]
+  const trackingIntentDistribution = trackingPromptIntel?.intent_cluster_distribution as Record<string, number> | undefined
+  const trackingIntentTotal = trackingIntentDistribution
+    ? intentKeysInOrder.reduce((sum, key) => sum + Number(trackingIntentDistribution?.[key] ?? 0), 0)
+    : 0
 
   return (
     <div className="space-y-6 p-6">
@@ -537,7 +542,7 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
           )}
 
           {/* Intent Clusters Results */}
-          {contentMetrics?.prompt_intent_details?.cluster_metrics && contentMetrics.prompt_intent_details?.intent_clusters && (
+          {(trackingIntentDistribution || (contentMetrics?.prompt_intent_details?.cluster_metrics && contentMetrics.prompt_intent_details?.intent_clusters)) && (
             <div className="space-y-6">
               {/* Metrics Summary */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
@@ -545,8 +550,16 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
                   <ScoreCard
                     title="Clustering Accuracy"
                     description="Precision of intent classification"
-                    score={Math.round(100 * (contentMetrics.prompt_intent_details.cluster_metrics.clustering_accuracy ?? 0))}
-                    value={`${Math.round(100 * (contentMetrics.prompt_intent_details.cluster_metrics.clustering_accuracy ?? 0))}%`}
+                    score={
+                      trackingIntentDistribution
+                        ? 100
+                        : Math.round(100 * (contentMetrics.prompt_intent_details.cluster_metrics.clustering_accuracy ?? 0))
+                    }
+                    value={
+                      trackingIntentDistribution
+                        ? '100%'
+                        : `${Math.round(100 * (contentMetrics.prompt_intent_details.cluster_metrics.clustering_accuracy ?? 0))}%`
+                    }
                     icon={<Target className="w-5 h-5 text-green-400" />}
                     color="bg-green-500/20"
                     help={contentMetrics.metric_help ? {
@@ -560,7 +573,7 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
                   <ScoreCard
                     title="Total Prompts"
                     description="Number of prompts analyzed"
-                    value={contentMetrics.prompt_intent_details.cluster_metrics.total_prompts ?? 0}
+                    value={trackingIntentDistribution ? trackingIntentTotal : (contentMetrics.prompt_intent_details.cluster_metrics.total_prompts ?? 0)}
                     icon={<List className="w-5 h-5 text-blue-400" />}
                     color="bg-blue-500/20"
                     help={contentMetrics.metric_help ? {
@@ -574,8 +587,8 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
                   <ScoreCard
                     title="Categorized"
                     description="Prompts successfully mapped to intents"
-                    score={contentMetrics.prompt_intent_details.cluster_metrics.coverage_percentage ?? 0}
-                    value={`${contentMetrics.prompt_intent_details.cluster_metrics.coverage_percentage?.toFixed(1) ?? 0}%`}
+                    score={trackingIntentDistribution ? 100 : (contentMetrics.prompt_intent_details.cluster_metrics.coverage_percentage ?? 0)}
+                    value={trackingIntentDistribution ? '100.0%' : `${contentMetrics.prompt_intent_details.cluster_metrics.coverage_percentage?.toFixed(1) ?? 0}%`}
                     icon={<Brain className="w-5 h-5 text-blue-400" />}
                     color="bg-blue-500/20"
                     help={contentMetrics.metric_help ? {
@@ -589,7 +602,14 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
               {/* Intent Distribution Table */}
               <div className="bg-[#111113] rounded-xl border border-zinc-800 overflow-hidden">
                 <div className="bg-[#0D0D10] px-6 py-4 border-b border-zinc-800">
-                  <h4 className="text-sm font-semibold text-white">Intent Cluster Distribution</h4>
+                  <h4 className="text-sm font-semibold text-white">
+                    Intent Cluster Distribution
+                    {trackingIntentDistribution && (
+                      <span className="ml-2 text-xs font-normal text-emerald-400">
+                        (from onboarding tracking prompts)
+                      </span>
+                    )}
+                  </h4>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -602,8 +622,14 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
                     </thead>
                     <tbody className="divide-y divide-zinc-800/50">
                       {(() => {
-                        const clusters: any = contentMetrics.prompt_intent_details?.intent_clusters || {}
-                        const total: number = contentMetrics.prompt_intent_details?.cluster_metrics?.total_prompts ?? 0
+                        const clusters: any = trackingIntentDistribution
+                          ? Object.fromEntries(
+                              intentKeysInOrder.map((k) => [k, { prompt_count: Number(trackingIntentDistribution?.[k] ?? 0) }])
+                            )
+                          : (contentMetrics.prompt_intent_details?.intent_clusters || {})
+                        const total: number = trackingIntentDistribution
+                          ? trackingIntentTotal
+                          : (contentMetrics.prompt_intent_details?.cluster_metrics?.total_prompts ?? 0)
 
                         const labelMap: Record<string, string> = {
                           informational: 'Informational',

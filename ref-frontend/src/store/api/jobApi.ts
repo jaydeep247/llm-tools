@@ -116,6 +116,21 @@ export interface PromptTrackingDoc {
   url: string;
   tracked_prompts: string[];
   metrics: PromptTrackingMetric[];
+  prompt_intelligence?: {
+    prompt_source_mode?: string;
+    onboarding_prompts_count?: number;
+    manual_prompts_count?: number;
+    expanded_from_seed_keywords?: number;
+    seed_keywords_count?: number;
+    intent_cluster_distribution?: Record<string, number>;
+    dedup_summary?: {
+      dropped_exact_duplicates?: number;
+      dropped_near_duplicates?: number;
+      dropped_too_short?: number;
+      dropped_too_long?: number;
+    };
+    total_prompts_final?: number;
+  };
   metric_help?: PromptTrackingMetricHelp;
   updatedAt?: string;
   createdAt?: string;
@@ -357,11 +372,14 @@ export const jobApi = baseApi.injectEndpoints({
       providesTags: (result, error, jobId) => [{ type: 'Job', id: jobId }],
     }),
 
-    startPromptTracking: builder.mutation<{ success: boolean; job: Job }, { jobId: string; prompts: string[] }>({
-      query: ({ jobId, prompts }) => ({
+    startPromptTracking: builder.mutation<
+      { success: boolean; job: Job },
+      { jobId: string; prompts: string[]; seedKeywords?: string[]; expandFromKeywords?: boolean }
+    >({
+      query: ({ jobId, prompts, seedKeywords, expandFromKeywords }) => ({
         url: `/jobs/${jobId}/prompt-tracking`,
         method: 'POST',
-        body: { prompts },
+        body: { prompts, seedKeywords, expandFromKeywords },
       }),
       transformResponse: (response: { success: boolean; data: Job }) => ({
         success: response.success,

@@ -318,13 +318,16 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
   const selectedPromptTrend = useMemo(() => {
     const trend = selectedPromptMetric?.trend || []
     return trend
-      .map((p) => {
+      .map((p: any) => {
         const date = p?.date ? format(new Date(p.date), 'MMM dd') : ''
-        return {
-          date,
-          visibility: typeof p.visibility_score === 'number' ? p.visibility_score : 0,
-          ctr: typeof p.ctr_percent === 'number' ? p.ctr_percent : 0,
-        }
+        const vis =
+          typeof p?.visibility_score === 'number'
+            ? p.visibility_score
+            : typeof p?.prompt_visibility_score === 'number'
+              ? p.prompt_visibility_score
+              : 0
+        const ctr = typeof p?.ctr_percent === 'number' ? p.ctr_percent : 0
+        return { date, visibility: vis, ctr }
       })
       .filter((p) => p.date)
   }, [selectedPromptMetric?.trend])
@@ -358,7 +361,10 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
       .filter(Boolean)
     if (prompts.length === 0) return
 
-    await startPromptTracking({ jobId, prompts }).unwrap()
+    await startPromptTracking({
+      jobId,
+      prompts,
+    }).unwrap()
     setPromptText('')
     setPendingPrompts(Array.from(new Set(prompts)))
     setIsPromptPolling(true)
@@ -519,6 +525,9 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
             )}
             placeholder={'One prompt per line\nExample: best running shoes for flat feet'}
           />
+          <div className="text-[11px] text-zinc-500">
+            Onboarding prompts are auto-used by default when available. Add extra prompts here only if needed.
+          </div>
           <div className="flex items-center gap-3">
             <Button
               size="sm"
@@ -534,6 +543,48 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
           </div>
         </div>
       </SectionCard>
+
+      {promptTrackingDoc?.prompt_intelligence && (
+        <SectionCard title="Prompt Intelligence Summary">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+            <div className="rounded-lg border border-zinc-800/70 bg-zinc-900/30 p-3">
+              <div className="text-zinc-500">Source Mode</div>
+              <div className="text-zinc-200 font-mono">{promptTrackingDoc.prompt_intelligence.prompt_source_mode ?? 'unknown'}</div>
+            </div>
+            <div className="rounded-lg border border-zinc-800/70 bg-zinc-900/30 p-3">
+              <div className="text-zinc-500">Onboarding Prompts</div>
+              <div className="text-zinc-200 font-mono">{promptTrackingDoc.prompt_intelligence.onboarding_prompts_count ?? 0}</div>
+            </div>
+            <div className="rounded-lg border border-zinc-800/70 bg-zinc-900/30 p-3">
+              <div className="text-zinc-500">Manual Prompts</div>
+              <div className="text-zinc-200 font-mono">{promptTrackingDoc.prompt_intelligence.manual_prompts_count ?? 0}</div>
+            </div>
+            <div className="rounded-lg border border-zinc-800/70 bg-zinc-900/30 p-3">
+              <div className="text-zinc-500">Final Prompts</div>
+              <div className="text-zinc-200 font-mono">{promptTrackingDoc.prompt_intelligence.total_prompts_final ?? 0}</div>
+            </div>
+            <div className="rounded-lg border border-zinc-800/70 bg-zinc-900/30 p-3 md:col-span-2">
+              <div className="text-zinc-500">Dedup Drops</div>
+              <div className="text-zinc-200 font-mono">
+                {(
+                  (promptTrackingDoc.prompt_intelligence.dedup_summary?.dropped_exact_duplicates ?? 0) +
+                  (promptTrackingDoc.prompt_intelligence.dedup_summary?.dropped_near_duplicates ?? 0)
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+            {Object.entries(promptTrackingDoc.prompt_intelligence.intent_cluster_distribution || {}).map(([intent, count]) => (
+              <span
+                key={intent}
+                className="px-2 py-1 rounded-full border border-zinc-800 bg-zinc-900/40 text-zinc-300"
+              >
+                {intent}: {count}
+              </span>
+            ))}
+          </div>
+        </SectionCard>
+      )}
 
       {promptTrackingDoc?.metrics?.length ? (
         <SectionCard title="Prompt Metrics" contentClassName="p-0">
@@ -708,7 +759,36 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
       )}
 
       <SectionCard title="Performance Trend">
-        {selectedPromptMetric && selectedPromptTrend.length > 1 ? (
+        {selectedPromptMetric && selectedPromptTrend.length === 1 ? (
+          <div className="space-y-3">
+            <div className="text-xs text-zinc-500 truncate">{selectedPromptMetric.prompt}</div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[11px]">
+              <div className="rounded-lg border border-zinc-800/70 bg-zinc-900/30 p-3">
+                <div className="text-zinc-500">Visibility</div>
+                <div className="font-mono text-zinc-200">{selectedPromptTrend[0].visibility.toFixed(1)}</div>
+              </div>
+              <div className="rounded-lg border border-zinc-800/70 bg-zinc-900/30 p-3">
+                <div className="text-zinc-500">CTR (est.)</div>
+                <div className="font-mono text-zinc-200">{selectedPromptTrend[0].ctr.toFixed(2)}%</div>
+              </div>
+              <div className="rounded-lg border border-zinc-800/70 bg-zinc-900/30 p-3">
+                <div className="text-zinc-500">Engagement</div>
+                <div className="font-mono text-zinc-200">
+                  {Number((selectedPromptMetric as any).engagement_score ?? 0).toFixed(1)}
+                </div>
+              </div>
+              <div className="rounded-lg border border-zinc-800/70 bg-zinc-900/30 p-3">
+                <div className="text-zinc-500">Traffic (est.)</div>
+                <div className="font-mono text-zinc-200">
+                  {Number((selectedPromptMetric as any).traffic_estimate ?? 0).toFixed(1)}
+                </div>
+              </div>
+            </div>
+            <p className="text-[11px] text-zinc-500">
+              One snapshot so far — run &quot;Add to Tracking&quot; again on this project to build a line chart over time.
+            </p>
+          </div>
+        ) : selectedPromptMetric && selectedPromptTrend.length > 1 ? (
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-3">
               <div className="text-xs text-zinc-500 truncate">
@@ -759,9 +839,13 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
               </ResponsiveContainer>
             </div>
           </div>
+        ) : selectedPromptMetric ? (
+          <div className="text-sm text-zinc-500">
+            No trend history for this prompt yet. Run tracking to record the first snapshot.
+          </div>
         ) : (
           <div className="text-sm text-zinc-500">
-            Select a prompt to view its trend.
+            Select a prompt in the table above to view its trend.
           </div>
         )}
       </SectionCard>

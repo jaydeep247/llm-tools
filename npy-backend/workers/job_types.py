@@ -20,6 +20,16 @@ class JobType(str, Enum):
     CONTENT_METRICS = 'CONTENT_METRICS'
     MODULE_D = 'MODULE_D'
     MODULE_D_ENTITY_ANALYSIS = 'MODULE_D_ENTITY_ANALYSIS'
+    MODULE_D_PROMPT_TRACKING = 'MODULE_D_PROMPT_TRACKING'
+    MODULE_D_PROMPT_INGEST   = 'MODULE_D_PROMPT_INGEST'
+    MODULE_D_PROMPT_EXPAND   = 'MODULE_D_PROMPT_EXPAND'
+    MODULE_D_DIFFICULTY      = 'MODULE_D_DIFFICULTY'
+    MODULE_D_PROMPT_LIST     = 'MODULE_D_PROMPT_LIST'
+    MODULE_D_CITATIONS       = 'MODULE_D_CITATIONS'
+    MODULE_D_PERFORMANCE     = 'MODULE_D_PERFORMANCE'
+    MODULE_D_MANUAL_RUN      = 'MODULE_D_MANUAL_RUN'
+    MODULE_D_FEEDBACK        = 'MODULE_D_FEEDBACK'
+    MODULE_D_HEALTH          = 'MODULE_D_HEALTH'
     
     # AEO Analysis (Module C)
     AEO_ANALYSIS = 'AEO_ANALYSIS'
@@ -138,6 +148,16 @@ JOB_TYPE_TO_CATEGORY: Dict[str, JobCategory] = {
     JobType.CONTENT_METRICS.value: JobCategory.MODULE_D,
     JobType.MODULE_D.value: JobCategory.MODULE_D,
     JobType.MODULE_D_ENTITY_ANALYSIS.value: JobCategory.MODULE_D,
+    JobType.MODULE_D_PROMPT_TRACKING.value: JobCategory.MODULE_D,
+    JobType.MODULE_D_PROMPT_INGEST.value:   JobCategory.MODULE_D,
+    JobType.MODULE_D_PROMPT_EXPAND.value:   JobCategory.MODULE_D,
+    JobType.MODULE_D_DIFFICULTY.value:      JobCategory.MODULE_D,
+    JobType.MODULE_D_PROMPT_LIST.value:     JobCategory.MODULE_D,
+    JobType.MODULE_D_CITATIONS.value:       JobCategory.MODULE_D,
+    JobType.MODULE_D_PERFORMANCE.value:     JobCategory.MODULE_D,
+    JobType.MODULE_D_MANUAL_RUN.value:      JobCategory.MODULE_D,
+    JobType.MODULE_D_FEEDBACK.value:        JobCategory.MODULE_D,
+    JobType.MODULE_D_HEALTH.value:          JobCategory.MODULE_D,
     JobType.AEO_ANALYSIS.value: JobCategory.MODULE_C,
     JobType.MODULE_C_AI_PRESENCE.value: JobCategory.MODULE_C,
     JobType.MODULE_C_ANSWERABILITY.value: JobCategory.MODULE_C,

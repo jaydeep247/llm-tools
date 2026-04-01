@@ -43,6 +43,8 @@ export interface ModuleCJobPayload extends BaseJobPayload {
 export interface ModuleDJobPayload extends BaseJobPayload {
   sourceJobId?: string;
   trackedPrompts?: string[];
+  seedKeywords?: string[];
+  expandFromKeywords?: boolean;
 }
 
 /**

@@ -213,12 +213,22 @@ export class JobService {
     return job;
   }
 
-  async startPromptTracking(userId: string, jobId: string, trackedPrompts: string[], sourceJobId?: string): Promise<Job> {
+  async startPromptTracking(
+    userId: string,
+    jobId: string,
+    trackedPrompts: string[],
+    sourceJobId?: string,
+    options?: { seedKeywords?: string[]; expandFromKeywords?: boolean },
+  ): Promise<Job> {
     const job = await this.getJobById(userId, jobId);
 
     const cleaned = Array.isArray(trackedPrompts)
       ? trackedPrompts.map((p) => (typeof p === 'string' ? p.trim() : '')).filter(Boolean)
       : [];
+    const seedKeywords = Array.isArray(options?.seedKeywords)
+      ? options!.seedKeywords!.map((k) => (typeof k === 'string' ? k.trim() : '')).filter(Boolean)
+      : [];
+    const expandFromKeywords = Boolean(options?.expandFromKeywords);
 
     let resolvedSourceJobId = sourceJobId;
     if (!resolvedSourceJobId) {
@@ -241,6 +251,8 @@ export class JobService {
       jobType: JobType.MODULE_D_PROMPT_TRACKING,
       sourceJobId: resolvedSourceJobId,
       trackedPrompts: cleaned,
+      seedKeywords,
+      expandFromKeywords,
     });
 
     return job;

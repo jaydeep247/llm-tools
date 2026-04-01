@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -14,6 +14,16 @@ interface PromptMetricsSnapshot {
   engagement_score?: number | null
   traffic_estimate?: number | null
   visibility_change?: number | null
+  // SOP-002 §6.2 — real citation pipeline fields
+  citation_rate?: number | null
+  avg_position?: number | null
+  share_of_voice?: number | null
+  // SOP-002 §7.1 — formula audit trail
+  pvs_formula_version?: string | null
+  // SOP-002 §4.3 — difficulty / refresh cadence
+  difficulty_score?: number | null
+  // Data quality — lets UI show whether data is real vs estimated
+  calculation_method?: string | null
 }
 
 interface PromptRecommendation {
@@ -103,9 +113,60 @@ function PriorityRing({ score, severity }: { score: number; severity: Severity }
 export function RecommendationEnginePanel({ data, isLoading }: RecommendationEnginePanelProps) {
   const [severityFilter, setSeverityFilter] = useState<'ALL' | Severity>('ALL')
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set())
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set())
+  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set())
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState<string>('')
   const [sortBy, setSortBy] = useState<'priority' | 'severity' | 'impact'>('priority')
+
+  // Persist feedback to backend (Moat #4 §8.1 — RAR / SLAR / RDR instrumentation).
+  // mark_recommendation_feedback() in runner.py requires recommendation_id + feedback.
+  const postFeedback = useCallback(async (id: string, feedback: 'completed' | 'dismissed') => {
+    setPendingIds((prev) => new Set(prev).add(id))
+    try {
+      await fetch('/api/v1/recommendations/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recommendation_id: id, feedback }),
+      })
+    } catch (err) {
+      // Non-blocking: local state already updated; backend will reconcile on next load
+      console.warn('[RE] feedback persist failed', err)
+    } finally {
+      setPendingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+    }
+  }, [])
+
+  const handleToggleDone = useCallback((id: string) => {
+    const isCurrentlyDone = completedIds.has(id)
+    setCompletedIds((prev) => {
+      const next = new Set(prev)
+      isCurrentlyDone ? next.delete(id) : next.add(id)
+      return next
+    })
+    // Remove from dismissed if re-marking as done
+    setDismissedIds((prev) => {
+      const next = new Set(prev)
+      next.delete(id)
+      return next
+    })
+    postFeedback(id, isCurrentlyDone ? 'dismissed' : 'completed')
+  }, [completedIds, postFeedback])
+
+  const handleDismiss = useCallback((id: string) => {
+    setDismissedIds((prev) => new Set(prev).add(id))
+    // Remove from completed if dismissing a previously completed item
+    setCompletedIds((prev) => {
+      const next = new Set(prev)
+      next.delete(id)
+      return next
+    })
+    postFeedback(id, 'dismissed')
+  }, [postFeedback])
 
   const recommendations = data?.recommendations || []
   const summary = data?.summary
@@ -135,15 +196,6 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
   )
 
   const delta = getSeverityBadge(summary?.delta_class)
-
-  const handleToggleDone = (id: string) => {
-    setCompletedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
 
   const handleToggleExpand = (id: string) => {
     setExpandedId((curr) => (curr === id ? null : id))
@@ -303,6 +355,8 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
               : 'text-rose-400'
 
           const isDone = completedIds.has(rec.recommendation_id)
+          const isDismissed = dismissedIds.has(rec.recommendation_id)
+          const isPending = pendingIds.has(rec.recommendation_id)
           const expanded = expandedId === rec.recommendation_id
           const moduleIcon =
             rec.module.toLowerCase().includes('prompt') ? <ListChecks className="w-4 h-4 text-violet-300" /> :
@@ -413,6 +467,47 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
                         Δ Visibility
                       </div>
                     </div>
+                    {/* SOP-002 §6.2 — real citation fields */}
+                    {snapshot.citation_rate !== undefined && snapshot.citation_rate !== null && (
+                      <div className="flex flex-col gap-1">
+                        <div className="text-sm font-mono text-zinc-50">
+                          {(snapshot.citation_rate * 100).toFixed(1)}%
+                        </div>
+                        <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.16em]">
+                          Citation rate
+                        </div>
+                      </div>
+                    )}
+                    {snapshot.avg_position !== undefined && snapshot.avg_position !== null && (
+                      <div className="flex flex-col gap-1">
+                        <div className="text-sm font-mono text-zinc-50">
+                          {snapshot.avg_position.toFixed(1)}
+                        </div>
+                        <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.16em]">
+                          Avg position
+                        </div>
+                      </div>
+                    )}
+                    {snapshot.share_of_voice !== undefined && snapshot.share_of_voice !== null && (
+                      <div className="flex flex-col gap-1">
+                        <div className="text-sm font-mono text-zinc-50">
+                          {(snapshot.share_of_voice * 100).toFixed(1)}%
+                        </div>
+                        <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.16em]">
+                          Share of voice
+                        </div>
+                      </div>
+                    )}
+                    {snapshot.difficulty_score !== undefined && snapshot.difficulty_score !== null && (
+                      <div className="flex flex-col gap-1">
+                        <div className="text-sm font-mono text-zinc-50">
+                          {snapshot.difficulty_score.toFixed(1)}
+                        </div>
+                        <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.16em]">
+                          Difficulty
+                        </div>
+                      </div>
+                    )}
                     <div className="flex flex-col gap-1">
                       <div className="text-[11px] font-mono text-zinc-500">
                         {(rec.trigger_event || 'standard').replace(/_/g, ' ')}
@@ -422,6 +517,23 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
                       </div>
                     </div>
                   </div>
+
+                  {/* SOP-002 §7.1 data quality badge — real vs estimated */}
+                  {snapshot.calculation_method && (
+                    <div className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-zinc-800 bg-[#141621] px-2.5 py-1 font-mono text-[10px]">
+                      <span className="text-zinc-500">data source:</span>
+                      <span className={cn(
+                        snapshot.calculation_method === 'real_citation_data' ? 'text-emerald-400' :
+                        snapshot.calculation_method === 'ranking' ? 'text-amber-300' :
+                        'text-zinc-400'
+                      )}>
+                        {snapshot.calculation_method.replace(/_/g, ' ')}
+                      </span>
+                      {snapshot.pvs_formula_version && (
+                        <span className="text-zinc-600 ml-1">· {snapshot.pvs_formula_version}</span>
+                      )}
+                    </div>
+                  )}
 
                   <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div className="rounded-lg border border-zinc-800 bg-[#151821] px-3 py-2.5">
@@ -475,6 +587,7 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
                     <Button
                       size="sm"
                       variant="default"
+                      disabled={isPending || isDismissed}
                       className={cn(
                         'h-8 px-3 text-[11px] font-mono',
                         isDone
@@ -483,14 +596,21 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
                       )}
                       onClick={() => handleToggleDone(rec.recommendation_id)}
                     >
-                      {isDone ? '✓ Completed' : 'Mark as done'}
+                      {isPending ? '…' : isDone ? '✓ Completed' : 'Mark as done'}
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-8 px-3 text-[11px] font-mono border-zinc-700 text-zinc-400 hover:text-zinc-100"
+                      disabled={isPending || isDone}
+                      className={cn(
+                        'h-8 px-3 text-[11px] font-mono border-zinc-700 hover:text-zinc-100',
+                        isDismissed
+                          ? 'text-zinc-600 border-zinc-800 cursor-default'
+                          : 'text-zinc-400'
+                      )}
+                      onClick={() => !isDismissed && handleDismiss(rec.recommendation_id)}
                     >
-                      Dismiss
+                      {isDismissed ? 'Dismissed' : 'Dismiss'}
                     </Button>
                     {rec.affected_url && (
                       <Button
