@@ -38,6 +38,8 @@ AUTOTHROTTLE_DEBUG = False
 
 # MongoDB Settings
 MONGO_BATCH_SIZE = 200  # Increased for high concurrency
+MONGO_PAGE_BATCH_SIZE = 1
+MONGO_FIELD_BATCH_SIZE = 1
 ITEM_PIPELINES = {
     'workers.crawl_worker.spiders.pipelines.JsonStoragePipeline': 300,
     'workers.crawl_worker.pipelines.mongo_pipeline.MongoPipeline': 400,

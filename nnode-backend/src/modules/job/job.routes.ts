@@ -11,6 +11,7 @@ router.use(authMiddleware);
 router.post('/sessions/:sessionId/jobs', jobController.createJob);
 router.get('/sessions/:sessionId/jobs', jobController.getSessionJobs);
 router.get('/jobs/:id', jobController.getJobById);
+router.post('/jobs/:id/stop', jobController.stopJob);
 router.post('/jobs/:id/cancel', jobController.cancelJob);
 router.post('/jobs/:id/retry', jobController.retryJob);
 

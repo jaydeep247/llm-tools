@@ -10,17 +10,21 @@ import {
   PauseCircle,
   Activity,
   Database,
+  StopCircle,
 } from 'lucide-react'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { selectCrawlProgressByJobId, upsertCrawlProgress } from '@/store/slices/crawlProgressSlice'
+import { useStopJobMutation } from '@/store/api/jobApi'
 
 type CrawlStatus = 'running' | 'completed' | 'failed' | 'cancelled' | 'paused' | null
 
 interface CrawlStatusBannerProps {
   jobId: string | null
   initialStatus: CrawlStatus
+  followJobTerminalEvents?: boolean
   onViewPages?: () => void
   onResume?: () => void
+  onStop?: () => void
   pagesCrawled?: number
   totalPages?: number
   currentUrl?: string
@@ -117,8 +121,10 @@ function displayBool(value?: boolean): string {
 export function CrawlStatusBanner({
   jobId,
   initialStatus,
+  followJobTerminalEvents = true,
   onViewPages,
   onResume,
+  onStop,
   pagesCrawled: pagesCrawledProp = 0,
   totalPages = 0,
   currentUrl,
@@ -143,7 +149,12 @@ export function CrawlStatusBanner({
   const [liveCurrentUrl, setLiveCurrentUrl] = useState<string>(currentUrl || persisted?.lastUrl || '')
   const [liveCrawledAt, setLiveCrawledAt] = useState<number | null>(null)
   const [now, setNow] = useState<number>(Date.now())
+  const [stopConfirm, setStopConfirm] = useState(false)
+  const [isStopping, setIsStopping] = useState(false)
   const socketRef = useRef<Socket | null>(null)
+  const previousStatusRef = useRef<CrawlStatus>(null)
+
+  const [stopJobMutation] = useStopJobMutation()
 
   useEffect(() => {
     setStatus(prev => {
@@ -244,6 +255,36 @@ export function CrawlStatusBanner({
       }
     })
 
+    if (followJobTerminalEvents) {
+      socket.on('job:completed', (data: { jobId: string }) => {
+        if (data.jobId !== jobId) return
+        setStatus('completed')
+        dispatch(
+          upsertCrawlProgress({
+            jobId,
+            status: 'completed',
+            totalPages: totalPages > 0 ? totalPages : maxPages ?? null,
+          }),
+        )
+      })
+
+      socket.on('job:failed', (data: { jobId: string; error?: string; payload?: { reason?: string; message?: string } }) => {
+        if (data.jobId !== jobId) return
+        const reason = data.error || data.payload?.reason || data.payload?.message || ''
+        const nextStatus: CrawlStatus = reason === 'stopped_by_user' || reason === 'Session deleted by user'
+          ? 'cancelled'
+          : 'failed'
+        setStatus(nextStatus)
+        dispatch(
+          upsertCrawlProgress({
+            jobId,
+            status: nextStatus,
+            totalPages: totalPages > 0 ? totalPages : maxPages ?? null,
+          }),
+        )
+      })
+    }
+
     return () => {
       if (socket.connected) {
         socket.emit('leave-job', jobId)
@@ -251,9 +292,42 @@ export function CrawlStatusBanner({
       socket.disconnect()
       socketRef.current = null
     }
-  }, [jobId, totalPages, maxPages, dispatch])
+  }, [jobId, totalPages, maxPages, dispatch, followJobTerminalEvents])
 
   const activeStatus: CrawlStatus = status ?? initialStatus ?? (persistedStatus as CrawlStatus) ?? null
+
+  useEffect(() => {
+    const previousStatus = previousStatusRef.current
+    previousStatusRef.current = activeStatus
+    if (previousStatus && previousStatus !== 'cancelled' && activeStatus === 'cancelled') {
+      onStop?.()
+    }
+  }, [activeStatus, onStop])
+
+  const handleStop = async () => {
+    if (!jobId || isStopping) return
+    setIsStopping(true)
+    setStopConfirm(false)
+    try {
+      const result = await stopJobMutation(jobId).unwrap()
+      const serverStatus = result.job?.status?.toLowerCase() as CrawlStatus | undefined
+      const nextStatus: CrawlStatus = result.stopApplied
+        ? 'cancelled'
+        : result.crawlStatus === 'cancelled' || result.crawlStatus === 'paused' || result.crawlStatus === 'running'
+          ? result.crawlStatus
+          : serverStatus === 'completed'
+            ? 'completed'
+            : serverStatus === 'failed'
+              ? 'failed'
+              : 'cancelled'
+      setStatus(nextStatus)
+      dispatch(upsertCrawlProgress({ jobId, status: nextStatus }))
+    } catch {
+      // Server already broadcasted the socket event; ignore mutation errors
+    } finally {
+      setIsStopping(false)
+    }
+  }
 
   useEffect(() => {
     const isRunning = activeStatus === 'running'
@@ -301,9 +375,38 @@ export function CrawlStatusBanner({
 
   const statusMeta = STATUS_STYLES[activeStatus]
   const StatusIcon = statusMeta.icon
+  const isStoppable = activeStatus === 'running' || activeStatus === 'paused'
 
   return (
-    <div className={`rounded-2xl border bg-[#0D0D10] overflow-hidden h-full flex flex-col ${statusMeta.border}`}>
+    <div className={`relative rounded-2xl border bg-[#0D0D10] overflow-hidden h-full flex flex-col ${statusMeta.border}`}>
+      {/* Cancel confirmation overlay */}
+      {stopConfirm && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-black/80 backdrop-blur-sm">
+          <div className="mx-4 w-full max-w-xs rounded-xl border border-rose-500/40 bg-zinc-900 p-5 text-center shadow-xl">
+            <StopCircle className="mx-auto mb-3 h-8 w-8 text-rose-400" />
+            <p className="text-sm font-semibold text-white">Cancel crawl?</p>
+            <p className="mt-1 text-[11px] text-zinc-400 leading-relaxed">
+              The crawler will stop immediately. All pages crawled so far are already saved — no data will be lost.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => setStopConfirm(false)}
+                className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-[12px] font-medium text-zinc-300 hover:bg-zinc-700 transition-colors cursor-pointer"
+              >
+                Keep crawling
+              </button>
+              <button
+                onClick={handleStop}
+                disabled={isStopping}
+                className="flex-1 rounded-lg border border-rose-500/60 bg-rose-500/15 px-3 py-1.5 text-[12px] font-semibold text-rose-300 hover:bg-rose-500/25 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {isStopping ? 'Cancelling…' : 'Yes, cancel now'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-800/60">
         <div className="flex items-center gap-2.5 min-w-0">
           <h3 className="text-sm font-semibold text-white truncate">{componentTitle}</h3>
@@ -312,14 +415,27 @@ export function CrawlStatusBanner({
             {statusMeta.label}
           </span>
         </div>
-        {onViewPages && (
-          <button
-            onClick={onViewPages}
-            className="text-[11px] text-zinc-400 hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
-          >
-            View pages <Globe className="h-3 w-3" />
-          </button>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {isStoppable && (
+            <button
+              onClick={() => setStopConfirm(true)}
+              disabled={isStopping}
+              title="Cancel crawl — preserves all crawled pages"
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-400 border border-rose-500/35 bg-rose-500/8 hover:bg-rose-500/18 hover:text-rose-300 hover:border-rose-400/50 px-2.5 py-1 rounded-lg transition-all cursor-pointer disabled:opacity-40 shadow-[0_0_0_1px_rgba(239,68,68,0.1)]"
+            >
+              <StopCircle className="h-3 w-3" />
+              Cancel
+            </button>
+          )}
+          {onViewPages && (
+            <button
+              onClick={onViewPages}
+              className="text-[11px] text-zinc-400 hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
+            >
+              View pages <Globe className="h-3 w-3" />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="px-5 py-4 space-y-4">

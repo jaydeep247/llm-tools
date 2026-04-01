@@ -119,7 +119,8 @@ class WebsiteSpider(RedisSpider):
         self.is_resume = is_resume
         # Resume crawls start the counter from where the previous run paused
         # so logs and frontend show cumulative pages, not per-run pages.
-        self.pages_crawled = int(pages_crawled_offset) if pages_crawled_offset else 0
+        self.pages_crawled_offset = int(pages_crawled_offset) if pages_crawled_offset else 0
+        self.pages_crawled = self.pages_crawled_offset
         self.main_keyword = main_keyword or ""
         self.ga_property_id = ga_property_id or ""
         if self.job_id:
@@ -734,6 +735,22 @@ class WebsiteSpider(RedisSpider):
             for item in self.parse_sitemap(response):
                 yield item
             return
+
+        # Skip static asset files — CSS, fonts, images, scripts, archives, etc.
+        # These are never HTML pages and should not be stored as crawled pages.
+        _url_no_qs = response.url.split('?')[0].lower()
+        _ASSET_EXTS = (
+            '.css', '.scss', '.less',
+            '.js', '.jsx', '.ts', '.tsx',
+            '.woff', '.woff2', '.ttf', '.eot', '.otf',
+            '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico',
+            '.webp', '.avif', '.bmp', '.tiff',
+            '.mp4', '.mp3', '.wav', '.ogg', '.webm',
+            '.pdf', '.zip', '.gz', '.tar', '.exe', '.dmg',
+            '.csv', '.xlsx', '.xls', '.doc', '.docx',
+        )
+        if _url_no_qs.endswith(_ASSET_EXTS):
+            return
         
         # Update instance state from meta for distributed context (Crucial for multi-job workers)
         if 'job_id' in response.meta:
@@ -888,15 +905,17 @@ class WebsiteSpider(RedisSpider):
             return
             
         # ==================================================================
-        # SAVE RAW HTML (For Post-Crawl Modules)
+        # SAVE RAW HTML (For Post-Crawl Modules) — Content-hash dedup
         # ==================================================================
         raw_html_filename = ""
         try:
-            from utils.storage import save_raw_html_sync
+            from utils.storage import save_html_dedup_sync, save_raw_html_sync
 
-            url_hash = hashlib.sha256(response.url.encode("utf-8")).hexdigest()[:24]
-            raw_html_filename = f"pages/{url_hash}.html"
-            save_raw_html_sync(self.job_id, response.text, raw_html_filename)
+            # Dedup save: returns a dedup S3 key like "html_dedup/{project_id}/pages/{url_hash}.html"
+            # Skips S3 upload when the page content hasn't changed since the last crawl.
+            raw_html_filename = save_html_dedup_sync(
+                self.project_id, response.url, response.text
+            )
 
             # Keep the legacy homepage object for backward compatibility.
             if crawl_depth == 0:
@@ -1152,8 +1171,12 @@ class WebsiteSpider(RedisSpider):
 
         # Single visible crawl-progress log — all other spider logs are debug.
         _total = self._effective_max_pages
-        _total_str = str(_total) if _total > 0 else '?'
-        logger.info(f"[CRAWL] 🔗 {self.pages_crawled} / {_total_str} urls crawled")
+        if self.is_resume:
+            _in_run = self.pages_crawled - self.pages_crawled_offset
+            logger.info(f"[CRAWL] 🔗 {self.pages_crawled} total ({_in_run} in resuming run)")
+        else:
+            _total_str = str(_total) if _total > 0 else '?'
+            logger.info(f"[CRAWL] 🔗 {self.pages_crawled} / {_total_str} urls crawled")
 
         # Emit page_crawled event for every page — gives the frontend a
         # continuous, link-by-link live update stream.  The Node consumer
@@ -1230,8 +1253,18 @@ class WebsiteSpider(RedisSpider):
                 if link_data['is_internal']:
                     target_url = link_data['target_url']
 
-                    # Skip JavaScript files
-                    if target_url.lower().split('?')[0].endswith('.js'):
+                    # Skip static asset files (JS, CSS, fonts, images, etc.)
+                    _t_no_qs = target_url.lower().split('?')[0]
+                    if _t_no_qs.endswith((
+                        '.js', '.jsx', '.ts', '.tsx',
+                        '.css', '.scss', '.less',
+                        '.woff', '.woff2', '.ttf', '.eot', '.otf',
+                        '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico',
+                        '.webp', '.avif', '.bmp', '.tiff',
+                        '.mp4', '.mp3', '.wav', '.ogg', '.webm',
+                        '.pdf', '.zip', '.gz', '.tar', '.exe', '.dmg',
+                        '.csv', '.xlsx', '.xls', '.doc', '.docx',
+                    )):
                         self.skipped_count += 1
                         continue
 

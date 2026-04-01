@@ -17,7 +17,7 @@ export class JobController {
   private redis = getRedisClient();
 
   private static readonly DEFAULT_PAGE_SIZE = 100;
-  private static readonly MAX_PAGE_SIZE = 250;
+  private static readonly MAX_PAGE_SIZE = 5000;
   private static readonly DEFAULT_RECOMMENDATION_PAGE_SIZE = 250;
   private static readonly MAX_RECOMMENDATION_PAGE_SIZE = 500;
   private static readonly DEFAULT_AEO_PAGE_SIZE = 100;
@@ -928,6 +928,27 @@ export class JobController {
     }
   };
 
+
+  /**
+   * Hard-stop a running crawl (preserves all crawled data, cleans Redis + RabbitMQ)
+   */
+  stopJob = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { id } = sessionIdSchema.parse({ id: req.params.id });
+      const result = await this.jobService.stopJob(userId, id);
+      return ResponseUtil.success(res, 'Job stopped successfully — crawled data preserved', result);
+    } catch (error: any) {
+      logger.error(`Error stopping job: ${error.message}`);
+      if (error.message.includes('not found') || error.message.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      if (error.message.includes('Cannot stop')) {
+        return ResponseUtil.error(res, error.message, undefined, 400);
+      }
+      return ResponseUtil.serverError(res, 'Failed to stop job');
+    }
+  };
 
   /**
    * Cancel a running job (called when user closes browser)

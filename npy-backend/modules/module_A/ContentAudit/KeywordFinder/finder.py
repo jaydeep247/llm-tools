@@ -178,6 +178,8 @@ _INFORMATIONAL_SIGNALS = frozenset({
 _NAVIGATIONAL_SIGNALS = frozenset({
     "login", "sign in", "sign up", "register", "account", "dashboard",
     "contact", "about", "home", "homepage",
+    "policy", "policies", "terms", "privacy", "refund",
+    "sitemap", "faq", "legal", "disclaimer",
 })
 
 
@@ -206,6 +208,8 @@ def _classify_post_type(keyword: str) -> str:
         return "alternative"
     if "review" in kl or "reviews" in kl:
         return "review"
+    if any(w in kl for w in ("policy", "policies", "terms", "privacy", "refund", "legal", "disclaimer", "faq", "warranty")):
+        return "policy"
     return "other"
 
 

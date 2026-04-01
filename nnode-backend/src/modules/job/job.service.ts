@@ -4,6 +4,10 @@ import { SessionService } from '../session/session.service';
 import { SessionStatus } from '../session/session.types';
 import { QueueService } from '../queue/queue.service';
 import { LiveJobService } from '../../services/live-job.service';
+import { getMongoDb } from '../../config/mongo';
+import { getIo } from '../../socket';
+import { logger } from '../../shared/logger/logger';
+
 
 export class JobService {
   private jobRepository: JobRepository;
@@ -14,6 +18,20 @@ export class JobService {
     this.jobRepository = new JobRepository();
     this.sessionService = new SessionService();
     this.queueService = new QueueService();
+  }
+
+  private async getCrawlStatus(jobId: string): Promise<string | null> {
+    try {
+      const db = getMongoDb();
+      const summary = await db.collection('job_summaries').findOne(
+        { jobId },
+        { projection: { crawl_status: 1 } },
+      );
+      return typeof summary?.crawl_status === 'string' ? summary.crawl_status : null;
+    } catch (error) {
+      logger.warn(`[JOB_SERVICE] Failed reading crawl_status for ${jobId}:`, error);
+      return null;
+    }
   }
 
   private normalizeUrl = (raw?: string): string | undefined => {
@@ -364,14 +382,36 @@ export class JobService {
 
   // ============ STATUS MANAGEMENT ============
   async markRunning(jobId: string): Promise<Job> {
+    const existing = await this.jobRepository.findById(jobId);
+    if (!existing) {
+      throw new Error('Job not found');
+    }
+
+    if (
+      existing.status === JobStatus.RUNNING ||
+      existing.status === JobStatus.COMPLETED ||
+      existing.status === JobStatus.FAILED ||
+      existing.errorMessage === 'stopped_by_user'
+    ) {
+      return existing;
+    }
+
     return this.jobRepository.updateStatus(jobId, JobStatus.RUNNING, new Date(), null, null);
   }
 
   async markCompleted(jobId: string): Promise<Job> {
+    // Guard: if the job was explicitly stopped by the user, don't overwrite
+    // the FAILED/stopped_by_user state with COMPLETED from a stale Python event.
+    const existing = await this.jobRepository.findById(jobId);
+    if (existing?.errorMessage === 'stopped_by_user') return existing;
     return this.jobRepository.updateStatus(jobId, JobStatus.COMPLETED, undefined, new Date(), null);
   }
 
   async markFailed(jobId: string, errorMessage: string): Promise<Job> {
+    // Guard: if the job was explicitly stopped by the user, don't overwrite
+    // the sentinel error with a generic 'shutdown' reason from the spider.
+    const existing = await this.jobRepository.findById(jobId);
+    if (existing?.errorMessage === 'stopped_by_user') return existing;
     return this.jobRepository.updateStatus(jobId, JobStatus.FAILED, undefined, new Date(), errorMessage);
   }
 
@@ -400,6 +440,92 @@ export class JobService {
       new Date(),
       message
     );
+  }
+
+  /**
+   * Hard-stop a running crawl job.
+   * Sets a Redis cancel flag that the Python executor polls every 2 s.
+   * The executor raises JobCancelledError → queue_worker acks without emitting
+   * JOB_COMPLETED, so the consumer never overwrites the stopped state.
+   * Already-crawled pages in MongoDB are preserved (written per-page by the spider).
+   *
+   * Deliberately does NOT call cleanupJob (it would delete the cancel flag),
+   * does NOT scan/delete scrapy-redis keys (the spider's own cleanup_scheduler_state
+   * handles them on shutdown), and does NOT purge crawler.queue (that would
+   * destroy pending jobs for other users).
+   */
+  async stopJob(userId: string, jobId: string): Promise<{ job: Job; crawlStatus: string | null; stopApplied: boolean }> {
+    const job = await this.getJobById(userId, jobId);
+    const crawlStatus = await this.getCrawlStatus(jobId);
+    const isJobActive = job.status === JobStatus.PENDING || job.status === JobStatus.RUNNING;
+    const isCrawlActive = crawlStatus === 'running' || crawlStatus === 'paused';
+
+    // Quick-start sessions decouple the wrapper job lifecycle from the crawl
+    // lifecycle: the analysis job may already be COMPLETED while the crawl is
+    // still RUNNING/PAUSED in job_summaries.crawl_status.
+    if (!isJobActive && !isCrawlActive) {
+      return {
+        job,
+        crawlStatus,
+        stopApplied: false,
+      };
+    }
+
+    // 1. Set Redis cancel flag — Python executor polls every 2 s, kills subprocess.
+    await LiveJobService.setCancelFlag(jobId);
+    await LiveJobService.markJobCancelled(jobId);
+
+    // 2. For plain crawl jobs, persist the stop in MongoDB. For quick-start
+    //    wrapper jobs that already completed successfully, only stop the live
+    //    crawl and preserve the wrapper job status.
+    let updatedJob = job;
+    if (isJobActive) {
+      updatedJob = await this.jobRepository.updateStatus(
+        jobId,
+        JobStatus.FAILED,
+        undefined,
+        new Date(),
+        'stopped_by_user',
+      );
+    }
+
+    // 3. Update job_summaries.crawl_status so the dashboard reflects correct state.
+    try {
+      const db = getMongoDb();
+      await db.collection('job_summaries').updateOne(
+        { jobId },
+        { $set: { crawl_status: 'cancelled', crawlUpdatedAt: new Date() } },
+        { upsert: true },
+      );
+    } catch (mongoErr) {
+      logger.warn(`[STOP_JOB] job_summaries update failed for ${jobId}:`, mongoErr);
+    }
+
+    // 4. Broadcast socket event so all connected clients update immediately.
+    try {
+      const io = getIo();
+      io.to(`job:${jobId}`).emit('crawl:status', {
+        jobId,
+        crawl_status: 'cancelled',
+        updatedAt: new Date().toISOString(),
+      });
+      if (isJobActive) {
+        io.to(`job:${jobId}`).emit('job:failed', {
+          jobId,
+          status: 'failed',
+          error: 'stopped_by_user',
+        });
+      }
+    } catch (socketErr) {
+      logger.warn(`[STOP_JOB] Socket emit failed for ${jobId}:`, socketErr);
+    }
+
+    logger.info(`[STOP_JOB] ✅ Job ${jobId} stop signal sent — Python terminates within 2 s`);
+    return {
+      job: updatedJob,
+      crawlStatus: 'cancelled',
+      stopApplied: true,
+    };
   }
 
   /**

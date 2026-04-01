@@ -18,7 +18,7 @@ from utils.event_publisher import publisher
 
 from workers.job_types import QUEUE_CONFIGS
 from workers.worker_config import POOL_SIZE_PER_CATEGORY
-from workers.cancellation import is_job_cancelled, _get_redis
+from workers.cancellation import is_job_cancelled, mark_job_cancelled, _get_redis, JobCancelledError
 from workers.job_lifecycle import mark_job_completed, mark_job_failed
 from workers.registry import get_executor
 
@@ -37,9 +37,8 @@ class NonRetryableJobError(Exception):
     pass
 
 
-class JobCancelledError(Exception):
-    """Raised when a job has been cancelled (session deleted)"""
-    pass
+# JobCancelledError is imported from workers.cancellation so executors can
+# raise it without a circular import back to queue_worker.
 
 
 # ============ JOB DISPATCH ============
@@ -220,6 +219,17 @@ def start_queue_worker() -> None:
 
         logger.info(f"[QUEUE] Message received | Session: {session_id} | Job: {job_id} | Type: {job_type or 'CRAWL'}")
 
+        # If the user stopped the job while it was still queued, never let it
+        # transition back to RUNNING. Ack it immediately without emitting JOB_STARTED.
+        if is_job_cancelled(job_id):
+            logger.info(f"[QUEUE] Job {job_id} was cancelled before start — acking without execution")
+            mark_job_cancelled(job_id)
+            try:
+                ch.basic_ack(delivery_tag=method.delivery_tag)
+            except Exception:
+                pass
+            return
+
         pipe = dispatch_redis.pipeline()
         pipe.hset(
             f"session:{session_id}",
@@ -240,6 +250,15 @@ def start_queue_worker() -> None:
         )
         pipe.expire(f"job:{job_id}", 3600 * 24)
         pipe.execute()
+
+        if is_job_cancelled(job_id):
+            logger.info(f"[QUEUE] Job {job_id} was cancelled after dequeue — acking without JOB_STARTED")
+            mark_job_cancelled(job_id)
+            try:
+                ch.basic_ack(delivery_tag=method.delivery_tag)
+            except Exception:
+                pass
+            return
 
         try:
             # Mark running immediately so socket consumers can move to live mode
@@ -270,6 +289,13 @@ def start_queue_worker() -> None:
                     })
                 except Exception as pub_err:
                     logger.warning(f"[RESULT] Failed to emit JOB_COMPLETED: {pub_err}")
+                action = "ack"
+            except JobCancelledError:
+                # Job was stopped by user — the Node side already updated MongoDB and
+                # emitted socket events. Just ack the RabbitMQ message cleanly.
+                # Do NOT emit JOB_COMPLETED or JOB_FAILED here.
+                mark_job_cancelled(job_id)
+                logger.info(f"[RESULT] Job {job_id} was cancelled by user — acking without event")
                 action = "ack"
             except RetryableJobError as e:
                 logger.error(f"[RESULT] Job {job_id} retryable error; requeueing", exc_info=e)

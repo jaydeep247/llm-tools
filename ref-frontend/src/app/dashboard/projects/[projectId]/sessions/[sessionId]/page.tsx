@@ -166,22 +166,37 @@ export default function SessionDetailPage() {
   }) ?? (quickStartJob ? null : latestJob)
 
   const snapshotJobId = crawlJob?.id || (quickStartJob as any)?.id || null
+  const { data: jobSnapshot } = useGetJobSnapshotQuery(snapshotJobId!, {
+    skip: !snapshotJobId,
+    refetchOnMountOrArgChange: true,
+  })
+  const snapshotStatus = typeof jobSnapshot?.status === 'string' ? jobSnapshot.status.toLowerCase() : null
+  const snapshotTerminalStatus =
+    snapshotStatus === 'cancelled'
+      ? 'cancelled'
+      : snapshotStatus === 'failed' || snapshotStatus === 'job_failed'
+        ? 'failed'
+        : snapshotStatus === 'completed' || snapshotStatus === 'job_completed'
+          ? 'completed'
+          : null
+  const hasTerminalSnapshot = jobSnapshot?.completed === true || snapshotTerminalStatus !== null
+
   // Use rawCrawlStatus (from job_summaries) as the authoritative crawl lifecycle
   // indicator. The QS job's MongoDB status tracks the *analysis* lifecycle, NOT
   // the background crawl. rawCrawlStatus is updated by the Python runner's
   // _update_crawl_status() which tracks the actual crawl subprocess.
   const isSnapshotJobRunning =
-    rawCrawlStatus === 'running' ||
-    crawlJob?.status === 'RUNNING' || crawlJob?.status === 'PENDING' ||
-    crawlJob?.status === 'running' || crawlJob?.status === 'pending' ||
-    (quickStartJob as any)?.status === 'RUNNING' || (quickStartJob as any)?.status === 'PENDING' ||
-    (quickStartJob as any)?.status === 'running' || (quickStartJob as any)?.status === 'pending'
+    !hasTerminalSnapshot && (
+      rawCrawlStatus === 'running' ||
+      snapshotStatus === 'running' || snapshotStatus === 'job_started' ||
+      crawlJob?.status === 'RUNNING' || crawlJob?.status === 'PENDING' ||
+      crawlJob?.status === 'running' || crawlJob?.status === 'pending' ||
+      (quickStartJob as any)?.status === 'RUNNING' || (quickStartJob as any)?.status === 'PENDING' ||
+      (quickStartJob as any)?.status === 'running' || (quickStartJob as any)?.status === 'pending'
+    )
 
-  const { data: jobSnapshot } = useGetJobSnapshotQuery(snapshotJobId!, {
-    skip: !snapshotJobId,
-    refetchOnMountOrArgChange: true,
-  })
   const persistedCrawlProgress = useAppSelector(selectCrawlProgressByJobId(snapshotJobId || ''))
+  const stopRefreshTimeoutsRef = useRef<number[]>([])
   
   const { data: moduleFQueryData, isLoading: isLoadingModuleF, refetch: refetchModuleF } = useGetModuleFResultQuery(jobId || '', {
     skip: !jobId,
@@ -192,11 +207,11 @@ export default function SessionDetailPage() {
   // We can use the same limit/page logic or default to fetch all (or a large page) for now 
   // until we implement full server-side pagination in the UI. 
   // For now, let's fetch a reasonable amount to show the concept working.
-  const { data: pagesResult, isLoading: isLoadingPagesRaw, refetch: refetchPagesRaw } = useGetJobPagesQuery({ jobId: jobId!, limit: 1000 }, { skip: !jobId, refetchOnMountOrArgChange: true })
-  const { data: linksResult, isLoading: isLoadingLinksRaw, refetch: refetchLinksRaw } = useGetJobLinksQuery({ jobId: jobId!, limit: 1000 }, { skip: !jobId, refetchOnMountOrArgChange: true })
-  const { data: fieldsResult, isLoading: isLoadingFieldsRaw, refetch: refetchFieldsRaw } = useGetJobFieldsQuery(jobId!, { skip: !jobId, refetchOnMountOrArgChange: true })
+  const { data: pagesResult, isLoading: isLoadingPagesRaw, refetch: refetchPagesRaw } = useGetJobPagesQuery({ jobId: jobId!, limit: 5000, includeTotal: true }, { skip: !jobId, refetchOnMountOrArgChange: true })
+  const { data: linksResult, isLoading: isLoadingLinksRaw, refetch: refetchLinksRaw } = useGetJobLinksQuery({ jobId: jobId!, limit: 5000 }, { skip: !jobId, refetchOnMountOrArgChange: true })
+  const { data: fieldsResult, isLoading: isLoadingFieldsRaw, refetch: refetchFieldsRaw } = useGetJobFieldsQuery({ jobId: jobId!, limit: 5000 }, { skip: !jobId, refetchOnMountOrArgChange: true })
   const { data: sitemapsResult, isLoading: isLoadingSitemapsRaw, refetch: refetchSitemapsRaw } = useGetJobSitemapsQuery(jobId!, { skip: !jobId, refetchOnMountOrArgChange: true })
-  const { data: jobSummary } = useGetJobSummaryQuery(jobId!, { skip: !jobId, refetchOnMountOrArgChange: true })
+  const { data: jobSummary, refetch: refetchJobSummary } = useGetJobSummaryQuery(jobId!, { skip: !jobId, refetchOnMountOrArgChange: true })
 
 
   const { data: siteStructureResult } = useGetJobSiteStructureQuery(jobId!, { skip: !jobId })
@@ -221,6 +236,17 @@ export default function SessionDetailPage() {
     refetchLinksRaw()
     refetchFieldsRaw()
     refetchSitemapsRaw()
+    refetchJobSummary()
+  }
+
+  const handleCrawlStopped = () => {
+    refetchJobResults()
+    stopRefreshTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId))
+    stopRefreshTimeoutsRef.current = [1200, 3500].map((delay) =>
+      window.setTimeout(() => {
+        refetchJobResults()
+      }, delay),
+    )
   }
   const contentAuditJobId = crawlJob?.id ?? jobId ?? null
 
@@ -248,6 +274,13 @@ export default function SessionDetailPage() {
   const subtab = searchParams.get('subtab') || 'page-metrics'
 
   const activeSection = tab
+
+  useEffect(() => {
+    return () => {
+      stopRefreshTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId))
+      stopRefreshTimeoutsRef.current = []
+    }
+  }, [])
 
   // Refetch crawl data when switching to tabs that display it.
   // RTK Query caches the initial (often empty) response from the dashboard tab;
@@ -1074,21 +1107,23 @@ export default function SessionDetailPage() {
                 snapshotJobId ? (
                   <CrawlStatusBanner
                     jobId={snapshotJobId}
+                    followJobTerminalEvents={!isQuickStartSession}
                     initialStatus={
                       // For QS sessions, rawCrawlStatus (from job_summaries.crawl_status)
                       // is the source of truth for the background crawl lifecycle.
                       // The QS job's MongoDB status tracks analysis completion, NOT
                       // the crawl — so we must NOT use quickStartJob.status here.
                       isQuickStartSession
-                        ? (rawCrawlStatus as 'running' | 'completed' | 'failed' | 'cancelled' | 'paused' | null) ?? null
-                        : isSnapshotJobRunning ? 'running'
+                        ? ((rawCrawlStatus as 'running' | 'completed' | 'failed' | 'cancelled' | 'paused' | null) ?? snapshotTerminalStatus ?? (isSnapshotJobRunning ? 'running' : null))
+                        : snapshotTerminalStatus ?? (isSnapshotJobRunning ? 'running'
                           : (crawlJob?.status === 'COMPLETED' || crawlJob?.status === 'completed')
                             ? 'completed'
                             : (crawlJob?.status === 'FAILED' || crawlJob?.status === 'failed')
                               ? 'failed'
-                              : null
+                              : null)
                     }
                     onViewPages={() => handleSectionChange('technical-audit')}
+                    onStop={handleCrawlStopped}
                     onResume={() => {
                       if (snapshotJobId) resumeCrawl(snapshotJobId)
                     }}

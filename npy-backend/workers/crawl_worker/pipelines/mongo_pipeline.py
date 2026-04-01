@@ -8,10 +8,16 @@ from workers.crawl_worker.spiders.items import PageItem, LinkItem, SitemapUrlIte
 from workers.crawl_worker.pipelines.post_crawl_analysis import run_post_crawl_analysis
 
 class MongoPipeline:
-    def __init__(self, mongo_uri, mongo_db, batch_size=100):
+    def __init__(self, mongo_uri, mongo_db, batch_size=100, page_batch_size=1, field_batch_size=1):
         self.mongo_uri = mongo_uri
         self.mongo_db = mongo_db
-        self.batch_size = batch_size
+        self.batch_size = max(1, int(batch_size or 100))
+        self.flush_thresholds = {
+            'pages': max(1, int(page_batch_size or 1)),
+            'links': self.batch_size,
+            'sitemaps': self.batch_size,
+            'fields': max(1, int(field_batch_size or 1)),
+        }
         
         # Buffers for streaming writes
         self.buffers = {
@@ -38,7 +44,9 @@ class MongoPipeline:
         return cls(
             mongo_uri=crawler.settings.get('MONGO_URI'),
             mongo_db=crawler.settings.get('MONGO_DATABASE'),
-            batch_size=crawler.settings.get('MONGO_BATCH_SIZE', 100)
+            batch_size=crawler.settings.get('MONGO_BATCH_SIZE', 100),
+            page_batch_size=crawler.settings.get('MONGO_PAGE_BATCH_SIZE', 1),
+            field_batch_size=crawler.settings.get('MONGO_FIELD_BATCH_SIZE', 1),
         )
 
     def open_spider(self, spider):
@@ -72,13 +80,13 @@ class MongoPipeline:
                 )
                 return
 
+            was_cancelled = bool(getattr(spider, '_cancelled_by_user', False))
+
             # job_summaries is exclusively owned by the quick_start runner
             # (runner.py) which writes brand, competitor, ranking and
-            # crawl_status fields.  The crawler only updates the jobs
-            # collection with lightweight page/link counts.
+            # crawl_status fields. The crawler only updates lightweight page/
+            # link counts here and must not overwrite terminal state.
             crawl_stats = {
-                'status': 'completed',
-                'completedAt': datetime.now().isoformat(),
                 'pagesCrawled': self.total_counts['pages'],
                 'linksFound': self.total_counts['links'],
             }
@@ -88,17 +96,18 @@ class MongoPipeline:
             if redirect_map:
                 crawl_stats['redirect_map'] = redirect_map
 
-            # Run heavy post-crawl analysis in background so completion status is
-            # visible immediately and does not block the request lifecycle.
-            def _log_post_analysis_error(failure):
-                logger.error(
-                    f"Post-crawl analysis failed for job {self.job_id}: {failure}"
-                )
-                return failure
+            if not was_cancelled:
+                # Run heavy post-crawl analysis in background so completion status is
+                # visible immediately and does not block the request lifecycle.
+                def _log_post_analysis_error(failure):
+                    logger.error(
+                        f"Post-crawl analysis failed for job {self.job_id}: {failure}"
+                    )
+                    return failure
 
-            threads.deferToThread(run_post_crawl_analysis, self.job_id).addErrback(
-                _log_post_analysis_error
-            )
+                threads.deferToThread(run_post_crawl_analysis, self.job_id).addErrback(
+                    _log_post_analysis_error
+                )
 
             def _write_stats(stats):
                 try:
@@ -112,7 +121,8 @@ class MongoPipeline:
             yield threads.deferToThread(_write_stats, crawl_stats)
 
             logger.info(
-                f"Job {self.job_id} complete. Pages: {self.total_counts['pages']}, "
+                f"Job {self.job_id} {'cancelled' if was_cancelled else 'complete'}. "
+                f"Pages: {self.total_counts['pages']}, "
                 f"Links: {self.total_counts['links']}, "
                 f"Sitemaps: {self.total_counts['sitemaps']}, "
                 f"Fields: {self.total_counts['fields']}"
@@ -165,7 +175,7 @@ class MongoPipeline:
                 self.buffers['fields'].append(fields_doc)
                 self.total_counts['fields'] += 1
                 
-                if len(self.buffers['fields']) >= self.batch_size:
+                if len(self.buffers['fields']) >= self.flush_thresholds['fields']:
                     deferreds.append(self._flush_buffer('fields'))
             
             target_buffer = 'pages'
@@ -179,7 +189,7 @@ class MongoPipeline:
             self.buffers[target_buffer].append(item_dict)
             self.total_counts[target_buffer] += 1
             
-            if len(self.buffers[target_buffer]) >= self.batch_size:
+            if len(self.buffers[target_buffer]) >= self.flush_thresholds[target_buffer]:
                 deferreds.append(self._flush_buffer(target_buffer))
         
         if deferreds:

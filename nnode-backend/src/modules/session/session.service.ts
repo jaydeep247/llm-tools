@@ -5,6 +5,7 @@ import { LimitsService } from '../limits/limits.service';
 import { JobRepository } from '../job/job.repository';
 import { JobStatus } from '../job/job.types';
 import { LiveJobService } from '../../services/live-job.service';
+import { getMongoDb } from '../../config/mongo';
 import { getIo } from '../../socket';
 import { logger } from '../../shared/logger/logger';
 
@@ -137,57 +138,97 @@ export class SessionService {
       throw new Error('Session not found or access denied');
     }
 
-    // 1. Find all jobs under this session
+    // 1. Find all jobs — capture active ones before the cascade delete removes them.
+    // Quick-start sessions can have job.status=COMPLETED while the background
+    // crawl is still active via job_summaries.crawl_status.
     const jobs = await this.jobRepository.findBySessionId(sessionId);
-
-    // 2. Cancel any running/pending jobs — set cancel flag, mark as FAILED, notify via socket
+    const db = getMongoDb();
+    const activeCrawlSummaries = await db
+      .collection('job_summaries')
+      .find(
+        {
+          jobId: { $in: jobs.map((job) => job.id) },
+          crawl_status: { $in: ['running', 'paused'] },
+        },
+        { projection: { jobId: 1 } },
+      )
+      .toArray();
+    const activeCrawlJobIds = new Set(activeCrawlSummaries.map((summary: any) => String(summary.jobId)));
     const activeJobs = jobs.filter(
-      (job) => job.status === JobStatus.PENDING || job.status === JobStatus.RUNNING,
+      (job) =>
+        job.status === JobStatus.PENDING ||
+        job.status === JobStatus.RUNNING ||
+        activeCrawlJobIds.has(job.id),
     );
+    const activeJobIds = activeJobs.map((j) => j.id);
 
-    await Promise.all(
-      activeJobs.map(async (job) => {
-        await LiveJobService.setCancelFlag(job.id);
+    // 2. Persist the stop in Redis immediately so refresh hydration cannot fall
+    //    back to stale RUNNING state while the Python worker is still shutting down.
+    if (activeJobIds.length > 0) {
+      await Promise.all(
+        activeJobIds.map(async (jobId) => {
+          await LiveJobService.setCancelFlag(jobId);
+          await LiveJobService.markJobCancelled(jobId);
+        }),
+      );
+    }
 
-        try {
-          await this.jobRepository.updateStatus(
-            job.id,
-            JobStatus.FAILED,
-            undefined,
-            new Date(),
-            'Session deleted by user'
-          );
-        } catch (e) {
-          logger.warn(`Failed to mark job ${job.id} as failed during session delete:`, e);
-        }
+    // 3. Emit socket events immediately so the frontend marks the jobs as stopped
+    try {
+      const io = getIo();
+      for (const job of activeJobs) {
+        const cancelEvent = {
+          jobId: job.id,
+          eventType: 'JOB_FAILED',
+          payload: {
+            status: 'failed',
+            reason: 'Session deleted by user',
+            sessionId,
+            projectId: job.projectId,
+          },
+          timestamp: Date.now(),
+        };
+        io.to(`job:${job.id}`).emit('job:event', cancelEvent);
+        io.to(`job:${job.id}`).emit('job:failed', cancelEvent);
+        io.to(`job:${job.id}`).emit('crawl:status', {
+          jobId: job.id,
+          crawl_status: 'cancelled',
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    } catch (e) {
+      logger.warn(`Socket emit error during session delete:`, e);
+    }
 
-        try {
-          const io = getIo();
-          const cancelEvent = {
-            jobId: job.id,
-            eventType: 'JOB_FAILED',
-            payload: {
-              status: 'failed',
-              reason: 'Session deleted by user',
-              sessionId,
-              projectId: job.projectId,
-            },
-            timestamp: Date.now(),
-          };
-          io.to(`job:${job.id}`).emit('job:event', cancelEvent);
-          io.to(`job:${job.id}`).emit('job:failed', cancelEvent);
-        } catch (e) {
-          logger.warn(`Socket emit error during session delete for job ${job.id}:`, e);
-        }
-      }),
-    );
+    // 4. Give running workers a short window to acknowledge the cancel. If a
+    //    queued job has not been consumed yet, the cancel flag is preserved with
+    //    TTL so the worker can still skip it after the session is deleted.
+    if (activeJobIds.length > 0) {
+      const cancelResults = await Promise.all(
+        activeJobIds.map(async (jobId) => ({
+          jobId,
+          acknowledged: await LiveJobService.waitForCancelAck(jobId),
+        })),
+      );
 
-    // 3. Clean up Redis session hash
+      const unacknowledged = cancelResults
+        .filter((result) => !result.acknowledged)
+        .map((result) => result.jobId);
+
+      if (unacknowledged.length > 0) {
+        logger.warn(`[DELETE_SESSION] Cancel ack timeout for jobs: ${unacknowledged.join(', ')}`);
+      }
+    }
+
+    // 5. Clean up Redis session hash
     await LiveJobService.cleanupSession(sessionId);
 
-    // 4. Cascade delete all jobs + related Mongo collections + Redis job keys
-    //    (handled by repository.delete → jobRepository.deleteBySessionId)
-    return this.sessionRepository.delete(sessionId);
+    // 6. Cascade delete — wipes MongoDB (jobs/pages/links/etc.). cleanupJob now
+    //    preserves the cancel flag so queued workers cannot resurrect deleted jobs.
+    await this.sessionRepository.delete(sessionId);
+
+    logger.info(`[DELETE_SESSION] ✅ Session ${sessionId} deleted — ${activeJobIds.length} active job(s) signalled to stop`);
+    return session as unknown as SessionResponse;
   }
 
   /**

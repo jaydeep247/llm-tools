@@ -126,22 +126,22 @@ export default function SessionDetailClient() {
 
   // Fetch results for the job using granular endpoints
   const { data: pagesResult, isLoading: isLoadingPagesRaw, refetch: refetchPagesRaw } = useGetJobPagesQuery(
-    { jobId: jobId!, limit: 200, includeTotal: false },
-    { skip: skipResults }
+    { jobId: jobId!, limit: 5000, includeTotal: true },
+    { skip: skipResults, refetchOnMountOrArgChange: true }
   )
   const { data: linksResult, isLoading: isLoadingLinksRaw, refetch: refetchLinksRaw } = useGetJobLinksQuery(
-    { jobId: jobId!, limit: 200, includeTotal: false },
+    { jobId: jobId!, limit: 5000, includeTotal: false },
     { skip: skipResults }
   )
   const { data: fieldsResult, isLoading: isLoadingFieldsRaw, refetch: refetchFieldsRaw } = useGetJobFieldsQuery(
-    { jobId: jobId!, limit: 200, includeTotal: false },
+    { jobId: jobId!, limit: 5000, includeTotal: false },
     { skip: skipResults }
   )
   const { data: sitemapsResult, isLoading: isLoadingSitemapsRaw, refetch: refetchSitemapsRaw } = useGetJobSitemapsQuery(
     { jobId: jobId!, limit: 100, includeTotal: false },
     { skip: skipResults }
   )
-  const { data: jobSummary } = useGetJobSummaryQuery(jobId!, { skip: skipResults })
+  const { data: jobSummary, refetch: refetchJobSummary } = useGetJobSummaryQuery(jobId!, { skip: skipResults })
   
   // Real-time snapshot — poll the CRAWL job's snapshot specifically.
   // For quick-start sessions crawlJobId is null; fall back to quickStartJobId
@@ -156,6 +156,7 @@ export default function SessionDetailClient() {
     }
   )
   const persistedCrawlProgress = useAppSelector(selectCrawlProgressByJobId(snapshotJobId || ''))
+  const stopRefreshTimeoutsRef = useRef<number[]>([])
 
   const isLoadingResults = isLoadingPagesRaw || isLoadingLinksRaw || isLoadingFieldsRaw || isLoadingSitemapsRaw
   const refetchJobResults = () => {
@@ -163,6 +164,17 @@ export default function SessionDetailClient() {
     refetchLinksRaw()
     refetchFieldsRaw()
     refetchSitemapsRaw()
+    refetchJobSummary()
+  }
+
+  const handleCrawlStopped = () => {
+    refetchJobResults()
+    stopRefreshTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId))
+    stopRefreshTimeoutsRef.current = [1200, 3500].map((delay) =>
+      window.setTimeout(() => {
+        refetchJobResults()
+      }, delay),
+    )
   }
 
   const isLoading = isLoadingSession || isLoadingProject || isLoadingJobs || (!!jobId && !skipResults && isLoadingResults)
@@ -180,6 +192,13 @@ export default function SessionDetailClient() {
   const tab = searchParams.get('tab') || 'dashboard'
   
   const activeSection = tab
+
+  useEffect(() => {
+    return () => {
+      stopRefreshTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId))
+      stopRefreshTimeoutsRef.current = []
+    }
+  }, [])
 
   // Polling refresh only while jobs are active to avoid tab-switch burst traffic.
   useEffect(() => {
@@ -1126,6 +1145,7 @@ export default function SessionDetailClient() {
                 (snapshotJobId) ? (
                   <CrawlStatusBanner
                     jobId={snapshotJobId}
+                    followJobTerminalEvents={!isQuickStartSession}
                     initialStatus={
                       isSnapshotJobRunning ? 'running'
                         : (crawlJob?.status === 'COMPLETED' || crawlJob?.status === 'completed' ||
@@ -1137,6 +1157,7 @@ export default function SessionDetailClient() {
                             : (bgCrawlStatus as any) ?? null
                     }
                     onViewPages={() => handleSectionChange('crawler')}
+                    onStop={handleCrawlStopped}
                     onResume={() => {
                       if (snapshotJobId) {
                         setQsPollingActive(true)
@@ -1507,6 +1528,7 @@ export default function SessionDetailClient() {
             {snapshotJobId && (
               <CrawlStatusBanner
                 jobId={snapshotJobId}
+                followJobTerminalEvents={!isQuickStartSession}
                 initialStatus={
                   isSnapshotJobRunning ? 'running'
                     : (crawlJob?.status === 'COMPLETED' || crawlJob?.status === 'completed' ||
@@ -1518,6 +1540,7 @@ export default function SessionDetailClient() {
                         : (bgCrawlStatus as any) ?? null
                 }
                 onViewPages={() => handleSectionChange('crawler')}
+                onStop={handleCrawlStopped}
                 onResume={() => {
                   if (snapshotJobId) {
                     setQsPollingActive(true)

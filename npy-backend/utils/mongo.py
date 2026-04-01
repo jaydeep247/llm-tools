@@ -110,6 +110,12 @@ class MongoManager:
             self._db.performance_audits.create_index([("jobId", 1), ("device", 1), ("runAt", -1)])
             self._db.serp_results.create_index("jobId", unique=True)
             self._db.serp_results.create_index("sessionId")
+
+            # HTML dedup index: one entry per (project, url)
+            self._db.html_dedup.create_index(
+                [("project_id", 1), ("url_hash", 1)],
+                unique=True,
+            )
             
             logger.info("MongoDB indexes verified")
 
@@ -170,6 +176,10 @@ class MongoManager:
     @property
     def serp_results(self) -> Collection:
         return self.db.serp_results
+
+    @property
+    def html_dedup(self) -> Collection:
+        return self.db.html_dedup
 
     def close(self):
         if self._client:

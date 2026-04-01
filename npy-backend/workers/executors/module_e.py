@@ -2,7 +2,7 @@
 
 import asyncio
 from utils.logger import configure_logger, logger
-from workers.cancellation import is_job_cancelled
+from workers.cancellation import is_job_cancelled, JobCancelledError
 
 
 def execute_module_e_job(payload: dict) -> bool:
@@ -34,8 +34,8 @@ def execute_module_e_job(payload: dict) -> bool:
 
     try:
         if is_job_cancelled(job_id):
-            logger.info(f"[MODULE_E] 🛑 Job {job_id} cancelled before execution — skipping")
-            return True
+            logger.info(f"[MODULE_E] 🛑 Job {job_id} cancelled before execution")
+            raise JobCancelledError(f"Job {job_id} was cancelled before execution")
 
         if job_type == "MODULE_E_QUICK_START":
             result = asyncio.run(
@@ -49,7 +49,7 @@ def execute_module_e_job(payload: dict) -> bool:
             )
             if isinstance(result, dict) and result.get("cancelled"):
                 logger.info(f"[MODULE_E] 🛑 Quick Start job {job_id} cancelled")
-                return True
+                raise JobCancelledError(f"Quick Start job {job_id} was cancelled")
         elif job_type == "MODULE_E_CONSISTENCY":
             result = asyncio.run(run_consistency_only(target_job_id, url))
         elif job_type == "MODULE_E_SENTIMENT":

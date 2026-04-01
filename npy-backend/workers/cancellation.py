@@ -5,6 +5,8 @@ A single module-level ConnectionPool is shared across all threads — avoids
 creating a new TCP connection on every cancellation probe.
 """
 
+import time
+
 import redis
 from utils.config import config
 
@@ -18,6 +20,17 @@ _redis_pool = redis.ConnectionPool.from_url(
     retry_on_timeout=True,
 )
 
+JOB_CANCEL_TTL_SECONDS = 86400
+
+
+class JobCancelledError(Exception):
+    """Raised by executors when the cancel flag is detected for a job.
+
+    Caught separately in queue_worker.when_done so the message is acked
+    cleanly without emitting a spurious JOB_COMPLETED event.
+    """
+    pass
+
 
 def _get_redis() -> redis.Redis:
     """Return a Redis client backed by the shared connection pool."""
@@ -30,6 +43,22 @@ def is_job_cancelled(job_id: str) -> bool:
         return _get_redis().get(f"job:{job_id}:cancelled") == "true"
     except Exception:
         return False
+
+
+def mark_job_cancelled(job_id: str) -> None:
+    """Persist terminal cancel state and an acknowledgement for Node.js."""
+    try:
+        redis_client = _get_redis()
+        now_ms = str(int(time.time() * 1000))
+        pipe = redis_client.pipeline(transaction=False)
+        pipe.set(f"job:{job_id}:status", "cancelled", ex=JOB_CANCEL_TTL_SECONDS)
+        pipe.set(f"job:{job_id}:completed", "true", ex=JOB_CANCEL_TTL_SECONDS)
+        pipe.set(f"job:{job_id}:cancel_ack", "true", ex=JOB_CANCEL_TTL_SECONDS)
+        pipe.hset(f"job:{job_id}", mapping={"status": "CANCELLED", "updatedAt": now_ms})
+        pipe.expire(f"job:{job_id}", JOB_CANCEL_TTL_SECONDS)
+        pipe.execute()
+    except Exception:
+        pass
 
 
 def is_job_paused(job_id: str) -> bool:

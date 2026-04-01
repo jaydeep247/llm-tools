@@ -17,6 +17,7 @@ from modules.module_E.brand_analyzer import BrandAnalyzer
 from modules.module_E.competitor_analyzer import CompetitorAnalyzer
 from modules.module_E.ranking_runner import run_ranking_analysis
 from modules.brand_onboarding.service import generate_brand_description
+from workers.cancellation import is_job_cancelled, is_job_paused, mark_job_cancelled
 
 logger = logging.getLogger("quick_start")
 
@@ -79,11 +80,7 @@ class JobCancelledError(Exception):
 
 def _is_cancelled(job_id: str) -> bool:
     """Check the Redis cancel flag set by Node.js on session delete."""
-    try:
-        from workers.queue_worker import is_job_cancelled
-        return is_job_cancelled(job_id)
-    except Exception:
-        return False
+    return is_job_cancelled(job_id)
 
 
 def _check_cancelled(job_id: str) -> None:
@@ -92,15 +89,24 @@ def _check_cancelled(job_id: str) -> None:
         raise JobCancelledError(f"Job {job_id} was cancelled")
 
 
-def _kill_crawl_proc(proc, manager) -> None:
+def _kill_crawl_proc(proc, manager, state=None) -> None:
     """Terminate a crawl subprocess and its manager."""
     if proc is None:
         return
     try:
         if proc.is_alive():
-            logger.info(f"[QS] Terminating crawl subprocess (pid={proc.pid})")
-            proc.terminate()
-            proc.join(timeout=5)
+            if state is not None:
+                try:
+                    state["stop_requested"] = True
+                    state["cancelled"] = True
+                    state["success"] = False
+                except Exception:
+                    pass
+                proc.join(timeout=10)
+            if proc.is_alive():
+                logger.info(f"[QS] Terminating crawl subprocess (pid={proc.pid})")
+                proc.terminate()
+                proc.join(timeout=5)
             if proc.is_alive():
                 logger.warning(f"[QS] Force-killing crawl subprocess (pid={proc.pid})")
                 proc.kill()
@@ -112,6 +118,69 @@ def _kill_crawl_proc(proc, manager) -> None:
             manager.shutdown()
         except Exception:
             pass
+
+
+def _publish_crawl_status(job_id: str, crawl_status: str) -> None:
+    """Broadcast the latest background crawl status."""
+    _update_crawl_status(job_id, crawl_status)
+    _publish_event(job_id, "QS_CRAWL_STATUS", {
+        "crawlStatus": crawl_status,
+        "jobId": job_id,
+    })
+
+
+def _supervise_crawl_proc(job_id: str, proc, manager, state) -> None:
+    """Watch the background crawl process and stop it immediately on cancel."""
+    cancelled = False
+
+    try:
+        while proc.is_alive():
+            proc.join(timeout=1.0)
+
+            if proc.is_alive() and _is_cancelled(job_id):
+                cancelled = True
+                logger.info(f"[QS] Cancel detected for {job_id} — killing background crawl")
+                try:
+                    state["cancelled"] = True
+                    state["success"] = False
+                except Exception:
+                    pass
+                _kill_crawl_proc(proc, manager, state)
+                mark_job_cancelled(job_id)
+                _publish_crawl_status(job_id, "cancelled")
+                return
+
+        crawl_succeeded = False
+        try:
+            crawl_succeeded = bool(state.get("success"))
+            cancelled = cancelled or bool(state.get("cancelled"))
+        except Exception:
+            pass
+
+        if manager is not None:
+            try:
+                manager.shutdown()
+            except Exception:
+                pass
+
+        if cancelled or _is_cancelled(job_id):
+            mark_job_cancelled(job_id)
+            final_crawl_status = "cancelled"
+        elif crawl_succeeded and is_job_paused(job_id):
+            final_crawl_status = "paused"
+        elif crawl_succeeded:
+            final_crawl_status = "completed"
+        else:
+            final_crawl_status = "failed"
+
+        _publish_crawl_status(job_id, final_crawl_status)
+    except Exception as exc:
+        logger.warning(f"[QS] Background crawl supervisor failed for {job_id}: {exc}")
+        try:
+            _kill_crawl_proc(proc, manager)
+        except Exception:
+            pass
+        _publish_crawl_status(job_id, "failed")
 
 
 def _publish_event(job_id: str, event_type: str, payload: dict) -> None:
@@ -336,11 +405,18 @@ def _start_crawl(
     state = manager.dict()
     state["success"] = False
     state["error"] = None
+    state["cancelled"] = False
+    state["stop_requested"] = False
+
+    # SCHEDULER_PERSIST=True keeps the scrapy-redis priority queue alive when
+    # the spider closes at the pause threshold so the resume run can pick up
+    # exactly where the initial crawl left off.
+    crawl_settings = {**SCRAPY_SETTINGS, "SCHEDULER_PERSIST": True}
 
     proc = spawn_ctx.Process(
         target=_run_spider_subprocess,
         args=(state, url, session_id, job_id, project_id,
-              QUICK_START_CRAWL_PAUSE_THRESHOLD, 0, SCRAPY_SETTINGS),
+              QUICK_START_CRAWL_PAUSE_THRESHOLD, 0, crawl_settings),
         kwargs={
             "suppress_completion_events": True,
             "pause_on_limit": True,
@@ -432,6 +508,21 @@ async def run_quick_start(
             main_keyword=main_keyword, ga_property_id=ga_property_id,
         )
         _update_crawl_status(job_id, "running")
+        loop = asyncio.get_running_loop()
+        crawl_watch_task = loop.run_in_executor(
+            None,
+            _supervise_crawl_proc,
+            job_id,
+            crawl_proc,
+            crawl_manager,
+            crawl_state,
+        )
+        _bg_add(crawl_watch_task)
+        crawl_watch_task.add_done_callback(_bg_discard)
+        # The supervisor now owns the subprocess lifecycle.
+        crawl_proc = None
+        crawl_manager = None
+        crawl_state = None
     except Exception as exc:
         logger.error(f"[QS] Crawl launch failed: {exc}", exc_info=exc)
         _update_crawl_status(job_id, "failed")
@@ -496,59 +587,11 @@ async def run_quick_start(
             _publish_event(job_id, "QS_STEP_UPDATE", {"step": "ranking_analysis", "stepStatus": "completed"})
 
         if _is_cancelled(job_id):
-            logger.info(f"[QS] Job {job_id} cancelled after analyses — aborting, killing crawler")
+            logger.info(f"[QS] Job {job_id} cancelled after analyses — aborting")
             _update_crawl_status(job_id, "cancelled")
             return {"job_id": job_id, "success": False, "cancelled": True}
 
         _mark_completed(job_id, _session_id)
-
-        # ── Schedule crawl reaper on the RUNNING event loop ─────────────
-        # asyncio.get_running_loop() is always correct here because we are
-        # inside an async function called via asyncio.run().  The deprecated
-        # asyncio.get_event_loop() could return the wrong loop when called
-        # from a non-main thread (e.g., our ThreadPoolExecutor workers).
-        if crawl_proc is not None:
-            _proc_ref = crawl_proc
-            _manager_ref = crawl_manager
-            _state_ref = crawl_state
-
-            def _join_and_shutdown():
-                _proc_ref.join()
-                # Read the outcome flag BEFORE shutting down the Manager
-                # server — the dict becomes inaccessible after shutdown().
-                crawl_succeeded = False
-                try:
-                    crawl_succeeded = bool(_state_ref.get("success"))
-                except Exception:
-                    pass
-                if _manager_ref is not None:
-                    try:
-                        _manager_ref.shutdown()
-                    except Exception:
-                        pass
-                # Write the final crawl status now that the subprocess is done.
-                # If the spider hit the page limit and pause_on_limit was set,
-                # the Redis paused flag will be present — honour it.
-                from workers.cancellation import is_job_paused
-                if crawl_succeeded and is_job_paused(job_id):
-                    final_crawl_status = "paused"
-                elif crawl_succeeded:
-                    final_crawl_status = "completed"
-                else:
-                    final_crawl_status = "failed"
-                _update_crawl_status(job_id, final_crawl_status)
-                _publish_event(job_id, "QS_CRAWL_STATUS", {
-                    "crawlStatus": final_crawl_status,
-                    "jobId": job_id,
-                })
-
-            loop = asyncio.get_running_loop()
-            task = loop.run_in_executor(None, _join_and_shutdown)
-            _bg_add(task)
-            task.add_done_callback(_bg_discard)
-            # Re-assign so the finally block knows the reaper is scheduled.
-            crawl_proc = None
-            crawl_manager = None
 
         logger.info(f"[QS] Job {job_id} complete")
         return {
@@ -565,5 +608,5 @@ async def run_quick_start(
         # crawl_proc is set to None above once the reaper Future is scheduled,
         # so this block is only reached on the error path.
         if crawl_proc is not None:
-            _kill_crawl_proc(crawl_proc, crawl_manager)
+            _kill_crawl_proc(crawl_proc, crawl_manager, crawl_state)
             _update_crawl_status(job_id, "failed")

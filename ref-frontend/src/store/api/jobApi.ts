@@ -10,7 +10,14 @@ export interface Job {
   startedAt?: string;
   completedAt?: string;
   failureReason?: string;
+  errorMessage?: string | null;
   config?: any;
+}
+
+export interface StopJobResponse {
+  job: Job;
+  crawlStatus: 'running' | 'completed' | 'failed' | 'cancelled' | 'paused' | null;
+  stopApplied: boolean;
 }
 
 export interface CrawlResult {
@@ -511,6 +518,22 @@ export const jobApi = baseApi.injectEndpoints({
       ],
     }),
 
+    // Hard-stop a running crawl — preserves all crawled data, cleans Redis + RabbitMQ
+    stopJob: builder.mutation<{ success: boolean } & StopJobResponse, string>({
+      query: (jobId) => ({
+        url: `/jobs/${jobId}/stop`,
+        method: 'POST',
+      }),
+      transformResponse: (response: { success: boolean; data: StopJobResponse }) => ({
+        success: response.success,
+        ...response.data,
+      }),
+      invalidatesTags: (result, error, jobId) => [
+        { type: 'Job', id: jobId },
+        'Session',
+      ],
+    }),
+
     retryJob: builder.mutation<{ success: boolean; job: Job }, string>({
       query: (jobId) => ({
         url: `/jobs/${jobId}/retry`,
@@ -562,6 +585,7 @@ export const {
   useRunContentAuditMetricMutation,
   useGenerateJobSchemaMutation,
   useCancelJobMutation,
+  useStopJobMutation,
   useRetryJobMutation,
   useGetSeoKeywordsForUrlMutation,
 } = jobApi;

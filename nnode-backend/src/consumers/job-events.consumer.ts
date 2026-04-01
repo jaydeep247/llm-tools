@@ -85,40 +85,39 @@ export const startJobEventsConsumer = async () => {
         // 2. Update MongoDB Status for critical events
         try {
           if (event.eventType === 'JOB_STARTED') {
-           const jobPromise = jobService.markRunning(event.jobId);
-             
-             // Emit direct socket event for start
-           const socketPromise = (async () => {
-                 const io = getIo();
-                 io.to(`job:${event.jobId}`).emit('job:started', event);
-           })();
-
-           const [jobResult] = await Promise.allSettled([jobPromise, socketPromise]);
-           if (jobResult.status === 'fulfilled' && !jobResult.value) {
-             logger.error(`❌ Failed to mark job ${event.jobId} as RUNNING - Job not found`);
+           const runningJob = await jobService.markRunning(event.jobId);
+           if (runningJob.status !== 'RUNNING') {
+             logger.info(`[CONSUMER] JOB_STARTED for ${event.jobId} skipped — job already terminal (${runningJob.status})`);
+           } else {
+             const io = getIo();
+             io.to(`job:${event.jobId}`).emit('job:started', event);
            }
 
           } else if (event.eventType === 'JOB_COMPLETED' || (event.payload && event.payload.status === 'completed')) {
            const sessionId = event.payload?.sessionId;
-           const jobPromise = jobService.markCompleted(event.jobId);
-           const sessionPromise = sessionId
-             ? sessionService.markSessionCompleted(sessionId)
-             : Promise.resolve();
-           if (!sessionId) {
-             logger.warn(`⚠️  JOB_COMPLETED for ${event.jobId} missing sessionId — session not updated`);
+           // Await markCompleted first — it guards against overwriting stopped_by_user.
+           const completedJob = await jobService.markCompleted(event.jobId);
+           const isUserStop = completedJob?.errorMessage === 'stopped_by_user';
+           if (isUserStop) {
+             logger.info(`[CONSUMER] JOB_COMPLETED for ${event.jobId} skipped — job was stopped by user`);
+           } else {
+             const sessionPromise = sessionId
+               ? sessionService.markSessionCompleted(sessionId)
+               : Promise.resolve();
+             if (!sessionId) {
+               logger.warn(`⚠️  JOB_COMPLETED for ${event.jobId} missing sessionId — session not updated`);
+             }
+             const socketPromise = (async () => {
+                   const io = getIo();
+                   io.to(`job:${event.jobId}`).emit('job:completed', {
+                       jobId: event.jobId,
+                       status: 'completed',
+                       completedAt: new Date().toISOString(),
+                       payload: event.payload
+                   });
+             })();
+             await Promise.allSettled([sessionPromise, socketPromise]);
            }
-             
-           const socketPromise = (async () => {
-                 const io = getIo();
-                 io.to(`job:${event.jobId}`).emit('job:completed', {
-                     jobId: event.jobId,
-                     status: 'completed',
-                     completedAt: new Date().toISOString(),
-                     payload: event.payload
-                 });
-           })();
-
-           await Promise.allSettled([jobPromise, sessionPromise, socketPromise]);
 
              // Flush Buffer immediately
              const existingTimer = flushTimers.get(event.jobId);
@@ -133,30 +132,34 @@ export const startJobEventsConsumer = async () => {
           } else if (event.eventType === 'JOB_FAILED' || (event.payload && event.payload.status === 'failed')) {
               const reason = event.payload?.reason || event.payload?.message || 'Unknown error';
               const sessionId = event.payload?.sessionId;
-              const jobPromise = jobService.markFailed(event.jobId, reason);
-              const sessionPromise = sessionId
-                ? sessionService.markSessionFailed(sessionId)
-                : Promise.resolve();
-              if (!sessionId) {
-                logger.warn(`⚠️  JOB_FAILED for ${event.jobId} missing sessionId — session not updated`);
+              // Await markFailed first — it guards against overwriting stopped_by_user.
+              const failedJob = await jobService.markFailed(event.jobId, reason);
+              const isUserStop = failedJob?.errorMessage === 'stopped_by_user';
+              if (isUserStop) {
+                logger.info(`[CONSUMER] JOB_FAILED for ${event.jobId} skipped — job was stopped by user`);
+              } else {
+                const sessionPromise = sessionId
+                  ? sessionService.markSessionFailed(sessionId)
+                  : Promise.resolve();
+                if (!sessionId) {
+                  logger.warn(`⚠️  JOB_FAILED for ${event.jobId} missing sessionId — session not updated`);
+                }
+                // Emit Direct Socket Event
+                const socketPromise = (async () => {
+                   const io = getIo();
+                   io.to(`job:${event.jobId}`).emit('job:failed', {
+                       jobId: event.jobId,
+                       status: 'failed',
+                       error: reason,
+                       payload: event.payload
+                   });
+                })();
+                await Promise.allSettled([sessionPromise, socketPromise]);
               }
-              
-              // Emit Direct Socket Event
-              const socketPromise = (async () => {
-                 const io = getIo();
-                 io.to(`job:${event.jobId}`).emit('job:failed', {
-                     jobId: event.jobId,
-                     status: 'failed',
-                     error: reason,
-                     payload: event.payload
-                 });
-              })();
-
-              await Promise.allSettled([jobPromise, sessionPromise, socketPromise]);
 
               // Flush Buffer
-              const existingTimer = flushTimers.get(event.jobId);
-              if (existingTimer) clearTimeout(existingTimer);
+              const existingTimerF = flushTimers.get(event.jobId);
+              if (existingTimerF) clearTimeout(existingTimerF);
               
               if (!eventBuffers.has(event.jobId)) eventBuffers.set(event.jobId, []);
               eventBuffers.get(event.jobId)?.push(event);

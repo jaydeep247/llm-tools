@@ -159,6 +159,58 @@ class S3StorageClient:
             logger.error(f"❌ S3 delete failed for {key}: {e}")
             return False
     
+    # ─── RAW KEY METHODS (for dedup / content-addressable storage) ───────────
+
+    def save_by_key_sync(self, key: str, content: str) -> str:
+        """
+        Save content to S3 using an explicit full key (no job_id prefix).
+        Used by the HTML dedup layer.
+        """
+        if not self.is_enabled:
+            raise RuntimeError("S3 storage is not enabled")
+
+        try:
+            self._client.put_object(
+                Bucket=self._bucket,
+                Key=key,
+                Body=content.encode('utf-8'),
+                ContentType='text/html; charset=utf-8',
+                ACL='private',
+            )
+            return f"s3://{self._bucket}/{key}"
+        except ClientError as e:
+            logger.error(f"❌ S3 save_by_key failed for {key}: {e}")
+            raise
+
+    def load_by_key_sync(self, key: str) -> str:
+        """
+        Load content from S3 using an explicit full key (no job_id prefix).
+        Used by the HTML dedup layer.
+        """
+        if not self.is_enabled:
+            raise RuntimeError("S3 storage is not enabled")
+
+        try:
+            response = self._client.get_object(Bucket=self._bucket, Key=key)
+            return response['Body'].read().decode('utf-8')
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'NoSuchKey':
+                return ""
+            logger.error(f"❌ S3 load_by_key failed for {key}: {e}")
+            raise
+
+    def delete_by_key_sync(self, key: str) -> bool:
+        """Delete a file from S3 using an explicit full key."""
+        if not self.is_enabled:
+            return False
+
+        try:
+            self._client.delete_object(Bucket=self._bucket, Key=key)
+            return True
+        except ClientError as e:
+            logger.error(f"❌ S3 delete_by_key failed for {key}: {e}")
+            return False
+
     # ─── ASYNC METHODS ───────────────────────────────────────────────────────
     
     async def save(self, job_id: str, content: str, filename: str = "source.html") -> str:
@@ -201,6 +253,16 @@ class S3StorageClient:
             job_id,
             filename
         )
+
+    async def save_by_key(self, key: str, content: str) -> str:
+        """Async wrapper for save_by_key_sync"""
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(self._executor, self.save_by_key_sync, key, content)
+
+    async def load_by_key(self, key: str) -> str:
+        """Async wrapper for load_by_key_sync"""
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(self._executor, self.load_by_key_sync, key)
 
 
 # Global singleton instance

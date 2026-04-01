@@ -321,6 +321,7 @@ export class LiveJobService {
     const lastUrlKey = `job:${jobId}:last_url`;
     const legacyHashKey = `job:${jobId}`;
     const stepsKey = `job:${jobId}:steps`;  // Quick-start step statuses
+    const cancelledKey = `job:${jobId}:cancelled`;
 
     try {
       // Use one pipeline round-trip for snapshot reads.
@@ -336,6 +337,7 @@ export class LiveJobService {
         .hgetall(stepsKey)
         .hget(legacyHashKey, 'status')
         .get(lastUrlKey)
+        .get(cancelledKey)
         .exec();
 
       if (!raw) {
@@ -353,6 +355,7 @@ export class LiveJobService {
         stepsResult,
         legacyStatusResult,
         lastUrlResult,
+        cancelledResult,
       ] = raw;
 
       const status = statusResult[1] as string | null;
@@ -365,6 +368,8 @@ export class LiveJobService {
       const stepsRaw = (stepsResult[1] as Record<string, string>) || {};
       const legacyStatus = legacyStatusResult[1] as string | null;
       const lastUrlRaw = lastUrlResult[1] as string | null;
+      const cancelledRaw = cancelledResult[1] as string | null;
+      const isCancelled = cancelledRaw === 'true';
 
       // Parse metadata
       let projectId: string | undefined;
@@ -439,10 +444,10 @@ export class LiveJobService {
 
       return {
         jobId,
-        status: status || legacyStatus || 'pending',
+        status: isCancelled ? 'cancelled' : status || legacyStatus || 'pending',
         logs,
         links,
-        completed: !!completed,
+        completed: !!completed || isCancelled,
         startedAt: startedAtMs,
         snapshotAt,
         projectId,
@@ -473,12 +478,61 @@ export class LiveJobService {
   static async setCancelFlag(jobId: string): Promise<void> {
     const redis = getRedisClient();
     try {
-      await redis.set(`job:${jobId}:cancelled`, 'true');
-      await redis.expire(`job:${jobId}:cancelled`, REDIS_TTL);
+      await redis
+        .pipeline()
+        .del(`job:${jobId}:cancel_ack`)
+        .set(`job:${jobId}:cancelled`, 'true')
+        .expire(`job:${jobId}:cancelled`, REDIS_TTL)
+        .exec();
       logger.info(`🛑 Cancel flag set for job ${jobId}`);
     } catch (error) {
       logger.warn(`Failed to set cancel flag for job ${jobId}:`, error);
     }
+  }
+
+  /**
+   * Persist a terminal cancelled state in Redis so refresh hydration cannot
+   * fall back to stale RUNNING data after the user stops a crawl.
+   */
+  static async markJobCancelled(jobId: string): Promise<void> {
+    const redis = getRedisClient();
+    try {
+      await redis
+        .pipeline()
+        .set(`job:${jobId}:status`, 'cancelled')
+        .expire(`job:${jobId}:status`, REDIS_TTL)
+        .set(`job:${jobId}:completed`, 'true')
+        .expire(`job:${jobId}:completed`, REDIS_TTL)
+        .hset(`job:${jobId}`, 'status', 'CANCELLED', 'updatedAt', String(Date.now()))
+        .expire(`job:${jobId}`, REDIS_TTL)
+        .exec();
+      logger.info(`🛑 Redis snapshot marked cancelled for job ${jobId}`);
+    } catch (error) {
+      logger.warn(`Failed to mark Redis snapshot cancelled for job ${jobId}:`, error);
+    }
+  }
+
+  /**
+   * Best-effort wait for the Python worker to acknowledge a cancel signal.
+   */
+  static async waitForCancelAck(jobId: string, timeoutMs = 7000, intervalMs = 200): Promise<boolean> {
+    const redis = getRedisClient();
+    const deadline = Date.now() + timeoutMs;
+
+    while (Date.now() < deadline) {
+      try {
+        if ((await redis.get(`job:${jobId}:cancel_ack`)) === 'true') {
+          return true;
+        }
+      } catch (error) {
+        logger.warn(`Failed reading cancel ack for job ${jobId}:`, error);
+        return false;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+
+    return false;
   }
 
   /**
@@ -497,7 +551,7 @@ export class LiveJobService {
       `job:${jobId}:pages_count`,
       `job:${jobId}:last_url`,
       `job:${jobId}:steps`,
-      `job:${jobId}:cancelled`,
+      `job:${jobId}:cancel_ack`,
     ];
     try {
       await redis.del(...keys);

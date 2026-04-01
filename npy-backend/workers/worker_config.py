@@ -35,6 +35,8 @@ SCRAPY_SETTINGS = {
     "MONGO_URI": config.MONGO_URI,
     "MONGO_DATABASE": config.MONGO_DB_NAME,
     "MONGO_BATCH_SIZE": 50,
+    "MONGO_PAGE_BATCH_SIZE": 1,
+    "MONGO_FIELD_BATCH_SIZE": 1,
     "ITEM_PIPELINES": {
         "workers.crawl_worker.pipelines.mongo_pipeline.MongoPipeline": 300,
     },

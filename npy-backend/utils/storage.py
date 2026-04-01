@@ -3,7 +3,9 @@ Storage utilities for raw HTML and analysis results.
 Uses S3 (DigitalOcean Spaces) exclusively - NO local filesystem storage.
 """
 
+import hashlib
 import json
+from datetime import datetime, timezone
 
 from utils.config import config
 from utils.logger import logger
@@ -73,11 +75,11 @@ async def save_raw_html(job_id: str, html_content: str, filename: str = "source.
 async def load_raw_html(job_id: str, filename: str = "source.html") -> str:
     """
     Loads raw HTML content from S3 bucket ONLY.
-    Local filesystem storage is NO LONGER SUPPORTED.
+    Supports both legacy keys (raw_html/{job_id}/...) and dedup keys (html_dedup/...).
     
     Args:
         job_id: Job identifier
-        filename: File name/key within the job folder
+        filename: File name/key within the job folder, OR a full dedup S3 key
         
     Returns:
         HTML content as string, or empty string if not found / S3 unavailable
@@ -87,7 +89,11 @@ async def load_raw_html(job_id: str, filename: str = "source.html") -> str:
     
     try:
         s3 = _get_s3_client()
-        content = await s3.load(job_id, filename)
+        # Handle dedup keys: filename IS the full S3 key already
+        if _is_dedup_key(filename):
+            content = await s3.load_by_key(filename)
+        else:
+            content = await s3.load(job_id, filename)
         if content:
             logger.info(f"[S3] ✅ HTML loaded from S3 for job {job_id}/{filename} ({len(content)} bytes)")
             return content
@@ -133,11 +139,11 @@ def save_raw_html_sync(job_id: str, html_content: str, filename: str = "source.h
 def load_raw_html_sync(job_id: str, filename: str = "source.html") -> str:
     """
     Synchronous version of load_raw_html.
-    Uses S3 bucket ONLY - NO local filesystem fallback.
+    Supports both legacy keys (raw_html/{job_id}/...) and dedup keys (html_dedup/...).
     
     Args:
         job_id: Job identifier
-        filename: File name/key within the job folder
+        filename: File name/key within the job folder, OR a full dedup S3 key
         
     Returns:
         HTML content as string, or empty string if not found / S3 unavailable
@@ -147,7 +153,11 @@ def load_raw_html_sync(job_id: str, filename: str = "source.html") -> str:
     
     try:
         s3 = _get_s3_client()
-        content = s3.load_sync(job_id, filename)
+        # Handle dedup keys: filename IS the full S3 key already
+        if _is_dedup_key(filename):
+            content = s3.load_by_key_sync(filename)
+        else:
+            content = s3.load_sync(job_id, filename)
         if content:
             logger.info(f"[S3] ✅ HTML loaded (sync) from S3 for job {job_id}/{filename} ({len(content)} bytes)")
             return content
@@ -157,6 +167,148 @@ def load_raw_html_sync(job_id: str, filename: str = "source.html") -> str:
     except Exception as e:
         logger.error(f"[S3] ❌ Failed to load HTML from S3 (sync): {e}")
         return ""
+
+
+# ─── HTML CONTENT DEDUP ──────────────────────────────────────────────────────
+
+DEDUP_KEY_PREFIX = "html_dedup/"
+
+
+def _compute_content_hash(html_content: str) -> str:
+    """SHA-256 hash of HTML content for dedup comparison."""
+    return hashlib.sha256(html_content.encode("utf-8")).hexdigest()
+
+
+def _compute_url_hash(url: str) -> str:
+    """SHA-256 hash of URL (first 24 chars), same scheme used by the crawler."""
+    return hashlib.sha256(url.encode("utf-8")).hexdigest()[:24]
+
+
+def _dedup_s3_key(project_id: str, url_hash: str) -> str:
+    """Build the content-addressable S3 key for dedup."""
+    return f"{DEDUP_KEY_PREFIX}{project_id}/pages/{url_hash}.html"
+
+
+def _is_dedup_key(filename: str) -> bool:
+    """Check whether a raw_html_filename is a dedup key (full S3 key)."""
+    return filename.startswith(DEDUP_KEY_PREFIX)
+
+
+def _get_dedup_collection():
+    from utils.mongo import mongo_manager
+    mongo_manager.connect()
+    return mongo_manager.html_dedup
+
+
+def save_html_dedup_sync(
+    project_id: str,
+    url: str,
+    html_content: str,
+) -> str:
+    """
+    Deduplicated HTML save (sync).
+
+    1. Compute SHA-256 of the HTML content.
+    2. Look up the MongoDB html_dedup index for this (project, url).
+    3. If content_hash matches → skip S3 upload, return existing key (dedup hit).
+    4. If content_hash differs → overwrite the S3 object, update MongoDB.
+    5. If new URL → upload to S3, insert MongoDB record.
+
+    Returns the dedup S3 key (to be stored as raw_html_filename in the page doc).
+    """
+    if not html_content:
+        return ""
+    if not _ensure_s3_enabled():
+        return ""
+
+    url_hash = _compute_url_hash(url)
+    content_hash = _compute_content_hash(html_content)
+    s3_key = _dedup_s3_key(project_id, url_hash)
+
+    try:
+        col = _get_dedup_collection()
+        existing = col.find_one(
+            {"project_id": project_id, "url_hash": url_hash},
+            {"content_hash": 1, "s3_key": 1},
+        )
+
+        if existing and existing.get("content_hash") == content_hash:
+            # ── DEDUP HIT: same content already stored ──
+            logger.info(
+                f"[DEDUP] ♻️  Hash match for {url} (project {project_id}) — skipping S3 upload"
+            )
+            return existing.get("s3_key", s3_key)
+
+        # ── Upload to S3 (new or changed content) ──
+        s3 = _get_s3_client()
+        s3.save_by_key_sync(s3_key, html_content)
+
+        now = datetime.now(timezone.utc)
+        col.update_one(
+            {"project_id": project_id, "url_hash": url_hash},
+            {
+                "$set": {
+                    "url": url,
+                    "content_hash": content_hash,
+                    "s3_key": s3_key,
+                    "size_bytes": len(html_content),
+                    "updated_at": now,
+                },
+                "$setOnInsert": {
+                    "created_at": now,
+                },
+            },
+            upsert=True,
+        )
+
+        action = "replaced" if existing else "stored"
+        logger.info(
+            f"[DEDUP] ✅ HTML {action} for {url} (project {project_id}, "
+            f"{len(html_content)} bytes, hash {content_hash[:12]}…)"
+        )
+        return s3_key
+
+    except Exception as e:
+        logger.error(f"[DEDUP] ❌ Dedup save failed for {url}: {e}")
+        return ""
+
+
+async def save_html_dedup(
+    project_id: str,
+    url: str,
+    html_content: str,
+) -> str:
+    """
+    Async version of save_html_dedup_sync.
+    Runs the sync implementation in the S3 thread-pool executor.
+    """
+    import asyncio
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        None, save_html_dedup_sync, project_id, url, html_content
+    )
+
+
+def load_html_dedup_sync(s3_key: str) -> str:
+    """Load HTML from a dedup S3 key directly."""
+    if not s3_key or not _ensure_s3_enabled():
+        return ""
+    try:
+        s3 = _get_s3_client()
+        content = s3.load_by_key_sync(s3_key)
+        if content:
+            logger.info(f"[DEDUP] ✅ HTML loaded from dedup key {s3_key} ({len(content)} bytes)")
+        return content
+    except Exception as e:
+        logger.error(f"[DEDUP] ❌ Failed to load from dedup key {s3_key}: {e}")
+        return ""
+
+
+async def load_html_dedup(s3_key: str) -> str:
+    """Async version of load_html_dedup_sync."""
+    import asyncio
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, load_html_dedup_sync, s3_key)
 
 
 # ─── MONGODB STORAGE FUNCTIONS ───────────────────────────────────────────────

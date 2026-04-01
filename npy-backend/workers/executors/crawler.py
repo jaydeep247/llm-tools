@@ -9,11 +9,27 @@ restarted after a fork.
 import multiprocessing
 from utils.config import config
 from utils.logger import configure_logger, logger
-from workers.cancellation import is_job_cancelled, is_job_paused, clear_job_paused, get_pages_at_pause
+from workers.cancellation import is_job_cancelled, is_job_paused, clear_job_paused, get_pages_at_pause, mark_job_cancelled, JobCancelledError
 from workers.worker_config import SCRAPY_SETTINGS
 
 # Spawn context avoids fork-related Twisted reactor and RabbitMQ issues.
 spawn_ctx = multiprocessing.get_context('spawn')
+
+
+def _request_graceful_stop(proc, state_dict, timeout=10.0):
+    """Ask the crawl subprocess to close the spider before forcing termination."""
+    if proc is None:
+        return False
+
+    try:
+        state_dict["stop_requested"] = True
+        state_dict["cancelled"] = True
+        state_dict["success"] = False
+    except Exception:
+        pass
+
+    proc.join(timeout=timeout)
+    return not proc.is_alive()
 
 
 def _run_spider_subprocess(state_dict, url, session_id, job_id, project_id,
@@ -40,6 +56,7 @@ def _run_spider_subprocess(state_dict, url, session_id, job_id, project_id,
     """
     import traceback
     from scrapy.crawler import CrawlerProcess
+    from twisted.internet import task
 
     try:
         from workers.crawl_worker.spiders.website_spider import WebsiteSpider
@@ -47,6 +64,13 @@ def _run_spider_subprocess(state_dict, url, session_id, job_id, project_id,
         from utils.logger import configure_logger
 
         configure_logger()
+
+        try:
+            state_dict["success"] = False
+            state_dict["cancelled"] = bool(state_dict.get("cancelled"))
+            state_dict["stop_requested"] = bool(state_dict.get("stop_requested"))
+        except Exception:
+            pass
 
         process = CrawlerProcess(settings=scrapy_settings)
         crawler = process.create_crawler(WebsiteSpider)
@@ -66,10 +90,56 @@ def _run_spider_subprocess(state_dict, url, session_id, job_id, project_id,
             main_keyword=main_keyword,
             ga_property_id=ga_property_id,
         )
+        close_requested = False
+
+        def _poll_for_stop_request():
+            nonlocal close_requested
+
+            if close_requested:
+                return
+
+            try:
+                if not bool(state_dict.get("stop_requested")):
+                    return
+            except Exception:
+                return
+
+            spider = getattr(crawler, "spider", None)
+            engine = getattr(crawler, "engine", None)
+            if spider is None or engine is None:
+                return
+
+            close_requested = True
+            try:
+                spider.suppress_completion_events = True
+                spider._cancelled_by_user = True
+            except Exception:
+                pass
+
+            logger.info(f"[CRAWLER] Graceful stop requested for {job_id} — closing spider")
+            try:
+                engine.close_spider(spider, reason='cancelled')
+            except Exception as exc:
+                logger.warning(f"[CRAWLER] Failed to close spider gracefully for {job_id}: {exc}")
+                try:
+                    process.stop()
+                except Exception:
+                    pass
+
+        stop_loop = task.LoopingCall(_poll_for_stop_request)
+        stop_loop.start(0.5, now=False)
         process.start()
 
         try:
-            state_dict["success"] = True
+            if stop_loop.running:
+                stop_loop.stop()
+        except Exception:
+            pass
+
+        try:
+            was_cancelled = bool(state_dict.get("stop_requested")) or bool(state_dict.get("cancelled"))
+            state_dict["cancelled"] = was_cancelled
+            state_dict["success"] = not was_cancelled
         except Exception:
             pass  # Manager may have been shut down (fire-and-forget caller)
 
@@ -118,6 +188,8 @@ def execute_crawler_job(payload: dict) -> bool:
     state = manager.dict()
     state["success"] = False
     state["error"] = None
+    state["cancelled"] = False
+    state["stop_requested"] = False
 
     job_scrapy_settings = {**SCRAPY_SETTINGS, "CLOSESPIDER_PAGECOUNT": max_pages}
 
@@ -131,9 +203,12 @@ def execute_crawler_job(payload: dict) -> bool:
     while p.is_alive():
         p.join(timeout=2.0)
         if p.is_alive() and is_job_cancelled(job_id):
-            logger.info(f"[CRAWLER] 🛑 Job {job_id} cancelled — terminating crawler subprocess")
-            p.terminate()
-            p.join(timeout=5)
+            logger.info(f"[CRAWLER] 🛑 Job {job_id} cancelled — requesting graceful crawler shutdown")
+            _request_graceful_stop(p, state)
+            if p.is_alive():
+                logger.warning(f"[CRAWLER] Graceful shutdown timed out for {job_id} — forcing termination")
+                p.terminate()
+                p.join(timeout=5)
             if p.is_alive():
                 p.kill()
                 p.join(timeout=3)
@@ -141,8 +216,10 @@ def execute_crawler_job(payload: dict) -> bool:
                 manager.shutdown()
             except Exception:
                 pass
+            mark_job_cancelled(job_id)
+            _emit_crawl_status_update(job_id, "cancelled", session_id, project_id, url)
             logger.info(f"[CRAWLER] 🛑 Crawler subprocess terminated for cancelled job {job_id}")
-            return True
+            raise JobCancelledError(f"Job {job_id} was stopped by user")
 
     if state.get("success"):
         logger.info(f"[CRAWLER] ✅ Completed successfully: {job_id}")
@@ -221,9 +298,13 @@ def execute_resume_crawler_job(payload: dict) -> bool:
     state = manager.dict()
     state["success"] = False
     state["error"] = None
+    state["cancelled"] = False
+    state["stop_requested"] = False
 
     # No CLOSESPIDER_PAGECOUNT for the resume — crawl until finished.
-    job_scrapy_settings = {**SCRAPY_SETTINGS, "CLOSESPIDER_PAGECOUNT": 0}
+    # SCHEDULER_PERSIST=True so the spider reads from the persisted Redis
+    # priority queue that was kept alive during the pause.
+    job_scrapy_settings = {**SCRAPY_SETTINGS, "CLOSESPIDER_PAGECOUNT": 0, "SCHEDULER_PERSIST": True}
 
     p = spawn_ctx.Process(
         target=_run_spider_subprocess,
@@ -242,9 +323,12 @@ def execute_resume_crawler_job(payload: dict) -> bool:
     while p.is_alive():
         p.join(timeout=2.0)
         if p.is_alive() and is_job_cancelled(job_id):
-            logger.info(f"[CRAWLER_RESUME] 🛑 Job {job_id} cancelled — terminating subprocess")
-            p.terminate()
-            p.join(timeout=5)
+            logger.info(f"[CRAWLER_RESUME] 🛑 Job {job_id} cancelled — requesting graceful crawler shutdown")
+            _request_graceful_stop(p, state)
+            if p.is_alive():
+                logger.warning(f"[CRAWLER_RESUME] Graceful shutdown timed out for {job_id} — forcing termination")
+                p.terminate()
+                p.join(timeout=5)
             if p.is_alive():
                 p.kill()
                 p.join(timeout=3)
@@ -252,8 +336,9 @@ def execute_resume_crawler_job(payload: dict) -> bool:
                 manager.shutdown()
             except Exception:
                 pass
+            mark_job_cancelled(job_id)
             _emit_crawl_status_update(job_id, "cancelled", session_id, project_id, url)
-            return True
+            raise JobCancelledError(f"Job {job_id} was stopped by user")
 
     if state.get("success"):
         logger.info(f"[CRAWLER_RESUME] ✅ Completed successfully: {job_id}")

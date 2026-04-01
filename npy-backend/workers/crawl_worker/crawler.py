@@ -45,6 +45,8 @@ def main():
         'MONGO_URI': config.MONGO_URI,
         'MONGO_DATABASE': config.MONGO_DB_NAME,
         'MONGO_BATCH_SIZE': 200,
+        'MONGO_PAGE_BATCH_SIZE': 1,
+        'MONGO_FIELD_BATCH_SIZE': 1,
         'REQUEST_FINGERPRINTER_IMPLEMENTATION': '2.7',
 
         # Ensure Item Pipelines are active (merge with existing)
