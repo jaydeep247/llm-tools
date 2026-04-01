@@ -11,6 +11,7 @@ export interface ContentMetricsJobResult {
   content_metrics?: any;
   entity_metrics?: any;
   recommendations?: any;
+  prompt_intelligence?: any;
   createdAt?: string;
 }
 

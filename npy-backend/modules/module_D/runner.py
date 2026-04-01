@@ -669,9 +669,56 @@ async def run_entity_analysis(job_id: str, url: str, html_content: str = None) -
 async def run_prompt_tracking(job_id: str, url: str, prompts: list) -> Dict[str, Any]:
     """SOP-002 §5.1 Step 4 — Prompt tracking with real LLM data or TF-IDF fallback."""
     mongo_manager.connect()
+
+    resolve_url = (url or "").strip()
+    if not resolve_url:
+        try:
+            me_doc = mongo_manager.module_e.find_one({"jobId": job_id}) or {}
+            resolve_url = (
+                str(me_doc.get("website_url") or me_doc.get("url") or me_doc.get("startUrl") or "")
+            ).strip()
+        except Exception:
+            resolve_url = ""
+
+    cleaned_prompts = [p.strip() for p in (prompts or []) if isinstance(p, str) and p.strip()]
+
+    # Same as full Module D step 4: run models → citation_events → prompt_jobs aggregates.
+    # Without this, calculate_prompt_tracking_metrics only sees zeros / position-only PVS (~3.5).
+    if cleaned_prompts:
+        from . import llm_runner, citation_parser
+        from urllib.parse import urlparse
+        try:
+            customer_domain = (
+                urlparse(resolve_url).netloc.lstrip("www.").lower() if resolve_url else ""
+            )
+            brand_name = customer_domain.split(".")[0].capitalize() if customer_domain else ""
+
+            competitor_domains: List[str] = []
+            try:
+                me_doc = mongo_manager.module_e.find_one({"jobId": job_id}) or {}
+                competitor_domains = [
+                    str(c.get("domain", "")).strip()
+                    for c in (me_doc.get("competitors") or [])
+                    if c.get("domain")
+                ]
+            except Exception:
+                pass
+
+            llm_output = llm_runner.run_llm_queries(
+                job_id=job_id,
+                prompts=cleaned_prompts,
+                customer_domain=customer_domain,
+                brand_name=brand_name,
+                competitor_domains=competitor_domains,
+                page_url=resolve_url or url or "",
+            )
+            citation_parser.parse_and_store_citations(llm_output)
+        except Exception as exc:
+            logger.error("Prompt tracking LLM/citation step failed: %s", exc, exc_info=True)
+
     ai_service = ClaudeService()
     result = ai_service.calculate_prompt_tracking_metrics(
-        job_id=job_id, url=url, prompts=prompts or []
+        job_id=job_id, url=resolve_url or url or "", prompts=prompts or []
     )
     return {
         "success":         True,

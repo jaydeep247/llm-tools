@@ -24,6 +24,7 @@ All results are persisted to MongoDB by the runner functions.
 """
 
 import asyncio
+from datetime import datetime
 from utils.logger import configure_logger, logger
 from utils.mongo import mongo_manager
 
@@ -255,6 +256,25 @@ def execute_module_d_job(payload: dict) -> bool:
             mark_recommendation_feedback=mark_recommendation_feedback,
             run_admin_health=run_admin_health,
         )
+
+        # Persist prompt intelligence for UI consumers that read from DB
+        # (e.g. Content Metrics intent-cluster tab and Prompt Tracking panel).
+        if isinstance(result, dict) and result.get("prompt_intelligence"):
+            try:
+                mongo_manager.connect()
+                pi = result.get("prompt_intelligence")
+                mongo_manager.db.content_metrics.update_one(
+                    {"jobId": job_id},
+                    {"$set": {"prompt_intelligence": pi, "updatedAt": datetime.utcnow()}},
+                    upsert=True,
+                )
+                mongo_manager.db.prompt_tracking.update_one(
+                    {"jobId": job_id},
+                    {"$set": {"prompt_intelligence": pi, "updatedAt": datetime.utcnow()}},
+                    upsert=True,
+                )
+            except Exception as persist_exc:
+                logger.warning("[MODULE_D] Failed to persist prompt_intelligence for job %s: %s", job_id, persist_exc)
 
         if isinstance(result, dict) and not result.get("success", True):
             err = result.get("error", "")
