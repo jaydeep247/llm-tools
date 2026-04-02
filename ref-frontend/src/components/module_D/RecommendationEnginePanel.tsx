@@ -84,6 +84,21 @@ function severityColor(sev: Severity): { bar: string; pill: string; pillBg: stri
   return { bar: 'bg-emerald-400', pill: 'text-emerald-300', pillBg: 'bg-emerald-500/10 border-emerald-500/40' }
 }
 
+function formatModuleLabel(moduleName?: string): string {
+  if (!moduleName) return 'General'
+  return moduleName.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+function formatScore(value?: number | null, digits = 1): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return '—'
+  return Number(value).toFixed(digits)
+}
+
+function formatPercent(value?: number | null, digits = 1): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return '—'
+  return `${Number(value).toFixed(digits)}%`
+}
+
 function PriorityRing({ score, severity }: { score: number; severity: Severity }) {
   const radius = 16
   const circumference = 2 * Math.PI * radius
@@ -242,7 +257,7 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-2xl font-semibold tracking-tight text-zinc-50">Recommendation Engine</h2>
+                <h2 className="text-2xl font-semibold tracking-tight text-zinc-50">Action Plan</h2>
                 <span
                   className={cn(
                     'inline-flex items-center gap-2 px-2 py-0.5 rounded-md border text-[11px] font-mono',
@@ -257,11 +272,11 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
                   <span>{delta.label}</span>
                 </span>
               </div>
-              <p className="text-[11px] text-zinc-500 font-mono">
+              <p className="text-xs text-zinc-400">
                 {(data?.role_filter_applied || 'SEO Manager') +
                   ' · ' +
                   (data?.plan_limit_applied ?? recommendations.length) +
-                  ' max · ' +
+                  ' actions max · ' +
                   (summary?.top_module || 'Prompt intelligence')}
               </p>
             </div>
@@ -301,7 +316,7 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
             )}
             onClick={() => setSeverityFilter(sev as any)}
           >
-            {sev === 'ALL' ? 'All' : sev.charAt(0) + sev.slice(1).toLowerCase()}
+            {sev === 'ALL' ? 'All priorities' : sev.charAt(0) + sev.slice(1).toLowerCase()}
           </Button>
         ))}
         <div className="inline-flex items-center gap-2 ml-auto">
@@ -310,7 +325,7 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
             <Input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search actions or prompts"
+              placeholder="Search by action, prompt, or module"
               className="h-8 pl-7 text-[12px] bg-[#111318] border-zinc-800 text-zinc-200 placeholder:text-zinc-500"
             />
           </div>
@@ -358,6 +373,9 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
           const isDismissed = dismissedIds.has(rec.recommendation_id)
           const isPending = pendingIds.has(rec.recommendation_id)
           const expanded = expandedId === rec.recommendation_id
+          const moduleLabel = formatModuleLabel(rec.module)
+          const affectedTarget =
+            rec.affected_url?.replace(/^https?:\/\//, '').split('/').slice(0, 2).join('/') || 'Not specified'
           const moduleIcon =
             rec.module.toLowerCase().includes('prompt') ? <ListChecks className="w-4 h-4 text-violet-300" /> :
             rec.module.toLowerCase().includes('visibility') ? <Gauge className="w-4 h-4 text-emerald-300" /> :
@@ -383,7 +401,7 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
                     </div>
                     <div className="truncate text-sm font-semibold text-zinc-50">{rec.action_title}</div>
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-zinc-500 font-mono">
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-zinc-500">
                     <span
                       className={cn(
                         'px-2 py-0.5 rounded-sm border',
@@ -394,13 +412,14 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
                     >
                       {rec.severity}
                     </span>
-                    <span>{rec.module.replace(/_/g, ' ')}</span>
+                    <span>{moduleLabel}</span>
                     <span className={cn('flex items-center gap-1', changeColor)}>
                       {changeStr !== 'first run' && (
                         <span>{changeIsPositive ? '▲' : changeIsNegative ? '▼' : '•'}</span>
                       )}
                       <span>{changeStr}</span>
                     </span>
+                    <span className="text-zinc-600">Target: {affectedTarget}</span>
                   </div>
                 </div>
 
@@ -408,7 +427,7 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
                   <div className="flex items-center gap-4">
                     <div className="flex flex-col items-center gap-1">
                       <div className="text-[13px] font-mono text-zinc-50">
-                        {snapshot.prompt_visibility_score ?? '—'}
+                        {formatScore(snapshot.prompt_visibility_score)}
                       </div>
                       <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.16em]">
                         Visibility
@@ -416,9 +435,7 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
                     </div>
                     <div className="flex flex-col items-center gap-1">
                       <div className="text-[13px] font-mono text-zinc-50">
-                        {snapshot.ctr_percent !== undefined && snapshot.ctr_percent !== null
-                          ? `${snapshot.ctr_percent.toFixed(1)}%`
-                          : '—'}
+                        {formatPercent(snapshot.ctr_percent)}
                       </div>
                       <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.16em]">
                         CTR
@@ -438,83 +455,56 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
                   className="px-4 pb-4 pt-2 border-t border-zinc-800 bg-[#0f1117]"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <p className="text-sm text-zinc-200 leading-relaxed border-b border-zinc-800/80 pb-3">
-                    {rec.action_detail}
-                  </p>
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <div className="rounded-lg border border-zinc-800 bg-[#141721] p-3">
+                      <div className="text-[10px] uppercase tracking-[0.16em] text-zinc-500 mb-1">What happened</div>
+                      <p className="text-sm text-zinc-200 leading-relaxed">
+                        {rec.action_title}
+                      </p>
+                      <p className={cn('mt-2 text-xs font-mono', changeColor)}>
+                        Visibility change: {changeStr}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-zinc-800 bg-[#141721] p-3">
+                      <div className="text-[10px] uppercase tracking-[0.16em] text-zinc-500 mb-1">Why this matters</div>
+                      <p className="text-sm text-zinc-300 leading-relaxed">
+                        Priority is {rec.priority_score.toFixed(2)} with {rec.severity.toLowerCase()} severity.
+                        Trigger: {(rec.trigger_event || 'standard').replace(/_/g, ' ')}.
+                      </p>
+                      <p className="mt-1 text-xs text-zinc-500">Module: {moduleLabel}</p>
+                    </div>
+                    <div className="rounded-lg border border-zinc-800 bg-[#141721] p-3">
+                      <div className="text-[10px] uppercase tracking-[0.16em] text-zinc-500 mb-1">What to do now</div>
+                      <p className="text-sm text-zinc-200 leading-relaxed">
+                        {rec.action_detail}
+                      </p>
+                    </div>
+                  </div>
 
-                  <div className="flex flex-wrap gap-6 pt-3">
-                    <div className="flex flex-col gap-1">
-                      <div className="text-sm font-mono text-zinc-50">
-                        {snapshot.engagement_score ?? '—'}
-                      </div>
-                      <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.16em]">
-                        Engagement
-                      </div>
+                  <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                    <div className="rounded-md border border-zinc-800 bg-[#151821] px-2.5 py-2">
+                      <div className="text-sm font-mono text-zinc-50">{formatScore(snapshot.engagement_score)}</div>
+                      <div className="text-[10px] text-zinc-500 uppercase tracking-[0.14em]">Engagement</div>
                     </div>
-                    <div className="flex flex-col gap-1">
-                      <div className="text-sm font-mono text-zinc-50">
-                        {snapshot.traffic_estimate !== undefined && snapshot.traffic_estimate !== null
-                          ? snapshot.traffic_estimate.toFixed(1)
-                          : '—'}
-                      </div>
-                      <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.16em]">
-                        Traffic est.
-                      </div>
+                    <div className="rounded-md border border-zinc-800 bg-[#151821] px-2.5 py-2">
+                      <div className="text-sm font-mono text-zinc-50">{formatScore(snapshot.traffic_estimate)}</div>
+                      <div className="text-[10px] text-zinc-500 uppercase tracking-[0.14em]">Traffic</div>
                     </div>
-                    <div className="flex flex-col gap-1">
-                      <div className={cn('text-sm font-mono', changeColor)}>{changeStr}</div>
-                      <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.16em]">
-                        Δ Visibility
-                      </div>
+                    <div className="rounded-md border border-zinc-800 bg-[#151821] px-2.5 py-2">
+                      <div className="text-sm font-mono text-zinc-50">{formatPercent(snapshot.citation_rate ? snapshot.citation_rate * 100 : snapshot.citation_rate)}</div>
+                      <div className="text-[10px] text-zinc-500 uppercase tracking-[0.14em]">Citation</div>
                     </div>
-                    {/* SOP-002 §6.2 — real citation fields */}
-                    {snapshot.citation_rate !== undefined && snapshot.citation_rate !== null && (
-                      <div className="flex flex-col gap-1">
-                        <div className="text-sm font-mono text-zinc-50">
-                          {(snapshot.citation_rate * 100).toFixed(1)}%
-                        </div>
-                        <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.16em]">
-                          Citation rate
-                        </div>
-                      </div>
-                    )}
-                    {snapshot.avg_position !== undefined && snapshot.avg_position !== null && (
-                      <div className="flex flex-col gap-1">
-                        <div className="text-sm font-mono text-zinc-50">
-                          {snapshot.avg_position.toFixed(1)}
-                        </div>
-                        <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.16em]">
-                          Avg position
-                        </div>
-                      </div>
-                    )}
-                    {snapshot.share_of_voice !== undefined && snapshot.share_of_voice !== null && (
-                      <div className="flex flex-col gap-1">
-                        <div className="text-sm font-mono text-zinc-50">
-                          {(snapshot.share_of_voice * 100).toFixed(1)}%
-                        </div>
-                        <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.16em]">
-                          Share of voice
-                        </div>
-                      </div>
-                    )}
-                    {snapshot.difficulty_score !== undefined && snapshot.difficulty_score !== null && (
-                      <div className="flex flex-col gap-1">
-                        <div className="text-sm font-mono text-zinc-50">
-                          {snapshot.difficulty_score.toFixed(1)}
-                        </div>
-                        <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.16em]">
-                          Difficulty
-                        </div>
-                      </div>
-                    )}
-                    <div className="flex flex-col gap-1">
-                      <div className="text-[11px] font-mono text-zinc-500">
-                        {(rec.trigger_event || 'standard').replace(/_/g, ' ')}
-                      </div>
-                      <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.16em]">
-                        Trigger
-                      </div>
+                    <div className="rounded-md border border-zinc-800 bg-[#151821] px-2.5 py-2">
+                      <div className="text-sm font-mono text-zinc-50">{formatScore(snapshot.avg_position)}</div>
+                      <div className="text-[10px] text-zinc-500 uppercase tracking-[0.14em]">Avg position</div>
+                    </div>
+                    <div className="rounded-md border border-zinc-800 bg-[#151821] px-2.5 py-2">
+                      <div className="text-sm font-mono text-zinc-50">{formatPercent(snapshot.share_of_voice ? snapshot.share_of_voice * 100 : snapshot.share_of_voice)}</div>
+                      <div className="text-[10px] text-zinc-500 uppercase tracking-[0.14em]">Share of voice</div>
+                    </div>
+                    <div className="rounded-md border border-zinc-800 bg-[#151821] px-2.5 py-2">
+                      <div className="text-sm font-mono text-zinc-50">{formatScore(snapshot.difficulty_score)}</div>
+                      <div className="text-[10px] text-zinc-500 uppercase tracking-[0.14em]">Difficulty</div>
                     </div>
                   </div>
 
@@ -564,8 +554,8 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
                     </div>
                   </div>
 
-                  <div className="mt-4 inline-flex max-w-full items-center gap-2 rounded-md border border-zinc-800 bg-[#141621] px-3 py-1.5 font-mono text-[11px] text-zinc-400">
-                    <span className="text-zinc-500">Prompt:</span>
+                  <div className="mt-4 inline-flex max-w-full items-center gap-2 rounded-md border border-zinc-800 bg-[#141621] px-3 py-1.5 text-[11px] text-zinc-400">
+                    <span className="text-zinc-500">Main prompt:</span>
                     <span className="truncate text-zinc-200">"{rec.prompt}"</span>
                   </div>
 
@@ -619,7 +609,7 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
                         className="ml-auto h-8 px-3 text-[11px] font-mono border-zinc-700 text-zinc-400 hover:text-zinc-100"
                         onClick={() => window.open(rec.affected_url, '_blank', 'noopener,noreferrer')}
                       >
-                        {rec.affected_url.replace(/^https?:\/\//, '').split('/').slice(0, 2).join('/')} ↗
+                        Open target page ↗
                       </Button>
                     )}
                   </div>
@@ -631,7 +621,7 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
       </div>
       <div className="text-[10px] text-zinc-500 font-mono flex items-center gap-2">
         <Flame className="w-3.5 h-3.5 text-emerald-400" />
-        <span>Focus high priority items first. Use filters and search to plan sprint actions.</span>
+        <span>Start with critical/high cards, open each card, and follow "What to do now".</span>
       </div>
     </div>
   )
