@@ -17,7 +17,7 @@ from modules.module_E.brand_analyzer import BrandAnalyzer
 from modules.module_E.competitor_analyzer import CompetitorAnalyzer
 from modules.module_E.ranking_runner import run_ranking_analysis
 from modules.brand_onboarding.service import generate_brand_description
-from workers.cancellation import is_job_cancelled, is_job_paused, mark_job_cancelled
+from workers.cancellation import is_job_cancelled, is_job_paused, mark_job_cancelled, JobCancelledError as _JobCancelledError
 
 logger = logging.getLogger("quick_start")
 
@@ -73,9 +73,8 @@ def _get_thread_publisher():
     return pub
 
 
-class JobCancelledError(Exception):
-    """Raised when a job is cancelled mid-execution."""
-    pass
+# Re-export the shared class so any remaining internal callers keep working.
+JobCancelledError = _JobCancelledError
 
 
 def _is_cancelled(job_id: str) -> bool:
@@ -102,11 +101,11 @@ def _kill_crawl_proc(proc, manager, state=None) -> None:
                     state["success"] = False
                 except Exception:
                     pass
-                proc.join(timeout=10)
+                proc.join(timeout=3)
             if proc.is_alive():
                 logger.info(f"[QS] Terminating crawl subprocess (pid={proc.pid})")
                 proc.terminate()
-                proc.join(timeout=5)
+                proc.join(timeout=2)
             if proc.is_alive():
                 logger.warning(f"[QS] Force-killing crawl subprocess (pid={proc.pid})")
                 proc.kill()
@@ -546,7 +545,7 @@ async def run_quick_start(
         if _is_cancelled(job_id):
             logger.info(f"[QS] Job {job_id} cancelled before analyses — aborting")
             _update_crawl_status(job_id, "cancelled")
-            return {"job_id": job_id, "success": False, "cancelled": True}
+            raise JobCancelledError(f"Job {job_id} was cancelled before analyses")
 
         # ── Combined Phase: brand + competitor + ranking ALL in parallel ──────
         # Ranking does NOT depend on brand or competitor results — it only
@@ -589,7 +588,7 @@ async def run_quick_start(
         if _is_cancelled(job_id):
             logger.info(f"[QS] Job {job_id} cancelled after analyses — aborting")
             _update_crawl_status(job_id, "cancelled")
-            return {"job_id": job_id, "success": False, "cancelled": True}
+            raise JobCancelledError(f"Job {job_id} was cancelled after analyses")
 
         _mark_completed(job_id, _session_id)
 

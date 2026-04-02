@@ -1,25 +1,46 @@
 """
 Performance Metrics Sub-module.
 
-Data sources:
-  1. DataForSEO Labs ranked_keywords/live  (fields 3.1, 3.3, 3.4)
-     - Call A: no position filter  → total_count = overallKeywords;
-               scan items for main keyword → rank_group = currentRanking
-     - Call B: rank_absolute <= 10 → total_count = firstPageKeywords
+Data Source: DataForSEO Labs — ranked_keywords/live
 
-Fields stored:
-    currentRanking    – rank_group for the page's main keyword (int or "100+")
-    overallKeywords   – total ranked keywords for the URL
-    firstPageKeywords – ranked keywords in positions 1–10
+Two-tier fetch strategy
+───────────────────────
+Tier 1 — Domain batch (efficiency)
+    One paginated call with target=<bare-domain> fetches ALL keywords the domain
+    ranks for.  Each item carries the URL of the page that ranked (serp_item.url).
+    We group items by that URL → per-URL overall / first-page counts + items for
+    rank lookup.  Covers every page that is the domain's best result for ≥1 keyword.
+
+Tier 2 — Per-URL targeted call (accuracy for pages NOT found in tier 1)
+    A page that ranks but is never the domain's *best* result for any keyword
+    (e.g. another blog post on the same site always ranks higher) will be absent
+    from the tier-1 groups.  For such pages we call ranked_keywords/live with
+    target=<domain/path-segment> — DataForSEO returns keywords for that specific
+    page regardless of other domain pages.
+
+    Key fixes vs old fallback
+    • Try WITHOUT trailing slash first, then WITH (DataForSEO canonical form is
+      usually no-trailing-slash; the previous code tried *with* slash first → 0).
+    • After receiving items, verify whether the API returned per-URL or domain-wide
+      data by comparing serp_item.url values against the requested URL.
+    • If per-URL: total_count is the accurate overallKeywords.
+    • If domain-wide (all items point to other pages): skip this variant and try
+      the next URL-target form.
+    • If mixed (some items match): count matching items as overallKeywords
+      (conservative but correct; no domain inflation).
+
+Fields stored
+─────────────
+    currentRanking    – rank_group for the page's main keyword (int | "100+")
+    overallKeywords   – keywords this specific page ranks for on Google
+    firstPageKeywords – subset where rank_group ≤ 10
 """
 
 import asyncio
 import logging
-import os
 import re
-from datetime import date, timedelta
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import urlsplit
 
 try:
     from orchestrator.checkpoint.executor import execute_task
@@ -46,62 +67,68 @@ def _extract_domain(url: str) -> str:
     return host.split(":", 1)[0]
 
 
-def _url_to_page_path(url: str) -> str:
-    """Return the path portion of a URL suitable for GA4 pagePath dimension."""
-    parts = urlsplit(str(url or "").strip())
-    path = parts.path or "/"
-    if not path.startswith("/"):
-        path = "/" + path
-    return path
-
-
-def _last_30_day_range() -> Tuple[str, str]:
-    today = date.today()
-    start = today - timedelta(days=30)
-    return start.strftime("%Y-%m-%d"), today.strftime("%Y-%m-%d")
-
-
-def _target_variants(url: str) -> List[str]:
+def _normalize_url_key(url: str) -> str:
     """
-    Build DataForSEO-compatible target variants from a crawled URL.
+    Canonical string key for a URL used in dict lookups.
 
-    DataForSEO ranked_keywords/live expects the target WITHOUT the protocol
-    prefix (e.g. ``attrock.com/blog/`` not ``https://attrock.com/blog/``).
-    For the root page (``/``) we emit just the bare domain so that the API
-    returns domain-wide keyword counts.
+    Strips: protocol, www., query string, fragment, trailing slash.
+    Lowercases everything so matching is case-insensitive.
+    """
+    url = str(url or "").strip().lower()
+    url = re.sub(r"^https?://", "", url)
+    if url.startswith("www."):
+        url = url[4:]
+    url = url.split("#")[0]
+    url = url.split("?")[0]
+    return url.rstrip("/")
+
+
+def _url_to_targets(url: str) -> List[str]:
+    """
+    Build ordered list of DataForSEO-compatible targets for a crawled URL.
+
+    Rules
+    ─────
+    • No protocol prefix  (attrock.com/blog/post, NOT https://attrock.com/blog/post)
+    • www. stripped       (attrock.com, NOT www.attrock.com)
+    • For page URLs: WITHOUT trailing slash first, then WITH trailing slash.
+      DataForSEO canonical form is no-trailing-slash; trying that first avoids
+      the "total_count=0 because exact target not found" failure.
+    • For root / homepage: bare domain only (returns domain-wide data — handled
+      separately in domain-level tier).
     """
     raw = str(url or "").strip()
     if not raw:
         return []
 
-    variants: List[str] = []
-
-    def _add(candidate: str) -> None:
-        normalized = candidate.strip()
-        if normalized and normalized not in variants:
-            variants.append(normalized)
-
     parts = urlsplit(raw)
     host = (parts.netloc or "").strip()
     path = (parts.path or "").strip()
 
-    if host:
-        # Strip www. prefix — DataForSEO normalises it anyway
-        bare_host = host.lower().removeprefix("www.")
-        if not path or path == "/":
-            # Root URL → use bare domain (returns domain-wide keywords)
-            _add(bare_host)
-        else:
-            # Page URL → domain + path, with and without trailing slash
-            _add(f"{bare_host}{path}")
-            toggled = path[:-1] if path.endswith("/") else f"{path}/"
-            _add(f"{bare_host}{toggled}")
-    else:
-        # Fallback: use the raw value stripped of any protocol
+    if not host:
+        # No scheme parsed — strip protocol manually
         stripped = re.sub(r"^https?://", "", raw)
-        _add(stripped)
+        host = stripped.split("/")[0]
+        rest = stripped[len(host):]
+        path = rest or ""
 
-    return variants
+    bare_host = host.lower().removeprefix("www.")
+
+    if not path or path == "/":
+        return [bare_host]
+
+    # Page URL: prefer no-trailing-slash (DataForSEO canonical), then with slash
+    path_no_slash = path.rstrip("/")
+    path_with_slash = path_no_slash + "/"
+
+    targets: List[str] = []
+    seen: set = set()
+    for p in [path_no_slash, path_with_slash]:
+        t = f"{bare_host}{p}"
+        if t not in seen:
+            seen.add(t)
+            targets.append(t)
+    return targets
 
 
 def _keyword_variants(main_keyword: str) -> List[str]:
@@ -166,15 +193,6 @@ def _classify_task_response(resp: Any) -> Tuple[APIStatus, str, Optional[Dict[st
     return "api_error", status_message or f"status {status_code}", task
 
 
-def _normalize_url_key(url: str) -> str:
-    """Normalize URL for matching: strip protocol, www, trailing slash, lowercase."""
-    url = str(url or "").strip().lower()
-    url = re.sub(r"^https?://", "", url)
-    if url.startswith("www."):
-        url = url[4:]
-    return url.rstrip("/")
-
-
 async def _ranked_keywords_call(
     target: str,
     *,
@@ -214,15 +232,42 @@ async def _ranked_keywords_call(
 
     status, message, task = _classify_task_response(resp)
     if status != "ok":
-        logger.warning("[PM][LABS] API %s for target=%s filters=%s: %s", status, target, filters, message)
+        logger.warning("[PM][LABS] API %s for target=%s: %s", status, target, message)
         return status, message, {}
 
     result_list = (task or {}).get("result") or []
     result = result_list[0] if result_list else {}
     tc = result.get("total_count")
     ic = result.get("items_count")
-    logger.debug("[PM][LABS] target=%s filters=%s total_count=%s items_count=%s", target, filters, tc, ic)
+    logger.debug("[PM][LABS] target=%s total_count=%s items_count=%s", target, tc, ic)
     return "ok", message, result
+
+
+def _build_serp_url(serp: Dict[str, Any]) -> str:
+    """
+    FIX: DataForSEO serp_item does NOT have a 'url' field.
+    Build the full URL from 'main_domain' + 'relative_url' instead.
+    """
+    # Try direct url field first (future-proofing)
+    direct = (serp.get("url") or "").strip()
+    if direct:
+        return direct
+
+    main_domain = (serp.get("main_domain") or "").strip()
+    relative_url = (serp.get("relative_url") or "").strip()
+
+    if not main_domain:
+        return ""
+
+    # relative_url may be empty for root domain pages
+    if not relative_url or relative_url == "/":
+        return f"https://{main_domain}"
+
+    # Ensure relative_url starts with /
+    if not relative_url.startswith("/"):
+        relative_url = f"/{relative_url}"
+
+    return f"https://{main_domain}{relative_url}"
 
 
 async def _fetch_domain_keyword_groups(
@@ -261,6 +306,8 @@ async def _fetch_domain_keyword_groups(
     all_items: List[Dict[str, Any]] = []
     offset = 0
     page_size = 1000
+    last_result: Optional[Dict[str, Any]] = None  # FIX: track last result for metrics
+
     while offset < total:
         s, m, result = await _ranked_keywords_call(
             domain, limit=page_size, offset=offset, skip_cache=force_refresh,
@@ -271,6 +318,7 @@ async def _fetch_domain_keyword_groups(
             break
         items = result.get("items") or []
         all_items.extend(items)
+        last_result = result  # FIX: keep updating last_result each page
         if len(items) < page_size:
             break
         offset += page_size
@@ -279,10 +327,12 @@ async def _fetch_domain_keyword_groups(
                 domain, total, len(all_items), (offset // page_size) + 1)
 
     # Group by SERP URL
+    # FIX: use _build_serp_url() instead of serp.get("url") which is always empty
     url_groups: Dict[str, Dict[str, Any]] = {}
     for item in all_items:
         serp = (item.get("ranked_serp_element") or {}).get("serp_item") or {}
-        serp_url = (serp.get("url") or "").strip()
+
+        serp_url = _build_serp_url(serp)  # FIX: was serp.get("url") → always empty
         if not serp_url:
             continue
 
@@ -293,22 +343,174 @@ async def _fetch_domain_keyword_groups(
         url_groups[key]["overall"] += 1
         url_groups[key]["items"].append(item)
 
-        rank_group = serp.get("rank_group")
-        if rank_group is not None:
+        rank_absolute = serp.get("rank_absolute")
+        if rank_absolute is not None:
             try:
-                if int(rank_group) <= 10:
+                if int(rank_absolute) <= 10:
                     url_groups[key]["first_page"] += 1
             except (TypeError, ValueError):
                 pass
 
     logger.info("[PM][DOMAIN] %s  unique URLs in SERP data: %d", domain, len(url_groups))
+
+    # FIX: Read domain-level metrics from last_result (full paginated data),
+    # NOT from probe (limit=1 probe metrics are unreliable / partial).
+    metrics_source = last_result if last_result else probe
+    probe_organic = (metrics_source.get("metrics") or {}).get("organic") or {}
+    domain_overall = int(probe_organic.get("count") or total)
+    domain_first_page = (
+        int(probe_organic.get("pos_1") or 0)
+        + int(probe_organic.get("pos_2_3") or 0)
+        + int(probe_organic.get("pos_4_10") or 0)
+    )
+
+    url_groups["__domain__"] = {
+        "overall": domain_overall,
+        "first_page": domain_first_page,
+        "items": all_items,   # full item list for keyword rank lookup
+    }
+
     return "ok", msg, url_groups
+
+
+async def _fetch_per_url_data(
+    url: str,
+    main_keyword: str,
+    *,
+    force_refresh: bool = False,
+) -> Dict[str, Any]:
+    """
+    Per-URL ranked_keywords/live call for pages NOT found in tier-1 domain data.
+
+    Strategy
+    ────────
+    Call ranked_keywords/live with the page URL as target (no protocol prefix,
+    no www).  DataForSEO returns keyword data scoped to that target.
+
+    Fields are read from the `metrics.organic` object — NOT from counting or
+    filtering items by serp_item.url:
+
+      overallKeywords   = metrics.organic.count
+      firstPageKeywords = metrics.organic.pos_1 + pos_2_3 + pos_4_10
+      currentRanking    = rank_absolute for the main keyword in items[]
+
+    Why metrics.organic and NOT item counting?
+    • For a page URL target (e.g. attrock.com/blog/category/ai), DataForSEO
+      returns keywords for that target path.  The items[] show the SERP
+      element that ranked — which for category/archive pages is typically the
+      best post under that path, not the category page itself.  Filtering
+      items by serp_item.url == category_page would return 0 and falsely
+      conclude the page doesn't rank at all.
+    • metrics.organic.count is authoritative: it is the total keyword count
+      DataForSEO has on record for that exact target, regardless of which
+      SERP element appeared in the returned sample.
+
+    Tries target variants WITHOUT trailing slash first (DataForSEO canonical
+    form), then WITH trailing slash.  Returns the first variant that yields
+    metrics.organic.count > 0.
+    """
+    targets = _url_to_targets(url)
+    if not targets:
+        return {}
+
+    for target in targets:
+        if "/" not in target:
+            # Bare-domain target: tier-1 normally covers this, but if we reach
+            # here (e.g. tier-1 returned empty) call the API and read
+            # metrics.organic directly — no per-item URL matching needed.
+            logger.info("[PM][URL-FALLBACK] Bare-domain target=%r url=%s", target, url)
+            status, _, result = await _ranked_keywords_call(
+                target, limit=1, skip_cache=force_refresh,
+            )
+            if status == "rate_limit":
+                return {"_status": "rate_limit"}
+            if status == "ok" and result:
+                organic = (result.get("metrics") or {}).get("organic") or {}
+                overall = int(
+                    organic.get("count") or result.get("total_count") or 0
+                )
+                if overall > 0:
+                    first_page = (
+                        int(organic.get("pos_1") or 0)
+                        + int(organic.get("pos_2_3") or 0)
+                        + int(organic.get("pos_4_10") or 0)
+                    )
+                    items = result.get("items") or []
+                    current_ranking = (
+                        _extract_rank_from_items(main_keyword, items)
+                        if main_keyword else "100+"
+                    )
+                    logger.info(
+                        "[PM][URL-FALLBACK] bare-domain target=%r  overall=%d  "
+                        "first_page=%d  ranking=%s",
+                        target, overall, first_page, current_ranking,
+                    )
+                    return {
+                        "overall": overall,
+                        "first_page": first_page,
+                        "items": items,
+                        "current_ranking": current_ranking,
+                    }
+            continue
+
+        logger.info("[PM][URL-FALLBACK] Trying per-URL call for target=%r url=%s", target, url)
+        status, _, result = await _ranked_keywords_call(
+            target, limit=1000, skip_cache=force_refresh,
+        )
+        if status == "rate_limit":
+            logger.warning("[PM][URL-FALLBACK] rate-limited for target=%r", target)
+            return {"_status": "rate_limit"}
+        if status != "ok" or not result:
+            logger.info("[PM][URL-FALLBACK] No data for target=%r status=%s", target, status)
+            continue
+
+        # ── Read counts from metrics.organic (authoritative per-target counts) ─
+        organic = (result.get("metrics") or {}).get("organic") or {}
+        overall = int(organic.get("count") or 0)
+
+        if overall == 0:
+            # Also check total_count as a fallback sentinel (both should agree)
+            overall = int(result.get("total_count") or 0)
+
+        if overall == 0:
+            logger.info("[PM][URL-FALLBACK] target=%r  count=0, trying next variant", target)
+            continue
+
+        first_page = (
+            int(organic.get("pos_1") or 0)
+            + int(organic.get("pos_2_3") or 0)
+            + int(organic.get("pos_4_10") or 0)
+        )
+
+        items = result.get("items") or []
+        current_ranking = (
+            _extract_rank_from_items(main_keyword, items)
+            if main_keyword
+            else "100+"
+        )
+
+        logger.info(
+            "[PM][URL-FALLBACK] target=%r  overall=%d  first_page=%d  ranking=%s",
+            target, overall, first_page, current_ranking,
+        )
+        return {
+            "overall": overall,
+            "first_page": first_page,
+            "items": items,
+            "current_ranking": current_ranking,
+        }
+
+    logger.info("[PM][URL-FALLBACK] No rankings found for url=%s after all variants", url)
+    return {}
 
 
 def _extract_rank_from_items(main_keyword: str, items: List[Dict[str, Any]]) -> Union[int, str]:
     """
     Scan ranked_keywords items for the main keyword.
-    Returns rank_group (spec 3.1) if found, else "100+".
+    Returns rank_absolute (actual SERP position 1–100) if found, else "100+".
+
+    Searches both keyword_data.keyword and keyword_properties.core_keyword.
+    Uses rank_absolute per DataForSEO docs (actual position across all types).
     """
     variants = set(_keyword_variants(main_keyword))
     if not variants:
@@ -329,16 +531,15 @@ def _extract_rank_from_items(main_keyword: str, items: List[Dict[str, Any]]) -> 
         if not candidates.intersection(variants):
             continue
 
-        # Spec 3.1: use rank_group, not rank_absolute
-        rank_group = _to_int(serp_item.get("rank_group"))
-        if rank_group is None:
+        # Use rank_absolute: the actual SERP position (1–100) across all types
+        rank_absolute = _to_int(serp_item.get("rank_absolute"))
+        if rank_absolute is None:
             continue
 
-        if best_rank is None or rank_group < best_rank:
-            best_rank = rank_group
+        if best_rank is None or rank_absolute < best_rank:
+            best_rank = rank_absolute
 
     return best_rank if best_rank is not None else "100+"
-
 
 
 # ---------------------------------------------------------------------------
@@ -404,6 +605,51 @@ async def extract_performance_metrics_batch(
         total_api_urls,
     )
 
+    # ── URL-level fallback for any URL not found in domain data ──────────
+    # Collect every URL that the domain call missed (i.e. not in domain_groups)
+    # and fire concurrent ranked_keywords/live calls per URL.
+    _missed_urls: List[str] = []
+    for item in items:
+        url = item.get("url", "")
+        if not url:
+            continue
+        domain = _extract_domain(url)
+        if domain_statuses.get(domain) != "ok":
+            continue  # rate-limit / api error — skip fallback too
+        url_key = _normalize_url_key(url)
+        # If the domain has groups but this URL is missing, queue the fallback
+        if domain in domain_groups and url_key not in domain_groups[domain]:
+            _missed_urls.append(url)
+        # If the domain has NO groups (0 results), try URL-level too
+        elif domain not in domain_groups:
+            _missed_urls.append(url)
+
+    # Concurrently fetch URL-level data (cap at 5 parallel to avoid rate-limit)
+    _url_fallback_results: Dict[str, Dict[str, Any]] = {}
+    if _missed_urls:
+        _semaphore = asyncio.Semaphore(5)
+
+        async def _bounded_url_lookup(url: str, keyword: str) -> tuple:
+            async with _semaphore:
+                result = await _fetch_per_url_data(url, keyword, force_refresh=force_refresh)
+                return url, result
+
+        keyword_map = {item["url"]: (item.get("main_keyword") or "").strip() for item in items if item.get("url")}
+        tasks = [_bounded_url_lookup(u, keyword_map.get(u, "")) for u in _missed_urls]
+        resolved = await asyncio.gather(*tasks, return_exceptions=True)
+        for entry in resolved:
+            if isinstance(entry, Exception):
+                logger.warning("[PM][URL-FALLBACK] gather exception: %s", entry)
+                continue
+            fb_url, fb_data = entry
+            if fb_data:
+                _url_fallback_results[_normalize_url_key(fb_url)] = fb_data
+
+    logger.info(
+        "[PM][BATCH] URL-level fallback: %d missed → %d resolved",
+        len(_missed_urls), len(_url_fallback_results),
+    )
+
     # ── Build output ─────────────────────────────────────────────────────
     output: List[Dict[str, Any]] = []
     keyword_fetched_count = 0
@@ -450,8 +696,13 @@ async def extract_performance_metrics_batch(
             if keyword and (force_refresh or audit_ranking == "PENDING"):
                 audit_ranking = unavailable
         elif domain in domain_groups:
-            # Domain was fetched successfully — look up this URL
+            # Domain was fetched successfully and has keyword data — look up this URL
             url_group = domain_groups[domain].get(url_key)
+            # Root domain URL (e.g. attrock.com): sub-pages rank for keywords,
+            # so the root key is never in the item groupings.  Fall back to the
+            # pre-computed domain-level totals stored under "__domain__".
+            if url_group is None and url_key == domain:
+                url_group = domain_groups[domain].get("__domain__")
             keyword_fetched_count += 1
 
             if url_group:
@@ -473,7 +724,79 @@ async def extract_performance_metrics_batch(
                 elif not keyword:
                     audit_ranking = "SKIPPED-NO-KEYWORD"
             else:
-                # URL not present in any SERP data — genuinely has 0 keywords
+                # URL not in domain SERP data — check per-URL fallback result
+                fb = _url_fallback_results.get(url_key)
+                if fb and fb.get("_status") == "rate_limit":
+                    keyword_rate_limit_count += 1
+                    unavailable = "UNAVAILABLE-RATE-LIMIT"
+                    if force_refresh or audit_overall == "PENDING":
+                        audit_overall = unavailable
+                    if force_refresh or audit_first_page == "PENDING":
+                        audit_first_page = unavailable
+                    if keyword and (force_refresh or audit_ranking == "PENDING"):
+                        audit_ranking = unavailable
+                elif fb:
+                    if force_refresh or audit_overall == "PENDING":
+                        overall_keywords = fb["overall"]
+                        audit_overall = "FETCHED-URL-FALLBACK" if overall_keywords else "FETCHED-ZERO"
+                    if force_refresh or audit_first_page == "PENDING":
+                        first_page_keywords = fb["first_page"]
+                        audit_first_page = "FETCHED-URL-FALLBACK" if first_page_keywords else "FETCHED-ZERO"
+                    if keyword and (force_refresh or audit_ranking == "PENDING"):
+                        current_ranking = fb["current_ranking"]
+                        if current_ranking == "100+":
+                            ranking_not_found_count += 1
+                            audit_ranking = "FETCHED-NOT-RANKING"
+                        else:
+                            audit_ranking = "FETCHED-URL-FALLBACK"
+                    elif not keyword:
+                        audit_ranking = "SKIPPED-NO-KEYWORD"
+                else:
+                    # Genuinely no rankings found anywhere for this URL
+                    if force_refresh or audit_overall == "PENDING":
+                        overall_keywords = 0
+                        audit_overall = "FETCHED-ZERO"
+                    if force_refresh or audit_first_page == "PENDING":
+                        first_page_keywords = 0
+                        audit_first_page = "FETCHED-ZERO"
+                    if keyword and (force_refresh or audit_ranking == "PENDING"):
+                        current_ranking = "100+"
+                        ranking_not_found_count += 1
+                        audit_ranking = "FETCHED-NOT-RANKING"
+                    elif not keyword:
+                        audit_ranking = "SKIPPED-NO-KEYWORD"
+
+        elif domain_status == "ok":
+            # Domain API succeeded but returned 0 keywords domain-wide:
+            # this page might still rank; check per-URL fallback.
+            keyword_fetched_count += 1
+            fb = _url_fallback_results.get(url_key)
+            if fb and fb.get("_status") == "rate_limit":
+                keyword_rate_limit_count += 1
+                unavailable = "UNAVAILABLE-RATE-LIMIT"
+                if force_refresh or audit_overall == "PENDING":
+                    audit_overall = unavailable
+                if force_refresh or audit_first_page == "PENDING":
+                    audit_first_page = unavailable
+                if keyword and (force_refresh or audit_ranking == "PENDING"):
+                    audit_ranking = unavailable
+            elif fb:
+                if force_refresh or audit_overall == "PENDING":
+                    overall_keywords = fb["overall"]
+                    audit_overall = "FETCHED-URL-FALLBACK" if overall_keywords else "FETCHED-ZERO"
+                if force_refresh or audit_first_page == "PENDING":
+                    first_page_keywords = fb["first_page"]
+                    audit_first_page = "FETCHED-URL-FALLBACK" if first_page_keywords else "FETCHED-ZERO"
+                if keyword and (force_refresh or audit_ranking == "PENDING"):
+                    current_ranking = fb["current_ranking"]
+                    if current_ranking == "100+":
+                        ranking_not_found_count += 1
+                        audit_ranking = "FETCHED-NOT-RANKING"
+                    else:
+                        audit_ranking = "FETCHED-URL-FALLBACK"
+                elif not keyword:
+                    audit_ranking = "SKIPPED-NO-KEYWORD"
+            else:
                 if force_refresh or audit_overall == "PENDING":
                     overall_keywords = 0
                     audit_overall = "FETCHED-ZERO"

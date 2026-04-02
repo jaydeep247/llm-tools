@@ -340,142 +340,48 @@ def _extract_word_count_from_onpage_item(item: Dict[str, Any]) -> Optional[int]:
     return _extract_word_count_from_structured_page_content(item.get("page_content"))
 
 
-def _extract_dates(
-    html_content: str,
-    response_headers: Optional[Dict[str, str]],
-    page_url: str,
-) -> tuple:
-    """Extract (published_date, modified_date) from HTML and response headers."""
+def _extract_dates_jsonld(html_content: str, page_url: str) -> tuple:
+    """
+    Extract (published_date, modified_date) exclusively from JSON-LD structured data.
+
+    JSON-LD is the only technique used — it is explicitly declared by the publisher
+    and is the only source that gives a reliably correct result.
+    Returns ("-", "-") when the data is absent or cannot be parsed.
+    """
     import json as _json
 
     published_date: Optional[str] = None
     modified_date: Optional[str] = None
-    pub_source: Optional[str] = None
-    mod_source: Optional[str] = None
 
     if html_content:
-        soup = BeautifulSoup(html_content, "html.parser")
-
-        for script in soup.find_all("script", type="application/ld+json"):
-            if published_date and modified_date:
-                break
-            try:
-                ld = _json.loads(script.string or "")
-                items = ld.get("@graph", [ld]) if isinstance(ld, dict) else (ld if isinstance(ld, list) else [ld])
-                for item in items:
-                    if not isinstance(item, dict):
-                        continue
-                    if not published_date and item.get("datePublished"):
-                        published_date = _normalise_iso_date(item["datePublished"])
-                        pub_source = "JSON-LD"
-                    if not modified_date and item.get("dateModified"):
-                        modified_date = _normalise_iso_date(item["dateModified"])
-                        mod_source = "JSON-LD"
-            except Exception:
-                pass
-
-        if not published_date:
-            tag = soup.find("meta", property="article:published_time")
-            if tag and tag.get("content"):
-                published_date = _normalise_iso_date(tag["content"])
-                pub_source = "meta[article:published_time]"
-
-        if not modified_date:
-            tag = soup.find("meta", property="article:modified_time")
-            if tag and tag.get("content"):
-                modified_date = _normalise_iso_date(tag["content"])
-                mod_source = "meta[article:modified_time]"
-
-        _PUB_META_NAMES = [
-            "date", "pubdate", "publish_date", "published_date",
-            "article.published", "DC.date.issued", "DC.date.created",
-            "og:published_time",
-        ]
-        _MOD_META_NAMES = [
-            "last-modified", "revised", "article.modified", "DC.date.modified",
-        ]
-        if not published_date:
-            for name in _PUB_META_NAMES:
-                tag = soup.find("meta", attrs={"name": name})
-                if tag and tag.get("content"):
-                    published_date = _normalise_iso_date(tag["content"])
-                    pub_source = f"meta[name={name}]"
+        try:
+            soup = BeautifulSoup(html_content, "html.parser")
+            for script in soup.find_all("script", type="application/ld+json"):
+                if published_date and modified_date:
                     break
-        if not modified_date:
-            for name in _MOD_META_NAMES:
-                tag = soup.find("meta", attrs={"name": name})
-                if tag and tag.get("content"):
-                    modified_date = _normalise_iso_date(tag["content"])
-                    mod_source = f"meta[name={name}]"
-                    break
-
-        if not published_date:
-            tag = soup.find("time", itemprop="datePublished") or soup.find(
-                "time", class_=re.compile(r"\b(published|entry-date|post-date)\b")
-            )
-            if tag and tag.get("datetime"):
-                published_date = _normalise_iso_date(tag["datetime"])
-                pub_source = "time[datePublished]"
-
-        if not modified_date:
-            tag = soup.find("time", itemprop="dateModified") or soup.find(
-                "time", class_=re.compile(r"\b(updated|modified|edit-date)\b")
-            )
-            if tag and tag.get("datetime"):
-                modified_date = _normalise_iso_date(tag["datetime"])
-                mod_source = "time[dateModified]"
-
-        if not published_date:
-            container = soup.find("article") or soup.find("main")
-            if container:
-                tag = container.find("time", attrs={"datetime": True})
-                if tag:
-                    published_date = _normalise_iso_date(tag["datetime"])
-                    pub_source = "time[datetime] in article/main"
-
-    if not modified_date and response_headers:
-        last_modified = response_headers.get("Last-Modified", "")
-        if last_modified:
-            modified_date = _normalise_iso_date(last_modified)
-            mod_source = "Last-Modified header"
-
-    logger.info(
-        f"[CM][dates] {page_url} | "
-        f"published={published_date!r} (via {pub_source or 'none'}) | "
-        f"modified={modified_date!r} (via {mod_source or 'none'})"
-    )
-    return published_date, modified_date
-
-
-async def _try_wordpress_dates(page_url: str) -> tuple:
-    """WordPress REST API fallback for dates."""
-    try:
-        import aiohttp
-        parsed = urlparse(page_url)
-        slug = parsed.path.strip("/").split("/")[-1] or "home"
-        base = f"{parsed.scheme}://{parsed.netloc}"
-        endpoints = [
-            f"{base}/wp-json/wp/v2/posts?slug={slug}&_fields=date_gmt,modified_gmt",
-            f"{base}/wp-json/wp/v2/pages?slug={slug}&_fields=date_gmt,modified_gmt",
-        ]
-        async with aiohttp.ClientSession() as session:
-            for api_url in endpoints:
                 try:
-                    async with session.get(api_url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
-                        if resp.status == 200:
-                            data = await resp.json(content_type=None)
-                            if data and isinstance(data, list) and data:
-                                post = data[0]
-                                pub = _normalise_iso_date(post.get("date_gmt"))
-                                mod = _normalise_iso_date(post.get("modified_gmt"))
-                                return pub, mod
-                        elif resp.status not in (404, 401):
-                            logger.info(f"[CM][WP-API] {api_url} returned HTTP {resp.status}")
-                except Exception as ep:
-                    logger.debug(f"[CM][WP-API] request failed for {api_url}: {ep}")
-    except Exception as exc:
-        logger.warning(f"[CM][WP-API] unexpected error for {page_url}: {exc}")
-    return None, None
+                    ld = _json.loads(script.string or "")
+                    items = (
+                        ld.get("@graph", [ld]) if isinstance(ld, dict)
+                        else (ld if isinstance(ld, list) else [ld])
+                    )
+                    for item in items:
+                        if not isinstance(item, dict):
+                            continue
+                        if not published_date and item.get("datePublished"):
+                            published_date = _normalise_iso_date(item["datePublished"])
+                        if not modified_date and item.get("dateModified"):
+                            modified_date = _normalise_iso_date(item["dateModified"])
+                except Exception:
+                    pass
+        except Exception as exc:
+            logger.debug(f"[CM][dates] JSON-LD parse failed for {page_url}: {exc}")
+
+    result_pub = published_date or "-"
+    result_mod = modified_date or "-"
+    logger.info(f"[CM][dates] {page_url} | published={result_pub!r} | modified={result_mod!r} (JSON-LD only)")
+    return result_pub, result_mod
+
 
 
 async def _fetch_serp_intent_word_count(keyword: str) -> Optional[int]:
@@ -609,18 +515,12 @@ async def extract_content_metrics(
 
     try:
         # ── Current word count ──────────────────────────────────────────────
-        # Prefer main-body extraction (trafilatura / readability) over the
-        # raw crawl word_count so that the comparison with
-        # serpIntentWordCount (also body-only) is apples-to-apples.
+        # Use crawl-time word_count directly — it is already calculated at
+        # crawl time and stored in pages.word_count.
         crawl_word_count = _coerce_non_negative_int(kwargs.get("word_count"))
         existing_wc = _coerce_non_negative_int(existing.get("currentWordCount"))
-        current_word_count = None
-        if html_content:
-            current_word_count = _extract_word_count_from_html(html_content)
-        if current_word_count is None and crawl_word_count is not None:
-            current_word_count = crawl_word_count
-        if current_word_count is None and existing_wc is not None:
-            current_word_count = existing_wc
+        current_word_count = crawl_word_count if crawl_word_count is not None else existing_wc
+        logger.info(f"[CM][wc] {url} | currentWordCount={current_word_count!r} (source={'CRAWL' if crawl_word_count is not None else 'EXISTING'})")
 
         # ── SERP intent word count ─────────────────────────────────────────
         serp_keyword = _keyword_from_keyword_bundle(kwargs.get("keyword_bundle"))
@@ -636,25 +536,8 @@ async def extract_content_metrics(
             need_to_add_word_count = max(0, serp_intent_word_count - int(current_word_count or 0))
 
         # ── Published & Upgrade dates ──────────────────────────────────────
-        existing_pub = existing.get("publishedDate")
-        existing_mod = existing.get("upgradeDate")
-
-        if existing_pub and existing_mod:
-            published_date = existing_pub
-            upgrade_date = existing_mod
-        else:
-            extracted_pub, extracted_mod = (None, None)
-            if html_content or response_headers:
-                extracted_pub, extracted_mod = _extract_dates(html_content, response_headers, url)
-            published_date = existing_pub or extracted_pub
-            upgrade_date = existing_mod or extracted_mod
-
-            if url and (not published_date or not upgrade_date):
-                wp_pub, wp_mod = await _try_wordpress_dates(url)
-                if not published_date and wp_pub:
-                    published_date = wp_pub
-                if not upgrade_date and wp_mod:
-                    upgrade_date = wp_mod
+        # JSON-LD only — the sole authoritative source. Returns "-" when absent.
+        published_date, upgrade_date = _extract_dates_jsonld(html_content, url)
 
         return {
             'currentWordCount': current_word_count,

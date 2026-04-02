@@ -8,10 +8,13 @@ to fetch volume, KD, CPC, etc.
 
 Resolution priority (first non-empty wins):
   1. User-provided keyword (always wins)
-  2. <title> tag (strip brand suffix after | – —, take leading clause)
-  3. <h1> tag (first one)
-  4. <meta name="description"> (leading clause)
-  5. URL slug (last meaningful path segment)
+  2. URL slug — last meaningful path segment, hyphens/underscores → spaces.
+     Rejected when: purely numeric (e.g. "1", "2", "123"), no alphabetic
+     sequence of ≥2 chars, shorter than 3 chars, or file-extension-like.
+  3. <title> tag — strip brand suffix (after | – —), take leading clause,
+     then strip residual trailing uppercase abbreviation tokens.
+  4. <h1> tag (first one, shortened at stop-word boundary)
+  5. <meta name="description"> (leading clause)
 """
 
 import re
@@ -116,7 +119,14 @@ def _keyword_from_title(title: str) -> str:
 
 
 def _keyword_from_slug(url: str) -> str:
-    """Extract a keyword from the last meaningful URL path segment."""
+    """
+    Extract a keyword from the last meaningful URL path segment.
+
+    Rejects slugs that are:
+    - Purely numeric (e.g., "1", "2", "123", page IDs like "2024")
+    - Contain no alphabetic sequence of ≥2 characters
+    - Very short (<3 chars) or file-extension-like
+    """
     path = urlparse(url).path.rstrip("/")
     if not path:
         return ""
@@ -125,7 +135,33 @@ def _keyword_from_slug(url: str) -> str:
     # Reject very short or file-extension-like slugs
     if len(keyword) < 3 or "." in segment:
         return ""
+    # Reject purely numeric slugs (e.g., page IDs: "1", "2", "123", "2024")
+    if re.match(r'^\d[\d\s]*$', keyword):
+        return ""
+    # Reject slugs with no alphabetic sequence of ≥2 chars (e.g., "a1", "x2y")
+    if not re.search(r'[a-zA-Z]{2,}', keyword):
+        return ""
     return keyword
+
+
+_TRAILING_ABBREV_RE = re.compile(r'\s+[A-Z]{2,4}$')
+
+
+def _strip_title_abbreviations(keyword: str) -> str:
+    """
+    Remove trailing standalone brand/abbreviation tokens (2-4 uppercase chars)
+    that survive the brand-split step.
+
+    Examples:
+        "crm tools for business crm"  — duplicate abbrev suffix dropped
+        "best seo tools seo"          — trailing "seo" duplication stripped
+        (Most cases handled upstream by _BRAND_SPLIT_RE; this is a safety net.)
+
+    Operates on the pre-sanitize, pre-lowercased title string.
+    """
+    cleaned = _TRAILING_ABBREV_RE.sub("", keyword).strip()
+    # Keep the original if stripping removes all content
+    return cleaned if len(cleaned.split()) >= 2 else keyword
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -256,37 +292,42 @@ async def resolve_keywords(
     primary_keyword = ""
     keyword_source = ""
 
-    # Priority 1: User-provided keyword
+    # Priority 1: User-provided keyword (always wins)
     if main_keyword and main_keyword.strip():
         primary_keyword = _sanitize(main_keyword.strip())
         keyword_source = "provided"
 
-    # Priority 2: <title> tag
+    # Priority 2: URL slug
+    # Rejected when: purely numeric (e.g., "1", "2", "123"), no real alphabetic words,
+    # or too short/file-extension-like.  Falls through to title in those cases.
+    if not primary_keyword:
+        slug_kw = _keyword_from_slug(url)
+        if slug_kw:
+            primary_keyword = _sanitize(slug_kw)
+            keyword_source = "slug"
+
+    # Priority 3: <title> tag
+    # Brand suffix (after |, –, —) and leading-clause trimming via _keyword_from_title.
+    # _strip_title_abbreviations removes residual trailing uppercase abbreviation tokens.
     if not primary_keyword and title:
         candidate = _keyword_from_title(title)
         if candidate:
+            candidate = _strip_title_abbreviations(candidate)
             primary_keyword = _sanitize(candidate)
             keyword_source = "title"
 
-    # Priority 3: <h1> tag
+    # Priority 4: <h1> tag
     if not primary_keyword and h1 and len(h1.strip()) >= 3:
         primary_keyword = _sanitize(_shorten_keyword(h1.strip()))
         keyword_source = "h1"
 
-    # Priority 4: <meta description>
+    # Priority 5: <meta description>
     if not primary_keyword and meta_desc:
         clause = _leading_clause(meta_desc)
         candidate = clause if clause and len(clause.split()) >= 2 else meta_desc[:80]
         if candidate and len(candidate.strip()) >= 3:
             primary_keyword = _sanitize(_shorten_keyword(candidate.strip()))
             keyword_source = "meta_desc"
-
-    # Priority 5: URL slug
-    if not primary_keyword:
-        slug_kw = _keyword_from_slug(url)
-        if slug_kw:
-            primary_keyword = _sanitize(slug_kw)
-            keyword_source = "slug"
 
     # Classify intent and post type
     intent = _classify_intent(primary_keyword) if primary_keyword else "I"
