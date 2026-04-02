@@ -1,10 +1,11 @@
 """
-Shared Redis connection pool and job cancellation check.
+Shared Redis connection pool and job cancellation helpers.
 
 A single module-level ConnectionPool is shared across all threads — avoids
 creating a new TCP connection on every cancellation probe.
 """
 
+import asyncio
 import time
 
 import redis
@@ -59,6 +60,36 @@ def mark_job_cancelled(job_id: str) -> None:
         pipe.execute()
     except Exception:
         pass
+
+
+async def run_cancellable(coro, job_id: str, poll_interval_seconds: float = 0.5):
+    """Run a coroutine while polling Redis for a cancel flag."""
+    task = asyncio.create_task(coro)
+
+    try:
+        while True:
+            done, _ = await asyncio.wait({task}, timeout=poll_interval_seconds)
+
+            if task in done:
+                return task.result()
+
+            if is_job_cancelled(job_id):
+                mark_job_cancelled(job_id)
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+                except Exception:
+                    pass
+                raise JobCancelledError(f"Job {job_id} was cancelled during execution")
+    finally:
+        if not task.done():
+            task.cancel()
+            try:
+                await task
+            except Exception:
+                pass
 
 
 def is_job_paused(job_id: str) -> bool:

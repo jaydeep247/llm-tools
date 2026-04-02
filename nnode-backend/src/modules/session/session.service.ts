@@ -153,6 +153,7 @@ export class SessionService {
         { projection: { jobId: 1 } },
       )
       .toArray();
+    const allJobIds = jobs.map((job) => job.id);
     const activeCrawlJobIds = new Set(activeCrawlSummaries.map((summary: any) => String(summary.jobId)));
     const activeJobs = jobs.filter(
       (job) =>
@@ -226,6 +227,10 @@ export class SessionService {
     // 6. Cascade delete — wipes MongoDB (jobs/pages/links/etc.). cleanupJob now
     //    preserves the cancel flag so queued workers cannot resurrect deleted jobs.
     await this.sessionRepository.delete(sessionId);
+
+    void this.jobRepository.sweepDeletedArtifacts(allJobIds, [sessionId]).catch((error) => {
+      logger.warn(`[DELETE_SESSION] Background artifact sweep failed for session ${sessionId}:`, error);
+    });
 
     logger.info(`[DELETE_SESSION] ✅ Session ${sessionId} deleted — ${activeJobIds.length} active job(s) signalled to stop`);
     return session as unknown as SessionResponse;

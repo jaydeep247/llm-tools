@@ -2,7 +2,7 @@
 
 import asyncio
 from utils.logger import configure_logger, logger
-from workers.cancellation import is_job_cancelled, JobCancelledError
+from workers.cancellation import is_job_cancelled, JobCancelledError, run_cancellable
 
 
 def execute_module_e_job(payload: dict) -> bool:
@@ -39,31 +39,34 @@ def execute_module_e_job(payload: dict) -> bool:
 
         if job_type == "MODULE_E_QUICK_START":
             result = asyncio.run(
-                run_quick_start(
-                    job_id, url,
-                    session_id=session_id,
-                    project_id=project_id,
-                    main_keyword=main_keyword,
-                    ga_property_id=ga_property_id,
+                run_cancellable(
+                    run_quick_start(
+                        job_id, url,
+                        session_id=session_id,
+                        project_id=project_id,
+                        main_keyword=main_keyword,
+                        ga_property_id=ga_property_id,
+                    ),
+                    job_id,
                 )
             )
             if isinstance(result, dict) and result.get("cancelled"):
                 logger.info(f"[MODULE_E] 🛑 Quick Start job {job_id} cancelled")
                 raise JobCancelledError(f"Quick Start job {job_id} was cancelled")
         elif job_type == "MODULE_E_CONSISTENCY":
-            result = asyncio.run(run_consistency_only(target_job_id, url))
+            result = asyncio.run(run_cancellable(run_consistency_only(target_job_id, url), job_id))
         elif job_type == "MODULE_E_SENTIMENT":
-            result = asyncio.run(run_sentiment_only(target_job_id, url))
+            result = asyncio.run(run_cancellable(run_sentiment_only(target_job_id, url), job_id))
         elif job_type == "MODULE_E_COMPETITORS":
-            result = asyncio.run(run_competitor_analysis(target_job_id, url))
+            result = asyncio.run(run_cancellable(run_competitor_analysis(target_job_id, url), job_id))
         elif job_type == "MODULE_E_AI_SOV":
-            result = asyncio.run(run_ai_sov_analysis(target_job_id, url))
+            result = asyncio.run(run_cancellable(run_ai_sov_analysis(target_job_id, url), job_id))
         elif job_type == "MODULE_E_RANKING":
-            result = asyncio.run(run_ranking_analysis(target_job_id, url))
+            result = asyncio.run(run_cancellable(run_ranking_analysis(target_job_id, url), job_id))
         elif job_type == "MODULE_E_BRAND":
-            result = asyncio.run(run_brand_only(target_job_id, url))
+            result = asyncio.run(run_cancellable(run_brand_only(target_job_id, url), job_id))
         else:
-            result = asyncio.run(run_module_e(target_job_id, url))
+            result = asyncio.run(run_cancellable(run_module_e(target_job_id, url), job_id))
 
         if isinstance(result, dict) and "error" in result:
             logger.error(f"[MODULE_E] ⚠️  Module returned error: {result.get('error')}")

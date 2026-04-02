@@ -2,6 +2,7 @@
 
 import asyncio
 from utils.logger import configure_logger, logger
+from workers.cancellation import run_cancellable
 
 # New C-submodule names that map to runner.run_submodule()
 _C_SUBMODULE_JOB_MAP = {
@@ -49,25 +50,34 @@ def execute_module_c_job(payload: dict) -> bool:
         if job_type == "MODULE_C_BULK_AUDIT":
             urls = payload.get("urls", [])
             result = asyncio.run(
-                runner.run_bulk_audit(urls=urls or None, job_id=job_id, industry=industry)
+                run_cancellable(
+                    runner.run_bulk_audit(urls=urls or None, job_id=job_id, industry=industry),
+                    job_id,
+                )
             )
         elif submodule:
             result = asyncio.run(
-                runner.run_submodule(
-                    submodule, job_id, url,
-                    source_job_id=source_job_id,
-                    html_content=html_content, query=query,
-                    domain=domain, industry=industry,
+                run_cancellable(
+                    runner.run_submodule(
+                        submodule, job_id, url,
+                        source_job_id=source_job_id,
+                        html_content=html_content, query=query,
+                        domain=domain, industry=industry,
+                    ),
+                    job_id,
                 )
             )
         else:
             # Default: full pipeline
             result = asyncio.run(
-                run_module_c(
-                    job_id, url,
-                    source_job_id=source_job_id,
-                    html_content=html_content, query=query,
-                    domain=domain, industry=industry,
+                run_cancellable(
+                    run_module_c(
+                        job_id, url,
+                        source_job_id=source_job_id,
+                        html_content=html_content, query=query,
+                        domain=domain, industry=industry,
+                    ),
+                    job_id,
                 )
             )
 

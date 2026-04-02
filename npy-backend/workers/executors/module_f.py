@@ -2,6 +2,7 @@
 
 import asyncio
 from utils.logger import configure_logger, logger
+from workers.cancellation import run_cancellable
 
 
 def execute_module_f_job(payload: dict) -> bool:
@@ -11,6 +12,7 @@ def execute_module_f_job(payload: dict) -> bool:
     configure_logger()
 
     session_id = payload["sessionId"]
+    project_id = payload.get("projectId") or ""
     url = payload["url"]
     job_id = payload.get("jobId") or f"job_{session_id}"
     job_type = payload.get("jobType", "MODULE_F_COMPETITOR_AI_INTELLIGENCE").upper()
@@ -23,7 +25,17 @@ def execute_module_f_job(payload: dict) -> bool:
     )
 
     try:
-        result = asyncio.run(run_module_f_competitor_ai_intelligence(target_job_id, url))
+        result = asyncio.run(
+            run_cancellable(
+                run_module_f_competitor_ai_intelligence(
+                    target_job_id,
+                    url,
+                    session_id=session_id,
+                    project_id=project_id or None,
+                ),
+                job_id,
+            )
+        )
 
         if isinstance(result, dict) and "error" in result:
             logger.error(f"[MODULE_F] ⚠️  Module returned error: {result.get('error')}")

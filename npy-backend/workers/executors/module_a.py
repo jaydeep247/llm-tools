@@ -4,6 +4,7 @@ import asyncio
 import os
 
 from utils.logger import configure_logger, logger
+from workers.cancellation import run_cancellable
 
 
 def execute_module_a_job(payload: dict) -> bool:
@@ -42,17 +43,20 @@ def execute_module_a_job(payload: dict) -> bool:
 
     try:
         asyncio.run(
-            run_serp_analyzer(
-                job_id=job_id,
-                session_id=session_id,
-                url=url,
-                keywords=keywords,
-                competitors=competitors,
-                location_code=location_code,
-                language_code=language_code,
-                device=device,
-                dataforseo_login=dataforseo_login,
-                dataforseo_password=dataforseo_password,
+            run_cancellable(
+                run_serp_analyzer(
+                    job_id=job_id,
+                    session_id=session_id,
+                    url=url,
+                    keywords=keywords,
+                    competitors=competitors,
+                    location_code=location_code,
+                    language_code=language_code,
+                    device=device,
+                    dataforseo_login=dataforseo_login,
+                    dataforseo_password=dataforseo_password,
+                ),
+                job_id,
             )
         )
         logger.info(f"[MODULE_A] ✅ SERP analysis completed | job={job_id}")

@@ -27,6 +27,7 @@ import asyncio
 from datetime import datetime
 from utils.logger import configure_logger, logger
 from utils.mongo import mongo_manager
+from workers.cancellation import JobCancelledError, is_job_cancelled, run_cancellable
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -237,6 +238,7 @@ def execute_module_d_job(payload: dict) -> bool:
 
     try:
         result = _dispatch(
+            job_id=job_id,
             job_type=job_type,
             payload=payload,
             target_job_id=target_job_id,
@@ -261,6 +263,8 @@ def execute_module_d_job(payload: dict) -> bool:
         # (e.g. Content Metrics intent-cluster tab and Prompt Tracking panel).
         if isinstance(result, dict) and result.get("prompt_intelligence"):
             try:
+                if is_job_cancelled(job_id):
+                    raise JobCancelledError(f"Job {job_id} was cancelled before persistence")
                 mongo_manager.connect()
                 pi = result.get("prompt_intelligence")
                 mongo_manager.db.content_metrics.update_one(
@@ -290,7 +294,11 @@ def execute_module_d_job(payload: dict) -> bool:
         raise
 
 
-def _dispatch(job_type, payload, target_job_id, project_id, url, **fns):
+def _run_job(job_id: str, coro):
+    return asyncio.run(run_cancellable(coro, job_id))
+
+
+def _dispatch(job_id, job_type, payload, target_job_id, project_id, url, **fns):
     """Route job_type to the correct runner function."""
 
     # ── Full pipeline ─────────────────────────────────────────────────────
@@ -303,23 +311,26 @@ def _dispatch(job_type, payload, target_job_id, project_id, url, **fns):
             meta.get("intent_cluster_distribution"),
             meta.get("total_prompts_final"),
         )
-        result = asyncio.run(fns["run_module_d"](
-            job_id=target_job_id, url=url, prompts=prompts,
-            account_context=payload.get("accountContext"),
-            user_role=payload.get("userRole", "SEO Manager"),
-            plan_tier=payload.get("planTier", "pro"),
-        ))
+        result = _run_job(
+            job_id,
+            fns["run_module_d"](
+                job_id=target_job_id, url=url, prompts=prompts,
+                account_context=payload.get("accountContext"),
+                user_role=payload.get("userRole", "SEO Manager"),
+                plan_tier=payload.get("planTier", "pro"),
+            ),
+        )
         if isinstance(result, dict):
             result["prompt_intelligence"] = meta
         return result
 
     # ── Content metrics only ─────────────────────────────────────────────
     if job_type in ("MODULE_D_CONTENT_METRICS", "CONTENT_METRICS"):
-        return asyncio.run(fns["run_content_metrics"](target_job_id, url))
+        return _run_job(job_id, fns["run_content_metrics"](target_job_id, url))
 
     # ── Entity analysis only ─────────────────────────────────────────────
     if job_type == "MODULE_D_ENTITY_ANALYSIS":
-        return asyncio.run(fns["run_entity_analysis"](target_job_id, url))
+        return _run_job(job_id, fns["run_entity_analysis"](target_job_id, url))
 
     # ── Prompt tracking (LLM execution + TF-IDF fallback) ────────────────
     if job_type == "MODULE_D_PROMPT_TRACKING":
@@ -331,7 +342,7 @@ def _dispatch(job_type, payload, target_job_id, project_id, url, **fns):
             meta.get("intent_cluster_distribution"),
             meta.get("total_prompts_final"),
         )
-        result = asyncio.run(fns["run_prompt_tracking"](target_job_id, url, prompts))
+        result = _run_job(job_id, fns["run_prompt_tracking"](target_job_id, url, prompts))
         if isinstance(result, dict):
             result["prompt_intelligence"] = meta
         return result
@@ -342,12 +353,15 @@ def _dispatch(job_type, payload, target_job_id, project_id, url, **fns):
         raw_prompts = _normalize_prompts(
             payload.get("prompts") or payload.get("trackedPrompts") or []
         )
-        return asyncio.run(fns["run_prompt_ingest"](
-            project_id=project_id,
-            prompts=raw_prompts,
-            intent_cluster=payload.get("intentCluster"),
-            target_models=payload.get("targetModels"),
-        ))
+        return _run_job(
+            job_id,
+            fns["run_prompt_ingest"](
+                project_id=project_id,
+                prompts=raw_prompts,
+                intent_cluster=payload.get("intentCluster"),
+                target_models=payload.get("targetModels"),
+            ),
+        )
 
     # ── Prompt expansion — seed keywords → 5-cluster variants ────────────
     # Payload: { projectId, seedKeywords: [...] }
@@ -355,65 +369,83 @@ def _dispatch(job_type, payload, target_job_id, project_id, url, **fns):
         seeds = _normalize_prompts(
             payload.get("seedKeywords") or payload.get("config", {}).get("seedKeywords") or []
         )
-        return asyncio.run(fns["run_prompt_expand"](
-            job_id=target_job_id,
-            project_id=project_id,
-            seed_keywords=seeds,
-        ))
+        return _run_job(
+            job_id,
+            fns["run_prompt_expand"](
+                job_id=target_job_id,
+                project_id=project_id,
+                seed_keywords=seeds,
+            ),
+        )
 
     # ── Difficulty score recompute ────────────────────────────────────────
     # Payload: { jobId }
     if job_type == "MODULE_D_DIFFICULTY":
-        return asyncio.run(fns["run_difficulty_update"](target_job_id))
+        return _run_job(job_id, fns["run_difficulty_update"](target_job_id))
 
     # ── List prompts for a project ────────────────────────────────────────
     # Payload: { projectId, statusFilter?, limit? }
     if job_type == "MODULE_D_PROMPT_LIST":
-        return asyncio.run(fns["run_prompt_list"](
-            project_id=project_id,
-            status_filter=payload.get("statusFilter"),
-            limit=int(payload.get("limit", 100)),
-        ))
+        return _run_job(
+            job_id,
+            fns["run_prompt_list"](
+                project_id=project_id,
+                status_filter=payload.get("statusFilter"),
+                limit=int(payload.get("limit", 100)),
+            ),
+        )
 
     # ── Get citations for a prompt ────────────────────────────────────────
     # Payload: { promptJobId, projectId }
     if job_type == "MODULE_D_CITATIONS":
-        return asyncio.run(fns["run_get_citations"](
-            prompt_job_id=payload.get("promptJobId") or target_job_id,
-            project_id=project_id,
-        ))
+        return _run_job(
+            job_id,
+            fns["run_get_citations"](
+                prompt_job_id=payload.get("promptJobId") or target_job_id,
+                project_id=project_id,
+            ),
+        )
 
     # ── Get performance snapshots ─────────────────────────────────────────
     # Payload: { promptJobId, days? }
     if job_type == "MODULE_D_PERFORMANCE":
-        return asyncio.run(fns["run_get_performance"](
-            prompt_job_id=payload.get("promptJobId") or target_job_id,
-            days=int(payload.get("days", 30)),
-        ))
+        return _run_job(
+            job_id,
+            fns["run_get_performance"](
+                prompt_job_id=payload.get("promptJobId") or target_job_id,
+                days=int(payload.get("days", 30)),
+            ),
+        )
 
     # ── Manual re-run for a single prompt ─────────────────────────────────
     # Payload: { promptJobId, projectId }
     if job_type == "MODULE_D_MANUAL_RUN":
-        return asyncio.run(fns["run_manual_prompt_run"](
-            prompt_job_id=payload.get("promptJobId") or target_job_id,
-            project_id=project_id,
-        ))
+        return _run_job(
+            job_id,
+            fns["run_manual_prompt_run"](
+                prompt_job_id=payload.get("promptJobId") or target_job_id,
+                project_id=project_id,
+            ),
+        )
 
     # ── Recommendation feedback ───────────────────────────────────────────
     # Payload: { jobId, recommendationId, feedback, postActionPvs?, notes? }
     if job_type == "MODULE_D_FEEDBACK":
-        return asyncio.run(fns["mark_recommendation_feedback"](
-            job_id=target_job_id,
-            recommendation_id=payload.get("recommendationId", ""),
-            feedback=payload.get("feedback", ""),
-            post_action_pvs=payload.get("postActionPvs"),
-            notes=payload.get("notes", ""),
-        ))
+        return _run_job(
+            job_id,
+            fns["mark_recommendation_feedback"](
+                job_id=target_job_id,
+                recommendation_id=payload.get("recommendationId", ""),
+                feedback=payload.get("feedback", ""),
+                post_action_pvs=payload.get("postActionPvs"),
+                notes=payload.get("notes", ""),
+            ),
+        )
 
     # ── Admin health ──────────────────────────────────────────────────────
     if job_type == "MODULE_D_HEALTH":
-        return asyncio.run(fns["run_admin_health"](target_job_id))
+        return _run_job(job_id, fns["run_admin_health"](target_job_id))
 
     # ── Default: full pipeline ────────────────────────────────────────────
     logger.warning("[MODULE_D] Unknown job type '%s' — running full pipeline", job_type)
-    return asyncio.run(fns["run_module_d"](job_id=target_job_id, url=url))
+    return _run_job(job_id, fns["run_module_d"](job_id=target_job_id, url=url))

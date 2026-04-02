@@ -2,8 +2,81 @@ import { randomUUID } from 'crypto';
 import { connectToMongo } from '../../config/mongo';
 import { Job, JobStatus, JobType, CreateJobDto } from './job.types';
 import { LiveJobService } from '../../services/live-job.service';
+import { logger } from '../../shared/logger/logger';
 
 export class JobRepository {
+  private buildDeleteFilter(jobIds: string[], sessionIds: string[] = []): Record<string, unknown> | null {
+    const filters: Record<string, unknown>[] = [];
+
+    if (jobIds.length > 0) {
+      filters.push({ jobId: { $in: jobIds } });
+    }
+
+    if (sessionIds.length > 0) {
+      filters.push({ sessionId: { $in: sessionIds } });
+    }
+
+    if (filters.length === 0) {
+      return null;
+    }
+
+    return filters.length === 1 ? filters[0] : { $or: filters };
+  }
+
+  private async deleteArtifacts(jobIds: string[], sessionIds: string[]): Promise<void> {
+    if (jobIds.length === 0 && sessionIds.length === 0) {
+      return;
+    }
+
+    const db = await connectToMongo();
+    const jobFilter = this.buildDeleteFilter(jobIds);
+    const jobOrSessionFilter = this.buildDeleteFilter(jobIds, sessionIds);
+    const operations: Promise<unknown>[] = [];
+
+    const queueDelete = (collectionName: string, filter: Record<string, unknown> | null): void => {
+      if (!filter) {
+        return;
+      }
+
+      operations.push(db.collection(collectionName).deleteMany(filter));
+    };
+
+    [
+      'pages',
+      'links',
+      'sitemaps',
+      'fields',
+      'module_c',
+      'content_metrics',
+      'schemas',
+      'job_summaries',
+    ].forEach((collectionName) => queueDelete(collectionName, jobFilter));
+
+    [
+      'module_e',
+      'module_f',
+      'prompt_tracking',
+      'serp_results',
+      'performance_audits',
+      'cbm_citation_snapshots',
+      'cbm_competitor_cited_urls',
+      'cbm_alerts',
+      'cbm_aivs_d7',
+    ].forEach((collectionName) => queueDelete(collectionName, jobOrSessionFilter));
+
+    if (sessionIds.length > 0) {
+      operations.push(db.collection<Job>('jobs').deleteMany({ sessionId: { $in: sessionIds } }));
+    }
+
+    if (operations.length > 0) {
+      await Promise.all(operations);
+    }
+
+    if (jobIds.length > 0) {
+      await Promise.all(jobIds.map((id) => LiveJobService.cleanupJob(id)));
+    }
+  }
+
   private async deleteBySessionIds(sessionIds: string[]): Promise<void> {
     if (sessionIds.length === 0) {
       return;
@@ -19,23 +92,28 @@ export class JobRepository {
       .toArray();
     const jobIds = jobs.map((job) => job.id);
 
-    if (jobIds.length === 0) {
+    await this.deleteArtifacts(jobIds, sessionIds);
+  }
+
+  async sweepDeletedArtifacts(jobIds: string[], sessionIds: string[], attempts = 12, delayMs = 2000): Promise<void> {
+    if (jobIds.length === 0 && sessionIds.length === 0) {
       return;
     }
 
-    await Promise.all([
-      db.collection('pages').deleteMany({ jobId: { $in: jobIds } }),
-      db.collection('links').deleteMany({ jobId: { $in: jobIds } }),
-      db.collection('sitemaps').deleteMany({ jobId: { $in: jobIds } }),
-      db.collection('fields').deleteMany({ jobId: { $in: jobIds } }),
-      db.collection('module_c').deleteMany({ jobId: { $in: jobIds } }),
-      db.collection('module_e').deleteMany({ jobId: { $in: jobIds } }),
-      db.collection('content_metrics').deleteMany({ jobId: { $in: jobIds } }),
-      db.collection('schemas').deleteMany({ jobId: { $in: jobIds } }),
-      db.collection('job_summaries').deleteMany({ jobId: { $in: jobIds } }),
-      db.collection<Job>('jobs').deleteMany({ sessionId: { $in: sessionIds } }),
-      ...jobIds.map((id) => LiveJobService.cleanupJob(id)),
-    ]);
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      if (attempt > 1) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+
+      try {
+        await this.deleteArtifacts(jobIds, sessionIds);
+      } catch (error) {
+        logger.warn(
+          `[DELETE_SESSION] Artifact sweep attempt ${attempt}/${attempts} failed for sessions ${sessionIds.join(', ')}:`,
+          error,
+        );
+      }
+    }
   }
 
   async create(sessionId: string, projectId: string, data: CreateJobDto): Promise<Job> {
