@@ -336,11 +336,11 @@ async def _run_brand(job_id: str, brand_name: str) -> Dict[str, Any]:
     return brand_analysis
 
 
-async def _run_competitors_and_sov(job_id: str, url: str, brand_name: str) -> Dict[str, Any]:
+async def _run_competitors_and_sov(job_id: str, url: str, brand_name: str, brand_description: Optional[str] = None) -> Dict[str, Any]:
     logger.info(f"[QS] Competitor + AI SOV analysis started for '{brand_name}'")
     analyzer = CompetitorAnalyzer()
     try:
-        results = await analyzer.analyze(url, brand_name=brand_name)
+        results = await analyzer.analyze(url, brand_name=brand_name, brand_description=brand_description)
     except Exception as exc:
         logger.error(f"[QS] Competitor analysis error: {exc}", exc_info=True)
         return {"error": str(exc)}
@@ -534,11 +534,12 @@ async def run_quick_start(
         html_content = await _fetch_and_store_homepage(job_id, url)
 
         # ── Generate brand description from homepage HTML and store in DB ──
-        # This runs early so the brand-onboarding page can show the GPT
-        # description immediately via GET /brand-onboarding/description/{job_id}
+        # This runs BEFORE competitor analysis so the description is available
+        # for accurate competitor discovery.
+        brand_description = None
         try:
             logger.info(f"[QS] Generating brand description for job {job_id}")
-            await generate_brand_description(url, job_id=job_id)
+            brand_description = await generate_brand_description(url, job_id=job_id)
         except Exception as exc:
             logger.warning(f"[QS] Brand description generation failed: {exc}")
 
@@ -559,7 +560,7 @@ async def run_quick_start(
 
         brand_result, competitor_result, ranking_result = await asyncio.gather(
             _run_brand(job_id, brand_name),
-            _run_competitors_and_sov(job_id, url, brand_name),
+            _run_competitors_and_sov(job_id, url, brand_name, brand_description=brand_description),
             _run_ranking(job_id, url, html_content=html_content),  # pre-fetched HTML — no extra fetch
             return_exceptions=True,
         )

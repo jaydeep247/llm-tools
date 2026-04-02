@@ -21,15 +21,26 @@ SOCIAL_MEDIA_BLOCKLIST: set = {
     "moz.com", "semrush.com", "ahrefs.com", "yoast.com", "hubspot.com",
 }
 
+# DataForSEO location codes to try for competitor discovery (worldwide coverage).
+# We try multiple locations so niche/regional brands still get real competitors.
+_DFS_LOCATION_CODES = [
+    2840,   # United States
+    2826,   # United Kingdom
+    2356,   # India
+    2036,   # Australia
+    2124,   # Canada
+]
+
 
 class CompetitorAnalyzer:
     """
     Analyzes competitor landscape, mentions, and AI Share of Voice.
 
     Competitor Discovery Strategy (in order):
-      1. DataForSEO organic competitors (best — based on shared keyword rankings)
-      2. AI fallback — LLM infers top competitors based on brand's industry
-         (used when DataForSEO returns no data, e.g. new/small domains)
+      1. DataForSEO organic competitors — tried across multiple global locations
+         so niche/regional/international sites still return real results.
+      2. AI fallback — LLM infers top competitors using the brand description
+         obtained during onboarding (much more accurate than domain-name guessing).
 
     AI SOV Strategy:
       - Asks 3 AI models generic industry questions (brand NOT mentioned in prompt)
@@ -37,24 +48,31 @@ class CompetitorAnalyzer:
       - SOV = brand appearances / total appearances (brand + all competitors)
     """
 
-    async def analyze(self, url: str, competitor_domains: Optional[List[str]] = None, brand_name: Optional[str] = None, keywords: Optional[List[str]] = None) -> Dict[str, Any]:
+    async def analyze(
+        self,
+        url: str,
+        competitor_domains: Optional[List[str]] = None,
+        brand_name: Optional[str] = None,
+        keywords: Optional[List[str]] = None,
+        brand_description: Optional[str] = None,   # ← NEW: passed from runner
+    ) -> Dict[str, Any]:
         """Runs the complete competitor analysis suite."""
         domain = self._extract_domain(url)
         if not brand_name:
             brand_name = self._extract_brand_name(domain)
-        
-        # 1. Infer industry first (needed for both fallback discovery and AI SOV)
-        industry, service_type = await self._infer_industry(domain, brand_name)
+
+        # 1. Infer industry — now uses brand_description when available
+        industry, service_type = await self._infer_industry(
+            domain, brand_name, brand_description=brand_description
+        )
 
         # 2. Discover competitors
         if not competitor_domains:
             competitor_domains = await self._discover_competitors(
-                domain, brand_name, industry, service_type
+                domain, brand_name, industry, service_type, brand_description=brand_description
             )
 
-        # 3. Run mentions first, then SOV sequentially (SOV uses same competitor list
-        #    but runs after mentions so results are logically ordered and any logging
-        #    from mentions is complete before the LLM queries begin)
+        # 3. Run mentions then SOV
         try:
             mentions = await self._analyze_mentions(domain, competitor_domains)
         except Exception as e:
@@ -67,7 +85,7 @@ class CompetitorAnalyzer:
             logger.error(f"AI SOV analysis failed: {e}")
             sov = {"error": str(e)}
 
-        # 4. Generate Competitive Leaderboard (Planner-Executor-Validator-Refactorer pattern)
+        # 4. Competitive Leaderboard
         try:
             leaderboard = await self._generate_competitive_leaderboard(industry, brand_name, domain, keywords)
         except Exception as e:
@@ -84,7 +102,9 @@ class CompetitorAnalyzer:
             "competitive_leaderboard": leaderboard,
         }
 
-    async def _generate_competitive_leaderboard(self, industry: str, brand_name: str, domain: str, keywords: Optional[List[str]] = None) -> Dict[str, Any]:
+    async def _generate_competitive_leaderboard(
+        self, industry: str, brand_name: str, domain: str, keywords: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
         """Produces a competitive leaderboard based on keywords, prompts, or industry."""
         leaderboard_gen = CompetitiveLeaderboard()
         return await leaderboard_gen.generate(industry, brand_name, domain, keywords)
@@ -103,39 +123,62 @@ class CompetitorAnalyzer:
         e.g. 'yesquesttech.com' → 'YesQuestTech'
              'www.hubspot.com'  → 'HubSpot'
         """
-        # Strip www. and TLD
         clean = domain.replace("www.", "").split(".")[0]
-        # Title-case it
         return clean.capitalize()
 
     # ─── Industry Inference ───────────────────────────────────────────────────
 
-    async def _infer_industry(self, domain: str, brand_name: str) -> tuple[str, str]:
+    async def _infer_industry(
+        self,
+        domain: str,
+        brand_name: str,
+        brand_description: Optional[str] = None,
+    ) -> tuple[str, str]:
         """
-        Uses OpenAI to infer the brand's industry and service type.
+        Uses Claude to infer the brand's industry and service type.
+
+        When a brand_description is available (from onboarding), it is used
+        as the primary signal — this is far more accurate than guessing from
+        the domain name alone (fixes e.g. attrock.com being misclassified).
+
         Returns (industry, service_type) tuple.
         """
-        prompt = f"""Analyze the brand "{brand_name}" (website: {domain}) and infer:
-1. Industry category (e.g. "software development", "digital marketing", "e-commerce", "SaaS")
-2. Primary service type (e.g. "mobile app development", "SEO services", "cloud solutions")
+        if brand_description:
+            description_section = f"""
+Brand Description (from onboarding — use this as your PRIMARY signal):
+\"\"\"{brand_description}\"\"\"
+"""
+        else:
+            description_section = "(No brand description available — infer from domain name only.)"
 
-Return ONLY valid JSON (no markdown):
-{{"industry": "industry name", "service_type": "service description"}}"""
+        prompt = f"""You are a market research analyst. Determine the industry and primary service type for this brand.
+
+Brand Name: {brand_name}
+Website: {domain}
+{description_section}
+
+Instructions:
+- If a brand description is provided, base your answer PRIMARILY on that description.
+- Do NOT guess from the domain name if a description is available.
+- Be specific: prefer "digital marketing agency" over "marketing", or "SaaS HR platform" over "software".
+
+Return ONLY valid JSON (no markdown, no explanation):
+{{"industry": "exact industry name", "service_type": "primary service or product description"}}"""
 
         try:
             resp = await execute_task(
                 task_name="module_e_industry_inference",
                 input_data={"messages": [{"role": "user", "content": prompt}]},
-                provider="openai",
-                options={"temperature": 0.1, "response_format": {"type": "json_object"}}
+                provider="claude",
+                options={"temperature": 0.1, "response_format": {"type": "json_object"}},
             )
             if resp.success and resp.data:
                 raw = resp.data
                 data = json.loads(raw) if isinstance(raw, str) else raw
-                return (
-                    data.get("industry", "technology"),
-                    data.get("service_type", "software solutions")
-                )
+                industry = data.get("industry", "technology")
+                service_type = data.get("service_type", "software solutions")
+                logger.info(f"Inferred industry='{industry}', service_type='{service_type}' for {domain}")
+                return industry, service_type
         except Exception as e:
             logger.warning(f"Industry inference failed: {e}")
 
@@ -148,130 +191,286 @@ Return ONLY valid JSON (no markdown):
         domain: str,
         brand_name: str,
         industry: str,
-        service_type: str
+        service_type: str,
+        brand_description: Optional[str] = None,
     ) -> List[str]:
         """
         Strategy:
-          1. AI-First: Ask LLM to find real business competitors (most accurate for agencies).
-          2. Fallback: DataForSEO organic competitors if AI returns nothing.
+          1. DataForSEO across multiple global locations (not just US).
+          2. AI fallback using brand description when DataForSEO has no data.
         """
-        # Step 1: AI Discovery (Preferred for understanding business vs keyword competition)
-        ai_competitors = await self._discover_via_ai(brand_name, industry, service_type)
-        if ai_competitors:
-            return ai_competitors
+        dfs_competitors = await self._discover_via_dataforseo_global(domain)
+        if dfs_competitors:
+            filtered = await self._filter_competitors_via_ai(
+                domain=domain,
+                brand_name=brand_name,
+                industry=industry,
+                service_type=service_type,
+                candidates=dfs_competitors,
+                brand_description=brand_description,
+            )
+            # Only trust DataForSEO results if we got at least 3 real competitors.
+            # If fewer survive filtering, DataForSEO doesn't have enough data for
+            # this domain — fall through to AI which uses brand description and
+            # finds correct worldwide competitors.
+            if len(filtered) >= 3:
+                return filtered
+            logger.info(
+                f"DataForSEO only returned {len(filtered)} filtered competitors for {domain}"
+                f" — falling back to AI discovery for better coverage"
+            )
 
-        # Step 2: DataForSEO Fallback
-        dfs_competitors = await self._discover_via_dataforseo(domain)
-        return dfs_competitors
-
-    async def _discover_via_dataforseo(self, domain: str) -> List[str]:
-        """Calls DataForSEO competitors_domain endpoint."""
-        endpoint = "/dataforseo_labs/google/competitors_domain/live"
-        payload = [{
-            "target": domain,
-            "location_code": 2840,  # US
-            "language_code": "en",
-            "limit": 5
-        }]
-
-        resp = await execute_task(
-            task_name="module_e_competitor_discovery",
-            input_data={"endpoint": endpoint, "payload": payload},
-            provider="dataforseo"
+        # Fallback: AI discovery using brand description
+        return await self._discover_via_ai(
+            domain, brand_name, industry, service_type, brand_description=brand_description
         )
 
-        if not resp.success:
-            logger.warning(f"DataForSEO competitor discovery failed: {resp.error}")
-            return []
+    async def _discover_via_dataforseo_global(self, domain: str) -> List[str]:
+        """
+        Calls DataForSEO competitors_domain endpoint across multiple locations
+        (US, UK, India, Australia, Canada) and merges results.
 
-        try:
-            tasks = resp.data.get("tasks", [])
-            if not tasks:
+        This ensures niche, regional, or non-US brands still get real competitors
+        instead of returning empty or returning only US-centric sites.
+        """
+        domain_root = domain.lower().replace("www.", "").rstrip("/")
+        all_competitors: List[str] = []
+        seen: set = set()
+
+        async def fetch_for_location(location_code: int) -> List[str]:
+            endpoint = "/dataforseo_labs/google/competitors_domain/live"
+            payload = [{
+                "target": domain,
+                "location_code": location_code,
+                "language_code": "en",
+                "limit": 10,  # fetch more per location so we have candidates to filter
+            }]
+            resp = await execute_task(
+                task_name="module_e_competitor_discovery",
+                input_data={"endpoint": endpoint, "payload": payload},
+                provider="dataforseo",
+            )
+            if not resp.success:
+                logger.debug(f"DataForSEO location {location_code} failed: {resp.error}")
                 return []
-            result = tasks[0].get("result", [])
-            if not result:
+            try:
+                tasks = resp.data.get("tasks", [])
+                if not tasks:
+                    return []
+                result = tasks[0].get("result", [])
+                if not result:
+                    return []
+                items = result[0].get("items") or []
+                found = []
+                for item in items:
+                    comp_domain = item.get("domain")
+                    if not comp_domain:
+                        continue
+                    clean = str(comp_domain).lower().replace("www.", "").rstrip("/")
+                    if not clean or "." not in clean:
+                        continue
+                    if clean == domain_root or clean in SOCIAL_MEDIA_BLOCKLIST:
+                        continue
+                    found.append(clean)
+                return found
+            except Exception as e:
+                logger.debug(f"Error parsing DataForSEO response for location {location_code}: {e}")
                 return []
-            items = result[0].get("items") or []
 
-            # Extract domains, excluding the target domain itself and social/UGC/TOOL platforms
-            domain_root = domain.replace("www.", "")
-            competitors = []
-            for item in items:
-                comp_domain = item.get("domain")
-                if not comp_domain:
-                    continue
-                
-                # Normalize and check blocklist
-                clean_comp = comp_domain.lower().replace("www.", "").rstrip("/")
-                if (comp_domain != domain and 
-                    comp_domain != domain_root and 
-                    clean_comp not in SOCIAL_MEDIA_BLOCKLIST and
-                    comp_domain not in SOCIAL_MEDIA_BLOCKLIST):
-                    competitors.append(comp_domain)
+        # Run all location queries in parallel
+        results = await asyncio.gather(
+            *[fetch_for_location(loc) for loc in _DFS_LOCATION_CODES],
+            return_exceptions=True,
+        )
 
-            return competitors[:5]
+        for result in results:
+            if isinstance(result, Exception):
+                continue
+            for comp in result:
+                if comp not in seen:
+                    seen.add(comp)
+                    all_competitors.append(comp)
 
-        except Exception as e:
-            logger.error(f"Error parsing DataForSEO competitor response: {e}")
-            return []
+        logger.info(
+            f"DataForSEO global discovery found {len(all_competitors)} unique competitors for {domain}"
+        )
+        return all_competitors[:20]  # Pass up to 20 candidates to AI filter
 
-
-    async def _discover_via_ai(
+    async def _filter_competitors_via_ai(
         self,
+        domain: str,
         brand_name: str,
         industry: str,
-        service_type: str
+        service_type: str,
+        candidates: List[str],
+        brand_description: Optional[str] = None,
     ) -> List[str]:
         """
-        AI fallback: asks LLM to name the top 5 real competitors in the same space.
-        Returns a list of competitor domains (e.g. ['hubspot.com', 'salesforce.com']).
+        Post-filter: ensures we return true direct competitors in the same
+        business model and space. Uses brand description when available.
         """
+        description_section = (
+            f"\nBrand Description: \"{brand_description}\"\n"
+            if brand_description
+            else ""
+        )
+
         prompt = f"""You are a market research analyst.
 
-The brand "{brand_name}" is a SERVICE-BASED agency/business in the "{industry}" industry, specifically providing "{service_type}".
+Target brand:
+- domain: {domain}
+- brand name: {brand_name}
+- inferred industry: {industry}
+- inferred service: {service_type}{description_section}
 
-List the top 5 REAL BUSINESS competitors that are also AGENCIES or SERVICE PROVIDERS.
-Do NOT list software tools, SaaS platforms, or SEO utilities (e.g., do NOT list Moz, Semrush, Ahrefs, Yoast, HubSpot).
-We only want other agencies or companies that a client would hire instead of "{brand_name}".
+First determine the target business model/category:
+- service agency / consultancy
+- product / ecommerce brand
+- SaaS / platform
+- local business
+- marketplace
+- content/media brand
+- other
 
-Return ONLY a valid JSON array of their primary website domains (no www, no https):
-["competitor1.com", "competitor2.com", "competitor3.com", "competitor4.com", "competitor5.com"]
+Now choose which of the following candidate domains are TRUE direct competitors
+in the SAME business model/category as the target.
 
-Rules:
-- NO software/SaaS tools (Moz, Semrush, etc. are forbidden)
-- Only direct service-provider competitors
-- Use real, existing companies only
-- No explanations, just the JSON array"""
+Rules (must follow):
+- Remove directories, tools, generic SEO utilities, social media, and "aggregation" sites.
+- Do NOT return marketing agencies if the target is a product/ecommerce or SaaS brand.
+- Do NOT return ecommerce stores if the target is a service agency/consultancy.
+- Keep only real companies (domains), no explanations.
+- If a brand description is provided, use it to understand what the company ACTUALLY does.
+
+Candidates:
+{json.dumps(candidates)}
+
+Return ONLY a valid JSON array of kept primary domains (no www, no https),
+preserve order, and return at most 5."""
 
         try:
             resp = await execute_task(
-                task_name="module_e_ai_competitor_discovery",
+                task_name="module_e_ai_competitor_filter",
                 input_data={"messages": [{"role": "user", "content": prompt}]},
-                provider="openai",
-                options={"temperature": 0.2}
+                provider="claude",
+                options={"temperature": 0.2},
             )
 
             if not resp.success or not resp.data:
                 raise ValueError(resp.error or "Empty response")
 
             raw = str(resp.data).strip()
-            # Strip markdown fences if present
             raw = re.sub(r'^```(?:json)?\s*', '', raw, flags=re.MULTILINE)
             raw = re.sub(r'```\s*$', '', raw, flags=re.MULTILINE).strip()
 
-            # Try to parse JSON array
+            match = re.search(r'\[.*?\]', raw, re.DOTALL)
+            if not match:
+                return []
+            domains = json.loads(match.group(0))
+
+            cleaned: List[str] = []
+            seen: set = set()
+            for d in domains:
+                d = str(d).strip().lower()
+                d = re.sub(r'^https?://', '', d)
+                d = re.sub(r'^www\.', '', d)
+                d = d.rstrip('/')
+                if not d or '.' not in d:
+                    continue
+                if d in seen:
+                    continue
+                seen.add(d)
+                cleaned.append(d)
+
+            logger.info(f"AI filter kept {len(cleaned)} competitors from {len(candidates)} candidates")
+            return cleaned[:5]
+        except Exception as e:
+            logger.error(f"AI competitor filtering failed: {e}")
+            return []
+
+    async def _discover_via_ai(
+        self,
+        domain: str,
+        brand_name: str,
+        industry: str,
+        service_type: str,
+        brand_description: Optional[str] = None,
+    ) -> List[str]:
+        """
+        AI fallback: asks Claude to name the top 5 real worldwide competitors.
+
+        When a brand_description is provided (from onboarding), it is injected
+        into the prompt so the model understands EXACTLY what this company does
+        rather than guessing from the domain name.
+        """
+        description_section = (
+            f"\nBrand Description (use this as your primary signal):\n\"\"\"{brand_description}\"\"\"\n"
+            if brand_description
+            else ""
+        )
+
+        prompt = f"""You are a market research analyst helping identify the most well-known WORLDWIDE business competitors.
+
+Brand information:
+- Name: {brand_name}
+- Website: {domain}
+- Industry: {industry}
+- Service type: {service_type}{description_section}
+
+Step 1 — Infer the brand category from the description:
+- Service agency / consultancy (clients hire them for services)
+- Product / ecommerce brand (customers buy products)
+- SaaS / platform (users subscribe to software/services)
+
+Step 2 — Think: if a potential CLIENT was evaluating {brand_name} for their needs,
+which OTHER companies would appear on their shortlist? These are the true competitors.
+
+Step 3 — List the top 5 most WELL-KNOWN real competitors globally. Prioritise:
+- Companies that are widely recognised in the same space
+- Brands that frequently appear together in "best of" or "alternative to" comparisons
+- Agencies or companies a potential customer would likely already know about
+
+Rules:
+- Match the SAME business model (agency vs agency, SaaS vs SaaS, product vs product)
+- DO exclude pure software tools like Semrush, Ahrefs, Moz — these are TOOLS not service competitors
+- DO include agencies or consultancies that ALSO publish SEO/marketing content (e.g. neilpatel.com is an agency, not a tool)
+- DO include globally recognised names even if they are large (e.g. Neil Patel Digital, WebFX, Siege Media)
+- Use real, existing companies only
+
+Return ONLY a valid JSON array of their primary website domains (no www, no https):
+["competitor1.com", "competitor2.com", "competitor3.com", "competitor4.com", "competitor5.com"]
+
+No explanations, just the JSON array."""
+
+        try:
+            resp = await execute_task(
+                task_name="module_e_ai_competitor_discovery",
+                input_data={"messages": [{"role": "user", "content": prompt}]},
+                provider="claude",
+                options={"temperature": 0.2},
+            )
+
+            if not resp.success or not resp.data:
+                raise ValueError(resp.error or "Empty response")
+
+            raw = str(resp.data).strip()
+            raw = re.sub(r'^```(?:json)?\s*', '', raw, flags=re.MULTILINE)
+            raw = re.sub(r'```\s*$', '', raw, flags=re.MULTILINE).strip()
+
             match = re.search(r'\[.*?\]', raw, re.DOTALL)
             if match:
                 domains = json.loads(match.group(0))
-                # Clean up: strip protocols, www, trailing slashes
-                cleaned = []
+                cleaned: List[str] = []
+                seen: set = set()
                 for d in domains:
                     d = str(d).strip().lower()
                     d = re.sub(r'^https?://', '', d)
                     d = re.sub(r'^www\.', '', d)
                     d = d.rstrip('/')
-                    if d and '.' in d:
+                    if d and '.' in d and d not in seen:
+                        seen.add(d)
                         cleaned.append(d)
+                logger.info(f"AI fallback discovered {len(cleaned)} competitors for {domain}")
                 return cleaned[:5]
 
         except Exception as e:
@@ -286,47 +485,39 @@ Rules:
         Tracks monthly mention trends for brand and competitors via DataForSEO
         content_analysis/phrase_trends endpoint.
         """
-        from datetime import datetime, timedelta
-        date_from = (datetime.now() - timedelta(days=365)).strftime("%Y-%m-%d")
-
         raw_dataforseo: Dict[str, Any] = {}
 
         async def fetch_mentions(d: str) -> tuple[str, Dict]:
             payload = [{
                 "keyword": d,
                 "date_from": "2021-01-01",
-                "date_group": "month"
+                "date_group": "month",
             }]
 
             resp = await execute_task(
                 task_name="module_e_mentions_trend",
                 input_data={
                     "endpoint": "/content_analysis/phrase_trends/live",
-                    "payload": payload
+                    "payload": payload,
                 },
                 provider="dataforseo",
-                options={"skip_cache": True}  # FORCE FRESH FETCH
+                options={"skip_cache": True},
             )
 
             if not resp.success:
                 logger.warning(f"Mentions analysis failed for {d}: {resp.error}")
                 return d, {"mentions": 0, "sentiment": "Neutral", "trend": [0] * 12}
-            
+
             try:
                 tasks = resp.data.get("tasks", [])
                 raw_dataforseo[d] = resp.data
                 if not tasks:
                     raise ValueError("No tasks in response")
 
-                # DataForSEO phrase_trends result is a flat list of monthly trend objects.
-                # Each entry has: { "date": "2025-05-01", "total_count": 132001,
-                #                   "connotation_types": {...}, ... }
                 monthly_trends = tasks[0].get("result") or []
-                
                 trend = [entry.get("total_count", 0) for entry in monthly_trends]
                 total = sum(trend)
 
-                # Sentiment: aggregate connotation_types across all months
                 sentiment = "Neutral"
                 if total > 0 and monthly_trends:
                     agg_pos = sum(e.get("connotation_types", {}).get("positive", 0) for e in monthly_trends)
@@ -342,15 +533,10 @@ Rules:
                 logger.warning(f"Error parsing mentions for {d}: {e}")
                 return d, {"mentions": 0, "sentiment": "Neutral", "trend": [0] * 12}
 
-
-        # Run all domain mention lookups in parallel
         all_domains = [domain] + list(competitors)
         mention_results = await asyncio.gather(*[fetch_mentions(d) for d in all_domains])
         results = dict(mention_results)
 
-
-        # Brand SOV = brand mentions / total mentions across all domains
-        # Use 3 decimal places so tiny brands (e.g. 0.004%) don't collapse to 0
         total_all = sum(r["mentions"] for r in results.values()) or 1
         brand_sov = round((results[domain]["mentions"] / total_all) * 100, 3)
 
@@ -368,29 +554,20 @@ Rules:
         brand_name: str,
         industry: str,
         service_type: str,
-        competitors: List[str]
+        competitors: List[str],
     ) -> Dict[str, Any]:
         """
         Measures AI Share of Voice: how often the brand appears in AI responses
         to generic industry questions (brand NOT mentioned in the prompt).
-
-        Uses frequency-based scoring with safe regex matching and a simple
-        position-based weight bonus.
         """
-        # Build competitor name hints (first part of domain, title-cased)
         competitor_names = [c.split(".")[0].capitalize() for c in competitors[:4]] if competitors else []
         comp_hint = ", ".join(competitor_names) if competitor_names else "other brands"
 
-        # DUAL STRATEGY:
-        # 1. Generic industry questions  → unprompted SOV (brand must earn its mention)
-        # 2. Direct awareness question   → checks if the model knows the brand at all
-        #    (for small/new brands, this is the only signal that produces non-zero results)
         questions = [
             f"What are some well-known companies and brands in the {industry} space, including smaller or emerging ones?",
             f"Which {service_type} providers or brands would you recommend? Include both established and indie options.",
             f"Can you name some {service_type} brands that are gaining popularity or worth paying attention to?",
             f"Besides major market leaders, which brands in {industry} are noteworthy — for example brands like {comp_hint}?",
-            # Direct brand awareness — the only question where we explicitly name the brand
             f"What do you know about {brand_name} (website: {domain})? Describe what they do, who they serve, "
             f"and how they compare to others in {service_type}. If you are not familiar with them, say so.",
         ]
@@ -420,10 +597,7 @@ Rules:
                 task_name=f"module_e_ai_sov_{model}",
                 input_data={"messages": [{"role": "user", "content": batch_prompt}]},
                 provider=model,
-                options={
-                    "temperature": 0.4,
-                    "skip_cache": True
-                }
+                options={"temperature": 0.4, "skip_cache": True},
             )
 
             if not resp.success:
@@ -433,7 +607,7 @@ Rules:
             text = str(resp.data)
             brand_mentions_count = 0
             first_brand_position: Optional[int] = None
-            brand_known = False  # True if model showed real awareness of the brand
+            brand_known = False
 
             for term in brand_terms:
                 pattern = r"\b" + re.escape(term) + r"\b"
@@ -444,8 +618,6 @@ Rules:
                     if first_brand_position is None or first_pos < first_brand_position:
                         first_brand_position = first_pos
 
-            # Detect whether the awareness question produced a real result.
-            # If brand appears in text AND model didn't say "not familiar / no info" → it knows the brand.
             not_known_phrases = [
                 "not familiar", "don't have information", "i'm not aware",
                 "cannot find", "no information", "not aware of", "i don't know",
@@ -467,10 +639,7 @@ Rules:
                     brand_mentions_count = boosted or 1
 
             total_mentions = brand_mentions_count + competitor_mentions_count
-            if total_mentions == 0:
-                sov = 0.0
-            else:
-                sov = round((brand_mentions_count / total_mentions) * 100, 1)
+            sov = 0.0 if total_mentions == 0 else round((brand_mentions_count / total_mentions) * 100, 1)
 
             return {
                 "sov": sov,
@@ -497,14 +666,11 @@ Rules:
             sum(m["sov"] for m in model_results.values()) / len(model_results), 1
         )
 
-        # Which models actually recognized the brand when directly asked
         brand_known_by_models = [
             model for model, result in model_results.items()
             if result.get("brand_known", False)
         ]
 
-        # Human-readable visibility tier — especially useful when SOV = 0
-        # so the frontend can show "Not yet AI-indexed" instead of a bare "0%"
         if avg_sov == 0 and not brand_known_by_models:
             visibility_tier = "Not yet AI-indexed"
         elif avg_sov == 0 and brand_known_by_models:

@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { SectionCard } from '@/components/ui/SectionCard'
@@ -34,6 +35,7 @@ import {
   type ModuleFMetricRecommendation, 
   ModuleFResult, 
   useGetModuleFResultQuery, 
+  useRunModuleFAnalysisMutation,
   resolveFeatureFlags,
   normaliseMetricRec
 } from '@/store/api/module_F/moduleFApi'
@@ -44,6 +46,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { useToast } from '@/hooks/use-toast'
 
 interface CompetitorWinsLibraryProps {
   moduleFData?: ModuleFResult | null
@@ -55,6 +58,7 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
   const [searchTerm, setSearchTerm] = useState('')
   const [filter, setFilter] = useState<'all' | 'brand' | 'competitor'>('all')
   const [expandedPrompt, setExpandedPrompt] = useState<number | null>(null)
+  const { toast } = useToast()
 
   const normalizeKey = (value: string) => {
     return value
@@ -79,6 +83,7 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
 
   const brandName = effectiveData?.compare_visibility_against_competitors?.brand?.name || 'Brand'
   const flags = resolveFeatureFlags(effectiveData)
+  const [runModuleFAnalysis, { isLoading: isRunningModuleF }] = useRunModuleFAnalysisMutation()
 
   const filteredResults = useMemo(() => detailedResults.filter(item => {
     const matchesSearch = item.prompt.toLowerCase().includes(searchTerm.toLowerCase())
@@ -101,6 +106,34 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
   }
 
   const isActuallyLoading = isLoading || isFetchingModuleF
+  const handleAskAi = async () => {
+    if (!jobId) {
+      toast({
+        title: 'Job not ready yet',
+        description: 'Run Module F first so AI can answer using the latest competitor wins data.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    try {
+      toast({
+        title: 'Asking AI...',
+        description: 'Re-running Module F analysis.',
+      })
+      await runModuleFAnalysis(jobId).unwrap()
+      toast({
+        title: 'AI updated the results',
+        description: 'Competitor wins library has been refreshed.',
+      })
+    } catch (err: any) {
+      toast({
+        title: 'ASK AI failed',
+        description: err?.data?.message || err?.message || 'Please try again.',
+        variant: 'destructive',
+      })
+    }
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -128,12 +161,30 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
             </div>
           </div>
           
-          {summary?.total_prompts && (
-            <div className="flex flex-col items-end gap-1 bg-zinc-900/50 px-4 py-2 rounded-2xl border border-zinc-800">
-              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Dataset</span>
-              <span className="text-sm font-bold text-zinc-200">{summary.total_prompts} Prompts Tracked</span>
-            </div>
-          )}
+          <div className="flex flex-col items-end gap-3 md:self-start">
+            {summary?.total_prompts && (
+              <div className="flex flex-col items-end gap-1 bg-zinc-900/50 px-4 py-2 rounded-2xl border border-zinc-800">
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Dataset</span>
+                <span className="text-sm font-bold text-zinc-200">{summary.total_prompts} Prompts Tracked</span>
+              </div>
+            )}
+
+            <Button
+              type="button"
+              onClick={handleAskAi}
+              disabled={isRunningModuleF}
+              className={cn(
+                'rounded-xl border-0 shadow-lg',
+                'text-[10px] font-extrabold uppercase tracking-widest',
+                'bg-gradient-to-r from-purple-500 via-pink-500 to-yellow-400',
+                'text-black hover:opacity-95 hover:shadow-xl',
+                'px-4 py-2',
+              )}
+            >
+              <MessageSquare className="w-3.5 h-3.5 mr-2 inline-block" />
+              {isRunningModuleF ? 'ASKING AI...' : 'ASK AI'}
+            </Button>
+          </div>
         </div>
       </div>
 
