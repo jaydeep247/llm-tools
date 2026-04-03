@@ -1,70 +1,51 @@
-"""Data models for SERP Analyzer results."""
+"""Pydantic models for SERP Analyzer — must match TypeScript interfaces in moduleAApi.ts."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
-from typing import Any, Dict, List, Optional
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 
-# ── SERP feature types returned by DataForSEO ─────────────────────────────
-
-SERP_FEATURE_TYPES = [
-    "featured_snippet",
-    "answer_box",
-    "people_also_ask",
-    "knowledge_graph",
-    "local_pack",
-    "image_carousel",
-    "video_carousel",
-    "news_box",
-    "top_stories",
-    "sitelinks",
-    "paid",
-    "shopping",
-    "twitter",
-    "find_results_on",
-]
+# ── Atomic SERP models ────────────────────────────────────────────────────
 
 
-@dataclass
-class OrganicResult:
+class OrganicResult(BaseModel):
     rank_absolute: int
-    rank_group: int
+    rank_group: int = 0
     url: str
     domain: str
     title: str
-    description: str
+    description: str = ""
     breadcrumb: str = ""
     is_featured_snippet: bool = False
 
 
-@dataclass
-class SerpFeature:
+class SerpFeature(BaseModel):
     type: str
     present: bool
-    position: Optional[int] = None
-    # Condensed payload for the most useful feature types
-    data: Optional[Dict[str, Any]] = None
+    position: int | None = None
+    data: dict[str, Any] | list | None = None
 
 
-@dataclass
-class PaaQuestion:
+class PaaQuestion(BaseModel):
     question: str
-    answer: Optional[str] = None
-    answer_url: Optional[str] = None
+    answer: str | None = None
+    answer_url: str | None = None
 
 
-@dataclass
-class AdResult:
+class AdResult(BaseModel):
     rank_absolute: int
     url: str
     domain: str
     title: str
-    description: str
+    description: str = ""
 
 
-@dataclass
-class KeywordSerpResult:
+# ── Per-keyword result ────────────────────────────────────────────────────
+
+
+class KeywordSerpResult(BaseModel):
     keyword: str
     location_code: int
     language_code: str
@@ -72,57 +53,71 @@ class KeywordSerpResult:
     timestamp: str
 
     # Target domain ranking
-    target_rank: Optional[int] = None        # absolute position (1-100)
-    target_rank_group: Optional[int] = None  # organic-only rank
-    target_url: Optional[str] = None
-    target_title: Optional[str] = None
-    target_description: Optional[str] = None
+    target_rank: int | None = None
+    target_rank_group: int | None = None
+    target_url: str | None = None
+    target_title: str | None = None
+    target_description: str | None = None
 
-    # Full first-page organic results (up to 10)
-    organic_results: List[OrganicResult] = field(default_factory=list)
+    organic_results: list[OrganicResult] = Field(default_factory=list)
+    features: dict[str, SerpFeature] = Field(default_factory=dict)
+    paa_questions: list[PaaQuestion] = Field(default_factory=list)
+    ad_results: list[AdResult] = Field(default_factory=list)
+    competitor_ranks: dict[str, int] = Field(default_factory=dict)
 
-    # Detected SERP features keyed by feature type
-    features: Dict[str, SerpFeature] = field(default_factory=dict)
-
-    # People Also Ask questions
-    paa_questions: List[PaaQuestion] = field(default_factory=list)
-
-    # Ad / paid results
-    ad_results: List[AdResult] = field(default_factory=list)
-
-    # Competitor domains → their absolute rank for this keyword
-    competitor_ranks: Dict[str, int] = field(default_factory=dict)
-
-    # Raw totals from DataForSEO
     total_count: int = 0
     items_count: int = 0
     se_results_count: int = 0
 
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+
+# ── Aggregate models ──────────────────────────────────────────────────────
 
 
-@dataclass
-class SerpAnalyzerResult:
-    """Aggregated result stored in MongoDB for one SERP Analyzer job."""
+class SerpAnalyzerSummary(BaseModel):
+    total_keywords: int
+    ranked_keywords: int
+    unranked_keywords: int
+    avg_rank: float | None = None
+    top3: int
+    top10: int
+    top20: int
+    top100: int
+    feature_frequency: dict[str, int] = Field(default_factory=dict)
 
-    job_id: str
-    session_id: str
-    url: str                 # target site URL / domain
-    target_domain: str       # normalised domain
-    keywords: List[str]
-    competitors: List[str]
+
+class SerpVolatility(BaseModel):
+    score: float
+    level: str  # 'stable' | 'medium' | 'high'
+    rank_std_dev: float
+
+
+class ContentGap(BaseModel):
+    keyword: str
+    target_rank: int | None = None
+    top_ranking_url: str = ""
+    top_ranking_domain: str = ""
+    has_featured_snippet: bool = False
+    has_paa: bool = False
+    paa_questions: list[str] = Field(default_factory=list)
+    opportunity_type: str  # 'not_ranking' | 'low_ranking'
+
+
+# ── Top-level result document ─────────────────────────────────────────────
+
+
+class SerpAnalyzerResult(BaseModel):
+    jobId: str
+    sessionId: str
+    url: str
+    target_domain: str
+    keywords: list[str]
+    competitors: list[str]
     location_code: int
     language_code: str
     device: str
     timestamp: str
-
-    keyword_results: List[KeywordSerpResult] = field(default_factory=list)
-
-    # Derived aggregate fields (computed by the runner)
-    summary: Dict[str, Any] = field(default_factory=dict)
-    volatility: Dict[str, Any] = field(default_factory=dict)
-    content_gaps: List[Dict[str, Any]] = field(default_factory=list)
-
-    def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+    keyword_results: list[KeywordSerpResult] = Field(default_factory=list)
+    summary: SerpAnalyzerSummary
+    volatility: SerpVolatility
+    content_gaps: list[ContentGap] = Field(default_factory=list)
+    updatedAt: str | None = None
