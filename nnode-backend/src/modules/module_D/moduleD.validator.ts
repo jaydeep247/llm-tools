@@ -1,10 +1,6 @@
 import { z } from 'zod';
 
-export const jobIdParamSchema = z.object({
-  jobId: z.string().uuid('Invalid job ID'),
-});
-
-export const moduleEAskAIBodySchema = z.object({
+export const moduleDAskAIBodySchema = z.object({
   project_id: z.string().min(1, 'project_id is required'),
   question: z.string().min(1, 'Question is required').max(8000),
   job_id: z.string().min(1).optional(),
@@ -19,6 +15,6 @@ export const moduleEAskAIBodySchema = z.object({
     .optional(),
 });
 
-export const moduleESuggestedQuestionsBodySchema = z.object({
+export const moduleDSuggestedQuestionsBodySchema = z.object({
   project_id: z.string().min(1, 'project_id is required'),
 });

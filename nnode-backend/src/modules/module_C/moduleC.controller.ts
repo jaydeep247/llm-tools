@@ -3,7 +3,14 @@ import { ResponseUtil } from '../../utils/response';
 import { ModuleCService } from './moduleC.service';
 import { JobService } from '../job/job.service';
 import { JobConflictError, JobType } from '../job/job.types';
-import { jobIdParamSchema, sessionParamSchema, runModuleCSchema, moduleCUrlQuerySchema } from './moduleC.validator';
+import {
+  jobIdParamSchema,
+  sessionParamSchema,
+  runModuleCSchema,
+  moduleCUrlQuerySchema,
+  moduleCAskAIBodySchema,
+  moduleCSuggestedQuestionsBodySchema,
+} from './moduleC.validator';
 import { logger } from '../../shared/logger/logger';
 
 export class ModuleCController {
@@ -222,6 +229,42 @@ export class ModuleCController {
     } catch (error: any) {
       logger.error('Error fetching AI Visibility Report:', error);
       return this.handleModuleError(res, error, 'AI Visibility Report');
+    }
+  };
+
+  askModuleCAI = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const body = moduleCAskAIBodySchema.parse(req.body);
+      const result = await this.moduleCService.askModuleCAI(userId, body);
+      return ResponseUtil.success(res, 'Module C Ask AI completed', result);
+    } catch (error: any) {
+      logger.error('Error in Module C Ask AI:', error);
+      if (error.message?.includes('not found') || error.message?.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      if (error.name === 'ZodError') {
+        return ResponseUtil.error(res, 'Validation failed', error.errors);
+      }
+      return ResponseUtil.serverError(res, 'Failed to run Module C Ask AI', error.message || undefined);
+    }
+  };
+
+  moduleCSuggestedQuestions = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const body = moduleCSuggestedQuestionsBodySchema.parse(req.body);
+      const result = await this.moduleCService.getSuggestedQuestions(userId, body);
+      return ResponseUtil.success(res, 'Module C suggested questions retrieved', result);
+    } catch (error: any) {
+      logger.error('Error in Module C suggested questions:', error);
+      if (error.message?.includes('not found') || error.message?.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      if (error.name === 'ZodError') {
+        return ResponseUtil.error(res, 'Validation failed', error.errors);
+      }
+      return ResponseUtil.serverError(res, 'Failed to fetch suggested questions', error.message || undefined);
     }
   };
 

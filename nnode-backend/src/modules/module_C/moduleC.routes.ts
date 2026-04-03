@@ -53,5 +53,7 @@ router.get('/module-c/jobs/:jobId/summary', moduleCController.getSummary);
 
 // AI Visibility Report — consultant-style insight report
 router.get('/module-c/jobs/:jobId/visibility-report', moduleCController.getVisibilityReport);
+router.post('/module-c/ask-ai', moduleCController.askModuleCAI);
+router.post('/module-c/ask-ai/suggested-questions', moduleCController.moduleCSuggestedQuestions);
 
 export default router;

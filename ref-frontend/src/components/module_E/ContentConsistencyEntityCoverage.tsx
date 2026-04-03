@@ -1,13 +1,20 @@
 'use client'
 
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef, type FormEvent } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Loader2, Gauge, Layers, RefreshCw } from 'lucide-react'
+import { Loader2, Gauge, Layers, RefreshCw, MessageSquare } from 'lucide-react'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
-import { useGetModuleEResultQuery, useRunConsistencyAnalysisMutation } from '@/store/api/module_E/moduleEApi'
+import {
+  useGetModuleEResultQuery,
+  useRunConsistencyAnalysisMutation,
+  useAskModuleEAIMutation,
+  useGetModuleESuggestedQuestionsMutation,
+} from '@/store/api/module_E/moduleEApi'
 import { FieldTooltip } from '@/components/module_A/FieldTooltip'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { ModuleEAskAiChatShell, type ModuleEAskAiChatTurn } from '@/components/module_E/ModuleEAskAiChatShell'
 
 const MODEL_PERF_FIELD_DESCRIPTIONS: Record<string, string> = {
   Model: 'Which AI model was tested (ChatGPT, Gemini, etc.).',
@@ -21,6 +28,11 @@ const CONSISTENCY_COVERAGE_SECTION_DESCRIPTION =
 
 interface ContentConsistencyEntityCoverageProps {
   jobId?: string | null
+  projectId?: string | null
+}
+
+function chatMessageId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
 function ChatGPTLogo(props: any) {
@@ -95,13 +107,20 @@ function GeminiLogo(props: any) {
   )
 }
 
-export default function ContentConsistencyEntityCoverage({ jobId }: ContentConsistencyEntityCoverageProps) {
+export default function ContentConsistencyEntityCoverage({ jobId, projectId }: ContentConsistencyEntityCoverageProps) {
   const [showAllMissing, setShowAllMissing] = useState(false)
   const { data, isLoading, error, refetch } = useGetModuleEResultQuery(jobId || '', {
     skip: !jobId,
   })
   
   const [runConsistencyAnalysis, { isLoading: isAnalyzing }] = useRunConsistencyAnalysisMutation()
+  const [askModuleEAI, { isLoading: isAskingAI, error: askAIError, reset: resetAskAI }] = useAskModuleEAIMutation()
+  const [getSuggestedQuestions] = useGetModuleESuggestedQuestionsMutation()
+  const [askDialogOpen, setAskDialogOpen] = useState(false)
+  const [chatInput, setChatInput] = useState('')
+  const [chatMessages, setChatMessages] = useState<ModuleEAskAiChatTurn[]>([])
+  const [suggestions, setSuggestions] = useState<string[]>([])
+  const chatScrollRef = useRef<HTMLDivElement>(null)
   const [isPolling, setIsPolling] = useState(false)
 
   // Poll for results when analysis is running or just finished
@@ -121,6 +140,57 @@ export default function ContentConsistencyEntityCoverage({ jobId }: ContentConsi
     }
     return () => clearInterval(interval)
   }, [isPolling, refetch])
+
+  useEffect(() => {
+    if (!askDialogOpen || !chatScrollRef.current) return
+    chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight
+  }, [askDialogOpen, chatMessages, isAskingAI])
+
+  const openAskAiDialog = async () => {
+    if (!projectId) return
+    resetAskAI()
+    setChatMessages([])
+    setChatInput('')
+    setAskDialogOpen(true)
+    try {
+      const res = await getSuggestedQuestions({ project_id: projectId }).unwrap() as {
+        data?: { questions?: string[] }
+        questions?: string[]
+      }
+      const qs = res?.data?.questions ?? res?.questions
+      setSuggestions(Array.isArray(qs) ? qs.filter(Boolean).slice(0, 12) : [])
+    } catch {
+      setSuggestions([])
+    }
+  }
+
+  const submitAskAi = async (e?: FormEvent) => {
+    e?.preventDefault()
+    if (!projectId || !chatInput.trim() || isAskingAI) return
+
+    const question = chatInput.trim()
+    setChatInput('')
+    const priorHistory = chatMessages.slice(-6).map((m) => ({ role: m.role, content: m.content }))
+    const userTurn: ModuleEAskAiChatTurn = { id: chatMessageId(), role: 'user', content: question }
+    setChatMessages((prev) => [...prev, userTurn])
+
+    try {
+      const res = await askModuleEAI({
+        project_id: projectId,
+        job_id: jobId || undefined,
+        question,
+        conversation_history: priorHistory.length ? priorHistory : undefined,
+      }).unwrap()
+
+      const text = res?.answer?.trim() || res?.data?.answer?.trim() || ''
+      const sources = res?.sources || res?.data?.sources
+      if (!text) return
+      setChatMessages((prev) => [...prev, { id: chatMessageId(), role: 'assistant', content: text, sources }])
+    } catch {
+      setChatMessages((prev) => prev.filter((m) => m.id !== userTurn.id))
+      setChatInput(question)
+    }
+  }
 
   const handleRunAnalysis = async () => {
     if (jobId) {
@@ -194,6 +264,38 @@ export default function ContentConsistencyEntityCoverage({ jobId }: ContentConsi
 
   return (
     <div className="space-y-6">
+      <Dialog
+        open={askDialogOpen}
+        onOpenChange={(open) => {
+          setAskDialogOpen(open)
+          if (!open) {
+            resetAskAI()
+            setChatMessages([])
+            setChatInput('')
+          }
+        }}
+      >
+        <DialogContent
+          className={cn(
+            'w-[calc(100vw-1rem)] max-h-[95vh] gap-0 overflow-visible border-0 bg-transparent p-0 pt-10 shadow-none sm:max-w-3xl lg:max-w-5xl',
+            'data-[state=open]:zoom-in-[0.98]',
+          )}
+          showCloseButton
+        >
+          <ModuleEAskAiChatShell
+            chatScrollRef={chatScrollRef}
+            chatMessages={chatMessages}
+            chatInput={chatInput}
+            setChatInput={setChatInput}
+            isAskingAI={isAskingAI}
+            askAIError={askAIError}
+            onSubmit={submitAskAi}
+            onSuggestionClick={(text) => setChatInput(text)}
+            suggestions={suggestions}
+          />
+        </DialogContent>
+      </Dialog>
+
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-zinc-800/50 border border-zinc-800">
@@ -206,7 +308,20 @@ export default function ContentConsistencyEntityCoverage({ jobId }: ContentConsi
             </div>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            onClick={openAskAiDialog}
+            disabled={!projectId || isAskingAI}
+            size="sm"
+            className={cn(
+              'rounded-full border-0 font-extrabold uppercase tracking-wider text-black shadow-lg shadow-fuchsia-950/30',
+              'bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300 hover:opacity-95',
+            )}
+          >
+            <MessageSquare className="mr-2 h-4 w-4 shrink-0" strokeWidth={2.25} />
+            Ask AI
+          </Button>
           <Button onClick={handleRunAnalysis} size="sm" variant="default" disabled={!jobId || isProcessing || isLoading}>
             {isProcessing ? (
               <>

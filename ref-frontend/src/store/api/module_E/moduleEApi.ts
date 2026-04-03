@@ -235,6 +235,33 @@ export interface ModuleEResultResponse {
   error?: string
 }
 
+export interface ModuleEAskAIRequestBody {
+  project_id: string
+  question: string
+  job_id?: string
+  conversation_history?: Array<{ role: 'user' | 'assistant'; content: string }>
+}
+
+export interface ModuleEAskAIResult {
+  answer: string
+  question_type?: string
+  sources?: string[]
+  data_available?: boolean
+  context_snapshot?: Record<string, unknown>
+}
+
+export interface ModuleEAskAIResponse {
+  answer?: string
+  question_type?: string
+  sources?: string[]
+  data_available?: boolean
+  context_snapshot?: Record<string, unknown>
+  data?: ModuleEAskAIResult | null
+  success?: boolean
+  message?: string
+  error?: string
+}
+
 export const moduleEApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getModuleEResult: builder.query<ModuleEResultResponse, string>({
@@ -290,6 +317,20 @@ export const moduleEApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: (_result, _error, jobId) => [{ type: 'ModuleE' as const, id: jobId }],
     }),
+    askModuleEAI: builder.mutation<ModuleEAskAIResponse, ModuleEAskAIRequestBody>({
+      query: (body) => ({
+        url: '/module-e/ask-ai',
+        method: 'POST',
+        body,
+      }),
+    }),
+    getModuleESuggestedQuestions: builder.mutation<{ questions?: string[] }, { project_id: string }>({
+      query: (body) => ({
+        url: '/module-e/ask-ai/suggested-questions',
+        method: 'POST',
+        body,
+      }),
+    }),
   }),
 })
 
@@ -302,4 +343,6 @@ export const {
   useRunCompetitorAnalysisMutation,
   useRunAiSovAnalysisMutation,
   useRunRankingAnalysisMutation,
+  useAskModuleEAIMutation,
+  useGetModuleESuggestedQuestionsMutation,
 } = moduleEApi
