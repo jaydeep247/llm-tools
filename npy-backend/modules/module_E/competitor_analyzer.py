@@ -306,16 +306,20 @@ Return ONLY valid JSON (no markdown, no explanation):
         brand_description: Optional[str] = None,
     ) -> List[str]:
         """
-        Post-filter: ensures we return true direct competitors in the same
-        business model and space. Uses brand description when available.
+        Post-filter: removes candidates that don't match the brand's business model.
+        STRICT RULE: only returns domains from the candidates list — never invents new ones.
+        Uses brand description to correctly identify business model.
         """
+        if not candidates:
+            return []
+
         description_section = (
             f"\nBrand Description: \"{brand_description}\"\n"
             if brand_description
             else ""
         )
 
-        prompt = f"""You are a market research analyst.
+        prompt = f"""You are a market research analyst doing a strict YES/NO filter.
 
 Target brand:
 - domain: {domain}
@@ -323,37 +327,31 @@ Target brand:
 - inferred industry: {industry}
 - inferred service: {service_type}{description_section}
 
-First determine the target business model/category:
-- service agency / consultancy
-- product / ecommerce brand
-- SaaS / platform
-- local business
-- marketplace
-- content/media brand
-- other
+Your ONLY job is to decide which of the candidate domains below are TRUE direct competitors
+of the target brand — same business model, same customer base.
 
-Now choose which of the following candidate domains are TRUE direct competitors
-in the SAME business model/category as the target.
+STRICT RULES:
+- You may ONLY return domains from the candidates list below. NEVER add new domains.
+- If the target is a service agency: keep ONLY other service agencies. Reject SEO tools (moz, semrush, ahrefs, etc).
+- If the target is a SaaS/platform: keep ONLY other SaaS platforms. Reject agencies.
+- If the target is ecommerce: keep ONLY other ecommerce brands. Reject agencies and tools.
+- If NO candidates are real competitors, return an empty array [].
+- Do NOT hallucinate or add domains not in the list.
 
-Rules (must follow):
-- Remove directories, tools, generic SEO utilities, social media, and "aggregation" sites.
-- Do NOT return marketing agencies if the target is a product/ecommerce or SaaS brand.
-- Do NOT return ecommerce stores if the target is a service agency/consultancy.
-- Keep only real companies (domains), no explanations.
-- If a brand description is provided, use it to understand what the company ACTUALLY does.
-
-Candidates:
+Candidates to evaluate (ONLY these, nothing else):
 {json.dumps(candidates)}
 
-Return ONLY a valid JSON array of kept primary domains (no www, no https),
-preserve order, and return at most 5."""
+Return ONLY a valid JSON array of kept domains from the list above (subset or empty):
+["domain1.com", "domain2.com"]
+
+No explanations. Only domains from the candidates list above."""
 
         try:
             resp = await execute_task(
                 task_name="module_e_ai_competitor_filter",
                 input_data={"messages": [{"role": "user", "content": prompt}]},
                 provider="claude",
-                options={"temperature": 0.2},
+                options={"temperature": 0.1},  # Low temp for strict filtering
             )
 
             if not resp.success or not resp.data:
@@ -368,6 +366,12 @@ preserve order, and return at most 5."""
                 return []
             domains = json.loads(match.group(0))
 
+            # Normalise candidates for strict membership check
+            candidate_set = set()
+            for c in candidates:
+                c_norm = c.strip().lower().replace("www.", "").rstrip("/")
+                candidate_set.add(c_norm)
+
             cleaned: List[str] = []
             seen: set = set()
             for d in domains:
@@ -378,6 +382,10 @@ preserve order, and return at most 5."""
                 if not d or '.' not in d:
                     continue
                 if d in seen:
+                    continue
+                # STRICT: only keep if it was in the original candidate list
+                if d not in candidate_set:
+                    logger.debug(f"Filter rejected invented domain '{d}' — not in candidates")
                     continue
                 seen.add(d)
                 cleaned.append(d)

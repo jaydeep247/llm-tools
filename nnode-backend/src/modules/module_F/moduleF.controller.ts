@@ -3,7 +3,7 @@ import { ResponseUtil } from '../../utils/response';
 import { ModuleFService } from './moduleF.service';
 import { JobService } from '../job/job.service';
 import { JobType } from '../job/job.types';
-import { jobIdParamSchema } from './moduleF.validator';
+import { jobIdParamSchema, moduleFAskAIBodySchema } from './moduleF.validator';
 import { logger } from '../../shared/logger/logger';
 
 export class ModuleFController {
@@ -91,6 +91,34 @@ export class ModuleFController {
         return ResponseUtil.error(res, 'Validation failed', error.errors);
       }
       return ResponseUtil.serverError(res, 'Failed to start Module F competitor AI intelligence');
+    }
+  };
+
+  askModuleFAI = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { jobId } = jobIdParamSchema.parse(req.params);
+      const body = moduleFAskAIBodySchema.parse(req.body);
+
+      const result = await this.moduleFService.askModuleFAI(jobId, userId, {
+        question: body.question,
+        conversationHistory: body.conversationHistory,
+      });
+
+      return ResponseUtil.success(res, 'Module F Ask AI completed', result);
+    } catch (error: any) {
+      logger.error('Error in Module F Ask AI:', error);
+      if (error.message?.includes('not found') || error.message?.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      if (error.name === 'ZodError') {
+        return ResponseUtil.error(res, 'Validation failed', error.errors);
+      }
+      return ResponseUtil.serverError(
+        res,
+        'Failed to run Ask AI',
+        error.message || undefined,
+      );
     }
   };
 }

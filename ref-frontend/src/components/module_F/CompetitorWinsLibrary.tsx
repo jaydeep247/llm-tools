@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect, type FormEvent } from 'react'
 import { 
   Trophy, 
   Target, 
@@ -35,7 +35,7 @@ import {
   type ModuleFMetricRecommendation, 
   ModuleFResult, 
   useGetModuleFResultQuery, 
-  useRunModuleFAnalysisMutation,
+  useAskModuleFAIMutation,
   resolveFeatureFlags,
   normaliseMetricRec
 } from '@/store/api/module_F/moduleFApi'
@@ -47,11 +47,24 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { useToast } from '@/hooks/use-toast'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { ModuleFAskAiChatShell } from '@/components/module_F/ModuleFAskAiChatShell'
 
 interface CompetitorWinsLibraryProps {
   moduleFData?: ModuleFResult | null
   isLoading: boolean
   jobId?: string | null
+}
+
+type ChatTurn = {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  sources?: string[]
+}
+
+function chatMessageId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
 export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }: CompetitorWinsLibraryProps) {
@@ -83,7 +96,19 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
 
   const brandName = effectiveData?.compare_visibility_against_competitors?.brand?.name || 'Brand'
   const flags = resolveFeatureFlags(effectiveData)
-  const [runModuleFAnalysis, { isLoading: isRunningModuleF }] = useRunModuleFAnalysisMutation()
+  const [askModuleFAI, { isLoading: isAskingAI, error: askAIError, reset: resetAskAI }] =
+    useAskModuleFAIMutation()
+
+  const [askDialogOpen, setAskDialogOpen] = useState(false)
+  const [chatInput, setChatInput] = useState('')
+  const [chatMessages, setChatMessages] = useState<ChatTurn[]>([])
+  const chatScrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!askDialogOpen || !chatScrollRef.current) return
+    const el = chatScrollRef.current
+    el.scrollTop = el.scrollHeight
+  }, [askDialogOpen, chatMessages, isAskingAI])
 
   const filteredResults = useMemo(() => detailedResults.filter(item => {
     const matchesSearch = item.prompt.toLowerCase().includes(searchTerm.toLowerCase())
@@ -106,37 +131,105 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
   }
 
   const isActuallyLoading = isLoading || isFetchingModuleF
-  const handleAskAi = async () => {
+
+  const openAskAiDialog = () => {
     if (!jobId) {
       toast({
         title: 'Job not ready yet',
-        description: 'Run Module F first so AI can answer using the latest competitor wins data.',
+        description: 'Run Module F first so Ask AI can use your stored analysis.',
         variant: 'destructive',
       })
       return
     }
+    resetAskAI()
+    setChatMessages([])
+    setChatInput('')
+    setAskDialogOpen(true)
+  }
+
+  const submitAskAi = async (e?: FormEvent) => {
+    e?.preventDefault()
+    if (!jobId || !chatInput.trim() || isAskingAI) return
+    const question = chatInput.trim()
+    setChatInput('')
+
+    const priorHistory = chatMessages.slice(-6).map((m) => ({
+      role: m.role,
+      content: m.content,
+    }))
+
+    const userTurn: ChatTurn = { id: chatMessageId(), role: 'user', content: question }
+    setChatMessages((prev) => [...prev, userTurn])
 
     try {
+      const res = await askModuleFAI({
+        jobId,
+        body: { question, conversationHistory: priorHistory.length ? priorHistory : undefined },
+      }).unwrap()
+      const text = res?.data?.answer?.trim() ?? ''
+      const sources = res?.data?.sources
+      if (!text) {
+        toast({
+          title: 'Empty response',
+          description: 'The model returned no text. Try again or shorten your question.',
+          variant: 'destructive',
+        })
+        return
+      }
+      setChatMessages((prev) => [
+        ...prev,
+        { id: chatMessageId(), role: 'assistant', content: text, sources },
+      ])
+    } catch (err: unknown) {
+      const msg =
+        (err as { data?: { message?: string; error?: string } })?.data?.message ||
+        (err as { data?: { error?: string } })?.data?.error ||
+        (err as Error)?.message ||
+        'Please try again.'
       toast({
-        title: 'Asking AI...',
-        description: 'Re-running Module F analysis.',
-      })
-      await runModuleFAnalysis(jobId).unwrap()
-      toast({
-        title: 'AI updated the results',
-        description: 'Competitor wins library has been refreshed.',
-      })
-    } catch (err: any) {
-      toast({
-        title: 'ASK AI failed',
-        description: err?.data?.message || err?.message || 'Please try again.',
+        title: 'Ask AI failed',
+        description: msg,
         variant: 'destructive',
       })
+      setChatMessages((prev) => prev.filter((m) => m.id !== userTurn.id))
+      setChatInput(question)
     }
   }
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <Dialog
+        open={askDialogOpen}
+        onOpenChange={(open) => {
+          setAskDialogOpen(open)
+          if (!open) {
+            resetAskAI()
+            setChatMessages([])
+            setChatInput('')
+          }
+        }}
+      >
+        <DialogContent
+          className={cn(
+            'w-[calc(100vw-1rem)] max-h-[95vh] gap-0 overflow-visible border-0 bg-transparent p-0 pt-10 shadow-none sm:max-w-3xl lg:max-w-5xl',
+            'data-[state=open]:zoom-in-[0.98]',
+          )}
+          showCloseButton
+        >
+          <ModuleFAskAiChatShell
+            brandName={brandName}
+            chatScrollRef={chatScrollRef}
+            chatMessages={chatMessages}
+            chatInput={chatInput}
+            setChatInput={setChatInput}
+            isAskingAI={isAskingAI}
+            askAIError={askAIError}
+            onSubmit={submitAskAi}
+            onSuggestionClick={(text) => setChatInput(text)}
+          />
+        </DialogContent>
+      </Dialog>
+
       {/* Premium Header */}
       <div className="rounded-3xl border border-zinc-800 bg-[#111113] p-6 sm:p-8 relative overflow-hidden group">
         <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-500/5 blur-[100px] -mr-32 -mt-32" />
@@ -171,18 +264,19 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
 
             <Button
               type="button"
-              onClick={handleAskAi}
-              disabled={isRunningModuleF}
+              onClick={openAskAiDialog}
+              disabled={isAskingAI}
               className={cn(
-                'rounded-xl border-0 shadow-lg',
-                'text-[10px] font-extrabold uppercase tracking-widest',
-                'bg-gradient-to-r from-purple-500 via-pink-500 to-yellow-400',
+                'rounded-full border-0 shadow-lg shadow-fuchsia-950/30',
+                'text-sm font-extrabold uppercase tracking-wider sm:text-base',
+                'bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300',
                 'text-black hover:opacity-95 hover:shadow-xl',
-                'px-4 py-2',
+                'h-auto min-h-[48px] px-6 py-3 sm:min-h-[52px] sm:px-8 sm:py-3.5',
+                'gap-2.5',
               )}
             >
-              <MessageSquare className="w-3.5 h-3.5 mr-2 inline-block" />
-              {isRunningModuleF ? 'ASKING AI...' : 'ASK AI'}
+              <MessageSquare className="size-5 shrink-0 sm:size-6" strokeWidth={2.25} aria-hidden />
+              ASK AI
             </Button>
           </div>
         </div>

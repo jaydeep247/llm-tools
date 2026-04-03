@@ -10,6 +10,7 @@ router.use(authMiddleware);
 router.get('/module-f/jobs/:jobId', moduleFController.getModuleFResult);
 router.get('/module-f/jobs/:jobId/trends', moduleFController.getModuleFTrends);
 router.post('/module-f/jobs/:jobId/run', moduleFController.runCompetitorAiIntelligence);
+router.post('/module-f/jobs/:jobId/ask-ai', moduleFController.askModuleFAI);
 
 export default router;
 

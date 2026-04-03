@@ -190,3 +190,13 @@ export interface ModuleFTrends {
   };
 }
 
+/** Response from Python Ask AI (module_f_ask_ai.ask_module_f_ai) */
+export interface ModuleFAskAIResult {
+  answer: string;
+  question_type?: string;
+  sources?: string[];
+  recommendation_ids?: string[];
+  data_available?: boolean;
+  context_snapshot?: Record<string, unknown>;
+}
+

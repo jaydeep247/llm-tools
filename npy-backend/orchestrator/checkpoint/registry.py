@@ -75,6 +75,7 @@ class TaskRegistry:
         "module_f_win_check_openai": ["openai"],
         "module_f_win_check_gemini": ["gemini"],
         "module_f_win_check_claude": ["claude"],
+        "module_f_ask_ai": ["claude"],
 
         # Module A – Performance Metrics (SERP intent word count)
         "serp_organic": ["dataforseo"],
