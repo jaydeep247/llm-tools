@@ -1301,6 +1301,7 @@ export default function SessionDetailPage() {
             url={session?.startUrl || ''}
             sessionId={sessionId}
             jobId={jobId}
+            projectId={projectId}
           />
         )}
 
@@ -1337,7 +1338,7 @@ export default function SessionDetailPage() {
             </div>
 
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
-              <ContentConsistencyEntityCoverage jobId={jobId} />
+              <ContentConsistencyEntityCoverage jobId={jobId} projectId={projectId} />
             </div>
 
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
@@ -1420,7 +1421,7 @@ export default function SessionDetailPage() {
 
         {activeSection === 'keyword-intelligence' && (
           <div className="space-y-6">
-            <ContentConsistencyEntityCoverage jobId={jobId} />
+            <ContentConsistencyEntityCoverage jobId={jobId} projectId={projectId} />
             <PromptTrackingRecommendations jobId={jobId} section="tracked_prompts_recommendations" />
           </div>
         )}
@@ -1447,6 +1448,7 @@ export default function SessionDetailPage() {
           <ContentMetricsModule
             url={session?.startUrl || ''}
             sessionId={sessionId}
+            projectId={projectId}
           />
         )}
 
@@ -1454,6 +1456,7 @@ export default function SessionDetailPage() {
           <ContentMetricsModule
             url={session?.startUrl || ''}
             sessionId={sessionId}
+            projectId={projectId}
             section="content-analysis"
           />
         )}
@@ -1462,6 +1465,7 @@ export default function SessionDetailPage() {
           <ContentMetricsModule
             url={session?.startUrl || ''}
             sessionId={sessionId}
+            projectId={projectId}
             section="intent-clusters"
           />
         )}
@@ -1470,6 +1474,7 @@ export default function SessionDetailPage() {
           <ContentMetricsModule
             url={session?.startUrl || ''}
             sessionId={sessionId}
+            projectId={projectId}
             section="entity-detection"
           />
         )}
@@ -1478,6 +1483,7 @@ export default function SessionDetailPage() {
           <ContentMetricsModule
             url={session?.startUrl || ''}
             sessionId={sessionId}
+            projectId={projectId}
             section="recommendations"
           />
         )}

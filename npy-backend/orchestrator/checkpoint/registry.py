@@ -24,6 +24,8 @@ class TaskRegistry:
         "aeo_content_understanding": ["openai", "gemini", "claude"],
         "aeo_simulate_answer_generation": ["openai", "gemini", "claude"],
         "aeo_evaluate_answer_quality": ["openai", "gemini", "claude"],
+        "module_c_ask_ai": ["claude"],
+        "module_e_ask_ai": ["claude"],
 
         # # Module E Tasks
         "module_e_content_mandate": ["openai", "gemini", "claude"],
@@ -57,7 +59,8 @@ class TaskRegistry:
         "module_e_competitor_discovery": ["dataforseo"],
         "module_e_competitor_mentions_trend": ["dataforseo"],
         # New tasks added by rewritten competitor_analyzer.py
-        "module_e_ai_competitor_discovery": ["openai"],
+        "module_e_ai_competitor_discovery": ["openai", "gemini", "claude"],
+        "module_e_ai_competitor_filter": ["openai", "gemini", "claude"],
         "module_e_mentions_trend": ["dataforseo"],
         "module_e_ai_sov_openai": ["openai"],
         "module_e_ai_sov_gemini": ["gemini"],
@@ -74,6 +77,8 @@ class TaskRegistry:
         "module_f_win_check_openai": ["openai"],
         "module_f_win_check_gemini": ["gemini"],
         "module_f_win_check_claude": ["claude"],
+        "module_f_ask_ai": ["claude"],
+        "module_d_ask_ai": ["claude"],
 
         # Module A – Performance Metrics (SERP intent word count)
         "serp_organic": ["dataforseo"],

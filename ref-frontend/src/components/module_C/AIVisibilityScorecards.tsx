@@ -1,11 +1,11 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useRef, useState, useEffect, type FormEvent } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { 
   Loader2, Brain, MessageCircle, Database, Cpu, Lightbulb,
   CheckCircle, AlertCircle, Shield, Globe, BookOpen,
-  BarChart3, Zap, FileText, Eye, Activity
+  BarChart3, Zap, FileText, Eye, Activity, MessageSquare
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -16,14 +16,19 @@ import { cn } from '@/lib/utils'
 import { FieldTooltip } from '@/components/module_A/FieldTooltip'
 import { 
   useGetModuleCResultQuery,
+  useAskModuleCAIMutation,
+  useGetModuleCSuggestedQuestionsMutation,
 } from '@/store/api/module_C/moduleCApi'
 import { useModuleCAnalysis } from '@/hooks/useModuleCAnalysis'
 import ModuleCProgressLoader from './ModuleCProgressLoader'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { ModuleCAskAiChatShell, type ModuleCAskAiChatTurn } from './ModuleCAskAiChatShell'
 
 interface AIVisibilityScorecardsProps {
   url: string
   sessionId?: string | number
   jobId?: string | null
+  projectId?: string | null
 }
 
 // ── Tooltip descriptions ────────────────────────────────────────────────────
@@ -139,7 +144,11 @@ function MetricCard({ label, value, sublabel, tooltip, icon, accent = 'blue', la
   )
 }
 
-export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisibilityScorecardsProps) {
+function chatMessageId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+export default function AIVisibilityScorecards({ url, sessionId, jobId, projectId }: AIVisibilityScorecardsProps) {
   const { data: moduleCData, isLoading: isLoadingData, refetch: refetchData } = useGetModuleCResultQuery({ jobId: jobId || '', url }, { 
     skip: !jobId, refetchOnMountOrArgChange: true, refetchOnFocus: true, refetchOnReconnect: true,
   })
@@ -148,6 +157,13 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisi
     url,
     onCompleted: refetchData,
   })
+  const [askModuleCAI, { isLoading: isAskingAI, error: askAIError, reset: resetAskAI }] = useAskModuleCAIMutation()
+  const [getSuggestedQuestions] = useGetModuleCSuggestedQuestionsMutation()
+  const [askDialogOpen, setAskDialogOpen] = useState(false)
+  const [chatInput, setChatInput] = useState('')
+  const [chatMessages, setChatMessages] = useState<ModuleCAskAiChatTurn[]>([])
+  const [suggestions, setSuggestions] = useState<string[]>([])
+  const chatScrollRef = useRef<HTMLDivElement>(null)
 
   const handleRunAnalysis = async () => {
     try {
@@ -193,14 +209,107 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId }: AIVisi
     { name: 'Consistency', value: Math.round(consistencyScore), fill: '#f59e0b' },
   ], [llmScore, entityPct, completenessScore, consistencyScore])
 
+  useEffect(() => {
+    if (!askDialogOpen || !chatScrollRef.current) return
+    const el = chatScrollRef.current
+    el.scrollTop = el.scrollHeight
+  }, [askDialogOpen, chatMessages, isAskingAI])
+
+  const openAskAiDialog = async () => {
+    if (!projectId) return
+    resetAskAI()
+    setChatMessages([])
+    setChatInput('')
+    setAskDialogOpen(true)
+    try {
+      const res = await getSuggestedQuestions({ project_id: projectId }).unwrap()
+      setSuggestions(Array.isArray(res?.questions) ? res.questions.filter(Boolean).slice(0, 12) : [])
+    } catch {
+      setSuggestions([])
+    }
+  }
+
+  const submitAskAi = async (e?: FormEvent) => {
+    e?.preventDefault()
+    if (!projectId || !chatInput.trim() || isAskingAI) return
+
+    const question = chatInput.trim()
+    setChatInput('')
+    const priorHistory = chatMessages.slice(-6).map((m) => ({ role: m.role, content: m.content }))
+    const userTurn: ModuleCAskAiChatTurn = { id: chatMessageId(), role: 'user', content: question }
+    setChatMessages((prev) => [...prev, userTurn])
+
+    try {
+      const res = await askModuleCAI({
+        project_id: projectId,
+        job_id: jobId || undefined,
+        question,
+        conversation_history: priorHistory.length ? priorHistory : undefined,
+      }).unwrap()
+
+      const text = res?.answer?.trim() || res?.data?.answer?.trim() || ''
+      const sources = res?.sources || res?.data?.sources
+      if (!text) return
+      setChatMessages((prev) => [...prev, { id: chatMessageId(), role: 'assistant', content: text, sources }])
+    } catch {
+      setChatMessages((prev) => prev.filter((m) => m.id !== userTurn.id))
+      setChatInput(question)
+    }
+  }
+
   return (
     <div className="space-y-6">
+      <Dialog
+        open={askDialogOpen}
+        onOpenChange={(open) => {
+          setAskDialogOpen(open)
+          if (!open) {
+            resetAskAI()
+            setChatMessages([])
+            setChatInput('')
+          }
+        }}
+      >
+        <DialogContent
+          className={cn(
+            'w-[calc(100vw-1rem)] max-h-[95vh] gap-0 overflow-visible border-0 bg-transparent p-0 pt-10 shadow-none sm:max-w-3xl lg:max-w-5xl',
+            'data-[state=open]:zoom-in-[0.98]',
+          )}
+          showCloseButton
+        >
+          <ModuleCAskAiChatShell
+            chatScrollRef={chatScrollRef}
+            chatMessages={chatMessages}
+            chatInput={chatInput}
+            setChatInput={setChatInput}
+            isAskingAI={isAskingAI}
+            askAIError={askAIError}
+            onSubmit={submitAskAi}
+            onSuggestionClick={(text) => setChatInput(text)}
+            suggestions={suggestions}
+          />
+        </DialogContent>
+      </Dialog>
+
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold text-white">AI Visibility Scorecards</h2>
           <p className="text-sm text-zinc-400 mt-0.5">How well your page performs across all AI engine dimensions</p>
         </div>
+        <button
+          type="button"
+          onClick={openAskAiDialog}
+          disabled={!projectId || isAskingAI}
+          className={cn(
+            'inline-flex items-center gap-2 rounded-full border-0 px-5 py-2.5 text-sm font-extrabold uppercase tracking-wider text-black shadow-lg shadow-fuchsia-950/30',
+            'bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300 hover:opacity-95',
+            'disabled:cursor-not-allowed disabled:opacity-50',
+          )}
+        >
+          <MessageSquare className="size-4 shrink-0" />
+          Ask AI
+        </button>
       </div>
 
       {/* ── No Job Warning ───────────────────────────────────────────────────── */}

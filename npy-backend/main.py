@@ -10,10 +10,18 @@ def _start_http_server():
     from fastapi import FastAPI
     from modules.brand_onboarding.router import router as brand_onboarding_router
     from modules.module_A.content_audit.router import router as content_audit_router
+    from modules.module_C.router import router as module_c_router
+    from modules.module_D.router import router as module_d_router
+    from modules.module_E.router import router as module_e_router
+    from modules.module_F.router import router as module_f_router
 
     app = FastAPI(title="NPY Backend HTTP API", docs_url=None, redoc_url=None)
     app.include_router(brand_onboarding_router)
     app.include_router(content_audit_router)
+    app.include_router(module_c_router)
+    app.include_router(module_d_router)
+    app.include_router(module_e_router)
+    app.include_router(module_f_router)
 
     port = int(os.getenv("NPY_HTTP_PORT", "8001"))
     uvicorn.run(app, host="0.0.0.0", port=port, log_level="warning")

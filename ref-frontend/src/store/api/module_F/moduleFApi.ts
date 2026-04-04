@@ -427,6 +427,27 @@ export interface ModuleFResultResponse {
   error?: string
 }
 
+export interface ModuleFAskAIResult {
+  answer: string
+  question_type?: string
+  sources?: string[]
+  recommendation_ids?: string[]
+  data_available?: boolean
+  context_snapshot?: Record<string, unknown>
+}
+
+export interface ModuleFAskAIResponse {
+  success: boolean
+  message: string
+  data?: ModuleFAskAIResult | null
+  error?: string
+}
+
+export interface ModuleFAskAIRequestBody {
+  question: string
+  conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // RTK Query endpoints
 // ─────────────────────────────────────────────────────────────────────────────
@@ -448,6 +469,16 @@ export const moduleFApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: (_result, _error, jobId) => [{ type: 'ModuleF' as const, id: jobId }],
     }),
+    askModuleFAI: builder.mutation<
+      ModuleFAskAIResponse,
+      { jobId: string; body: ModuleFAskAIRequestBody }
+    >({
+      query: ({ jobId, body }) => ({
+        url: `/module-f/jobs/${jobId}/ask-ai`,
+        method: 'POST',
+        body,
+      }),
+    }),
   }),
 })
 
@@ -455,6 +486,7 @@ export const {
   useGetModuleFResultQuery,
   useRunModuleFAnalysisMutation,
   useGetModuleFTrendsQuery,
+  useAskModuleFAIMutation,
 } = moduleFApi
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -11,6 +11,9 @@ router.use(authMiddleware);
 // GET results endpoints — canonical read paths for Module E data
 router.get('/module-e/jobs/:jobId', moduleEController.getModuleEResult);
 
+router.post('/module-e/ask-ai', moduleEController.askModuleEAI);
+router.post('/module-e/ask-ai/suggested-questions', moduleEController.moduleESuggestedQuestions);
+
 // NOTE: run-* POST endpoints (run-sentiment, run-competitors, etc.) have been
 // consolidated into job.routes.ts as the canonical owner:
 //   POST /jobs/:id/module-e/sentiment

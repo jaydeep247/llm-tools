@@ -1,6 +1,8 @@
 import { moduleFRepository } from './moduleF.repository';
 import { JobService } from '../job/job.service';
-import type { ModuleFResult, ModuleFTrends } from './moduleF.types';
+import type { ModuleFAskAIResult, ModuleFResult, ModuleFTrends } from './moduleF.types';
+import { env } from '../../config/env';
+import { logger } from '../../shared/logger/logger';
 
 export class ModuleFService {
   private jobService: JobService;
@@ -86,6 +88,77 @@ export class ModuleFService {
     return {
       history: trendPoints,
       growth_rates
+    };
+  }
+
+  /**
+   * Module F Ask AI — forwards to npy-backend FastAPI, which loads Mongo context and calls Claude.
+   */
+  async askModuleFAI(
+    jobId: string,
+    userId: string,
+    payload: { question: string; conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }> },
+  ): Promise<ModuleFAskAIResult> {
+    const job = await this.jobService.getJobById(userId, jobId);
+    if (!job?.projectId) {
+      throw new Error('Job not found or access denied');
+    }
+
+    const endpoint = `${env.NPY_BACKEND_URL}/module-f/ask-ai`;
+    const body: Record<string, unknown> = {
+      project_id: job.projectId,
+      job_id: jobId,
+      question: payload.question,
+    };
+    if (payload.conversationHistory?.length) {
+      body.conversation_history = payload.conversationHistory.map(t => ({
+        role: t.role,
+        content: t.content,
+      }));
+    }
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(120_000),
+    });
+
+    const raw = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+
+    if (!res.ok) {
+      let detail: string = res.statusText;
+      if (typeof raw.detail === 'string') {
+        detail = raw.detail;
+      } else if (Array.isArray(raw.detail)) {
+        detail = (raw.detail as { msg?: string }[])
+          .map(d => d.msg || JSON.stringify(d))
+          .join('; ');
+      } else if (typeof raw.message === 'string') {
+        detail = raw.message;
+      }
+      logger.error(`Module F Ask AI failed: ${res.status} — ${detail}`);
+      throw new Error(detail || 'Ask AI request failed');
+    }
+
+    const answer = typeof raw.answer === 'string' ? raw.answer : '';
+    if (!answer && raw.answer !== '') {
+      logger.error('Module F Ask AI: unexpected response shape', { keys: Object.keys(raw) });
+      throw new Error('Invalid response from Ask AI service');
+    }
+
+    return {
+      answer,
+      question_type: typeof raw.question_type === 'string' ? raw.question_type : undefined,
+      sources: Array.isArray(raw.sources) ? (raw.sources as string[]) : undefined,
+      recommendation_ids: Array.isArray(raw.recommendation_ids)
+        ? (raw.recommendation_ids as string[])
+        : undefined,
+      data_available: typeof raw.data_available === 'boolean' ? raw.data_available : undefined,
+      context_snapshot:
+        raw.context_snapshot && typeof raw.context_snapshot === 'object'
+          ? (raw.context_snapshot as Record<string, unknown>)
+          : undefined,
     };
   }
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, type FormEvent } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -35,6 +35,9 @@ import { useGetSessionJobsQuery } from '@/store/api/jobApi'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { RecommendationEnginePanel, RecommendationEnginePayload } from '@/components/module_D/RecommendationEnginePanel'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { ModuleDAskAiChatShell, type ModuleDAskAiChatTurn } from '@/components/module_D/ModuleDAskAiChatShell'
+import { useAskModuleDAIMutation, useGetModuleDSuggestedQuestionsMutation } from '@/store/api/module_D/moduleDApi'
 
 // Score Card Component - Adapted from AIVisibilityScorecards
 interface ScoreCardProps {
@@ -187,12 +190,17 @@ function ScoreCard({ title, score, value, icon, color, trend, subStats, error, i
 interface ContentMetricsModuleProps {
   url: string
   sessionId?: string
+  projectId?: string
   initialTab?: 'content-analysis' | 'intent-clusters' | 'entity-detection' | 'recommendations'
   /** When set, renders only this single section without the internal tab switcher. */
   section?: 'content-analysis' | 'intent-clusters' | 'entity-detection' | 'recommendations'
 }
 
-export default function ContentMetricsModule({ url, sessionId, initialTab, section }: ContentMetricsModuleProps) {
+function chatMessageId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+export default function ContentMetricsModule({ url, sessionId, projectId, initialTab, section }: ContentMetricsModuleProps) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
@@ -272,6 +280,13 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
   })
 
   const [startContentMetrics, { isLoading: isStartingAnalysis }] = useStartContentMetricsMutation()
+  const [askModuleDAI, { isLoading: isAskingAI, error: askAIError, reset: resetAskAI }] = useAskModuleDAIMutation()
+  const [getSuggestedQuestions] = useGetModuleDSuggestedQuestionsMutation()
+  const [askDialogOpen, setAskDialogOpen] = useState(false)
+  const [chatInput, setChatInput] = useState('')
+  const [chatMessages, setChatMessages] = useState<ModuleDAskAiChatTurn[]>([])
+  const [suggestions, setSuggestions] = useState<string[]>([])
+  const chatScrollRef = useRef<HTMLDivElement>(null)
 
   // Extract metrics from response
   const metricsResult = contentMetricsData?.success ? contentMetricsData.data : null
@@ -333,8 +348,88 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
     ? intentKeysInOrder.reduce((sum, key) => sum + Number(trackingIntentDistribution?.[key] ?? 0), 0)
     : 0
 
+  useEffect(() => {
+    if (!askDialogOpen || !chatScrollRef.current) return
+    const el = chatScrollRef.current
+    el.scrollTop = el.scrollHeight
+  }, [askDialogOpen, chatMessages, isAskingAI])
+
+  const openAskAiDialog = async () => {
+    if (!projectId) return
+    resetAskAI()
+    setChatMessages([])
+    setChatInput('')
+    setAskDialogOpen(true)
+    try {
+      const res = await getSuggestedQuestions({ project_id: projectId }).unwrap()
+      setSuggestions(Array.isArray(res?.questions) ? res.questions.filter(Boolean).slice(0, 12) : [])
+    } catch {
+      setSuggestions([])
+    }
+  }
+
+  const submitAskAi = async (e?: FormEvent) => {
+    e?.preventDefault()
+    if (!projectId || !chatInput.trim() || isAskingAI) return
+
+    const question = chatInput.trim()
+    setChatInput('')
+    const priorHistory = chatMessages.slice(-6).map((m) => ({ role: m.role, content: m.content }))
+    const userTurn: ModuleDAskAiChatTurn = { id: chatMessageId(), role: 'user', content: question }
+    setChatMessages((prev) => [...prev, userTurn])
+
+    try {
+      const res = await askModuleDAI({
+        project_id: projectId,
+        job_id: jobId,
+        question,
+        conversation_history: priorHistory.length ? priorHistory : undefined,
+      }).unwrap()
+
+      const text = res?.answer?.trim() || res?.data?.answer?.trim() || ''
+      const sources = res?.sources || res?.data?.sources
+      if (!text) return
+      setChatMessages((prev) => [...prev, { id: chatMessageId(), role: 'assistant', content: text, sources }])
+    } catch {
+      setChatMessages((prev) => prev.filter((m) => m.id !== userTurn.id))
+      setChatInput(question)
+    }
+  }
+
   return (
     <div className="space-y-6 p-6">
+      <Dialog
+        open={askDialogOpen}
+        onOpenChange={(open) => {
+          setAskDialogOpen(open)
+          if (!open) {
+            resetAskAI()
+            setChatMessages([])
+            setChatInput('')
+          }
+        }}
+      >
+        <DialogContent
+          className={cn(
+            'w-[calc(100vw-1rem)] max-h-[95vh] gap-0 overflow-visible border-0 bg-transparent p-0 pt-10 shadow-none sm:max-w-3xl lg:max-w-5xl',
+            'data-[state=open]:zoom-in-[0.98]',
+          )}
+          showCloseButton
+        >
+          <ModuleDAskAiChatShell
+            chatScrollRef={chatScrollRef}
+            chatMessages={chatMessages}
+            chatInput={chatInput}
+            setChatInput={setChatInput}
+            isAskingAI={isAskingAI}
+            askAIError={askAIError}
+            onSubmit={submitAskAi}
+            onSuggestionClick={(text) => setChatInput(text)}
+            suggestions={suggestions}
+          />
+        </DialogContent>
+      </Dialog>
+
       {/* Header Section with Tabs - hidden when locked to a single section */}
       {!section && (
         <div className="space-y-6">
@@ -386,6 +481,25 @@ export default function ContentMetricsModule({ url, sessionId, initialTab, secti
       {/* Content Analysis Metrics Tab */}
       {activeTab === 'content-analysis' && (
         <div className="rounded-xl border border-zinc-800 bg-[#111113] p-6 space-y-6">
+          <div className="flex items-center justify-end">
+            <Button
+              type="button"
+              onClick={openAskAiDialog}
+              disabled={!projectId || isAskingAI}
+              className={cn(
+                'rounded-full border-0 shadow-lg shadow-fuchsia-950/30',
+                'text-sm font-extrabold uppercase tracking-wider sm:text-base',
+                'bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300',
+                'text-black hover:opacity-95 hover:shadow-xl',
+                'h-auto min-h-[44px] px-5 py-2.5',
+                'gap-2',
+              )}
+            >
+              <MessageSquare className="size-5 shrink-0" strokeWidth={2.25} aria-hidden />
+              Ask AI
+            </Button>
+          </div>
+
           {/* Empty State + Trigger */}
           {!contentMetrics && !isLoadingMetrics && !metricsError && !isWaitingForAnalysis && !isStartingAnalysis && (
             <AnalysisEmptyState

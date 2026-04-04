@@ -288,6 +288,33 @@ export interface AIVisibilityReportResponse {
   } | null
 }
 
+export interface ModuleCAskAIRequestBody {
+  project_id: string
+  question: string
+  job_id?: string
+  conversation_history?: Array<{ role: 'user' | 'assistant'; content: string }>
+}
+
+export interface ModuleCAskAIResult {
+  answer: string
+  question_type?: string
+  sources?: string[]
+  data_available?: boolean
+  context_snapshot?: Record<string, unknown>
+}
+
+export interface ModuleCAskAIResponse {
+  answer?: string
+  question_type?: string
+  sources?: string[]
+  data_available?: boolean
+  context_snapshot?: Record<string, unknown>
+  data?: ModuleCAskAIResult | null
+  success?: boolean
+  message?: string
+  error?: string
+}
+
 export const moduleCApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     // Get Module C result for a specific job
@@ -397,6 +424,20 @@ export const moduleCApi = baseApi.injectEndpoints({
       }),
       providesTags: (_result, _error, { jobId }) => [{ type: 'ModuleC' as const, id: `visibility-report-${jobId}` }],
     }),
+    askModuleCAI: builder.mutation<ModuleCAskAIResponse, ModuleCAskAIRequestBody>({
+      query: (body) => ({
+        url: '/module-c/ask-ai',
+        method: 'POST',
+        body,
+      }),
+    }),
+    getModuleCSuggestedQuestions: builder.mutation<{ questions?: string[] }, { project_id: string }>({
+      query: (body) => ({
+        url: '/module-c/ask-ai/suggested-questions',
+        method: 'POST',
+        body,
+      }),
+    }),
   }),
 })
 
@@ -418,4 +459,6 @@ export const {
   // Summary & report
   useGetModuleSummaryQuery,
   useGetVisibilityReportQuery,
+  useAskModuleCAIMutation,
+  useGetModuleCSuggestedQuestionsMutation,
 } = moduleCApi

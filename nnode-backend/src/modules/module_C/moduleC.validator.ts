@@ -17,6 +17,25 @@ export const moduleCUrlQuerySchema = z.object({
   url: z.string().url().optional(),
 });
 
+export const moduleCAskAIBodySchema = z.object({
+  project_id: z.string().min(1, 'project_id is required'),
+  question: z.string().min(1, 'Question is required').max(8000),
+  job_id: z.string().min(1).optional(),
+  conversation_history: z
+    .array(
+      z.object({
+        role: z.enum(['user', 'assistant']),
+        content: z.string().min(1),
+      }),
+    )
+    .max(20)
+    .optional(),
+});
+
+export const moduleCSuggestedQuestionsBodySchema = z.object({
+  project_id: z.string().min(1, 'project_id is required'),
+});
+
 export type JobIdParam = z.infer<typeof jobIdParamSchema>;
 export type SessionParam = z.infer<typeof sessionParamSchema>;
 export type RunModuleCBody = z.infer<typeof runModuleCSchema>;

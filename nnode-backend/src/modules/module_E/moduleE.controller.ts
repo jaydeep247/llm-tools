@@ -3,7 +3,11 @@ import { ResponseUtil } from '../../utils/response';
 import { ModuleEService } from './moduleE.service';
 import { JobService } from '../job/job.service';
 import { JobConflictError, JobType } from '../job/job.types';
-import { jobIdParamSchema } from './moduleE.validator';
+import {
+  jobIdParamSchema,
+  moduleEAskAIBodySchema,
+  moduleESuggestedQuestionsBodySchema,
+} from './moduleE.validator';
 import { logger } from '../../shared/logger/logger';
 
 export class ModuleEController {
@@ -245,6 +249,42 @@ export class ModuleEController {
     } catch (error: any) {
       logger.error('Error starting ranking analysis:', error);
       return this._handleCreateError(res, error, 'Failed to start ranking analysis');
+    }
+  };
+
+  askModuleEAI = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const body = moduleEAskAIBodySchema.parse(req.body);
+      const result = await this.moduleEService.askModuleEAI(userId, body);
+      return ResponseUtil.success(res, 'Module E Ask AI completed', result);
+    } catch (error: any) {
+      logger.error('Error in Module E Ask AI:', error);
+      if (error.message?.includes('not found') || error.message?.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      if (error.name === 'ZodError') {
+        return ResponseUtil.error(res, 'Validation failed', error.errors);
+      }
+      return ResponseUtil.serverError(res, 'Failed to run Module E Ask AI', error.message || undefined);
+    }
+  };
+
+  moduleESuggestedQuestions = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const body = moduleESuggestedQuestionsBodySchema.parse(req.body);
+      const result = await this.moduleEService.getSuggestedQuestions(userId, body);
+      return ResponseUtil.success(res, 'Module E suggested questions retrieved', result);
+    } catch (error: any) {
+      logger.error('Error in Module E suggested questions:', error);
+      if (error.message?.includes('not found') || error.message?.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      if (error.name === 'ZodError') {
+        return ResponseUtil.error(res, 'Validation failed', error.errors);
+      }
+      return ResponseUtil.serverError(res, 'Failed to fetch suggested questions', error.message || undefined);
     }
   };
 
