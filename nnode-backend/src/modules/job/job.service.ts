@@ -7,6 +7,7 @@ import { LiveJobService } from '../../services/live-job.service';
 import { getMongoDb } from '../../config/mongo';
 import { getIo } from '../../socket';
 import { logger } from '../../shared/logger/logger';
+import { checkUrlCache, resolveCachedJobId } from '../url_cache';
 
 
 export class JobService {
@@ -69,10 +70,95 @@ export class JobService {
       );
     }
 
+    // ── URL-level result cache check ─────────────────────────────────────────
+    // Before dispatching to the queue (which triggers expensive paid-API calls),
+    // check whether we already have valid (non-expired) results for this URL.
+    // CRAWL_RESUME is always excluded: it continues an existing paused crawl and
+    // must not be short-circuited.
+    if (data.jobType !== JobType.CRAWL_RESUME) {
+      try {
+        const cacheEntry = await checkUrlCache(data.url);
+        if (cacheEntry) {
+          const cacheSourceJobId = resolveCachedJobId(cacheEntry, data.jobType);
+          if (cacheSourceJobId) {
+            logger.info(
+              `[URL_CACHE] HIT for ${data.url} | jobType=${data.jobType} | cacheSourceJobId=${cacheSourceJobId}`,
+            );
+
+            // Create the job record as already-completed so the frontend sees it
+            // immediately.  We must NOT dispatch it to RabbitMQ.
+            const cacheHitJob = await this.jobRepository.create(sessionId, projectId, {
+              ...data,
+              cacheSourceJobId,
+              isCacheHit: true,
+            });
+
+            // Update job status to COMPLETED in the same document
+            await this.jobRepository.updateStatus(
+              cacheHitJob.id,
+              JobStatus.COMPLETED,
+              new Date(), // startedAt
+              new Date(), // completedAt
+              null,
+            );
+
+            // Save job metadata to Redis so LiveJobService can serve a snapshot.
+            // Use saveEvent(JOB_COMPLETED) rather than setJobMeta alone so that
+            // the snapshot also returns status='completed' and completed=true —
+            // the progress page reads these to decide when to redirect.
+            await LiveJobService.saveEvent({
+              jobId: cacheHitJob.id,
+              eventType: 'JOB_COMPLETED',
+              payload: {
+                status: 'completed',
+                projectId,
+                sessionId,
+                isCacheHit: true,
+              },
+              timestamp: Date.now(),
+            });
+
+            // Emit socket event directly — the RabbitMQ consumer will never fire
+            // because no message was published.
+            try {
+              const io = getIo();
+              io.to(`job:${cacheHitJob.id}`).emit('job:completed', {
+                jobId: cacheHitJob.id,
+                status: 'completed',
+                completedAt: new Date().toISOString(),
+                isCacheHit: true,
+                cacheSourceJobId,
+              });
+            } catch (socketErr) {
+              logger.warn('[URL_CACHE] Socket emit error on cache-hit job:', socketErr);
+            }
+
+            // Mark the session as completed (non-fatal on failure)
+            await this.sessionService.markSessionCompleted(sessionId).catch((err) =>
+              logger.warn('[URL_CACHE] markSessionCompleted failed (non-fatal):', err),
+            );
+
+            return cacheHitJob;
+          }
+        }
+      } catch (cacheErr) {
+        // Cache check must never block job creation — fail open
+        logger.warn('[URL_CACHE] Cache check failed (proceeding normally):', cacheErr);
+      }
+    }
+    // ── end URL cache check ──────────────────────────────────────────────────
+
     const job = await this.jobRepository.create(sessionId, projectId, data);
 
     // Save job metadata to Redis for LiveJobService (progress tracking)
     await LiveJobService.setJobMeta(job.id, projectId, sessionId);
+
+    // Resolve sourceJobId: if it points to a cache-hit ghost job that has no S3
+    // data, swap it for the real job (cacheSourceJobId) so npy-backend finds HTML.
+    let resolvedSourceJobId = job.config?.sourceJobId;
+    if (resolvedSourceJobId) {
+      resolvedSourceJobId = await this.jobRepository.resolveEffectiveJobId(resolvedSourceJobId);
+    }
 
     const jobType = job.jobType || job.type;
     const category = JOB_TYPE_TO_CATEGORY[jobType];
@@ -103,7 +189,7 @@ export class JobService {
           url: job.url,
           jobType: JobType.SCHEMA,
           schemaType: job.schemaType || undefined,
-          sourceJobId: job.config?.sourceJobId,
+          sourceJobId: resolvedSourceJobId,
         });
         break;
 
@@ -115,7 +201,7 @@ export class JobService {
           url: job.url,
           jobType: jobType as JobType,
           query: job.config?.query,
-          sourceJobId: job.config?.sourceJobId,
+          sourceJobId: resolvedSourceJobId,
         });
         break;
 
@@ -126,7 +212,7 @@ export class JobService {
           projectId,
           url: job.url,
           jobType: jobType as JobType,
-          sourceJobId: job.config?.sourceJobId,
+          sourceJobId: resolvedSourceJobId,
         });
         break;
 
@@ -137,7 +223,7 @@ export class JobService {
           projectId,
           url: job.url,
           jobType: jobType as JobType,
-          sourceJobId: job.config?.sourceJobId,
+          sourceJobId: resolvedSourceJobId,
           brandName: job.config?.brandName,
         });
         break;
@@ -149,7 +235,7 @@ export class JobService {
           projectId,
           url: job.url,
           jobType: jobType as JobType,
-          sourceJobId: job.config?.sourceJobId,
+          sourceJobId: resolvedSourceJobId,
         });
         break;
 
@@ -165,7 +251,7 @@ export class JobService {
           locationCode: job.config?.locationCode,
           languageCode: job.config?.languageCode,
           device: job.config?.device,
-          sourceJobId: job.config?.sourceJobId,
+          sourceJobId: resolvedSourceJobId,
         });
         break;
 
@@ -178,7 +264,7 @@ export class JobService {
           url: job.url,
           jobType: jobType as JobType,
           modules: job.config?.modules || [],
-          sourceJobId: job.config?.sourceJobId,
+          sourceJobId: resolvedSourceJobId,
           config: job.config,
         });
     }
@@ -218,6 +304,9 @@ export class JobService {
 
       resolvedSourceJobId = crawlJob?.id || quickStartJob?.id || job.id;
     }
+
+    // If the source job is a cache-hit, the HTML in S3 lives under cacheSourceJobId.
+    resolvedSourceJobId = await this.jobRepository.resolveEffectiveJobId(resolvedSourceJobId);
 
     await this.queueService.publishContentMetricsJob({
       jobId: job.id,
@@ -260,6 +349,9 @@ export class JobService {
 
       resolvedSourceJobId = crawlJob?.id || quickStartJob?.id || job.id;
     }
+
+    // If the source job is a cache-hit, the HTML in S3 lives under cacheSourceJobId.
+    resolvedSourceJobId = await this.jobRepository.resolveEffectiveJobId(resolvedSourceJobId);
 
     await this.queueService.publishModuleDJob({
       jobId: job.id,

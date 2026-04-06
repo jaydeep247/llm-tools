@@ -1,5 +1,6 @@
 import { quickStartRepository } from './quickStart.repository';
 import { JobService } from '../job/job.service';
+import { JobRepository } from '../job/job.repository';
 import { QueueService } from '../queue/queue.service';
 import { JobType } from '../job/job.types';
 import type { QuickStartResult } from './quickStart.types';
@@ -7,6 +8,7 @@ import type { QuickStartResult } from './quickStart.types';
 export class QuickStartService {
   private jobService: JobService;
   private queueService: QueueService;
+  private jobRepository = new JobRepository();
 
   constructor() {
     this.jobService = new JobService();
@@ -18,7 +20,8 @@ export class QuickStartService {
    */
   async getQuickStartResult(jobId: string, userId: string): Promise<QuickStartResult | null> {
     await this.jobService.getJobById(userId, jobId);
-    return await quickStartRepository.getByJobId(jobId);
+    const effectiveId = await this.jobRepository.resolveEffectiveJobId(jobId);
+    return await quickStartRepository.getByJobId(effectiveId);
   }
 
   /**

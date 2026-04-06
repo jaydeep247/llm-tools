@@ -69,7 +69,9 @@ def execute_module_e_job(payload: dict) -> bool:
             result = asyncio.run(run_cancellable(run_module_e(target_job_id, url), job_id))
 
         if isinstance(result, dict) and "error" in result:
-            logger.error(f"[MODULE_E] ⚠️  Module returned error: {result.get('error')}")
+            error_msg = result.get("error", "Module E returned an error")
+            logger.error(f"[MODULE_E] ⚠️  Module returned error: {error_msg}")
+            raise RuntimeError(error_msg)
 
         logger.info(f"[MODULE_E] ✅ {job_type} Processing completed successfully | Job: {job_id}")
         return True

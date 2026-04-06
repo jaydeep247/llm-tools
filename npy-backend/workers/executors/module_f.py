@@ -38,7 +38,9 @@ def execute_module_f_job(payload: dict) -> bool:
         )
 
         if isinstance(result, dict) and "error" in result:
-            logger.error(f"[MODULE_F] ⚠️  Module returned error: {result.get('error')}")
+            error_msg = result.get("error", "Module F returned an error")
+            logger.error(f"[MODULE_F] ⚠️  Module returned error: {error_msg}")
+            raise RuntimeError(error_msg)
 
         logger.info(f"[MODULE_F] ✅ {job_type} Processing completed successfully | Job: {job_id}")
         return True

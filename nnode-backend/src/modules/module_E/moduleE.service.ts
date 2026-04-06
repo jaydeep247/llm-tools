@@ -1,5 +1,6 @@
 import { moduleERepository } from './moduleE.repository';
 import { JobService } from '../job/job.service';
+import { JobRepository } from '../job/job.repository';
 import type { ModuleEResult } from './moduleE.types';
 import { env } from '../../config/env';
 import { logger } from '../../shared/logger/logger';
@@ -8,6 +9,7 @@ import { ProjectService } from '../project/project.service';
 export class ModuleEService {
   private jobService: JobService;
   private projectService: ProjectService;
+  private jobRepository = new JobRepository();
 
   constructor() {
     this.jobService = new JobService();
@@ -19,7 +21,8 @@ export class ModuleEService {
    */
   async getModuleEResult(jobId: string, userId: string): Promise<ModuleEResult | null> {
     await this.jobService.getJobById(userId, jobId);
-    return await moduleERepository.getModuleEResultByJobId(jobId);
+    const effectiveId = await this.jobRepository.resolveEffectiveJobId(jobId);
+    return await moduleERepository.getModuleEResultByJobId(effectiveId);
   }
 
   /**

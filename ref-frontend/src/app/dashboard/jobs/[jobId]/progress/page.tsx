@@ -66,6 +66,9 @@ function JobProgressContent() {
   const sessionIdFromUrl = searchParams.get('sessionId') ?? undefined
   const urlFromUrl = searchParams.get('url') ?? ''
   const showBrandOnboarding = searchParams.get('showBrandOnboarding') === '1'
+  // True when the job result is served from cache — we show a fake 2-second
+  // animation so the experience feels identical to a real analysis run.
+  const isCacheHitJob = searchParams.get('cacheHit') === '1'
 
   // ── Brand onboarding overlay state ───────────────────────────────────
   const { user } = useAuth()
@@ -96,6 +99,8 @@ function JobProgressContent() {
   const snapshotAtRef = useRef<number | null>(null)
   // True when job was already completed when the page first loaded (back-navigation case)
   const alreadyCompletedOnMountRef = useRef(false)
+  // Prevents the cache-hit simulation from running more than once
+  const cacheHitSimStartedRef = useRef(false)
 
   useEffect(() => { statusRef.current = jobStatus }, [jobStatus])
   useEffect(() => { snapshotAtRef.current = snapshotAt }, [snapshotAt])
@@ -106,6 +111,7 @@ function JobProgressContent() {
     statusRef.current = 'pending'
     snapshotAtRef.current = null
     alreadyCompletedOnMountRef.current = false
+    cacheHitSimStartedRef.current = false
     setJobStatus('pending')
     setSnapshotAt(null)
     setJobMeta({})
@@ -131,6 +137,33 @@ function JobProgressContent() {
           : 15000,
   })
 
+  // ── Cache-hit simulation: show 2-second fake progress animation ─────────
+  // Runs once when we know this is a cache-hit job. The snapshot will already
+  // say 'completed', but we keep jobStatus as 'pending' here and let the
+  // simulation advance it: pending → running → completed (with instant redirect).
+  useEffect(() => {
+    if (!isCacheHitJob || cacheHitSimStartedRef.current) return
+    cacheHitSimStartedRef.current = true
+
+    // Small delay so the page paints before the animation starts
+    const t1 = setTimeout(() => {
+      setJobStatus('running')
+      setSteps(prev => {
+        const next = { ...prev }
+        STEP_DEFINITIONS.forEach(s => { next[s.id] = 'running' })
+        return next
+      })
+    }, 150)
+
+    // Complete the simulation after ~2 seconds; use instant redirect
+    const t2 = setTimeout(() => {
+      alreadyCompletedOnMountRef.current = true
+      setJobStatus('completed')
+    }, 2200)
+
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [isCacheHitJob])
+
   // ── Snapshot hydration (once per job) ─────────────────────────────────
   useEffect(() => {
     if (isSnapshotFetching || !snapshot || hydratedJobIdRef.current === jobId) return
@@ -139,11 +172,14 @@ function JobProgressContent() {
     setSnapshotAt(snapshot.snapshotAt)
 
     const snapshotStatus = (snapshot.status || 'pending').toLowerCase() as JobStatus
-    setJobStatus(snapshotStatus)
 
-    // If the job was already done when we mounted — flag it so redirect is instant
-    if (snapshotStatus === 'completed' || snapshotStatus === 'failed' || snapshotStatus === 'cancelled') {
-      alreadyCompletedOnMountRef.current = true
+    // For cache-hit jobs the simulation controls jobStatus — don't override it.
+    if (!isCacheHitJob) {
+      setJobStatus(snapshotStatus)
+      // If the job was already done when we mounted — flag it so redirect is instant
+      if (snapshotStatus === 'completed' || snapshotStatus === 'failed' || snapshotStatus === 'cancelled') {
+        alreadyCompletedOnMountRef.current = true
+      }
     }
 
     if (snapshot.projectId || snapshot.sessionId) {

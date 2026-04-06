@@ -1,20 +1,29 @@
 import { connectToMongo } from '../../config/mongo';
 import { logger } from '../../shared/logger/logger';
 import { SerpAnalyzerResult } from './moduleA.types';
+import { JobRepository } from '../job/job.repository';
 
 export class ModuleAService {
+  private jobRepository = new JobRepository();
+
   /**
    * Retrieve SERP Analyzer result for a specific job.
+   * Resolves cacheSourceJobId transparently so cache-hit sessions
+   * are served from the original job's data without re-querying DataForSEO.
    */
   async getSerpResult(jobId: string): Promise<SerpAnalyzerResult | null> {
+    const effectiveId = await this.jobRepository.resolveEffectiveJobId(jobId);
     const db = await connectToMongo();
-    const result = await db.collection('serp_results').findOne({ jobId });
+    const result = await db.collection('serp_results').findOne({ jobId: effectiveId });
     if (!result) return null;
     return result as unknown as SerpAnalyzerResult;
   }
 
   /**
    * Retrieve all SERP Analyzer results for a session (across multiple jobs).
+   * Cache-hit jobs share the same cacheSourceJobId, so results may come from
+   * another session's jobs — the serp_results collection is queried by the
+   * effective jobId resolved per job.
    */
   async getSessionSerpResults(sessionId: string): Promise<SerpAnalyzerResult[]> {
     const db = await connectToMongo();

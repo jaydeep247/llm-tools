@@ -1,4 +1,5 @@
 import { FieldsRepository } from './fields.repository';
+import { JobRepository } from '../job/job.repository';
 
 export interface SeoExtractResult {
   url: string;
@@ -11,18 +12,20 @@ export interface SeoExtractResult {
 
 export class FieldsService {
   private fieldsRepository: FieldsRepository;
+  private jobRepository = new JobRepository();
 
   constructor() {
     this.fieldsRepository = new FieldsRepository();
   }
 
   async getSeoExtract(url: string, jobId: string): Promise<SeoExtractResult | null> {
-    let doc = await this.fieldsRepository.findByJobIdAndUrl(jobId, url);
+    const effectiveId = await this.jobRepository.resolveEffectiveJobId(jobId);
+    let doc = await this.fieldsRepository.findByJobIdAndUrl(effectiveId, url);
 
     // Try the alternate trailing-slash form
     if (!doc) {
       const altUrl = url.endsWith('/') ? url.slice(0, -1) : url + '/';
-      doc = await this.fieldsRepository.findByJobIdAndUrl(jobId, altUrl);
+      doc = await this.fieldsRepository.findByJobIdAndUrl(effectiveId, altUrl);
     }
 
     if (!doc) return null;

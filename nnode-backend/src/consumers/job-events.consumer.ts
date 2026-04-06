@@ -5,6 +5,7 @@ import { LiveJobService, JobEvent } from '../services/live-job.service';
 import { JobService } from '../modules/job/job.service';
 import { SessionService } from '../modules/session/session.service';
 import { getIo } from '../socket';
+import { writeCacheOnCompletion } from '../modules/url_cache';
 
 const EXCHANGE_NAME = 'job.events';
 const QUEUE_NAME = 'job.events.queue.v3'; // Bump version to force fresh queue binding
@@ -116,7 +117,26 @@ export const startJobEventsConsumer = async () => {
                        payload: event.payload
                    });
              })();
-             await Promise.allSettled([sessionPromise, socketPromise]);
+
+             // ── URL-cache write ──────────────────────────────────────────────
+             // For every real (non-cache-hit) job that completed successfully,
+             // persist the result pointer in url_cache so future sessions for
+             // the same URL are served from DB without triggering paid API calls.
+             const cacheWritePromise = (async () => {
+               try {
+                 if (completedJob && !completedJob.isCacheHit) {
+                   const jobUrl = completedJob.url || event.payload?.url;
+                   if (jobUrl && completedJob.jobType) {
+                     await writeCacheOnCompletion(jobUrl, completedJob.jobType, event.jobId);
+                   }
+                 }
+               } catch (cacheErr) {
+                 logger.warn('[URL_CACHE] writeCacheOnCompletion failed (non-fatal):', cacheErr);
+               }
+             })();
+             // ── end URL-cache write ──────────────────────────────────────────
+
+             await Promise.allSettled([sessionPromise, socketPromise, cacheWritePromise]);
            }
 
              // Flush Buffer immediately

@@ -73,11 +73,16 @@ export class ModuleFController {
         return ResponseUtil.error(res, 'Job is missing URL', undefined, 400);
       }
 
+      // If this job is a URL-cache hit, its real module_e data is stored under
+      // cacheSourceJobId, not the ghost job ID. Pass the real ID to npy-backend
+      // so it can locate module_e competitor data correctly.
+      const effectiveSourceJobId = job.cacheSourceJobId || jobId;
+
       const analysisJob = await this.jobService.createJob(userId, job.sessionId, {
         url,
         jobType: JobType.MODULE_F_COMPETITOR_AI_INTELLIGENCE,
         config: {
-          sourceJobId: jobId,
+          sourceJobId: effectiveSourceJobId,
         },
       });
 

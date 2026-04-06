@@ -3,9 +3,11 @@ import { logger } from '../../shared/logger/logger';
 import { ModuleCResult } from './moduleC.types';
 import { env } from '../../config/env';
 import { ProjectService } from '../project/project.service';
+import { JobRepository } from '../job/job.repository';
 
 export class ModuleCService {
   private projectService: ProjectService;
+  private jobRepository = new JobRepository();
 
   constructor() {
     this.projectService = new ProjectService();
@@ -44,12 +46,14 @@ export class ModuleCService {
   }
 
   /**
-   * Get Module C (AEO) analysis result for a specific job
+   * Get Module C (AEO) analysis result for a specific job.
+   * Resolves cacheSourceJobId so cache-hit sessions read from the original job's data.
    */
   async getModuleCResult(jobId: string, _userId: string, url?: string | null): Promise<ModuleCResult | null> {
     try {
       const db = await connectToMongo();
-      const jobIds = await this.getEffectiveJobIds(db, jobId);
+      const effectiveId = await this.jobRepository.resolveEffectiveJobId(jobId);
+      const jobIds = await this.getEffectiveJobIds(db, effectiveId);
       const result = await this.findLatestResult(db, jobIds, url);
 
       if (!result) {
@@ -64,12 +68,14 @@ export class ModuleCService {
   }
 
   /**
-   * Get all Module C (AEO) analysis results for a job (multiple URLs)
+   * Get all Module C (AEO) analysis results for a job (multiple URLs).
+   * Resolves cacheSourceJobId so cache-hit sessions read from the original job's data.
    */
   async getAllModuleCResults(jobId: string): Promise<ModuleCResult[]> {
     try {
       const db = await connectToMongo();
-      const jobIds = await this.getEffectiveJobIds(db, jobId);
+      const effectiveId = await this.jobRepository.resolveEffectiveJobId(jobId);
+      const jobIds = await this.getEffectiveJobIds(db, effectiveId);
       const collection = db.collection('module_c');
       
       const results = await collection
@@ -85,12 +91,14 @@ export class ModuleCService {
   }
 
   /**
-   * Get Module C result for a specific URL in a session
+   * Get Module C result for a specific URL in a session.
+   * Resolves cacheSourceJobId so cache-hit sessions read from the original job's data.
    */
   async getModuleCResultByUrl(jobId: string, url: string): Promise<ModuleCResult | null> {
     try {
       const db = await connectToMongo();
-      const jobIds = await this.getEffectiveJobIds(db, jobId);
+      const effectiveId = await this.jobRepository.resolveEffectiveJobId(jobId);
+      const jobIds = await this.getEffectiveJobIds(db, effectiveId);
       const result = await this.findLatestResult(db, jobIds, url);
 
       return result as unknown as ModuleCResult;
@@ -115,12 +123,15 @@ export class ModuleCService {
         return [];
       }
 
-      const jobIds = jobs.map(j => j.id);
+      // Resolve cacheSourceJobId for each job so cache-hit sessions read from real data
+      const effectiveIds = await Promise.all(
+        jobs.map(j => this.jobRepository.resolveEffectiveJobId(j.id))
+      );
       
       // Then get all module_c results for these jobs
       const moduleCCollection = db.collection('module_c');
       const results = await moduleCCollection
-        .find({ jobId: { $in: jobIds } })
+        .find({ jobId: { $in: effectiveIds } })
         .sort({ timestamp: -1 })
         .toArray();
 
@@ -137,7 +148,8 @@ export class ModuleCService {
   async getModuleField(jobId: string, field: string, url?: string | null): Promise<any> {
     try {
       const db = await connectToMongo();
-      const jobIds = await this.getEffectiveJobIds(db, jobId);
+      const effectiveId = await this.jobRepository.resolveEffectiveJobId(jobId);
+      const jobIds = await this.getEffectiveJobIds(db, effectiveId);
       const result = await this.findLatestResult(db, jobIds, url, {
         jobId: 1,
         url: 1,
@@ -167,7 +179,8 @@ export class ModuleCService {
   async getSummary(jobId: string, url?: string | null): Promise<any> {
     try {
       const db = await connectToMongo();
-      const jobIds = await this.getEffectiveJobIds(db, jobId);
+      const effectiveId = await this.jobRepository.resolveEffectiveJobId(jobId);
+      const jobIds = await this.getEffectiveJobIds(db, effectiveId);
       const result = await this.findLatestResult(db, jobIds, url);
 
       if (!result) {
@@ -210,7 +223,8 @@ export class ModuleCService {
   async getVisibilityReport(jobId: string, url?: string | null): Promise<any> {
     try {
       const db = await connectToMongo();
-      const jobIds = await this.getEffectiveJobIds(db, jobId);
+      const effectiveId = await this.jobRepository.resolveEffectiveJobId(jobId);
+      const jobIds = await this.getEffectiveJobIds(db, effectiveId);
       const result = await this.findLatestResult(db, jobIds, url, {
         jobId: 1,
         url: 1,

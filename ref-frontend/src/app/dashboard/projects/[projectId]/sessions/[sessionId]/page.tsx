@@ -231,6 +231,21 @@ export default function SessionDetailPage() {
   }
 
   const isLoadingResults = isLoadingPagesRaw || isLoadingLinksRaw || isLoadingFieldsRaw || isLoadingSitemapsRaw
+
+  // ── Cache-hit loading simulation ────────────────────────────────────────
+  // When the session data comes from the URL cache (isCacheHit=true on the
+  // latest job), show a brief loading skeleton (1.5 s) so the UX feels the
+  // same as a fresh analysis run instead of data appearing instantaneously.
+  const [simulatingCacheLoad, setSimulatingCacheLoad] = useState(false)
+  const cacheSimDoneRef = useRef(false)
+  useEffect(() => {
+    if (!latestJob?.isCacheHit || cacheSimDoneRef.current) return
+    cacheSimDoneRef.current = true
+    setSimulatingCacheLoad(true)
+    const timer = setTimeout(() => setSimulatingCacheLoad(false), 1500)
+    return () => clearTimeout(timer)
+  }, [latestJob?.isCacheHit])
+
   const refetchJobResults = () => {
     refetchPagesRaw()
     refetchLinksRaw()
@@ -258,7 +273,7 @@ export default function SessionDetailPage() {
     },
   })
 
-  const isLoading = isLoadingSession || isLoadingProject || isLoadingJobs || (!!jobId && isLoadingResults)
+  const isLoading = isLoadingSession || isLoadingProject || isLoadingJobs || (!!jobId && isLoadingResults) || simulatingCacheLoad
   const error = sessionError ? 'Failed to load session' : null
 
   // Ensure URL always has tab parameter with default 'dashboard'
@@ -1127,7 +1142,13 @@ export default function SessionDetailPage() {
                     onResume={() => {
                       if (snapshotJobId) resumeCrawl(snapshotJobId)
                     }}
-                    pagesCrawled={jobSnapshot?.pagesCrawled ?? 0}
+                    pagesCrawled={
+                      jobSnapshot?.pagesCrawled ||
+                      ((crawlJob?.status === 'COMPLETED' || crawlJob?.status === 'completed' ||
+                        (quickStartJob as any)?.status === 'COMPLETED' || (quickStartJob as any)?.status === 'completed')
+                        ? (pagesResult?.pagination?.total || jobSummary?.session?.total_pages || 0)
+                        : 0)
+                    }
                     totalPages={bannerTotalPages}
                     maxPages={
                       Number((crawlJob as any)?.config?.maxPages || (crawlJob as any)?.config?.max_pages || 0) ||

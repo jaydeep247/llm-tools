@@ -111,6 +111,15 @@ export interface Job {
   startedAt?: Date | null;
   completedAt?: Date | null;
   errorMessage?: string | null;
+  /**
+   * When set, this job was served from the URL-level result cache.
+   * All read services MUST use this jobId instead of `id` when querying
+   * MongoDB collections (pages, fields, module_c, module_e, etc.) so the
+   * frontend transparently gets real data without re-running paid API calls.
+   */
+  cacheSourceJobId?: string | null;
+  /** True when this job was created as a cache hit (no RabbitMQ dispatch). */
+  isCacheHit?: boolean;
 }
 
 export interface CreateJobDto {
@@ -125,6 +134,10 @@ export interface CreateJobDto {
   gaPropertyId?: string;
   type?: JobType;
   schemaType?: string;
+  /** Populated internally by JobService when a URL-cache hit is found. */
+  cacheSourceJobId?: string | null;
+  /** Populated internally by JobService when a URL-cache hit is found. */
+  isCacheHit?: boolean;
 }
 
 /**

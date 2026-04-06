@@ -171,6 +171,7 @@ export default function ProjectDetailPage() {
         sessionId,
         url: normalizedUrl,
         showBrandOnboarding: '1',
+        ...(jobResult.job.isCacheHit ? { cacheHit: '1' } : {}),
       })
       router.push(`/dashboard/jobs/${jobResult.job.id}/progress?${progressParams.toString()}`)
     } catch (err: any) {

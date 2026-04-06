@@ -49,6 +49,8 @@ export class ModuleFRepository {
       const collection = await this.getCollection();
       const result = await collection.findOne({ jobId });
       if (!result) return null;
+      // Skip documents that are error-only stubs (no real analysis data)
+      if (!result.compare_visibility_against_competitors && !result.competitor_wins && !result.gap_analysis) return null;
       return this.toModuleFResult(result);
     } catch (error) {
       logger.error('Failed to get Module F result', {
@@ -63,7 +65,7 @@ export class ModuleFRepository {
     try {
       const collection = await this.getCollection();
       const result = await collection.findOne(
-        { sessionId },
+        { sessionId, compare_visibility_against_competitors: { $exists: true } },
         {
           sort: {
             updatedAt: -1,

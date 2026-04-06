@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { ZodError } from 'zod';
 import { JobService } from './job.service';
+import { JobRepository } from './job.repository';
 import { LiveJobService } from '../../services/live-job.service';
 import { ResponseUtil } from '../../utils/response';
 import { createJobSchema } from './job.validator';
@@ -13,6 +14,7 @@ import { ContentAuditMetricType, ContentAuditMetricsService } from './contentAud
 
 export class JobController {
   private jobService: JobService;
+  private jobRepository = new JobRepository();
   private contentAuditMetricsService: ContentAuditMetricsService;
   private redis = getRedisClient();
 
@@ -230,11 +232,12 @@ export class JobController {
       const userId = req.user!.userId;
       const { id } = sessionIdSchema.parse({ id: req.params.id });
       await this.jobService.getJobById(userId, id);
+      const effectiveId = await this.jobRepository.resolveEffectiveJobId(id);
 
       const queryUrl = typeof req.query.url === 'string' ? this.normalizeUrl(req.query.url) : undefined;
       const db = await connectToMongo();
       const collection = db.collection('schemas');
-      const filter: any = { jobId: id };
+      const filter: any = { jobId: effectiveId };
       if (queryUrl) {
         const withSlash = queryUrl.endsWith('/') ? queryUrl : `${queryUrl}/`;
         const withoutSlash = queryUrl.endsWith('/') ? queryUrl.slice(0, -1) : queryUrl;
@@ -258,11 +261,12 @@ export class JobController {
       const userId = req.user!.userId;
       const { id } = sessionIdSchema.parse({ id: req.params.id });
       await this.jobService.getJobById(userId, id);
+      const effectiveId = await this.jobRepository.resolveEffectiveJobId(id);
 
       const db = await connectToMongo();
       const collection = db.collection('content_metrics');
       const docs = await collection
-        .find({ jobId: id })
+        .find({ jobId: effectiveId })
         .sort({ createdAt: 1 })
         .toArray();
 
@@ -283,10 +287,11 @@ export class JobController {
       const userId = req.user!.userId;
       const { id } = sessionIdSchema.parse({ id: req.params.id });
       await this.jobService.getJobById(userId, id);
+      const effectiveId = await this.jobRepository.resolveEffectiveJobId(id);
 
       const db = await connectToMongo();
       const collection = db.collection('prompt_tracking');
-      const doc = await collection.findOne({ jobId: id });
+      const doc = await collection.findOne({ jobId: effectiveId });
 
       return ResponseUtil.success(res, 'Prompt tracking retrieved successfully', doc);
     } catch (error: any) {
@@ -303,11 +308,12 @@ export class JobController {
       const userId = req.user!.userId;
       const { id } = sessionIdSchema.parse({ id: req.params.id });
       const job = await this.jobService.getJobById(userId, id);
+      const effectiveId = await this.jobRepository.resolveEffectiveJobId(id);
 
       const db = await connectToMongo();
       const collection = db.collection('fields');
       const docs = await collection
-        .find({ jobId: id })
+        .find({ jobId: effectiveId })
         .sort({ createdAt: 1 })
         .toArray();
 
@@ -493,6 +499,7 @@ export class JobController {
       const userId = req.user!.userId;
       const { id } = sessionIdSchema.parse({ id: req.params.id });
       await this.jobService.getJobById(userId, id);
+      const effectiveId = await this.jobRepository.resolveEffectiveJobId(id);
 
       const pagination = this.parsePagination(req, {
         defaultLimit: JobController.DEFAULT_PAGE_SIZE,
@@ -501,7 +508,7 @@ export class JobController {
 
       const db = await connectToMongo();
       const collection = db.collection('pages');
-      const filter = { jobId: id };
+      const filter = { jobId: effectiveId };
       const rows = await collection
         .find(filter)
         .sort({ createdAt: 1 })
@@ -527,6 +534,7 @@ export class JobController {
       const userId = req.user!.userId;
       const { id } = sessionIdSchema.parse({ id: req.params.id });
       await this.jobService.getJobById(userId, id);
+      const effectiveId = await this.jobRepository.resolveEffectiveJobId(id);
 
       const pagination = this.parsePagination(req, {
         defaultLimit: JobController.DEFAULT_PAGE_SIZE,
@@ -535,7 +543,7 @@ export class JobController {
 
       const db = await connectToMongo();
       const collection = db.collection('links');
-      const filter = { jobId: id };
+      const filter = { jobId: effectiveId };
       const rows = await collection
         .find(filter)
         .sort({ createdAt: 1 })
@@ -561,6 +569,7 @@ export class JobController {
       const userId = req.user!.userId;
       const { id } = sessionIdSchema.parse({ id: req.params.id });
       await this.jobService.getJobById(userId, id);
+      const effectiveId = await this.jobRepository.resolveEffectiveJobId(id);
 
       const pagination = this.parsePagination(req, {
         defaultLimit: JobController.DEFAULT_PAGE_SIZE,
@@ -569,7 +578,7 @@ export class JobController {
 
       const db = await connectToMongo();
       const collection = db.collection('sitemaps');
-      const filter = { jobId: id };
+      const filter = { jobId: effectiveId };
       const rows = await collection
         .find(filter)
         .sort({ createdAt: 1 })
@@ -595,6 +604,7 @@ export class JobController {
       const userId = req.user!.userId;
       const { id } = sessionIdSchema.parse({ id: req.params.id });
       await this.jobService.getJobById(userId, id);
+      const effectiveId = await this.jobRepository.resolveEffectiveJobId(id);
 
       const pagination = this.parsePagination(req, {
         defaultLimit: JobController.DEFAULT_PAGE_SIZE,
@@ -603,7 +613,7 @@ export class JobController {
 
       const db = await connectToMongo();
       const collection = db.collection('fields');
-      const filter = { jobId: id };
+      const filter = { jobId: effectiveId };
       const rows = await collection
         .find(filter)
         .sort({ createdAt: 1 })
@@ -629,6 +639,7 @@ export class JobController {
       const userId = req.user!.userId;
       const { id } = sessionIdSchema.parse({ id: req.params.id });
       await this.jobService.getJobById(userId, id);
+      const effectiveId = await this.jobRepository.resolveEffectiveJobId(id);
 
       const pagination = this.parsePagination(req, {
         defaultLimit: JobController.DEFAULT_RECOMMENDATION_PAGE_SIZE,
@@ -640,7 +651,7 @@ export class JobController {
       const [docs, aggregateRows, categoryRows] = await Promise.all([
         collection
           .find(
-            { jobId: id },
+            { jobId: effectiveId },
             { projection: { url: 1, recommendations: 1, createdAt: 1 } },
           )
           .sort({ createdAt: 1 })
@@ -649,7 +660,7 @@ export class JobController {
           .toArray(),
         collection
           .aggregate([
-            { $match: { jobId: id } },
+            { $match: { jobId: effectiveId } },
             {
               $project: {
                 health_score: { $ifNull: ['$recommendations.health_score', 100] },
@@ -672,7 +683,7 @@ export class JobController {
           .toArray(),
         collection
           .aggregate([
-            { $match: { jobId: id } },
+            { $match: { jobId: effectiveId } },
             {
               $project: {
                 pairs: {
@@ -736,6 +747,7 @@ export class JobController {
       const userId = req.user!.userId;
       const { id } = sessionIdSchema.parse({ id: req.params.id });
       await this.jobService.getJobById(userId, id);
+      const effectiveId = await this.jobRepository.resolveEffectiveJobId(id);
 
       const pagination = this.parsePagination(req, {
         defaultLimit: JobController.DEFAULT_AEO_PAGE_SIZE,
@@ -744,13 +756,13 @@ export class JobController {
       const db = await connectToMongo();
       const collection = db.collection('module_c');
       const rows = await collection
-        .find({ jobId: id })
+        .find({ jobId: effectiveId })
         .sort({ timestamp: -1 })
         .skip(pagination.skip)
         .limit(pagination.fetchLimit)
         .toArray();
       const total = pagination.includeTotal
-        ? await collection.countDocuments({ jobId: id })
+        ? await collection.countDocuments({ jobId: effectiveId })
         : undefined;
 
       return ResponseUtil.success(res, 'Job AEO analysis retrieved successfully', {
@@ -770,10 +782,11 @@ export class JobController {
       const userId = req.user!.userId;
       const { id } = sessionIdSchema.parse({ id: req.params.id });
       await this.jobService.getJobById(userId, id);
+      const effectiveId = await this.jobRepository.resolveEffectiveJobId(id);
 
       const db = await connectToMongo();
       const collection = db.collection('job_summaries');
-      const summary = await collection.findOne({ jobId: id });
+      const summary = await collection.findOne({ jobId: effectiveId });
 
       return ResponseUtil.success(res, 'Job summary retrieved successfully', summary);
     } catch (error: any) {
@@ -790,6 +803,7 @@ export class JobController {
       const userId = req.user!.userId;
       const { id } = sessionIdSchema.parse({ id: req.params.id });
       const job = await this.jobService.getJobById(userId, id);
+      const effectiveId = await this.jobRepository.resolveEffectiveJobId(id);
 
       const pagination = this.parsePagination(req, {
         defaultLimit: JobController.DEFAULT_SITE_STRUCTURE_PAGE_SIZE,
@@ -798,14 +812,14 @@ export class JobController {
       const db = await connectToMongo();
       const pagesCollection = db.collection('pages');
       const rows = await pagesCollection
-        .find({ jobId: id })
+        .find({ jobId: effectiveId })
         .project({ url: 1, _id: 0 })
         .sort({ createdAt: 1 })
         .skip(pagination.skip)
         .limit(pagination.fetchLimit)
         .toArray();
       const total = pagination.includeTotal
-        ? await pagesCollection.countDocuments({ jobId: id })
+        ? await pagesCollection.countDocuments({ jobId: effectiveId })
         : undefined;
       const payload = this.buildPaginatedPayload(rows, pagination, total);
 
@@ -833,12 +847,16 @@ export class JobController {
       const device: DeviceStrategy =
         deviceRaw === 'mobile' || deviceRaw === 'desktop' ? deviceRaw : 'desktop';
 
+      // Resolve cacheSourceJobId so page URLs are pulled from the original crawl
+      // even when this job is a cache-hit. Results are still written under `id`.
+      const effectiveId = await this.jobRepository.resolveEffectiveJobId(id);
+
       const db = await connectToMongo();
       const pagesCollection = db.collection('pages');
       const fieldsCollection = db.collection('fields');
 
       const pages = await pagesCollection
-        .find({ jobId: id })
+        .find({ jobId: effectiveId })
         .project({ url: 1 })
         .toArray();
 
@@ -1101,10 +1119,11 @@ export class JobController {
       const userId = req.user!.userId;
       const { id } = sessionIdSchema.parse({ id: req.params.id });
       await this.jobService.getJobById(userId, id);
+      const effectiveId = await this.jobRepository.resolveEffectiveJobId(id);
 
       const db = await connectToMongo();
       const collection = db.collection('module_e');
-      const data = await collection.findOne({ jobId: id });
+      const data = await collection.findOne({ jobId: effectiveId });
 
       return ResponseUtil.success(res, 'Module E analysis retrieved successfully', data);
     } catch (error: any) {

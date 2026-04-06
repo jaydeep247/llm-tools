@@ -141,6 +141,8 @@ export class JobRepository {
       startedAt: null,
       completedAt: null,
       errorMessage: null,
+      cacheSourceJobId: data.cacheSourceJobId ?? null,
+      isCacheHit: data.isCacheHit ?? false,
     };
     await db.collection<Job>('jobs').insertOne(job);
     return job;
@@ -149,6 +151,28 @@ export class JobRepository {
   async findById(id: string): Promise<Job | null> {
     const db = await connectToMongo();
     return db.collection<Job>('jobs').findOne({ id });
+  }
+
+  /**
+   * Resolve the effective jobId to use for DB queries.
+   *
+   * When a job is a URL-cache hit (isCacheHit=true), the real data in MongoDB
+   * (pages, fields, module_e, module_c, module_f, etc.) is stored under
+   * `cacheSourceJobId`, not the job's own `id`.  All read services MUST call
+   * this before querying module collections so cache-backed sessions are served
+   * transparently from the original job's data without any new API calls.
+   *
+   * Returns `cacheSourceJobId` when set on the job, otherwise returns the
+   * original `jobId` unchanged.  Always fails open (returns jobId on DB error).
+   */
+  async resolveEffectiveJobId(jobId: string): Promise<string> {
+    try {
+      const job = await this.findById(jobId);
+      if (job?.cacheSourceJobId) return job.cacheSourceJobId;
+    } catch {
+      // Fail open: proceed with the original jobId
+    }
+    return jobId;
   }
 
   async findBySessionId(sessionId: string): Promise<Job[]> {

@@ -234,6 +234,22 @@ def execute_module_d_job(payload: dict) -> bool:
     target_job_id = source_job_id if source_job_id else job_id
     project_id    = payload.get("projectId") or payload.get("config", {}).get("projectId") or target_job_id
 
+    # Resolve cache-hit: if target_job_id is a cache-hit job, the HTML in S3
+    # lives under cacheSourceJobId, not target_job_id itself.  This handles the
+    # case where the nnode-backend passed a sourceJobId that is a cache-hit job.
+    try:
+        mongo_manager.connect()
+        job_doc = mongo_manager.db.jobs.find_one({"_id": target_job_id}) or {}
+        cache_source = job_doc.get("cacheSourceJobId")
+        if cache_source:
+            logger.info(
+                "[MODULE_D] cache-hit source detected; remapping target_job_id %s → %s",
+                target_job_id, cache_source,
+            )
+            target_job_id = cache_source
+    except Exception as _cache_err:
+        logger.warning("[MODULE_D] Failed to resolve cacheSourceJobId (non-fatal): %s", _cache_err)
+
     logger.info("[MODULE_D] ▶  %s | job=%s | url=%s", job_type, job_id, (url or "")[:60])
 
     try:

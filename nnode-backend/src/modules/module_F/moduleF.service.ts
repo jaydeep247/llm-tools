@@ -1,11 +1,13 @@
 import { moduleFRepository } from './moduleF.repository';
 import { JobService } from '../job/job.service';
+import { JobRepository } from '../job/job.repository';
 import type { ModuleFAskAIResult, ModuleFResult, ModuleFTrends } from './moduleF.types';
 import { env } from '../../config/env';
 import { logger } from '../../shared/logger/logger';
 
 export class ModuleFService {
   private jobService: JobService;
+  private jobRepository = new JobRepository();
 
   constructor() {
     this.jobService = new JobService();
@@ -13,19 +15,27 @@ export class ModuleFService {
 
   async getModuleFResult(jobId: string, userId: string): Promise<ModuleFResult | null> {
     const job = await this.jobService.getJobById(userId, jobId);
+    const effectiveId = await this.jobRepository.resolveEffectiveJobId(jobId);
 
-    const directResult = await moduleFRepository.getModuleFResultByJobId(jobId);
+    const directResult = await moduleFRepository.getModuleFResultByJobId(effectiveId);
     if (directResult) return directResult;
 
+    // Session fallback: only use it when the effective job belongs to this same session
+    // (i.e., not a cross-session cache-hit). Cross-session cache hits should have been
+    // served by getModuleFResultByJobId above; if that returned null the data doesn't exist.
     if (!job?.sessionId) return null;
+    if (effectiveId !== jobId) return null; // cache-hit: data came from another session
     return await moduleFRepository.getLatestModuleFResultBySessionId(job.sessionId);
   }
 
   async getModuleFTrends(jobId: string, userId: string): Promise<ModuleFTrends | null> {
     const job = await this.jobService.getJobById(userId, jobId);
-    if (!job || !job.url) return null;
+    const effectiveId = await this.jobRepository.resolveEffectiveJobId(jobId);
+    const resolvedJob = await this.jobService.getJobById(userId, effectiveId).catch(() => job);
+    const url = resolvedJob?.url || job?.url;
+    if (!url) return null;
 
-    const history = await moduleFRepository.getModuleFHistoryByUrl(job.url);
+    const history = await moduleFRepository.getModuleFHistoryByUrl(url);
     if (!history.length) return null;
 
     // Filter valid history points

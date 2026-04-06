@@ -81,7 +81,8 @@ export function HeroSection() {
       })
 
       // Navigate to progress page — it auto-redirects to dashboard on completion
-      router.push(`/dashboard/jobs/${jobResult.job.id}/progress`)
+      const progressUrl = `/dashboard/jobs/${jobResult.job.id}/progress${jobResult.job.isCacheHit ? '?cacheHit=1' : ''}`
+      router.push(progressUrl)
     } catch (error: any) {
       toast({
         title: 'Failed to Start Session',

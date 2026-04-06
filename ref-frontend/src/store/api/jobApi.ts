@@ -12,6 +12,8 @@ export interface Job {
   failureReason?: string;
   errorMessage?: string | null;
   config?: any;
+  isCacheHit?: boolean;
+  cacheSourceJobId?: string | null;
 }
 
 export interface StopJobResponse {

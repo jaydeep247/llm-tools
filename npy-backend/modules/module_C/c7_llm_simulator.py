@@ -10,6 +10,7 @@ Pipeline:
   Field 3:  Consistency Across Models (embedding similarity + citation variance).
 """
 
+import asyncio
 import json
 import logging
 import math
@@ -110,17 +111,24 @@ async def _execute_all_prompts(
     prompts: List[str],
     page_content_snippet: str = "",
 ) -> Dict[str, List[Dict[str, Any]]]:
-    """Execute all prompts across all target models. Returns {model: [responses]}."""
-    model_responses: Dict[str, List[Dict[str, Any]]] = {}
-
+    """Execute all prompts across all target models concurrently. Returns {model: [responses]}."""
+    task_keys: List[Tuple[str, str]] = []
+    tasks = []
     for provider, cfg in TARGET_MODELS.items():
-        responses = []
         for prompt_text in prompts:
-            result = await _execute_prompt(
-                prompt_text, provider, cfg["model"], page_content_snippet
+            tasks.append(_execute_prompt(prompt_text, provider, cfg["model"], page_content_snippet))
+            task_keys.append((provider, prompt_text))
+
+    raw_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    model_responses: Dict[str, List[Dict[str, Any]]] = {p: [] for p in TARGET_MODELS}
+    for (provider, prompt_text), result in zip(task_keys, raw_results):
+        if isinstance(result, Exception):
+            model_responses[provider].append(
+                {"prompt": prompt_text, "success": False, "answer": "", "error": str(result)}
             )
-            responses.append({"prompt": prompt_text, **result})
-        model_responses[provider] = responses
+        else:
+            model_responses[provider].append({"prompt": prompt_text, **result})
 
     return model_responses
 
@@ -219,21 +227,28 @@ async def _compute_accuracy(
     page_content: str,
     model_responses: Dict[str, List[Dict[str, Any]]],
 ) -> Dict[str, Any]:
-    """Compute accuracy per model and overall."""
+    """Compute accuracy per model and overall — all claim checks run concurrently."""
     claims = await _extract_page_claims(page_content)
     if not claims:
         return {"overall": 50, "per_model": {}, "claims_extracted": 0}
 
-    per_model: Dict[str, float] = {}
+    task_keys: List[str] = []
+    tasks = []
     for model_name, responses in model_responses.items():
-        model_accuracies = []
         for r in responses:
             if r.get("success") and r.get("answer"):
-                alignment = await _check_claim_alignment(claims, r["answer"])
-                model_accuracies.append(alignment["accuracy"])
-        if model_accuracies:
-            per_model[model_name] = round(sum(model_accuracies) / len(model_accuracies), 1)
+                tasks.append(_check_claim_alignment(claims, r["answer"]))
+                task_keys.append(model_name)
 
+    raw_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    per_model_lists: Dict[str, List[float]] = {}
+    for model_name, result in zip(task_keys, raw_results):
+        if isinstance(result, Exception):
+            continue
+        per_model_lists.setdefault(model_name, []).append(result["accuracy"])
+
+    per_model = {k: round(sum(v) / len(v), 1) for k, v in per_model_lists.items()}
     overall = round(sum(per_model.values()) / len(per_model), 1) if per_model else 50
 
     return {
@@ -251,55 +266,68 @@ async def _compute_completeness(
     page_topic: str,
     model_responses: Dict[str, List[Dict[str, Any]]],
 ) -> Dict[str, Any]:
-    """How completely do the LLMs cover the topic when answering?"""
+    """
+    How completely do the LLMs cover the topic?
+    All valid answers for each model are batched into a single LLM call,
+    then all models are evaluated concurrently — 3 calls instead of N*M.
+    """
+
+    async def _eval_model_batch(model_name: str, responses: List[Dict[str, Any]]) -> Tuple[str, List[float]]:
+        valid_answers = [r["answer"] for r in responses if r.get("success") and r.get("answer")]
+        if not valid_answers:
+            return model_name, []
+
+        batch = "\n\n".join(
+            f"Response {i + 1}: {a[:800]}" for i, a in enumerate(valid_answers)
+        )
+        resp = await execute_task(
+            task_name="aeo_evaluate_answer_quality",
+            input_data={
+                "messages": [
+                    {"role": "system", "content": "You are a topic coverage evaluator."},
+                    {
+                        "role": "user",
+                        "content": (
+                            f'Rate each response\'s completeness for the topic "{page_topic}" '
+                            f"on a 0-100 scale.\n\n{batch}\n\n"
+                            f'Return JSON: {{"scores": [<score_for_response_1>, ...]}}'
+                        ),
+                    },
+                ]
+            },
+            provider="openai",
+            options={
+                "model": "gpt-4o-mini",
+                "temperature": 0.1,
+                "max_tokens": 200,
+                "response_format": {"type": "json_object"},
+            },
+        )
+
+        if resp.success and resp.data:
+            try:
+                parsed = json.loads(resp.data) if isinstance(resp.data, str) else resp.data
+                raw_scores = parsed.get("scores", [])
+                scores = [float(s) for s in raw_scores if isinstance(s, (int, float))]
+                return model_name, scores
+            except (json.JSONDecodeError, TypeError, ValueError):
+                pass
+        return model_name, []
+
+    tasks = [_eval_model_batch(m, r) for m, r in model_responses.items()]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
     per_model: Dict[str, List[float]] = {}
-
-    for model_name, responses in model_responses.items():
-        scores = []
-        for r in responses:
-            if not r.get("success") or not r.get("answer"):
-                continue
-
-            resp = await execute_task(
-                task_name="aeo_evaluate_answer_quality",
-                input_data={
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": "You are a topic coverage evaluator.",
-                        },
-                        {
-                            "role": "user",
-                            "content": (
-                                f'Does this LLM response comprehensively cover "{page_topic}"? '
-                                f"What percentage (0-100) of expected information does it include?\n"
-                                f"Response: {r['answer'][:1500]}\n"
-                                f'Return JSON: {{"completeness_score": 0-100, "missing_aspects": [...]}}'
-                            ),
-                        },
-                    ]
-                },
-                provider="openai",
-                options={"model": "gpt-4o-mini", "temperature": 0.1, "max_tokens": 400,
-                         "response_format": {"type": "json_object"}},
-            )
-
-            if resp.success and resp.data:
-                try:
-                    parsed = json.loads(resp.data) if isinstance(resp.data, str) else resp.data
-                    scores.append(parsed.get("completeness_score", 50))
-                except (json.JSONDecodeError, TypeError):
-                    pass
-
+    for result in results:
+        if isinstance(result, Exception):
+            continue
+        model_name, scores = result
         if scores:
             per_model[model_name] = scores
 
     model_avgs = {k: round(sum(v) / len(v), 1) for k, v in per_model.items()}
-    overall = round(
-        sum(sum(v) for v in per_model.values())
-        / sum(len(v) for v in per_model.values()),
-        1,
-    ) if per_model else 0
+    all_scores = [s for v in per_model.values() for s in v]
+    overall = round(sum(all_scores) / len(all_scores), 1) if all_scores else 0
 
     return {"overall": overall, "per_model": model_avgs}
 
@@ -387,16 +415,16 @@ async def run_c7(
     # Pre-step: generate prompts
     prompts = await _generate_prompts(page_topic, visible_text)
 
-    # Execute prompts across all models
+    # Execute all prompts across all models concurrently
     model_responses = await _execute_all_prompts(prompts, visible_text[:1000])
 
-    # Field 1: Accuracy
-    accuracy = await _compute_accuracy(visible_text, model_responses)
+    # Field 1 + 2 run concurrently (both need only model_responses / page text)
+    accuracy, completeness = await asyncio.gather(
+        _compute_accuracy(visible_text, model_responses),
+        _compute_completeness(page_topic, model_responses),
+    )
 
-    # Field 2: Completeness (LLM perspective)
-    completeness = await _compute_completeness(page_topic, model_responses)
-
-    # Field 3: Consistency
+    # Field 3: pure Python — no I/O
     consistency = _compute_consistency(model_responses)
 
     # Build raw answer strings for downstream C9

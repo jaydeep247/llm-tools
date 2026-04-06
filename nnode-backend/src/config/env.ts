@@ -58,6 +58,11 @@ const envSchema = z.object({
 
   // Frontend URL for post-OAuth redirects
   FRONTEND_URL: z.string().optional().default('http://localhost:3000'),
+
+  // URL-level result cache TTL.
+  // Applies to both the root crawl entry and each per-module result slot.
+  // Set to 0 to disable caching entirely.
+  URL_CACHE_TTL_DAYS: z.coerce.number().int().nonnegative().default(7),
 });
 
 const isLocalInfraUrl = (value: string): boolean => {
