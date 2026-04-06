@@ -19,6 +19,20 @@ export const runSerpAnalyzerSchema = z.object({
   device: z.enum(['desktop', 'mobile']).optional().default('desktop'),
 });
 
+export const moduleAAskAIBodySchema = z.object({
+  question: z.string().min(1, 'Question is required').max(8000),
+  conversationHistory: z
+    .array(
+      z.object({
+        role: z.enum(['user', 'assistant']),
+        content: z.string().min(1),
+      }),
+    )
+    .max(20)
+    .optional(),
+});
+
 export type JobIdParam = z.infer<typeof jobIdParamSchema>;
 export type SessionParam = z.infer<typeof sessionParamSchema>;
 export type RunSerpAnalyzerBody = z.infer<typeof runSerpAnalyzerSchema>;
+export type ModuleAAskAIBody = z.infer<typeof moduleAAskAIBodySchema>;

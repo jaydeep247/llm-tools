@@ -131,6 +131,31 @@ export interface KeywordHistoryEntry {
   jobId: string
 }
 
+export interface ModuleAAskAIRequestBody {
+  question: string
+  conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
+}
+
+export interface ModuleAAskAIResult {
+  answer: string
+  question_type?: string
+  sources?: string[]
+  data_available?: boolean
+  context_snapshot?: Record<string, unknown>
+}
+
+export interface ModuleAAskAIResponse {
+  answer?: string
+  question_type?: string
+  sources?: string[]
+  data_available?: boolean
+  context_snapshot?: Record<string, unknown>
+  data?: ModuleAAskAIResult | null
+  success?: boolean
+  message?: string
+  error?: string
+}
+
 // ── API ────────────────────────────────────────────────────────────────────
 
 export const moduleAApi = baseApi.injectEndpoints({
@@ -173,6 +198,22 @@ export const moduleAApi = baseApi.injectEndpoints({
         { type: 'ModuleA' as const, id: `session-${sessionId}` },
       ],
     }),
+    askModuleAAI: builder.mutation<
+      ModuleAAskAIResponse,
+      { jobId: string; body: ModuleAAskAIRequestBody }
+    >({
+      query: ({ jobId, body }) => ({
+        url: `/module-a/jobs/${jobId}/ask-ai`,
+        method: 'POST',
+        body,
+      }),
+    }),
+    getModuleASuggestedQuestions: builder.query<{ questions?: string[] }, string>({
+      query: (jobId) => ({
+        url: `/module-a/jobs/${jobId}/ask-ai/suggested-questions`,
+        method: 'GET',
+      }),
+    }),
   }),
   overrideExisting: false,
 })
@@ -182,4 +223,6 @@ export const {
   useGetSessionSerpResultsQuery,
   useGetKeywordHistoryQuery,
   useRunSerpAnalyzerMutation,
+  useAskModuleAAIMutation,
+  useLazyGetModuleASuggestedQuestionsQuery,
 } = moduleAApi

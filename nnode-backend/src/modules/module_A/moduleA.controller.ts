@@ -7,6 +7,7 @@ import {
   jobIdParamSchema,
   sessionParamSchema,
   runSerpAnalyzerSchema,
+  moduleAAskAIBodySchema,
 } from './moduleA.validator';
 import { logger } from '../../shared/logger/logger';
 
@@ -109,6 +110,45 @@ export class ModuleAController {
       if (error.name === 'ZodError')
         return ResponseUtil.error(res, 'Validation failed', error.errors);
       return ResponseUtil.serverError(res, 'Failed to start SERP Analyzer');
+    }
+  };
+
+  askModuleAAI = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { jobId } = jobIdParamSchema.parse(req.params);
+      const body = moduleAAskAIBodySchema.parse(req.body);
+
+      const result = await this.moduleAService.askModuleAAI(jobId, userId, {
+        question: body.question,
+        conversationHistory: body.conversationHistory,
+      });
+
+      return ResponseUtil.success(res, 'Module A Ask AI completed', result);
+    } catch (error: any) {
+      logger.error('[MODULE_A] askModuleAAI error:', error);
+      if (error.name === 'ZodError')
+        return ResponseUtil.error(res, 'Validation failed', error.errors);
+      if (error.message?.includes('not found') || error.message?.includes('access denied'))
+        return ResponseUtil.notFound(res, error.message);
+      return ResponseUtil.serverError(res, 'Failed to run Ask AI', error.message || undefined);
+    }
+  };
+
+  getModuleASuggestedQuestions = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const { jobId } = jobIdParamSchema.parse(req.params);
+
+      const result = await this.moduleAService.getModuleASuggestedQuestions(jobId, userId);
+      return ResponseUtil.success(res, 'Module A suggested questions retrieved', result);
+    } catch (error: any) {
+      logger.error('[MODULE_A] getModuleASuggestedQuestions error:', error);
+      if (error.name === 'ZodError')
+        return ResponseUtil.error(res, 'Validation failed', error.errors);
+      if (error.message?.includes('not found') || error.message?.includes('access denied'))
+        return ResponseUtil.notFound(res, error.message);
+      return ResponseUtil.serverError(res, 'Failed to retrieve suggested questions');
     }
   };
 }
