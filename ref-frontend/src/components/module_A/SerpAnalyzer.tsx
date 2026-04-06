@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import {
   Search,
@@ -21,6 +21,7 @@ import {
   MapPin,
   Link2,
   ShoppingBag,
+  MessageSquare,
   BookOpen,
   ArrowUpRight,
   Loader2,
@@ -31,10 +32,14 @@ import {
 } from 'lucide-react'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { ModuleAAskAiChatShell, type ModuleAAskAiChatTurn } from './ModuleAAskAiChatShell'
 import {
   useGetSerpResultQuery,
   useGetSessionSerpResultsQuery,
   useRunSerpAnalyzerMutation,
+  useAskModuleAAIMutation,
+  useLazyGetModuleASuggestedQuestionsQuery,
   type SerpAnalyzerResult,
   type KeywordSerpResult,
   type ContentGap,
@@ -88,6 +93,10 @@ interface SerpAnalyzerProps {
 
 type Filter = 'all' | 'ranking' | 'top10' | 'not-ranking'
 
+function chatMessageId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
 export function SerpAnalyzer({ jobId, sessionId }: SerpAnalyzerProps) {
   const [showForm, setShowForm]                 = useState(false)
   const [newKeyword, setNewKeyword]             = useState('')
@@ -99,8 +108,13 @@ export function SerpAnalyzer({ jobId, sessionId }: SerpAnalyzerProps) {
   const [filter, setFilter]                     = useState<Filter>('all')
   const [expandedKeyword, setExpandedKeyword]   = useState<string | null>(null)
   const [pendingSerpJobId, setPendingSerpJobId] = useState<string | null>(null)
-  const [isPolling, setIsPolling]               = useState(false)
-  const [runError, setRunError]                 = useState<string | null>(null)
+  const [isPolling, setIsPolling] = useState(false)
+  const [runError, setRunError] = useState<string | null>(null)
+  const [askDialogOpen, setAskDialogOpen] = useState(false)
+  const [chatInput, setChatInput] = useState('')
+  const [chatMessages, setChatMessages] = useState<ModuleAAskAiChatTurn[]>([])
+  const [chatSuggestions, setChatSuggestions] = useState<string[]>([])
+  const chatScrollRef = useRef<HTMLDivElement>(null)
 
   // Close modal on Escape
   useEffect(() => {
@@ -133,6 +147,9 @@ export function SerpAnalyzer({ jobId, sessionId }: SerpAnalyzerProps) {
   }, [newJobResult, isPolling, refetchSession])
 
   const [runSerpAnalyzer, { isLoading: isDispatching }] = useRunSerpAnalyzerMutation()
+  const [askModuleAAI, { isLoading: isAskingAI, error: askAIError, reset: resetAskAI }] =
+    useAskModuleAAIMutation()
+  const [fetchSuggestedQuestions] = useLazyGetModuleASuggestedQuestionsQuery()
 
   const result: SerpAnalyzerResult | null =
     newJobResult?.data ?? sessionResults?.data?.[0] ?? null
@@ -184,7 +201,69 @@ export function SerpAnalyzer({ jobId, sessionId }: SerpAnalyzerProps) {
     }
   }
 
-  // ── Guard ─────────────────────────────────────────────────────────────
+  const openAskAiDialog = async () => {
+    if (!jobId) return
+    resetAskAI()
+    setChatMessages([])
+    setChatInput('')
+    setAskDialogOpen(true)
+    try {
+      const suggested = await fetchSuggestedQuestions(jobId).unwrap()
+      setChatSuggestions(suggested?.questions ?? [])
+    } catch {
+      setChatSuggestions([])
+    }
+  }
+
+  const submitAskAi = async (e?: FormEvent) => {
+    e?.preventDefault()
+    if (!jobId || !chatInput.trim() || isAskingAI) return
+
+    const question = chatInput.trim()
+    setChatInput('')
+
+    const priorHistory = chatMessages.slice(-6).map((m) => ({
+      role: m.role,
+      content: m.content,
+    }))
+
+    const userTurn: ModuleAAskAiChatTurn = { id: chatMessageId(), role: 'user', content: question }
+    setChatMessages((prev) => [...prev, userTurn])
+
+    try {
+      const res = await askModuleAAI({
+        jobId,
+        body: {
+          question,
+          conversationHistory: priorHistory.length ? priorHistory : undefined,
+        },
+      }).unwrap()
+
+      const text = (res?.data?.answer ?? res?.answer ?? '').trim()
+      const sources = res?.data?.sources ?? res?.sources
+      if (!text) {
+        setChatMessages((prev) => prev.filter((m) => m.id !== userTurn.id))
+        setChatInput(question)
+        return
+      }
+
+      setChatMessages((prev) => [
+        ...prev,
+        { id: chatMessageId(), role: 'assistant', content: text, sources },
+      ])
+    } catch {
+      setChatMessages((prev) => prev.filter((m) => m.id !== userTurn.id))
+      setChatInput(question)
+    }
+  }
+
+  useEffect(() => {
+    if (!askDialogOpen || !chatScrollRef.current) return
+    const el = chatScrollRef.current
+    el.scrollTop = el.scrollHeight
+  }, [askDialogOpen, chatMessages, isAskingAI])
+
+  // ── Render ─────────────────────────────────────────────────────────────
   if (!jobId) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
@@ -197,7 +276,39 @@ export function SerpAnalyzer({ jobId, sessionId }: SerpAnalyzerProps) {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
+      <Dialog
+        open={askDialogOpen}
+        onOpenChange={(open) => {
+          setAskDialogOpen(open)
+          if (!open) {
+            resetAskAI()
+            setChatMessages([])
+            setChatInput('')
+            setChatSuggestions([])
+          }
+        }}
+      >
+        <DialogContent
+          className={cn(
+            'w-[calc(100vw-1rem)] max-h-[95vh] gap-0 overflow-visible border-0 bg-transparent p-0 pt-10 shadow-none sm:max-w-3xl lg:max-w-5xl',
+            'data-[state=open]:zoom-in-[0.98]',
+          )}
+          showCloseButton
+        >
+          <ModuleAAskAiChatShell
+            chatScrollRef={chatScrollRef}
+            chatMessages={chatMessages}
+            chatInput={chatInput}
+            setChatInput={setChatInput}
+            isAskingAI={isAskingAI}
+            askAIError={askAIError}
+            onSubmit={submitAskAi}
+            onSuggestionClick={(text: string) => setChatInput(text)}
+            suggestions={chatSuggestions}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
@@ -211,6 +322,18 @@ export function SerpAnalyzer({ jobId, sessionId }: SerpAnalyzerProps) {
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={openAskAiDialog}
+            disabled={!jobId || isAskingAI}
+            className={cn(
+              'inline-flex items-center gap-2 rounded-full border-0 px-5 py-2.5 text-sm font-extrabold uppercase tracking-wider text-black shadow-lg shadow-fuchsia-950/30',
+              'bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300 hover:opacity-95',
+              'cursor-pointer disabled:cursor-not-allowed disabled:opacity-50',
+            )}
+          >
+            <MessageSquare className="size-4 shrink-0" />
+            Ask AI
+          </button>
           {result && (
             <button
               onClick={() => refetchSession()}

@@ -19,4 +19,8 @@ router.get('/module-a/jobs/:jobId/keyword-history', moduleAController.getKeyword
 // Get all SERP Analyzer results for a session
 router.get('/module-a/sessions/:sessionId', moduleAController.getSessionSerpResults);
 
+// Ask AI and suggested questions
+router.post('/module-a/jobs/:jobId/ask-ai', moduleAController.askModuleAAI);
+router.get('/module-a/jobs/:jobId/ask-ai/suggested-questions', moduleAController.getModuleASuggestedQuestions);
+
 export default router;

@@ -26,6 +26,7 @@ class TaskRegistry:
         "aeo_evaluate_answer_quality": ["openai", "gemini", "claude"],
         "module_c_ask_ai": ["claude"],
         "module_e_ask_ai": ["claude"],
+        "a_ask_ai": ["claude"],
 
         # # Module E Tasks
         "module_e_content_mandate": ["openai", "gemini", "claude"],
