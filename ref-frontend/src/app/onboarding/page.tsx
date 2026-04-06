@@ -352,20 +352,58 @@ function OnboardingContent() {
     window.location.href = `${API_BASE_URL}/auth/google/analytics`
   }
 
-  /** Skip GA — go straight to brand-onboarding */
-  const handleSkipGA = () => {
+  /** Skip GA — go straight to brand-onboarding if we have params, otherwise exit to dashboard */
+  const handleSkipGA = async () => {
     sessionStorage.removeItem(GA_REDIRECT_PARAMS_KEY)
+    skipGuardRedirect.current = true
     if (brandRedirectParams) {
       const destination = buildBrandOnboardingPath(brandRedirectParams, 0)
       void persistBrandEntry(brandRedirectParams, 0)
       router.push(destination)
     } else {
+      // No session was started — mark onboarding completed so the dashboard guard lets through
+      try {
+        await updateUser({
+          id: user!.id,
+          data: {
+            onboardingState: {
+              status: 'completed',
+              currentFlow: 'core',
+              currentStep: currentStepIndex,
+              resumePath: '/dashboard',
+            },
+          },
+        }).unwrap()
+      } catch {
+        // Non-blocking
+      }
       router.push('/dashboard')
     }
   }
 
-  const handleSkipToDashboard = () => {
-    void persistCoreProgress(currentStepIndex)
+  const handleSkipStep = () => {
+    const nextStep = currentStepIndex + 1
+    setCurrentStepIndex(nextStep)
+    void persistCoreProgress(nextStep)
+  }
+
+  const handleSkipToDashboard = async () => {
+    skipGuardRedirect.current = true
+    try {
+      await updateUser({
+        id: user!.id,
+        data: {
+          onboardingState: {
+            status: 'completed',
+            currentFlow: 'core',
+            currentStep: currentStepIndex,
+            resumePath: '/dashboard',
+          },
+        },
+      }).unwrap()
+    } catch {
+      // Non-blocking — proceed to dashboard regardless
+    }
     router.push('/dashboard')
   }
 
@@ -381,7 +419,7 @@ function OnboardingContent() {
         return (
           <StepCreateProject
             onAdd={handleCreateProject}
-            onSkip={handleSkipToDashboard}
+            onSkip={handleSkipStep}
             onBack={handleBack}
             isLoading={isCreatingProject}
             currentStep={currentStepIndex}
@@ -392,7 +430,7 @@ function OnboardingContent() {
         return (
           <StepStartSession
             onStart={handleStartSession}
-            onSkip={handleSkipToDashboard}
+            onSkip={handleSkipStep}
             onBack={handleBack}
             isLoading={isStartingSession}
             currentStep={currentStepIndex}

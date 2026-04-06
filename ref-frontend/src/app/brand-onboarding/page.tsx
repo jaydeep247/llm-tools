@@ -425,6 +425,7 @@ function BrandOnboardingContent() {
               isSaving={isAdvancingToPrompts}
               onNext={handleTopicsContinue}
               onBack={() => goToStep(0)}
+              onSkip={handleSkip}
               currentStep={1}
               totalSteps={TOTAL_STEPS}
             />
@@ -440,6 +441,7 @@ function BrandOnboardingContent() {
               isSaving={isSavingPrompts}
               onNext={handlePromptsContinue}
               onBack={() => goToStep(1)}
+              onSkip={handleSkip}
               currentStep={2}
               totalSteps={TOTAL_STEPS}
             />

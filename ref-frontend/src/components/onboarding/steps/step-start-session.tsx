@@ -74,7 +74,7 @@ export function StepStartSession({
                 if (error) setError(null)
               }}
               onKeyDown={(e) => e.key === 'Enter' && handleStart()}
-              className="bg-white border-zinc-300 shadow-sm text-zinc-900 placeholder:text-zinc-400 focus-visible:ring-2 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500 h-11 pl-9"
+              className="bg-white! border-zinc-200! hover:border-zinc-300! shadow-none! text-zinc-900! placeholder:text-zinc-400! focus-visible:border-emerald-500! focus-visible:ring-2! focus-visible:ring-emerald-500/20! h-11 pl-9 rounded-xl"
             />
           </div>
           {error && (
@@ -110,7 +110,6 @@ export function StepStartSession({
             >
               Skip
             </Button>
-
             <Button
               onClick={handleStart}
               disabled={!url.trim() || isLoading}

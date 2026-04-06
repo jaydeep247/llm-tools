@@ -7,9 +7,15 @@ export const useAuth = () => {
   const { data, isLoading, error, refetch } = useGetMeQuery(undefined, {
     // Poll every 5 minutes to keep profile data fresh
     pollingInterval: 5 * 60 * 1000,
-    refetchOnMountOrArgChange: true,
+    // false: all components sharing this hook read from the single cached result.
+    // refetchOnMountOrArgChange:true would fire a new HTTP request for every
+    // component that mounts (layout, navbar, page, etc.) — bypassing RTK Query
+    // deduplication. The pollingInterval + token-refresh interval handle freshness.
+    refetchOnMountOrArgChange: false,
     refetchOnReconnect: true,
-    refetchOnFocus: true,
+    // false: tab-focus events were causing a burst of /auth/me requests every
+    // time the window regained focus. Freshness is covered by pollingInterval.
+    refetchOnFocus: false,
   });
 
   const [refreshToken] = useRefreshMutation();

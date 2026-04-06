@@ -98,16 +98,33 @@ export function StepBrandReady({
 
       {/* Footer */}
       <div className="mt-auto pt-6">
+        {isDescriptionLoading && (
+          <p className="text-xs text-zinc-400 text-center mb-3">
+            Waiting for AI description before you can continue…
+          </p>
+        )}
         <div className="flex justify-between items-center mb-6">
-          <div />
+          <Button
+            onClick={onSkip}
+            variant="ghost"
+            disabled={isLoading || isDescriptionLoading}
+            className="text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 px-4 h-10 text-sm font-medium rounded-full"
+          >
+            Skip for now
+          </Button>
 
           <Button
             onClick={onStart}
-            disabled={isLoading}
+            disabled={isLoading || isDescriptionLoading}
             className="bg-zinc-900 text-white hover:bg-zinc-700 px-6 h-10 text-sm font-medium rounded-full transition-all shadow-lg shadow-zinc-200 flex items-center"
           >
             {isLoading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
+            ) : isDescriptionLoading ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Generating…
+              </>
             ) : (
               <>
                 Continue

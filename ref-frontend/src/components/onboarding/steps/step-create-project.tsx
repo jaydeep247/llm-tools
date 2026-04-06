@@ -65,7 +65,7 @@ export function StepCreateProject({
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-            className="bg-white border-zinc-300 shadow-sm text-zinc-900 placeholder:text-zinc-400 focus-visible:ring-2 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500 h-11"
+            className="bg-white! border-zinc-200! hover:border-zinc-300! shadow-none! text-zinc-900! placeholder:text-zinc-400! focus-visible:border-emerald-500! focus-visible:ring-2! focus-visible:ring-emerald-500/20! h-11 rounded-xl"
           />
         </div>
 
@@ -80,7 +80,7 @@ export function StepCreateProject({
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
-            className="bg-white border-zinc-300 shadow-sm text-zinc-900 placeholder:text-zinc-400 focus-visible:ring-2 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500 resize-none"
+            className="bg-white! border-zinc-200! hover:border-zinc-300! shadow-none! text-zinc-900! placeholder:text-zinc-400! focus-visible:border-emerald-500! focus-visible:ring-2! focus-visible:ring-emerald-500/20! resize-none rounded-xl min-h-22"
           />
         </div>
       </div>
@@ -105,7 +105,6 @@ export function StepCreateProject({
             >
               Skip
             </Button>
-
             <Button
               onClick={handleAdd}
               disabled={!name.trim() || isLoading}

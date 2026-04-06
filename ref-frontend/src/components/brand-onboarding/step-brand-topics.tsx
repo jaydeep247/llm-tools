@@ -14,6 +14,7 @@ interface StepBrandTopicsProps {
   isSaving: boolean
   onNext: () => void
   onBack: () => void
+  onSkip?: () => void
   currentStep: number
   totalSteps: number
 }
@@ -26,6 +27,7 @@ export function StepBrandTopics({
   isSaving,
   onNext,
   onBack,
+  onSkip,
   currentStep,
   totalSteps,
 }: StepBrandTopicsProps) {
@@ -140,7 +142,7 @@ export function StepBrandTopics({
                   value={customTopic}
                   onChange={(e) => setCustomTopic(e.target.value)}
                   onKeyDown={handleCustomKeyDown}
-                  className="bg-white border-zinc-300 shadow-sm text-zinc-900 placeholder:text-zinc-400 focus-visible:ring-2 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500 h-10 flex-1 text-sm"
+                  className="bg-white! border-zinc-200! hover:border-zinc-300! shadow-none! text-zinc-900! placeholder:text-zinc-400! focus-visible:border-emerald-500! focus-visible:ring-2! focus-visible:ring-emerald-500/20! h-10 flex-1 text-sm rounded-xl"
                 />
                 <Button
                   onClick={addCustomTopic}
@@ -180,7 +182,18 @@ export function StepBrandTopics({
             Go Back
           </button>
 
-          <Button
+          <div className="flex items-center gap-3">
+            {onSkip && (
+              <Button
+                onClick={onSkip}
+                variant="ghost"
+                disabled={isSaving}
+                className="text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 px-4 h-10 text-sm font-medium rounded-full"
+              >
+                Skip for now
+              </Button>
+            )}
+            <Button
             onClick={onNext}
             disabled={selectedTopics.length === 0 || isTopicsLoading || isSaving}
             className="bg-zinc-900 text-white hover:bg-zinc-700 px-6 h-10 text-sm font-medium rounded-full transition-all shadow-lg shadow-zinc-200 flex items-center disabled:opacity-50"
@@ -194,6 +207,7 @@ export function StepBrandTopics({
               </>
             )}
           </Button>
+          </div>
         </div>
 
         {/* Progress */}
