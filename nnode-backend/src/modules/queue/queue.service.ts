@@ -158,6 +158,13 @@ export class QueueService {
     );
   }
 
+  async publishModuleEAiCitationRankingJob(payload: ModuleEJobPayload): Promise<void> {
+    await this.publishToQueue(
+      { ...payload, jobType: JobType.MODULE_E_AI_CITATION_RANKING, subModule: 'ai_citation_ranking' },
+      JobCategory.MODULE_E
+    );
+  }
+
   // ============ MODULE F JOBS (Competitor AI Intelligence) ============
   async publishModuleFJob(payload: ModuleFJobPayload): Promise<void> {
     await this.publishToQueue(payload, JobCategory.MODULE_F);

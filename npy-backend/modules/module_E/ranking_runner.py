@@ -14,6 +14,7 @@ from .content_consistency import ContentConsistencyModule
 from .entity_coverage import EntityCoverageModule
 from .recommendations import (
     generate_tracked_prompts_recommendations,
+    generate_citations_recommendations,
 )
 
 logger = logging.getLogger("module_e_ranking_runner")
@@ -654,8 +655,11 @@ class RankingRunner:
 
         # Generate recommendations only when real data exists (generators return None otherwise)
         tracked_rec = generate_tracked_prompts_recommendations(result_payload)
+        citations_rec = generate_citations_recommendations(result_payload)
         if tracked_rec is not None:
             result_payload["tracked_prompts_recommendations"] = tracked_rec
+        if citations_rec is not None:
+            result_payload["citations_recommendations"] = citations_rec
 
         return result_payload
 
@@ -778,6 +782,8 @@ async def run_ranking_analysis(
             # Only persist recommendations when they were actually computed
             if result_data.get("tracked_prompts_recommendations") is not None:
                 set_doc["tracked_prompts_recommendations"] = result_data["tracked_prompts_recommendations"]
+            if result_data.get("citations_recommendations") is not None:
+                set_doc["citations_recommendations"] = result_data["citations_recommendations"]
 
             mongo_manager.module_e.update_one(
                 {"jobId": job_id},

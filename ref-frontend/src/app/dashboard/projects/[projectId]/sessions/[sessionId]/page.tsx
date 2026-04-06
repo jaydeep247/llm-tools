@@ -1450,6 +1450,7 @@ export default function SessionDetailPage() {
         {activeSection === 'prompt-opportunities' && (
           <div className="space-y-6">
             <AICitationRanking jobId={jobId} url={session?.startUrl || ''} />
+            <PromptTrackingRecommendations jobId={jobId} section="citations_recommendations" />
           </div>
         )}
 

@@ -472,6 +472,19 @@ export class JobService {
     return job;
   }
 
+  async startModuleEAiCitationRanking(userId: string, jobId: string): Promise<Job> {
+    const job = await this.getJobById(userId, jobId);
+    await this.queueService.publishModuleEAiCitationRankingJob({
+      jobId: job.id,
+      sessionId: job.sessionId,
+      projectId: job.projectId,
+      url: job.url,
+      jobType: JobType.MODULE_E_AI_CITATION_RANKING,
+      sourceJobId: jobId,
+    });
+    return job;
+  }
+
   // ============ STATUS MANAGEMENT ============
   async markRunning(jobId: string): Promise<Job> {
     const existing = await this.jobRepository.findById(jobId);

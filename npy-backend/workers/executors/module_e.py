@@ -61,7 +61,7 @@ def execute_module_e_job(payload: dict) -> bool:
             result = asyncio.run(run_cancellable(run_competitor_analysis(target_job_id, url), job_id))
         elif job_type == "MODULE_E_AI_SOV":
             result = asyncio.run(run_cancellable(run_ai_sov_analysis(target_job_id, url), job_id))
-        elif job_type == "MODULE_E_RANKING":
+        elif job_type in ("MODULE_E_RANKING", "MODULE_E_AI_CITATION_RANKING"):
             result = asyncio.run(run_cancellable(run_ranking_analysis(target_job_id, url), job_id))
         elif job_type == "MODULE_E_BRAND":
             result = asyncio.run(run_cancellable(run_brand_only(target_job_id, url), job_id))
