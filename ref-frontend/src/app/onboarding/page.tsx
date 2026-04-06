@@ -235,9 +235,9 @@ function OnboardingContent() {
       setTimeout(() => {
         sessionStorage.removeItem(GA_REDIRECT_PARAMS_KEY)
         if (params) {
-          router.push(buildBrandOnboardingPath(params, 0))
+          router.replace(buildBrandOnboardingPath(params, 0))
         } else {
-          router.push('/dashboard')
+          router.replace('/dashboard')
         }
       }, 1500)
     } else if (gaErrorParam) {
@@ -306,7 +306,7 @@ function OnboardingContent() {
   // Step 2: create session + job, then proceed to GA step (step 3) instead of jumping straight to brand-onboarding
   const handleStartSession = async (url: string) => {
     if (!createdProjectId) {
-      router.push('/dashboard')
+      router.replace('/dashboard')
       return
     }
 
@@ -359,7 +359,7 @@ function OnboardingContent() {
     if (brandRedirectParams) {
       const destination = buildBrandOnboardingPath(brandRedirectParams, 0)
       void persistBrandEntry(brandRedirectParams, 0)
-      router.push(destination)
+      router.replace(destination)
     } else {
       // No session was started — mark onboarding completed so the dashboard guard lets through
       try {
@@ -377,7 +377,7 @@ function OnboardingContent() {
       } catch {
         // Non-blocking
       }
-      router.push('/dashboard')
+      router.replace('/dashboard')
     }
   }
 
@@ -404,7 +404,7 @@ function OnboardingContent() {
     } catch {
       // Non-blocking — proceed to dashboard regardless
     }
-    router.push('/dashboard')
+    router.replace('/dashboard')
   }
 
   if (isAuthLoading || !user || (hasCompletedOnboarding(user) && !skipGuardRedirect.current)) {

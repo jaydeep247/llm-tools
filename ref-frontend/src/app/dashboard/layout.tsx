@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { Navbar } from '@/components/dashboard/navbar'
 import { Sidebar } from '@/components/dashboard/sidebar'
 import { ThemeProvider } from '@/components/common/theme-provider'
 import { useAuth } from '@/hooks/useAuth'
 import { getOnboardingResumePath, requiresOnboarding } from '@/lib/onboarding'
+import { useUpdateUserMutation } from '@/store/api/userApi'
 
 export default function DashboardLayout({
   children,
@@ -17,12 +18,34 @@ export default function DashboardLayout({
   const pathname = usePathname()
   const router = useRouter()
   const { user, isLoading: isAuthLoading } = useAuth()
+  const [updateUser] = useUpdateUserMutation()
+  const didAutoCompleteOnboarding = useRef(false)
 
   const isProjectFlowPage = pathname?.startsWith('/dashboard/projects/')
   const isSessionPage = pathname?.includes('/sessions/')
   const isJobProgressPage = pathname?.includes('/jobs/') && pathname?.includes('/progress')
   const shouldBypassOnboardingRedirect = isProjectFlowPage || isSessionPage || isJobProgressPage
   const shouldRedirectToOnboarding = !!user && requiresOnboarding(user) && !shouldBypassOnboardingRedirect
+
+  // When the user accesses a bypass page (project/session/job) while onboarding is still
+  // in-progress, they are clearly active users — silently mark onboarding as completed
+  // so navigating away from the bypass page never bounces them back to onboarding.
+  useEffect(() => {
+    if (!user || !shouldBypassOnboardingRedirect || !requiresOnboarding(user)) return
+    if (didAutoCompleteOnboarding.current) return
+    didAutoCompleteOnboarding.current = true
+    updateUser({
+      id: user.id,
+      data: {
+        onboardingState: {
+          status: 'completed',
+          currentFlow: 'core',
+          currentStep: 0,
+          resumePath: '/dashboard',
+        },
+      },
+    }).unwrap().catch(() => {})
+  }, [user, shouldBypassOnboardingRedirect, updateUser])
 
   useEffect(() => {
     if (isAuthLoading) return

@@ -166,6 +166,8 @@ export default function ProjectDetailPage() {
       }).unwrap()
 
       // Step 3: Navigate to the progress page, overlaying brand onboarding.
+      // Use replace so the back button from the session page returns to the
+      // project page — not back into the progress page with showBrandOnboarding=1.
       const progressParams = new URLSearchParams({
         projectId,
         sessionId,
@@ -173,7 +175,7 @@ export default function ProjectDetailPage() {
         showBrandOnboarding: '1',
         ...(jobResult.job.isCacheHit ? { cacheHit: '1' } : {}),
       })
-      router.push(`/dashboard/jobs/${jobResult.job.id}/progress?${progressParams.toString()}`)
+      router.replace(`/dashboard/jobs/${jobResult.job.id}/progress?${progressParams.toString()}`)
     } catch (err: any) {
       setError(err?.data?.message || err?.message || 'Failed to start session')
     }
