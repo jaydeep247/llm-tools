@@ -29,57 +29,8 @@ export class JobRepository {
     }
 
     const db = await connectToMongo();
-
-    // Guard: preserve module artifacts for any job that is referenced as
-    // cacheSourceJobId by jobs belonging to OTHER sessions.  Those jobs
-    // supply cached data to other users and must not be wiped.  We still
-    // delete the job documents (they belong to this session) and clean up
-    // Redis, but ALL collection artifacts remain intact.
-    let artifactJobIds = jobIds;
-    const protectedJobIds = new Set<string>();
-
-    if (jobIds.length > 0) {
-      const referencedElsewhere = (await db.collection<Job>('jobs').distinct('cacheSourceJobId', {
-        cacheSourceJobId: { $in: jobIds },
-        ...(sessionIds.length > 0 ? { sessionId: { $nin: sessionIds } } : {}),
-      })) as string[];
-
-      for (const id of referencedElsewhere) {
-        if (id) protectedJobIds.add(id);
-      }
-
-      if (protectedJobIds.size > 0) {
-        logger.info(
-          `[DELETE_SESSION] Preserving artifacts for ${protectedJobIds.size} job(s) ` +
-            `still referenced by other sessions: ${[...protectedJobIds].join(', ')}`,
-        );
-        artifactJobIds = jobIds.filter((id) => !protectedJobIds.has(id));
-      }
-    }
-
-    // jobFilter — by jobId only (pages, links, module_c, …)
-    const jobFilter = this.buildDeleteFilter(artifactJobIds);
-
-    // jobOrSessionFilter — jobId OR sessionId, with the sessionId clause
-    // further restricted so it cannot wipe records belonging to a protected job.
-    const protectedArray = [...protectedJobIds];
-    const buildMixedFilter = (): Record<string, unknown> | null => {
-      const clauses: Record<string, unknown>[] = [];
-      if (artifactJobIds.length > 0) {
-        clauses.push({ jobId: { $in: artifactJobIds } });
-      }
-      if (sessionIds.length > 0) {
-        const sessionClause: Record<string, unknown> = { sessionId: { $in: sessionIds } };
-        if (protectedArray.length > 0) {
-          sessionClause.jobId = { $nin: protectedArray };
-        }
-        clauses.push(sessionClause);
-      }
-      if (clauses.length === 0) return null;
-      return clauses.length === 1 ? clauses[0] : { $or: clauses };
-    };
-    const jobOrSessionFilter = buildMixedFilter();
-
+    const jobFilter = this.buildDeleteFilter(jobIds);
+    const jobOrSessionFilter = this.buildDeleteFilter(jobIds, sessionIds);
     const operations: Promise<unknown>[] = [];
 
     const queueDelete = (collectionName: string, filter: Record<string, unknown> | null): void => {

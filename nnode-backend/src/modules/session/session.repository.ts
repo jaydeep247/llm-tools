@@ -101,7 +101,7 @@ export class SessionRepository {
    */
   async findByProjectId(projectId: string, filters?: SessionFilters): Promise<SessionListResponse> {
     const db = await connectToMongo();
-    const query: any = { projectId };
+    const query: any = { projectId, deletedAt: { $exists: false } };
     if (filters?.status) {
       query.status = filters.status;
     }
@@ -203,7 +203,7 @@ export class SessionRepository {
    */
   async countByProjectId(projectId: string, status?: SessionStatus): Promise<number> {
     const db = await connectToMongo();
-    const query: any = { projectId };
+    const query: any = { projectId, deletedAt: { $exists: false } };
     if (status) {
       query.status = status;
     }
@@ -257,7 +257,25 @@ export class SessionRepository {
   }
 
   /**
-   * Delete session
+   * Soft-delete a session — marks it hidden from the user's dashboard.
+   * All underlying job data and module artifacts are preserved so that
+   * cached results remain available for other users.
+   */
+  async softDelete(id: string): Promise<Session> {
+    const db = await connectToMongo();
+    const session = await this.findById(id);
+    if (!session) {
+      throw new Error('Session not found');
+    }
+    await db
+      .collection<Session>('sessions')
+      .updateOne({ id }, { $set: { deletedAt: new Date() } });
+    return session;
+  }
+
+  /**
+   * Hard-delete session — used only by project-level cascades.
+   * Prefer softDelete for user-initiated removal.
    */
   async delete(id: string): Promise<Session> {
     const db = await connectToMongo();

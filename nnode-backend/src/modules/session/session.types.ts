@@ -20,6 +20,8 @@ export interface Session {
   totalLinks?: number;
   totalSitemaps?: number;
   totalResources?: number;
+  /** Set when the user soft-deletes the session. Data is preserved for caching. */
+  deletedAt?: Date | null;
 }
 
 export type SessionResponse = Session;

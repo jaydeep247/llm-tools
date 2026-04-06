@@ -123,7 +123,9 @@ export class SessionService {
   }
 
   /**
-   * Delete session — stops running jobs, cleans all related data (Mongo + Redis + Socket)
+   * Delete session — stops any running jobs, then soft-deletes the session so
+   * it no longer appears in the user's dashboard.  All job data and module
+   * artifacts are preserved for other users who share the URL via the cache.
    */
   async deleteSession(sessionId: string, userId: string): Promise<SessionResponse> {
     // Get session with project info
@@ -153,7 +155,6 @@ export class SessionService {
         { projection: { jobId: 1 } },
       )
       .toArray();
-    const allJobIds = jobs.map((job) => job.id);
     const activeCrawlJobIds = new Set(activeCrawlSummaries.map((summary: any) => String(summary.jobId)));
     const activeJobs = jobs.filter(
       (job) =>
@@ -224,15 +225,11 @@ export class SessionService {
     // 5. Clean up Redis session hash
     await LiveJobService.cleanupSession(sessionId);
 
-    // 6. Cascade delete — wipes MongoDB (jobs/pages/links/etc.). cleanupJob now
-    //    preserves the cancel flag so queued workers cannot resurrect deleted jobs.
-    await this.sessionRepository.delete(sessionId);
+    // 6. Soft-delete the session — hides it from the user's dashboard without
+    //    wiping any MongoDB artifacts (jobs, pages, module results, etc.).
+    await this.sessionRepository.softDelete(sessionId);
 
-    void this.jobRepository.sweepDeletedArtifacts(allJobIds, [sessionId]).catch((error) => {
-      logger.warn(`[DELETE_SESSION] Background artifact sweep failed for session ${sessionId}:`, error);
-    });
-
-    logger.info(`[DELETE_SESSION] ✅ Session ${sessionId} deleted — ${activeJobIds.length} active job(s) signalled to stop`);
+    logger.info(`[DELETE_SESSION] ✅ Session ${sessionId} soft-deleted — ${activeJobIds.length} active job(s) signalled to stop`);
     return session as unknown as SessionResponse;
   }
 
