@@ -1,4 +1,5 @@
 import { type LucideIcon, ArrowUpRight, TrendingUp, TrendingDown } from 'lucide-react'
+import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { FieldTooltip } from '@/components/module_A/FieldTooltip'
 
@@ -20,6 +21,8 @@ export interface StatCardProps {
   subtext?: string
   /** Tooltip shown next to the top-right arrow icon */
   description?: string
+  /** Small control rendered on the same row as the label (e.g. Ask AI) */
+  labelAction?: ReactNode
   icon: LucideIcon
   accent?: Accent
   trend?: 'up' | 'down' | 'neutral'
@@ -38,6 +41,7 @@ export function StatCard({
   value,
   subtext,
   description,
+  labelAction,
   icon: Icon,
   accent = 'zinc',
   trend,
@@ -78,7 +82,10 @@ export function StatCard({
       {/* Value block */}
       <div className="space-y-1">
         <p className="text-2xl sm:text-3xl font-bold text-white tracking-tight">{value}</p>
-        <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">{label}</p>
+        <div className="flex items-center justify-between gap-2 min-w-0">
+          <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider min-w-0">{label}</p>
+          {labelAction ? <div className="shrink-0">{labelAction}</div> : null}
+        </div>
         {subtext && (
           <div className="flex items-center gap-1.5 mt-2">
             {trend === 'up'   && <TrendingUp   className="h-3 w-3 text-emerald-400" />}

@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect, type FormEvent } from 'react'
 import { Badge } from '@/components/ui/badge'
 import {
   Loader2, BarChart3, AlertTriangle,
-  TrendingUp, Users, Zap, AlertCircle, ChevronDown, ChevronUp
+  TrendingUp, Users, Zap, AlertCircle, ChevronDown, ChevronUp, MessageSquare
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -14,13 +14,16 @@ import {
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
 import { FieldTooltip } from '@/components/module_A/FieldTooltip'
-import { useGetModuleCResultQuery } from '@/store/api/module_C/moduleCApi'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { ModuleCAskAiChatShell, type ModuleCAskAiChatTurn } from './ModuleCAskAiChatShell'
+import { useGetModuleCResultQuery, useAskModuleCAIMutation, useGetModuleCSuggestedQuestionsMutation } from '@/store/api/module_C/moduleCApi'
 import { useModuleCAnalysis } from '@/hooks/useModuleCAnalysis'
 import ModuleCProgressLoader from './ModuleCProgressLoader'
 
 interface ModelComparisonProps {
   jobId?: string | null
   url?: string
+  projectId?: string | null
 }
 
 const TOOLTIPS = {
@@ -80,8 +83,15 @@ function ConsistencyGauge({ score, flag }: { score: number; flag?: string }) {
   )
 }
 
-export default function ModelComparison({ jobId, url }: ModelComparisonProps) {
+export default function ModelComparison({ jobId, url, projectId }: ModelComparisonProps) {
   const [expandedSection, setExpandedSection] = useState<string | null>(null)
+  const [askModuleCAI, { isLoading: isAskingAI, error: askAIError, reset: resetAskAI }] = useAskModuleCAIMutation()
+  const [getSuggestedQuestions] = useGetModuleCSuggestedQuestionsMutation()
+  const [askDialogOpen, setAskDialogOpen] = useState(false)
+  const [chatInput, setChatInput] = useState('')
+  const [chatMessages, setChatMessages] = useState<ModuleCAskAiChatTurn[]>([])
+  const [suggestions, setSuggestions] = useState<string[]>([])
+  const chatScrollRef = useRef<HTMLDivElement>(null)
 
   const { data: moduleCData, isLoading: isLoadingData, refetch: refetchData } = useGetModuleCResultQuery({ jobId: jobId || '', url }, {
     skip: !jobId, refetchOnMountOrArgChange: true,
@@ -147,13 +157,126 @@ export default function ModelComparison({ jobId, url }: ModelComparisonProps) {
 
   const toggle = (key: string) => setExpandedSection(v => v === key ? null : key)
 
+  useEffect(() => {
+    if (!askDialogOpen || !chatScrollRef.current) return
+    const el = chatScrollRef.current
+    el.scrollTop = el.scrollHeight
+  }, [askDialogOpen, chatMessages, isAskingAI])
+
+  const chatMessageId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+
+  const openAskAiDialog = async () => {
+    if (!projectId) return
+    resetAskAI()
+    setChatMessages([])
+    setChatInput('')
+    setAskDialogOpen(true)
+    try {
+      const res = await getSuggestedQuestions({ project_id: projectId }).unwrap()
+      setSuggestions(Array.isArray(res?.questions) ? res.questions.filter(Boolean).slice(0, 12) : [])
+    } catch {
+      setSuggestions([])
+    }
+  }
+
+  const submitAskAi = async (e?: FormEvent) => {
+    e?.preventDefault()
+    if (!projectId || !chatInput.trim() || isAskingAI) return
+    const question = chatInput.trim()
+    setChatInput('')
+    const priorHistory = chatMessages.slice(-6).map((m) => ({ role: m.role, content: m.content }))
+    const userTurn: ModuleCAskAiChatTurn = { id: chatMessageId(), role: 'user', content: question }
+    setChatMessages((prev) => [...prev, userTurn])
+    try {
+      const res = await askModuleCAI({
+        project_id: projectId,
+        job_id: jobId || undefined,
+        question,
+        conversation_history: priorHistory.length ? priorHistory : undefined,
+      }).unwrap()
+      const text = res?.answer?.trim() || res?.data?.answer?.trim() || ''
+      const sources = res?.sources || res?.data?.sources
+      if (!text) return
+      setChatMessages((prev) => [...prev, { id: chatMessageId(), role: 'assistant', content: text, sources }])
+    } catch {
+      setChatMessages((prev) => prev.filter((m) => m.id !== userTurn.id))
+      setChatInput(question)
+    }
+  }
+
+  const runMetricAskAi = async (displayLabel: string, prompt: string) => {
+    if (!projectId || !jobId || isAskingAI) return
+    resetAskAI()
+    setChatInput('')
+    setChatMessages([{ id: chatMessageId(), role: 'user', content: `Explain: ${displayLabel}` }])
+    setAskDialogOpen(true)
+    try {
+      const res = await askModuleCAI({
+        project_id: projectId,
+        job_id: jobId,
+        question: prompt,
+      }).unwrap()
+      const text = res?.answer?.trim() || res?.data?.answer?.trim() || ''
+      const sources = res?.sources || res?.data?.sources
+      if (!text) return
+      setChatMessages((prev) => [...prev, { id: chatMessageId(), role: 'assistant', content: text, sources }])
+    } catch {
+      setChatMessages([])
+      setAskDialogOpen(false)
+    }
+  }
+
   return (
     <div className="space-y-5">
+      <Dialog
+        open={askDialogOpen}
+        onOpenChange={(open) => {
+          setAskDialogOpen(open)
+          if (!open) {
+            resetAskAI()
+            setChatMessages([])
+            setChatInput('')
+          }
+        }}
+      >
+        <DialogContent
+          className={cn(
+            'w-[calc(100vw-1rem)] max-h-[95vh] gap-0 overflow-visible border-0 bg-transparent p-0 pt-10 shadow-none sm:max-w-3xl lg:max-w-5xl',
+            'data-[state=open]:zoom-in-[0.98]',
+          )}
+          showCloseButton
+        >
+          <ModuleCAskAiChatShell
+            chatScrollRef={chatScrollRef}
+            chatMessages={chatMessages}
+            chatInput={chatInput}
+            setChatInput={setChatInput}
+            isAskingAI={isAskingAI}
+            askAIError={askAIError}
+            onSubmit={submitAskAi}
+            onSuggestionClick={(text) => setChatInput(text)}
+            suggestions={suggestions}
+          />
+        </DialogContent>
+      </Dialog>
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold text-white">Multi-Model AI Comparison</h2>
           <p className="text-sm text-zinc-400 mt-0.5">How different AI engines perceive and represent your brand</p>
         </div>
+        <button
+          type="button"
+          onClick={openAskAiDialog}
+          disabled={!projectId || isAskingAI}
+          className={cn(
+            'inline-flex items-center gap-2 rounded-full border-0 px-5 py-2.5 text-sm font-extrabold uppercase tracking-wider text-black shadow-lg shadow-fuchsia-950/30',
+            'bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300 hover:opacity-95',
+            'disabled:cursor-not-allowed disabled:opacity-50',
+          )}
+        >
+          <MessageSquare className="size-4 shrink-0" />
+          Ask AI
+        </button>
       </div>
 
       {isLoadingData && (
@@ -203,6 +326,28 @@ export default function ModelComparison({ jobId, url }: ModelComparisonProps) {
               </div>
             ))}
           </div>
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={() =>
+                runMetricAskAi(
+                  'Model Comparison Summary',
+                  `Interpret this multi-model summary and identify the largest reliability risks.\n${JSON.stringify({
+                    accuracy_overall: accuracyOverall,
+                    completeness_overall: completenessOverall,
+                    model_friendliness_average: modelFriendlinessAvg,
+                    coverage_score: coverageScore,
+                    total_models: totalModels,
+                  })}`,
+                )
+              }
+              disabled={!projectId || !jobId || isAskingAI}
+              className="inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300 disabled:opacity-40"
+            >
+              <MessageSquare className="size-3" />
+              Ask AI
+            </button>
+          </div>
 
           {/* SECTION 2: Per-Model Grouped Bar Chart */}
           {perModelChartData.length > 0 && (
@@ -211,6 +356,22 @@ export default function ModelComparison({ jobId, url }: ModelComparisonProps) {
                 <BarChart3 className="w-4 h-4 text-blue-400" />
                 <span className="text-sm font-semibold text-white">Per-Model Score Comparison</span>
                 <FieldTooltip description="Side-by-side comparison of Accuracy, Completeness, and Friendliness for each AI model tested." />
+                <button
+                  type="button"
+                  onClick={() =>
+                    runMetricAskAi(
+                      'Per-Model Score Comparison',
+                      `Compare models and explain which model underperforms and why.\n${JSON.stringify({
+                        per_model_scores: perModelChartData,
+                      })}`,
+                    )
+                  }
+                  disabled={!projectId || !jobId || isAskingAI}
+                  className="ml-auto inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300 disabled:opacity-40"
+                >
+                  <MessageSquare className="size-3" />
+                  Ask AI
+                </button>
               </div>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={perModelChartData} barCategoryGap="25%" barGap={4}>
@@ -278,6 +439,27 @@ export default function ModelComparison({ jobId, url }: ModelComparisonProps) {
               <Zap className="w-4 h-4 text-yellow-400" />
               <span className="text-sm font-semibold text-white">Response Consistency</span>
               <FieldTooltip description={TOOLTIPS.consistencyScore} />
+              <button
+                type="button"
+                onClick={() =>
+                  runMetricAskAi(
+                    'Response Consistency',
+                    `Explain this consistency profile and provide stabilization recommendations.\n${JSON.stringify({
+                      consistency_score: consistencyScore,
+                      consistency_flag: consistencyFlag,
+                      variation_score: variationScore,
+                      avg_similarity: avgSimilarity,
+                      models_not_citing: modelsNotCiting,
+                      contradictions_sample: contradictions.slice(0, 10),
+                    })}`,
+                  )
+                }
+                disabled={!projectId || !jobId || isAskingAI}
+                className="ml-auto inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300 disabled:opacity-40"
+              >
+                <MessageSquare className="size-3" />
+                Ask AI
+              </button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 items-center">
               <div className="flex justify-center">

@@ -8,15 +8,17 @@ import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
 import { useGetModuleEResultQuery, useRunBrandAnalysisMutation } from '@/store/api/module_E/moduleEApi'
 import { FieldTooltip } from '@/components/module_A/FieldTooltip'
+import { ModuleEMetricAskButton, useModuleEAskAi } from '@/components/module_E/useModuleEAskAi'
 
 interface BrandAnalysisSectionProps {
   jobId?: string | null
+  projectId?: string | null
 }
 
 const BRAND_ANALYSIS_SECTION_DESCRIPTION =
   'Understand how your brand is discussed across AI-visible sources, including mention volume, sentiment mix, and trend direction. Use this view to validate brand perception and prioritize channels where positive coverage is growing.'
 
-export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProps) {
+export default function BrandAnalysisSection({ jobId, projectId }: BrandAnalysisSectionProps) {
   const [expandedSources, setExpandedSources] = useState(false)
   const [isPolling, setIsPolling] = useState(false)
   const [pollCount, setPollCount] = useState(0)
@@ -164,9 +166,11 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
   }
 
   const isRunning = isTriggering || isPolling
+  const { askAiDialog, runMetricAskAi, canAskAi, isAskingAI } = useModuleEAskAi(projectId, jobId)
 
   return (
     <div className="space-y-4">
+      {askAiDialog}
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-1.5">
@@ -205,9 +209,22 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Mentions */}
                 <div className="rounded-xl bg-zinc-800/50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">
-                    Total Mentions
-                  </p>
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Total Mentions</p>
+                    <ModuleEMetricAskButton
+                      disabled={!canAskAi || isAskingAI}
+                      onClick={() =>
+                        runMetricAskAi(
+                          'Total Mentions',
+                          `Explain this brand mention volume and what it means strategically.\n${JSON.stringify({
+                            brand_name: brandName,
+                            total_mentions: totalMentions,
+                            peak_month: peakMonth,
+                          })}`,
+                        )
+                      }
+                    />
+                  </div>
                   <p className="text-4xl font-bold text-foreground">
                     {totalMentions.toLocaleString()}
                   </p>
@@ -220,9 +237,22 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
 
                 {/* Sentiment Label */}
                 <div className="rounded-xl bg-zinc-800/50 p-4 flex flex-col justify-center">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
-                    Overall Sentiment
-                  </p>
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Overall Sentiment</p>
+                    <ModuleEMetricAskButton
+                      disabled={!canAskAi || isAskingAI}
+                      onClick={() =>
+                        runMetricAskAi(
+                          'Overall Sentiment',
+                          `Interpret this sentiment summary and suggest the highest-impact next action.\n${JSON.stringify({
+                            brand_name: brandName,
+                            sentiment_label: sentiment.label,
+                            sentiment_counts: sentimentCounts,
+                          })}`,
+                        )
+                      }
+                    />
+                  </div>
                   <Badge className={cn('w-fit text-sm font-semibold', getSentimentColor(sentiment.label))}>
                     {sentiment.label || 'No Data'}
                   </Badge>
@@ -231,9 +261,22 @@ export default function BrandAnalysisSection({ jobId }: BrandAnalysisSectionProp
                 {/* Trend */}
                 <div className="rounded-xl bg-zinc-800/50 p-4 flex items-center justify-center">
                   <div className="text-center">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
-                      12M Trend
-                    </p>
+                    <div className="mb-2 flex items-center justify-center gap-2">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">12M Trend</p>
+                      <ModuleEMetricAskButton
+                        disabled={!canAskAi || isAskingAI}
+                        onClick={() =>
+                          runMetricAskAi(
+                            '12M Trend',
+                            `Analyze this 12-month brand mention trend and explain whether momentum is improving.\n${JSON.stringify({
+                              brand_name: brandName,
+                              trend_direction: trendDirection,
+                              monthly_trend: last12MonthsTrend,
+                            })}`,
+                          )
+                        }
+                      />
+                    </div>
                     <div className="flex items-center gap-2 justify-center">
                       {trendDirection === 'up' && <TrendingUp className="w-6 h-6 text-emerald-400" />}
                       {trendDirection === 'down' && <TrendingDown className="w-6 h-6 text-rose-400" />}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useRef, useEffect, type FormEvent } from 'react'
 import Link from 'next/link'
 import { 
   AlertCircle, 
@@ -22,7 +22,8 @@ import {
   Shield,
   Layout,
   FileText,
-  BarChart3
+  BarChart3,
+  MessageSquare
 } from 'lucide-react'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
@@ -34,15 +35,142 @@ import {
   type ModuleFMetricRecommendation, 
   useGetModuleFResultQuery, 
   resolveFeatureFlags,
-  normaliseMetricRec
+  normaliseMetricRec,
+  useAskModuleFAIMutation,
+  ModuleFResult
 } from '@/store/api/module_F/moduleFApi'
-import type { ModuleFResult } from '@/store/api/module_F/moduleFApi'
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { Button } from '@/components/ui/button'
+import { useToast } from '@/hooks/use-toast'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { ModuleFAskAiChatShell } from '@/components/module_F/ModuleFAskAiChatShell'
+
+interface CompetitorCitedURLsProps {
+  moduleFData?: ModuleFResult | null
+  isLoading: boolean
+  jobId?: string | null
+}
+
+type ChatTurn = {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  sources?: string[]
+}
+
+function chatMessageId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+/** Scoped Ask AI targets for Cited URLs */
+type CitedUrlsAskTarget =
+  | 'influence_score'
+  | 'domain_authority'
+  | 'total_citations'
+  | 'top_performer'
+  | 'source_domain_analysis'
+
+function buildCitedUrlsAskPrompt(
+  target: CitedUrlsAskTarget,
+  data: ModuleFResult | null | undefined,
+  brandName: string,
+): string {
+  const recommendations = data?.metric_recommendations
+  const sourceData = data?.source_analysis?.competitor_source_analysis || []
+
+  const base = `You are answering from the user's latest Module F "Competitor Cited URLs" run for brand "${brandName}".
+Answer immediately — do not ask the user for clarification. Focus ONLY on the metric/section named in the title below.
+Use the glossary in PROJECT DATA. Use markdown with short headings and bullets where helpful.`
+
+  switch (target) {
+    case 'influence_score':
+      return `${base}
+
+**Title: Influence Score Analysis**
+
+Explain what the Influence Score means and interpret the overall source quality (JSON). How reliable are the sources associated with competitors?
+${JSON.stringify({
+        recommendation: recommendations?.source_influence,
+        total_competitors: sourceData.length,
+      })}`
+    case 'domain_authority':
+      return `${base}
+
+**Title: Domain Authority**
+
+Explain the importance of Domain Authority in this source analysis (JSON). How authoritative are the domains being cited for competitors?
+${JSON.stringify({
+        recommendation: recommendations?.avg_domain_authority,
+      })}`
+    case 'total_citations':
+      return `${base}
+
+**Title: Total Citations**
+
+Analyze the volume and diversity of citations identified (JSON). What does the citation frequency tell us about competitor visibility?
+${JSON.stringify({
+        recommendation: recommendations?.total_citations,
+        total_sources: sourceData.reduce((sum, r) => sum + r.citation_count, 0),
+      })}`
+    case 'top_performer':
+      return `${base}
+
+**Title: Top Performer (Sources)**
+
+Identify and explain why this competitor has the highest quality citation profile (JSON). What makes their source base stronger than others?
+${JSON.stringify({
+        top_competitor: sourceData.sort((a, b) => b.source_domain_influence_score - a.source_domain_influence_score)[0],
+      })}`
+    case 'source_domain_analysis':
+      return `${base}
+
+**Title: Source Domain Analysis**
+
+Summarize the source domain analysis for the competitors (JSON). Which domains are most frequently cited and what is their typical authority level?
+${JSON.stringify({
+        source_summary: sourceData.slice(0, 5).map(s => ({
+          competitor: s.competitor,
+          influence: s.source_domain_influence_score,
+          authority: s.average_domain_authority,
+          citations: s.citation_count,
+        })),
+      })}`
+  }
+}
+
+function MetricAskButton({
+  disabled,
+  onClick,
+}: {
+  disabled?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        e.preventDefault()
+        onClick()
+      }}
+      disabled={disabled}
+      className={cn(
+        'inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10',
+        'px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300',
+        'hover:bg-violet-500/18 transition-colors cursor-pointer shrink-0',
+        'disabled:opacity-40 disabled:cursor-not-allowed',
+      )}
+    >
+      <MessageSquare className="size-3 shrink-0" aria-hidden />
+      Ask AI
+    </button>
+  )
+}
 
 interface CompetitorCitedURLsProps {
   moduleFData?: ModuleFResult | null
@@ -63,6 +191,7 @@ function formatPercentFromRatio(value: number | null | undefined) {
 export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: CompetitorCitedURLsProps) {
   const [selectedCompetitor, setSelectedCompetitor] = useState<string | null>(null)
   const [searchDomain, setSearchDomain] = useState('')
+  const { toast } = useToast()
 
   const { data: fetched, isLoading: isFetchingModuleF } = useGetModuleFResultQuery(jobId ?? '', {
     skip: !jobId,
@@ -70,6 +199,144 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
   })
 
   const effectiveData: ModuleFResult | null | undefined = fetched?.data ?? moduleFData
+  const brandName = effectiveData?.compare_visibility_against_competitors?.brand?.name || 'Brand'
+  
+  const [askModuleFAI, { isLoading: isAskingAI, error: askAIError, reset: resetAskAI }] =
+    useAskModuleFAIMutation()
+
+  const [askDialogOpen, setAskDialogOpen] = useState(false)
+  const [chatInput, setChatInput] = useState('')
+  const [chatMessages, setChatMessages] = useState<ChatTurn[]>([])
+  const [chatFocusBadge, setChatFocusBadge] = useState<string | undefined>(undefined)
+  const chatScrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!askDialogOpen || !chatScrollRef.current) return
+    const el = chatScrollRef.current
+    el.scrollTop = el.scrollHeight
+  }, [askDialogOpen, chatMessages, isAskingAI])
+
+  const openAskAiDialog = () => {
+    if (!jobId) {
+      toast({
+        title: 'Job not ready yet',
+        description: 'Run Module F first so Ask AI can use your stored analysis.',
+        variant: 'destructive',
+      })
+      return
+    }
+    resetAskAI()
+    setChatFocusBadge(undefined)
+    setChatMessages([])
+    setChatInput('')
+    setAskDialogOpen(true)
+  }
+
+  const runMetricAskAi = async (target: CitedUrlsAskTarget, displayLabel: string) => {
+    if (!jobId) {
+      toast({
+        title: 'Job not ready yet',
+        description: 'Run Module F first so Ask AI can use your stored analysis.',
+        variant: 'destructive',
+      })
+      return
+    }
+    resetAskAI()
+    setChatFocusBadge(displayLabel)
+    setChatInput('')
+    const userDisplay = `Explain: ${displayLabel}`
+    const userTurn: ChatTurn = { id: chatMessageId(), role: 'user', content: userDisplay }
+    setChatMessages([userTurn])
+    setAskDialogOpen(true)
+
+    const fullPrompt = buildCitedUrlsAskPrompt(target, effectiveData, brandName)
+
+    try {
+      const res = await askModuleFAI({
+        jobId,
+        body: { question: fullPrompt },
+      }).unwrap()
+      const text = res?.data?.answer?.trim() ?? ''
+      const sources = res?.data?.sources
+      if (!text) {
+        toast({
+          title: 'Empty response',
+          description: 'The model returned no text. Try again.',
+          variant: 'destructive',
+        })
+        setChatMessages([])
+        setAskDialogOpen(false)
+        return
+      }
+      setChatMessages((prev) => [
+        ...prev,
+        { id: chatMessageId(), role: 'assistant', content: text, sources },
+      ])
+    } catch (err: unknown) {
+      const msg =
+        (err as { data?: { message?: string; error?: string } })?.data?.message ||
+        (err as { data?: { error?: string } })?.data?.error ||
+        (err as Error)?.message ||
+        'Please try again.'
+      toast({
+        title: 'Ask AI failed',
+        description: msg,
+        variant: 'destructive',
+      })
+      setChatMessages([])
+      setAskDialogOpen(false)
+    }
+  }
+
+  const submitAskAi = async (e?: FormEvent) => {
+    e?.preventDefault()
+    if (!jobId || !chatInput.trim() || isAskingAI) return
+    const question = chatInput.trim()
+    setChatInput('')
+
+    const priorHistory = chatMessages.slice(-6).map((m) => ({
+      role: m.role,
+      content: m.content,
+    }))
+
+    const userTurn: ChatTurn = { id: chatMessageId(), role: 'user', content: question }
+    setChatMessages((prev) => [...prev, userTurn])
+
+    try {
+      const res = await askModuleFAI({
+        jobId,
+        body: { question, conversationHistory: priorHistory.length ? priorHistory : undefined },
+      }).unwrap()
+      const text = res?.data?.answer?.trim() ?? ''
+      const sources = res?.data?.sources
+      if (!text) {
+        toast({
+          title: 'Empty response',
+          description: 'The model returned no text. Try again or shorten your question.',
+          variant: 'destructive',
+        })
+        return
+      }
+      setChatMessages((prev) => [
+        ...prev,
+        { id: chatMessageId(), role: 'assistant', content: text, sources },
+      ])
+    } catch (err: unknown) {
+      const msg =
+        (err as { data?: { message?: string; error?: string } })?.data?.message ||
+        (err as { data?: { error?: string } })?.data?.error ||
+        (err as Error)?.message ||
+        'Please try again.'
+      toast({
+        title: 'Ask AI failed',
+        description: msg,
+        variant: 'destructive',
+      })
+      setChatMessages((prev) => prev.filter((m) => m.id !== userTurn.id))
+      setChatInput(question)
+    }
+  }
+
   const flags = resolveFeatureFlags(effectiveData)
 
   const sourceData = effectiveData?.source_analysis?.competitor_source_analysis || []
@@ -129,6 +396,40 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <Dialog
+        open={askDialogOpen}
+        onOpenChange={(open) => {
+          setAskDialogOpen(open)
+          if (!open) {
+            resetAskAI()
+            setChatMessages([])
+            setChatInput('')
+            setChatFocusBadge(undefined)
+          }
+        }}
+      >
+        <DialogContent
+          className={cn(
+            'w-[calc(100vw-1rem)] max-h-[95vh] gap-0 overflow-visible border-0 bg-transparent p-0 pt-10 shadow-none sm:max-w-3xl lg:max-w-5xl',
+            'data-[state=open]:zoom-in-[0.98]',
+          )}
+          showCloseButton
+        >
+          <ModuleFAskAiChatShell
+            brandName={brandName}
+            focusBadge={chatFocusBadge}
+            chatScrollRef={chatScrollRef}
+            chatMessages={chatMessages}
+            chatInput={chatInput}
+            setChatInput={setChatInput}
+            isAskingAI={isAskingAI}
+            askAIError={askAIError}
+            onSubmit={submitAskAi}
+            onSuggestionClick={(text) => setChatInput(text)}
+          />
+        </DialogContent>
+      </Dialog>
+
       {/* Premium Header */}
       <div className="rounded-3xl border border-zinc-800 bg-[#111113] p-6 sm:p-8 relative overflow-hidden group">
         <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/5 blur-[100px] -mr-32 -mt-32" />
@@ -153,9 +454,28 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
             </div>
           </div>
           
-          <div className="flex flex-col items-end gap-1 bg-zinc-900/50 px-4 py-2 rounded-2xl border border-zinc-800">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Tracking</span>
-            <span className="text-sm font-bold text-zinc-200">{sourceData.length} Competitors</span>
+          <div className="flex flex-col items-end gap-3 md:self-start">
+            <div className="flex flex-col items-end gap-1 bg-zinc-900/50 px-4 py-2 rounded-2xl border border-zinc-800">
+              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Tracking</span>
+              <span className="text-sm font-bold text-zinc-200">{sourceData.length} Competitors</span>
+            </div>
+
+            <Button
+              type="button"
+              onClick={openAskAiDialog}
+              disabled={isAskingAI}
+              className={cn(
+                'rounded-full border-0 shadow-lg shadow-fuchsia-950/30',
+                'text-sm font-extrabold uppercase tracking-wider sm:text-base',
+                'bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300',
+                'text-black hover:opacity-95 hover:shadow-xl',
+                'h-auto min-h-[48px] px-6 py-3 sm:min-h-[52px] sm:px-8 sm:py-3.5',
+                'gap-2.5',
+              )}
+            >
+              <MessageSquare className="size-5 shrink-0 sm:size-6" strokeWidth={2.25} aria-hidden />
+              ASK AI
+            </Button>
           </div>
         </div>
       </div>
@@ -200,6 +520,12 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
               accent="violet"
               progress={overall.avgInfluenceScore}
               description={sourceRec?.why || "Overall quality and reliability of sources cited for competitors."}
+              labelAction={
+                <MetricAskButton
+                  disabled={!jobId || isAskingAI}
+                  onClick={() => runMetricAskAi('influence_score', 'Avg Influence Score')}
+                />
+              }
             />
 
             <StatCard
@@ -210,6 +536,12 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
               accent="blue"
               progress={overall.avgDomainAuthority}
               description={domainAuthorityRec?.why || "Average Moz Domain Authority score of domains cited in AI results."}
+              labelAction={
+                <MetricAskButton
+                  disabled={!jobId || isAskingAI}
+                  onClick={() => runMetricAskAi('domain_authority', 'Avg Domain Authority')}
+                />
+              }
             />
 
             <StatCard
@@ -219,6 +551,12 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
               icon={Link2}
               accent="emerald"
               description={citationsRec?.why || "Total number of unique URLs and domains cited across all analyzed prompts."}
+              labelAction={
+                <MetricAskButton
+                  disabled={!jobId || isAskingAI}
+                  onClick={() => runMetricAskAi('total_citations', 'Total Citations')}
+                />
+              }
             />
 
             <StatCard
@@ -229,6 +567,12 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
               accent="amber"
               progress={overall.topCompetitor?.score}
               description="Competitor with the highest quality and most authoritative citation profile."
+              labelAction={
+                <MetricAskButton
+                  disabled={!jobId || isAskingAI}
+                  onClick={() => runMetricAskAi('top_performer', 'Top Performer')}
+                />
+              }
             />
           </div>
 
@@ -236,6 +580,12 @@ export default function CompetitorCitedURLs({ moduleFData, isLoading, jobId }: C
             title="Source Domain Analysis" 
             description="Deep dive into the domains and specific URLs cited by AI models for each competitor."
             className="bg-[#111113]"
+            actionSlot={
+              <MetricAskButton
+                disabled={!jobId || isAskingAI}
+                onClick={() => runMetricAskAi('source_domain_analysis', 'Source Domain Analysis')}
+              />
+            }
           >
             <div className="flex flex-col lg:flex-row gap-8">
               {/* Sidebar / Selector */}

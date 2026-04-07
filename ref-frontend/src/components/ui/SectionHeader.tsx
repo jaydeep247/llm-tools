@@ -1,4 +1,5 @@
 import { Info, type LucideIcon } from 'lucide-react'
+import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -9,7 +10,7 @@ export interface SectionHeaderProps {
   title: string
   description?: string
   /** Right-side CTA */
-  action?: React.ReactNode
+  action?: ReactNode
   className?: string
 }
 
@@ -44,6 +45,7 @@ export function CardHeader({
   onAction,
   actionLabel = 'View all →',
   actionIcon: ActionIcon,
+  actionSlot,
   className,
 }: {
   title: string
@@ -51,6 +53,8 @@ export function CardHeader({
   onAction?: () => void
   actionLabel?: string
   actionIcon?: LucideIcon
+  /** When set, replaces the default text link action (e.g. multiple buttons) */
+  actionSlot?: ReactNode
   className?: string
 }) {
   return (
@@ -87,7 +91,9 @@ export function CardHeader({
           )}
         </div>
       </div>
-      {onAction && (
+      {actionSlot ? (
+        <div className="shrink-0 flex items-center gap-2">{actionSlot}</div>
+      ) : onAction ? (
         <button
           onClick={onAction}
           className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors cursor-pointer font-medium shrink-0"
@@ -95,7 +101,7 @@ export function CardHeader({
           {actionLabel}
           {ActionIcon && <ActionIcon className="w-3.5 h-3.5" />}
         </button>
-      )}
+      ) : null}
     </div>
   )
 }

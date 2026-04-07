@@ -6,7 +6,9 @@ import {
   useGetModuleFResultQuery, 
   resolveFeatureFlags, 
   resolveD7Output,
-  normaliseMetricRec
+  normaliseMetricRec,
+  useAskModuleFAIMutation,
+  ModuleFResult
 } from '@/store/api/module_F/moduleFApi'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
@@ -35,13 +37,14 @@ import {
   ChevronRight,
   Target,
   Cpu,
-  AlertTriangle
+  AlertTriangle,
+  MessageSquare
 } from 'lucide-react'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceDot } from 'recharts'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState, useRef, useEffect, type FormEvent } from 'react'
 import { SectionCard } from '@/components/ui/SectionCard'
 import { StatCard } from '@/components/ui/StatCard'
 import {
@@ -50,6 +53,152 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { Button } from '@/components/ui/button'
+import { useToast } from '@/hooks/use-toast'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { ModuleFAskAiChatShell } from '@/components/module_F/ModuleFAskAiChatShell'
+
+interface CompetitorGrowthTrendsProps {
+  jobId: string
+}
+
+type ChatTurn = {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  sources?: string[]
+}
+
+function chatMessageId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+/** Scoped Ask AI targets for Growth Trends */
+type TrendsAskTarget =
+  | 'visibility_change'
+  | 'market_share_change'
+  | 'latest_snapshot'
+  | 'd7_score'
+  | 'performance_trends'
+  | 'market_momentum'
+
+function buildTrendsAskPrompt(
+  target: TrendsAskTarget,
+  data: ModuleFResult | null | undefined,
+  trends: any,
+  brandName: string,
+): string {
+  const history = trends?.history || []
+  const latest = history[history.length - 1]
+  const prev = history[history.length - 2]
+  const d7 = resolveD7Output(data)
+  const recommendations = data?.metric_recommendations
+  const emerging = data?.emerging_trends
+
+  const base = `You are answering from the user's latest Module F "Growth Trends" run for brand "${brandName}".
+Answer immediately — do not ask the user for clarification. Focus ONLY on the metric/section named in the title below.
+Use the glossary in PROJECT DATA. Use markdown with short headings and bullets where helpful.`
+
+  switch (target) {
+    case 'visibility_change':
+      return `${base}
+
+**Title: Visibility Change Analysis**
+
+Analyze the brand's visibility change over time (JSON). Is the trend positive and what are the key drivers?
+${JSON.stringify({
+        current_visibility: latest?.brand?.visibility_score,
+        prev_visibility: prev?.brand?.visibility_score,
+        recommendation: recommendations?.visibility_score,
+      })}`
+    case 'market_share_change':
+      return `${base}
+
+**Title: Market Share Change**
+
+Explain the shift in market share / share of voice (JSON). How has the brand's position evolved relative to competitors?
+${JSON.stringify({
+        current_share: latest?.brand?.market_share_percent,
+        prev_share: prev?.brand?.market_share_percent,
+        recommendation: recommendations?.market_share,
+      })}`
+    case 'latest_snapshot':
+      return `${base}
+
+**Title: Latest Performance Snapshot**
+
+Summarize the brand's current performance status (JSON). What are the most important takeaways from the latest analysis?
+${JSON.stringify({
+        visibility: latest?.brand?.visibility_score,
+        share: latest?.brand?.market_share_percent,
+        run_count: history.length,
+      })}`
+    case 'd7_score':
+      return `${base}
+
+**Title: AIVS™ D7 Score (Trends)**
+
+Analyze the AIVS™ D7 score trend (JSON). How is the competitive citation gap changing over time?
+${JSON.stringify({
+        d7_score: d7?.d7_score,
+        d7_grade: d7?.d7_grade,
+        d7_delta: d7?.d7_delta,
+      })}`
+    case 'performance_trends':
+      return `${base}
+
+**Title: Performance Trends Visualization**
+
+Interpret the trends shown in the charts (JSON). Identify long-term patterns for the brand and its key competitors.
+${JSON.stringify({
+        history_summary: history.map((h: any) => ({
+          date: h.date,
+          brand_score: h.brand.visibility_score,
+          brand_share: h.brand.market_share_percent,
+        })),
+      })}`
+    case 'market_momentum':
+      return `${base}
+
+**Title: Market Momentum & Emerging Shifts**
+
+Analyze the emerging trends and market momentum (JSON). Who are the top movers and what major shifts are occurring in the competitive landscape?
+${JSON.stringify({
+        emerging_summary: emerging?.summary,
+        competitor_changes: emerging?.competitor_changes,
+        prompt_swings: emerging?.prompt_swings,
+      })}`
+  }
+}
+
+function MetricAskButton({
+  disabled,
+  onClick,
+}: {
+  disabled?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        e.preventDefault()
+        onClick()
+      }}
+      disabled={disabled}
+      className={cn(
+        'inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10',
+        'px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300',
+        'hover:bg-violet-500/18 transition-colors cursor-pointer shrink-0',
+        'disabled:opacity-40 disabled:cursor-not-allowed',
+      )}
+    >
+      <MessageSquare className="size-3 shrink-0" aria-hidden />
+      Ask AI
+    </button>
+  )
+}
 
 interface CompetitorGrowthTrendsProps {
   jobId: string
@@ -87,6 +236,145 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
   const history = trends?.history || []
   const [hidden, setHidden] = useState<Record<string, boolean>>({})
   const [activeTab, setActiveTab] = useState<'visibility' | 'share'>('visibility')
+  const { toast } = useToast()
+
+  const brandName = latestResult?.data?.compare_visibility_against_competitors?.brand?.name || 'Brand'
+  
+  const [askModuleFAI, { isLoading: isAskingAI, error: askAIError, reset: resetAskAI }] =
+    useAskModuleFAIMutation()
+
+  const [askDialogOpen, setAskDialogOpen] = useState(false)
+  const [chatInput, setChatInput] = useState('')
+  const [chatMessages, setChatMessages] = useState<ChatTurn[]>([])
+  const [chatFocusBadge, setChatFocusBadge] = useState<string | undefined>(undefined)
+  const chatScrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!askDialogOpen || !chatScrollRef.current) return
+    const el = chatScrollRef.current
+    el.scrollTop = el.scrollHeight
+  }, [askDialogOpen, chatMessages, isAskingAI])
+
+  const openAskAiDialog = () => {
+    if (!jobId) {
+      toast({
+        title: 'Job not ready yet',
+        description: 'Run Module F first so Ask AI can use your stored analysis.',
+        variant: 'destructive',
+      })
+      return
+    }
+    resetAskAI()
+    setChatFocusBadge(undefined)
+    setChatMessages([])
+    setChatInput('')
+    setAskDialogOpen(true)
+  }
+
+  const runMetricAskAi = async (target: TrendsAskTarget, displayLabel: string) => {
+    if (!jobId) {
+      toast({
+        title: 'Job not ready yet',
+        description: 'Run Module F first so Ask AI can use your stored analysis.',
+        variant: 'destructive',
+      })
+      return
+    }
+    resetAskAI()
+    setChatFocusBadge(displayLabel)
+    setChatInput('')
+    const userDisplay = `Explain: ${displayLabel}`
+    const userTurn: ChatTurn = { id: chatMessageId(), role: 'user', content: userDisplay }
+    setChatMessages([userTurn])
+    setAskDialogOpen(true)
+
+    const fullPrompt = buildTrendsAskPrompt(target, latestResult?.data, trends, brandName)
+
+    try {
+      const res = await askModuleFAI({
+        jobId,
+        body: { question: fullPrompt },
+      }).unwrap()
+      const text = res?.data?.answer?.trim() ?? ''
+      const sources = res?.data?.sources
+      if (!text) {
+        toast({
+          title: 'Empty response',
+          description: 'The model returned no text. Try again.',
+          variant: 'destructive',
+        })
+        setChatMessages([])
+        setAskDialogOpen(false)
+        return
+      }
+      setChatMessages((prev) => [
+        ...prev,
+        { id: chatMessageId(), role: 'assistant', content: text, sources },
+      ])
+    } catch (err: unknown) {
+      const msg =
+        (err as { data?: { message?: string; error?: string } })?.data?.message ||
+        (err as { data?: { error?: string } })?.data?.error ||
+        (err as Error)?.message ||
+        'Please try again.'
+      toast({
+        title: 'Ask AI failed',
+        description: msg,
+        variant: 'destructive',
+      })
+      setChatMessages([])
+      setAskDialogOpen(false)
+    }
+  }
+
+  const submitAskAi = async (e?: FormEvent) => {
+    e?.preventDefault()
+    if (!jobId || !chatInput.trim() || isAskingAI) return
+    const question = chatInput.trim()
+    setChatInput('')
+
+    const priorHistory = chatMessages.slice(-6).map((m) => ({
+      role: m.role,
+      content: m.content,
+    }))
+
+    const userTurn: ChatTurn = { id: chatMessageId(), role: 'user', content: question }
+    setChatMessages((prev) => [...prev, userTurn])
+
+    try {
+      const res = await askModuleFAI({
+        jobId,
+        body: { question, conversationHistory: priorHistory.length ? priorHistory : undefined },
+      }).unwrap()
+      const text = res?.data?.answer?.trim() ?? ''
+      const sources = res?.data?.sources
+      if (!text) {
+        toast({
+          title: 'Empty response',
+          description: 'The model returned no text. Try again or shorten your question.',
+          variant: 'destructive',
+        })
+        return
+      }
+      setChatMessages((prev) => [
+        ...prev,
+        { id: chatMessageId(), role: 'assistant', content: text, sources },
+      ])
+    } catch (err: unknown) {
+      const msg =
+        (err as { data?: { message?: string; error?: string } })?.data?.message ||
+        (err as { data?: { error?: string } })?.data?.error ||
+        (err as Error)?.message ||
+        'Please try again.'
+      toast({
+        title: 'Ask AI failed',
+        description: msg,
+        variant: 'destructive',
+      })
+      setChatMessages((prev) => prev.filter((m) => m.id !== userTurn.id))
+      setChatInput(question)
+    }
+  }
 
   const toggleSeries = useCallback((seriesKey: string) => {
     setHidden((prev) => ({ ...prev, [seriesKey]: !prev[seriesKey] }))
@@ -242,6 +530,40 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <Dialog
+        open={askDialogOpen}
+        onOpenChange={(open) => {
+          setAskDialogOpen(open)
+          if (!open) {
+            resetAskAI()
+            setChatMessages([])
+            setChatInput('')
+            setChatFocusBadge(undefined)
+          }
+        }}
+      >
+        <DialogContent
+          className={cn(
+            'w-[calc(100vw-1rem)] max-h-[95vh] gap-0 overflow-visible border-0 bg-transparent p-0 pt-10 shadow-none sm:max-w-3xl lg:max-w-5xl',
+            'data-[state=open]:zoom-in-[0.98]',
+          )}
+          showCloseButton
+        >
+          <ModuleFAskAiChatShell
+            brandName={brandName}
+            focusBadge={chatFocusBadge}
+            chatScrollRef={chatScrollRef}
+            chatMessages={chatMessages}
+            chatInput={chatInput}
+            setChatInput={setChatInput}
+            isAskingAI={isAskingAI}
+            askAIError={askAIError}
+            onSubmit={submitAskAi}
+            onSuggestionClick={(text) => setChatInput(text)}
+          />
+        </DialogContent>
+      </Dialog>
+
       {/* Premium Header */}
       <div className="rounded-3xl border border-zinc-800 bg-[#111113] p-6 sm:p-8 relative overflow-hidden group">
         <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 blur-[100px] -mr-32 -mt-32" />
@@ -266,9 +588,28 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
             </div>
           </div>
           
-          <div className="flex flex-col items-end gap-1 bg-zinc-900/50 px-4 py-2 rounded-2xl border border-zinc-800">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Dataset</span>
-            <span className="text-sm font-bold text-zinc-200">{runCount} Historical Runs</span>
+          <div className="flex flex-col items-end gap-3 md:self-start">
+            <div className="flex flex-col items-end gap-1 bg-zinc-900/50 px-4 py-2 rounded-2xl border border-zinc-800">
+              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Dataset</span>
+              <span className="text-sm font-bold text-zinc-200">{runCount} Historical Runs</span>
+            </div>
+
+            <Button
+              type="button"
+              onClick={openAskAiDialog}
+              disabled={isAskingAI}
+              className={cn(
+                'rounded-full border-0 shadow-lg shadow-fuchsia-950/30',
+                'text-sm font-extrabold uppercase tracking-wider sm:text-base',
+                'bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300',
+                'text-black hover:opacity-95 hover:shadow-xl',
+                'h-auto min-h-[48px] px-6 py-3 sm:min-h-[52px] sm:px-8 sm:py-3.5',
+                'gap-2.5',
+              )}
+            >
+              <MessageSquare className="size-5 shrink-0 sm:size-6" strokeWidth={2.25} aria-hidden />
+              ASK AI
+            </Button>
           </div>
         </div>
       </div>
@@ -357,6 +698,12 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
             ? (brandVisibilityChangePct >= 0 ? 'up' : 'down')
             : 'neutral'}
           description={visibilityRec?.why || "Change in overall visibility score compared to the previous analysis run."}
+          labelAction={
+            <MetricAskButton
+              disabled={!jobId || isAskingAI}
+              onClick={() => runMetricAskAi('visibility_change', 'Visibility Change')}
+            />
+          }
         />
 
         <StatCard
@@ -373,6 +720,12 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
             ? (brandMarketShareChange >= 0 ? 'up' : 'down')
             : 'neutral'}
           description={shareRec?.why || "Shift in market share (share of voice) since the last data point."}
+          labelAction={
+            <MetricAskButton
+              disabled={!jobId || isAskingAI}
+              onClick={() => runMetricAskAi('market_share_change', 'Market Share Change')}
+            />
+          }
         />
 
         <StatCard
@@ -382,6 +735,12 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
           icon={Clock}
           accent="violet"
           description={`Last analysis run on ${latestPoint?.date ? format(new Date(latestPoint.date), 'MMM dd, yyyy') : 'N/A'}`}
+          labelAction={
+            <MetricAskButton
+              disabled={!jobId || isAskingAI}
+              onClick={() => runMetricAskAi('latest_snapshot', 'Latest Snapshot')}
+            />
+          }
         />
 
         {d7 && (
@@ -394,6 +753,12 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
             trend={d7.d7_delta && d7.d7_delta > 0 ? 'up' : d7.d7_delta && d7.d7_delta < 0 ? 'down' : 'neutral'}
             progress={d7.d7_score}
             description="Competitive Citation Gap Score (15% contribution to AIVS™)"
+            labelAction={
+              <MetricAskButton
+                disabled={!jobId || isAskingAI}
+                onClick={() => runMetricAskAi('d7_score', 'AIVS™ D7 Score')}
+              />
+            }
           />
         )}
       </div>
@@ -404,6 +769,12 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
         title="Performance Trends" 
         description="Visualize visibility and market share shifts across multiple analysis runs."
         className="bg-[#111113]"
+        actionSlot={
+          <MetricAskButton
+            disabled={!jobId || isAskingAI}
+            onClick={() => runMetricAskAi('performance_trends', 'Performance Trends')}
+          />
+        }
       >
         <div className="flex flex-col gap-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -588,6 +959,12 @@ export default function CompetitorGrowthTrends({ jobId }: CompetitorGrowthTrends
           title="Market Momentum & Emerging Shifts" 
           description="Identify competitors with the highest visibility gains and analyze recent prompt winner shifts."
           className="bg-[#111113]"
+          actionSlot={
+            <MetricAskButton
+              disabled={!jobId || isAskingAI}
+              onClick={() => runMetricAskAi('market_momentum', 'Market Momentum')}
+            />
+          }
         >
           <div className="space-y-10">
             {/* Row 1: Top Movers, Status, Model Targeting */}

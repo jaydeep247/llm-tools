@@ -16,6 +16,8 @@ export type AskAiChatTurn = {
 
 type ModuleFAskAiChatShellProps = {
   brandName: string
+  /** Shown next to the title (e.g. metric name when opened from a card) */
+  focusBadge?: string
   chatScrollRef: Ref<HTMLDivElement>
   chatMessages: AskAiChatTurn[]
   chatInput: string
@@ -34,6 +36,7 @@ const SUGGESTIONS = [
 
 export function ModuleFAskAiChatShell({
   brandName,
+  focusBadge,
   chatScrollRef,
   chatMessages,
   chatInput,
@@ -132,7 +135,7 @@ export function ModuleFAskAiChatShell({
                   Ask AI
                 </h2>
                 <span className="rounded-full border border-violet-500/25 bg-violet-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-violet-300">
-                  Competitor wins
+                  {focusBadge ?? 'Competitor wins'}
                 </span>
               </div>
               <p className="max-w-2xl text-sm leading-relaxed text-zinc-400 sm:text-base">

@@ -8,6 +8,7 @@ import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
 import { useRunCompetitorAnalysisMutation, useRunAiSovAnalysisMutation, useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
 import { FieldTooltip } from '@/components/module_A/FieldTooltip'
+import { ModuleEMetricAskButton, useModuleEAskAi } from '@/components/module_E/useModuleEAskAi'
 
 const WEB_MENTION_FIELD_DESCRIPTIONS: Record<string, string> = {
     Competitor: 'The competitor we found mentions for (domain or brand name).',
@@ -32,6 +33,7 @@ const AI_SOV_SECTION_DESCRIPTION =
 
 interface CompetitorMentionsProps {
     jobId?: string
+    projectId?: string | null
     mentionsData?: {
         overall_sov: number
         data: Array<{
@@ -43,7 +45,7 @@ interface CompetitorMentionsProps {
     }
 }
 
-export default function CompetitorMentionsSection({ jobId, mentionsData: initialMentionsData }: CompetitorMentionsProps) {
+export default function CompetitorMentionsSection({ jobId, projectId, mentionsData: initialMentionsData }: CompetitorMentionsProps) {
     const [isPolling, setIsPolling] = useState(false)
     const [pollCount, setPollCount] = useState(0)
     const [justCompleted, setJustCompleted] = useState(false)
@@ -101,6 +103,7 @@ export default function CompetitorMentionsSection({ jobId, mentionsData: initial
     }, [jobId, updatedAt, runCompetitorAnalysis])
 
     const isRunning = isTriggering || isPolling
+    const { askAiDialog, runMetricAskAi, canAskAi, isAskingAI } = useModuleEAskAi(projectId, jobId)
 
     const RunButton = (
         <Button
@@ -173,6 +176,7 @@ export default function CompetitorMentionsSection({ jobId, mentionsData: initial
 
     return (
         <div className="space-y-4">
+            {askAiDialog}
             <div className="flex items-center justify-between">
                 <div>
                     <div className="flex items-center gap-2">
@@ -191,6 +195,18 @@ export default function CompetitorMentionsSection({ jobId, mentionsData: initial
                             <MessageSquare className="w-4 h-4 text-muted-foreground" />
                             <span className="text-sm font-semibold">Web Mention Trends</span>
                         </div>
+                        <ModuleEMetricAskButton
+                            disabled={!canAskAi || isAskingAI}
+                            onClick={() =>
+                                runMetricAskAi(
+                                    'Web Mention Trends',
+                                    `Summarize competitor mention trends and identify the biggest competitive threat.\n${JSON.stringify({
+                                        overall_sov: mentionsData?.overall_sov,
+                                        competitors: mentionsData?.data?.slice(0, 8),
+                                    })}`,
+                                )
+                            }
+                        />
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-xs text-left">
@@ -247,9 +263,10 @@ export default function CompetitorMentionsSection({ jobId, mentionsData: initial
 
 interface ShareOfVoiceSectionProps {
     jobId?: string
+    projectId?: string | null
 }
 
-export function ShareOfVoiceSection({ jobId }: ShareOfVoiceSectionProps) {
+export function ShareOfVoiceSection({ jobId, projectId }: ShareOfVoiceSectionProps) {
     const [isPolling, setIsPolling] = useState(false)
     const [pollCount, setPollCount] = useState(0)
     const [justCompleted, setJustCompleted] = useState(false)
@@ -310,6 +327,7 @@ export function ShareOfVoiceSection({ jobId }: ShareOfVoiceSectionProps) {
     }, [jobId, updatedAt, competitorRows, runAiSovAnalysis, runCompetitorAnalysis])
 
     const isRunning = isCompetitorTriggering || isAiSovTriggering || isPolling
+    const { askAiDialog, runMetricAskAi, canAskAi, isAskingAI } = useModuleEAskAi(projectId, jobId)
 
     const RunButton = (
         <Button
@@ -366,6 +384,7 @@ export function ShareOfVoiceSection({ jobId }: ShareOfVoiceSectionProps) {
 
     return (
         <div className="space-y-4">
+            {askAiDialog}
             <div className="flex items-center justify-between">
                 <div>
                     <div className="flex items-center gap-2">
@@ -389,6 +408,19 @@ export function ShareOfVoiceSection({ jobId }: ShareOfVoiceSectionProps) {
                 <div className="rounded-2xl border border-zinc-800 bg-zinc-800/50 p-4 flex flex-col justify-between">
                     <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium text-muted-foreground">Overall AI SOV</span>
+                        <ModuleEMetricAskButton
+                            disabled={!canAskAi || isAskingAI}
+                            onClick={() =>
+                                runMetricAskAi(
+                                    'Overall AI SOV',
+                                    `Interpret this AI share-of-voice score and recommend top 2 actions.\n${JSON.stringify({
+                                        overall_sov: overallSov,
+                                        visibility_tier: visibilityTier,
+                                        brand_known_by: brandKnownBy,
+                                    })}`,
+                                )
+                            }
+                        />
                         <Badge variant="outline" className="text-[10px] px-2 py-0.5">
                             All models
                         </Badge>

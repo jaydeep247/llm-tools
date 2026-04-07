@@ -38,6 +38,7 @@ import { RecommendationEnginePanel, RecommendationEnginePayload } from '@/compon
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { ModuleDAskAiChatShell, type ModuleDAskAiChatTurn } from '@/components/module_D/ModuleDAskAiChatShell'
 import { useAskModuleDAIMutation, useGetModuleDSuggestedQuestionsMutation } from '@/store/api/module_D/moduleDApi'
+import { useToast } from '@/hooks/use-toast'
 
 // Score Card Component - Adapted from AIVisibilityScorecards
 interface ScoreCardProps {
@@ -54,9 +55,10 @@ interface ScoreCardProps {
   footer?: React.ReactNode
   suffix?: string
   help?: { meaning?: string; improve?: string } | null
+  labelAction?: React.ReactNode
 }
 
-function ScoreCard({ title, score, value, icon, color, trend, subStats, error, isLoading, description, footer, suffix = '/100', help }: ScoreCardProps) {
+function ScoreCard({ title, score, value, icon, color, trend, subStats, error, isLoading, description, footer, suffix = '/100', help, labelAction }: ScoreCardProps) {
   const getScoreLabel = (s: number) => {
     if (s >= 80) return { text: 'Excellent', color: 'text-green-400 bg-green-500/10' }
     if (s >= 60) return { text: 'Good', color: 'text-yellow-400 bg-yellow-500/10' }
@@ -113,6 +115,7 @@ function ScoreCard({ title, score, value, icon, color, trend, subStats, error, i
                 </TooltipContent>
               </Tooltip>
             )}
+            {labelAction && <div className="ml-1">{labelAction}</div>}
           </div>
         </div>
         {score !== undefined && score !== null && !error && (
@@ -194,6 +197,189 @@ interface ContentMetricsModuleProps {
   initialTab?: 'content-analysis' | 'intent-clusters' | 'entity-detection' | 'recommendations'
   /** When set, renders only this single section without the internal tab switcher. */
   section?: 'content-analysis' | 'intent-clusters' | 'entity-detection' | 'recommendations'
+}
+
+/** Scoped Ask AI targets for Module D (Content Analysis) */
+type ModuleDMetricAskTarget =
+  | 'content_type_accuracy'
+  | 'prompt_intent_match'
+  | 'visibility_impact'
+  | 'clustering_accuracy'
+  | 'total_prompts'
+  | 'categorized'
+  | 'intent_cluster_distribution'
+  | 'entities_detected'
+  | 'coverage_score'
+  | 'entity_relevance'
+  | 'visibility_score_breakdown'
+
+function buildModuleDAskPrompt(
+  target: ModuleDMetricAskTarget,
+  metrics: any,
+  entityMetrics: any,
+  trackingIntel: any,
+): string {
+  const base = `You are answering from the user's latest "Content Analysis" run.
+Answer immediately — do not ask the user for clarification. Focus ONLY on the metric/section named in the title below.
+Use markdown with short headings and bullets where helpful.`
+
+  switch (target) {
+    case 'content_type_accuracy':
+      return `${base}
+
+**Title: Content Type Accuracy**
+
+Explain what this accuracy score means for the content. Interpret why the system suggested "${metrics?.suggested_content_type}" as the type.
+${JSON.stringify({
+        accuracy: metrics?.content_type_accuracy,
+        suggested_type: metrics?.suggested_content_type,
+        help: metrics?.metric_help?.content_type_accuracy,
+      })}`
+
+    case 'prompt_intent_match':
+      return `${base}
+
+**Title: Prompt Intent Match**
+
+Analyze how well this content matches user search intent. Interpret the matched intents and the confidence level.
+${JSON.stringify({
+        match_score: metrics?.prompt_intent_match,
+        intents: metrics?.prompt_intent_details?.matched_intents,
+        confidence: metrics?.prompt_intent_details?.confidence,
+        help: metrics?.metric_help?.prompt_intent_match,
+      })}`
+
+    case 'visibility_impact':
+      return `${base}
+
+**Title: Visibility Impact**
+
+Explain the potential impact on search visibility. What are the key factors driving this score?
+${JSON.stringify({
+        impact_score: metrics?.visibility_impact,
+        factors: metrics?.visibility_factors?.factors,
+        help: metrics?.metric_help?.visibility_impact,
+      })}`
+
+    case 'clustering_accuracy':
+      return `${base}
+
+**Title: Clustering Accuracy**
+
+Explain the precision of the intent classification for these prompts.
+${JSON.stringify({
+        accuracy: metrics?.prompt_intent_details?.cluster_metrics?.clustering_accuracy,
+        help: metrics?.metric_help?.clustering_accuracy,
+      })}`
+
+    case 'total_prompts':
+      return `${base}
+
+**Title: Total Prompts Analyzed**
+
+Explain the volume of prompts analyzed in this session and what it represents for the site's visibility coverage.
+${JSON.stringify({
+        total: metrics?.prompt_intent_details?.cluster_metrics?.total_prompts,
+        help: metrics?.metric_help?.total_prompts,
+      })}`
+
+    case 'categorized':
+      return `${base}
+
+**Title: Categorized Coverage**
+
+Explain the percentage of prompts successfully mapped to intent clusters and why coverage matters.
+${JSON.stringify({
+        coverage: metrics?.prompt_intent_details?.cluster_metrics?.coverage_percentage,
+        help: metrics?.metric_help?.coverage_percentage,
+      })}`
+
+    case 'intent_cluster_distribution':
+      return `${base}
+
+**Title: Intent Cluster Distribution**
+
+Analyze the distribution of prompts across different intent categories (Informational, Commercial, etc.). What does this mix tell us about the user journey?
+${JSON.stringify({
+        distribution: metrics?.prompt_intent_details?.intent_clusters,
+        tracking_distribution: trackingIntel?.intent_cluster_distribution,
+      })}`
+
+    case 'entities_detected':
+      return `${base}
+
+**Title: Entities Detected**
+
+Explain the significance of the number of required entities found in the content.
+${JSON.stringify({
+        count: entityMetrics?.entities_detected_count,
+        help: metrics?.metric_help?.entities_detected_count,
+      })}`
+
+    case 'coverage_score':
+      return `${base}
+
+**Title: Entity Coverage Score**
+
+Analyze the percentage of required entities included. How does this impact the content's authority?
+${JSON.stringify({
+        coverage: entityMetrics?.entity_coverage_score,
+        help: metrics?.metric_help?.entity_coverage_score,
+      })}`
+
+    case 'entity_relevance':
+      return `${base}
+
+**Title: Entity Relevance**
+
+Explain how relevant the detected entities are to the target search intent.
+${JSON.stringify({
+        relevance: entityMetrics?.entity_relevance_score,
+        relevant_entities: entityMetrics?.entity_relevance_details?.relevant_entities,
+        irrelevant_entities: entityMetrics?.entity_relevance_details?.irrelevant_entities,
+        help: metrics?.metric_help?.entity_relevance_score,
+      })}`
+
+    case 'visibility_score_breakdown':
+      return `${base}
+
+**Title: Visibility Score Breakdown**
+
+Provide a detailed breakdown of the visibility score components. What are the strongest and weakest areas?
+${JSON.stringify({
+        breakdown: metrics?.visibility_factors?.score_breakdown,
+        help: metrics?.metric_help?.visibility_score_breakdown,
+      })}`
+  }
+}
+
+function MetricAskButton({
+  disabled,
+  onClick,
+}: {
+  disabled?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        e.preventDefault()
+        onClick()
+      }}
+      disabled={disabled}
+      className={cn(
+        'inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10',
+        'px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300',
+        'hover:bg-violet-500/18 transition-colors cursor-pointer shrink-0',
+        'disabled:opacity-40 disabled:cursor-not-allowed',
+      )}
+    >
+      <MessageSquare className="size-3 shrink-0" aria-hidden />
+      Ask AI
+    </button>
+  )
 }
 
 function chatMessageId() {
@@ -286,7 +472,9 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
   const [chatInput, setChatInput] = useState('')
   const [chatMessages, setChatMessages] = useState<ModuleDAskAiChatTurn[]>([])
   const [suggestions, setSuggestions] = useState<string[]>([])
+  const [chatFocusBadge, setChatFocusBadge] = useState<string | undefined>(undefined)
   const chatScrollRef = useRef<HTMLDivElement>(null)
+  const { toast } = useToast()
 
   // Extract metrics from response
   const metricsResult = contentMetricsData?.success ? contentMetricsData.data : null
@@ -359,12 +547,67 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
     resetAskAI()
     setChatMessages([])
     setChatInput('')
+    setChatFocusBadge(undefined)
     setAskDialogOpen(true)
     try {
       const res = await getSuggestedQuestions({ project_id: projectId }).unwrap()
       setSuggestions(Array.isArray(res?.questions) ? res.questions.filter(Boolean).slice(0, 12) : [])
     } catch {
       setSuggestions([])
+    }
+  }
+
+  const runMetricAskAi = async (target: ModuleDMetricAskTarget, displayLabel: string) => {
+    if (!projectId || !jobId) {
+      toast({
+        title: 'Project/Job not ready',
+        description: 'Please ensure you have an active project and job.',
+        variant: 'destructive',
+      })
+      return
+    }
+    resetAskAI()
+    setChatFocusBadge(displayLabel)
+    setChatInput('')
+    const userDisplay = `Explain: ${displayLabel}`
+    const userTurn: ModuleDAskAiChatTurn = { id: chatMessageId(), role: 'user', content: userDisplay }
+    setChatMessages([userTurn])
+    setAskDialogOpen(true)
+
+    const fullPrompt = buildModuleDAskPrompt(target, contentMetrics, entityMetrics, trackingPromptIntel)
+
+    try {
+      const res = await askModuleDAI({
+        project_id: projectId,
+        job_id: jobId,
+        question: fullPrompt,
+      }).unwrap()
+
+      const text = res?.answer?.trim() || res?.data?.answer?.trim() || ''
+      const sources = res?.sources || res?.data?.sources
+      if (!text) {
+        toast({
+          title: 'Empty response',
+          description: 'The model returned no text. Try again.',
+          variant: 'destructive',
+        })
+        setChatMessages([])
+        setAskDialogOpen(false)
+        return
+      }
+      setChatMessages((prev) => [
+        ...prev,
+        { id: chatMessageId(), role: 'assistant', content: text, sources },
+      ])
+    } catch (err: any) {
+      const msg = err?.data?.message || err?.data?.error || err?.message || 'Please try again.'
+      toast({
+        title: 'Ask AI failed',
+        description: msg,
+        variant: 'destructive',
+      })
+      setChatMessages([])
+      setAskDialogOpen(false)
     }
   }
 
@@ -426,6 +669,7 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
             onSubmit={submitAskAi}
             onSuggestionClick={(text) => setChatInput(text)}
             suggestions={suggestions}
+            focusBadge={chatFocusBadge}
           />
         </DialogContent>
       </Dialog>
@@ -552,6 +796,12 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                   meaning: contentMetrics.metric_help?.content_type_accuracy?.meaning,
                   improve: contentMetrics.metric_help?.content_type_accuracy?.improve,
                 } : null}
+                labelAction={
+                  <MetricAskButton
+                    disabled={!projectId || isAskingAI}
+                    onClick={() => runMetricAskAi('content_type_accuracy', 'Content Type Accuracy')}
+                  />
+                }
               />
 
               {/* Prompt Intent Match */}
@@ -582,6 +832,12 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                   meaning: contentMetrics.metric_help?.prompt_intent_match?.meaning,
                   improve: contentMetrics.metric_help?.prompt_intent_match?.improve,
                 } : null}
+                labelAction={
+                  <MetricAskButton
+                    disabled={!projectId || isAskingAI}
+                    onClick={() => runMetricAskAi('prompt_intent_match', 'Prompt Intent Match')}
+                  />
+                }
               />
 
               {/* Visibility Impact */}
@@ -611,6 +867,12 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                   meaning: contentMetrics.metric_help?.visibility_impact?.meaning,
                   improve: contentMetrics.metric_help?.visibility_impact?.improve,
                 } : null}
+                labelAction={
+                  <MetricAskButton
+                    disabled={!projectId || isAskingAI}
+                    onClick={() => runMetricAskAi('visibility_impact', 'Visibility Impact')}
+                  />
+                }
               />
             </div>
           )}
@@ -680,6 +942,12 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                       meaning: contentMetrics.metric_help?.clustering_accuracy?.meaning,
                       improve: contentMetrics.metric_help?.clustering_accuracy?.improve,
                     } : null}
+                    labelAction={
+                      <MetricAskButton
+                        disabled={!projectId || isAskingAI}
+                        onClick={() => runMetricAskAi('clustering_accuracy', 'Clustering Accuracy')}
+                      />
+                    }
                   />
                 </div>
                 
@@ -694,6 +962,12 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                       meaning: contentMetrics.metric_help?.total_prompts?.meaning,
                       improve: contentMetrics.metric_help?.total_prompts?.improve,
                     } : null}
+                    labelAction={
+                      <MetricAskButton
+                        disabled={!projectId || isAskingAI}
+                        onClick={() => runMetricAskAi('total_prompts', 'Total Prompts')}
+                      />
+                    }
                   />
                 </div>
                 
@@ -709,13 +983,19 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                       meaning: contentMetrics.metric_help?.coverage_percentage?.meaning,
                       improve: contentMetrics.metric_help?.coverage_percentage?.improve,
                     } : null}
+                    labelAction={
+                      <MetricAskButton
+                        disabled={!projectId || isAskingAI}
+                        onClick={() => runMetricAskAi('categorized', 'Categorized')}
+                      />
+                    }
                   />
                 </div>
               </div>
 
               {/* Intent Distribution Table */}
               <div className="bg-[#111113] rounded-xl border border-zinc-800 overflow-hidden">
-                <div className="bg-[#0D0D10] px-6 py-4 border-b border-zinc-800">
+                <div className="bg-[#0D0D10] px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
                   <h4 className="text-sm font-semibold text-white">
                     Intent Cluster Distribution
                     {trackingIntentDistribution && (
@@ -724,6 +1004,10 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                       </span>
                     )}
                   </h4>
+                  <MetricAskButton
+                    disabled={!projectId || isAskingAI}
+                    onClick={() => runMetricAskAi('intent_cluster_distribution', 'Intent Cluster Distribution')}
+                  />
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -891,6 +1175,12 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                     icon={<Database className="w-5 h-5 text-blue-400" />}
                     color="bg-blue-500/20"
                     help={contentMetrics?.metric_help?.entities_detected_count ?? null}
+                    labelAction={
+                      <MetricAskButton
+                        disabled={!projectId || isAskingAI}
+                        onClick={() => runMetricAskAi('entities_detected', 'Entities Detected')}
+                      />
+                    }
                   />
                 </div>
 
@@ -904,6 +1194,12 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                     icon={<BarChart className="w-5 h-5 text-emerald-400" />}
                     color="bg-emerald-500/20"
                     help={contentMetrics?.metric_help?.entity_coverage_score ?? null}
+                    labelAction={
+                      <MetricAskButton
+                        disabled={!projectId || isAskingAI}
+                        onClick={() => runMetricAskAi('coverage_score', 'Coverage Score')}
+                      />
+                    }
                   />
                 </div>
 
@@ -916,6 +1212,12 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                     icon={<Target className="w-5 h-5 text-blue-400" />}
                     color="bg-blue-500/20"
                     help={contentMetrics?.metric_help?.entity_relevance_score ?? null}
+                    labelAction={
+                      <MetricAskButton
+                        disabled={!projectId || isAskingAI}
+                        onClick={() => runMetricAskAi('entity_relevance', 'Entity Relevance')}
+                      />
+                    }
                   />
                 </div>
               </div>
@@ -986,44 +1288,50 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                 {contentMetrics?.visibility_factors?.score_breakdown && 
                  Object.keys(contentMetrics.visibility_factors.score_breakdown).length > 0 && (
                   <div className="bg-[#111113] rounded-xl border border-zinc-800 p-5">
-                    <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                      <div className="p-1.5 rounded-lg bg-emerald-500/20">
-                        <BarChart className="w-4 h-4 text-emerald-400" />
-                      </div>
-                      <span className="flex items-center gap-2">
-                        Visibility Score Breakdown
-                        {contentMetrics?.metric_help?.visibility_score_breakdown?.meaning &&
-                          contentMetrics?.metric_help?.visibility_score_breakdown?.improve && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button
-                                  type="button"
-                                  className="text-white/35 hover:text-white/70 transition-colors"
-                                  aria-label="Visibility score breakdown help"
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-semibold text-white flex items-center gap-2">
+                        <div className="p-1.5 rounded-lg bg-emerald-500/20">
+                          <BarChart className="w-4 h-4 text-emerald-400" />
+                        </div>
+                        <span className="flex items-center gap-2">
+                          Visibility Score Breakdown
+                          {contentMetrics?.metric_help?.visibility_score_breakdown?.meaning &&
+                            contentMetrics?.metric_help?.visibility_score_breakdown?.improve && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className="text-white/35 hover:text-white/70 transition-colors"
+                                    aria-label="Visibility score breakdown help"
+                                  >
+                                    <HelpCircle className="h-3.5 w-3.5" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent
+                                  side="top"
+                                  align="start"
+                                  className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5"
                                 >
-                                  <HelpCircle className="h-3.5 w-3.5" />
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent
-                                side="top"
-                                align="start"
-                                className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5"
-                              >
-                                <div className="space-y-1.5">
-                                  <div>
-                                    <span className="font-semibold">Meaning: </span>
-                                    {contentMetrics.metric_help.visibility_score_breakdown.meaning}
+                                  <div className="space-y-1.5">
+                                    <div>
+                                      <span className="font-semibold">Meaning: </span>
+                                      {contentMetrics.metric_help.visibility_score_breakdown.meaning}
+                                    </div>
+                                    <div>
+                                      <span className="font-semibold">Improve: </span>
+                                      {contentMetrics.metric_help.visibility_score_breakdown.improve}
+                                    </div>
                                   </div>
-                                  <div>
-                                    <span className="font-semibold">Improve: </span>
-                                    {contentMetrics.metric_help.visibility_score_breakdown.improve}
-                                  </div>
-                                </div>
-                              </TooltipContent>
-                            </Tooltip>
-                          )}
-                      </span>
-                    </h4>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                        </span>
+                      </h4>
+                      <MetricAskButton
+                        disabled={!projectId || isAskingAI}
+                        onClick={() => runMetricAskAi('visibility_score_breakdown', 'Visibility Score Breakdown')}
+                      />
+                    </div>
                     <div className="space-y-3">
                       {Object.entries(contentMetrics.visibility_factors.score_breakdown).map(([factor, score]) => (
                         <div key={factor} className="space-y-1">

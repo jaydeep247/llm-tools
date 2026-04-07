@@ -1516,12 +1516,12 @@ export default function SessionDetailClient() {
           <div className="space-y-6">
             {/* Competitor Mentions */}
             <div className="rounded-2xl p-6 border border-zinc-800 bg-[#111113]">
-              <CompetitorMentionsSection jobId={jobId} />
+              <CompetitorMentionsSection jobId={jobId} projectId={projectId} />
             </div>
 
             {/* Brand Analysis */}
             <div className="rounded-2xl p-6 border border-zinc-800 bg-[#111113]">
-              <BrandAnalysisSection jobId={jobId} />
+              <BrandAnalysisSection jobId={jobId} projectId={projectId} />
             </div>
 
             {/* Live Crawl Progress — shown only while the crawl job is running */}
@@ -1559,12 +1559,12 @@ export default function SessionDetailClient() {
 
             {/* AI Share of Voice */}
             <div className="rounded-2xl p-6 border border-zinc-800 bg-[#111113]">
-              <ShareOfVoiceSection jobId={jobId} />
+              <ShareOfVoiceSection jobId={jobId} projectId={projectId} />
             </div>
 
             {/* Trends by Model */}
             <div className="rounded-2xl p-6 border border-zinc-800 bg-[#111113]">
-              <TrendsByModelSection jobId={jobId} />
+              <TrendsByModelSection jobId={jobId} projectId={projectId} />
             </div>
           </div>
         )}
@@ -1572,7 +1572,7 @@ export default function SessionDetailClient() {
         {activeSection === 'keyword-intelligence' && (
           <div className="space-y-6">
             <div className="rounded-2xl p-6 border border-zinc-800 bg-[#111113]">
-              <AICitationRanking url={session?.startUrl || ''} />
+              <AICitationRanking jobId={jobId} projectId={projectId} url={session?.startUrl || ''} />
             </div>
           </div>
         )}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect, type FormEvent } from 'react'
 import { Badge } from '@/components/ui/badge'
 import {
   Loader2, Eye, MessageSquare, CheckCircle, XCircle,
@@ -13,13 +13,16 @@ import {
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
 import { FieldTooltip } from '@/components/module_A/FieldTooltip'
-import { useGetModuleCResultQuery } from '@/store/api/module_C/moduleCApi'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { ModuleCAskAiChatShell, type ModuleCAskAiChatTurn } from './ModuleCAskAiChatShell'
+import { useGetModuleCResultQuery, useAskModuleCAIMutation, useGetModuleCSuggestedQuestionsMutation } from '@/store/api/module_C/moduleCApi'
 import { useModuleCAnalysis } from '@/hooks/useModuleCAnalysis'
 import ModuleCProgressLoader from './ModuleCProgressLoader'
 
 interface AIAnswerPreviewProps {
   jobId?: string | null
   url?: string
+  projectId?: string | null
 }
 
 const TOOLTIPS = {
@@ -84,9 +87,16 @@ function QuestionRow({ q, index }: { q: any; index: number }) {
   )
 }
 
-export default function AIAnswerPreview({ jobId, url }: AIAnswerPreviewProps) {
+export default function AIAnswerPreview({ jobId, url, projectId }: AIAnswerPreviewProps) {
   const [activeModelTab, setActiveModelTab] = useState<'openai' | 'gemini' | 'claude'>('gemini')
   const [showAllPrompts, setShowAllPrompts] = useState(false)
+  const [askModuleCAI, { isLoading: isAskingAI, error: askAIError, reset: resetAskAI }] = useAskModuleCAIMutation()
+  const [getSuggestedQuestions] = useGetModuleCSuggestedQuestionsMutation()
+  const [askDialogOpen, setAskDialogOpen] = useState(false)
+  const [chatInput, setChatInput] = useState('')
+  const [chatMessages, setChatMessages] = useState<ModuleCAskAiChatTurn[]>([])
+  const [suggestions, setSuggestions] = useState<string[]>([])
+  const chatScrollRef = useRef<HTMLDivElement>(null)
 
   const { data: moduleCData, isLoading: isLoadingData, refetch: refetchData } = useGetModuleCResultQuery({ jobId: jobId || '', url }, {
     skip: !jobId, refetchOnMountOrArgChange: true,
@@ -141,13 +151,126 @@ export default function AIAnswerPreview({ jobId, url }: AIAnswerPreviewProps) {
 
   const activeAnswers: string[] = (rawAnswers[activeModelTab] as string[]) ?? []
 
+  useEffect(() => {
+    if (!askDialogOpen || !chatScrollRef.current) return
+    const el = chatScrollRef.current
+    el.scrollTop = el.scrollHeight
+  }, [askDialogOpen, chatMessages, isAskingAI])
+
+  const chatMessageId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+
+  const openAskAiDialog = async () => {
+    if (!projectId) return
+    resetAskAI()
+    setChatMessages([])
+    setChatInput('')
+    setAskDialogOpen(true)
+    try {
+      const res = await getSuggestedQuestions({ project_id: projectId }).unwrap()
+      setSuggestions(Array.isArray(res?.questions) ? res.questions.filter(Boolean).slice(0, 12) : [])
+    } catch {
+      setSuggestions([])
+    }
+  }
+
+  const submitAskAi = async (e?: FormEvent) => {
+    e?.preventDefault()
+    if (!projectId || !chatInput.trim() || isAskingAI) return
+    const question = chatInput.trim()
+    setChatInput('')
+    const priorHistory = chatMessages.slice(-6).map((m) => ({ role: m.role, content: m.content }))
+    const userTurn: ModuleCAskAiChatTurn = { id: chatMessageId(), role: 'user', content: question }
+    setChatMessages((prev) => [...prev, userTurn])
+    try {
+      const res = await askModuleCAI({
+        project_id: projectId,
+        job_id: jobId || undefined,
+        question,
+        conversation_history: priorHistory.length ? priorHistory : undefined,
+      }).unwrap()
+      const text = res?.answer?.trim() || res?.data?.answer?.trim() || ''
+      const sources = res?.sources || res?.data?.sources
+      if (!text) return
+      setChatMessages((prev) => [...prev, { id: chatMessageId(), role: 'assistant', content: text, sources }])
+    } catch {
+      setChatMessages((prev) => prev.filter((m) => m.id !== userTurn.id))
+      setChatInput(question)
+    }
+  }
+
+  const runMetricAskAi = async (displayLabel: string, prompt: string) => {
+    if (!projectId || !jobId || isAskingAI) return
+    resetAskAI()
+    setChatInput('')
+    setChatMessages([{ id: chatMessageId(), role: 'user', content: `Explain: ${displayLabel}` }])
+    setAskDialogOpen(true)
+    try {
+      const res = await askModuleCAI({
+        project_id: projectId,
+        job_id: jobId,
+        question: prompt,
+      }).unwrap()
+      const text = res?.answer?.trim() || res?.data?.answer?.trim() || ''
+      const sources = res?.sources || res?.data?.sources
+      if (!text) return
+      setChatMessages((prev) => [...prev, { id: chatMessageId(), role: 'assistant', content: text, sources }])
+    } catch {
+      setChatMessages([])
+      setAskDialogOpen(false)
+    }
+  }
+
   return (
     <div className="space-y-5">
+      <Dialog
+        open={askDialogOpen}
+        onOpenChange={(open) => {
+          setAskDialogOpen(open)
+          if (!open) {
+            resetAskAI()
+            setChatMessages([])
+            setChatInput('')
+          }
+        }}
+      >
+        <DialogContent
+          className={cn(
+            'w-[calc(100vw-1rem)] max-h-[95vh] gap-0 overflow-visible border-0 bg-transparent p-0 pt-10 shadow-none sm:max-w-3xl lg:max-w-5xl',
+            'data-[state=open]:zoom-in-[0.98]',
+          )}
+          showCloseButton
+        >
+          <ModuleCAskAiChatShell
+            chatScrollRef={chatScrollRef}
+            chatMessages={chatMessages}
+            chatInput={chatInput}
+            setChatInput={setChatInput}
+            isAskingAI={isAskingAI}
+            askAIError={askAIError}
+            onSubmit={submitAskAi}
+            onSuggestionClick={(text) => setChatInput(text)}
+            suggestions={suggestions}
+          />
+        </DialogContent>
+      </Dialog>
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold text-white">AI Answer Preview</h2>
           <p className="text-sm text-zinc-400 mt-0.5">How accurately and completely AI models answer questions about your brand</p>
         </div>
+        <button
+          type="button"
+          onClick={openAskAiDialog}
+          disabled={!projectId || isAskingAI}
+          className={cn(
+            'inline-flex items-center gap-2 rounded-full border-0 px-5 py-2.5 text-sm font-extrabold uppercase tracking-wider text-black shadow-lg shadow-fuchsia-950/30',
+            'bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300 hover:opacity-95',
+            'disabled:cursor-not-allowed disabled:opacity-50',
+          )}
+        >
+          <MessageSquare className="size-4 shrink-0" />
+          Ask AI
+        </button>
       </div>
 
       {isLoadingData && (
@@ -181,6 +304,28 @@ export default function AIAnswerPreview({ jobId, url }: AIAnswerPreviewProps) {
         <>
           {/* SECTION 1: Score Hero */}
           <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-6">
+            <div className="mb-3">
+              <button
+                type="button"
+                onClick={() =>
+                  runMetricAskAi(
+                    'Answer Completeness Score',
+                    `Interpret this answer completeness snapshot and prioritize top improvements.\n${JSON.stringify({
+                      completeness_score: completenessScore,
+                      questions_generated: questionsGenerated,
+                      fully_answered: fullyAnswered,
+                      partially_answered: partiallyAnswered,
+                      not_answered: notAnswered,
+                    })}`,
+                  )
+                }
+                disabled={!projectId || !jobId || isAskingAI}
+                className="inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300 disabled:opacity-40"
+              >
+                <MessageSquare className="size-3" />
+                Ask AI
+              </button>
+            </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
               {/* Pie chart + legend */}
               <div className="flex flex-col items-center gap-3">
@@ -261,6 +406,23 @@ export default function AIAnswerPreview({ jobId, url }: AIAnswerPreviewProps) {
                 <span className="text-sm font-semibold text-white">Question-by-Question Analysis</span>
                 <FieldTooltip description="Each question was generated based on your page topic and tested against your content to see if an LLM could answer it." />
                 <Badge className="bg-purple-500/15 text-purple-300 border border-purple-500/20 text-xs ml-auto">{results.length} questions</Badge>
+                <button
+                  type="button"
+                  onClick={() =>
+                    runMetricAskAi(
+                      'Question-by-Question Analysis',
+                      `Review these question-level answer outcomes and explain the biggest answerability gaps.\n${JSON.stringify({
+                        total_questions: results.length,
+                        sample_results: results.slice(0, 10),
+                      })}`,
+                    )
+                  }
+                  disabled={!projectId || !jobId || isAskingAI}
+                  className="inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300 disabled:opacity-40"
+                >
+                  <MessageSquare className="size-3" />
+                  Ask AI
+                </button>
               </div>
               <div className="space-y-2">
                 {results.map((q: any, i: number) => <QuestionRow key={i} q={q} index={i} />)}
@@ -340,6 +502,24 @@ export default function AIAnswerPreview({ jobId, url }: AIAnswerPreviewProps) {
                 <Bot className="w-4 h-4 text-blue-400" />
                 <span className="text-sm font-semibold text-white">Raw LLM Responses</span>
                 <FieldTooltip description={TOOLTIPS.rawAnswer} />
+                <button
+                  type="button"
+                  onClick={() =>
+                    runMetricAskAi(
+                      'Raw LLM Responses',
+                      `Analyze these raw model responses and explain consistency, quality, and citation risk.\n${JSON.stringify({
+                        model: activeModelTab,
+                        active_answers: activeAnswers.slice(0, 6),
+                        prompts_used: promptsUsed.slice(0, 6),
+                      })}`,
+                    )
+                  }
+                  disabled={!projectId || !jobId || isAskingAI}
+                  className="ml-auto inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300 disabled:opacity-40"
+                >
+                  <MessageSquare className="size-3" />
+                  Ask AI
+                </button>
               </div>
 
               {/* Model tabs */}

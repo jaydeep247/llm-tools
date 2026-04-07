@@ -148,6 +148,35 @@ function chatMessageId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
+function MetricAskButton({
+  disabled,
+  onClick,
+}: {
+  disabled?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        onClick()
+      }}
+      disabled={disabled}
+      className={cn(
+        'inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10',
+        'px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300',
+        'hover:bg-violet-500/18 transition-colors cursor-pointer shrink-0',
+        'disabled:opacity-40 disabled:cursor-not-allowed',
+      )}
+    >
+      <MessageSquare className="size-3 shrink-0" aria-hidden />
+      Ask AI
+    </button>
+  )
+}
+
 export default function AIVisibilityScorecards({ url, sessionId, jobId, projectId }: AIVisibilityScorecardsProps) {
   const { data: moduleCData, isLoading: isLoadingData, refetch: refetchData } = useGetModuleCResultQuery({ jobId: jobId || '', url }, { 
     skip: !jobId, refetchOnMountOrArgChange: true, refetchOnFocus: true, refetchOnReconnect: true,
@@ -257,6 +286,29 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
     }
   }
 
+  const runMetricAskAi = async (displayLabel: string, prompt: string) => {
+    if (!projectId || !jobId || isAskingAI) return
+    resetAskAI()
+    setChatInput('')
+    const userTurn: ModuleCAskAiChatTurn = { id: chatMessageId(), role: 'user', content: `Explain: ${displayLabel}` }
+    setChatMessages([userTurn])
+    setAskDialogOpen(true)
+    try {
+      const res = await askModuleCAI({
+        project_id: projectId,
+        job_id: jobId,
+        question: prompt,
+      }).unwrap()
+      const text = res?.answer?.trim() || res?.data?.answer?.trim() || ''
+      const sources = res?.sources || res?.data?.sources
+      if (!text) return
+      setChatMessages((prev) => [...prev, { id: chatMessageId(), role: 'assistant', content: text, sources }])
+    } catch {
+      setChatMessages([])
+      setAskDialogOpen(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <Dialog
@@ -360,6 +412,21 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
                 <div className="flex items-center gap-1.5 mt-1">
                   <span className="text-sm text-zinc-400">Overall Score</span>
                   <FieldTooltip description={TOOLTIPS.overallScore} />
+                  <MetricAskButton
+                    disabled={!projectId || !jobId || isAskingAI}
+                    onClick={() =>
+                      runMetricAskAi(
+                        'Overall AI Visibility Score',
+                        `Interpret this overall AI visibility score and explain the primary drivers.\n${JSON.stringify({
+                          overall_score: overallScore,
+                          llm_friendliness: llmScore,
+                          entity_coverage: entityPct,
+                          answer_completeness: completenessScore,
+                          llm_consistency: consistencyScore,
+                        })}`,
+                      )
+                    }
+                  />
                 </div>
                 <ScoreLabel score={overallScore} />
               </div>
@@ -437,6 +504,15 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
               <BarChart3 className="w-4 h-4 text-zinc-400" />
               <span className="text-sm font-semibold text-white">Module Score Overview</span>
               <FieldTooltip description="Comparison of scores across all four main AI analysis modules." />
+              <MetricAskButton
+                disabled={!projectId || !jobId || isAskingAI}
+                onClick={() =>
+                  runMetricAskAi(
+                    'Module Score Overview',
+                    `Compare these module scores and suggest where to prioritize first.\n${JSON.stringify(moduleOverviewData)}`,
+                  )
+                }
+              />
             </div>
             <ResponsiveContainer width="100%" height={160}>
               <BarChart data={moduleOverviewData} barCategoryGap="30%">
@@ -458,6 +534,15 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
                 <Shield className="w-4 h-4 text-blue-400" />
                 <span className="text-sm font-semibold text-white">AEO Checker — Sub-Score Breakdown</span>
                 <FieldTooltip description="Detailed breakdown of the five pillars that make up the LLM Friendliness score." />
+              <MetricAskButton
+                disabled={!projectId || !jobId || isAskingAI}
+                onClick={() =>
+                  runMetricAskAi(
+                    'AEO Sub-Score Breakdown',
+                    `Break down these AEO sub-scores and explain weakest pillar and fixes.\n${JSON.stringify(aeo?.sub_scores ?? {})}`,
+                  )
+                }
+              />
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Chart */}
@@ -513,6 +598,15 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
                   <BookOpen className="w-4 h-4 text-emerald-400" />
                   <span className="text-sm font-semibold text-white">Readability Signals</span>
                   <FieldTooltip description="Readability metrics used by AI engines to assess how parseable your content is." />
+                  <MetricAskButton
+                    disabled={!projectId || !jobId || isAskingAI}
+                    onClick={() =>
+                      runMetricAskAi(
+                        'Readability Signals',
+                        `Interpret these readability signals and suggest how to make content more AI-parseable.\n${JSON.stringify(aeo?.readability ?? {})}`,
+                      )
+                    }
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   {[
@@ -550,6 +644,15 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
                   <Globe className="w-4 h-4 text-purple-400" />
                   <span className="text-sm font-semibold text-white">Structured Data Signals</span>
                   <FieldTooltip description="Schema.org markup analysis — AI models rely heavily on structured data to cite accurate information." />
+                  <MetricAskButton
+                    disabled={!projectId || !jobId || isAskingAI}
+                    onClick={() =>
+                      runMetricAskAi(
+                        'Structured Data Signals',
+                        `Interpret these structured data scores and recommend highest-impact schema fixes.\n${JSON.stringify(aeo?.structured_data ?? {})}`,
+                      )
+                    }
+                  />
                 </div>
                 <div className="grid grid-cols-3 gap-3 mb-4">
                   {[
@@ -592,6 +695,15 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
                   <Database className="w-4 h-4 text-cyan-400" />
                   <span className="text-sm font-semibold text-white">Entity Signals</span>
                   <FieldTooltip description="How many expected named entities your page contains vs. how many are expected for your topic." />
+                  <MetricAskButton
+                    disabled={!projectId || !jobId || isAskingAI}
+                    onClick={() =>
+                      runMetricAskAi(
+                        'Entity Signals',
+                        `Interpret entity signal metrics and suggest how to improve entity coverage and ratio.\n${JSON.stringify(aeo?.entity_ratio ?? {})}`,
+                      )
+                    }
+                  />
                 </div>
                 <div className="grid grid-cols-3 gap-3 mb-3">
                   {[
@@ -628,6 +740,15 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
                   <Zap className="w-4 h-4 text-amber-400" />
                   <span className="text-sm font-semibold text-white">Actions Summary</span>
                   <FieldTooltip description={TOOLTIPS.pageActions} />
+                  <MetricAskButton
+                    disabled={!projectId || !jobId || isAskingAI}
+                    onClick={() =>
+                      runMetricAskAi(
+                        'Actions Summary',
+                        `Analyze this action summary and prioritize the top actions by expected score lift.\n${JSON.stringify(pageAct ?? {})}`,
+                      )
+                    }
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   {[
@@ -674,6 +795,15 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
                 <MessageCircle className="w-4 h-4 text-purple-400" />
                 <span className="text-sm font-semibold text-white">Answer Completeness Snapshot</span>
                 <FieldTooltip description={TOOLTIPS.answerCompleteness} />
+                <MetricAskButton
+                  disabled={!projectId || !jobId || isAskingAI}
+                  onClick={() =>
+                    runMetricAskAi(
+                      'Answer Completeness Snapshot',
+                      `Interpret this answer completeness snapshot and identify which question gaps matter most.\n${JSON.stringify(answerComp ?? {})}`,
+                    )
+                  }
+                />
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[

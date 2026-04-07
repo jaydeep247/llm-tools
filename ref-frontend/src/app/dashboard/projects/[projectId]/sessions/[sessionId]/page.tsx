@@ -1266,6 +1266,7 @@ export default function SessionDetailPage() {
               pages={siteStructurePages}
               startUrl={siteStructureStartUrl}
               jobId={jobId || null}
+              projectId={projectId}
             />
           </div>
         )}
@@ -1313,6 +1314,7 @@ export default function SessionDetailPage() {
             url={session?.startUrl || ''}
             sessionId={sessionId}
             jobId={jobId}
+            projectId={projectId}
           />
         )}
 
@@ -1328,22 +1330,22 @@ export default function SessionDetailPage() {
 
         {/* Entity & Gap Analysis */}
         {activeSection === 'entity-and-gap-analysis' && (
-          <EntityGapAnalysis jobId={jobId} url={session?.startUrl || ''} />
+          <EntityGapAnalysis jobId={jobId} url={session?.startUrl || ''} projectId={projectId} />
         )}
 
         {/* AI Answer Preview (answer-completeness in sidebar) */}
         {activeSection === 'answer-completeness' && (
-          <AIAnswerPreview jobId={jobId} url={session?.startUrl || ''} />
+          <AIAnswerPreview jobId={jobId} url={session?.startUrl || ''} projectId={projectId} />
         )}
 
         {/* Improvement Actions */}
         {activeSection === 'improvement-actions' && (
-          <ImprovementActions jobId={jobId} url={session?.startUrl || ''} />
+          <ImprovementActions jobId={jobId} url={session?.startUrl || ''} projectId={projectId} />
         )}
 
         {/* Model Comparison */}
         {activeSection === 'model-comparison' && (
-          <ModelComparison jobId={jobId} url={session?.startUrl || ''} />
+          <ModelComparison jobId={jobId} url={session?.startUrl || ''} projectId={projectId} />
         )}
 
         {/* AI Visibility Report */}
@@ -1355,7 +1357,7 @@ export default function SessionDetailPage() {
         {activeSection === 'module-e' && (
           <div className="space-y-6">
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
-              <AICitationRanking jobId={jobId} url={session?.startUrl || ''} />
+              <AICitationRanking jobId={jobId} url={session?.startUrl || ''} projectId={projectId} />
             </div>
 
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
@@ -1363,35 +1365,35 @@ export default function SessionDetailPage() {
             </div>
 
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
-              <BrandAnalysisSection jobId={jobId} />
+              <BrandAnalysisSection jobId={jobId} projectId={projectId} />
             </div>
 
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
-              <SentimentTrackingSection jobId={jobId} />
+              <SentimentTrackingSection jobId={jobId} projectId={projectId} />
             </div>
 
             <div className="rounded-lg p-6 border border-white/20 bg-white/10 backdrop-blur-xl">
-              <CompetitorMentionsSection jobId={jobId} />
+              <CompetitorMentionsSection jobId={jobId} projectId={projectId} />
             </div>
           </div>
         )}
 
         {activeSection === 'prompt-difficulty' && (
           <div className="space-y-6">
-            <BrandAnalysisSection jobId={jobId} />
-            <CompetitorMentionsSection jobId={jobId} />
+            <BrandAnalysisSection jobId={jobId} projectId={projectId} />
+            <CompetitorMentionsSection jobId={jobId} projectId={projectId} />
           </div>
         )}
 
         {activeSection === 'share-of-voice' && (
           <div className="space-y-6">
-            <ShareOfVoiceSection jobId={jobId} />
+            <ShareOfVoiceSection jobId={jobId} projectId={projectId} />
             <PromptTrackingRecommendations jobId={jobId} section="sov_recommendations" />
           </div>
         )}
 
         {activeSection === 'trends-by-model' && (
-          <TrendsByModelSection jobId={jobId} />
+          <TrendsByModelSection jobId={jobId} projectId={projectId} />
         )}
 
         {activeSection === 'visibility-comparision' && (
@@ -1449,7 +1451,7 @@ export default function SessionDetailPage() {
 
         {activeSection === 'prompt-opportunities' && (
           <div className="space-y-6">
-            <AICitationRanking jobId={jobId} url={session?.startUrl || ''} />
+            <AICitationRanking jobId={jobId} url={session?.startUrl || ''} projectId={projectId} />
             <PromptTrackingRecommendations jobId={jobId} section="citations_recommendations" />
           </div>
         )}

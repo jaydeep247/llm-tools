@@ -24,7 +24,8 @@ import {
   Eye,
   MousePointerClick,
   Activity,
-  Info
+  Info,
+  MessageSquare,
 } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts'
 import { format } from 'date-fns'
@@ -33,6 +34,10 @@ import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import D3TidyTree, { TreeNode as TidyTreeNode } from './D3TidyTree'
 import { useGetJobFieldsQuery, useGetJobPromptTrackingQuery, useGetSeoKeywordsForUrlMutation, useStartPromptTrackingMutation } from '@/store/api/jobApi'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { ModuleDAskAiChatShell, type ModuleDAskAiChatTurn } from '@/components/module_D/ModuleDAskAiChatShell'
+import { useAskModuleDAIMutation, useGetModuleDSuggestedQuestionsMutation } from '@/store/api/module_D/moduleDApi'
+import { useToast } from '@/hooks/use-toast'
 
 export type D3TreeNode = {
   name: string
@@ -45,6 +50,7 @@ interface SiteStructureProps {
   pages?: Array<{ url?: string | null }>
   startUrl?: string | null
   jobId?: string | null
+  projectId?: string
 }
 
 type KeywordData = {
@@ -56,6 +62,10 @@ type KeywordData = {
   difficulty_score?: number
   complexity_level?: 'Low' | 'Medium' | 'High'
   ai_generation_feasibility?: number
+}
+
+function chatMessageId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
 function normalizeUrl(url: string): string {
@@ -853,7 +863,7 @@ export function PromptTrackingPanel({ jobId }: { jobId?: string | null }) {
   )
 }
 
-export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructureProps) {
+export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: SiteStructureProps) {
   const observerRef = useRef<ResizeObserver | null>(null)
   const [containerSize, setContainerSize] = useState({ width: 1200, height: 700 })
   const [rootUrl, setRootUrl] = useState<string>('')
@@ -879,6 +889,15 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
   const [seoError, setSeoError] = useState<string | null>(null)
   const [seoResult] = useState<null | any>(null)
   const [seoByUrl, setSeoByUrl] = useState<Map<string, any>>(new Map())
+  const [askModuleDAI, { isLoading: isAskingAI, error: askAIError, reset: resetAskAI }] = useAskModuleDAIMutation()
+  const [getSuggestedQuestions] = useGetModuleDSuggestedQuestionsMutation()
+  const { toast } = useToast()
+  const [askDialogOpen, setAskDialogOpen] = useState(false)
+  const [chatInput, setChatInput] = useState('')
+  const [chatMessages, setChatMessages] = useState<ModuleDAskAiChatTurn[]>([])
+  const [suggestions, setSuggestions] = useState<string[]>([])
+  const [chatFocusBadge, setChatFocusBadge] = useState<string | undefined>(undefined)
+  const chatScrollRef = useRef<HTMLDivElement>(null)
 
   const defaultSeoMetricHelp = useMemo(() => {
     return {
@@ -1038,6 +1057,12 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
   const [viewMode, setViewMode] = useState<'split' | 'tree' | 'table'>('split')
 
   useEffect(() => {
+    if (!askDialogOpen || !chatScrollRef.current) return
+    const el = chatScrollRef.current
+    el.scrollTop = el.scrollHeight
+  }, [askDialogOpen, chatMessages, isAskingAI])
+
+  useEffect(() => {
     if (!seoEnabled) return
     if (!selectedUrl) return
     if (!jobId) return
@@ -1112,6 +1137,64 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
     const mm = Math.floor(s / 60).toString().padStart(2, '0');
     const ss = (s % 60).toString().padStart(2, '0');
     return `${mm}:${ss}`;
+  }
+
+  const openAskAiDialog = async () => {
+    if (!projectId) return
+    resetAskAI()
+    setChatMessages([])
+    setChatInput('')
+    setChatFocusBadge('AI Keywords')
+    setAskDialogOpen(true)
+    try {
+      const res = await getSuggestedQuestions({ project_id: projectId }).unwrap()
+      setSuggestions(Array.isArray(res?.questions) ? res.questions.filter(Boolean).slice(0, 12) : [])
+    } catch {
+      setSuggestions([])
+    }
+  }
+
+  const submitAskAi = async (e?: React.FormEvent) => {
+    e?.preventDefault()
+    if (!projectId || !jobId || !chatInput.trim() || isAskingAI) {
+      if (!jobId || !projectId) {
+        toast({
+          title: 'Project/Job not ready',
+          description: 'Please ensure you have an active project and job.',
+          variant: 'destructive',
+        })
+      }
+      return
+    }
+
+    const question = chatInput.trim()
+    setChatInput('')
+    const priorHistory = chatMessages.slice(-6).map((m) => ({ role: m.role, content: m.content }))
+    const userTurn: ModuleDAskAiChatTurn = { id: chatMessageId(), role: 'user', content: question }
+    setChatMessages((prev) => [...prev, userTurn])
+
+    const contextPrefix = selectedUrl
+      ? `You are answering questions about the "AI Keywords – Analysis & Scores" panel for this URL:\n${selectedUrl}\n\n`
+      : 'You are answering questions about the AI Keywords analysis panel for the selected URL in Module D.\n\n'
+
+    const fullQuestion: string = `${contextPrefix}User question: ${question}`
+
+    try {
+      const res = await askModuleDAI({
+        project_id: projectId,
+        job_id: jobId,
+        question: fullQuestion,
+        conversation_history: priorHistory.length ? priorHistory : undefined,
+      }).unwrap()
+
+      const text = res?.answer?.trim() || res?.data?.answer?.trim() || ''
+      const sources = res?.sources || res?.data?.sources
+      if (!text) return
+      setChatMessages((prev) => [...prev, { id: chatMessageId(), role: 'assistant', content: text, sources }])
+    } catch {
+      setChatMessages((prev) => prev.filter((m) => m.id !== userTurn.id))
+      setChatInput(question)
+    }
   }
 
   const buildTreeFn = useCallback(async () => {
@@ -1213,6 +1296,39 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
 
   return (
     <div className="flex flex-col h-full">
+      <Dialog
+        open={askDialogOpen}
+        onOpenChange={(open) => {
+          setAskDialogOpen(open)
+          if (!open) {
+            resetAskAI()
+            setChatMessages([])
+            setChatInput('')
+            setChatFocusBadge(undefined)
+          }
+        }}
+      >
+        <DialogContent
+          className={cn(
+            'w-[calc(100vw-1rem)] max-h-[95vh] gap-0 overflow-visible border-0 bg-transparent p-0 pt-10 shadow-none sm:max-w-3xl lg:max-w-5xl',
+            'data-[state=open]:zoom-in-[0.98]',
+          )}
+          showCloseButton
+        >
+          <ModuleDAskAiChatShell
+            chatScrollRef={chatScrollRef}
+            chatMessages={chatMessages}
+            chatInput={chatInput}
+            setChatInput={setChatInput}
+            isAskingAI={isAskingAI}
+            askAIError={askAIError}
+            onSubmit={submitAskAi}
+            onSuggestionClick={(text) => setChatInput(text)}
+            suggestions={suggestions}
+            focusBadge={chatFocusBadge}
+          />
+        </DialogContent>
+      </Dialog>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <h3 className="text-lg sm:text-xl font-semibold text-white">Site Structure</h3>
@@ -1394,7 +1510,6 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
           <div
             className={`${viewMode === 'table' ? 'flex-1' : 'w-full md:w-104 lg:w-120'} h-full overflow-y-auto rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-5 flex flex-col gap-5 text-xs text-white/80 shadow-[0_18px_45px_rgba(15,23,42,0.9)]`}
           >
-            {/* Header Section */}
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 rounded-xl bg-fuchsia-500/20">
@@ -1410,12 +1525,30 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId }: SiteStructu
                 </div>
               </div>
               
-              {hasKeywordStats && (
-                <div className="hidden md:flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-[10px] text-emerald-300 border border-emerald-500/20">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>Optimized</span>
-                </div>
-              )}
+              <div className="flex items-center gap-2">
+                {hasKeywordStats && (
+                  <div className="hidden md:flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-[10px] text-emerald-300 border border-emerald-500/20">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>Optimized</span>
+                  </div>
+                )}
+                <Button
+                  type="button"
+                  onClick={openAskAiDialog}
+                  disabled={!projectId || isAskingAI}
+                  className={cn(
+                    'rounded-full border-0 shadow-lg shadow-fuchsia-950/30',
+                    'text-[11px] font-extrabold uppercase tracking-wider',
+                    'bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300',
+                    'text-black hover:opacity-95 hover:shadow-xl',
+                    'h-auto min-h-[34px] px-3 py-1.5',
+                    'gap-1.5',
+                  )}
+                >
+                  <MessageSquare className="size-4 shrink-0" strokeWidth={2.25} aria-hidden />
+                  Ask AI
+                </Button>
+              </div>
             </div>
 
             {/* Selected URL Section */}

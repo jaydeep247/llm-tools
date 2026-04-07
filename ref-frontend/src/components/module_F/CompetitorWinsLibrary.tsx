@@ -32,12 +32,12 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { SectionCard } from '@/components/ui/SectionCard'
 import { StatCard } from '@/components/ui/StatCard'
 import { 
-  type ModuleFMetricRecommendation, 
   ModuleFResult, 
   useGetModuleFResultQuery, 
   useAskModuleFAIMutation,
   resolveFeatureFlags,
-  normaliseMetricRec
+  normaliseMetricRec,
+  resolveRecommendations,
 } from '@/store/api/module_F/moduleFApi'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import {
@@ -65,6 +65,156 @@ type ChatTurn = {
 
 function chatMessageId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+/** Scoped Ask AI targets — each maps to a programmatic prompt (no free-text step). */
+type MetricAskTarget =
+  | 'competitor_win_rate'
+  | 'brand_win_rate'
+  | 'content_gap_score'
+  | 'market_share'
+  | 'competitor_win_breakdown'
+  | 'prompt_analysis_library'
+
+function metricRecSnapshot(
+  data: ModuleFResult | null | undefined,
+  key: 'competitor_win_rate' | 'brand_win_rate' | 'content_gap_score' | 'market_share',
+) {
+  const v = resolveRecommendations(data)[key]
+  const n = normaliseMetricRec(v)
+  return n ? { why: n.why, fix: n.fix } : null
+}
+
+function buildMetricAskPrompt(
+  target: MetricAskTarget,
+  data: ModuleFResult | null | undefined,
+  brandName: string,
+): string {
+  const wins = data?.competitor_wins
+  const summary = wins?.summary
+  const cw = data?.compare_visibility_against_competitors
+  const brand = cw?.brand
+  const breakdown = (wins?.competitor_breakdown ?? []).slice(0, 12)
+  const detailed = wins?.detailed_results ?? []
+  const samplePrompts = detailed.slice(0, 6).map((r) => ({
+    prompt: r.prompt?.slice(0, 160),
+    winner: r.winner,
+    winner_name: r.winner_name,
+    coverage_gap_score: r.coverage_gap_score,
+    brand_rank: r.brand_rank,
+  }))
+
+  const base = `You are answering from the user's latest Module F "Competitor Wins Library" run for brand "${brandName}".
+Answer immediately — do not ask the user for clarification. Focus ONLY on the metric/section named in the title below.
+Use the glossary in PROJECT DATA. Use markdown with short headings and bullets where helpful.`
+
+  switch (target) {
+    case 'competitor_win_rate':
+      return `${base}
+
+**Title: Competitor Win Rate**
+
+Explain what this metric means and interpret these values from our stored summary (JSON). Say whether the situation is concerning and one concrete next step if relevant.
+${JSON.stringify({
+        competitor_win_rate: summary?.competitor_win_rate,
+        competitor_wins: summary?.competitor_wins,
+        total_prompts: summary?.total_prompts,
+        brand_wins: summary?.brand_wins,
+        recommendation: metricRecSnapshot(data, 'competitor_win_rate'),
+      })}`
+    case 'brand_win_rate':
+      return `${base}
+
+**Title: Brand Win Rate**
+
+Explain what this metric means and interpret these values (JSON). Note strengths and one improvement angle if relevant.
+${JSON.stringify({
+        brand_win_rate: summary?.brand_win_rate,
+        brand_wins: summary?.brand_wins,
+        total_prompts: summary?.total_prompts,
+        competitor_win_rate: summary?.competitor_win_rate,
+        recommendation: metricRecSnapshot(data, 'brand_win_rate'),
+      })}`
+    case 'content_gap_score':
+      return `${base}
+
+**Title: Content Gap Score**
+
+Explain how average content/coverage gap is measured in this library and interpret these values (JSON).
+${JSON.stringify({
+        avg_content_gap_score: summary?.avg_content_gap_score,
+        brand_prompt_mentions: summary?.brand_prompt_mentions,
+        total_prompts: summary?.total_prompts,
+        recommendation: metricRecSnapshot(data, 'content_gap_score'),
+      })}`
+    case 'market_share':
+      return `${base}
+
+**Title: Market Share (citation / SOV share)**
+
+Explain what "market share" represents in this Module F visibility comparison and interpret the brand row (JSON). Compare briefly to top competitors if present in PROJECT DATA.
+${JSON.stringify({
+        brand_name: brand?.name ?? brandName,
+        market_share_percent: brand?.market_share_percent,
+        visibility_score: brand?.visibility_score,
+        mentions_total: brand?.mentions_total,
+        top_competitors: (cw?.competitors ?? []).slice(0, 4).map((c) => ({
+          name: c.name,
+          market_share_percent: c.market_share_percent,
+        })),
+        recommendation: metricRecSnapshot(data, 'market_share'),
+      })}`
+    case 'competitor_win_breakdown':
+      return `${base}
+
+**Title: Competitor Win Breakdown**
+
+Summarize how each competitor is performing in this table: who wins most prompts, typical content gap %, and which domains to watch first. Use only the JSON below plus PROJECT DATA.
+${JSON.stringify({
+        total_prompts: summary?.total_prompts,
+        rows: breakdown,
+      })}`
+    case 'prompt_analysis_library':
+      return `${base}
+
+**Title: Prompt Analysis Library**
+
+Explain how to read per-prompt winner, coverage gap, and rankings in this library. Then interpret the current sample of prompts (JSON) — patterns of losses vs wins, not every row.
+${JSON.stringify({
+        total_prompts: summary?.total_prompts,
+        filtered_count_sample: detailed.length,
+        sample: samplePrompts,
+      })}`
+  }
+}
+
+function MetricAskButton({
+  disabled,
+  onClick,
+}: {
+  disabled?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        e.preventDefault()
+        onClick()
+      }}
+      disabled={disabled}
+      className={cn(
+        'inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10',
+        'px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300',
+        'hover:bg-violet-500/18 transition-colors cursor-pointer shrink-0',
+        'disabled:opacity-40 disabled:cursor-not-allowed',
+      )}
+    >
+      <MessageSquare className="size-3 shrink-0" aria-hidden />
+      Ask AI
+    </button>
+  )
 }
 
 export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }: CompetitorWinsLibraryProps) {
@@ -102,6 +252,7 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
   const [askDialogOpen, setAskDialogOpen] = useState(false)
   const [chatInput, setChatInput] = useState('')
   const [chatMessages, setChatMessages] = useState<ChatTurn[]>([])
+  const [chatFocusBadge, setChatFocusBadge] = useState<string | undefined>(undefined)
   const chatScrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -142,9 +293,66 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
       return
     }
     resetAskAI()
+    setChatFocusBadge(undefined)
     setChatMessages([])
     setChatInput('')
     setAskDialogOpen(true)
+  }
+
+  const runMetricAskAi = async (target: MetricAskTarget, displayLabel: string) => {
+    if (!jobId) {
+      toast({
+        title: 'Job not ready yet',
+        description: 'Run Module F first so Ask AI can use your stored analysis.',
+        variant: 'destructive',
+      })
+      return
+    }
+    resetAskAI()
+    setChatFocusBadge(displayLabel)
+    setChatInput('')
+    const userDisplay = `Explain: ${displayLabel}`
+    const userTurn: ChatTurn = { id: chatMessageId(), role: 'user', content: userDisplay }
+    setChatMessages([userTurn])
+    setAskDialogOpen(true)
+
+    const fullPrompt = buildMetricAskPrompt(target, effectiveData, brandName)
+
+    try {
+      const res = await askModuleFAI({
+        jobId,
+        body: { question: fullPrompt },
+      }).unwrap()
+      const text = res?.data?.answer?.trim() ?? ''
+      const sources = res?.data?.sources
+      if (!text) {
+        toast({
+          title: 'Empty response',
+          description: 'The model returned no text. Try again.',
+          variant: 'destructive',
+        })
+        setChatMessages([])
+        setAskDialogOpen(false)
+        return
+      }
+      setChatMessages((prev) => [
+        ...prev,
+        { id: chatMessageId(), role: 'assistant', content: text, sources },
+      ])
+    } catch (err: unknown) {
+      const msg =
+        (err as { data?: { message?: string; error?: string } })?.data?.message ||
+        (err as { data?: { error?: string } })?.data?.error ||
+        (err as Error)?.message ||
+        'Please try again.'
+      toast({
+        title: 'Ask AI failed',
+        description: msg,
+        variant: 'destructive',
+      })
+      setChatMessages([])
+      setAskDialogOpen(false)
+    }
   }
 
   const submitAskAi = async (e?: FormEvent) => {
@@ -206,6 +414,7 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
             resetAskAI()
             setChatMessages([])
             setChatInput('')
+            setChatFocusBadge(undefined)
           }
         }}
       >
@@ -218,6 +427,7 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
         >
           <ModuleFAskAiChatShell
             brandName={brandName}
+            focusBadge={chatFocusBadge}
             chatScrollRef={chatScrollRef}
             chatMessages={chatMessages}
             chatInput={chatInput}
@@ -293,6 +503,12 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
           accent="rose"
           progress={summary?.competitor_win_rate ?? 0}
           description={normaliseMetricRec(effectiveData?.metric_recommendations?.competitor_win_rate)?.why || "Percentage of prompts where competitors outperform your brand."}
+          labelAction={
+            <MetricAskButton
+              disabled={!jobId || isAskingAI}
+              onClick={() => runMetricAskAi('competitor_win_rate', 'Competitor Win Rate')}
+            />
+          }
         />
         
         <StatCard
@@ -303,6 +519,12 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
           accent="amber"
           progress={summary?.brand_win_rate ?? 0}
           description={normaliseMetricRec(effectiveData?.metric_recommendations?.brand_win_rate)?.why || "Percentage of prompts where your brand outperforms competitors."}
+          labelAction={
+            <MetricAskButton
+              disabled={!jobId || isAskingAI}
+              onClick={() => runMetricAskAi('brand_win_rate', 'Brand Win Rate')}
+            />
+          }
         />
 
         <StatCard
@@ -313,6 +535,12 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
           accent="blue"
           progress={summary?.avg_content_gap_score ?? 0}
           description={normaliseMetricRec(effectiveData?.metric_recommendations?.content_gap_score)?.why || "Average gap in content completeness or entity coverage."}
+          labelAction={
+            <MetricAskButton
+              disabled={!jobId || isAskingAI}
+              onClick={() => runMetricAskAi('content_gap_score', 'Content Gap Score')}
+            />
+          }
         />
 
         <StatCard
@@ -323,6 +551,12 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
           accent="violet"
           progress={effectiveData?.compare_visibility_against_competitors?.brand?.market_share_percent ?? 0}
           description={normaliseMetricRec(effectiveData?.metric_recommendations?.market_share)?.why || "Your brand's share of voice across all analyzed prompts."}
+          labelAction={
+            <MetricAskButton
+              disabled={!jobId || isAskingAI}
+              onClick={() => runMetricAskAi('market_share', 'Market Share')}
+            />
+          }
         />
       </div>
 
@@ -331,6 +565,12 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
           title="Competitor Win Breakdown" 
           description="Per-competitor wins and win percentage (competitor rank better than your brand)."
           className="bg-[#111113]"
+          actionSlot={
+            <MetricAskButton
+              disabled={!jobId || isAskingAI}
+              onClick={() => runMetricAskAi('competitor_win_breakdown', 'Competitor Win Breakdown')}
+            />
+          }
         >
           <ScrollArea className="h-[400px] pr-4 -mr-2">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pb-4">
@@ -396,6 +636,12 @@ export default function CompetitorWinsLibrary({ moduleFData, isLoading, jobId }:
         title="Prompt Analysis Library" 
         description="Detailed breakdown of winner and ranking for each prompt analyzed by AI models."
         className="bg-[#111113]"
+        actionSlot={
+          <MetricAskButton
+            disabled={!jobId || isAskingAI}
+            onClick={() => runMetricAskAi('prompt_analysis_library', 'Prompt Analysis Library')}
+          />
+        }
       >
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
