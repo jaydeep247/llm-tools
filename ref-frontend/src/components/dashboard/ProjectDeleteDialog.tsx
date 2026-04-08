@@ -40,11 +40,11 @@ export function ProjectDeleteDialog({ project, open, onOpenChange, onSuccess }: 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-white text-[#0F172A] border-[#E2E8F0] sm:max-w-106.25">
+      <DialogContent className="bg-card text-card-foreground border-border sm:max-w-106.25">
         <DialogHeader>
-          <DialogTitle className="text-[#0F172A]">Delete Project</DialogTitle>
-          <DialogDescription className="text-[#94A3B8]">
-            Are you sure you want to delete <span className="font-semibold text-[#0F172A]">"{project?.name}"</span>? 
+          <DialogTitle>Delete Project</DialogTitle>
+          <DialogDescription className="text-muted-foreground">
+            Are you sure you want to delete <span className="font-semibold text-foreground">"{project?.name}"</span>? 
             This action cannot be undone and will permanently delete all associated crawl sessions.
           </DialogDescription>
         </DialogHeader>
@@ -52,14 +52,15 @@ export function ProjectDeleteDialog({ project, open, onOpenChange, onSuccess }: 
           <Button 
             variant="outline" 
             onClick={() => onOpenChange(false)}
-            className="border-[#E2E8F0] text-[#0F172A] hover:bg-[#F1F5F9] cursor-pointer"
+            className="border-border text-foreground hover:bg-muted cursor-pointer"
           >
             Cancel
           </Button>
           <Button 
             onClick={handleDelete} 
             disabled={isLoading}
-            className="bg-red-600 text-white hover:bg-red-700 cursor-pointer"
+            variant="destructive"
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90 cursor-pointer"
           >
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Delete Project

@@ -55,11 +55,11 @@ export default function UsagePage() {
               { day: 'Tuesday',   pct: 52,  val: '4.8K' },
               { day: 'Wednesday', pct: 65,  val: '5.9K' },
             ].map(({ day, pct, val }) => (
-              <div key={day} className="flex items-center justify-between py-1.5 border-b border-border last:border-0">
-                <span className="text-xs sm:text-sm text-muted-foreground w-28 shrink-0">{day}</span>
+              <div key={day} className="flex items-center justify-between py-1.5 border-b border-zinc-800 last:border-0">
+                <span className="text-xs sm:text-sm text-zinc-400 w-28 shrink-0">{day}</span>
                 <div className="flex items-center gap-3 flex-1">
                   <UsageBar value={pct} className="flex-1" />
-                  <span className="text-xs sm:text-sm text-muted-foreground min-w-[3rem] text-right">{val}</span>
+                  <span className="text-xs sm:text-sm text-zinc-500 min-w-[3rem] text-right">{val}</span>
                 </div>
               </div>
             ))}
@@ -77,8 +77,8 @@ export default function UsagePage() {
             ].map(({ label, pct }) => (
               <div key={label}>
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs sm:text-sm text-muted-foreground">{label}</span>
-                  <span className="text-xs sm:text-sm font-semibold text-foreground">{pct}%</span>
+                  <span className="text-xs sm:text-sm text-zinc-400">{label}</span>
+                  <span className="text-xs sm:text-sm font-semibold text-white">{pct}%</span>
                 </div>
                 <UsageBar value={pct} />
               </div>

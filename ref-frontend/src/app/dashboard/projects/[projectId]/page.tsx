@@ -91,9 +91,9 @@ export default function ProjectDetailPage() {
       <div className="space-y-8 animate-fade-in-hero">
         <div className="flex flex-col items-center justify-center py-20">
           <AlertCircle className="h-16 w-16 text-red-400 mb-4" />
-          <h2 className="text-2xl font-bold text-foreground mb-2">Project not found</h2>
-          <p className="text-muted-foreground mb-4">The project you're looking for doesn't exist</p>
-          <Button onClick={() => router.push('/dashboard/projects')} className="bg-primary text-primary-foreground hover:opacity-90">
+          <h2 className="text-2xl font-bold text-white mb-2">Project not found</h2>
+          <p className="text-zinc-500 mb-4">The project you're looking for doesn't exist</p>
+          <Button onClick={() => router.push('/dashboard/projects')} className="bg-white text-black hover:bg-slate-100">
             Back to Projects
           </Button>
         </div>
@@ -114,17 +114,17 @@ export default function ProjectDetailPage() {
     const s = status.toLowerCase()
     switch (s) {
       case 'completed':
-        return 'bg-green-100 text-green-700 border-green-200 hover:bg-green-100'
+        return 'bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20'
       case 'running':
-        return 'bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-100'
+        return 'bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20'
       case 'auditing':
-        return 'bg-yellow-100 text-yellow-700 border-yellow-200 hover:bg-yellow-100'
+        return 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20 hover:bg-yellow-500/20'
       case 'failed':
-        return 'bg-red-100 text-red-700 border-red-200 hover:bg-red-100'
+        return 'bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20'
       case 'created':
-        return 'bg-secondary text-muted-foreground border-border hover:bg-accent'
+        return 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20 hover:bg-zinc-500/20'
       default:
-        return 'bg-secondary text-muted-foreground border-border hover:bg-accent'
+        return 'bg-zinc-800/40 text-zinc-500 border-zinc-800 hover:bg-zinc-800/50'
     }
   }
 
@@ -193,7 +193,7 @@ export default function ProjectDetailPage() {
                 <Input
                   value={tempName}
                   onChange={(e) => setTempName(e.target.value)}
-                  className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground bg-secondary border-border h-auto py-1"
+                  className="text-2xl sm:text-3xl md:text-4xl font-bold text-white bg-zinc-800/50 border-zinc-700 h-auto py-1"
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleSaveName()
@@ -203,17 +203,17 @@ export default function ProjectDetailPage() {
                 <Button onClick={handleSaveName} size="icon" variant="ghost" className="h-8 w-8 hover:bg-green-500/20 text-green-400 cursor-pointer shrink-0">
                   <CheckCircle className="h-5 w-5" />
                 </Button>
-                <Button onClick={() => setEditingName(false)} size="icon" variant="ghost" className="h-8 w-8 hover:bg-red-50 text-red-500 cursor-pointer shrink-0">
+                <Button onClick={() => setEditingName(false)} size="icon" variant="ghost" className="h-8 w-8 hover:bg-red-500/20 text-red-400 cursor-pointer shrink-0">
                   <XCircle className="h-5 w-5" />
                 </Button>
               </div>
             ) : (
               <div className="group flex items-center gap-2 max-w-full w-fit">
-                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground truncate">{project.name}</h1>
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white truncate">{project.name}</h1>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-secondary pointer-events-none group-hover:pointer-events-auto shrink-0"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 text-white/50 hover:text-white hover:bg-zinc-800/50 pointer-events-none group-hover:pointer-events-auto shrink-0"
                   onClick={() => {
                     setTempName(project.name)
                     setEditingName(true)
@@ -232,7 +232,7 @@ export default function ProjectDetailPage() {
                 <Input
                   value={tempDesc}
                   onChange={(e) => setTempDesc(e.target.value)}
-                  className="text-muted-foreground text-sm sm:text-base bg-secondary border-border h-auto py-1"
+                  className="text-zinc-500 text-sm sm:text-base bg-zinc-800/50 border-zinc-700 h-auto py-1"
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleSaveDesc()
@@ -242,19 +242,19 @@ export default function ProjectDetailPage() {
                 <Button onClick={handleSaveDesc} size="icon" variant="ghost" className="h-8 w-8 hover:bg-green-500/20 text-green-400 cursor-pointer shrink-0">
                   <CheckCircle className="h-4 w-4" />
                 </Button>
-                <Button onClick={() => setEditingDesc(false)} size="icon" variant="ghost" className="h-8 w-8 hover:bg-red-50 text-red-500 cursor-pointer shrink-0">
+                <Button onClick={() => setEditingDesc(false)} size="icon" variant="ghost" className="h-8 w-8 hover:bg-red-500/20 text-red-400 cursor-pointer shrink-0">
                   <XCircle className="h-4 w-4" />
                 </Button>
               </div>
             ) : (
               <div className="group flex items-center gap-2 max-w-full w-fit">
-                <p className="text-muted-foreground text-sm sm:text-base truncate">
+                <p className="text-zinc-500 text-sm sm:text-base truncate">
                   {project.description || 'No description'}
                 </p>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 text-muted-foreground hover:text-foreground hover:bg-secondary pointer-events-none group-hover:pointer-events-auto shrink-0"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 text-white/50 hover:text-white hover:bg-zinc-800/50 pointer-events-none group-hover:pointer-events-auto shrink-0"
                   onClick={() => {
                     setTempDesc(project.description || '')
                     setEditingDesc(true)
@@ -266,11 +266,11 @@ export default function ProjectDetailPage() {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-xs text-white/50">
           <div className={`font-medium px-2 py-0.5 rounded text-[10px] sm:text-xs ${
             project.status === 'ACTIVE' 
-              ? 'bg-green-100 text-green-700' 
-              : 'bg-secondary text-muted-foreground'
+              ? 'bg-green-500/20 text-green-300' 
+              : 'bg-gray-500/20 text-gray-300'
           }`}>
             {project.status === 'ACTIVE' ? 'Active' : 'Archived'}
           </div>
@@ -286,15 +286,15 @@ export default function ProjectDetailPage() {
 
       {/* Start New Session Card */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-4">
-        <div className="rounded-2xl p-3 sm:p-4 md:p-5 border border-border bg-card shadow-sm transition-all duration-300 flex flex-col h-full">
+        <div className="rounded-2xl p-3 sm:p-4 md:p-5 border border-zinc-800 bg-[#111113] transition-all duration-300 flex flex-col h-full">
           <div className="space-y-3 flex-1 flex flex-col justify-center">
             {/* Header */}
             <div className="flex items-start justify-between gap-2 mb-2">
               <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-sm sm:text-base text-foreground transition-colors">
+                <h3 className="font-semibold text-sm sm:text-base text-white transition-colors">
                   Start New Session
                 </h3>
-                <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">
+                <p className="text-[10px] sm:text-xs text-zinc-500 mt-0.5">
                   Enter a URL to instantly start Brand Sentiment, Competitors &amp; AI Share of Voice analysis
                 </p>
               </div>
@@ -316,7 +316,7 @@ export default function ProjectDetailPage() {
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && !isStartingCrawl && handleStartSession()}
-                  className="bg-secondary border-border text-foreground placeholder:text-muted-foreground text-xs sm:text-sm h-8 sm:h-9 flex-1"
+                  className="bg-zinc-800/40 border-zinc-800 text-white placeholder:text-zinc-600 text-xs sm:text-sm h-8 sm:h-9 flex-1"
                   disabled={isStartingCrawl}
                 />
 
@@ -345,24 +345,24 @@ export default function ProjectDetailPage() {
 
       {/* Sessions List */}
       <div className="space-y-3">
-        <h2 className="text-lg font-semibold text-foreground">Crawl Sessions</h2>
+        <h2 className="text-lg font-semibold text-white">Crawl Sessions</h2>
 
         {isLoadingSessions ? (
           <div className="flex flex-col gap-2">
-            {[1, 2, 3].map((i) => <TableRowSkeleton key={i} cols={4} className="rounded-sm border border-border bg-card h-24" />)}
+            {[1, 2, 3].map((i) => <TableRowSkeleton key={i} cols={4} className="rounded-sm border border-white/10 bg-[#0e0e0e] h-24" />)}
           </div>
         ) : sessions.length === 0 ? (
-          <div className="rounded-sm border border-border bg-card flex flex-col items-center justify-center py-16 text-center">
-            <Globe className="h-12 w-12 text-muted-foreground/30 mb-3" />
-            <h3 className="text-base font-semibold text-foreground mb-1">No sessions yet</h3>
-            <p className="text-xs text-muted-foreground">Start a new analysis above to see sessions here</p>
+          <div className="rounded-sm border border-white/40 bg-[#0e0e0e] flex flex-col items-center justify-center py-16 text-center">
+            <Globe className="h-12 w-12 text-white/15 mb-3" />
+            <h3 className="text-base font-semibold text-white mb-1">No sessions yet</h3>
+            <p className="text-xs text-white/40">Start a new analysis above to see sessions here</p>
           </div>
         ) : (
           <div className="w-full flex flex-col gap-2.5">
             {sessions.map((session: CrawlSession) => (
               <div
                 key={session.id}
-                className="w-full rounded-sm border border-border bg-card hover:border-primary/20 hover:bg-secondary transition-all duration-200 cursor-pointer"
+                className="w-full rounded-sm border border-white/10 bg-[#0e0e0e] hover:border-white/20 hover:bg-[#131313] transition-all duration-200 cursor-pointer"
                 onClick={() => router.push(`/dashboard/projects/${projectId}/sessions/${session.id}`)}
               >
                 {/* Top row: URL + actions */}
@@ -381,7 +381,7 @@ export default function ProjectDetailPage() {
                     <a
                       href={`/dashboard/projects/${projectId}/sessions/${session.id}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="inline-flex items-center h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary rounded-sm transition-colors cursor-pointer"
+                      className="inline-flex items-center h-7 px-2.5 text-xs text-white/50 hover:text-white/80 hover:bg-white/6 rounded-sm transition-colors cursor-pointer"
                     >
                       View
                     </a>
@@ -390,7 +390,7 @@ export default function ProjectDetailPage() {
                       size="sm"
                       disabled={deletingSessionId === session.id}
                       onClick={(e) => { e.stopPropagation(); handleDeleteSession(session.id) }}
-                      className="h-7 px-3 py-4 text-xs text-red-500 hover:text-red-600 hover:bg-red-50 focus-visible:ring-0 cursor-pointer rounded-sm disabled:cursor-not-allowed"
+                      className="h-7 px-3 py-4 text-xs text-red-400/60 hover:text-red-300 hover:bg-red-500/8 focus-visible:ring-0 cursor-pointer rounded-sm disabled:cursor-not-allowed"
                     >
                       {deletingSessionId === session.id
                         ? <Loader2 className="h-3 w-3 animate-spin" />
@@ -401,18 +401,18 @@ export default function ProjectDetailPage() {
                 </div>
 
                 {/* Divider */}
-                <div className="h-px bg-border" />
+                <div className="h-px bg-white/6" />
 
                 {/* Metrics row */}
                 <div className="flex items-end gap-12 px-5 pt-3 pb-4">
                   {/* Status */}
                   <div className="flex flex-col gap-1">
-                    <span className="text-[11px] text-muted-foreground font-medium">Status</span>
+                    <span className="text-[11px] text-white/35 font-medium">Status</span>
                     <span className={`text-sm font-semibold capitalize ${
-                      session.status === 'completed' ? 'text-emerald-600'
-                      : session.status === 'running' || session.status === 'auditing' ? 'text-blue-600'
-                      : session.status === 'failed' ? 'text-red-600'
-                      : 'text-muted-foreground'
+                      session.status === 'completed' ? 'text-emerald-400'
+                      : session.status === 'running' || session.status === 'auditing' ? 'text-blue-400'
+                      : session.status === 'failed' ? 'text-red-400'
+                      : 'text-white/40'
                     }`}>
                       {session.status}
                     </span>
@@ -420,8 +420,8 @@ export default function ProjectDetailPage() {
 
                   {/* Started at */}
                   <div className="flex flex-col gap-1">
-                    <span className="text-[11px] text-muted-foreground font-medium">Started at</span>
-                    <span className="text-sm font-semibold text-foreground">
+                    <span className="text-[11px] text-white/35 font-medium">Started at</span>
+                    <span className="text-sm font-semibold text-white">
                       {session.startedAt
                         ? new Date(session.startedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
                         : '—'}
@@ -430,8 +430,8 @@ export default function ProjectDetailPage() {
 
                   {/* Completed at / Duration */}
                   <div className="flex flex-col gap-1">
-                    <span className="text-[11px] text-muted-foreground font-medium">Completed at</span>
-                    <span className="text-sm font-semibold text-foreground">
+                    <span className="text-[11px] text-white/35 font-medium">Completed at</span>
+                    <span className="text-sm font-semibold text-white">
                       {session.completedAt
                         ? new Date(session.completedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
                         : '—'}

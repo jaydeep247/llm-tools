@@ -129,7 +129,7 @@ export function ProjectSelectorDialog({ isOpen, onClose, onSelectProject, defaul
               </div>
               <Button 
                 onClick={handleCreateNewProject}
-                className="w-full py-3 bg-primary text-primary-foreground rounded-full font-semibold hover:opacity-90 transition-all duration-300 hover:scale-105 shadow-lg cursor-pointer"
+                className="w-full py-3 bg-slate-900 text-white rounded-full font-semibold hover:bg-slate-800 transition-all duration-300 hover:scale-105 shadow-lg cursor-pointer"
               >
                 <Plus className="mr-2 h-5 w-5" />
                 Create Your First Project
@@ -184,7 +184,7 @@ export function ProjectSelectorDialog({ isOpen, onClose, onSelectProject, defaul
               <button
                 onClick={handleSubmit}
                 disabled={!selectedProjectId}
-                className="w-full py-3 bg-primary text-primary-foreground rounded-full font-semibold hover:opacity-90 transition-all duration-300 hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 cursor-pointer"
+                className="w-full py-3 bg-slate-900 text-white rounded-full font-semibold hover:bg-slate-800 transition-all duration-300 hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 cursor-pointer"
               >
                 Start Crawl
               </button>
