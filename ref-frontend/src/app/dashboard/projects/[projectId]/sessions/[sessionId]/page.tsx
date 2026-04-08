@@ -20,6 +20,8 @@ import GapOpportunities from '@/components/module_F/GapOpportunities'
 import CompetitorCitedURLs from '@/components/module_F/CompetitorCitedURLs'
 import { ExportsTab } from '@/components/session/exports'
 import { GA4TrafficSection } from '@/components/ga4'
+import ExecutiveSnapshotPanel from '@/components/executive-snapshot/ExecutiveSnapshotPanel'
+import WinsLossesPanel from '@/components/wins-losses/WinsLossesPanel'
 import { BrandOnboardingResultsPanel } from '@/components/brand-onboarding/BrandOnboardingResultsPanel'
 import { useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
 import { useGetQuickStartResultQuery, useResumeCrawlMutation } from '@/store/api/quick_start/quickStartApi'
@@ -1111,6 +1113,24 @@ export default function SessionDetailPage() {
       onSectionChange={handleSectionChange}
     >
       <div className="p-6 space-y-6 sm:space-y-8 animate-fade-in-hero">
+        {/* Executive Snapshot */}
+        {activeSection === 'executive-snapshot' && (
+          <ExecutiveSnapshotPanel
+            jobId={jobId}
+            sessionId={sessionId}
+            projectId={projectId}
+            onNavigate={handleSectionChange}
+          />
+        )}
+
+        {/* Wins & Losses */}
+        {activeSection === 'wins-losses' && (
+          <WinsLossesPanel
+            jobId={jobId}
+            onNavigate={handleSectionChange}
+          />
+        )}
+
         {/* Dashboard Overview — top-level summary of quick_start_runner fields */}
         {activeSection === 'dashboard' && (
           <>

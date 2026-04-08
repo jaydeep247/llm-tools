@@ -16,6 +16,8 @@ import quickStartRoutes from './modules/quick_start/quickStart.routes';
 import brandOnboardingRoutes from './modules/brand_onboarding/brandOnboarding.routes';
 import fieldsRoutes from './modules/fields/fields.routes';
 import ga4Routes from './modules/ga4/ga4.routes';
+import executiveSnapshotRoutes from './modules/executive_snapshot/executiveSnapshot.routes';
+import winsLossesRoutes from './modules/wins_losses/winsLosses.routes';
 
 const router = Router();
 
@@ -43,5 +45,8 @@ router.use('/', quickStartRoutes);
 router.use('/', brandOnboardingRoutes);
 router.use('/', fieldsRoutes);
 router.use('/', ga4Routes);
+router.use('/', executiveSnapshotRoutes);
+router.use('/', winsLossesRoutes);
 
 export default router;
+

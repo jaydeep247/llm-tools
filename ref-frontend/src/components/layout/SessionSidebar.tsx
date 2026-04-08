@@ -23,7 +23,8 @@ import {
   GitBranch,
   LayoutDashboard,
   ChevronLeft,
-  Lightbulb
+  Lightbulb,
+  Zap,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -36,6 +37,7 @@ interface SessionSidebarProps {
 }
 
 const menuItems = [
+  { id: 'executive-snapshot', label: 'Executive Snapshot', icon: Zap },
   { id: 'crawler', label: 'Crawler', icon: Bug },
   { id: 'crawled-data', label: 'Crawled Data', icon: Database },
   { id: 'text-quality', label: 'Text Quality Analyzer', icon: Sparkles },

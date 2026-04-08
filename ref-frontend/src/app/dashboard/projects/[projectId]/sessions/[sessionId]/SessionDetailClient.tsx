@@ -13,6 +13,7 @@ import { AIIntelligenceModule, ContentMetricsModule } from '@/components/module_
 import { AICitationRanking, SentimentTracking, CompetitorMentionsSection, ShareOfVoiceSection, BrandAnalysisSection, TrendsByModelSection, DashboardOverview } from '@/components/module_E'
 import { ExportsTab } from '@/components/session/exports'
 import { GA4TrafficSection } from '@/components/ga4'
+import ExecutiveSnapshotPanel from '@/components/executive-snapshot/ExecutiveSnapshotPanel'
 // import { useGetDataListQuery, useCheckLinksMutation, useGetLinkStatsQuery, useLazyGetPageLinksQuery } from '@/store/api/module_A/dataApi'
 import { useGetProjectQuery } from '@/store/api/projectApi'
 import { useGetSessionQuery } from '@/store/api/sessionApi'
@@ -1058,6 +1059,16 @@ export default function SessionDetailClient() {
       onSectionChange={handleSectionChange}
     >
       <div className="p-6 space-y-6 sm:space-y-8 animate-fade-in-hero">
+        {/* ── Executive Snapshot ────────────────────────────────────────────────── */}
+        {activeSection === 'executive-snapshot' && (
+          <ExecutiveSnapshotPanel
+            jobId={jobId}
+            sessionId={sessionId}
+            projectId={projectId}
+            onNavigate={handleSectionChange}
+          />
+        )}
+
         {/* Dashboard Overview — top-level summary of quick_start_runner fields */}
         {activeSection === 'dashboard' && (
           <>
