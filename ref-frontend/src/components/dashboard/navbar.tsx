@@ -1,104 +1,136 @@
 'use client'
 
-import { Menu, Search, Bell, Settings, ChevronRight } from 'lucide-react'
+import { useState } from 'react'
+import { Menu, Search, Bell, Settings, LogOut, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { usePathname } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
+import { useLogoutMutation } from '@/store/api/authApi'
 import Link from 'next/link'
 
 interface NavbarProps {
   onMenuToggle?: () => void
 }
 
-function toLabel(segment: string) {
-  return segment
-    .replace(/-/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase())
-}
-
 export function Navbar({ onMenuToggle }: NavbarProps) {
-  const pathname = usePathname()
+  const router = useRouter()
   const { user } = useAuth()
-
-  const segments = pathname.split('/').filter(Boolean)
-
-  // Build breadcrumb items: each gets a label and cumulative href
-  const crumbs = segments.map((seg, i) => ({
-    label: toLabel(seg),
-    href: '/' + segments.slice(0, i + 1).join('/'),
-    isLast: i === segments.length - 1,
-  }))
+  const [logout] = useLogoutMutation()
+  const [profileOpen, setProfileOpen] = useState(false)
 
   const userInitial = user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'
+  const displayName = user?.name || user?.email?.split('@')[0] || 'User'
+
+  const handleLogout = async () => {
+    setProfileOpen(false)
+    try {
+      await logout().unwrap()
+    } catch {
+      // resetApiState is dispatched in onQueryStarted regardless
+    }
+    router.push('/')
+  }
 
   return (
-    <header className="flex h-15 shrink-0 items-center justify-between px-6 py-3 border-b border-white/4">
-      <div className="flex items-center gap-4">
+    <header className="h-14 bg-card border-b border-border flex items-center justify-between px-4 gap-4 shrink-0">
+      {/* Left — mobile hamburger + search */}
+      <div className="flex items-center gap-3 flex-1 max-w-sm">
         <Button
           variant="ghost"
           size="icon"
           onClick={onMenuToggle}
-          className="md:hidden h-8 w-8"
+          className="md:hidden h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground hover:bg-secondary"
         >
-          <Menu className="h-4 w-4" />
+          <Menu size={16} />
         </Button>
 
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-1.5 text-sm">
-          {crumbs.map((crumb, i) => (
-            <span key={crumb.href} className="flex items-center gap-1.5">
-              {i > 0 && <ChevronRight className="h-3 w-3 text-zinc-600 shrink-0" />}
-              {crumb.isLast ? (
-                <span className="text-white font-medium">{crumb.label}</span>
-              ) : (
-                <Link
-                  href={crumb.href}
-                  className="text-zinc-500 hover:text-zinc-300 transition-colors duration-200"
-                >
-                  {crumb.label}
-                </Link>
-              )}
-            </span>
-          ))}
-        </nav>
-      </div>
-
-      <div className="flex items-center gap-2">
-        {/* Search bar */}
-        <div className="hidden md:flex items-center gap-2 bg-zinc-800/50 border border-zinc-700/50 rounded-xl px-3 py-1.5 w-55 focus-within:border-zinc-600 focus-within:bg-zinc-800/80 transition-all duration-200">
-          <Search className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+        {/* Search bar — matches dash-ref */}
+        <div className="relative flex-1">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           <input
             type="text"
-            placeholder="Search..."
-            className="bg-transparent text-sm text-zinc-300 placeholder:text-zinc-600 outline-none w-full"
+            placeholder="Search anything..."
+            className="w-full pl-8 pr-12 py-1.5 text-xs bg-secondary border border-border rounded-lg focus:outline-none focus:ring-1 focus:ring-primary/30 text-foreground placeholder:text-muted-foreground cursor-text transition-all duration-150"
           />
-          <kbd className="hidden lg:inline-flex items-center gap-0.5 rounded-md bg-white/6 px-1.5 py-0.5 text-[10px] text-zinc-500 font-mono">
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground bg-border px-1 py-0.5 rounded font-mono pointer-events-none">
             ⌘K
-          </kbd>
+          </span>
         </div>
+      </div>
 
+      {/* Right — bell + separator + avatar dropdown */}
+      <div className="flex items-center gap-2 shrink-0">
         {/* Notification bell */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 rounded-xl text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60 relative"
-        >
-          <Bell className="h-4 w-4" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-blue-500 ring-2 ring-[#0F0F12]" />
-        </Button>
+        <button className="relative p-1.5 rounded-lg cursor-pointer hover:bg-secondary hover:text-foreground transition-all duration-150 text-muted-foreground">
+          <Bell size={16} />
+          <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-primary ring-2 ring-card" />
+        </button>
 
-        {/* Settings */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 rounded-xl text-zinc-500 hover:text-indigo-400 hover:bg-zinc-800/60"
-        >
-          <Settings className="h-4 w-4" />
-        </Button>
+        <div className="w-px h-5 bg-border" />
 
-        {/* User avatar */}
-        <div className="w-8 h-8 rounded-xl bg-linear-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-semibold ml-1 cursor-pointer hover:ring-2 hover:ring-indigo-500/50 transition-all">
-          {userInitial}
+        {/* Avatar + profile dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => setProfileOpen((v) => !v)}
+            className="w-8 h-8 rounded-full overflow-hidden cursor-pointer ring-2 ring-border hover:ring-primary/50 hover:scale-105 transition-all duration-150 shrink-0 bg-linear-to-br from-indigo-500 to-violet-600 flex items-center justify-center"
+          >
+            <span className="text-xs font-semibold text-white">{userInitial}</span>
+          </button>
+
+          {profileOpen && (
+            <>
+              {/* Backdrop */}
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setProfileOpen(false)}
+              />
+              {/* Dropdown — explicit hex so it works outside .light-dashboard scope */}
+              <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-[#E2E8F0] rounded-xl shadow-lg z-50 overflow-hidden">
+                {/* User info header */}
+                <div className="px-4 py-3 border-b border-[#E2E8F0]">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-linear-to-br from-indigo-500 to-violet-600 flex items-center justify-center shrink-0">
+                      <span className="text-xs font-semibold text-white">{userInitial}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-[#0F172A] truncate">{displayName}</p>
+                      <p className="text-[11px] text-[#94A3B8] truncate">{user?.email}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Menu items */}
+                <div className="py-1">
+                  <button
+                    onClick={() => { setProfileOpen(false); router.push('/dashboard') }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#0F172A] hover:bg-[#F1F5F9] transition-colors duration-150 cursor-pointer"
+                  >
+                    <User size={15} className="text-[#94A3B8] shrink-0" />
+                    Profile
+                  </button>
+                  <button
+                    onClick={() => { setProfileOpen(false); router.push('/dashboard/settings') }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#0F172A] hover:bg-[#F1F5F9] transition-colors duration-150 cursor-pointer"
+                  >
+                    <Settings size={15} className="text-[#94A3B8] shrink-0" />
+                    Settings
+                  </button>
+                </div>
+
+                <div className="h-px bg-[#E2E8F0]" />
+
+                <div className="py-1">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors duration-150 cursor-pointer"
+                  >
+                    <LogOut size={15} className="shrink-0" />
+                    Log out
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </header>

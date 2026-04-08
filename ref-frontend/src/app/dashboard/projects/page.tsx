@@ -62,9 +62,9 @@ export default function ProjectsPage() {
       <div className="space-y-4 sm:space-y-6 md:space-y-8 animate-fade-in-hero">
         <div className="flex flex-col items-center justify-center py-12 sm:py-16 md:py-20">
           <AlertCircle className="h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 text-red-400 mb-3 md:mb-4" />
-          <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">Failed to load projects</h2>
-          <p className="text-sm sm:text-base text-white/60 mb-3 md:mb-4">Please try again later</p>
-          <Button onClick={() => window.location.reload()} className="bg-white text-black hover:bg-slate-100 text-sm cursor-pointer">
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-2">Failed to load projects</h2>
+          <p className="text-sm sm:text-base text-muted-foreground mb-3 md:mb-4">Please try again later</p>
+          <Button onClick={() => window.location.reload()} className="bg-primary text-primary-foreground hover:opacity-90 text-sm cursor-pointer">
             Retry
           </Button>
         </div>
@@ -79,10 +79,10 @@ export default function ProjectsPage() {
 
         {/* Page header — always visible */}
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-white">Projects</h1>
+          <h1 className="text-xl font-semibold text-foreground">Projects</h1>
           <Button
             onClick={() => setIsCreateDialogOpen(true)}
-            className="bg-white text-black hover:bg-slate-100 rounded-sm font-semibold px-4 text-sm h-9 cursor-pointer"
+            className="bg-primary text-primary-foreground hover:opacity-90 rounded-sm font-semibold px-4 text-sm h-9 cursor-pointer"
           >
             <Plus className="mr-2 h-4 w-4" /> New Project
           </Button>
@@ -90,10 +90,10 @@ export default function ProjectsPage() {
 
         {/* Empty State */}
         {projects.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 rounded-sm border border-white/10 bg-[#121212]">
-            <FolderOpen className="h-16 w-16 text-white/20 mb-4" />
-            <h2 className="text-xl font-bold text-white mb-2">No projects yet</h2>
-            <p className="text-white/60 mb-6">Create your first project to get started</p>
+          <div className="flex flex-col items-center justify-center py-20 rounded-sm border border-border bg-card">
+            <FolderOpen className="h-16 w-16 text-muted-foreground mb-4" />
+            <h2 className="text-xl font-bold text-foreground mb-2">No projects yet</h2>
+            <p className="text-muted-foreground mb-6">Create your first project to get started</p>
           </div>
         ) : (
           /* Projects List */
@@ -101,7 +101,7 @@ export default function ProjectsPage() {
             {projects.map((project) => (
               <div
                 key={project.id}
-                className="w-full rounded-sm border border-white/10 bg-[#0e0e0e] hover:border-white/20 hover:bg-[#131313] transition-all duration-200 cursor-pointer"
+                className="w-full rounded-sm border border-border bg-card hover:border-primary/20 hover:shadow-sm transition-all duration-200 cursor-pointer"
                 onClick={() => handleViewProject(project.id)}
               >
                 {/* Top row: name + actions */}
@@ -109,9 +109,9 @@ export default function ProjectsPage() {
                   <div className="flex items-center gap-2.5 min-w-0">
                    
                     <div className="min-w-0">
-                      <span className="font-semibold text-xl text-white truncate">{project.name}</span>
+                      <span className="font-semibold text-xl text-foreground truncate">{project.name}</span>
                       {project.description && (
-                        <span className="text-white/35 text-xs ml-2 truncate">{project.description}</span>
+                        <span className="text-muted-foreground text-xs ml-2 truncate">{project.description}</span>
                       )}
                     </div>
                   </div>
@@ -125,7 +125,7 @@ export default function ProjectsPage() {
                       variant="ghost"
                       size="sm"
                       onClick={(e) => { e.stopPropagation(); handleViewProject(project.id) }}
-                      className="h-7 px-2.5 text-xs text-white/50 hover:text-white/80 hover:bg-white/6 focus-visible:ring-0 cursor-pointer rounded-sm"
+                      className="h-7 px-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary focus-visible:ring-0 cursor-pointer rounded-sm"
                     >
                       <ExternalLink className="h-3 w-3 mr-1.5" /> View
                     </Button>
@@ -141,7 +141,7 @@ export default function ProjectsPage() {
                       variant="ghost"
                       size="sm"
                       onClick={(e) => { e.stopPropagation(); setProjectToDelete(project) }}
-                      className="h-7 px-2.5 text-xs text-red-400/60 hover:text-red-300 hover:bg-red-500/8 focus-visible:ring-0 cursor-pointer rounded-sm"
+                      className="h-7 px-2.5 text-xs text-red-500 hover:text-red-600 hover:bg-red-50 focus-visible:ring-0 cursor-pointer rounded-sm"
                     >
                       <Trash2 className="h-3 w-3 mr-1.5" /> Delete
                     </Button>
@@ -149,21 +149,21 @@ export default function ProjectsPage() {
                 </div>
 
                 {/* Divider */}
-                <div className="h-px bg-white/6" />
+                <div className="h-px bg-border" />
 
                 {/* Metrics row */}
                 <div className="flex items-end gap-12 px-5 pt-3 pb-4">
                   {/* Sessions */}
                   <div className="flex flex-col gap-1">
-                    <span className="text-[11px] text-white/35 font-medium">Sessions</span>
-                    <span className="text-sm font-semibold text-white">{project._count?.sessions || 0}</span>
+                    <span className="text-[11px] text-muted-foreground font-medium">Sessions</span>
+                    <span className="text-sm font-semibold text-foreground">{project._count?.sessions || 0}</span>
                   </div>
 
                   {/* Status */}
                   <div className="flex flex-col gap-1">
-                    <span className="text-[11px] text-white/35 font-medium">Status</span>
+                    <span className="text-[11px] text-muted-foreground font-medium">Status</span>
                     <span className={`text-sm font-semibold ${
-                      project.status === 'ACTIVE' ? 'text-emerald-400' : 'text-white/40'
+                      project.status === 'ACTIVE' ? 'text-emerald-600' : 'text-muted-foreground'
                     }`}>
                       {project.status === 'ACTIVE' ? 'Active' : 'Inactive'}
                     </span>
@@ -171,8 +171,8 @@ export default function ProjectsPage() {
 
                   {/* Created at */}
                   <div className="flex flex-col gap-1">
-                    <span className="text-[11px] text-white/35 font-medium">Created at</span>
-                    <span className="text-sm font-semibold text-white">
+                    <span className="text-[11px] text-muted-foreground font-medium">Created at</span>
+                    <span className="text-sm font-semibold text-foreground">
                       {new Date(project.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </span>
                   </div>
@@ -185,32 +185,32 @@ export default function ProjectsPage() {
 
       {/* Create Project Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="bg-zinc-900 border-white/20">
+        <DialogContent className="bg-white border-[#E2E8F0]">
           <DialogHeader>
-            <DialogTitle className="text-white">Create New Project</DialogTitle>
-            <DialogDescription className="text-white/60">
+            <DialogTitle className="text-[#0F172A]">Create New Project</DialogTitle>
+            <DialogDescription className="text-[#94A3B8]">
               Create a new project to organize your crawl sessions
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="name" className="text-white cursor-pointer">Project Name</Label>
+              <Label htmlFor="name" className="text-[#0F172A] cursor-pointer">Project Name</Label>
               <Input
                 id="name"
                 placeholder="My Website Project"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="bg-white/10 border-white/20 text-white placeholder:text-white/40"
+                className="bg-[#F1F5F9] border-[#E2E8F0] text-[#0F172A] placeholder:text-[#94A3B8] focus:bg-white"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="description" className="text-white cursor-pointer">Description (optional)</Label>
+              <Label htmlFor="description" className="text-[#0F172A] cursor-pointer">Description (optional)</Label>
               <Textarea
                 id="description"
                 placeholder="Project description..."
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="bg-white/10 border-white/20 text-white placeholder:text-white/40 min-h-25"
+                className="bg-[#F1F5F9] border-[#E2E8F0] text-[#0F172A] placeholder:text-[#94A3B8] min-h-25 focus:bg-white"
               />
             </div>
           </div>
@@ -218,14 +218,14 @@ export default function ProjectsPage() {
             <Button 
               variant="outline" 
               onClick={() => setIsCreateDialogOpen(false)}
-              className="border-white/20 text-white hover:bg-white/10 cursor-pointer"
+              className="border-[#E2E8F0] text-[#0F172A] hover:bg-[#F1F5F9] cursor-pointer"
             >
               Cancel
             </Button>
             <Button 
               onClick={handleCreateProject}
               disabled={isCreating || !formData.name.trim()}
-              className="bg-white text-black hover:bg-slate-100 cursor-pointer disabled:cursor-not-allowed"
+              className="bg-[#4F46E5] text-white hover:opacity-90 cursor-pointer disabled:cursor-not-allowed"
             >
               {isCreating ? 'Creating...' : 'Create Project'}
             </Button>

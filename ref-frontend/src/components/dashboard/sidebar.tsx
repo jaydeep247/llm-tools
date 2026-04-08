@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import {
   LayoutDashboard,
@@ -9,11 +9,9 @@ import {
   FolderOpen,
   Users,
   Settings as SettingsIcon,
-  LogOut,
+  HelpCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useAuth } from '@/hooks/useAuth'
-import { useLogoutMutation } from '@/store/api/authApi'
 
 const navItems = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -24,6 +22,7 @@ const navItems = [
 
 const bottomNavItems = [
   { label: 'Settings', href: '/dashboard/settings', icon: SettingsIcon },
+  { label: 'Help & Support', href: '/dashboard/help', icon: HelpCircle },
 ]
 
 interface SidebarProps {
@@ -33,24 +32,11 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   const pathname = usePathname()
-  const router = useRouter()
-  const { user } = useAuth()
-  const [logout] = useLogoutMutation()
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     setMounted(true)
   }, [])
-
-  const handleLogout = async () => {
-    try {
-      await logout().unwrap()
-    } catch {
-      // resetApiState is dispatched in onQueryStarted regardless
-    }
-    onClose?.()
-    router.push('/')
-  }
 
   if (!mounted) return null
 
@@ -66,21 +52,23 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
 
       <aside
         className={cn(
-          'fixed left-0 top-0 h-screen w-68 bg-[#09090B] transition-transform duration-300 z-50 flex flex-col',
+          'fixed left-0 top-0 h-screen w-56 bg-sidebar border-r border-sidebar-border transition-transform duration-300 z-50 flex flex-col',
           isOpen ? 'translate-x-0' : '-translate-x-full',
           'md:translate-x-0'
         )}
       >
-        {/* Logo */}
-        <div className="px-5 flex items-center h-18">
-          <span className="text-xl font-bold tracking-tight text-white">Contentlytics</span>
+        {/* Logo — h-14 aligned with navbar */}
+        <div className="h-14 flex items-center gap-2.5 px-4 border-b border-sidebar-border shrink-0">
+          <div className="w-7 h-7 bg-primary rounded-lg flex items-center justify-center shrink-0">
+            <svg className="w-4 h-4 text-primary-foreground" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <h1 className="font-bold text-sm text-sidebar-foreground tracking-tight whitespace-nowrap">Contentlytics</h1>
         </div>
 
-        {/* Divider */}
-        <div className="mx-5 h-px bg-zinc-800" />
-
-        {/* Navigation */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide px-3 py-3">
+        {/* Main Navigation */}
+        <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-0.5">
           {navItems.map((item) => {
             const isActive = pathname === item.href
             const Icon = item.icon
@@ -89,25 +77,26 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
                 key={item.href}
                 href={item.href}
                 onClick={onClose}
+                title={item.label}
                 className={cn(
-                  'flex items-center gap-3 w-full px-3 py-2 rounded-sm text-[13px] font-medium transition-colors duration-150',
+                  'relative flex items-center gap-2.5 px-3 py-2 rounded-lg font-medium text-xs transition-all duration-150',
                   isActive
-                    ? 'bg-indigo-500/10 text-indigo-200'
-                    : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/40'
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                    : 'text-sidebar-foreground hover:bg-secondary hover:text-foreground'
                 )}
               >
-                <Icon className={cn('w-4 h-4 shrink-0', isActive ? 'text-indigo-400' : 'text-zinc-600')} />
-                {item.label}
+                {isActive && (
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-primary rounded-r-full" />
+                )}
+                <Icon size={16} className="shrink-0" />
+                <span className="whitespace-nowrap">{item.label}</span>
               </Link>
             )
           })}
-        </div>
+        </nav>
 
-        {/* Divider */}
-        <div className="mx-5 h-px bg-zinc-800" />
-
-        {/* Bottom navigation */}
-        <div className="px-3 py-3">
+        {/* Bottom Section */}
+        <div className="px-2 py-3 border-t border-sidebar-border space-y-0.5 shrink-0">
           {bottomNavItems.map((item) => {
             const isActive = pathname === item.href
             const Icon = item.icon
@@ -116,44 +105,42 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
                 key={item.href}
                 href={item.href}
                 onClick={onClose}
+                title={item.label}
                 className={cn(
-                  'flex items-center gap-3 w-full px-3 py-2 rounded-sm text-[13px] font-medium transition-colors duration-150',
+                  'relative flex items-center gap-2.5 px-3 py-2 rounded-lg font-medium text-xs transition-all duration-150',
                   isActive
-                    ? 'bg-indigo-500/10 text-indigo-200'
-                    : 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/40'
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                    : 'text-sidebar-foreground hover:bg-secondary hover:text-foreground'
                 )}
               >
-                <Icon className={cn('w-4 h-4 shrink-0', isActive ? 'text-indigo-400' : 'text-zinc-600')} />
-                {item.label}
+                {isActive && (
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-primary rounded-r-full" />
+                )}
+                <Icon size={16} className="shrink-0" />
+                <span className="whitespace-nowrap">{item.label}</span>
               </Link>
             )
           })}
-        </div>
 
-        {/* Divider */}
-        <div className="mx-5 h-px bg-zinc-800" />
-
-        {/* User info + Logout */}
-        <div className="px-4 py-4 flex items-center gap-3">
-          {/* Avatar */}
-          <div className="w-8 h-8 rounded-xl bg-linear-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-semibold shrink-0">
-            {user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
+          {/* Upgrade card — matches dash-ref */}
+          <div className="mt-3 p-3 bg-primary rounded-xl text-center">
+            <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-2">
+              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <h3 className="font-bold text-xs mb-1 text-white">Upgrade to Premium!</h3>
+            <p className="text-[10px] text-white/80 mb-2.5 leading-tight">
+              Upgrade your account and unlock all the benefits.
+            </p>
+            <Link
+              href="/dashboard/subscriptions"
+              onClick={onClose}
+              className="block w-full px-3 py-1.5 bg-white text-primary font-semibold text-xs rounded-lg cursor-pointer hover:opacity-90 active:scale-95 transition-all duration-150"
+            >
+              Upgrade premium
+            </Link>
           </div>
-
-          {/* Name + email */}
-          <div className="flex-1 min-w-0">
-            <p className="text-[13px] font-medium text-white truncate">{user?.name || 'User'}</p>
-            <p className="text-[11px] text-zinc-500 truncate">{user?.email}</p>
-          </div>
-
-          {/* Logout icon button */}
-          <button
-            onClick={handleLogout}
-            title="Logout"
-            className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-colors duration-150 cursor-pointer"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
         </div>
       </aside>
     </>

@@ -59,30 +59,30 @@ export function ProjectEditDialog({ project, open, onOpenChange, onSuccess }: Pr
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-card text-card-foreground border-border sm:max-w-106.25">
+      <DialogContent className="bg-white text-[#0F172A] border-[#E2E8F0] sm:max-w-106.25">
         <DialogHeader>
-          <DialogTitle>Edit Project</DialogTitle>
-          <DialogDescription className="text-muted-foreground">
+          <DialogTitle className="text-[#0F172A]">Edit Project</DialogTitle>
+          <DialogDescription className="text-[#94A3B8]">
             Make changes to your project here. Click save when you're done.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="name" className="text-foreground">Name</Label>
+            <Label htmlFor="name" className="text-[#0F172A] font-medium">Name</Label>
             <Input
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+              className="bg-[#F1F5F9] border-[#E2E8F0] text-[#0F172A] placeholder:text-[#94A3B8] focus:bg-white"
             />
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="description" className="text-foreground">Description</Label>
+            <Label htmlFor="description" className="text-[#0F172A] font-medium">Description</Label>
             <Textarea
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="bg-muted border-border text-foreground placeholder:text-muted-foreground min-h-25"
+              className="bg-[#F1F5F9] border-[#E2E8F0] text-[#0F172A] placeholder:text-[#94A3B8] min-h-25 focus:bg-white"
             />
           </div>
         </div>
@@ -90,14 +90,14 @@ export function ProjectEditDialog({ project, open, onOpenChange, onSuccess }: Pr
           <Button 
             variant="outline" 
             onClick={() => onOpenChange(false)}
-            className="border-border text-foreground hover:bg-muted cursor-pointer"
+            className="border-[#E2E8F0] text-[#0F172A] hover:bg-[#F1F5F9] cursor-pointer"
           >
             Cancel
           </Button>
           <Button 
             onClick={handleUpdate} 
             disabled={isLoading || !name.trim()}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
+            className="bg-[#4F46E5] text-white hover:opacity-90 cursor-pointer"
           >
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save changes

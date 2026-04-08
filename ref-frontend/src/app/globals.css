@@ -38,6 +38,98 @@
   --sidebar-ring: oklch(0.7 0.15 142);
 }
 
+/* ============================================================
+   Light Dashboard Theme — scoped to .light-dashboard wrapper
+   Matches the dash-ref design system exactly
+   ============================================================ */
+.light-dashboard {
+  color-scheme: light;
+
+  /* Base surfaces */
+  --background: #F9FAFB;
+  --foreground: #0F172A;
+  --card: #FFFFFF;
+  --card-foreground: #0F172A;
+  --popover: #FFFFFF;
+  --popover-foreground: #0F172A;
+
+  /* Primary brand color — indigo */
+  --primary: #4F46E5;
+  --primary-foreground: #FFFFFF;
+
+  /* Secondary & muted */
+  --secondary: #F1F5F9;
+  --secondary-foreground: #0F172A;
+  --muted: #F1F5F9;
+  --muted-foreground: #94A3B8;
+
+  /* Accent */
+  --accent: #F1F5F9;
+  --accent-foreground: #0F172A;
+
+  /* Destructive */
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+
+  /* Borders & inputs */
+  --border: #E2E8F0;
+  --input: #FFFFFF;
+  --ring: #4F46E5;
+
+  /* Chart colors */
+  --chart-1: #4F46E5;
+  --chart-2: #0891B2;
+  --chart-3: #16A34A;
+  --chart-4: #D97706;
+  --chart-5: #DC2626;
+
+  /* Sidebar — white with light border */
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #0F172A;
+  --sidebar-primary: #4F46E5;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #EEF2FF;
+  --sidebar-accent-foreground: #4F46E5;
+  --sidebar-border: #E2E8F0;
+  --sidebar-ring: #4F46E5;
+
+  /* Radius */
+  --radius: 0.5rem;
+}
+
+/* Radix portals (dropdowns, selects, tooltips, dialogs) render outside the
+   .light-dashboard wrapper, so we re-declare all light vars on the portal
+   container so they inherit correctly inside the dashboard. */
+[data-radix-popper-content-wrapper]:has(.light-portal),
+.light-dashboard [data-radix-popper-content-wrapper] {
+  color-scheme: light;
+}
+
+/* Apply light vars to any Radix portal that was triggered inside the dashboard.
+   We use a global data attribute set on the portal root. */
+[data-light-portal] {
+  color-scheme: light;
+  --background: #F9FAFB;
+  --foreground: #0F172A;
+  --card: #FFFFFF;
+  --card-foreground: #0F172A;
+  --popover: #FFFFFF;
+  --popover-foreground: #0F172A;
+  --primary: #4F46E5;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F1F5F9;
+  --secondary-foreground: #0F172A;
+  --muted: #F1F5F9;
+  --muted-foreground: #94A3B8;
+  --accent: #F1F5F9;
+  --accent-foreground: #0F172A;
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+  --border: #E2E8F0;
+  --input: #FFFFFF;
+  --ring: #4F46E5;
+}
+
 .dark {
   --background: #09090B;
   --foreground: #FAFAFA;

@@ -18,14 +18,14 @@ export default function DashboardError({ error, reset }: DashboardErrorProps) {
 
   return (
     <div className="flex flex-col items-center justify-center h-full  min-h-100 gap-6 p-8">
-      <AlertTriangle className="w-10 h-10 text-red-400" />
+      <AlertTriangle className="w-10 h-10 text-red-500" />
       <div className="text-center space-y-2 max-w-md">
-        <h2 className="text-base font-semibold text-zinc-100">Something went wrong</h2>
-        <p className="text-sm text-zinc-400">
+        <h2 className="text-base font-semibold text-foreground">Something went wrong</h2>
+        <p className="text-sm text-muted-foreground">
           {error.message ?? 'An unexpected error occurred in the dashboard.'}
         </p>
         {error.digest && (
-          <p className="text-xs text-zinc-600 font-mono">Error ID: {error.digest}</p>
+          <p className="text-xs text-muted-foreground/60 font-mono">Error ID: {error.digest}</p>
         )}
       </div>
       <Button variant="outline" size="sm" onClick={reset} className="gap-2">

@@ -156,8 +156,8 @@ function UrlRow({ url, isNew }: { url: string; isNew: boolean }) {
         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
         <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
       </span>
-      <Globe className="h-3 w-3 text-zinc-500 shrink-0" />
-      <span className="text-xs text-zinc-300 font-mono truncate leading-none">{url}</span>
+      <Globe className="h-3 w-3 text-muted-foreground shrink-0" />
+      <span className="text-xs text-muted-foreground font-mono truncate leading-none">{url}</span>
     </div>
   )
 }
@@ -265,9 +265,9 @@ export function LiveCrawlActivity({ projects }: Props) {
 
       {/* ── LIVE crawl card ── */}
       {(isActive || displayUrls.length > 0) && (
-        <div className="rounded-xl border border-white/10 bg-[#0D0D0F] overflow-hidden">
+        <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <div className="flex items-center gap-2.5">
               {isActive ? (
                 <span className="relative flex h-2 w-2">
@@ -275,13 +275,13 @@ export function LiveCrawlActivity({ projects }: Props) {
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
                 </span>
               ) : (
-                <span className="h-2 w-2 rounded-full bg-zinc-600" />
+                <span className="h-2 w-2 rounded-full bg-muted-foreground" />
               )}
-              <span className="text-xs font-semibold text-white">
+              <span className="text-xs font-semibold text-foreground">
                 {isActive ? 'Crawling in progress' : 'Recent crawl activity'}
               </span>
               {isActive && (
-                <span className="text-[10px] text-emerald-400 font-medium bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                <span className="text-[10px] text-emerald-600 font-medium bg-emerald-50 px-2 py-0.5 rounded-full">
                   {activeJobs.length} active
                 </span>
               )}
@@ -289,7 +289,7 @@ export function LiveCrawlActivity({ projects }: Props) {
             {isActive && activeJobs[0] && (
               <button
                 onClick={() => router.push(`/dashboard/projects/${activeJobs[0].projectId}/sessions/${activeJobs[0].sessionId}`)}
-                className="flex items-center gap-1 text-[10px] text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
               >
                 View live <ExternalLink className="h-3 w-3" />
               </button>
@@ -303,7 +303,7 @@ export function LiveCrawlActivity({ projects }: Props) {
                 <button
                   key={j.jobId}
                   onClick={() => router.push(`/dashboard/projects/${j.projectId}/sessions/${j.sessionId}`)}
-                  className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full border border-emerald-500/20 bg-emerald-500/5 text-emerald-300 hover:bg-emerald-500/10 transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full border border-emerald-500/20 bg-emerald-500/5 text-emerald-600 hover:bg-emerald-500/10 transition-colors cursor-pointer"
                 >
                   <Activity className="h-3 w-3" />
                   {j.projectName}
@@ -317,8 +317,8 @@ export function LiveCrawlActivity({ projects }: Props) {
           <div className="px-4 py-3 space-y-0.5 max-h-44 overflow-hidden">
             {displayUrls.length === 0 ? (
               <div className="flex items-center gap-2 py-2">
-                <Wifi className="h-3.5 w-3.5 text-zinc-600 animate-pulse" />
-                <span className="text-xs text-zinc-500">Waiting for URLs…</span>
+                <Wifi className="h-3.5 w-3.5 text-muted-foreground animate-pulse" />
+                <span className="text-xs text-muted-foreground">Waiting for URLs…</span>
               </div>
             ) : (
               displayUrls.map(({ url, key }) => (
@@ -329,11 +329,11 @@ export function LiveCrawlActivity({ projects }: Props) {
 
           {/* Bottom stats bar */}
           {displayUrls.length > 0 && (
-            <div className="px-4 py-2 border-t border-white/5 flex items-center gap-3">
-              <span className="text-[10px] text-zinc-500">
+            <div className="px-4 py-2 border-t border-border flex items-center gap-3">
+              <span className="text-[10px] text-muted-foreground">
                 {displayUrls.length} URL{displayUrls.length !== 1 ? 's' : ''} discovered
               </span>
-              {allUrls.length > 30 && <span className="text-[10px] text-zinc-600">showing latest 30</span>}
+              {allUrls.length > 30 && <span className="text-[10px] text-muted-foreground">showing latest 30</span>}
             </div>
           )}
         </div>
@@ -343,17 +343,17 @@ export function LiveCrawlActivity({ projects }: Props) {
       {!isActive && recentlyCompleted.map((j) => {
         const pages = jobPageCounts[j.jobId] ?? 0
         return (
-          <div key={j.jobId} className="rounded-xl border border-emerald-500/15 bg-[#0D0D0F] overflow-hidden">
+          <div key={j.jobId} className="rounded-xl border border-emerald-500/15 bg-card overflow-hidden shadow-sm">
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
               <div className="flex items-center gap-2.5">
-                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                <span className="text-xs font-semibold text-white">Crawl complete</span>
-                <span className="text-[10px] text-zinc-400">{j.projectName}</span>
+                <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                <span className="text-xs font-semibold text-foreground">Crawl complete</span>
+                <span className="text-[10px] text-muted-foreground">{j.projectName}</span>
               </div>
               <button
                 onClick={() => router.push(`/dashboard/projects/${j.projectId}/sessions/${j.sessionId}`)}
-                className="flex items-center gap-1 text-[10px] text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
               >
                 View results <ExternalLink className="h-3 w-3" />
               </button>
@@ -363,16 +363,16 @@ export function LiveCrawlActivity({ projects }: Props) {
             <div className="px-4 py-4 flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">
-                  <FileText className="h-4 w-4 text-emerald-400" />
+                  <FileText className="h-4 w-4 text-emerald-600" />
                   <div>
-                    <p className="text-lg font-bold text-white leading-none">{pages > 0 ? pages.toLocaleString() : '—'}</p>
-                    <p className="text-[10px] text-zinc-400 mt-0.5">pages found</p>
+                    <p className="text-lg font-bold text-foreground leading-none">{pages > 0 ? pages.toLocaleString() : '—'}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">pages found</p>
                   </div>
                 </div>
               </div>
               <button
                 onClick={() => router.push(`/dashboard/projects/${j.projectId}/sessions/${j.sessionId}`)}
-                className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 hover:bg-emerald-500/20 transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 transition-colors cursor-pointer"
               >
                 View more
                 <ArrowRight className="h-3.5 w-3.5" />

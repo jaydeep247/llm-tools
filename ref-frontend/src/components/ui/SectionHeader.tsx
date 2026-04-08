@@ -23,13 +23,13 @@ export function SectionHeader({ icon: Icon, title, description, action, classNam
     <div className={cn('flex items-start justify-between gap-4', className)}>
       <div className="flex items-start gap-3 min-w-0">
         {Icon && (
-          <div className="shrink-0 p-2 rounded-xl bg-white/10 border border-white/10">
-            <Icon className="w-5 h-5 text-zinc-300" />
+          <div className="shrink-0 p-2 rounded-xl bg-secondary border border-border">
+            <Icon className="w-5 h-5 text-muted-foreground" />
           </div>
         )}
         <div className="min-w-0">
-          <h3 className="text-base sm:text-lg font-semibold text-white truncate">{title}</h3>
-          {description && <p className="text-xs text-white/60 mt-0.5">{description}</p>}
+          <h3 className="text-base sm:text-lg font-semibold text-foreground truncate">{title}</h3>
+          {description && <p className="text-xs text-muted-foreground mt-0.5">{description}</p>}
         </div>
       </div>
       {action && <div className="shrink-0">{action}</div>}
@@ -56,19 +56,19 @@ export function CardHeader({
   return (
     <div
       className={cn(
-        'flex items-start justify-between gap-4 px-5 py-3.5 border-b border-zinc-800/60',
+        'flex items-start justify-between gap-4 px-5 py-3.5 border-b border-border',
         className,
       )}
     >
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
-          <h3 className="text-sm font-semibold text-zinc-200">{title}</h3>
+          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
           {description && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  className="inline-flex items-center justify-center text-zinc-500 hover:text-zinc-200 transition-colors focus:outline-none shrink-0 cursor-help"
+                  className="inline-flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors focus:outline-none shrink-0 cursor-help"
                   onClick={(e) => e.stopPropagation()}
                   aria-label="Section description"
                 >
@@ -79,7 +79,7 @@ export function CardHeader({
                 side="top"
                 align="start"
                 sideOffset={10}
-                className="max-w-57.5 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5"
+                className="max-w-57.5 bg-card border border-border text-foreground text-[11px] leading-relaxed rounded-2xl px-3 py-2.5"
               >
                 {description}
               </TooltipContent>

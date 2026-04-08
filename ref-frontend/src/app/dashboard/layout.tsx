@@ -2,12 +2,49 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { ChevronRight } from 'lucide-react'
 import { Navbar } from '@/components/dashboard/navbar'
 import { Sidebar } from '@/components/dashboard/sidebar'
-import { ThemeProvider } from '@/components/common/theme-provider'
 import { useAuth } from '@/hooks/useAuth'
 import { getOnboardingResumePath, requiresOnboarding } from '@/lib/onboarding'
 import { useUpdateUserMutation } from '@/store/api/userApi'
+
+function toLabel(segment: string) {
+  return segment
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+function PageBreadcrumb() {
+  const pathname = usePathname()
+  const segments = pathname.split('/').filter(Boolean)
+  const crumbs = segments.map((seg, i) => ({
+    label: toLabel(seg),
+    href: '/' + segments.slice(0, i + 1).join('/'),
+    isLast: i === segments.length - 1,
+  }))
+
+  return (
+    <nav className="flex items-center gap-1.5 text-sm mb-5">
+      {crumbs.map((crumb, i) => (
+        <span key={crumb.href} className="flex items-center gap-1.5">
+          {i > 0 && <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />}
+          {crumb.isLast ? (
+            <span className="text-foreground font-semibold">{crumb.label}</span>
+          ) : (
+            <Link
+              href={crumb.href}
+              className="text-muted-foreground hover:text-foreground transition-colors duration-150"
+            >
+              {crumb.label}
+            </Link>
+          )}
+        </span>
+      ))}
+    </nav>
+  )
+}
 
 export default function DashboardLayout({
   children,
@@ -27,9 +64,6 @@ export default function DashboardLayout({
   const shouldBypassOnboardingRedirect = isProjectFlowPage || isSessionPage || isJobProgressPage
   const shouldRedirectToOnboarding = !!user && requiresOnboarding(user) && !shouldBypassOnboardingRedirect
 
-  // When the user accesses a bypass page (project/session/job) while onboarding is still
-  // in-progress, they are clearly active users — silently mark onboarding as completed
-  // so navigating away from the bypass page never bounces them back to onboarding.
   useEffect(() => {
     if (!user || !shouldBypassOnboardingRedirect || !requiresOnboarding(user)) return
     if (didAutoCompleteOnboarding.current) return
@@ -56,43 +90,31 @@ export default function DashboardLayout({
     }
   }, [user, isAuthLoading, router, shouldRedirectToOnboarding])
 
-  // Show spinner while auth is resolving or while redirect is pending
   if (isAuthLoading || !user || shouldRedirectToOnboarding) {
     return (
-      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-        <div className="h-screen w-full bg-[#09090B] flex items-center justify-center">
-          <div className="w-5 h-5 rounded-full border-2 border-white/10 border-t-white animate-spin" />
-        </div>
-      </ThemeProvider>
+      <div className="light-dashboard h-screen w-full bg-background flex items-center justify-center">
+        <div className="w-5 h-5 rounded-full border-2 border-border border-t-primary animate-spin" />
+      </div>
     )
   }
 
   if (isSessionPage || isJobProgressPage) {
-    return (
-      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-        {children}
-      </ThemeProvider>
-    )
+    return <>{children}</>
   }
 
-  // Regular dashboard layout
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-      <div className="min-h-screen bg-[#09090B] text-foreground flex">
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        
-        {/* Main content area */}
-        <main className="flex-1 transition-all duration-300 md:ml-68 p-1.5 md:p-3 h-screen overflow-hidden">
-          <div className="bg-[#0F0F11] rounded-2xl border border-zinc-800 h-full flex flex-col overflow-hidden relative">
-            <Navbar onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
-            <div className="flex-1 overflow-y-auto pt-10 px-4 md:px-8 pb-8">
-              <div className="mx-auto h-full">
-                {children}
-              </div>
-            </div>
-          </div>
-        </main>
-      </div>
-    </ThemeProvider>
+    <div className="light-dashboard min-h-screen bg-background text-foreground flex">
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+      {/* Main content area — offset matches sidebar w-56 */}
+      <main className="flex-1 md:ml-56 h-screen overflow-hidden flex flex-col transition-all duration-300">
+        <Navbar onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
+        <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6">
+          <PageBreadcrumb />
+          {children}
+        </div>
+      </main>
+    </div>
   )
 }
+

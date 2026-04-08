@@ -5,13 +5,13 @@ import { FieldTooltip } from '@/components/module_A/FieldTooltip'
 type Accent = 'blue' | 'emerald' | 'amber' | 'rose' | 'violet' | 'cyan' | 'zinc'
 
 const accentMap: Record<Accent, { iconBg: string; iconText: string; hoverBorder: string; hoverGlow: string }> = {
-  blue:    { iconBg: 'bg-blue-500/15',    iconText: 'text-blue-400',    hoverBorder: 'hover:border-blue-500/20',    hoverGlow: 'group-hover:shadow-blue-500/10' },
-  emerald: { iconBg: 'bg-emerald-500/15', iconText: 'text-emerald-400', hoverBorder: 'hover:border-emerald-500/20', hoverGlow: 'group-hover:shadow-emerald-500/10' },
-  amber:   { iconBg: 'bg-amber-500/15',   iconText: 'text-amber-400',   hoverBorder: 'hover:border-amber-500/20',   hoverGlow: 'group-hover:shadow-amber-500/10' },
-  rose:    { iconBg: 'bg-rose-500/15',    iconText: 'text-rose-400',    hoverBorder: 'hover:border-rose-500/20',    hoverGlow: 'group-hover:shadow-rose-500/10' },
-  violet:  { iconBg: 'bg-violet-500/15',  iconText: 'text-violet-400',  hoverBorder: 'hover:border-violet-500/20',  hoverGlow: 'group-hover:shadow-violet-500/10' },
-  cyan:    { iconBg: 'bg-cyan-500/15',    iconText: 'text-cyan-400',    hoverBorder: 'hover:border-cyan-500/20',    hoverGlow: 'group-hover:shadow-cyan-500/10' },
-  zinc:    { iconBg: 'bg-zinc-700/40',    iconText: 'text-zinc-400',    hoverBorder: 'hover:border-zinc-700',       hoverGlow: 'group-hover:shadow-zinc-500/10' },
+  blue:    { iconBg: 'bg-blue-50',    iconText: 'text-blue-600',    hoverBorder: 'hover:border-blue-500/30',    hoverGlow: 'group-hover:shadow-blue-500/10' },
+  emerald: { iconBg: 'bg-emerald-50', iconText: 'text-emerald-600', hoverBorder: 'hover:border-emerald-500/30', hoverGlow: 'group-hover:shadow-emerald-500/10' },
+  amber:   { iconBg: 'bg-amber-50',   iconText: 'text-amber-600',   hoverBorder: 'hover:border-amber-500/30',   hoverGlow: 'group-hover:shadow-amber-500/10' },
+  rose:    { iconBg: 'bg-rose-50',    iconText: 'text-rose-600',    hoverBorder: 'hover:border-rose-500/30',    hoverGlow: 'group-hover:shadow-rose-500/10' },
+  violet:  { iconBg: 'bg-violet-50',  iconText: 'text-violet-600',  hoverBorder: 'hover:border-violet-500/30',  hoverGlow: 'group-hover:shadow-violet-500/10' },
+  cyan:    { iconBg: 'bg-cyan-50',    iconText: 'text-cyan-600',    hoverBorder: 'hover:border-cyan-500/30',    hoverGlow: 'group-hover:shadow-cyan-500/10' },
+  zinc:    { iconBg: 'bg-secondary',   iconText: 'text-muted-foreground', hoverBorder: 'hover:border-border',       hoverGlow: 'group-hover:shadow-sm' },
 }
 
 export interface StatCardProps {
@@ -54,8 +54,8 @@ export function StatCard({
       type={onClick ? 'button' : undefined}
       onClick={onClick}
       className={cn(
-        'group relative overflow-hidden rounded-2xl bg-[#111113] border border-zinc-800 p-5 text-left',
-        'transition-all duration-300 hover:border-zinc-700 hover:shadow-xl',
+        'group relative overflow-hidden rounded-2xl bg-card border border-border p-5 text-left shadow-sm',
+        'transition-all duration-300 hover:border-border hover:shadow-md',
         s.hoverBorder,
         s.hoverGlow,
         onClick && 'cursor-pointer w-full',
@@ -69,7 +69,7 @@ export function StatCard({
         </div>
         {onClick && (
           <div className="flex items-center gap-1">
-            <ArrowUpRight className="w-4 h-4 text-zinc-600 group-hover:text-zinc-400 transition-colors" />
+            <ArrowUpRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
             <FieldTooltip description={description ?? ''} />
           </div>
         )}
@@ -77,18 +77,18 @@ export function StatCard({
 
       {/* Value block */}
       <div className="space-y-1">
-        <p className="text-2xl sm:text-3xl font-bold text-white tracking-tight">{value}</p>
-        <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider">{label}</p>
+        <p className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">{value}</p>
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</p>
         {subtext && (
           <div className="flex items-center gap-1.5 mt-2">
-            {trend === 'up'   && <TrendingUp   className="h-3 w-3 text-emerald-400" />}
-            {trend === 'down' && <TrendingDown  className="h-3 w-3 text-rose-400" />}
+            {trend === 'up'   && <TrendingUp   className="h-3 w-3 text-emerald-600" />}
+            {trend === 'down' && <TrendingDown  className="h-3 w-3 text-rose-600" />}
             <p
               className={cn(
                 'text-[11px]',
-                trend === 'up'   && 'text-emerald-400',
-                trend === 'down' && 'text-rose-400',
-                (!trend || trend === 'neutral') && 'text-zinc-500',
+                trend === 'up'   && 'text-emerald-600',
+                trend === 'down' && 'text-rose-600',
+                (!trend || trend === 'neutral') && 'text-muted-foreground',
               )}
             >
               {subtext}
@@ -99,7 +99,7 @@ export function StatCard({
 
       {/* Optional progress bar */}
       {progress !== undefined && (
-        <div className="mt-3 w-full bg-zinc-800/50 rounded-full h-1.5 overflow-hidden">
+        <div className="mt-3 w-full bg-secondary rounded-full h-1.5 overflow-hidden">
           <div
             className={cn('h-full rounded-full transition-all duration-700', s.iconText.replace('text-', 'bg-'))}
             style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}

@@ -57,35 +57,35 @@ export default function SubscriptionsPage() {
     <div className="space-y-4 sm:space-y-6 md:space-y-8 animate-fade-in-hero">
       {/* Current Plan Banner */}
       {plans.some(p => p.current) && (
-        <div className="rounded-2xl border border-zinc-800 bg-[#111113] p-6">
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
           <div className="space-y-4">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
-                <h2 className="text-xl font-bold text-white">Current Plan: Pro</h2>
-                <p className="text-zinc-500 mt-1 text-sm">Your subscription renews on March 15, 2024</p>
+                <h2 className="text-xl font-bold text-foreground">Current Plan: Pro</h2>
+                <p className="text-muted-foreground mt-1 text-sm">Your subscription renews on March 15, 2024</p>
               </div>
-              <Button className="bg-white text-black hover:bg-slate-100 rounded-full font-semibold px-6 text-sm h-10 w-full md:w-auto cursor-pointer">
+              <Button className="bg-primary text-primary-foreground hover:opacity-90 rounded-full font-semibold px-6 text-sm h-10 w-full md:w-auto cursor-pointer">
                 Manage Billing <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
 
             {/* Plan Details Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-zinc-800">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-border">
               <div>
-                <p className="text-xs text-zinc-500 mb-1">Billing Cycle</p>
-                <p className="font-semibold text-white text-sm">Monthly</p>
+                <p className="text-xs text-muted-foreground mb-1">Billing Cycle</p>
+                <p className="font-semibold text-foreground text-sm">Monthly</p>
               </div>
               <div>
-                <p className="text-xs text-zinc-500 mb-1">Renewal Date</p>
-                <p className="font-semibold text-white text-sm">Mar 15, 2024</p>
+                <p className="text-xs text-muted-foreground mb-1">Renewal Date</p>
+                <p className="font-semibold text-foreground text-sm">Mar 15, 2024</p>
               </div>
               <div>
-                <p className="text-xs text-zinc-500 mb-1">Monthly Cost</p>
-                <p className="font-semibold text-white text-sm">$29.00</p>
+                <p className="text-xs text-muted-foreground mb-1">Monthly Cost</p>
+                <p className="font-semibold text-foreground text-sm">$29.00</p>
               </div>
               <div>
-                <p className="text-xs text-zinc-500 mb-1">API Usage</p>
-                <p className="font-semibold text-white text-sm">45% of quota</p>
+                <p className="text-xs text-muted-foreground mb-1">API Usage</p>
+                <p className="font-semibold text-foreground text-sm">45% of quota</p>
               </div>
             </div>
           </div>
@@ -99,28 +99,28 @@ export default function SubscriptionsPage() {
             key={idx}
             className={`relative rounded-2xl border p-6 transition-all duration-300 flex flex-col ${
               plan.current
-                ? 'border-primary/50 bg-[#1A1A1A] md:scale-105 md:z-10 md:shadow-xl md:shadow-black/50'
-                : 'border-zinc-800 bg-[#111113] hover:border-zinc-700 hover:bg-[#1A1A1A]'
+                ? 'border-primary/50 bg-card md:scale-105 md:z-10 md:shadow-xl'
+                : 'border-border bg-card hover:border-primary/20 hover:shadow-md'
             }`}
           >
             {plan.popular && (
               <div className="absolute top-0 right-0">
-                <div className="bg-white text-black text-xs font-bold px-3 py-1 rounded-bl-xl rounded-tr-xl">
+                <div className="bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-bl-xl rounded-tr-xl">
                   POPULAR
                 </div>
               </div>
             )}
 
             <div className="space-y-2 mb-6">
-              <h3 className="text-2xl font-bold text-white">{plan.name}</h3>
-              <p className="text-zinc-500 text-sm">{plan.description}</p>
+              <h3 className="text-2xl font-bold text-foreground">{plan.name}</h3>
+              <p className="text-muted-foreground text-sm">{plan.description}</p>
             </div>
 
             {/* Pricing */}
             <div className="space-y-1 mb-6">
               <div className="flex items-baseline gap-1">
-                <span className="text-4xl font-bold text-white">{plan.price}</span>
-                <span className="text-zinc-500 text-base">{plan.period}</span>
+                <span className="text-4xl font-bold text-foreground">{plan.price}</span>
+                <span className="text-muted-foreground text-base">{plan.period}</span>
               </div>
             </div>
 
@@ -128,8 +128,8 @@ export default function SubscriptionsPage() {
             <Button
               className={`w-full mb-6 rounded-full font-semibold text-sm h-10 cursor-pointer ${
                 plan.current
-                  ? 'bg-white text-black hover:bg-slate-100'
-                  : 'bg-zinc-800/50 text-white hover:bg-white/20 border border-zinc-800'
+                  ? 'bg-primary text-primary-foreground hover:opacity-90'
+                  : 'bg-secondary text-foreground hover:bg-accent border border-border'
               }`}
             >
               {plan.current ? 'Current Plan' : 'Choose Plan'}
@@ -140,12 +140,12 @@ export default function SubscriptionsPage() {
               {plan.features.map((feature, featureIdx) => (
                 <div key={featureIdx} className="flex items-start gap-3">
                   {feature.included ? (
-                    <Check className="h-5 w-5 text-white/80 shrink-0 mt-0.5" />
+                    <Check className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                   ) : (
-                    <X className="h-5 w-5 text-white/40 shrink-0 mt-0.5" />
+                    <X className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
                   )}
                   <span className={`text-sm ${
-                    feature.included ? 'text-white/90' : 'text-zinc-500'
+                    feature.included ? 'text-foreground' : 'text-muted-foreground'
                   }`}>
                     {feature.name}
                   </span>
@@ -155,7 +155,7 @@ export default function SubscriptionsPage() {
 
             {/* Contact for Enterprise */}
             {plan.name === 'Enterprise' && (
-              <Button className="w-full mt-6 border border-zinc-800 bg-zinc-800/40 text-white hover:bg-zinc-800/50 rounded-full font-semibold text-sm h-10 cursor-pointer">
+              <Button className="w-full mt-6 border border-border bg-secondary text-foreground hover:bg-accent rounded-full font-semibold text-sm h-10 cursor-pointer">
                 Contact Sales
               </Button>
             )}
@@ -165,7 +165,7 @@ export default function SubscriptionsPage() {
 
       {/* FAQ Section */}
       <div className="space-y-4">
-        <h2 className="text-2xl md:text-3xl font-bold text-white">Frequently Asked Questions</h2>
+        <h2 className="text-2xl md:text-3xl font-bold text-foreground">Frequently Asked Questions</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
           {[
             {
@@ -187,10 +187,10 @@ export default function SubscriptionsPage() {
           ].map((faq, idx) => (
             <div
               key={idx}
-              className="rounded-2xl border border-zinc-800 bg-[#111113] p-4 hover:border-zinc-700 hover:bg-[#1A1A1A] transition-all duration-300"
+              className="rounded-2xl border border-border bg-card p-4 hover:border-primary/20 hover:shadow-sm transition-all duration-300"
             >
-              <h3 className="font-semibold mb-2 text-white text-base">{faq.q}</h3>
-              <p className="text-sm text-zinc-500">{faq.a}</p>
+              <h3 className="font-semibold mb-2 text-foreground text-base">{faq.q}</h3>
+              <p className="text-sm text-muted-foreground">{faq.a}</p>
             </div>
           ))}
         </div>
