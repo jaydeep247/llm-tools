@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import {
   Play,
   Copy,
@@ -16,7 +16,8 @@ import {
   Zap,
   Layout,
   Code2,
-  Info
+  Info,
+  MessageSquare
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -33,6 +34,12 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { ModuleAAskAiChatShell, type ModuleAAskAiChatTurn } from './ModuleAAskAiChatShell'
+import {
+  useAskModuleBAIMutation,
+  useLazyGetModuleBSuggestedQuestionsQuery,
+} from '@/store/api/module_B/moduleBApi'
 
 interface SchemaGeneratorTableProps {
   sessionId: string
@@ -45,18 +52,45 @@ interface SchemaGeneratorTableProps {
 
 type Tab = 'priority' | 'gaps' | 'patches' | 'schema' | 'aifiles'
 
+function chatMessageId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
 /* ------------------------------------------------------------------ */
 /*  Mini components for decomposition and tags                        */
 /* ------------------------------------------------------------------ */
 
-function DimBar({ label, val, max, accent = 'blue' }: { label: string; val: number; max: number; accent?: string }) {
+function DimBar({
+  label,
+  val,
+  max,
+  accent = 'blue',
+  onAskAI,
+}: {
+  label: string
+  val: number
+  max: number
+  accent?: string
+  onAskAI?: () => void
+}) {
   const pct = Math.round((val / max) * 100)
   const colorClass = pct >= 80 ? 'bg-emerald-500' : pct >= 50 ? 'bg-amber-500' : 'bg-rose-500'
   
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between text-[10px] font-medium uppercase tracking-wider text-zinc-500">
-        <span>{label}</span>
+        <div className="flex items-center gap-2">
+          <span>{label}</span>
+          {onAskAI && (
+            <button
+              type="button"
+              onClick={onAskAI}
+              className="text-[9px] px-1.5 py-0.5 rounded border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+            >
+              Ask AI
+            </button>
+          )}
+        </div>
         <span className="text-zinc-300">{val.toFixed(1)}<span className="text-zinc-600">/{max}</span></span>
       </div>
       <div className="h-1.5 w-full bg-zinc-800/50 rounded-full overflow-hidden border border-zinc-800/50">
@@ -121,10 +155,18 @@ export function SchemaGeneratorTable({
   const [tab, setTab] = useState<Tab>('priority')
   const [expandedGap, setExpandedGap] = useState<number | null>(null)
   const [expandedPatch, setExpandedPatch] = useState<number | null>(null)
+  const [askDialogOpen, setAskDialogOpen] = useState(false)
+  const [chatInput, setChatInput] = useState('')
+  const [chatMessages, setChatMessages] = useState<ModuleAAskAiChatTurn[]>([])
+  const [chatSuggestions, setChatSuggestions] = useState<string[]>([])
+  const chatScrollRef = useRef<HTMLDivElement>(null)
 
   const { data: sessionData } = useGetSessionQuery(sessionId)
   const session = sessionData?.session
   const [generateJobSchema] = useGenerateJobSchemaMutation()
+  const [askModuleBAI, { isLoading: isAskingAI, error: askAIError, reset: resetAskAI }] =
+    useAskModuleBAIMutation()
+  const [fetchSuggestedQuestions] = useLazyGetModuleBSuggestedQuestionsQuery()
   const { data: schemaResult } = useGetJobSchemaQuery(schemaJobId || '', {
     skip: !schemaJobId,
     pollingInterval: loading ? 3000 : 0,
@@ -211,8 +253,103 @@ export function SchemaGeneratorTable({
   const llmsPatch = patches.find((p: any) => p.patch_json?._file_type === 'llms.txt')
   const factsPatch = patches.find((p: any) => p.patch_json?._file_type === 'facts.json')
 
+  const openAskAiDialog = async (seedQuestion?: string) => {
+    if (!jobId) return
+    resetAskAI()
+    setChatMessages([])
+    setChatInput(seedQuestion || '')
+    setAskDialogOpen(true)
+    try {
+      const suggested = await fetchSuggestedQuestions(jobId).unwrap()
+      setChatSuggestions(suggested?.questions ?? [])
+    } catch {
+      setChatSuggestions([])
+    }
+  }
+
+  const submitAskAi = async (e?: FormEvent) => {
+    e?.preventDefault()
+    if (!jobId || !chatInput.trim() || isAskingAI) return
+
+    const question = chatInput.trim()
+    setChatInput('')
+
+    const priorHistory = chatMessages.slice(-6).map((m) => ({
+      role: m.role,
+      content: m.content,
+    }))
+
+    const userTurn: ModuleAAskAiChatTurn = { id: chatMessageId(), role: 'user', content: question }
+    setChatMessages((prev) => [...prev, userTurn])
+
+    try {
+      const res = await askModuleBAI({
+        jobId,
+        body: {
+          question,
+          conversationHistory: priorHistory.length ? priorHistory : undefined,
+        },
+      }).unwrap()
+
+      const text = (res?.data?.answer ?? res?.answer ?? '').trim()
+      const sources = res?.data?.sources ?? res?.sources
+      if (!text) {
+        setChatMessages((prev) => prev.filter((m) => m.id !== userTurn.id))
+        setChatInput(question)
+        return
+      }
+
+      setChatMessages((prev) => [
+        ...prev,
+        { id: chatMessageId(), role: 'assistant', content: text, sources },
+      ])
+    } catch {
+      setChatMessages((prev) => prev.filter((m) => m.id !== userTurn.id))
+      setChatInput(question)
+    }
+  }
+
+  useEffect(() => {
+    if (!askDialogOpen || !chatScrollRef.current) return
+    const el = chatScrollRef.current
+    el.scrollTop = el.scrollHeight
+  }, [askDialogOpen, chatMessages, isAskingAI])
+
   return (
     <div className="space-y-6">
+      <Dialog
+        open={askDialogOpen}
+        onOpenChange={(open) => {
+          setAskDialogOpen(open)
+          if (!open) {
+            resetAskAI()
+            setChatMessages([])
+            setChatInput('')
+            setChatSuggestions([])
+          }
+        }}
+      >
+        <DialogContent
+          className={cn(
+            'w-[calc(100vw-1rem)] max-h-[95vh] gap-0 overflow-visible border-0 bg-transparent p-0 pt-10 shadow-none sm:max-w-3xl lg:max-w-5xl',
+            'data-[state=open]:zoom-in-[0.98]',
+          )}
+          showCloseButton
+        >
+          <ModuleAAskAiChatShell
+            chatScrollRef={chatScrollRef}
+            chatMessages={chatMessages}
+            chatInput={chatInput}
+            setChatInput={setChatInput}
+            isAskingAI={isAskingAI}
+            askAIError={askAIError}
+            onSubmit={submitAskAi}
+            onSuggestionClick={(text: string) => setChatInput(text)}
+            suggestions={chatSuggestions}
+          />
+        </DialogContent>
+      </Dialog>
+
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -220,6 +357,14 @@ export function SchemaGeneratorTable({
           <p className="text-sm text-zinc-500 mt-1">Generate and analyze AI-optimized Schema.org markup</p>
         </div>
         <div className="flex items-center gap-3">
+          <Button
+            onClick={() => openAskAiDialog('Summarize my schema intelligence matrix and top priorities.')}
+            disabled={!jobId || isAskingAI}
+            className="bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300 text-black hover:opacity-95 rounded-xl px-4"
+          >
+            <MessageSquare className="w-4 h-4 mr-2" />
+            Ask AI
+          </Button>
           <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">AIVS™ Active</span>
@@ -405,6 +550,11 @@ export function SchemaGeneratorTable({
                       label={dimLabels[key] || key}
                       val={val}
                       max={dimMax[key] || 100}
+                      onAskAI={() =>
+                        openAskAiDialog(
+                          `Explain the ${dimLabels[key] || key} matrix score (${Number(val).toFixed(1)}/${dimMax[key] || 100}) and what exact fixes I should do first.`,
+                        )
+                      }
                     />
                   ))}
                 </div>
@@ -440,12 +590,25 @@ export function SchemaGeneratorTable({
                         )} />
                         <span className="text-xs font-semibold text-zinc-200">{name}</span>
                       </div>
-                      <span className={cn(
-                        'text-[10px] font-bold uppercase tracking-wider',
-                        ai[key] ? 'text-emerald-400' : 'text-rose-400'
-                      )}>
-                        {ai[key] ? 'Detected' : `${lift} Missed`}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openAskAiDialog(
+                              `How can I improve ${name} readiness? Current status is ${ai[key] ? 'Detected' : 'Not Detected'}.`,
+                            )
+                          }
+                          className="text-[9px] px-1.5 py-0.5 rounded border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+                        >
+                          Ask AI
+                        </button>
+                        <span className={cn(
+                          'text-[10px] font-bold uppercase tracking-wider',
+                          ai[key] ? 'text-emerald-400' : 'text-rose-400'
+                        )}>
+                          {ai[key] ? 'Detected' : 'Not Detected'}
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -652,7 +815,7 @@ export function SchemaGeneratorTable({
                               </div>
                               <div className="flex items-center gap-1">
                                 <div className={cn('w-1.5 h-1.5 rounded-full', ai[key] ? 'bg-emerald-500' : 'bg-rose-500')} />
-                                <span className="text-[9px] font-bold text-zinc-500 uppercase">{ai[key] ? 'Live' : 'Missing'}</span>
+                                <span className="text-[9px] font-bold text-zinc-500 uppercase">{ai[key] ? 'Live' : 'Not Detected'}</span>
                               </div>
                             </div>
                             <div className="p-4 flex-1">
