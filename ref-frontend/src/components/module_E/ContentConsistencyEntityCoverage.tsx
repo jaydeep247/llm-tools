@@ -15,6 +15,7 @@ import {
 import { FieldTooltip } from '@/components/module_A/FieldTooltip'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { ModuleEAskAiChatShell, type ModuleEAskAiChatTurn } from '@/components/module_E/ModuleEAskAiChatShell'
+import { ModuleEMetricAskButton } from '@/components/module_E/useModuleEAskAi'
 
 const MODEL_PERF_FIELD_DESCRIPTIONS: Record<string, string> = {
   Model: 'Which AI model was tested (ChatGPT, Gemini, etc.).',
@@ -189,6 +190,29 @@ export default function ContentConsistencyEntityCoverage({ jobId, projectId }: C
     } catch {
       setChatMessages((prev) => prev.filter((m) => m.id !== userTurn.id))
       setChatInput(question)
+    }
+  }
+
+  const runMetricAskAi = async (displayLabel: string, prompt: string) => {
+    if (!projectId || !jobId || isAskingAI) return
+    resetAskAI()
+    const userTurn: ModuleEAskAiChatTurn = { id: chatMessageId(), role: 'user', content: `Explain: ${displayLabel}` }
+    setChatMessages([userTurn])
+    setChatInput('')
+    setAskDialogOpen(true)
+    try {
+      const res = await askModuleEAI({
+        project_id: projectId,
+        job_id: jobId,
+        question: prompt,
+      }).unwrap()
+      const text = res?.answer?.trim() || res?.data?.answer?.trim() || ''
+      const sources = res?.sources || res?.data?.sources
+      if (!text) return
+      setChatMessages((prev) => [...prev, { id: chatMessageId(), role: 'assistant', content: text, sources }])
+    } catch {
+      setChatMessages([])
+      setAskDialogOpen(false)
     }
   }
 
@@ -379,6 +403,18 @@ export default function ContentConsistencyEntityCoverage({ jobId, projectId }: C
               <div className="flex items-center gap-2 mb-4">
                 <Gauge className="w-4 h-4 text-foreground" />
                 <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground">Content Consistency</h4>
+                <ModuleEMetricAskButton
+                  disabled={!projectId || !jobId || isAskingAI}
+                  onClick={() =>
+                    runMetricAskAi(
+                      'Content Consistency',
+                      `Interpret this content consistency score and explain top fixes.\n${JSON.stringify({
+                        consistency_score: consistencyScore,
+                        mandate,
+                      })}`,
+                    )
+                  }
+                />
               </div>
               <div className="mb-4">
                 <div>
@@ -392,6 +428,20 @@ export default function ContentConsistencyEntityCoverage({ jobId, projectId }: C
               <div className="flex items-center gap-2 mb-4">
                 <Layers className="w-4 h-4 text-foreground" />
                 <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground">Entity Coverage</h4>
+                <ModuleEMetricAskButton
+                  disabled={!projectId || !jobId || isAskingAI}
+                  onClick={() =>
+                    runMetricAskAi(
+                      'Entity Coverage',
+                      `Interpret this entity coverage score and prioritize missing entities.\n${JSON.stringify({
+                        entity_score: entityScore,
+                        missing_entities: missing,
+                        found_entities: found,
+                        total_expected: totalExpected,
+                      })}`,
+                    )
+                  }
+                />
               </div>
               <div className="flex items-end gap-4 mb-4">
                 <div>

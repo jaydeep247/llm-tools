@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils'
 import { CardHeader } from '@/components/ui/SectionHeader'
 import { type LucideIcon } from 'lucide-react'
+import type { ReactNode } from 'react'
 
 export interface SectionCardProps {
   title: string
@@ -11,6 +12,8 @@ export interface SectionCardProps {
   onClick?: () => void
   actionLabel?: string
   actionIcon?: LucideIcon
+  /** Custom right-side header slot (replaces onAction when set) */
+  actionSlot?: ReactNode
   className?: string
   /** Extra classes for the inner content area */
   contentClassName?: string
@@ -28,6 +31,7 @@ export function SectionCard({
   onClick,
   actionLabel,
   actionIcon,
+  actionSlot,
   className,
   contentClassName,
 }: SectionCardProps) {
@@ -42,9 +46,10 @@ export function SectionCard({
       <CardHeader
         title={title}
         description={description}
-        onAction={onAction ?? onClick}
+        onAction={actionSlot ? undefined : onAction ?? onClick}
         actionLabel={actionLabel}
         actionIcon={actionIcon}
+        actionSlot={actionSlot}
       />
       <div className={cn('p-5', contentClassName)}>{children}</div>
     </div>

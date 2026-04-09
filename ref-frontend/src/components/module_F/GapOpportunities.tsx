@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useRef, useEffect, type FormEvent } from 'react'
 import { 
   AlertCircle, 
   Target, 
@@ -22,7 +22,8 @@ import {
   FileText,
   BarChart3,
   MousePointer2,
-  Lightbulb
+  Lightbulb,
+  MessageSquare
 } from 'lucide-react'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
@@ -34,15 +35,148 @@ import {
   type ModuleFMetricRecommendation, 
   useGetModuleFResultQuery, 
   resolveFeatureFlags,
-  normaliseMetricRec
+  normaliseMetricRec,
+  useAskModuleFAIMutation,
+  ModuleFResult
 } from '@/store/api/module_F/moduleFApi'
-import type { ModuleFResult } from '@/store/api/module_F/moduleFApi'
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { Button } from '@/components/ui/button'
+import { useToast } from '@/hooks/use-toast'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { ModuleFAskAiChatShell } from '@/components/module_F/ModuleFAskAiChatShell'
+
+interface GapOpportunitiesProps {
+  moduleFData?: ModuleFResult | null
+  isLoading: boolean
+  jobId?: string | null
+}
+
+type ChatTurn = {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  sources?: string[]
+}
+
+function chatMessageId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+/** Scoped Ask AI targets for Gap Opportunities */
+type GapAskTarget =
+  | 'gap_score'
+  | 'missing_prompts'
+  | 'potential_gain'
+  | 'top_opportunity'
+  | 'competitor_coverage_gaps'
+
+function buildGapAskPrompt(
+  target: GapAskTarget,
+  data: ModuleFResult | null | undefined,
+  brandName: string,
+): string {
+  const recommendations = data?.metric_recommendations
+  const gaps = data?.gap_opportunities ?? []
+  const detailed = data?.competitor_wins?.detailed_results ?? []
+
+  const base = `You are answering from the user's latest Module F "Gap Opportunities" run for brand "${brandName}".
+Answer immediately — do not ask the user for clarification. Focus ONLY on the metric/section named in the title below.
+Use the glossary in PROJECT DATA. Use markdown with short headings and bullets where helpful.`
+
+  switch (target) {
+    case 'gap_score':
+      return `${base}
+
+**Title: Gap Score Analysis**
+
+Explain what the Gap Score means and interpret the overall opportunity size (JSON). How significant are these gaps for the brand?
+${JSON.stringify({
+        recommendation: recommendations?.content_gap_score,
+        overall_gaps_count: gaps.length,
+      })}`
+    case 'missing_prompts':
+      return `${base}
+
+**Title: Missing Prompts**
+
+Explain what "Missing Prompts" represents (JSON). These are areas where the brand is currently weak or unranked. What's the priority?
+${JSON.stringify({
+        recommendation: recommendations?.missing_prompts,
+        total_prompts: data?.competitor_wins?.summary?.total_prompts,
+      })}`
+    case 'potential_gain':
+      return `${base}
+
+**Title: Potential Gain**
+
+Analyze the potential visibility gain if these gaps are addressed (JSON). How much market share could be captured?
+${JSON.stringify({
+        recommendation: recommendations?.potential_gain,
+      })}`
+    case 'top_opportunity':
+      return `${base}
+
+**Title: Top Opportunity**
+
+Identify and explain the top competitor opportunity (JSON). Which competitor is most vulnerable and why?
+${JSON.stringify({
+        top_competitor_gap: gaps[0],
+      })}`
+    case 'competitor_coverage_gaps':
+      return `${base}
+
+**Title: Competitor Coverage Gaps**
+
+Summarize the gaps identified in this section (JSON). Which specific competitors have the largest coverage gaps that the brand can exploit?
+${JSON.stringify({
+        gaps_sample: gaps.slice(0, 5).map(g => ({
+          competitor: g.competitor,
+          gap_score: g.gapScore,
+          missing_prompts: g.missingPrompts,
+          potential_gain: g.potentialGainPercent,
+        })),
+        detailed_sample: detailed.slice(0, 5).map(r => ({
+          prompt: r.prompt,
+          winner: r.winner,
+          gap: r.coverage_gap_score,
+        })),
+      })}`
+  }
+}
+
+function MetricAskButton({
+  disabled,
+  onClick,
+}: {
+  disabled?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        e.preventDefault()
+        onClick()
+      }}
+      disabled={disabled}
+      className={cn(
+        'inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10',
+        'px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300',
+        'hover:bg-violet-500/18 transition-colors cursor-pointer shrink-0',
+        'disabled:opacity-40 disabled:cursor-not-allowed',
+      )}
+    >
+      <MessageSquare className="size-3 shrink-0" aria-hidden />
+      Ask AI
+    </button>
+  )
+}
 
 interface GapOpportunitiesProps {
   moduleFData?: ModuleFResult | null
@@ -93,6 +227,7 @@ function computeOpportunityScore(rank: number | null | undefined) {
 export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapOpportunitiesProps) {
   const [selectedCompetitor, setSelectedCompetitor] = useState<string | null>(null)
   const [searchPrompt, setSearchPrompt] = useState('')
+  const { toast } = useToast()
 
   const normalizeKey = (value: string) => {
     return value
@@ -109,9 +244,146 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
   })
 
   const effectiveData: ModuleFResult | null | undefined = fetched?.data ?? moduleFData
+  const brandName = effectiveData?.compare_visibility_against_competitors?.brand?.name || 'Brand'
+  
+  const [askModuleFAI, { isLoading: isAskingAI, error: askAIError, reset: resetAskAI }] =
+    useAskModuleFAIMutation()
+
+  const [askDialogOpen, setAskDialogOpen] = useState(false)
+  const [chatInput, setChatInput] = useState('')
+  const [chatMessages, setChatMessages] = useState<ChatTurn[]>([])
+  const [chatFocusBadge, setChatFocusBadge] = useState<string | undefined>(undefined)
+  const chatScrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!askDialogOpen || !chatScrollRef.current) return
+    const el = chatScrollRef.current
+    el.scrollTop = el.scrollHeight
+  }, [askDialogOpen, chatMessages, isAskingAI])
+
+  const openAskAiDialog = () => {
+    if (!jobId) {
+      toast({
+        title: 'Job not ready yet',
+        description: 'Run Module F first so Ask AI can use your stored analysis.',
+        variant: 'destructive',
+      })
+      return
+    }
+    resetAskAI()
+    setChatFocusBadge(undefined)
+    setChatMessages([])
+    setChatInput('')
+    setAskDialogOpen(true)
+  }
+
+  const runMetricAskAi = async (target: GapAskTarget, displayLabel: string) => {
+    if (!jobId) {
+      toast({
+        title: 'Job not ready yet',
+        description: 'Run Module F first so Ask AI can use your stored analysis.',
+        variant: 'destructive',
+      })
+      return
+    }
+    resetAskAI()
+    setChatFocusBadge(displayLabel)
+    setChatInput('')
+    const userDisplay = `Explain: ${displayLabel}`
+    const userTurn: ChatTurn = { id: chatMessageId(), role: 'user', content: userDisplay }
+    setChatMessages([userTurn])
+    setAskDialogOpen(true)
+
+    const fullPrompt = buildGapAskPrompt(target, effectiveData, brandName)
+
+    try {
+      const res = await askModuleFAI({
+        jobId,
+        body: { question: fullPrompt },
+      }).unwrap()
+      const text = res?.data?.answer?.trim() ?? ''
+      const sources = res?.data?.sources
+      if (!text) {
+        toast({
+          title: 'Empty response',
+          description: 'The model returned no text. Try again.',
+          variant: 'destructive',
+        })
+        setChatMessages([])
+        setAskDialogOpen(false)
+        return
+      }
+      setChatMessages((prev) => [
+        ...prev,
+        { id: chatMessageId(), role: 'assistant', content: text, sources },
+      ])
+    } catch (err: unknown) {
+      const msg =
+        (err as { data?: { message?: string; error?: string } })?.data?.message ||
+        (err as { data?: { error?: string } })?.data?.error ||
+        (err as Error)?.message ||
+        'Please try again.'
+      toast({
+        title: 'Ask AI failed',
+        description: msg,
+        variant: 'destructive',
+      })
+      setChatMessages([])
+      setAskDialogOpen(false)
+    }
+  }
+
+  const submitAskAi = async (e?: FormEvent) => {
+    e?.preventDefault()
+    if (!jobId || !chatInput.trim() || isAskingAI) return
+    const question = chatInput.trim()
+    setChatInput('')
+
+    const priorHistory = chatMessages.slice(-6).map((m) => ({
+      role: m.role,
+      content: m.content,
+    }))
+
+    const userTurn: ChatTurn = { id: chatMessageId(), role: 'user', content: question }
+    setChatMessages((prev) => [...prev, userTurn])
+
+    try {
+      const res = await askModuleFAI({
+        jobId,
+        body: { question, conversationHistory: priorHistory.length ? priorHistory : undefined },
+      }).unwrap()
+      const text = res?.data?.answer?.trim() ?? ''
+      const sources = res?.data?.sources
+      if (!text) {
+        toast({
+          title: 'Empty response',
+          description: 'The model returned no text. Try again or shorten your question.',
+          variant: 'destructive',
+        })
+        return
+      }
+      setChatMessages((prev) => [
+        ...prev,
+        { id: chatMessageId(), role: 'assistant', content: text, sources },
+      ])
+    } catch (err: unknown) {
+      const msg =
+        (err as { data?: { message?: string; error?: string } })?.data?.message ||
+        (err as { data?: { error?: string } })?.data?.error ||
+        (err as Error)?.message ||
+        'Please try again.'
+      toast({
+        title: 'Ask AI failed',
+        description: msg,
+        variant: 'destructive',
+      })
+      setChatMessages((prev) => prev.filter((m) => m.id !== userTurn.id))
+      setChatInput(question)
+    }
+  }
+
   const flags = resolveFeatureFlags(effectiveData)
 
-  const brandName = effectiveData?.compare_visibility_against_competitors?.brand?.name || 'Brand'
   const detailedResults = effectiveData?.competitor_wins?.detailed_results || []
   const competitors = effectiveData?.compare_visibility_against_competitors?.competitors || []
   const totalPrompts = effectiveData?.competitor_wins?.summary?.total_prompts ?? detailedResults.length ?? 0
@@ -224,6 +496,40 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <Dialog
+        open={askDialogOpen}
+        onOpenChange={(open) => {
+          setAskDialogOpen(open)
+          if (!open) {
+            resetAskAI()
+            setChatMessages([])
+            setChatInput('')
+            setChatFocusBadge(undefined)
+          }
+        }}
+      >
+        <DialogContent
+          className={cn(
+            'w-[calc(100vw-1rem)] max-h-[95vh] gap-0 overflow-visible border-0 bg-transparent p-0 pt-10 shadow-none sm:max-w-3xl lg:max-w-5xl',
+            'data-[state=open]:zoom-in-[0.98]',
+          )}
+          showCloseButton
+        >
+          <ModuleFAskAiChatShell
+            brandName={brandName}
+            focusBadge={chatFocusBadge}
+            chatScrollRef={chatScrollRef}
+            chatMessages={chatMessages}
+            chatInput={chatInput}
+            setChatInput={setChatInput}
+            isAskingAI={isAskingAI}
+            askAIError={askAIError}
+            onSubmit={submitAskAi}
+            onSuggestionClick={(text) => setChatInput(text)}
+          />
+        </DialogContent>
+      </Dialog>
+
       {/* Premium Header */}
       <div className="rounded-3xl border border-zinc-800 bg-[#111113] p-6 sm:p-8 relative overflow-hidden group">
         <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/5 blur-[100px] -mr-32 -mt-32" />
@@ -250,9 +556,28 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
             </div>
           </div>
           
-          <div className="flex flex-col items-end gap-1 bg-zinc-900/50 px-4 py-2 rounded-2xl border border-zinc-800">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Total Prompts</span>
-            <span className="text-sm font-bold text-zinc-200">{totalPrompts}</span>
+          <div className="flex flex-col items-end gap-3 md:self-start">
+            <div className="flex flex-col items-end gap-1 bg-zinc-900/50 px-4 py-2 rounded-2xl border border-zinc-800">
+              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Total Prompts</span>
+              <span className="text-sm font-bold text-zinc-200">{totalPrompts}</span>
+            </div>
+
+            <Button
+              type="button"
+              onClick={openAskAiDialog}
+              disabled={isAskingAI}
+              className={cn(
+                'rounded-full border-0 shadow-lg shadow-fuchsia-950/30',
+                'text-sm font-extrabold uppercase tracking-wider sm:text-base',
+                'bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300',
+                'text-black hover:opacity-95 hover:shadow-xl',
+                'h-auto min-h-[48px] px-6 py-3 sm:min-h-[52px] sm:px-8 sm:py-3.5',
+                'gap-2.5',
+              )}
+            >
+              <MessageSquare className="size-5 shrink-0 sm:size-6" strokeWidth={2.25} aria-hidden />
+              ASK AI
+            </Button>
           </div>
         </div>
       </div>
@@ -297,6 +622,12 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
               accent="cyan"
               progress={overall.overallGapScore}
               description={gapRec?.why || "Aggregated opportunity size based on competitor weaknesses across all prompts."}
+              labelAction={
+                <MetricAskButton
+                  disabled={!jobId || isAskingAI}
+                  onClick={() => runMetricAskAi('gap_score', 'Gap Score')}
+                />
+              }
             />
 
             <StatCard
@@ -306,6 +637,12 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
               icon={Radar}
               accent="amber"
               description={missingRec?.why || "Prompts where your brand is currently outside the top 3 results."}
+              labelAction={
+                <MetricAskButton
+                  disabled={!jobId || isAskingAI}
+                  onClick={() => runMetricAskAi('missing_prompts', 'Missing Prompts')}
+                />
+              }
             />
 
             <StatCard
@@ -316,6 +653,12 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
               accent="emerald"
               progress={overall.averagePotentialGainPercent}
               description={gainRec?.why || "Estimated visibility share you can capture by addressing these content gaps."}
+              labelAction={
+                <MetricAskButton
+                  disabled={!jobId || isAskingAI}
+                  onClick={() => runMetricAskAi('potential_gain', 'Potential Gain')}
+                />
+              }
             />
 
             <StatCard
@@ -326,6 +669,12 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
               accent="violet"
               progress={overall.topCompetitor?.gapScore}
               description="Competitor with the largest share of voice that is currently uncontested or weak."
+              labelAction={
+                <MetricAskButton
+                  disabled={!jobId || isAskingAI}
+                  onClick={() => runMetricAskAi('top_opportunity', 'Top Opportunity')}
+                />
+              }
             />
           </div>
 
@@ -333,6 +682,12 @@ export default function GapOpportunities({ moduleFData, isLoading, jobId }: GapO
             title="Competitor Coverage Gaps" 
             description="Deep dive into specific prompts where competitors are missing coverage or ranking poorly."
             className="bg-[#111113]"
+            actionSlot={
+              <MetricAskButton
+                disabled={!jobId || isAskingAI}
+                onClick={() => runMetricAskAi('competitor_coverage_gaps', 'Competitor Coverage Gaps')}
+              />
+            }
           >
             <div className="flex flex-col lg:flex-row gap-8">
               {/* Sidebar / Selector */}

@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect, type FormEvent } from 'react'
 import { Badge } from '@/components/ui/badge'
 import {
   Loader2, Database, AlertTriangle, XCircle,
-  Hash, Target, AlertCircle, ChevronDown, ChevronUp
+  Hash, Target, AlertCircle, ChevronDown, ChevronUp, MessageSquare
 } from 'lucide-react'
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
@@ -13,13 +13,16 @@ import {
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
 import { FieldTooltip } from '@/components/module_A/FieldTooltip'
-import { useGetModuleCResultQuery } from '@/store/api/module_C/moduleCApi'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { ModuleCAskAiChatShell, type ModuleCAskAiChatTurn } from './ModuleCAskAiChatShell'
+import { useGetModuleCResultQuery, useAskModuleCAIMutation, useGetModuleCSuggestedQuestionsMutation } from '@/store/api/module_C/moduleCApi'
 import { useModuleCAnalysis } from '@/hooks/useModuleCAnalysis'
 import ModuleCProgressLoader from './ModuleCProgressLoader'
 
 interface EntityGapAnalysisProps {
   jobId?: string | null
   url?: string
+  projectId?: string | null
 }
 
 const TOOLTIPS = {
@@ -71,9 +74,16 @@ function Section({ title, icon, children, defaultOpen = true, badge }: {
   )
 }
 
-export default function EntityGapAnalysis({ jobId, url }: EntityGapAnalysisProps) {
+export default function EntityGapAnalysis({ jobId, url, projectId }: EntityGapAnalysisProps) {
   const [showAllMissing, setShowAllMissing] = useState(false)
   const [showAllFacts, setShowAllFacts] = useState(false)
+  const [askModuleCAI, { isLoading: isAskingAI, error: askAIError, reset: resetAskAI }] = useAskModuleCAIMutation()
+  const [getSuggestedQuestions] = useGetModuleCSuggestedQuestionsMutation()
+  const [askDialogOpen, setAskDialogOpen] = useState(false)
+  const [chatInput, setChatInput] = useState('')
+  const [chatMessages, setChatMessages] = useState<ModuleCAskAiChatTurn[]>([])
+  const [suggestions, setSuggestions] = useState<string[]>([])
+  const chatScrollRef = useRef<HTMLDivElement>(null)
 
   const { data: moduleCData, isLoading: isLoadingData, refetch: refetchData } = useGetModuleCResultQuery({ jobId: jobId || '', url }, {
     skip: !jobId, refetchOnMountOrArgChange: true,
@@ -140,13 +150,126 @@ export default function EntityGapAnalysis({ jobId, url }: EntityGapAnalysisProps
   const criticalMissing: any[] = entityCov?.critical_missing ?? []
   const missingFacts: string[] = missingInfo?.missing_facts ?? []
 
+  useEffect(() => {
+    if (!askDialogOpen || !chatScrollRef.current) return
+    const el = chatScrollRef.current
+    el.scrollTop = el.scrollHeight
+  }, [askDialogOpen, chatMessages, isAskingAI])
+
+  const chatMessageId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+
+  const openAskAiDialog = async () => {
+    if (!projectId) return
+    resetAskAI()
+    setChatMessages([])
+    setChatInput('')
+    setAskDialogOpen(true)
+    try {
+      const res = await getSuggestedQuestions({ project_id: projectId }).unwrap()
+      setSuggestions(Array.isArray(res?.questions) ? res.questions.filter(Boolean).slice(0, 12) : [])
+    } catch {
+      setSuggestions([])
+    }
+  }
+
+  const submitAskAi = async (e?: FormEvent) => {
+    e?.preventDefault()
+    if (!projectId || !chatInput.trim() || isAskingAI) return
+    const question = chatInput.trim()
+    setChatInput('')
+    const priorHistory = chatMessages.slice(-6).map((m) => ({ role: m.role, content: m.content }))
+    const userTurn: ModuleCAskAiChatTurn = { id: chatMessageId(), role: 'user', content: question }
+    setChatMessages((prev) => [...prev, userTurn])
+    try {
+      const res = await askModuleCAI({
+        project_id: projectId,
+        job_id: jobId || undefined,
+        question,
+        conversation_history: priorHistory.length ? priorHistory : undefined,
+      }).unwrap()
+      const text = res?.answer?.trim() || res?.data?.answer?.trim() || ''
+      const sources = res?.sources || res?.data?.sources
+      if (!text) return
+      setChatMessages((prev) => [...prev, { id: chatMessageId(), role: 'assistant', content: text, sources }])
+    } catch {
+      setChatMessages((prev) => prev.filter((m) => m.id !== userTurn.id))
+      setChatInput(question)
+    }
+  }
+
+  const runMetricAskAi = async (displayLabel: string, prompt: string) => {
+    if (!projectId || !jobId || isAskingAI) return
+    resetAskAI()
+    setChatInput('')
+    setChatMessages([{ id: chatMessageId(), role: 'user', content: `Explain: ${displayLabel}` }])
+    setAskDialogOpen(true)
+    try {
+      const res = await askModuleCAI({
+        project_id: projectId,
+        job_id: jobId,
+        question: prompt,
+      }).unwrap()
+      const text = res?.answer?.trim() || res?.data?.answer?.trim() || ''
+      const sources = res?.sources || res?.data?.sources
+      if (!text) return
+      setChatMessages((prev) => [...prev, { id: chatMessageId(), role: 'assistant', content: text, sources }])
+    } catch {
+      setChatMessages([])
+      setAskDialogOpen(false)
+    }
+  }
+
   return (
     <div className="space-y-5">
+      <Dialog
+        open={askDialogOpen}
+        onOpenChange={(open) => {
+          setAskDialogOpen(open)
+          if (!open) {
+            resetAskAI()
+            setChatMessages([])
+            setChatInput('')
+          }
+        }}
+      >
+        <DialogContent
+          className={cn(
+            'w-[calc(100vw-1rem)] max-h-[95vh] gap-0 overflow-visible border-0 bg-transparent p-0 pt-10 shadow-none sm:max-w-3xl lg:max-w-5xl',
+            'data-[state=open]:zoom-in-[0.98]',
+          )}
+          showCloseButton
+        >
+          <ModuleCAskAiChatShell
+            chatScrollRef={chatScrollRef}
+            chatMessages={chatMessages}
+            chatInput={chatInput}
+            setChatInput={setChatInput}
+            isAskingAI={isAskingAI}
+            askAIError={askAIError}
+            onSubmit={submitAskAi}
+            onSuggestionClick={(text) => setChatInput(text)}
+            suggestions={suggestions}
+          />
+        </DialogContent>
+      </Dialog>
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold text-white">Entity &amp; Knowledge Gap Analysis</h2>
           <p className="text-sm text-zinc-400 mt-0.5">What your page is missing that AI engines expect to find</p>
         </div>
+        <button
+          type="button"
+          onClick={openAskAiDialog}
+          disabled={!projectId || isAskingAI}
+          className={cn(
+            'inline-flex items-center gap-2 rounded-full border-0 px-5 py-2.5 text-sm font-extrabold uppercase tracking-wider text-black shadow-lg shadow-fuchsia-950/30',
+            'bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300 hover:opacity-95',
+            'disabled:cursor-not-allowed disabled:opacity-50',
+          )}
+        >
+          <MessageSquare className="size-4 shrink-0" />
+          Ask AI
+        </button>
       </div>
 
       {isLoadingData && (
@@ -201,6 +324,27 @@ export default function EntityGapAnalysis({ jobId, url }: EntityGapAnalysisProps
                 {entityExt.total_entities_detected} entities
               </Badge>
             ) : undefined}>
+            <div className="mb-3">
+              <button
+                type="button"
+                onClick={() =>
+                  runMetricAskAi(
+                    'Entity Extraction',
+                    `Interpret entity extraction results and what they imply for AI retrieval.\n${JSON.stringify({
+                      total_entities_detected: entityExt?.total_entities_detected,
+                      entity_density: entityExt?.entity_density,
+                      word_count: entityExt?.word_count,
+                      entity_types_breakdown: entityExt?.entity_types_breakdown,
+                    })}`,
+                  )
+                }
+                disabled={!projectId || !jobId || isAskingAI}
+                className="inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300 disabled:opacity-40"
+              >
+                <MessageSquare className="size-3" />
+                Ask AI
+              </button>
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
               {[
                 { label: 'Total Detected', val: entityExt?.total_entities_detected ?? 0, tip: TOOLTIPS.totalEntities, color: 'text-blue-400' },
@@ -259,6 +403,28 @@ export default function EntityGapAnalysis({ jobId, url }: EntityGapAnalysisProps
           </Section>
 
           <Section title="Entity Coverage" icon={<Target className="w-4 h-4 text-emerald-400" />}>
+            <div className="mb-3">
+              <button
+                type="button"
+                onClick={() =>
+                  runMetricAskAi(
+                    'Entity Coverage',
+                    `Interpret this entity coverage snapshot and identify highest-impact missing entities.\n${JSON.stringify({
+                      entity_coverage_pct: coveragePct,
+                      matched_count: matchedCount,
+                      expected_count: expectedCount,
+                      missing_entities_count: missingEntities.length,
+                      critical_missing_count: entityCov?.critical_missing_count ?? 0,
+                    })}`,
+                  )
+                }
+                disabled={!projectId || !jobId || isAskingAI}
+                className="inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300 disabled:opacity-40"
+              >
+                <MessageSquare className="size-3" />
+                Ask AI
+              </button>
+            </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="flex flex-col items-center">
                 <div className="relative" style={{ width: 180, height: 180 }}>
@@ -364,6 +530,28 @@ export default function EntityGapAnalysis({ jobId, url }: EntityGapAnalysisProps
           )}
 
           <Section title="Knowledge Gap Analysis" icon={<AlertCircle className="w-4 h-4 text-amber-400" />}>
+            <div className="mb-3">
+              <button
+                type="button"
+                onClick={() =>
+                  runMetricAskAi(
+                    'Knowledge Gap Analysis',
+                    `Explain this knowledge gap profile and prioritize what to add first.\n${JSON.stringify({
+                      missing_entity_count: missingInfo?.missing_entity_count ?? 0,
+                      missing_fact_count: missingInfo?.missing_fact_count ?? 0,
+                      total_missing: missingInfo?.total_missing ?? 0,
+                      gap: missingInfo?.gap,
+                      classification: missingInfo?.classification,
+                    })}`,
+                  )
+                }
+                disabled={!projectId || !jobId || isAskingAI}
+                className="inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300 disabled:opacity-40"
+              >
+                <MessageSquare className="size-3" />
+                Ask AI
+              </button>
+            </div>
             <div className="grid grid-cols-3 gap-3 mb-5">
               {[
                 { label: 'Missing Entities', val: missingInfo?.missing_entity_count ?? 0, tip: TOOLTIPS.missingEntityCount, color: 'text-red-400' },

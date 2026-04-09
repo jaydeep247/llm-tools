@@ -12,6 +12,7 @@ import {
 } from '@/store/api/module_E/moduleEApi'
 import { cn } from '@/lib/utils'
 import { FieldTooltip } from '@/components/module_A/FieldTooltip'
+import { ModuleEMetricAskButton, useModuleEAskAi } from '@/components/module_E/useModuleEAskAi'
 
 const MODELS = ['chat_gpt', 'gemini', 'claude'] as const
 
@@ -178,11 +179,12 @@ function getModelStats(rankingData: any, modelId: string) {
 
 interface AICitationRankingProps {
   jobId?: string
+  projectId?: string | null
   url?: string
   rankingData?: ModuleEResult['ranking_analysis']
 }
 
-export default function AICitationRanking({ jobId, url, rankingData: initialData }: AICitationRankingProps) {
+export default function AICitationRanking({ jobId, projectId, url, rankingData: initialData }: AICitationRankingProps) {
   const [runRankingAnalysis, { isLoading: isTriggering }] = useRunRankingAnalysisMutation()
 
   const [isPolling, setIsPolling] = useState(false)
@@ -271,9 +273,11 @@ export default function AICitationRanking({ jobId, url, rankingData: initialData
   }
 
   const isRunning = isTriggering || isPolling
+  const { askAiDialog, runMetricAskAi, canAskAi, isAskingAI } = useModuleEAskAi(projectId, jobId)
 
   return (
     <div className="space-y-6">
+      {askAiDialog}
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -369,7 +373,18 @@ export default function AICitationRanking({ jobId, url, rankingData: initialData
                 {/* Metric cards — flat, no gradients */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div className={cn('rounded-xl bg-zinc-800/50 border p-3', getScoreBorder(coverageScore))}>
-                    <div className="text-xs text-zinc-400 mb-1">Coverage Score</div>
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <div className="text-xs text-zinc-400">Coverage Score</div>
+                      <ModuleEMetricAskButton
+                        disabled={!canAskAi || isAskingAI}
+                        onClick={() =>
+                          runMetricAskAi(
+                            `${meta.label} coverage score`,
+                            `Interpret this coverage score for ${meta.label} and explain impact on citation visibility.\n${JSON.stringify({ model: modelId, coverage_score: coverageScore })}`,
+                          )
+                        }
+                      />
+                    </div>
                     <div className={cn('text-lg font-bold', getScoreColor(coverageScore))}>
                       {coverageScore.toFixed(1)}%
                     </div>

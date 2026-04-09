@@ -24,9 +24,10 @@ interface AIIntelligenceModuleProps {
   url: string
   sessionId?: string | number
   jobId?: string | null
+  projectId?: string | null
 }
 
-export default function AIIntelligenceModule({ url, sessionId, jobId }: AIIntelligenceModuleProps) {
+export default function AIIntelligenceModule({ url, sessionId, jobId, projectId }: AIIntelligenceModuleProps) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
@@ -244,19 +245,19 @@ export default function AIIntelligenceModule({ url, sessionId, jobId }: AIIntell
               {/* Sub-tab content */}
               <div className="min-h-0">
                 {activeSubTab === 'overview' && (
-                  <AIVisibilityScorecards jobId={jobId} url={url} />
+                  <AIVisibilityScorecards jobId={jobId} url={url} projectId={projectId} />
                 )}
                 {activeSubTab === 'entities' && (
-                  <EntityGapAnalysis jobId={jobId} url={url} />
+                  <EntityGapAnalysis jobId={jobId} url={url} projectId={projectId} />
                 )}
                 {activeSubTab === 'answers' && (
-                  <AIAnswerPreview jobId={jobId} url={url} />
+                  <AIAnswerPreview jobId={jobId} url={url} projectId={projectId} />
                 )}
                 {activeSubTab === 'models' && (
-                  <ModelComparison jobId={jobId} url={url} />
+                  <ModelComparison jobId={jobId} url={url} projectId={projectId} />
                 )}
                 {activeSubTab === 'actions' && (
-                  <ImprovementActions jobId={jobId} url={url} />
+                  <ImprovementActions jobId={jobId} url={url} projectId={projectId} />
                 )}
               </div>
             </div>

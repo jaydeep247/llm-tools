@@ -24,6 +24,7 @@ type ModuleDAskAiChatShellProps = {
   onSubmit: (e?: FormEvent) => void
   onSuggestionClick: (text: string) => void
   suggestions: string[]
+  focusBadge?: string
 }
 
 const FALLBACK_SUGGESTIONS = [
@@ -42,6 +43,7 @@ export function ModuleDAskAiChatShell({
   onSubmit,
   onSuggestionClick,
   suggestions,
+  focusBadge,
 }: ModuleDAskAiChatShellProps) {
   const [renderedById, setRenderedById] = useState<Record<string, string>>({})
   const animTimersRef = useRef<Record<string, number>>({})
@@ -120,6 +122,11 @@ export function ModuleDAskAiChatShell({
               <span className="rounded-full border border-violet-500/25 bg-violet-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-violet-300">
                 Discover Prompts
               </span>
+              {focusBadge && (
+                <span className="rounded-full border border-fuchsia-500/25 bg-fuchsia-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-fuchsia-300">
+                  {focusBadge}
+                </span>
+              )}
             </div>
             <p className="max-w-2xl text-sm leading-relaxed text-zinc-400 sm:text-base">
               Ask questions based on your latest Module D analysis: prompt visibility, citation trends,

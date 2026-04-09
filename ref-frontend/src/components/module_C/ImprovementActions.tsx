@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect, type FormEvent } from 'react'
 import { Badge } from '@/components/ui/badge'
 import {
   Loader2, Zap, ChevronDown, ChevronUp,
-  TrendingUp, AlertCircle, CheckCircle, Filter
+  TrendingUp, AlertCircle, CheckCircle, Filter, MessageSquare
 } from 'lucide-react'
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
@@ -13,13 +13,16 @@ import {
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { cn } from '@/lib/utils'
 import { FieldTooltip } from '@/components/module_A/FieldTooltip'
-import { useGetModuleCResultQuery } from '@/store/api/module_C/moduleCApi'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { ModuleCAskAiChatShell, type ModuleCAskAiChatTurn } from './ModuleCAskAiChatShell'
+import { useGetModuleCResultQuery, useAskModuleCAIMutation, useGetModuleCSuggestedQuestionsMutation } from '@/store/api/module_C/moduleCApi'
 import { useModuleCAnalysis } from '@/hooks/useModuleCAnalysis'
 import ModuleCProgressLoader from './ModuleCProgressLoader'
 
 interface ImprovementActionsProps {
   jobId?: string | null
   url?: string
+  projectId?: string | null
 }
 
 const TOOLTIPS = {
@@ -137,9 +140,16 @@ function ActionCard({ action, index }: { action: any; index: number }) {
   )
 }
 
-export default function ImprovementActions({ jobId, url }: ImprovementActionsProps) {
+export default function ImprovementActions({ jobId, url, projectId }: ImprovementActionsProps) {
   const [filterPriority, setFilterPriority] = useState<'All' | 'High' | 'Medium' | 'Low'>('All')
   const [filterCategory, setFilterCategory] = useState<string>('All')
+  const [askModuleCAI, { isLoading: isAskingAI, error: askAIError, reset: resetAskAI }] = useAskModuleCAIMutation()
+  const [getSuggestedQuestions] = useGetModuleCSuggestedQuestionsMutation()
+  const [askDialogOpen, setAskDialogOpen] = useState(false)
+  const [chatInput, setChatInput] = useState('')
+  const [chatMessages, setChatMessages] = useState<ModuleCAskAiChatTurn[]>([])
+  const [suggestions, setSuggestions] = useState<string[]>([])
+  const chatScrollRef = useRef<HTMLDivElement>(null)
 
   const { data: moduleCData, isLoading: isLoadingData, refetch: refetchData } = useGetModuleCResultQuery({ jobId: jobId || '', url }, {
     skip: !jobId, refetchOnMountOrArgChange: true,
@@ -235,13 +245,126 @@ export default function ImprovementActions({ jobId, url }: ImprovementActionsPro
     })
   }, [actions, filterPriority, filterCategory])
 
+  useEffect(() => {
+    if (!askDialogOpen || !chatScrollRef.current) return
+    const el = chatScrollRef.current
+    el.scrollTop = el.scrollHeight
+  }, [askDialogOpen, chatMessages, isAskingAI])
+
+  const chatMessageId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+
+  const openAskAiDialog = async () => {
+    if (!projectId) return
+    resetAskAI()
+    setChatMessages([])
+    setChatInput('')
+    setAskDialogOpen(true)
+    try {
+      const res = await getSuggestedQuestions({ project_id: projectId }).unwrap()
+      setSuggestions(Array.isArray(res?.questions) ? res.questions.filter(Boolean).slice(0, 12) : [])
+    } catch {
+      setSuggestions([])
+    }
+  }
+
+  const submitAskAi = async (e?: FormEvent) => {
+    e?.preventDefault()
+    if (!projectId || !chatInput.trim() || isAskingAI) return
+    const question = chatInput.trim()
+    setChatInput('')
+    const priorHistory = chatMessages.slice(-6).map((m) => ({ role: m.role, content: m.content }))
+    const userTurn: ModuleCAskAiChatTurn = { id: chatMessageId(), role: 'user', content: question }
+    setChatMessages((prev) => [...prev, userTurn])
+    try {
+      const res = await askModuleCAI({
+        project_id: projectId,
+        job_id: jobId || undefined,
+        question,
+        conversation_history: priorHistory.length ? priorHistory : undefined,
+      }).unwrap()
+      const text = res?.answer?.trim() || res?.data?.answer?.trim() || ''
+      const sources = res?.sources || res?.data?.sources
+      if (!text) return
+      setChatMessages((prev) => [...prev, { id: chatMessageId(), role: 'assistant', content: text, sources }])
+    } catch {
+      setChatMessages((prev) => prev.filter((m) => m.id !== userTurn.id))
+      setChatInput(question)
+    }
+  }
+
+  const runMetricAskAi = async (displayLabel: string, prompt: string) => {
+    if (!projectId || !jobId || isAskingAI) return
+    resetAskAI()
+    setChatInput('')
+    setChatMessages([{ id: chatMessageId(), role: 'user', content: `Explain: ${displayLabel}` }])
+    setAskDialogOpen(true)
+    try {
+      const res = await askModuleCAI({
+        project_id: projectId,
+        job_id: jobId,
+        question: prompt,
+      }).unwrap()
+      const text = res?.answer?.trim() || res?.data?.answer?.trim() || ''
+      const sources = res?.sources || res?.data?.sources
+      if (!text) return
+      setChatMessages((prev) => [...prev, { id: chatMessageId(), role: 'assistant', content: text, sources }])
+    } catch {
+      setChatMessages([])
+      setAskDialogOpen(false)
+    }
+  }
+
   return (
     <div className="space-y-5">
+      <Dialog
+        open={askDialogOpen}
+        onOpenChange={(open) => {
+          setAskDialogOpen(open)
+          if (!open) {
+            resetAskAI()
+            setChatMessages([])
+            setChatInput('')
+          }
+        }}
+      >
+        <DialogContent
+          className={cn(
+            'w-[calc(100vw-1rem)] max-h-[95vh] gap-0 overflow-visible border-0 bg-transparent p-0 pt-10 shadow-none sm:max-w-3xl lg:max-w-5xl',
+            'data-[state=open]:zoom-in-[0.98]',
+          )}
+          showCloseButton
+        >
+          <ModuleCAskAiChatShell
+            chatScrollRef={chatScrollRef}
+            chatMessages={chatMessages}
+            chatInput={chatInput}
+            setChatInput={setChatInput}
+            isAskingAI={isAskingAI}
+            askAIError={askAIError}
+            onSubmit={submitAskAi}
+            onSuggestionClick={(text) => setChatInput(text)}
+            suggestions={suggestions}
+          />
+        </DialogContent>
+      </Dialog>
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold text-white">Improvement Actions</h2>
           <p className="text-sm text-zinc-400 mt-0.5">Prioritised fixes to maximise your AI Visibility score</p>
         </div>
+        <button
+          type="button"
+          onClick={openAskAiDialog}
+          disabled={!projectId || isAskingAI}
+          className={cn(
+            'inline-flex items-center gap-2 rounded-full border-0 px-5 py-2.5 text-sm font-extrabold uppercase tracking-wider text-black shadow-lg shadow-fuchsia-950/30',
+            'bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300 hover:opacity-95',
+            'disabled:cursor-not-allowed disabled:opacity-50',
+          )}
+        >
+          <MessageSquare className="size-4 shrink-0" />
+          Ask AI
+        </button>
       </div>
 
       {isLoadingData && (
@@ -279,6 +402,24 @@ export default function ImprovementActions({ jobId, url }: ImprovementActionsPro
               <TrendingUp className="w-4 h-4 text-emerald-400" />
               <span className="text-sm font-semibold text-white">Score Improvement Potential</span>
               <FieldTooltip description="The projected improvement in your LLM Friendliness score if all recommended actions are implemented." />
+              <button
+                type="button"
+                onClick={() =>
+                  runMetricAskAi(
+                    'Score Improvement Potential',
+                    `Interpret this projected score improvement and explain what drives the delta.\n${JSON.stringify({
+                      current_llm_friendliness: currentScore,
+                      predicted_llm_friendliness: predictedScore,
+                      predicted_llm_friendliness_delta: scoreDelta,
+                    })}`,
+                  )
+                }
+                disabled={!projectId || !jobId || isAskingAI}
+                className="ml-auto inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300 disabled:opacity-40"
+              >
+                <MessageSquare className="size-3" />
+                Ask AI
+              </button>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
@@ -352,6 +493,25 @@ export default function ImprovementActions({ jobId, url }: ImprovementActionsPro
               <Zap className="w-4 h-4 text-amber-400" />
               <span className="text-sm font-semibold text-white">Priority Breakdown</span>
               <FieldTooltip description="Distribution of recommended actions by priority level." />
+              <button
+                type="button"
+                onClick={() =>
+                  runMetricAskAi(
+                    'Priority Breakdown',
+                    `Explain this action priority distribution and recommended implementation order.\n${JSON.stringify({
+                      total_actions: totalActions,
+                      high_priority: highPriority,
+                      medium_priority: mediumPriority,
+                      low_priority: lowPriority,
+                    })}`,
+                  )
+                }
+                disabled={!projectId || !jobId || isAskingAI}
+                className="ml-auto inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300 disabled:opacity-40"
+              >
+                <MessageSquare className="size-3" />
+                Ask AI
+              </button>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
               {priorityPie.length > 0 ? (
@@ -404,6 +564,25 @@ export default function ImprovementActions({ jobId, url }: ImprovementActionsPro
                 <Badge className="bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 text-xs ml-auto">
                   {filteredActions.length} of {actions.length}
                 </Badge>
+                <button
+                  type="button"
+                  onClick={() =>
+                    runMetricAskAi(
+                      'Recommended Actions',
+                      `Review these recommended actions and provide an execution plan grouped by impact and effort.\n${JSON.stringify({
+                        total_actions: actions.length,
+                        filtered_actions: filteredActions.slice(0, 20),
+                        active_priority_filter: filterPriority,
+                        active_category_filter: filterCategory,
+                      })}`,
+                    )
+                  }
+                  disabled={!projectId || !jobId || isAskingAI}
+                  className="inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300 disabled:opacity-40"
+                >
+                  <MessageSquare className="size-3" />
+                  Ask AI
+                </button>
               </div>
 
               {/* Filters */}

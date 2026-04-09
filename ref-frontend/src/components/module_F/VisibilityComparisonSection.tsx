@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
@@ -14,6 +14,8 @@ import {
   useRunModuleFAnalysisMutation,
   resolveD7Output,
   resolveFeatureFlags,
+  useAskModuleFAIMutation,
+  ModuleFResult,
 } from '@/store/api/module_F/moduleFApi'
 import {
   ArrowDown, ArrowUp, CheckCircle2, Eye, Loader2, Percent, Swords,
@@ -28,9 +30,158 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { Button } from '@/components/ui/button'
+import { useToast } from '@/hooks/use-toast'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { ModuleFAskAiChatShell } from '@/components/module_F/ModuleFAskAiChatShell'
 
 interface VisibilityComparisonSectionProps {
   jobId?: string | null
+}
+
+type ChatTurn = {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  sources?: string[]
+}
+
+function chatMessageId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+/** Scoped Ask AI targets for Visibility Comparison */
+type VisibilityAskTarget =
+  | 'visibility_score'
+  | 'top_competitor'
+  | 'market_share'
+  | 'd7_score'
+  | 'competitor_leaderboard'
+  | 'model_benchmark'
+
+function buildVisibilityAskPrompt(
+  target: VisibilityAskTarget,
+  data: ModuleFResult | null | undefined,
+  brandName: string,
+): string {
+  const comparison = data?.compare_visibility_against_competitors
+  const brand = comparison?.brand
+  const competitors = (comparison?.competitors ?? []).slice(0, 10)
+  const d7 = resolveD7Output(data)
+  const recommendations = data?.recommendations ?? data?.metric_recommendations ?? null
+
+  const base = `You are answering from the user's latest Module F "Visibility Comparison" run for brand "${brandName}".
+Answer immediately — do not ask the user for clarification. Focus ONLY on the metric/section named in the title below.
+Use the glossary in PROJECT DATA. Use markdown with short headings and bullets where helpful.`
+
+  switch (target) {
+    case 'visibility_score':
+      return `${base}
+
+**Title: Your Visibility Score**
+
+Explain what this visibility score means and interpret the brand's performance (JSON). Note if the score is healthy and one way to improve.
+${JSON.stringify({
+        brand_name: brand?.name ?? brandName,
+        visibility_score: brand?.visibility_score,
+        benchmark_score: brand?.benchmark_score,
+        recommendation: recommendations?.visibility_score,
+      })}`
+    case 'top_competitor':
+      return `${base}
+
+**Title: Top Competitor Analysis**
+
+Analyze the top competitor's performance compared to the brand (JSON). Why are they leading and what's the gap?
+${JSON.stringify({
+        brand_name: brand?.name ?? brandName,
+        brand_score: brand?.visibility_score,
+        top_competitor: competitors[0] ? {
+          name: competitors[0].name,
+          visibility_score: competitors[0].visibility_score,
+          market_share: competitors[0].market_share_percent,
+        } : null,
+      })}`
+    case 'market_share':
+      return `${base}
+
+**Title: Market Share (SOV)**
+
+Explain the brand's market share / share of voice in this analysis (JSON). How does it compare to the overall competitive landscape?
+${JSON.stringify({
+        brand_share: brand?.market_share_percent,
+        total_competitors: competitors.length,
+        top_3_competitors: competitors.slice(0, 3).map(c => ({ name: c.name, share: c.market_share_percent })),
+        recommendation: recommendations?.market_share,
+      })}`
+    case 'd7_score':
+      return `${base}
+
+**Title: AIVS™ D7 Score**
+
+Explain the AIVS™ D7 (Competitive Citation Gap) score and grade (JSON). What does this delta mean for the brand's visibility?
+${JSON.stringify({
+        d7_score: d7?.d7_score,
+        d7_grade: d7?.d7_grade,
+        d7_delta: d7?.d7_delta,
+        contribution: d7?.aivs_d7_contribution,
+      })}`
+    case 'competitor_leaderboard':
+      return `${base}
+
+**Title: Competitor Leaderboard**
+
+Summarize the competitive landscape from this leaderboard (JSON). Who are the rising threats and where does the brand stand in the rankings?
+${JSON.stringify({
+        brand_rank: brand?.rank_position,
+        total_entities: competitors.length + (brand ? 1 : 0),
+        leaderboard_sample: competitors.slice(0, 5).map(c => ({
+          name: c.name,
+          score: c.visibility_score,
+          share: c.market_share_percent,
+          rank_delta: c.rank_difference_vs_brand,
+        })),
+      })}`
+    case 'model_benchmark':
+      return `${base}
+
+**Title: Model-by-Model Benchmark**
+
+Compare how the brand performs across different AI models (OpenAI, Gemini, Claude) versus competitors (JSON). Are there specific models where the brand is stronger or weaker?
+${JSON.stringify({
+        brand_per_model: brand?.per_model,
+        top_competitor_per_model: competitors[0]?.per_model,
+      })}`
+  }
+}
+
+function MetricAskButton({
+  disabled,
+  onClick,
+}: {
+  disabled?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        e.preventDefault()
+        onClick()
+      }}
+      disabled={disabled}
+      className={cn(
+        'inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10',
+        'px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300',
+        'hover:bg-violet-500/18 transition-colors cursor-pointer shrink-0',
+        'disabled:opacity-40 disabled:cursor-not-allowed',
+      )}
+    >
+      <MessageSquare className="size-3 shrink-0" aria-hidden />
+      Ask AI
+    </button>
+  )
 }
 
 function getVisibilityColor(score: number) {
@@ -196,9 +347,15 @@ function PerModelBreakdown({ perModel, entityName }: { perModel: Record<string, 
 function ModelBenchmarkMatrix({
   brand,
   competitors,
+  jobId,
+  isAskingAI,
+  runMetricAskAi,
 }: {
   brand: ModuleFCompareVisibilityEntityRow | null
   competitors: ModuleFCompareVisibilityEntityRow[]
+  jobId?: string | null
+  isAskingAI: boolean
+  runMetricAskAi: (target: VisibilityAskTarget, displayLabel: string) => void
 }) {
   const entities = useMemo(() => (brand ? [brand, ...competitors] : competitors), [brand, competitors])
 
@@ -221,6 +378,12 @@ function ModelBenchmarkMatrix({
       title="Model-by-Model Benchmark" 
       description="Leader cell per model is highlighted. Each cell shows rank and mentions."
       className="bg-[#111113] overflow-hidden"
+      actionSlot={
+        <MetricAskButton
+          disabled={!jobId || isAskingAI}
+          onClick={() => runMetricAskAi('model_benchmark', 'Model-by-Model Benchmark')}
+        />
+      }
     >
       <div className="overflow-x-auto -mx-5 -mb-5">
         <table className="w-full text-sm text-left">
@@ -311,6 +474,7 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
   const [justCompleted, setJustCompleted] = useState(false)
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | undefined>(undefined)
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
+  const { toast } = useToast()
 
   const [runModuleFAnalysis, { isLoading: isTriggering }] = useRunModuleFAnalysisMutation()
 
@@ -321,6 +485,143 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
   })
 
   const result = polledData?.data ?? null
+  const brandName = result?.compare_visibility_against_competitors?.brand?.name || 'Brand'
+  
+  const [askModuleFAI, { isLoading: isAskingAI, error: askAIError, reset: resetAskAI }] =
+    useAskModuleFAIMutation()
+
+  const [askDialogOpen, setAskDialogOpen] = useState(false)
+  const [chatInput, setChatInput] = useState('')
+  const [chatMessages, setChatMessages] = useState<ChatTurn[]>([])
+  const [chatFocusBadge, setChatFocusBadge] = useState<string | undefined>(undefined)
+  const chatScrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!askDialogOpen || !chatScrollRef.current) return
+    const el = chatScrollRef.current
+    el.scrollTop = el.scrollHeight
+  }, [askDialogOpen, chatMessages, isAskingAI])
+
+  const openAskAiDialog = () => {
+    if (!jobId) {
+      toast({
+        title: 'Job not ready yet',
+        description: 'Run Module F first so Ask AI can use your stored analysis.',
+        variant: 'destructive',
+      })
+      return
+    }
+    resetAskAI()
+    setChatFocusBadge(undefined)
+    setChatMessages([])
+    setChatInput('')
+    setAskDialogOpen(true)
+  }
+
+  const runMetricAskAi = async (target: VisibilityAskTarget, displayLabel: string) => {
+    if (!jobId) {
+      toast({
+        title: 'Job not ready yet',
+        description: 'Run Module F first so Ask AI can use your stored analysis.',
+        variant: 'destructive',
+      })
+      return
+    }
+    resetAskAI()
+    setChatFocusBadge(displayLabel)
+    setChatInput('')
+    const userDisplay = `Explain: ${displayLabel}`
+    const userTurn: ChatTurn = { id: chatMessageId(), role: 'user', content: userDisplay }
+    setChatMessages([userTurn])
+    setAskDialogOpen(true)
+
+    const fullPrompt = buildVisibilityAskPrompt(target, result, brandName)
+
+    try {
+      const res = await askModuleFAI({
+        jobId,
+        body: { question: fullPrompt },
+      }).unwrap()
+      const text = res?.data?.answer?.trim() ?? ''
+      const sources = res?.data?.sources
+      if (!text) {
+        toast({
+          title: 'Empty response',
+          description: 'The model returned no text. Try again.',
+          variant: 'destructive',
+        })
+        setChatMessages([])
+        setAskDialogOpen(false)
+        return
+      }
+      setChatMessages((prev) => [
+        ...prev,
+        { id: chatMessageId(), role: 'assistant', content: text, sources },
+      ])
+    } catch (err: unknown) {
+      const msg =
+        (err as { data?: { message?: string; error?: string } })?.data?.message ||
+        (err as { data?: { error?: string } })?.data?.error ||
+        (err as Error)?.message ||
+        'Please try again.'
+      toast({
+        title: 'Ask AI failed',
+        description: msg,
+        variant: 'destructive',
+      })
+      setChatMessages([])
+      setAskDialogOpen(false)
+    }
+  }
+
+  const submitAskAi = async (e?: FormEvent) => {
+    e?.preventDefault()
+    if (!jobId || !chatInput.trim() || isAskingAI) return
+    const question = chatInput.trim()
+    setChatInput('')
+
+    const priorHistory = chatMessages.slice(-6).map((m) => ({
+      role: m.role,
+      content: m.content,
+    }))
+
+    const userTurn: ChatTurn = { id: chatMessageId(), role: 'user', content: question }
+    setChatMessages((prev) => [...prev, userTurn])
+
+    try {
+      const res = await askModuleFAI({
+        jobId,
+        body: { question, conversationHistory: priorHistory.length ? priorHistory : undefined },
+      }).unwrap()
+      const text = res?.data?.answer?.trim() ?? ''
+      const sources = res?.data?.sources
+      if (!text) {
+        toast({
+          title: 'Empty response',
+          description: 'The model returned no text. Try again or shorten your question.',
+          variant: 'destructive',
+        })
+        return
+      }
+      setChatMessages((prev) => [
+        ...prev,
+        { id: chatMessageId(), role: 'assistant', content: text, sources },
+      ])
+    } catch (err: unknown) {
+      const msg =
+        (err as { data?: { message?: string; error?: string } })?.data?.message ||
+        (err as { data?: { error?: string } })?.data?.error ||
+        (err as Error)?.message ||
+        'Please try again.'
+      toast({
+        title: 'Ask AI failed',
+        description: msg,
+        variant: 'destructive',
+      })
+      setChatMessages((prev) => prev.filter((m) => m.id !== userTurn.id))
+      setChatInput(question)
+    }
+  }
   const updatedAt = result?.updatedAt
   const comparison = result?.compare_visibility_against_competitors
   const recommendations = result?.recommendations ?? result?.metric_recommendations ?? null
@@ -386,6 +687,40 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
 
   return (
     <div className="space-y-6">
+      <Dialog
+        open={askDialogOpen}
+        onOpenChange={(open) => {
+          setAskDialogOpen(open)
+          if (!open) {
+            resetAskAI()
+            setChatMessages([])
+            setChatInput('')
+            setChatFocusBadge(undefined)
+          }
+        }}
+      >
+        <DialogContent
+          className={cn(
+            'w-[calc(100vw-1rem)] max-h-[95vh] gap-0 overflow-visible border-0 bg-transparent p-0 pt-10 shadow-none sm:max-w-3xl lg:max-w-5xl',
+            'data-[state=open]:zoom-in-[0.98]',
+          )}
+          showCloseButton
+        >
+          <ModuleFAskAiChatShell
+            brandName={brandName}
+            focusBadge={chatFocusBadge}
+            chatScrollRef={chatScrollRef}
+            chatMessages={chatMessages}
+            chatInput={chatInput}
+            setChatInput={setChatInput}
+            isAskingAI={isAskingAI}
+            askAIError={askAIError}
+            onSubmit={submitAskAi}
+            onSuggestionClick={(text) => setChatInput(text)}
+          />
+        </DialogContent>
+      </Dialog>
+
       <div className="rounded-3xl border border-zinc-800 bg-[#111113] p-6 sm:p-8 relative overflow-hidden group">
         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 blur-[100px] -mr-32 -mt-32" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/5 blur-[100px] -ml-32 -mb-32" />
@@ -423,26 +758,47 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
             </div>
           </div>
           
-          <div className="flex flex-col items-end gap-3">
-            {updatedAt && (
-              <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-widest bg-zinc-900/50 px-3 py-1.5 rounded-full border border-zinc-800">
-                <Activity className="w-3 h-3 text-emerald-500" />
-                Last Analysis: {new Date(updatedAt).toLocaleTimeString()}
-              </div>
-            )}
-            <button
-              onClick={handleRun}
-              disabled={isRunning}
-              className={cn(
-                'flex items-center gap-2 px-6 py-2.5 rounded-2xl font-bold text-sm transition-all',
-                isRunning 
-                  ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' 
-                  : 'bg-white text-black hover:bg-zinc-200 active:scale-95 shadow-lg shadow-white/5'
+          <div className="flex flex-col items-end gap-3 md:self-start">
+            <div className="flex flex-col items-end gap-3">
+              {updatedAt && (
+                <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-500 uppercase tracking-widest bg-zinc-900/50 px-3 py-1.5 rounded-full border border-zinc-800">
+                  <Activity className="w-3 h-3 text-emerald-500" />
+                  Last Analysis: {new Date(updatedAt).toLocaleTimeString()}
+                </div>
               )}
-            >
-              {isRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-              {isRunning ? 'Analyzing Models...' : 'Re-Run Comparison'}
-            </button>
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  onClick={openAskAiDialog}
+                  disabled={isAskingAI}
+                  className={cn(
+                    'rounded-full border-0 shadow-lg shadow-fuchsia-950/30',
+                    'text-xs font-extrabold uppercase tracking-wider',
+                    'bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300',
+                    'text-black hover:opacity-95 hover:shadow-xl',
+                    'h-auto min-h-[44px] px-5 py-2.5',
+                    'gap-2',
+                  )}
+                >
+                  <MessageSquare className="size-4 shrink-0" strokeWidth={2.25} aria-hidden />
+                  ASK AI
+                </Button>
+
+                <button
+                  onClick={handleRun}
+                  disabled={isRunning}
+                  className={cn(
+                    'flex items-center gap-2 px-6 py-2.5 rounded-2xl font-bold text-sm transition-all',
+                    isRunning 
+                      ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' 
+                      : 'bg-white text-black hover:bg-zinc-200 active:scale-95 shadow-lg shadow-white/5'
+                  )}
+                >
+                  {isRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                  {isRunning ? 'Analyzing Models...' : 'Re-Run Comparison'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -482,6 +838,12 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
             accent={(brand?.visibility_score ?? 0) >= 75 ? 'emerald' : (brand?.visibility_score ?? 0) >= 50 ? 'blue' : (brand?.visibility_score ?? 0) >= 25 ? 'amber' : 'rose'}
             progress={brand?.visibility_score ?? 0}
             description={visibilityRec?.why || 'Overall AI search visibility score'}
+            labelAction={
+              <MetricAskButton
+                disabled={!jobId || isAskingAI}
+                onClick={() => runMetricAskAi('visibility_score', 'Your Visibility')}
+              />
+            }
           />
 
           <StatCard
@@ -492,6 +854,12 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
             accent="violet"
             progress={topCompetitor?.visibility_score ?? 0}
             description="Leading brand in this analysis"
+            labelAction={
+              <MetricAskButton
+                disabled={!jobId || isAskingAI}
+                onClick={() => runMetricAskAi('top_competitor', 'Top Competitor')}
+              />
+            }
           />
 
           <StatCard
@@ -502,6 +870,12 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
             accent="emerald"
             progress={brand?.market_share_percent ?? 0}
             description={shareRec?.why || 'Share of voice in AI results'}
+            labelAction={
+              <MetricAskButton
+                disabled={!jobId || isAskingAI}
+                onClick={() => runMetricAskAi('market_share', 'Market Share')}
+              />
+            }
           />
 
           {d7 && (
@@ -514,6 +888,12 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
               progress={d7.d7_score}
               trend={d7.d7_delta && d7.d7_delta > 0 ? 'up' : d7.d7_delta && d7.d7_delta < 0 ? 'down' : 'neutral'}
               description="AIVS™ Competitive Citation Gap Score (15% contribution)"
+              labelAction={
+                <MetricAskButton
+                  disabled={!jobId || isAskingAI}
+                  onClick={() => runMetricAskAi('d7_score', 'AIVS™ D7 Score')}
+                />
+              }
             />
           )}
         </div>
@@ -531,15 +911,21 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
                 <div className="text-[11px] text-zinc-600">{competitors.length} entities tracked</div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {!flags.leaderboard && (
-                <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/25 text-[10px]">
-                  Upgrade to unlock
+            <div className="flex items-center gap-3">
+              <MetricAskButton
+                disabled={!jobId || isAskingAI}
+                onClick={() => runMetricAskAi('competitor_leaderboard', 'Competitor Leaderboard')}
+              />
+              <div className="flex items-center gap-2">
+                {!flags.leaderboard && (
+                  <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/25 text-[10px]">
+                    Upgrade to unlock
+                  </Badge>
+                )}
+                <Badge className="bg-zinc-900 text-zinc-400 border-zinc-800 text-xs">
+                  {competitors[0]?.display_order != null ? 'Custom order' : 'Sorted by visibility'}
                 </Badge>
-              )}
-              <Badge className="bg-zinc-900 text-zinc-400 border-zinc-800 text-xs">
-                {competitors[0]?.display_order != null ? 'Custom order' : 'Sorted by visibility'}
-              </Badge>
+              </div>
             </div>
           </div>
 
@@ -719,7 +1105,13 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
       )}
 
       {comparison && competitors.length > 0 && flags.model_breakdown_view && (
-        <ModelBenchmarkMatrix brand={brand} competitors={competitors} />
+        <ModelBenchmarkMatrix 
+          brand={brand} 
+          competitors={competitors} 
+          jobId={jobId}
+          isAskingAI={isAskingAI}
+          runMetricAskAi={runMetricAskAi}
+        />
       )}
     </div>
   )

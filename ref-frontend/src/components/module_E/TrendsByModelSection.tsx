@@ -13,12 +13,14 @@ import {
 } from 'lucide-react'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { FieldTooltip } from '@/components/module_A/FieldTooltip'
+import { ModuleEMetricAskButton, useModuleEAskAi } from '@/components/module_E/useModuleEAskAi'
 
 const TRENDS_BY_MODEL_SECTION_DESCRIPTION =
   'Compare citation rate, mention behavior, and sentiment signals model by model to see where your brand performs best. Use these trends to prioritize optimization work for specific models and prompts with the highest impact.'
 
 interface TrendsByModelSectionProps {
   jobId?: string
+  projectId?: string | null
 }
 
 type ModelStats = {
@@ -49,6 +51,7 @@ const MODEL_LABELS: Record<string, string> = {
 
 export default function TrendsByModelSection({
   jobId,
+  projectId,
 }: TrendsByModelSectionProps) {
   const [isPolling, setIsPolling] = useState(false)
   const [pollCount, setPollCount] = useState(0)
@@ -228,6 +231,7 @@ export default function TrendsByModelSection({
   }, [isPolling])
 
   const isRunning = isTriggering || isPolling
+  const { askAiDialog, runMetricAskAi, canAskAi, isAskingAI } = useModuleEAskAi(projectId, jobId)
 
   const handleRunAnalysis = async () => {
     if (!jobId) return
@@ -278,6 +282,7 @@ export default function TrendsByModelSection({
 
   return (
     <div className="space-y-6">
+      {askAiDialog}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-zinc-800/50 border border-zinc-800">
@@ -323,6 +328,24 @@ export default function TrendsByModelSection({
                   <span className="text-sm font-semibold text-foreground">
                     {m.label}
                   </span>
+                <ModuleEMetricAskButton
+                  disabled={!canAskAi || isAskingAI}
+                  onClick={() =>
+                    runMetricAskAi(
+                      `${m.label} model trends`,
+                      `Explain this model's trend performance and suggest what to improve first.\n${JSON.stringify({
+                        model: m.label,
+                        cited_rate: citedRate,
+                        mentioned_rate: mentionedRate,
+                        avg_accuracy: m.avgAccuracy,
+                        avg_sentiment: m.avgSentiment,
+                        avg_rank_when_ranked: m.avgRankWhenRanked,
+                        ranking_coverage: m.rankingCoverage,
+                        sov: m.sov,
+                      })}`,
+                    )
+                  }
+                />
                   {typeof m.sov === 'number' && (
                     <Badge
                       variant="outline"

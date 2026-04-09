@@ -8,12 +8,14 @@ import { TrendingUp, Eye, Brain, AlertCircle, Play, Loader2, RefreshCw, CheckCir
 import { cn } from '@/lib/utils'
 import { useRunSentimentAnalysisMutation, useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
 import { FieldTooltip } from '@/components/module_A/FieldTooltip'
+import { ModuleEMetricAskButton, useModuleEAskAi } from '@/components/module_E/useModuleEAskAi'
 
 const SENTIMENT_VISIBILITY_SECTION_DESCRIPTION =
   'Understand how AI models perceive your brand, how visible it is in discovery prompts, and where sentiment is improving or declining. Use this section to validate brand trust signals and guide messaging updates that increase positive mentions.'
 
 interface SentimentTrackingProps {
   jobId?: string
+  projectId?: string | null
   sentimentData?: {
     brand_name?: string
     industry?: string
@@ -37,7 +39,7 @@ interface SentimentTrackingProps {
   }
 }
 
-export default function SentimentTrackingSection({ jobId, sentimentData: initialSentimentData }: SentimentTrackingProps) {
+export default function SentimentTrackingSection({ jobId, projectId, sentimentData: initialSentimentData }: SentimentTrackingProps) {
   const [isPolling, setIsPolling] = useState(false)
   const [pollCount, setPollCount] = useState(0)
   const [justCompleted, setJustCompleted] = useState(false)
@@ -134,6 +136,7 @@ export default function SentimentTrackingSection({ jobId, sentimentData: initial
   }
 
   const isRunning = isTriggering || isPolling
+  const { askAiDialog, runMetricAskAi, canAskAi, isAskingAI } = useModuleEAskAi(projectId, jobId)
 
   // ─── SVG Trend Chart Helpers ──────────────────────────────────────────────
   type HistoryEntry = { date: string; sentimentScore: number; visibilityScore: number }
@@ -338,6 +341,7 @@ export default function SentimentTrackingSection({ jobId, sentimentData: initial
 
   return (
     <div className="space-y-4">
+      {askAiDialog}
       {/* Section Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -381,6 +385,21 @@ export default function SentimentTrackingSection({ jobId, sentimentData: initial
                 <h4 className="text-sm font-semibold text-foreground">AI Sentiment Score</h4>
                 <p className="text-xs text-muted-foreground">Based on 5 questions × 3 models</p>
               </div>
+              <ModuleEMetricAskButton
+                disabled={!canAskAi || isAskingAI}
+                onClick={() =>
+                  runMetricAskAi(
+                    'AI Sentiment Score',
+                    `Interpret this brand sentiment result and identify top actions to improve it.\n${JSON.stringify({
+                      brand_name,
+                      industry,
+                      service_type,
+                      sentiment_overall: sentiment.overall_score,
+                      sentiment_distribution: sentiment.distribution,
+                    })}`,
+                  )
+                }
+              />
             </div>
 
             <div className="flex items-end gap-2">
@@ -439,6 +458,20 @@ export default function SentimentTrackingSection({ jobId, sentimentData: initial
                 <h4 className="text-sm font-semibold text-foreground">AI Visibility Score</h4>
                 <p className="text-xs text-muted-foreground">Organic brand mentions without prompting</p>
               </div>
+              <ModuleEMetricAskButton
+                disabled={!canAskAi || isAskingAI}
+                onClick={() =>
+                  runMetricAskAi(
+                    'AI Visibility Score',
+                    `Interpret this AI visibility score and explain where visibility is weak by model.\n${JSON.stringify({
+                      brand_name,
+                      overall_visibility_score: visibility.overall_visibility_score,
+                      overall_appearance_rate: visibility.overall_appearance_rate,
+                      by_model: visibility.by_model,
+                    })}`,
+                  )
+                }
+              />
             </div>
 
             <div className="flex items-end gap-2">
