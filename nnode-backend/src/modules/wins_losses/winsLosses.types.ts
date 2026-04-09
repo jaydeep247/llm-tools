@@ -1,33 +1,36 @@
-export type LLMModel = 'ChatGPT' | 'Gemini' | 'Perplexity' | 'Claude';
-export type WinLossCategory = 'Citations' | 'Share of Voice' | 'AIVS Dimensions' | 'Prompt Coverage';
-export type WinLossDirection = 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
-export type ImpactLevel = 'HIGH' | 'MEDIUM' | 'LOW';
+export type WLDirection = 'WIN' | 'LOSS' | 'STABLE';
+export type WLImpact = 'HIGH' | 'MEDIUM' | 'LOW';
+export type WLEffort = 'LOW' | 'MEDIUM' | 'HIGH';
+export type WLCategory = 'Citations' | 'Share of Voice' | 'Visibility' | 'AIVS';
+export type WLModel = 'ChatGPT' | 'Gemini' | 'Perplexity' | 'Claude' | string;
 
-export interface WinLossFix {
+export interface WLFix {
   title: string;
   issue: string;
-  impact: ImpactLevel;
-  effort: ImpactLevel;
+  impact: WLImpact;
+  effort: WLEffort;
   link: string;
 }
 
-export interface WinLossMetric {
+export interface WLMetricRow {
+  /** display name of the metric */
   metric: string;
-  category: WinLossCategory;
-  model: LLMModel | null;
+  category: WLCategory;
+  model: WLModel;
   prev: number;
   current: number;
   delta: number;
-  direction: WinLossDirection;
-  /** Only populated for LOSS rows */
-  fix: WinLossFix | null;
+  direction: WLDirection;
+  /** only on LOSS rows */
+  fix: WLFix | null;
 }
 
 export interface WinsLossesResponse {
-  wins: WinLossMetric[];
-  losses: WinLossMetric[];
-  stable: WinLossMetric[];
+  wins: WLMetricRow[];
+  losses: WLMetricRow[];
+  /** true when at least 2 module_F runs exist on different dates for this project */
+  has_baseline: boolean;
   period_days: number;
-  has_data: boolean;
-  generated_at: string;
+  prior_date: string | null;
+  current_date: string | null;
 }

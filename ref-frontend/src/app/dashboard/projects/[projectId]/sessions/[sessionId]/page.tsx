@@ -22,6 +22,11 @@ import { ExportsTab } from '@/components/session/exports'
 import { GA4TrafficSection } from '@/components/ga4'
 import ExecutiveSnapshotPanel from '@/components/executive-snapshot/ExecutiveSnapshotPanel'
 import WinsLossesPanel from '@/components/wins-losses/WinsLossesPanel'
+import PriorityAlertsPanel from '@/components/alerts/PriorityAlertsPanel'
+import AuditReportsPanel from '@/components/audit-reports/AuditReportsPanel'
+import { ExportApiHub } from '@/components/export-api/ExportApiHub'
+import { AlertBanner } from '@/components/alerts/AlertBanner'
+import { useGetAlertsQuery } from '@/store/api/alertsApi'
 import { BrandOnboardingResultsPanel } from '@/components/brand-onboarding/BrandOnboardingResultsPanel'
 import { useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
 import { useGetQuickStartResultQuery, useResumeCrawlMutation } from '@/store/api/quick_start/quickStartApi'
@@ -83,6 +88,14 @@ export default function SessionDetailPage() {
   // Use the latest primary job (CRAWL or QUICK_START) for pages/links/sitemaps
   const latestJob = sortedJobs.find((j: any) => !isChildJob(j)) || sortedJobs[0] || null
   const jobId = latestJob?.id
+
+  // Fetch active alert count for sidebar badge and dashboard banner
+  const { data: alertsData } = useGetAlertsQuery(jobId!, {
+    skip: !jobId,
+    pollingInterval: 5 * 60 * 1000,
+  })
+  const activeAlertCount = alertsData?.active_count ?? 0
+  const criticalAlerts = alertsData?.alerts?.filter((a) => a.is_active && a.severity === 'critical') ?? []
 
   // Detect Quick Start job — check BOTH type AND jobType so old records
   // (which had type:'CRAWL' but jobType:'MODULE_E_QUICK_START') are found.
@@ -1111,6 +1124,7 @@ export default function SessionDetailPage() {
       sessionUrl={session?.startUrl}
       activeSection={activeSection}
       onSectionChange={handleSectionChange}
+      alertCount={activeAlertCount}
     >
       <div className="p-6 space-y-6 sm:space-y-8 animate-fade-in-hero">
         {/* Executive Snapshot */}
@@ -1131,9 +1145,34 @@ export default function SessionDetailPage() {
           />
         )}
 
+        {/* Priority Alerts */}
+        {activeSection === 'priority-alerts' && (
+          <PriorityAlertsPanel
+            jobId={jobId}
+            onNavigate={handleSectionChange}
+          />
+        )}
+
+        {/* Audit Reports */}
+        {activeSection === 'audit-reports' && (
+          <AuditReportsPanel
+            jobId={jobId}
+            onNavigate={handleSectionChange}
+          />
+        )}
+
+        {/* Export / API */}
+        {activeSection === 'export-api' && (
+          <ExportApiHub />
+        )}
+
         {/* Dashboard Overview — top-level summary of quick_start_runner fields */}
         {activeSection === 'dashboard' && (
           <>
+            {/* Critical alert banner — shown at top of dashboard */}
+            {criticalAlerts.length > 0 && (
+              <AlertBanner alerts={criticalAlerts} onNavigate={handleSectionChange} />
+            )}
             <DashboardOverview
               jobId={jobId}
               url={session?.startUrl || ''}

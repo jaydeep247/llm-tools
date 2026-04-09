@@ -14,6 +14,7 @@ interface SessionLayoutProps {
   sessionUrl?: string
   activeSection?: string
   onSectionChange?: (section: string) => void
+  alertCount?: number
 }
 
 export function SessionLayout({
@@ -24,6 +25,7 @@ export function SessionLayout({
   sessionUrl,
   activeSection,
   onSectionChange,
+  alertCount = 0,
 }: SessionLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
@@ -38,6 +40,7 @@ export function SessionLayout({
           onClose={() => setSidebarOpen(false)}
           collapsed={collapsed}
           onToggleCollapse={() => setCollapsed((c) => !c)}
+          alertCount={alertCount}
         />
 
         {/* Main content area */}

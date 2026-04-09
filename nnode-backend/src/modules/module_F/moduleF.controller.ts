@@ -81,6 +81,7 @@ export class ModuleFController {
       const analysisJob = await this.jobService.createJob(userId, job.sessionId, {
         url,
         jobType: JobType.MODULE_F_COMPETITOR_AI_INTELLIGENCE,
+        bypassCache: true,
         config: {
           sourceJobId: effectiveSourceJobId,
         },

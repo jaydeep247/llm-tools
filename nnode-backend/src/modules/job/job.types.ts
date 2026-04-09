@@ -140,6 +140,12 @@ export interface CreateJobDto {
   cacheSourceJobId?: string | null;
   /** Populated internally by JobService when a URL-cache hit is found. */
   isCacheHit?: boolean;
+  /**
+   * When true, skip the URL-level result cache entirely and always dispatch a
+   * real job to the queue.  Use for explicit "run again" actions where fresh
+   * data is required (e.g. wins/losses comparison baseline).
+   */
+  bypassCache?: boolean;
 }
 
 /**

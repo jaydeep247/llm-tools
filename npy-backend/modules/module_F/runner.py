@@ -642,13 +642,28 @@ async def run_module_f_competitor_ai_intelligence(
     url: str,
     session_id: Optional[str] = None,
     project_id: Optional[str] = None,
+    source_job_id: Optional[str] = None,
 ) -> Dict[str, Any]:
+    """
+    job_id      — the NEW job being processed.  Used as the key for ALL writes
+                  (cbm_citation_snapshots, module_f upsert, alerts, etc.) so that
+                  each invocation produces a distinct set of documents enabling
+                  job-to-job comparison in wins/losses.
+
+    source_job_id — the upstream job whose module_e / context data we read from
+                    (e.g. the original crawl or the previous module_F run that
+                    was used as a cache source).  When absent, falls back to job_id.
+    """
 
     mongo_manager.connect()
 
+    # lookup_id is used for READ-only operations: resolving session/project from
+    # the jobs collection and finding the module_e document with competitor context.
+    lookup_id = source_job_id or job_id
+
     if not session_id or not project_id:
         job_doc = mongo_manager.db.jobs.find_one(
-            {"$or": [{"id": job_id}, {"jobId": job_id}]},
+            {"$or": [{"id": lookup_id}, {"jobId": lookup_id}]},
             {"sessionId": 1, "session_id": 1, "projectId": 1, "project_id": 1},
         ) or {}
         session_id = session_id or job_doc.get("sessionId") or job_doc.get("session_id")
@@ -659,13 +674,16 @@ async def run_module_f_competitor_ai_intelligence(
 
     plan = _extract_plan_from_project(project_id)
 
-    module_e_match = [{"jobId": job_id}]
+    # Look up module_e using the source/lookup job id (the upstream context job).
+    # The session fallback ensures we always find a module_e doc even when
+    # lookup_id is a crawl job that has no direct module_e entry.
+    module_e_match = [{"jobId": lookup_id}]
     if session_id:
         module_e_match.append({"sessionId": session_id})
 
     module_e_pipeline = [
         {"$match": {"$or": module_e_match}},
-        {"$addFields": {"_p": {"$cond": [{"$eq": ["$jobId", job_id]}, 0, 1]}}},
+        {"$addFields": {"_p": {"$cond": [{"$eq": ["$jobId", lookup_id]}, 0, 1]}}},
         {"$sort": {"_p": 1, "createdAt": -1}},
         {"$limit": 1},
         {"$project": {"_p": 0}},

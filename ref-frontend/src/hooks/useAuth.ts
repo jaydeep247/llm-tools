@@ -1,35 +1,15 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useGetMeQuery, useRefreshMutation } from '@/store/api/authApi';
+import { useGetMeQuery } from '@/store/api/authApi';
 
 export const useAuth = () => {
   const { data, isLoading, error, refetch } = useGetMeQuery(undefined, {
-    // Poll every 5 minutes to keep profile data fresh
-    pollingInterval: 5 * 60 * 1000,
-    // false: all components sharing this hook read from the single cached result.
-    // refetchOnMountOrArgChange:true would fire a new HTTP request for every
-    // component that mounts (layout, navbar, page, etc.) — bypassing RTK Query
-    // deduplication. The pollingInterval + token-refresh interval handle freshness.
+    // Fetch once on mount. Token expiry is handled reactively by the 401
+    // interceptor in baseApi (re-auth → retry), not by polling timers.
     refetchOnMountOrArgChange: false,
     refetchOnReconnect: true,
-    // false: tab-focus events were causing a burst of /auth/me requests every
-    // time the window regained focus. Freshness is covered by pollingInterval.
     refetchOnFocus: false,
   });
-
-  const [refreshToken] = useRefreshMutation();
-
-  useEffect(() => {
-    if (data?.user) {
-      // Set up automatic silent refresh every 14 minutes
-      // (assuming 15m or longer token expiry)
-      const interval = setInterval(() => {
-        refreshToken().catch(() => {});
-      }, 14 * 60 * 1000);
-      return () => clearInterval(interval);
-    }
-  }, [data?.user, refreshToken]);
 
   const refreshAuth = async () => {
     try {

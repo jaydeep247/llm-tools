@@ -1,381 +1,255 @@
-import { getMongoDb } from '../../config/mongo';
-import { JobRepository } from '../job/job.repository';
+import { connectToMongo } from '../../config/mongo';
 import { JobService } from '../job/job.service';
-import { JobStatus } from '../job/job.types';
 import { logger } from '../../shared/logger/logger';
 import type {
   WinsLossesResponse,
-  WinLossMetric,
-  WinLossCategory,
-  LLMModel,
-  ImpactLevel,
-  WinLossFix,
+  WLMetricRow,
+  WLFix,
+  WLCategory,
+  WLModel,
 } from './winsLosses.types';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Canonical LLM display names
-// ─────────────────────────────────────────────────────────────────────────────
-
-const MODEL_DISPLAY: Record<string, LLMModel> = {
-  openai: 'ChatGPT',
-  gpt: 'ChatGPT',
-  'gpt-4': 'ChatGPT',
-  'gpt-4o': 'ChatGPT',
-  gemini: 'Gemini',
-  'gemini-pro': 'Gemini',
-  'gemini-2.0-flash': 'Gemini',
-  claude: 'Claude',
-  'claude-3': 'Claude',
-  perplexity: 'Perplexity',
-};
-
-function toDisplayModel(raw: string): LLMModel | null {
-  const key = (raw ?? '').toLowerCase().split('-')[0];
-  return MODEL_DISPLAY[raw.toLowerCase()] ?? MODEL_DISPLAY[key] ?? null;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Category → sidebar tab mapping
-// ─────────────────────────────────────────────────────────────────────────────
-
-const CATEGORY_LINK: Record<WinLossCategory, string> = {
+// ---------------------------------------------------------------------------
+// Module-to-sidebar-link map so fix chips navigate to the right section
+// ---------------------------------------------------------------------------
+const CATEGORY_LINK: Record<string, string> = {
   Citations: 'prompt-opportunities',
   'Share of Voice': 'share-of-voice',
-  'AIVS Dimensions': 'ai-visibility-scorecards',
-  'Prompt Coverage': 'prompt-difficulty',
+  Visibility: 'keyword-intelligence',
+  AIVS: 'ai-visibility-scorecards',
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Snapshot data shape for a single job
-// ─────────────────────────────────────────────────────────────────────────────
-
-interface JobSnapshot {
-  /** Citations per model: { ChatGPT: count, Gemini: count, … } */
-  citations: Record<string, number>;
-  /** SoV per model from module_e.ai_share_of_voice.by_model */
-  sov: Record<string, number>;
-  /** Visibility score per model from module_e.sentiment_tracking.visibility.by_model */
-  visibility: Record<string, number>;
-  /** AIVS overall score from module_c */
-  aivs: number | null;
-  /** Fixes available (sourced from module_e recommendations) */
-  fixes: {
-    citations?: ModuleEFixBlock | null;
-    sov?: ModuleEFixBlock | null;
-    prompts?: ModuleEFixBlock | null;
+// ---------------------------------------------------------------------------
+// Helper: build a WLFix from the first recommendation in a module_e block
+// ---------------------------------------------------------------------------
+function buildFix(
+  block: { recommendations?: Array<{ title: string; issue: string; impact: string; [k: string]: unknown }> } | null | undefined,
+  category: string,
+): WLFix | null {
+  const rec = block?.recommendations?.[0];
+  if (!rec) return null;
+  const impact = /high/i.test(rec.impact) ? 'HIGH' : /medium/i.test(rec.impact) ? 'MEDIUM' : 'LOW';
+  const effort: WLFix['effort'] = /low/i.test(String(rec.effort ?? '')) ? 'LOW' : 'MEDIUM';
+  return {
+    title: rec.title || 'Review and update content strategy',
+    issue: rec.issue || '',
+    impact,
+    effort,
+    link: CATEGORY_LINK[category] ?? 'recommendations',
   };
 }
 
-interface ModuleEFixBlock {
-  recommendations: Array<{
-    title: string;
-    issue: string;
-    severity: string;
-    category: string;
-  }>;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Fetch a single job's snapshot data
-// ─────────────────────────────────────────────────────────────────────────────
-
-async function fetchJobSnapshot(
-  db: ReturnType<typeof getMongoDb>,
-  jobId: string,
-  _sessionId: string,
-): Promise<JobSnapshot> {
-  const [citationRows, moduleEDoc, moduleCDoc] = await Promise.all([
-    // Citations: count of citationPresent=true per model for client entity
-    db
-      .collection('cbm_citation_snapshots')
-      .aggregate([
-        {
-          $match: {
-            jobId,
-            entityType: 'client',
-          },
-        },
-        {
-          $group: {
-            _id: '$llmModel',
-            citation_count: {
-              $sum: { $cond: [{ $eq: ['$citationPresent', true] }, 1, 0] },
-            },
-          },
-        },
-      ])
-      .toArray(),
-
-    // Module E: SoV, visibility, fixes
-    db
-      .collection('module_e')
-      .findOne(
-        { jobId },
-        {
-          projection: {
-            ai_share_of_voice: 1,
-            sentiment_tracking: 1,
-            citations_recommendations: 1,
-            sov_recommendations: 1,
-            tracked_prompts_recommendations: 1,
-          },
-        },
-      ),
-
-    // Module C: AIVS overall score
-    db
-      .collection('module_c')
-      .findOne({ jobId }, { projection: { overall_score: 1 } } as any),
-  ]);
-
-  // --- Citations ---
-  const citations: Record<string, number> = {};
-  for (const row of citationRows as any[]) {
-    const model = toDisplayModel(row._id ?? '');
-    if (model) citations[model] = (citations[model] ?? 0) + (row.citation_count ?? 0);
-  }
-
-  // --- SoV per model ---
-  const sov: Record<string, number> = {};
-  const sovByModel = (moduleEDoc as any)?.ai_share_of_voice?.by_model ?? {};
-  for (const [rawModel, data] of Object.entries(sovByModel)) {
-    const model = toDisplayModel(rawModel);
-    if (model && typeof (data as any)?.sov === 'number') {
-      sov[model] = parseFloat(((data as any).sov as number).toFixed(1));
-    }
-  }
-
-  // --- Visibility per model from sentiment_tracking ---
-  const visibility: Record<string, number> = {};
-  const visByModel = (moduleEDoc as any)?.sentiment_tracking?.visibility?.by_model ?? {};
-  for (const [rawModel, data] of Object.entries(visByModel)) {
-    const model = toDisplayModel(rawModel);
-    if (model && typeof (data as any)?.visibility_score === 'number') {
-      visibility[model] = parseFloat(((data as any).visibility_score as number).toFixed(1));
-    }
-  }
-
-  // --- AIVS ---
-  const aivs =
-    typeof (moduleCDoc as any)?.overall_score === 'number'
-      ? Math.round((moduleCDoc as any).overall_score)
-      : null;
-
-  // --- Fixes ---
-  const fixes = {
-    citations: ((moduleEDoc as any)?.citations_recommendations as ModuleEFixBlock | null) ?? null,
-    sov: ((moduleEDoc as any)?.sov_recommendations as ModuleEFixBlock | null) ?? null,
-    prompts:
-      ((moduleEDoc as any)?.tracked_prompts_recommendations as ModuleEFixBlock | null) ?? null,
-  };
-
-  return { citations, sov, visibility, aivs, fixes };
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Build a WinLossMetric from two numeric values
-// ─────────────────────────────────────────────────────────────────────────────
-
-function buildMetric(
+// ---------------------------------------------------------------------------
+// Build a WLMetricRow
+// ---------------------------------------------------------------------------
+function makeRow(
   metric: string,
-  category: WinLossCategory,
-  model: LLMModel | null,
+  category: WLCategory,
+  model: WLModel,
   prev: number,
   current: number,
-  fix: WinLossFix | null,
-): WinLossMetric {
-  const delta = parseFloat((current - prev).toFixed(1));
-  const direction =
-    delta > 0 ? 'POSITIVE' : delta < 0 ? 'NEGATIVE' : 'NEUTRAL';
-  return { metric, category, model, prev, current, delta, direction, fix };
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Extract best fix from a recommendation block
-// ─────────────────────────────────────────────────────────────────────────────
-
-function extractFix(
-  block: ModuleEFixBlock | null | undefined,
-  fallbackLink: string,
-): WinLossFix | null {
-  if (!block?.recommendations?.length) return null;
-  const best = block.recommendations[0];
-  const impact: ImpactLevel =
-    best.severity === 'critical' ? 'HIGH' : best.severity === 'warning' ? 'MEDIUM' : 'LOW';
+  fix: WLFix | null,
+): WLMetricRow {
+  const delta = parseFloat((current - prev).toFixed(2));
+  const direction = delta > 0 ? 'WIN' : delta < 0 ? 'LOSS' : 'STABLE';
   return {
-    title: best.title ?? 'Review this metric',
-    issue: best.issue ?? '',
-    impact,
-    effort: 'MEDIUM',
-    link: fallbackLink,
+    metric,
+    category,
+    model,
+    prev: parseFloat(prev.toFixed(2)),
+    current: parseFloat(current.toFixed(2)),
+    delta,
+    direction,
+    fix: direction === 'LOSS' ? fix : null,
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------------------
 // Main service
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ---------------------------------------------------------------------------
 export class WinsLossesService {
-  private jobRepository = new JobRepository();
-  private jobService: JobService;
+  private jobService = new JobService();
 
-  constructor() {
-    this.jobService = new JobService();
-  }
-
-  async getWinsLosses(
-    userId: string,
-    jobId: string,
-  ): Promise<WinsLossesResponse> {
+  async getWinsLosses(jobId: string, userId: string, _periodDays: number): Promise<WinsLossesResponse> {
+    // 1. Resolve job → projectId
     const job = await this.jobService.getJobById(userId, jobId);
-    const effectiveId = await this.jobRepository.resolveEffectiveJobId(jobId);
-    const db = getMongoDb();
-
-    // --- Fetch current snapshot ---
-    const current = await fetchJobSnapshot(db, effectiveId, job.sessionId ?? '');
-
-    // --- Find previous completed job for same session ---
-    let prev: JobSnapshot | null = null;
-    try {
-      const previousJob = await db.collection('jobs').findOne(
-        {
-          projectId: job.projectId,
-          id: { $ne: effectiveId },
-          status: JobStatus.COMPLETED,
-          createdAt: { $lt: job.createdAt },
-        },
-        { sort: { createdAt: -1 } },
-      );
-
-      if (previousJob) {
-        const prevEffective = previousJob.cacheSourceJobId
-          ? String(previousJob.cacheSourceJobId)
-          : String((previousJob as any).id);
-        prev = await fetchJobSnapshot(db, prevEffective, String((previousJob as any).sessionId ?? ''));
-      }
-    } catch (err) {
-      logger.warn('[WINS_LOSSES] Could not fetch previous job snapshot:', err);
+    const projectId: string = (job as any).projectId;
+    if (!projectId) {
+      return { wins: [], losses: [], has_baseline: false, period_days: _periodDays, prior_date: null, current_date: null };
     }
 
-    const hasData =
-      Object.keys(current.citations).length > 0 ||
-      Object.keys(current.sov).length > 0 ||
-      current.aivs !== null;
+    const db = await connectToMongo();
 
-    if (!prev || !hasData) {
+    // -----------------------------------------------------------------------
+    // 2. Find the two most-recent distinct MODULE_F jobIds for this project
+    //    that have cbm_citation_snapshots with entityType='client'.
+    //
+    //    Key insight: the upsert key in runner.py is
+    //      { projectId, snapshotDate, entityName, llmModel, jobId }
+    //    So two runs on the SAME calendar day produce two separate documents
+    //    (different jobId). Grouping by jobId works even within 30 seconds.
+    // -----------------------------------------------------------------------
+    const jobGroups = await db
+      .collection('cbm_citation_snapshots')
+      .aggregate([
+        { $match: { projectId, entityType: 'client' } },
+        {
+          $group: {
+            _id: '$jobId',
+            latestCreatedAt: { $max: '$createdAt' },
+            snapshotDate: { $first: '$snapshotDate' },
+          },
+        },
+        { $sort: { latestCreatedAt: -1 } },
+        { $limit: 2 },
+      ])
+      .toArray();
+
+    if (jobGroups.length < 2) {
       return {
         wins: [],
         losses: [],
-        stable: [],
-        period_days: 7,
-        has_data: hasData,
-        generated_at: new Date().toISOString(),
+        has_baseline: false,
+        period_days: _periodDays,
+        current_date: jobGroups[0]?.snapshotDate ?? null,
+        prior_date: null,
       };
     }
 
-    // --- Assemble all metrics and compute deltas ---
-    const all: WinLossMetric[] = [];
+    const currentJobId = jobGroups[0]._id as string;
+    const priorJobId   = jobGroups[1]._id as string;
+    const currentDate  = (jobGroups[0].snapshotDate as string) ?? null;
+    const priorDate    = (jobGroups[1].snapshotDate as string) ?? null;
 
-    // 1. Citations per model
-    const allCitationModels = new Set([
-      ...Object.keys(current.citations),
-      ...Object.keys(prev.citations),
-    ]);
-    for (const model of allCitationModels) {
-      const c = current.citations[model] ?? 0;
-      const p = prev.citations[model] ?? 0;
-      all.push(
-        buildMetric(
-          `${model} Citations`,
-          'Citations',
-          model as LLMModel,
-          p,
-          c,
-          extractFix(current.fixes.citations, CATEGORY_LINK.Citations),
-        ),
-      );
-    }
-
-    // 2. Share of Voice per model
-    const allSovModels = new Set([
-      ...Object.keys(current.sov),
-      ...Object.keys(prev.sov),
-    ]);
-    for (const model of allSovModels) {
-      const c = current.sov[model] ?? 0;
-      const p = prev.sov[model] ?? 0;
-      all.push(
-        buildMetric(
-          `${model} Share of Voice`,
-          'Share of Voice',
-          model as LLMModel,
-          p,
-          c,
-          extractFix(current.fixes.sov, CATEGORY_LINK['Share of Voice']),
-        ),
-      );
-    }
-
-    // 3. Visibility per model (Prompt Coverage)
-    const allVisModels = new Set([
-      ...Object.keys(current.visibility),
-      ...Object.keys(prev.visibility),
-    ]);
-    for (const model of allVisModels) {
-      const c = current.visibility[model] ?? 0;
-      const p = prev.visibility[model] ?? 0;
-      all.push(
-        buildMetric(
-          `${model} Visibility`,
-          'Prompt Coverage',
-          model as LLMModel,
-          p,
-          c,
-          extractFix(current.fixes.prompts, CATEGORY_LINK['Prompt Coverage']),
-        ),
-      );
-    }
-
-    // 4. Overall AIVS
-    if (current.aivs !== null && prev.aivs !== null) {
-      all.push(
-        buildMetric(
-          'AI Visibility Score',
-          'AIVS Dimensions',
-          null,
-          prev.aivs,
-          current.aivs,
-          {
-            title: 'Improve AI Visibility Score',
-            issue: 'Your AIVS score declined. Review top priority actions.',
-            impact: 'HIGH',
-            effort: 'MEDIUM',
-            link: CATEGORY_LINK['AIVS Dimensions'],
+    // 3. Fetch all client snapshots for both jobs in one query
+    const snapshots = await db
+      .collection('cbm_citation_snapshots')
+      .find(
+        { projectId, entityType: 'client', jobId: { $in: [currentJobId, priorJobId] } },
+        {
+          projection: {
+            jobId: 1,
+            llmModel: 1,
+            citationPresent: 1,
+            shareOfVoice: 1,
+            visibilityScore: 1,
           },
-        ),
-      );
+        },
+      )
+      .toArray();
+
+    // 4. Aggregate per (jobId, model)
+    type ModelAgg = { citations: number; sovSum: number; visSum: number; count: number };
+    const aggByJob: Record<string, Record<string, ModelAgg>> = {};
+
+    for (const s of snapshots) {
+      const jId  = s.jobId as string;
+      const m    = (s.llmModel as string) || 'Unknown';
+      if (!aggByJob[jId]) aggByJob[jId] = {};
+      if (!aggByJob[jId][m]) aggByJob[jId][m] = { citations: 0, sovSum: 0, visSum: 0, count: 0 };
+      if (s.citationPresent) aggByJob[jId][m].citations += 1;
+      if (typeof s.shareOfVoice   === 'number') aggByJob[jId][m].sovSum += s.shareOfVoice;
+      if (typeof s.visibilityScore === 'number') aggByJob[jId][m].visSum += s.visibilityScore;
+      aggByJob[jId][m].count += 1;
     }
 
-    // --- Classify ---
-    const wins = all
-      .filter(m => m.direction === 'POSITIVE')
-      .sort((a, b) => b.delta - a.delta);
-    const losses = all
-      .filter(m => m.direction === 'NEGATIVE')
-      .sort((a, b) => a.delta - b.delta); // worst first
-    const stable = all.filter(m => m.direction === 'NEUTRAL');
+    const cur = aggByJob[currentJobId] ?? {};
+    const pri = aggByJob[priorJobId]   ?? {};
 
-    // Strip fix from wins/stable (only LOSS rows carry fixes)
-    wins.forEach(m => { m.fix = null; });
-    stable.forEach(m => { m.fix = null; });
+    // 5. Fetch module_e doc for the current job (fix recommendations)
+    const moduleEDoc = await db.collection('module_e').findOne(
+      { jobId: currentJobId },
+      { projection: { citations_recommendations: 1, sov_recommendations: 1, tracked_prompts_recommendations: 1 } },
+    );
+
+    // 6. Fetch AIVS (module_c overall_score) for both jobs (best-effort)
+    const [curAivs, priAivs] = await Promise.all([
+      db.collection('module_c').findOne(
+        { jobId: currentJobId },
+        { projection: { overall_score: 1 } },
+      ),
+      db.collection('module_c').findOne(
+        { jobId: priorJobId },
+        { projection: { overall_score: 1 } },
+      ),
+    ]);
+
+    // 7. Build metric rows across all models seen in either run
+    const rows: WLMetricRow[] = [];
+    const allModels = new Set([...Object.keys(cur), ...Object.keys(pri)]);
+
+    for (const model of allModels) {
+      const c = cur[model];
+      const p = pri[model];
+      if (!c || !p) continue; // need both periods to compare
+
+      // Citations count
+      rows.push(makeRow(
+        `${model} Citations`,
+        'Citations',
+        model as WLModel,
+        p.citations,
+        c.citations,
+        buildFix(moduleEDoc?.citations_recommendations, 'Citations'),
+      ));
+
+      // Share of Voice (average across prompts)
+      const cSov = c.count > 0 ? c.sovSum / c.count : 0;
+      const pSov = p.count > 0 ? p.sovSum / p.count : 0;
+      rows.push(makeRow(
+        `${model} Share of Voice`,
+        'Share of Voice',
+        model as WLModel,
+        pSov,
+        cSov,
+        buildFix(moduleEDoc?.sov_recommendations, 'Share of Voice'),
+      ));
+
+      // Visibility Score (average)
+      const cVis = c.count > 0 ? c.visSum / c.count : 0;
+      const pVis = p.count > 0 ? p.visSum / p.count : 0;
+      rows.push(makeRow(
+        `${model} Visibility Score`,
+        'Visibility',
+        model as WLModel,
+        pVis,
+        cVis,
+        buildFix(moduleEDoc?.citations_recommendations, 'Visibility'),
+      ));
+    }
+
+    // AIVS (model-agnostic overall score from module_c)
+    const curAivsScore = typeof curAivs?.overall_score === 'number' ? curAivs.overall_score : null;
+    const priAivsScore = typeof priAivs?.overall_score === 'number' ? priAivs.overall_score : null;
+    if (curAivsScore !== null && priAivsScore !== null) {
+      rows.push(makeRow(
+        'AI Visibility Score (AIVS)',
+        'AIVS',
+        'Overall',
+        priAivsScore,
+        curAivsScore,
+        buildFix(moduleEDoc?.citations_recommendations, 'AIVS'),
+      ));
+    }
+
+    // 8. Split WIN vs LOSS, exclude STABLE
+    const wins   = rows.filter((r) => r.direction === 'WIN').sort((a, b) => b.delta - a.delta);
+    const losses = rows.filter((r) => r.direction === 'LOSS').sort((a, b) => a.delta - b.delta);
+
+    logger.info(
+      `[WINS_LOSSES] job=${jobId} project=${projectId} ` +
+      `curJobId=${currentJobId} priorJobId=${priorJobId} ` +
+      `wins=${wins.length} losses=${losses.length}`,
+    );
 
     return {
       wins,
       losses,
-      stable,
-      period_days: 7,
-      has_data: hasData,
-      generated_at: new Date().toISOString(),
+      has_baseline: true,
+      period_days: _periodDays,
+      current_date: currentDate,
+      prior_date: priorDate,
     };
   }
 }
+

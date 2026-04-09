@@ -18,6 +18,9 @@ import fieldsRoutes from './modules/fields/fields.routes';
 import ga4Routes from './modules/ga4/ga4.routes';
 import executiveSnapshotRoutes from './modules/executive_snapshot/executiveSnapshot.routes';
 import winsLossesRoutes from './modules/wins_losses/winsLosses.routes';
+import alertsRoutes from './modules/alerts/alerts.routes';
+import auditReportsRoutes from './modules/audit_reports/audit_reports.routes';
+import exportRoutes from './modules/export/export.routes';
 
 const router = Router();
 
@@ -47,6 +50,8 @@ router.use('/', fieldsRoutes);
 router.use('/', ga4Routes);
 router.use('/', executiveSnapshotRoutes);
 router.use('/', winsLossesRoutes);
+router.use('/', alertsRoutes);
+router.use('/', auditReportsRoutes);
+router.use('/', exportRoutes);
 
 export default router;
-

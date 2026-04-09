@@ -1,42 +1,47 @@
 import { baseApi } from './baseApi';
 
-export type LLMModel = 'ChatGPT' | 'Gemini' | 'Perplexity' | 'Claude';
-export type WinLossCategory = 'Citations' | 'Share of Voice' | 'AIVS Dimensions' | 'Prompt Coverage';
-export type WinLossDirection = 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
-export type ImpactLevel = 'HIGH' | 'MEDIUM' | 'LOW';
+export type WLDirection = 'WIN' | 'LOSS' | 'STABLE';
+export type WLImpact = 'HIGH' | 'MEDIUM' | 'LOW';
+export type WLEffort = 'LOW' | 'MEDIUM' | 'HIGH';
+export type WLCategory = 'Citations' | 'Share of Voice' | 'Visibility' | 'AIVS';
 
-export interface WinLossFix {
+export interface WLFix {
   title: string;
   issue: string;
-  impact: ImpactLevel;
-  effort: ImpactLevel;
+  impact: WLImpact;
+  effort: WLEffort;
   link: string;
 }
 
-export interface WinLossMetric {
+export interface WLMetricRow {
   metric: string;
-  category: WinLossCategory;
-  model: LLMModel | null;
+  category: WLCategory;
+  model: string;
   prev: number;
   current: number;
   delta: number;
-  direction: WinLossDirection;
-  fix: WinLossFix | null;
+  direction: WLDirection;
+  fix: WLFix | null;
 }
 
 export interface WinsLossesData {
-  wins: WinLossMetric[];
-  losses: WinLossMetric[];
-  stable: WinLossMetric[];
+  wins: WLMetricRow[];
+  losses: WLMetricRow[];
+  has_baseline: boolean;
   period_days: number;
-  has_data: boolean;
-  generated_at: string;
+  prior_date: string | null;
+  current_date: string | null;
+}
+
+export interface WinsLossesQueryArgs {
+  jobId: string;
+  period: '7d' | '30d';
 }
 
 export const winsLossesApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getWinsLosses: builder.query<WinsLossesData, string>({
-      query: (jobId) => `/jobs/${jobId}/wins-losses`,
+    getWinsLosses: builder.query<WinsLossesData, WinsLossesQueryArgs>({
+      query: ({ jobId, period }) => `/jobs/${jobId}/wins-losses?period=${period}`,
       transformResponse: (response: { data: WinsLossesData }) => response.data,
     }),
   }),

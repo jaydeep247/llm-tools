@@ -14,6 +14,10 @@ import { AICitationRanking, SentimentTracking, CompetitorMentionsSection, ShareO
 import { ExportsTab } from '@/components/session/exports'
 import { GA4TrafficSection } from '@/components/ga4'
 import ExecutiveSnapshotPanel from '@/components/executive-snapshot/ExecutiveSnapshotPanel'
+import PriorityAlertsPanel from '@/components/alerts/PriorityAlertsPanel'
+import { AlertBanner } from '@/components/alerts/AlertBanner'
+import AuditReportsPanel from '@/components/audit-reports/AuditReportsPanel'
+import { useGetAlertsQuery } from '@/store/api/alertsApi'
 // import { useGetDataListQuery, useCheckLinksMutation, useGetLinkStatsQuery, useLazyGetPageLinksQuery } from '@/store/api/module_A/dataApi'
 import { useGetProjectQuery } from '@/store/api/projectApi'
 import { useGetSessionQuery } from '@/store/api/sessionApi'
@@ -97,6 +101,14 @@ export default function SessionDetailClient() {
   // Prevent loading results if we are still checking status
   // We removed the 'shouldRedirect' logic that was causing issues
   const skipResults = !jobId
+
+  // Fetch alert count for sidebar badge and dashboard banner (lightweight, polled)
+  const { data: alertsData } = useGetAlertsQuery(jobId!, {
+    skip: !jobId,
+    pollingInterval: 5 * 60 * 1000,
+  })
+  const activeAlertCount = alertsData?.active_count ?? 0
+  const criticalAlerts = alertsData?.alerts.filter((a) => a.is_active && a.severity === 'critical') ?? []
 
   // Determine if the job itself is actively running — use the job's own status (RUNNING/PENDING)
   // NOT the session status, as they are independent entities
@@ -1057,6 +1069,7 @@ export default function SessionDetailClient() {
       sessionUrl={session?.startUrl}
       activeSection={activeSection}
       onSectionChange={handleSectionChange}
+      alertCount={activeAlertCount}
     >
       <div className="p-6 space-y-6 sm:space-y-8 animate-fade-in-hero">
         {/* ── Executive Snapshot ────────────────────────────────────────────────── */}
@@ -1069,9 +1082,30 @@ export default function SessionDetailClient() {
           />
         )}
 
+        {/* ── Priority Alerts ───────────────────────────────────────────────────── */}
+        {activeSection === 'priority-alerts' && (
+          <PriorityAlertsPanel
+            jobId={jobId}
+            onNavigate={handleSectionChange}
+          />
+        )}
+
+        {/* ── Audit Reports ─────────────────────────────────────────────────────── */}
+        {activeSection === 'audit-reports' && (
+          <AuditReportsPanel
+            jobId={jobId}
+            onNavigate={handleSectionChange}
+          />
+        )}
+
         {/* Dashboard Overview — top-level summary of quick_start_runner fields */}
         {activeSection === 'dashboard' && (
           <>
+            {/* ── Critical Alert Banner ─────────────────────────────────────────── */}
+            {criticalAlerts.length > 0 && (
+              <AlertBanner alerts={criticalAlerts} onNavigate={handleSectionChange} />
+            )}
+
             {/* ── Live Crawl Activity Ticker ────────────────────────────────────── */}
             {/* Show whenever there is a crawlJobId — crawl status is read from  */}
             {/* the Redis snapshot independently of other job types.              */}
@@ -1634,7 +1668,7 @@ export default function SessionDetailClient() {
         )}
 
         {/* Placeholder for other tabs */}
-        {activeSection !== 'crawler' && activeSection !== 'crawled-data' && activeSection !== 'page-metrics' && activeSection !== 'text-quality' && activeSection !== 'wordcount' && activeSection !== 'broken-links' && activeSection !== 'audit-checker' && activeSection !== 'link-analysis' && activeSection !== 'performance' && activeSection !== 'ga4-traffic' && activeSection !== 'recommendations' && activeSection !== 'schema-generator' && activeSection !== 'ai-intelligence' && activeSection !== 'module-e' && activeSection !== 'content-metrics' && activeSection !== 'discover-prompts' && activeSection !== 'topic-clusters' && activeSection !== 'content-matrix' && activeSection !== 'keyword-intelligence' && activeSection !== 'exports' && activeSection !== 'serp-analyzer' && (
+        {activeSection !== 'crawler' && activeSection !== 'crawled-data' && activeSection !== 'page-metrics' && activeSection !== 'text-quality' && activeSection !== 'wordcount' && activeSection !== 'broken-links' && activeSection !== 'audit-checker' && activeSection !== 'link-analysis' && activeSection !== 'performance' && activeSection !== 'ga4-traffic' && activeSection !== 'recommendations' && activeSection !== 'schema-generator' && activeSection !== 'ai-intelligence' && activeSection !== 'module-e' && activeSection !== 'content-metrics' && activeSection !== 'discover-prompts' && activeSection !== 'topic-clusters' && activeSection !== 'content-matrix' && activeSection !== 'keyword-intelligence' && activeSection !== 'exports' && activeSection !== 'serp-analyzer' && activeSection !== 'audit-reports' && activeSection !== 'priority-alerts' && activeSection !== 'executive-snapshot' && activeSection !== 'wins-losses' && activeSection !== 'dashboard' && (
           <div className="rounded-2xl p-8 border border-zinc-800 bg-[#111113] text-center">
             <h2 className="text-xl font-semibold text-white mb-2">
               {activeSection.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}

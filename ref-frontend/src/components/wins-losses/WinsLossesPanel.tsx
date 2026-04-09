@@ -5,479 +5,436 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
+  Trophy,
+  AlertTriangle,
   ChevronDown,
   ChevronRight,
+  ArrowRight,
   RefreshCw,
-  AlertCircle,
-  Trophy,
-  Zap,
-  Activity,
-  Filter,
+  Loader2,
+  Info,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useGetWinsLossesQuery } from '@/store/api/winsLossesApi'
-import type {
-  WinLossMetric,
-  WinLossCategory,
-  LLMModel,
-  ImpactLevel,
-} from '@/store/api/winsLossesApi'
+import type { WLMetricRow, WLCategory, WLFix } from '@/store/api/winsLossesApi'
+import { useRunModuleFAnalysisMutation } from '@/store/api/module_F/moduleFApi'
 
-/* ─────────────────────────────────────────────────────────────────────────── */
-/*  Constants                                                                  */
-/* ─────────────────────────────────────────────────────────────────────────── */
+/* ==========================================================================
+   Types & constants
+   ========================================================================== */
 
-interface WinsLossesPanelProps {
-  jobId?: string | null
-  onNavigate?: (tab: string) => void
-}
-
-const MODEL_COLORS: Record<LLMModel, { bg: string; text: string; border: string; dot: string }> = {
-  ChatGPT:   { bg: 'bg-blue-500/15',    text: 'text-blue-400',    border: 'border-blue-500/30',    dot: 'bg-blue-400' },
-  Gemini:    { bg: 'bg-emerald-500/15', text: 'text-emerald-400', border: 'border-emerald-500/30', dot: 'bg-emerald-400' },
-  Perplexity:{ bg: 'bg-teal-500/15',    text: 'text-teal-400',    border: 'border-teal-500/30',    dot: 'bg-teal-400' },
-  Claude:    { bg: 'bg-orange-500/15',  text: 'text-orange-400',  border: 'border-orange-500/30',  dot: 'bg-orange-400' },
-}
-
-const IMPACT_COLORS: Record<ImpactLevel, { bg: string; text: string; border: string }> = {
-  HIGH:   { bg: 'bg-rose-500/15',   text: 'text-rose-400',   border: 'border-rose-500/25' },
-  MEDIUM: { bg: 'bg-amber-500/15',  text: 'text-amber-400',  border: 'border-amber-500/25' },
-  LOW:    { bg: 'bg-blue-500/15',   text: 'text-blue-400',   border: 'border-blue-500/25' },
-}
-
-const CATEGORIES: Array<{ label: string; value: WinLossCategory | 'ALL' }> = [
-  { label: 'All',          value: 'ALL' },
-  { label: 'Citations',    value: 'Citations' },
-  { label: 'Share of Voice', value: 'Share of Voice' },
-  { label: 'AI Dimensions', value: 'AIVS Dimensions' },
-  { label: 'Prompts',      value: 'Prompt Coverage' },
+type Period = '7d' | '30d'
+type CategoryFilter = 'ALL' | WLCategory
+const ALL_CATEGORIES: { id: CategoryFilter; label: string }[] = [
+  { id: 'ALL', label: 'All' },
+  { id: 'Citations', label: 'Citations' },
+  { id: 'Share of Voice', label: 'Share of Voice' },
+  { id: 'Visibility', label: 'AIVS Dimensions' },
+  { id: 'AIVS', label: 'Prompts' },
 ]
 
-const ALL_MODELS: LLMModel[] = ['ChatGPT', 'Gemini', 'Perplexity', 'Claude']
-
-/* ─────────────────────────────────────────────────────────────────────────── */
-/*  Model Badge                                                                */
-/* ─────────────────────────────────────────────────────────────────────────── */
-
-function ModelBadge({
-  model,
-  faded,
-  onClick,
-}: {
-  model: LLMModel
-  faded?: boolean
-  onClick?: () => void
-}) {
-  const cfg = MODEL_COLORS[model]
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-semibold border transition-opacity duration-150',
-        cfg.bg, cfg.text, cfg.border,
-        onClick ? 'cursor-pointer hover:opacity-90' : 'cursor-default',
-        faded && 'opacity-30',
-      )}
-    >
-      <span className={cn('w-1.5 h-1.5 rounded-full', cfg.dot)} />
-      {model}
-    </button>
-  )
+const MODEL_COLORS: Record<string, string> = {
+  ChatGPT: 'bg-blue-500/15 text-blue-300 border border-blue-500/25',
+  Gemini: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/25',
+  Perplexity: 'bg-teal-500/15 text-teal-300 border border-teal-500/25',
+  Claude: 'bg-orange-500/15 text-orange-300 border border-orange-500/25',
+  Overall: 'bg-violet-500/15 text-violet-300 border border-violet-500/25',
+}
+const MODEL_SOLID: Record<string, string> = {
+  ChatGPT: 'bg-blue-500 text-white',
+  Gemini: 'bg-emerald-500 text-white',
+  Perplexity: 'bg-teal-500 text-white',
+  Claude: 'bg-orange-500 text-white',
+  Overall: 'bg-violet-500 text-white',
 }
 
-/* ─────────────────────────────────────────────────────────────────────────── */
-/*  Delta Badge                                                                */
-/* ─────────────────────────────────────────────────────────────────────────── */
-
-function DeltaBadge({ delta, direction }: { delta: number; direction: WinLossMetric['direction'] }) {
-  if (direction === 'NEUTRAL') {
-    return (
-      <span className="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold bg-zinc-800 text-zinc-400 border border-zinc-700">
-        <Minus className="h-3 w-3" /> 0
-      </span>
-    )
-  }
-  const isWin = direction === 'POSITIVE'
-  return (
-    <span className={cn(
-      'inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold border',
-      isWin
-        ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25'
-        : 'bg-rose-500/15 text-rose-400 border-rose-500/25',
-    )}>
-      {isWin
-        ? <TrendingUp className="h-3 w-3" />
-        : <TrendingDown className="h-3 w-3" />
-      }
-      {isWin ? '+' : ''}{delta}
-    </span>
-  )
+function modelColor(model: string, solid = false) {
+  const base = solid ? MODEL_SOLID : MODEL_COLORS
+  return base[model] ?? (solid ? 'bg-zinc-500 text-white' : 'bg-zinc-700/50 text-zinc-300 border border-zinc-600/30')
 }
 
-/* ─────────────────────────────────────────────────────────────────────────── */
-/*  Win Row                                                                    */
-/* ─────────────────────────────────────────────────────────────────────────── */
-
-function WinRow({
-  item,
-  onNavigate,
-}: {
-  item: WinLossMetric
-  onNavigate?: (tab: string) => void
-}) {
-  const categoryLink: Record<WinLossMetric['category'], string> = {
-    Citations: 'prompt-opportunities',
-    'Share of Voice': 'share-of-voice',
-    'AIVS Dimensions': 'ai-visibility-scorecards',
-    'Prompt Coverage': 'prompt-difficulty',
-  }
-  const tooltipText = `This metric improved by ${item.delta > 0 ? '+' : ''}${item.delta} compared to the previous period.`
-
-  return (
-    <button
-      type="button"
-      title={tooltipText}
-      onClick={() => onNavigate?.(categoryLink[item.category])}
-      className="group w-full flex items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900/30 hover:bg-zinc-800/50 hover:border-zinc-700 px-4 py-3 text-left transition-all duration-200"
-    >
-      {/* Win indicator */}
-      <div className="shrink-0 w-1 h-8 rounded-full bg-emerald-500/70" />
-
-      {/* Content */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-medium text-white truncate">{item.metric}</span>
-          {item.model && <ModelBadge model={item.model} />}
-        </div>
-        <p className="text-[11px] text-zinc-500 mt-0.5 font-mono">
-          {item.prev} → <span className="text-emerald-400 font-semibold">{item.current}</span>
-        </p>
-      </div>
-
-      {/* Delta */}
-      <div className="flex items-center gap-2 shrink-0">
-        <DeltaBadge delta={item.delta} direction={item.direction} />
-        <ChevronRight className="h-4 w-4 text-zinc-600 group-hover:text-zinc-400 transition-colors" />
-      </div>
-    </button>
-  )
+function formatValue(value: number): string {
+  if (Number.isInteger(value)) return value.toString()
+  return value.toFixed(1)
 }
 
-/* ─────────────────────────────────────────────────────────────────────────── */
-/*  Loss Row (expandable)                                                      */
-/* ─────────────────────────────────────────────────────────────────────────── */
-
-function LossRow({
-  item,
-  onNavigate,
-}: {
-  item: WinLossMetric
-  onNavigate?: (tab: string) => void
-}) {
-  const [expanded, setExpanded] = useState(false)
-
+/* ==========================================================================
+   Skeleton loader
+   ========================================================================== */
+function SkeletonRows() {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 overflow-hidden transition-all duration-200">
-      {/* Main row */}
-      <button
-        type="button"
-        onClick={() => setExpanded(prev => !prev)}
-        className="group w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-zinc-800/40 transition-colors"
-      >
-        {/* Loss indicator */}
-        <div className="shrink-0 w-1 h-8 rounded-full bg-rose-500/70" />
-
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-medium text-white truncate">{item.metric}</span>
-            {item.model && <ModelBadge model={item.model} />}
-          </div>
-          <p className="text-[11px] text-zinc-500 mt-0.5 font-mono">
-            {item.prev} → <span className="text-rose-400 font-semibold">{item.current}</span>
-          </p>
-        </div>
-
-        {/* Right side */}
-        <div className="flex items-center gap-2 shrink-0">
-          <DeltaBadge delta={item.delta} direction={item.direction} />
-          {item.fix && (
-            <span className="text-[10px] text-zinc-500 group-hover:text-zinc-300 transition-colors hidden sm:inline">
-              Fix available
-            </span>
-          )}
-          <ChevronDown className={cn(
-            'h-4 w-4 text-zinc-500 transition-transform duration-200',
-            expanded && 'rotate-180',
-          )} />
-        </div>
-      </button>
-
-      {/* Expanded fix chip */}
-      {expanded && item.fix && (
-        <div className="mx-4 mb-3 rounded-xl border border-amber-500/20 bg-amber-950/20 p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 mb-1">
-                <Zap className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-                <span className="text-[11px] font-semibold text-amber-400 uppercase tracking-wider">
-                  Recommended Fix
-                </span>
-              </div>
-              <p className="text-sm font-medium text-white mb-1">{item.fix.title}</p>
-              {item.fix.issue && (
-                <p className="text-[12px] text-zinc-400 leading-relaxed">{item.fix.issue}</p>
-              )}
-              <div className="flex items-center gap-2 mt-2.5">
-                {/* Impact */}
-                <span className={cn(
-                  'text-[10px] font-semibold px-2 py-0.5 rounded-full border',
-                  IMPACT_COLORS[item.fix.impact].bg,
-                  IMPACT_COLORS[item.fix.impact].text,
-                  IMPACT_COLORS[item.fix.impact].border,
-                )}>
-                  Impact: {item.fix.impact}
-                </span>
-                {/* Effort */}
-                <span className={cn(
-                  'text-[10px] font-semibold px-2 py-0.5 rounded-full border',
-                  IMPACT_COLORS[item.fix.effort].bg,
-                  IMPACT_COLORS[item.fix.effort].text,
-                  IMPACT_COLORS[item.fix.effort].border,
-                )}>
-                  Effort: {item.fix.effort}
-                </span>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => onNavigate?.(item.fix!.link)}
-              className="shrink-0 inline-flex items-center gap-1 rounded-lg bg-amber-500/20 border border-amber-500/30 text-amber-400 hover:bg-amber-500/30 px-2.5 py-1.5 text-[11px] font-semibold transition-colors"
-            >
-              Fix it
-              <ChevronRight className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* No fix available */}
-      {expanded && !item.fix && (
-        <p className="mx-4 mb-3 text-[12px] text-zinc-500 px-2">
-          No specific fix available. Review related modules for guidance.
-        </p>
-      )}
-    </div>
-  )
-}
-
-/* ─────────────────────────────────────────────────────────────────────────── */
-/*  Skeleton                                                                   */
-/* ─────────────────────────────────────────────────────────────────────────── */
-
-function SkeletonRows({ count = 4 }: { count?: number }) {
-  return (
-    <div className="space-y-2.5">
-      {Array.from({ length: count }).map((_, i) => (
-        <div
-          key={i}
-          className="rounded-xl border border-zinc-800 bg-zinc-900/30 px-4 py-3 animate-pulse"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-1 h-8 rounded-full bg-zinc-700/60" />
-            <div className="flex-1 space-y-1.5">
-              <div className="h-3 w-40 bg-zinc-700/60 rounded" />
-              <div className="h-2.5 w-24 bg-zinc-700/40 rounded" />
-            </div>
-            <div className="h-6 w-12 bg-zinc-700/50 rounded-full" />
-          </div>
-        </div>
+    <div className="space-y-2 animate-pulse">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="h-14 rounded-xl bg-zinc-800/40" />
       ))}
     </div>
   )
 }
 
-/* ─────────────────────────────────────────────────────────────────────────── */
-/*  Empty state for a column                                                   */
-/* ─────────────────────────────────────────────────────────────────────────── */
-
-function ColumnEmpty({ type }: { type: 'wins' | 'losses' }) {
-  if (type === 'wins') {
-    return (
-      <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
-        <Activity className="h-8 w-8 text-zinc-600 mb-3" />
-        <p className="text-sm text-zinc-400">No wins this period — take action on your losses below.</p>
-      </div>
-    )
-  }
+/* ==========================================================================
+   No-baseline state
+   ========================================================================== */
+function NoBaselineState({ onRun, isRunning }: { onRun?: () => void; isRunning?: boolean }) {
   return (
-    <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
-      <Trophy className="h-8 w-8 text-emerald-500/60 mb-3" />
-      <p className="text-sm font-medium text-white mb-1">No losses this period.</p>
-      <p className="text-xs text-zinc-500">Maintain your current content and schema schedule.</p>
-    </div>
-  )
-}
-
-/* ─────────────────────────────────────────────────────────────────────────── */
-/*  Empty — no data at all                                                     */
-/* ─────────────────────────────────────────────────────────────────────────── */
-
-function NoDataState({ onNavigate }: { onNavigate?: (tab: string) => void }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-24 px-6 text-center">
-      <div className="w-16 h-16 rounded-2xl bg-zinc-800/60 border border-zinc-700/50 flex items-center justify-center mb-5">
-        <Activity className="h-8 w-8 text-zinc-500" />
+    <div className="flex flex-col items-center justify-center py-20 text-center gap-5">
+      <div className="w-14 h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center">
+        <Info className="h-7 w-7 text-amber-400" />
       </div>
-      <h3 className="text-base font-semibold text-white mb-2">No movement detected this period.</h3>
-      <p className="text-sm text-zinc-400 max-w-xs mb-6">
-        This means no data was collected. Ensure prompt tracking is active.
-      </p>
-      <button
-        onClick={() => onNavigate?.('prompt-opportunities')}
-        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-medium border border-white/10 transition-all duration-200"
-      >
-        <Zap className="h-4 w-4" />
-        Set Up Prompt Tracking
-      </button>
-    </div>
-  )
-}
-
-/* ─────────────────────────────────────────────────────────────────────────── */
-/*  Main Panel                                                                 */
-/* ─────────────────────────────────────────────────────────────────────────── */
-
-export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelProps) {
-  const [activeCategory, setActiveCategory] = useState<WinLossCategory | 'ALL'>('ALL')
-  const [activeModel, setActiveModel] = useState<LLMModel | null>(null)
-
-  const { data, isLoading, isError, refetch } = useGetWinsLossesQuery(jobId ?? '', {
-    skip: !jobId,
-    refetchOnMountOrArgChange: true,
-  })
-
-  /* ── Derived filtered lists ─── */
-  function applyFilters(items: WinLossMetric[]) {
-    return items.filter(item => {
-      if (activeCategory !== 'ALL' && item.category !== activeCategory) return false
-      if (activeModel && item.model !== activeModel) return false
-      return true
-    })
-  }
-
-  const wins   = applyFilters(data?.wins   ?? [])
-  const losses = applyFilters(data?.losses ?? [])
-
-  /* ── Models that appear in current data ─── */
-  const presentModels = ALL_MODELS.filter(m =>
-    [...(data?.wins ?? []), ...(data?.losses ?? []), ...(data?.stable ?? [])].some(
-      item => item.model === m,
-    ),
-  )
-
-  /* ── Header stats ─── */
-  const totalWins   = data?.wins.length   ?? 0
-  const totalLosses = data?.losses.length ?? 0
-
-  /* ── Loading ─── */
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        {/* Header skeleton */}
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 h-16 animate-pulse" />
-        {/* Filters skeleton */}
-        <div className="flex gap-2">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-8 w-20 bg-zinc-800 rounded-full animate-pulse" />
-          ))}
-        </div>
-        {/* Columns */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="space-y-3">
-            <div className="h-4 w-16 bg-zinc-800 rounded animate-pulse" />
-            <SkeletonRows count={4} />
-          </div>
-          <div className="space-y-3">
-            <div className="h-4 w-16 bg-zinc-800 rounded animate-pulse" />
-            <SkeletonRows count={4} />
-          </div>
-        </div>
-        <p className="text-center text-xs text-zinc-500 animate-pulse">
-          Calculating your wins and losses…
+      <div className="space-y-2">
+        <h3 className="text-lg font-semibold text-white">No baseline yet</h3>
+        <p className="text-zinc-400 text-sm max-w-sm">
+          Wins &amp; Losses needs at least two Competitor AI Intelligence runs to compare. Run it
+          once now, then run it again to see your first comparison.
         </p>
       </div>
-    )
-  }
-
-  /* ── Error ─── */
-  if (isError) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
-        <AlertCircle className="h-10 w-10 text-rose-400 mb-4" />
-        <p className="text-sm font-medium text-white mb-1">Could not load wins & losses.</p>
-        <p className="text-xs text-zinc-400 mb-5">Retry or contact support if the issue persists.</p>
+      {onRun && (
         <button
-          onClick={() => refetch()}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-medium border border-white/10 transition-all"
+          onClick={onRun}
+          disabled={isRunning}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500/15 border border-amber-500/25 text-amber-300 text-sm font-semibold hover:bg-amber-500/25 hover:border-amber-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <RefreshCw className="h-4 w-4" /> Retry
+          {isRunning ? (
+            <><Loader2 className="h-4 w-4 animate-spin" />Queuing analysis…</>
+          ) : (
+            <><RefreshCw className="h-4 w-4" />Run Competitor AI Intelligence</>          
+          )}
         </button>
-      </div>
-    )
-  }
+      )}
+      {isRunning && (
+        <p className="text-zinc-500 text-xs">Analysis queued — refresh in a few minutes to see your first comparison.</p>
+      )}
+    </div>
+  )
+}
 
-  /* ── No data ─── */
-  if (!data?.has_data) {
-    return <NoDataState onNavigate={onNavigate} />
-  }
+/* ==========================================================================
+   Empty states
+   ========================================================================== */
+function EmptyWins() {
+  return (
+    <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
+      <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center">
+        <Minus className="h-5 w-5 text-zinc-500" />
+      </div>
+      <p className="text-zinc-500 text-sm">No wins this period — take action on your losses below.</p>
+    </div>
+  )
+}
+function EmptyLosses() {
+  return (
+    <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
+      <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+        <Trophy className="h-5 w-5 text-emerald-400" />
+      </div>
+      <p className="text-zinc-400 text-sm">No losses this period. Maintain your current content and schema schedule.</p>
+    </div>
+  )
+}
+
+/* ==========================================================================
+   Fix chip (expandable)
+   ========================================================================== */
+function FixChip({ fix, onNavigate }: { fix: WLFix; onNavigate?: (tab: string) => void }) {
+  const [expanded, setExpanded] = useState(false)
+  return (
+    <div className="mt-2 rounded-xl border border-rose-500/15 bg-rose-950/10 overflow-hidden">
+      <button
+        onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v) }}
+        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-rose-500/5 transition-colors"
+      >
+        <span className="text-[11px] font-semibold text-rose-400 uppercase tracking-wide flex-1">
+          Recommended Fix
+        </span>
+        <ChevronDown
+          className={cn('h-4 w-4 text-rose-400/60 transition-transform', expanded && 'rotate-180')}
+        />
+      </button>
+      {expanded && (
+        <div className="px-3 pb-3 space-y-2">
+          <p className="text-[13px] font-medium text-white">{fix.title}</p>
+          {fix.issue && (
+            <p className="text-[11px] text-zinc-400 leading-relaxed">{fix.issue}</p>
+          )}
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                'px-2 py-0.5 rounded-full text-[10px] font-bold uppercase',
+                fix.impact === 'HIGH'
+                  ? 'bg-rose-500/20 text-rose-300'
+                  : fix.impact === 'MEDIUM'
+                  ? 'bg-amber-500/20 text-amber-300'
+                  : 'bg-zinc-700/60 text-zinc-400',
+              )}
+            >
+              Impact: {fix.impact}
+            </span>
+            <span
+              className={cn(
+                'px-2 py-0.5 rounded-full text-[10px] font-bold uppercase',
+                fix.effort === 'LOW'
+                  ? 'bg-emerald-500/20 text-emerald-300'
+                  : fix.effort === 'MEDIUM'
+                  ? 'bg-amber-500/20 text-amber-300'
+                  : 'bg-rose-500/20 text-rose-300',
+              )}
+            >
+              Effort: {fix.effort}
+            </span>
+          </div>
+          {onNavigate && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onNavigate(fix.link) }}
+              className="flex items-center gap-1 text-[12px] text-rose-400 hover:text-rose-300 transition-colors font-medium mt-1"
+            >
+              Go to fix location <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ==========================================================================
+   Win Row
+   ========================================================================== */
+function WinRow({ row, onNavigate, activeModel }: { row: WLMetricRow; onNavigate?: (tab: string) => void; activeModel: string | null }) {
+  const dimmed = activeModel !== null && row.model !== activeModel
 
   return (
-    <div className="space-y-5">
-      {/* ── Header ─── */}
-      <div className="flex items-start justify-between gap-4">
+    <div
+      className={cn(
+        'group rounded-xl border px-4 py-3 cursor-pointer transition-all duration-200',
+        dimmed
+          ? 'border-zinc-800/30 bg-zinc-900/20 opacity-40'
+          : 'border-emerald-500/15 bg-emerald-950/10 hover:border-emerald-500/30 hover:bg-emerald-950/20',
+      )}
+      onClick={() => row.category && onNavigate?.(
+        row.category === 'Citations' ? 'prompt-opportunities' :
+        row.category === 'Share of Voice' ? 'share-of-voice' :
+        row.category === 'AIVS' ? 'ai-visibility-scorecards' :
+        'keyword-intelligence',
+      )}
+      title={`This metric improved by ${row.delta > 0 ? '+' : ''}${formatValue(row.delta)} compared to the previous ${row.category}.`}
+    >
+      <div className="flex items-start gap-3">
+        <div className="mt-0.5 w-7 h-7 rounded-lg bg-emerald-500/15 flex items-center justify-center shrink-0">
+          <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <span className="text-[13px] font-medium text-white leading-snug">{row.metric}</span>
+            <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-semibold', modelColor(row.model))}>
+              {row.model}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-[12px] text-zinc-400">
+            <span>{formatValue(row.prev)}</span>
+            <ChevronRight className="h-3 w-3 text-zinc-600" />
+            <span className="text-emerald-300 font-semibold">{formatValue(row.current)}</span>
+          </div>
+        </div>
+        <span className="shrink-0 px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[12px] font-bold">
+          +{formatValue(row.delta)}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+/* ==========================================================================
+   Loss Row
+   ========================================================================== */
+function LossRow({ row, onNavigate, activeModel }: { row: WLMetricRow; onNavigate?: (tab: string) => void; activeModel: string | null }) {
+  const [expanded, setExpanded] = useState(false)
+  const dimmed = activeModel !== null && row.model !== activeModel
+
+  return (
+    <div
+      className={cn(
+        'rounded-xl border transition-all duration-200',
+        dimmed
+          ? 'border-zinc-800/30 bg-zinc-900/20 opacity-40'
+          : 'border-rose-500/15 bg-rose-950/10 hover:border-rose-500/25 hover:bg-rose-950/15',
+      )}
+    >
+      <div
+        className="px-4 py-3 cursor-pointer"
+        onClick={() => setExpanded((v) => !v)}
+      >
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 w-7 h-7 rounded-lg bg-rose-500/15 flex items-center justify-center shrink-0">
+            <TrendingDown className="h-3.5 w-3.5 text-rose-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <span className="text-[13px] font-medium text-white leading-snug">{row.metric}</span>
+              <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-semibold', modelColor(row.model))}>
+                {row.model}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-[12px] text-zinc-400">
+              <span>{formatValue(row.prev)}</span>
+              <ChevronRight className="h-3 w-3 text-zinc-600" />
+              <span className="text-rose-300 font-semibold">{formatValue(row.current)}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-300 text-[12px] font-bold">
+              {formatValue(row.delta)}
+            </span>
+            {row.fix && (
+              <ChevronDown
+                className={cn('h-4 w-4 text-zinc-500 transition-transform', expanded && 'rotate-180')}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+      {expanded && row.fix && (
+        <div className="px-4 pb-3">
+          <FixChip fix={row.fix} onNavigate={onNavigate} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ==========================================================================
+   Main panel
+   ========================================================================== */
+interface WinsLossesPanelProps {
+  jobId?: string | null
+  onNavigate?: (tab: string) => void
+}
+
+export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelProps) {
+  const [period, setPeriod] = useState<Period>('7d')
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('ALL')
+  const [activeModel, setActiveModel] = useState<string | null>(null)
+  const [runQueued, setRunQueued] = useState(false)
+
+  const [runModuleFAnalysis, { isLoading: isTriggering }] = useRunModuleFAnalysisMutation()
+
+  const handleRunAnalysis = async () => {
+    if (!jobId) return
+    try {
+      await runModuleFAnalysis(jobId).unwrap()
+      setRunQueued(true)
+    } catch {
+      // best-effort; user can retry
+    }
+  }
+
+  const { data, isLoading, isFetching, refetch } = useGetWinsLossesQuery(
+    { jobId: jobId!, period },
+    { skip: !jobId },
+  )
+
+  // Collect models from data for the model filter pills
+  const allModels = data
+    ? Array.from(new Set([...data.wins, ...data.losses].map((r) => r.model)))
+    : []
+
+  const filterRows = (rows: WLMetricRow[]) => {
+    let filtered = rows
+    if (categoryFilter !== 'ALL') {
+      filtered = filtered.filter((r) => r.category === categoryFilter)
+    }
+    if (activeModel !== null) {
+      filtered = filtered.filter((r) => r.model === activeModel)
+    }
+    return filtered
+  }
+
+  const handleModelClick = (model: string) => {
+    setActiveModel((prev) => (prev === model ? null : model))
+  }
+
+  const loading = isLoading || isFetching
+
+  return (
+    <div className="space-y-6 animate-fade-in-hero">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
         <div>
-          <h2 className="text-lg font-bold text-white">Wins &amp; Losses</h2>
-          <p className="text-xs text-zinc-500 mt-0.5">
-            Comparing current vs previous period · {data.period_days}-day window
+          <h2 className="text-2xl font-bold text-white tracking-tight">Wins &amp; Losses</h2>
+          <p className="text-zinc-400 text-sm mt-1">
+            Track every metric that improved or declined since the previous period.
           </p>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
-          {/* Summary pills */}
-          {totalWins > 0 && (
-            <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold border bg-emerald-500/10 text-emerald-400 border-emerald-500/25">
-              <TrendingUp className="h-3 w-3" /> {totalWins} win{totalWins !== 1 ? 's' : ''}
-            </span>
-          )}
-          {totalLosses > 0 && (
-            <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold border bg-rose-500/10 text-rose-400 border-rose-500/25">
-              <TrendingDown className="h-3 w-3" /> {totalLosses} loss{totalLosses !== 1 ? 'es' : ''}
-            </span>
-          )}
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Period toggle */}
+          <div className="flex items-center rounded-xl border border-zinc-700/50 bg-zinc-900/60 overflow-hidden">
+            {(['7d', '30d'] as Period[]).map((p) => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={cn(
+                  'px-4 py-2 text-sm font-medium transition-colors',
+                  period === p
+                    ? 'bg-white/10 text-white'
+                    : 'text-zinc-400 hover:text-white',
+                )}
+              >
+                {p === '7d' ? '7 Days' : '30 Days'}
+              </button>
+            ))}
+          </div>
+          {/* Refresh */}
           <button
             onClick={() => refetch()}
-            className="p-2 rounded-xl text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-all"
+            disabled={loading}
+            className="p-2 rounded-xl border border-zinc-700/50 bg-zinc-900/60 text-zinc-400 hover:text-white hover:border-zinc-600 transition-colors disabled:opacity-50"
             title="Refresh"
           >
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
           </button>
         </div>
       </div>
 
-      {/* ── Category Filter ─── */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <Filter className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
-        {CATEGORIES.map(cat => (
+      {/* Model filter pills */}
+      {allModels.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[11px] text-zinc-500 uppercase tracking-wide font-semibold mr-1">Model</span>
+          {allModels.map((model) => (
+            <button
+              key={model}
+              onClick={() => handleModelClick(model)}
+              className={cn(
+                'px-3 py-1 rounded-full text-[12px] font-semibold transition-all duration-200',
+                activeModel === model
+                  ? modelColor(model, true)
+                  : activeModel !== null
+                  ? cn(modelColor(model), 'opacity-40')
+                  : modelColor(model),
+              )}
+            >
+              {model}
+            </button>
+          ))}
+          {activeModel && (
+            <button
+              onClick={() => setActiveModel(null)}
+              className="px-3 py-1 rounded-full text-[12px] text-zinc-400 hover:text-white border border-zinc-700/50 hover:border-zinc-600 transition-colors"
+            >
+              Clear filter
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Category pill tabs */}
+      <div className="flex items-center gap-2 flex-wrap border-b border-zinc-800/60 pb-4">
+        {ALL_CATEGORIES.map((cat) => (
           <button
-            key={cat.value}
-            type="button"
-            onClick={() => setActiveCategory(cat.value)}
+            key={cat.id}
+            onClick={() => setCategoryFilter(cat.id)}
             className={cn(
-              'rounded-full px-3 py-1 text-[11px] font-semibold border transition-all duration-150',
-              activeCategory === cat.value
-                ? 'bg-white/10 text-white border-white/20'
-                : 'bg-transparent text-zinc-400 border-zinc-700/60 hover:border-zinc-600 hover:text-zinc-300',
+              'px-3.5 py-1.5 rounded-full text-[12px] font-semibold transition-all duration-200',
+              categoryFilter === cat.id
+                ? 'bg-white/10 text-white border border-white/15'
+                : 'text-zinc-500 border border-transparent hover:text-zinc-300 hover:border-zinc-700/50',
             )}
           >
             {cat.label}
@@ -485,69 +442,104 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
         ))}
       </div>
 
-      {/* ── Model Filter ─── */}
-      {presentModels.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          {presentModels.map(model => (
-            <div key={model} onClick={() => setActiveModel(prev => (prev === model ? null : model))}>
-              <ModelBadge
-                model={model}
-                faded={activeModel !== null && activeModel !== model}
-              />
-            </div>
-          ))}
-          {activeModel && (
-            <span className="text-[10px] text-zinc-500 ml-1">
-              Showing {activeModel} data only. Click again to show all models.
-            </span>
-          )}
+      {/* Loading skeleton */}
+      {loading && !data && (
+        <div className="space-y-4">
+          <p className="text-zinc-500 text-sm text-center animate-pulse">Calculating your wins and losses...</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <SkeletonRows />
+            <SkeletonRows />
+          </div>
         </div>
       )}
 
-      {/* ── Two-column layout ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* WINS */}
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <TrendingUp className="h-4 w-4 text-emerald-400" />
-            <h3 className="text-sm font-semibold text-white">Wins</h3>
-            <span className="ml-auto text-[11px] text-zinc-500">{wins.length} metric{wins.length !== 1 ? 's' : ''}</span>
+      {/* No baseline */}
+      {!loading && data && !data.has_baseline && (
+        <NoBaselineState onRun={handleRunAnalysis} isRunning={isTriggering || runQueued} />
+      )}
+
+      {/* All empty (no movement) */}
+      {!loading && data && data.has_baseline && data.wins.length === 0 && data.losses.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-zinc-800 flex items-center justify-center">
+            <Minus className="h-7 w-7 text-zinc-500" />
           </div>
-          <div className="space-y-2">
-            {wins.length === 0 ? (
-              <ColumnEmpty type="wins" />
-            ) : (
-              wins.map((item, i) => (
-                <WinRow key={`${item.metric}-${i}`} item={item} onNavigate={onNavigate} />
-              ))
-            )}
+          <div>
+            <h3 className="text-lg font-semibold text-white mb-1">No movement detected this period</h3>
+            <p className="text-zinc-400 text-sm">All metrics are stable. Continue your current strategy.</p>
           </div>
         </div>
+      )}
 
-        {/* LOSSES */}
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <TrendingDown className="h-4 w-4 text-rose-400" />
-            <h3 className="text-sm font-semibold text-white">Losses</h3>
-            <span className="ml-auto text-[11px] text-zinc-500">{losses.length} metric{losses.length !== 1 ? 's' : ''}</span>
-          </div>
-          <div className="space-y-2">
-            {losses.length === 0 ? (
-              <ColumnEmpty type="losses" />
-            ) : (
-              losses.map((item, i) => (
-                <LossRow key={`${item.metric}-${i}`} item={item} onNavigate={onNavigate} />
-              ))
-            )}
-          </div>
-        </div>
-      </div>
+      {/* Columns */}
+      {!loading && data && data.has_baseline && (data.wins.length > 0 || data.losses.length > 0) && (
+        <>
+          {/* Date range context */}
+          {data.prior_date && data.current_date && (
+            <p className="text-[12px] text-zinc-500">
+              Comparing{' '}
+              <span className="text-zinc-400 font-medium">{data.prior_date}</span>
+              {' '}→{' '}
+              <span className="text-zinc-400 font-medium">{data.current_date}</span>
+            </p>
+          )}
 
-      {/* ── Stable metrics (collapsed summary) ─── */}
-      {(data.stable?.length ?? 0) > 0 && (
-        <p className="text-center text-[11px] text-zinc-600">
-          {data.stable.length} metric{data.stable.length !== 1 ? 's' : ''} remained stable this period.
-        </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Wins column */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-6 h-6 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+                  <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
+                </div>
+                <h3 className="text-sm font-semibold text-emerald-400 uppercase tracking-wide">
+                  Wins
+                </h3>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[11px] font-bold">
+                  {filterRows(data.wins).length}
+                </span>
+              </div>
+              {filterRows(data.wins).length === 0 ? (
+                <EmptyWins />
+              ) : (
+                filterRows(data.wins).map((row, i) => (
+                  <WinRow
+                    key={`win-${i}`}
+                    row={row}
+                    onNavigate={onNavigate}
+                    activeModel={activeModel}
+                  />
+                ))
+              )}
+            </div>
+
+            {/* Losses column */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-6 h-6 rounded-lg bg-rose-500/15 flex items-center justify-center">
+                  <TrendingDown className="h-3.5 w-3.5 text-rose-400" />
+                </div>
+                <h3 className="text-sm font-semibold text-rose-400 uppercase tracking-wide">
+                  Losses
+                </h3>
+                <span className="px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 text-[11px] font-bold">
+                  {filterRows(data.losses).length}
+                </span>
+              </div>
+              {filterRows(data.losses).length === 0 ? (
+                <EmptyLosses />
+              ) : (
+                filterRows(data.losses).map((row, i) => (
+                  <LossRow
+                    key={`loss-${i}`}
+                    row={row}
+                    onNavigate={onNavigate}
+                    activeModel={activeModel}
+                  />
+                ))
+              )}
+            </div>
+          </div>
+        </>
       )}
     </div>
   )

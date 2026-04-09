@@ -77,7 +77,7 @@ export class JobService {
     // must not be short-circuited.
     if (data.jobType !== JobType.CRAWL_RESUME) {
       try {
-        const cacheEntry = await checkUrlCache(data.url);
+        const cacheEntry = !data.bypassCache ? await checkUrlCache(data.url) : null;
         if (cacheEntry) {
           const cacheSourceJobId = resolveCachedJobId(cacheEntry, data.jobType);
           if (cacheSourceJobId) {

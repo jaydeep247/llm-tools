@@ -71,6 +71,7 @@ interface SessionSidebarProps {
   onClose?: () => void
   collapsed?: boolean
   onToggleCollapse?: () => void
+  alertCount?: number
 }
 
 type Child = { id: string; label: string; icon: LucideIcon }
@@ -192,6 +193,7 @@ export function SessionSidebar({
   onClose,
   collapsed = false,
   onToggleCollapse,
+  alertCount = 0,
 }: SessionSidebarProps) {
   const dashboard = sessionSections[0]
   const sectionsWithChildren = sessionSections.filter((s) => s.children.length > 0)
@@ -355,6 +357,15 @@ export function SessionSidebar({
                             )}
                             title={ga4Connected ? 'GA4 Connected' : 'GA4 Not Connected'}
                           />
+                        )}
+                        {/* Alert count badge */}
+                        {child.id === 'priority-alerts' && !collapsed && alertCount > 0 && (
+                          <span
+                            className="ml-auto shrink-0 min-w-4.5 h-4.5 px-1 text-[10px] font-bold rounded-full bg-red-500/80 text-white flex items-center justify-center leading-none"
+                            title={`${alertCount} active alert${alertCount !== 1 ? 's' : ''}`}
+                          >
+                            {alertCount > 99 ? '99+' : alertCount}
+                          </span>
                         )}
                       </button>
 

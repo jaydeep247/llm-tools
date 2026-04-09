@@ -10,6 +10,7 @@ import {
   Users,
   Settings as SettingsIcon,
   LogOut,
+  Download,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
@@ -20,6 +21,7 @@ const navItems = [
   { label: 'Projects', href: '/dashboard/projects', icon: FolderOpen },
   { label: 'Usage', href: '/dashboard/usage', icon: Percent },
   { label: 'Subscriptions', href: '/dashboard/subscriptions', icon: Users },
+  { label: 'Export & API', href: '/dashboard/export-api', icon: Download },
 ]
 
 const bottomNavItems = [

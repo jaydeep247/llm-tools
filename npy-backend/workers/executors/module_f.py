@@ -16,9 +16,10 @@ def execute_module_f_job(payload: dict) -> bool:
     url = payload["url"]
     job_id = payload.get("jobId") or f"job_{session_id}"
     job_type = payload.get("jobType", "MODULE_F_COMPETITOR_AI_INTELLIGENCE").upper()
-    source_job_id = payload.get("sourceJobId") or payload.get("config", {}).get("sourceJobId")
-
-    target_job_id = source_job_id if source_job_id else job_id
+    # source_job_id is the job whose module_e / context data we read from.
+    # It must NOT be used as the write key — all writes (cbm_citation_snapshots,
+    # module_f, etc.) must use job_id so every run produces a distinct document.
+    source_job_id = payload.get("sourceJobId") or payload.get("config", {}).get("sourceJobId") or job_id
 
     logger.info(
         f"[MODULE_F] ▶️  {job_type} Processing started | Job: {job_id} | URL: {url[:50]}..."
@@ -28,10 +29,11 @@ def execute_module_f_job(payload: dict) -> bool:
         result = asyncio.run(
             run_cancellable(
                 run_module_f_competitor_ai_intelligence(
-                    target_job_id,
+                    job_id,
                     url,
                     session_id=session_id,
                     project_id=project_id or None,
+                    source_job_id=source_job_id,
                 ),
                 job_id,
             )
