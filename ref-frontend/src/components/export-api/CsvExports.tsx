@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { TableIcon, Download, Loader2, CalendarRange } from 'lucide-react'
+import { TableIcon, Download, Loader2, CalendarRange, AlertTriangle, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -32,12 +32,20 @@ function getDefaultDates() {
   }
 }
 
+type ExportStatus = 'idle' | 'checking' | 'downloading' | 'error'
+
+interface ErrorState {
+  message: string
+  hint: string
+}
+
 export function CsvExports({ projectId }: { projectId?: string }) {
   const defaults = getDefaultDates()
   const [dataType, setDataType] = useState('crawl-data')
   const [fromDate, setFromDate] = useState(defaults.from)
   const [toDate, setToDate] = useState(defaults.to)
-  const [isLoading, setIsLoading] = useState(false)
+  const [status, setStatus] = useState<ExportStatus>('idle')
+  const [error, setError] = useState<ErrorState | null>(null)
 
   const handleDownload = async () => {
     if (!dataType) {
@@ -49,17 +57,49 @@ export function CsvExports({ projectId }: { projectId?: string }) {
       return
     }
 
-    setIsLoading(true)
+    setError(null)
+    setStatus('checking')
+
+    const base = process.env.NEXT_PUBLIC_API_BASE_URL || '/api/v1'
 
     try {
-      const base = process.env.NEXT_PUBLIC_API_BASE_URL || '/api/v1'
-      const params = new URLSearchParams({ from: fromDate, to: toDate })
-      if (projectId) params.set('project_id', projectId)
-      const url = `${base}/export/csv/${dataType}?${params.toString()}`
+      // ── Step 1: Pre-flight readiness check ─────────────────────────────
+      const checkParams = new URLSearchParams()
+      if (projectId) checkParams.set('project_id', projectId)
+      const checkRes = await fetch(`${base}/export/check/${dataType}?${checkParams}`, {
+        credentials: 'include',
+      })
+      const checkJson = await checkRes.json()
 
-      const response = await fetch(url, { credentials: 'include' })
+      if (!checkJson?.data?.ready) {
+        const msg = checkJson?.data?.message || checkJson?.message || 'Data not available for this export.'
+        const hint = checkJson?.data?.hint || ''
+        setError({ message: msg, hint })
+        setStatus('error')
+        return
+      }
 
-      if (!response.ok) throw new Error('CSV export failed')
+      // ── Step 2: Download ─────────────────────────────────────────────────
+      setStatus('downloading')
+
+      const dlParams = new URLSearchParams({ from: fromDate, to: toDate })
+      if (projectId) dlParams.set('project_id', projectId)
+      const response = await fetch(`${base}/export/csv/${dataType}?${dlParams}`, {
+        credentials: 'include',
+      })
+
+      if (!response.ok) {
+        let msg = 'Export failed. Please try again.'
+        let hint = ''
+        try {
+          const errJson = await response.json()
+          msg = errJson?.message || msg
+          hint = errJson?.hint || ''
+        } catch { /* ignore */ }
+        setError({ message: msg, hint })
+        setStatus('error')
+        return
+      }
 
       const blob = await response.blob()
       const downloadUrl = URL.createObjectURL(blob)
@@ -69,13 +109,18 @@ export function CsvExports({ projectId }: { projectId?: string }) {
       a.click()
       URL.revokeObjectURL(downloadUrl)
 
-      toast.success('Your report is ready. Downloading now.')
+      setStatus('idle')
+      toast.success('Your data export is ready. Downloading now.')
     } catch {
-      toast.error('Export failed. Please try again.')
-    } finally {
-      setIsLoading(false)
+      setError({
+        message: 'Network error. Please check your connection and try again.',
+        hint: '',
+      })
+      setStatus('error')
     }
   }
+
+  const isBusy = status === 'checking' || status === 'downloading'
 
   return (
     <div className="space-y-6">
@@ -87,7 +132,11 @@ export function CsvExports({ projectId }: { projectId?: string }) {
             <TableIcon className="h-3 w-3" />
             Data Type
           </Label>
-          <Select value={dataType} onValueChange={setDataType} disabled={isLoading}>
+          <Select
+            value={dataType}
+            onValueChange={(v) => { setDataType(v); setError(null); setStatus('idle') }}
+            disabled={isBusy}
+          >
             <SelectTrigger className="h-9 text-xs bg-zinc-800 border-zinc-700 text-white focus:ring-amber-500/40 focus:border-amber-500/40 rounded-xl">
               <SelectValue placeholder="Select data type" />
             </SelectTrigger>
@@ -116,7 +165,7 @@ export function CsvExports({ projectId }: { projectId?: string }) {
             value={fromDate}
             max={toDate}
             onChange={(e) => setFromDate(e.target.value)}
-            disabled={isLoading}
+            disabled={isBusy}
             className="h-9 text-xs bg-zinc-800 border-zinc-700 text-white scheme-dark focus-visible:ring-amber-500/40 focus-visible:border-amber-500/40 rounded-xl"
           />
         </div>
@@ -133,11 +182,24 @@ export function CsvExports({ projectId }: { projectId?: string }) {
             min={fromDate}
             max={new Date().toISOString().split('T')[0]}
             onChange={(e) => setToDate(e.target.value)}
-            disabled={isLoading}
+            disabled={isBusy}
             className="h-9 text-xs bg-zinc-800 border-zinc-700 text-white scheme-dark focus-visible:ring-amber-500/40 focus-visible:border-amber-500/40 rounded-xl"
           />
         </div>
       </div>
+
+      {/* Error banner */}
+      {status === 'error' && error && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 space-y-1">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-3.5 w-3.5 text-amber-400 mt-0.5 shrink-0" />
+            <p className="text-[12px] font-medium text-amber-300">{error.message}</p>
+          </div>
+          {error.hint && (
+            <p className="text-[11px] text-amber-400/80 pl-5">{error.hint}</p>
+          )}
+        </div>
+      )}
 
       {/* Info row */}
       <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-3">
@@ -151,14 +213,24 @@ export function CsvExports({ projectId }: { projectId?: string }) {
       {/* Download button */}
       <Button
         onClick={handleDownload}
-        disabled={isLoading}
+        disabled={isBusy}
         className="h-10 px-6 text-[13px] font-medium rounded-xl bg-zinc-800 text-white border border-zinc-700 hover:bg-amber-500 hover:text-black hover:border-amber-500 transition-all duration-200"
         variant="ghost"
       >
-        {isLoading ? (
+        {status === 'checking' ? (
+          <>
+            <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+            Checking…
+          </>
+        ) : status === 'downloading' ? (
           <>
             <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
             Generating CSV…
+          </>
+        ) : status === 'error' ? (
+          <>
+            <RefreshCw className="mr-2 h-3.5 w-3.5" />
+            Retry
           </>
         ) : (
           <>

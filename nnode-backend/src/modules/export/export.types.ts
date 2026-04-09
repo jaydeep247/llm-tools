@@ -17,6 +17,19 @@ export interface ScheduledExportDoc {
   updatedAt: string;
 }
 
-export type PdfReportType = 'weekly-summary' | 'audit-report' | 'competitor-report' | 'ai-scorecard';
+export type PdfReportType = 'weekly-summary' | 'audit-report' | 'competitor-report' | 'ai-scorecard' | 'serp-analysis' | 'competitor-ai-report';
 
 export type CsvDataType = 'crawl-data' | 'citations' | 'prompts' | 'competitors' | 'alerts';
+
+export interface ReadinessResult {
+  ready: boolean;
+  jobId: string | null;
+  effectiveJobId: string | null;
+  dataCount: number;
+  /** Short message suitable for an error banner */
+  message: string;
+  /** Actionable hint shown below the message */
+  hint: string;
+  /** Human-readable name of the missing module */
+  moduleName: string;
+}

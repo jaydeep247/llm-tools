@@ -19,7 +19,7 @@ import CompetitorGrowthTrends from '@/components/module_F/CompetitorGrowthTrends
 import GapOpportunities from '@/components/module_F/GapOpportunities'
 import CompetitorCitedURLs from '@/components/module_F/CompetitorCitedURLs'
 import { ExportsTab } from '@/components/session/exports'
-import { GA4TrafficSection } from '@/components/ga4'
+import { GA4TrafficSection, LLMTrafficPanel, TopLandingPagesPanel } from '@/components/ga4'
 import ExecutiveSnapshotPanel from '@/components/executive-snapshot/ExecutiveSnapshotPanel'
 import WinsLossesPanel from '@/components/wins-losses/WinsLossesPanel'
 import PriorityAlertsPanel from '@/components/alerts/PriorityAlertsPanel'
@@ -1340,6 +1340,22 @@ export default function SessionDetailPage() {
         {/* GA4 Traffic Analysis — rendered by new GA4 module */}
         {activeSection === 'ga4-traffic' && (
           <GA4TrafficSection sessionUrl={session?.startUrl} jobId={jobId || null} />
+        )}
+
+        {/* LLM Traffic — Impact Analytics → Sub-nav Item 2 */}
+        {activeSection === 'content-roi' && (
+          <LLMTrafficPanel onNavigate={(section) => router.push(`/dashboard/projects/${projectId}/sessions/${sessionId}?tab=${section}`)} />
+        )}
+
+        {/* Top Landing Pages — Impact Analytics → Sub-nav Item 3 */}
+        {activeSection === 'top-landing-pages' && (
+          <div>
+            <TopLandingPagesPanel
+              projectId={projectId}
+              sessionUrl={session?.startUrl}
+              onNavigate={(section) => router.push(`/dashboard/projects/${projectId}/sessions/${sessionId}?tab=${section}`)}
+            />
+          </div>
         )}
 
         {/* Show Performance Audits on performance tab (now handled in Content Audit) */}

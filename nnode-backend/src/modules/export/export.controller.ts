@@ -6,8 +6,9 @@ import { ResponseUtil } from '../../utils/response';
 import { logger } from '../../shared/logger/logger';
 import type { PdfReportType, CsvDataType } from './export.types';
 
-const VALID_PDF_TYPES: PdfReportType[] = ['weekly-summary', 'audit-report', 'competitor-report', 'ai-scorecard'];
+const VALID_PDF_TYPES: PdfReportType[] = ['weekly-summary', 'audit-report', 'competitor-report', 'ai-scorecard', 'serp-analysis', 'competitor-ai-report'];
 const VALID_CSV_TYPES: CsvDataType[] = ['crawl-data', 'citations', 'prompts', 'competitors', 'alerts'];
+const ALL_EXPORT_TYPES = [...VALID_PDF_TYPES, ...VALID_CSV_TYPES];
 
 export class ExportController {
   private svc = new ExportService();
@@ -77,6 +78,30 @@ export class ExportController {
     }
   };
 
+  // ── Readiness check (pre-flight before any download) ────────────────────
+
+  checkReadiness = async (req: Request, res: Response): Promise<Response> => {
+    const type = req.params.type as string;
+    const userId = req.user!.userId;
+
+    if (!ALL_EXPORT_TYPES.includes(type as any)) {
+      return ResponseUtil.error(res, `Unknown export type: ${type}`);
+    }
+
+    try {
+      const result = await this.svc.checkReadiness(
+        userId,
+        type,
+        req.query.job_id as string | undefined,
+        req.query.project_id as string | undefined,
+      );
+      return ResponseUtil.success(res, result.ready ? 'Data is ready' : result.message, result);
+    } catch (err: any) {
+      logger.error(`[EXPORT] checkReadiness type=${type} failed: ${err.message}`);
+      return ResponseUtil.serverError(res, 'Failed to check export readiness');
+    }
+  };
+
   // ── PDF export ────────────────────────────────────────────────────────────
 
   getPdf = async (req: Request, res: Response): Promise<void> => {
@@ -89,13 +114,25 @@ export class ExportController {
     }
 
     try {
-      const jobId = await this.svc.resolveJobId(userId, req.query.job_id as string | undefined, req.query.project_id as string | undefined);
-      if (!jobId) {
-        res.status(404).json({ success: false, message: 'No completed job found. Run a crawl first.' });
+      // ── Readiness gate — check data exists before spending time generating ──
+      const readiness = await this.svc.checkReadiness(
+        userId,
+        type,
+        req.query.job_id as string | undefined,
+        req.query.project_id as string | undefined,
+      );
+
+      if (!readiness.ready) {
+        res.status(422).json({
+          success: false,
+          message: readiness.message,
+          hint: readiness.hint,
+          moduleName: readiness.moduleName,
+        });
         return;
       }
 
-      // Resolve domain from project
+      const jobId = readiness.jobId!;
       const domain = await this.resolveDomain(userId, jobId);
 
       logger.info(`[EXPORT] Generating PDF type=${type} jobId=${jobId} userId=${userId}`);
@@ -129,12 +166,25 @@ export class ExportController {
     }
 
     try {
-      const jobId = await this.svc.resolveJobId(userId, req.query.job_id as string | undefined, req.query.project_id as string | undefined);
-      if (!jobId) {
-        res.status(404).json({ success: false, message: 'No completed job found.' });
+      // ── Readiness gate ──────────────────────────────────────────────────
+      const readiness = await this.svc.checkReadiness(
+        userId,
+        type,
+        req.query.job_id as string | undefined,
+        req.query.project_id as string | undefined,
+      );
+
+      if (!readiness.ready) {
+        res.status(422).json({
+          success: false,
+          message: readiness.message,
+          hint: readiness.hint,
+          moduleName: readiness.moduleName,
+        });
         return;
       }
 
+      const jobId = readiness.jobId!;
       const domain = await this.resolveDomain(userId, jobId);
       const from = req.query.from as string | undefined;
       const to = req.query.to as string | undefined;
@@ -162,8 +212,12 @@ export class ExportController {
     try {
       const { connectToMongo } = await import('../../config/mongo');
       const db = await connectToMongo();
-      const job = await db.collection('jobs').findOne({ id: jobId });
+      const job = await db.collection('jobs').findOne({ id: jobId }, { projection: { url: 1, projectId: 1 } });
       if (!job) return 'unknown';
+      // Prefer the job's own URL (the crawl target) as the domain
+      if ((job as any).url) {
+        try { return new URL(String((job as any).url)).hostname; } catch { return String((job as any).url); }
+      }
       const project = await db.collection('projects').findOne({ id: (job as any).projectId, userId });
       return (project as any)?.domain ?? (project as any)?.url ?? 'unknown';
     } catch {

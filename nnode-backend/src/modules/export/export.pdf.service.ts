@@ -7,6 +7,40 @@ import { connectToMongo } from '../../config/mongo';
 import { JobRepository } from '../job/job.repository';
 import { AuditReportsService } from '../audit_reports/audit_reports.service';
 
+// ─── Job-ID resolution helper ─────────────────────────────────────────────────
+// Module C and Module E each create THEIR OWN jobs (AEO_ANALYSIS, MODULE_E_*…)
+// under the same project.  We need ALL completed job IDs for the project so we
+// can query module_c / module_e correctly with { jobId: { $in: allJobIds } }.
+
+async function resolveAllProjectJobIds(
+  db: Awaited<ReturnType<typeof connectToMongo>>,
+  jobId: string,
+): Promise<string[]> {
+  try {
+    const job = await db.collection('jobs').findOne({ id: jobId }, { projection: { projectId: 1 } });
+    const projectId = (job as any)?.projectId;
+    if (!projectId) return [jobId];
+
+    const allJobs = await db
+      .collection('jobs')
+      .find(
+        { projectId, status: 'COMPLETED' },
+        { projection: { id: 1, cacheSourceJobId: 1 } },
+      )
+      .toArray();
+
+    const ids = new Set<string>();
+    for (const j of allJobs) {
+      if ((j as any).id) ids.add(String((j as any).id));
+      if ((j as any).cacheSourceJobId) ids.add(String((j as any).cacheSourceJobId));
+    }
+    ids.add(jobId); // always include the seed
+    return [...ids];
+  } catch {
+    return [jobId];
+  }
+}
+
 // ─── Brand colours ────────────────────────────────────────────────────────────
 
 const C = {
@@ -50,11 +84,14 @@ function pdfToBuffer(doc: PDFKit.PDFDocument): Promise<Buffer> {
 // ─── Shared header / footer ───────────────────────────────────────────────────
 
 function drawPageHeader(doc: PDFKit.PDFDocument, title: string, subtitle: string, domain: string) {
+  // ── Fill ENTIRE page dark — makes all white/zinc text visible everywhere ──
+  doc.rect(0, 0, PAGE_W, PAGE_H).fill(C.zinc900);
+
   // Gold left accent bar
   doc.rect(0, 0, 4, PAGE_H).fill(C.gold);
 
-  // Header background
-  doc.rect(0, 0, PAGE_W, 80).fill(C.zinc900);
+  // Header background (slightly lighter band for separation)
+  doc.rect(4, 0, PAGE_W - 4, 80).fill(C.zinc800);
 
   // Logo / brand
   doc
@@ -123,14 +160,19 @@ function drawKpiRow(
   items.forEach((item, i) => {
     const x = ML + i * colW;
     const color = item.color ?? C.gold;
-    // Card fill
-    doc.roundedRect(x + 2, y, colW - 6, 54, 5).fill(C.zinc900);
+    // Card fill (slightly lighter than page for visual separation)
+    doc.roundedRect(x + 2, y, colW - 6, 54, 5).fill(C.zinc800);
     // Top accent
     doc.rect(x + 2, y, colW - 6, 2).fill(color);
-    // Value
-    doc.fillColor(color).font('Helvetica-Bold').fontSize(22).text(String(item.value), x + 10, y + 8, { width: colW - 20, align: 'center' });
+    // Value — truncate to 12 chars, scale font for length
+    const rawVal = String(item.value);
+    const valDisplay = rawVal.length > 12 ? rawVal.slice(0, 11) + '\u2026' : rawVal;
+    const valFontSize = valDisplay.length > 8 ? 14 : valDisplay.length > 5 ? 18 : 22;
+    doc.fillColor(color).font('Helvetica-Bold').fontSize(valFontSize)
+      .text(valDisplay, x + 6, y + 10, { width: colW - 14, align: 'center', lineBreak: false });
     // Label
-    doc.fillColor(C.zinc300).font('Helvetica').fontSize(8).text(item.label, x + 10, y + 32, { width: colW - 20, align: 'center' });
+    doc.fillColor(C.zinc300).font('Helvetica').fontSize(7.5)
+      .text(item.label, x + 6, y + 38, { width: colW - 14, align: 'center', lineBreak: false });
     if (item.sub) {
       doc.fillColor(C.zinc500).fontSize(7).text(item.sub, x + 10, y + 43, { width: colW - 20, align: 'center' });
     }
@@ -322,16 +364,25 @@ function badgeColor(severity: string): string {
 async function buildWeeklySummaryPdf(jobId: string, domain: string): Promise<Buffer> {
   const db = await connectToMongo();
   const jobRepo = new JobRepository();
+  // effectiveId is the crawl job — used for fields/pages/job_summaries
   const effectiveId = await jobRepo.resolveEffectiveJobId(jobId);
+  // allJobIds includes AEO_ANALYSIS, MODULE_E_* etc. — needed for module_c/module_e
+  const allJobIds = await resolveAllProjectJobIds(db, jobId);
 
   // ── Fetch data in parallel ──────────────────────────────────────────────
     const [aivsDoc, pageStats, moduleE, jobSummary, topActionsRaw] = await Promise.all([
-    db.collection('module_c').findOne({ jobId: effectiveId }, { projection: { overall_score: 1, model_scores: 1 }, sort: { timestamp: -1 } } as any),
+    db.collection('module_c').findOne(
+      { jobId: { $in: allJobIds } },
+      { projection: { overall_score: 1, modules: 1 }, sort: { timestamp: -1 } } as any,
+    ),
     db.collection('fields').aggregate([
       { $match: { jobId: effectiveId } },
       { $group: { _id: null, avg_health: { $avg: { $ifNull: ['$recommendations.health_score', 100] } }, total: { $sum: 1 } } },
     ]).toArray(),
-    db.collection('module_e').findOne({ jobId: effectiveId }, { projection: { brand_analysis: 1, ai_share_of_voice: 1, ai_sov_history: 1, score_history: 1 } }),
+    db.collection('module_e').findOne(
+      { jobId: { $in: allJobIds } },
+      { projection: { brand_analysis: 1, ai_share_of_voice: 1, ai_sov_history: 1, master_analysis: 1 } },
+    ),
     db.collection('job_summaries').findOne({ jobId: effectiveId }, { projection: { total_pages: 1, completed_at: 1 } }),
     db.collection('fields').aggregate([
       { $match: { jobId: effectiveId } },
@@ -352,12 +403,13 @@ async function buildWeeklySummaryPdf(jobId: string, domain: string): Promise<Buf
     ? new Date((jobSummary as any).completed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : 'N/A';
 
-  // Model-wise AIVS scores for bar chart
+  // Model-wise scores from module_e master_analysis
   const modelScores: Array<{ label: string; value: number }> = [];
-  const ms = (aivsDoc as any)?.model_scores ?? {};
-  const modelMap: Record<string, string> = { chatgpt: 'ChatGPT', gemini: 'Gemini', perplexity: 'Perplexity', claude: 'Claude' };
-  Object.entries(modelMap).forEach(([k, label]) => {
-    if (typeof ms[k] === 'number') modelMap[k] && modelScores.push({ label, value: Math.round(ms[k]) });
+  const masterModels: any[] = (moduleE as any)?.master_analysis?.models ?? [];
+  masterModels.forEach((m: any) => {
+    if (typeof m.model === 'string' && typeof m.model_wise_performance_score === 'number') {
+      modelScores.push({ label: m.model.charAt(0).toUpperCase() + m.model.slice(1), value: Math.round(m.model_wise_performance_score) });
+    }
   });
 
   // SOV history for trend
@@ -542,141 +594,1010 @@ async function buildAuditReportPdf(jobId: string, userId: string, domain: string
 // ── COMPETITOR REPORT PDF ───────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════════
 
-async function buildCompetitorReportPdf(jobId: string, domain: string): Promise<Buffer> {
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── SERP ANALYSIS REPORT PDF (Module A) ─────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function buildSerpAnalysisPdf(jobId: string, domain: string): Promise<Buffer> {
   const db = await connectToMongo();
   const jobRepo = new JobRepository();
   const effectiveId = await jobRepo.resolveEffectiveJobId(jobId);
 
-  const moduleE = await db.collection('module_e').findOne({ jobId: effectiveId });
-  const competitors: any[] = (moduleE as any)?.competitor_mentions ?? [];
-  const sovData: any = (moduleE as any)?.ai_share_of_voice ?? {};
+  const serpDoc = await db.collection('serp_results').findOne({ jobId: effectiveId }) as any;
 
-  const doc = new PDFDocument({ size: 'A4', margin: 0, info: { Title: 'Competitor Report', Author: 'Colytics AI' } });
-  const title = 'Competitor Intelligence Report';
+  const summary = serpDoc?.summary ?? {};
+  const keywords: any[] = serpDoc?.keyword_results ?? [];
+  const contentGaps: any[] = serpDoc?.content_gaps ?? [];
+  const volatility = serpDoc?.volatility ?? {};
+  const featureFreq: Record<string, number> = summary?.feature_frequency ?? {};
+
+  const doc = new PDFDocument({ size: 'A4', margin: 0, info: { Title: 'SERP Analysis Report', Author: 'Colytics AI' } });
+  const title = 'SERP Analysis Report';
   const subtitle = `Generated: ${new Date().toLocaleDateString('en-US', { dateStyle: 'long' })}`;
   drawPageHeader(doc, title, subtitle, domain);
-
   let y = 102;
+  let pageNum = 1;
+  const PAGE_BREAK_Y = PAGE_H - 60;
 
-  // ── SOV Overview ───────────────────────────────────────────────────────
-  y = sectionLabel(doc, 'SHARE OF VOICE OVERVIEW', y);
-  const overallSov = typeof sovData.overall_sov === 'number' ? sovData.overall_sov.toFixed(1) : 'N/A';
+  // ── KPI Summary ─────────────────────────────────────────────────────────
+  y = sectionLabel(doc, 'KEYWORD RANKING OVERVIEW', y);
   y = drawKpiRow(doc, y, [
-    { label: 'Your Share of Voice', value: `${overallSov}%`, color: C.gold },
-    { label: 'Competitive Position', value: sovData.rank ? `#${sovData.rank}` : '—', color: C.zinc300 },
-    { label: 'Models Tracked', value: '4', color: C.blue },
-    { label: 'Domain', value: domain.replace(/^https?:\/\//, ''), color: C.zinc300 },
+    { label: 'Total Keywords', value: summary.total_keywords ?? 0, color: C.zinc300 },
+    { label: 'Ranked', value: summary.ranked_keywords ?? 0, color: C.emerald },
+    { label: 'Unranked', value: summary.unranked_keywords ?? 0, color: C.red },
+    { label: 'Avg Rank', value: summary.avg_rank != null ? `#${Math.round(summary.avg_rank)}` : 'N/A', color: C.gold },
+  ]);
+
+  y += 4;
+  y = drawKpiRow(doc, y, [
+    { label: 'Top 3', value: summary.top3 ?? 0, color: C.emerald },
+    { label: 'Top 10', value: summary.top10 ?? 0, color: C.gold },
+    { label: 'Top 20', value: summary.top20 ?? 0, color: C.amber },
+    { label: 'Top 100', value: summary.top100 ?? 0, color: C.zinc400 },
   ]);
 
   y += 8;
 
-  // ── Model SOV chart ───────────────────────────────────────────────────
-  if (sovData.model_breakdown) {
-    y = sectionLabel(doc, 'SHARE OF VOICE BY MODEL', y);
-    const modelBars: Array<{ label: string; value: number }> = Object.entries(sovData.model_breakdown).map(([k, v]) => ({
-      label: k.charAt(0).toUpperCase() + k.slice(1),
-      value: typeof v === 'number' ? Math.round(v) : 0,
-    }));
-    if (modelBars.length > 0) {
-      y = drawHBarChart(doc, y, modelBars.map(m => ({ label: m.label, value: m.value, max: 100, color: C.gold })));
-    }
-  }
-
-  y += 6;
-
-  // ── Competitor mentions table ───────────────────────────────────────
-  if (competitors.length > 0) {
-    y = sectionLabel(doc, 'TOP COMPETITORS BY AI MENTION', y);
-    const rows = competitors.slice(0, 15).map((c: any) => [
-      c.domain ?? c.brand ?? '',
-      String(c.mention_count ?? c.total_mentions ?? 0),
-      c.sentiment?.label ?? '—',
-      c.models?.join(', ') ?? '—',
+  // ── Rank distribution bar chart ──────────────────────────────────────────
+  if (summary.top3 != null || summary.top10 != null) {
+    y = sectionLabel(doc, 'RANK DISTRIBUTION', y);
+    const maxVal = summary.ranked_keywords || 1;
+    y = drawHBarChart(doc, y, [
+      { label: 'Top 3', value: summary.top3 ?? 0, max: maxVal, color: C.emerald },
+      { label: 'Top 10', value: summary.top10 ?? 0, max: maxVal, color: C.gold },
+      { label: 'Top 20', value: summary.top20 ?? 0, max: maxVal, color: C.amber },
+      { label: 'Top 100', value: summary.top100 ?? 0, max: maxVal, color: C.zinc400 },
     ]);
-    y = drawTable(doc, y, ['Competitor', 'Mentions', 'Sentiment', 'Models'], rows, [200, 80, 100, 120]);
-  } else {
-    doc.fillColor(C.zinc500).font('Helvetica').fontSize(9).text('No competitor data available for this job.', ML, y + 12);
-    y += 30;
+    y += 4;
   }
 
-  drawFooter(doc, 1);
+  // ── SERP Volatility ───────────────────────────────────────────────────────
+  y = sectionLabel(doc, 'SERP VOLATILITY', y);
+  const volColor = volatility.level === 'stable' ? C.emerald : volatility.level === 'medium' ? C.amber : C.red;
+  y = drawKpiRow(doc, y, [
+    { label: 'Volatility Level', value: (volatility.level ?? 'N/A').toUpperCase(), color: volColor },
+    { label: 'Volatility Score', value: volatility.score != null ? volatility.score.toFixed(1) : 'N/A', color: volColor },
+    { label: 'Rank Std Dev', value: volatility.rank_std_dev != null ? volatility.rank_std_dev.toFixed(1) : 'N/A', color: C.zinc400 },
+    { label: 'Location', value: serpDoc?.location_code ?? 'Global', color: C.zinc300 },
+  ]);
+
+  y += 8;
+
+  // ── SERP Feature Frequency ────────────────────────────────────────────────
+  const featureEntries = Object.entries(featureFreq)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8);
+  if (featureEntries.length > 0) {
+    y = sectionLabel(doc, 'SERP FEATURES DETECTED', y);
+    const maxFeature = featureEntries[0][1] || 1;
+    y = drawHBarChart(doc, y, featureEntries.map(([k, v]) => ({
+      label: k.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      value: v,
+      max: maxFeature,
+      color: C.blue,
+    })));
+    y += 4;
+  }
+
+  // ── Keyword Detail Table ──────────────────────────────────────────────────
+  if (keywords.length > 0) {
+    if (y > PAGE_BREAK_Y - 40) {
+      drawFooter(doc, pageNum++);
+      doc.addPage({ size: 'A4', margin: 0 });
+      drawPageHeader(doc, title, subtitle, domain);
+      y = 102;
+    }
+    y = sectionLabel(doc, `KEYWORD RANKINGS (${Math.min(keywords.length, 30)} of ${keywords.length})`, y);
+    const kwRows = keywords.slice(0, 30).map((k: any) => [
+      k.keyword ?? '',
+      k.target_rank != null ? `#${k.target_rank}` : '—',
+      k.target_title ? k.target_title.substring(0, 40) : '—',
+      String(k.paa_questions?.length ?? 0),
+      k.features ? Object.keys(k.features).filter(f => (k.features[f] as any)?.present).join(', ') || '—' : '—',
+    ]);
+    y = drawTable(doc, y, ['Keyword', 'Rank', 'Ranking Title', 'PAA Qs', 'SERP Features'], kwRows, [150, 40, 160, 40, 100], 30);
+    y += 8;
+  }
+
+  // ── Content Gap Opportunities ─────────────────────────────────────────────
+  if (contentGaps.length > 0) {
+    if (y > PAGE_BREAK_Y - 40) {
+      drawFooter(doc, pageNum++);
+      doc.addPage({ size: 'A4', margin: 0 });
+      drawPageHeader(doc, title, subtitle, domain);
+      y = 102;
+    }
+    y = sectionLabel(doc, `CONTENT GAP OPPORTUNITIES (${contentGaps.length})`, y);
+    const gapRows = contentGaps.slice(0, 20).map((g: any) => [
+      g.keyword ?? '',
+      g.opportunity_type === 'not_ranking' ? 'Not Ranking' : 'Low Ranking',
+      g.target_rank != null ? `#${g.target_rank}` : '—',
+      g.has_featured_snippet ? 'Yes' : 'No',
+      g.has_paa ? 'Yes' : 'No',
+      g.top_ranking_domain ?? '—',
+    ]);
+    y = drawTable(
+      doc, y,
+      ['Keyword', 'Gap Type', 'Current Rank', 'Featured Snip.', 'PAA', 'Top Ranker'],
+      gapRows, [140, 80, 65, 65, 40, 100], 20,
+    );
+    y += 8;
+  }
+
+  // ── People Also Ask Summary ───────────────────────────────────────────────
+  const allPaa: Array<{ question: string; keyword: string }> = [];
+  keywords.forEach((k: any) => {
+    (k.paa_questions ?? []).forEach((q: any) => {
+      allPaa.push({ question: q.question ?? q, keyword: k.keyword ?? '' });
+    });
+  });
+  if (allPaa.length > 0) {
+    if (y > PAGE_BREAK_Y - 40) {
+      drawFooter(doc, pageNum++);
+      doc.addPage({ size: 'A4', margin: 0 });
+      drawPageHeader(doc, title, subtitle, domain);
+      y = 102;
+    }
+    y = sectionLabel(doc, `PEOPLE ALSO ASK — KEY QUESTIONS (${Math.min(allPaa.length, 15)})`, y);
+    allPaa.slice(0, 15).forEach((item, i) => {
+      if (y > PAGE_BREAK_Y) {
+        drawFooter(doc, pageNum++);
+        doc.addPage({ size: 'A4', margin: 0 });
+        drawPageHeader(doc, title, subtitle, domain);
+        y = 102;
+      }
+      doc.fillColor(C.gold).font('Helvetica-Bold').fontSize(8).text(`${i + 1}.`, ML, y, { width: 16 });
+      doc.fillColor(C.zinc300).font('Helvetica').fontSize(8).text(item.question, ML + 18, y, { width: CONTENT_W - 80 });
+      doc.fillColor(C.zinc500).fontSize(7).text(`[${item.keyword}]`, ML + CONTENT_W - 60, y, { width: 60, align: 'right' });
+      y += 14;
+    });
+  }
+
+  drawFooter(doc, pageNum);
   return pdfToBuffer(doc);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// ── AI VISIBILITY SCORECARD PDF ─────────────────────────────────────────────
+// ── COMPETITOR AI INTELLIGENCE REPORT PDF (Module F) ────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════════
 
-async function buildAiScorecardPdf(jobId: string, domain: string): Promise<Buffer> {
+async function buildCompetitorAiReportPdf(jobId: string, domain: string): Promise<Buffer> {
   const db = await connectToMongo();
   const jobRepo = new JobRepository();
   const effectiveId = await jobRepo.resolveEffectiveJobId(jobId);
+  const allJobIds = await resolveAllProjectJobIds(db, jobId);
 
-  const aivsDoc = await db.collection('module_c').findOne(
-    { jobId: effectiveId },
-    { sort: { timestamp: -1 } } as any,
-  );
-  const masterAnalysis = aivsDoc?.master_analysis ?? {};
-  const modelsList: any[] = masterAnalysis?.models ?? (aivsDoc as any)?.models ?? [];
-  const overallScore: number | null = typeof aivsDoc?.overall_score === 'number' ? Math.round(aivsDoc.overall_score) : null;
+  // module_f can be under effectiveId or any of the project's job IDs
+  const fDoc: any = await (async () => {
+    const direct = await db.collection('module_f').findOne({
+      jobId: effectiveId,
+      compare_visibility_against_competitors: { $exists: true },
+    });
+    if (direct) return direct;
+    return db.collection('module_f').findOne({ jobId: { $in: allJobIds } });
+  })();
+
+  const compareVis = fDoc?.compare_visibility_against_competitors ?? {};
+  const brandData = compareVis.brand ?? null;
+  const competitors: any[] = compareVis.competitors ?? [];
+  const compWins = fDoc?.competitor_wins ?? {};
+  const gapOps: any[] = fDoc?.gap_opportunities ?? fDoc?.gap_analysis ?? [];
+  const srcAnalysis: any[] = fDoc?.source_analysis?.competitor_source_analysis ?? [];
+  const emergingTrends = fDoc?.emerging_trends ?? {};
+  const moat4 = fDoc?.moat4_recommendations ?? {};
+  const metricRecs: Record<string, any> = fDoc?.recommendations ?? fDoc?.metric_recommendations ?? {};
+
+  const doc = new PDFDocument({ size: 'A4', margin: 0, info: { Title: 'Competitor AI Intelligence', Author: 'Colytics AI' } });
+  const title = 'Competitor AI Intelligence Report';
+  const subtitle = `Generated: ${new Date().toLocaleDateString('en-US', { dateStyle: 'long' })}`;
+  drawPageHeader(doc, title, subtitle, domain);
+  let y = 102;
+  let pageNum = 1;
+  const PAGE_BREAK_Y = PAGE_H - 60;
+
+  // ── Brand vs. Market KPIs ─────────────────────────────────────────────────
+  y = sectionLabel(doc, 'BRAND VISIBILITY OVERVIEW', y);
+  y = drawKpiRow(doc, y, [
+    { label: 'Brand Visibility Score', value: brandData ? `${Math.round(brandData.visibility_score ?? 0)}` : 'N/A', color: C.gold },
+    { label: 'Market Share', value: brandData ? `${(brandData.market_share_percent ?? 0).toFixed(1)}%` : 'N/A', color: C.blue },
+    { label: 'Total Mentions', value: brandData?.mentions_total ?? 'N/A', color: C.emerald },
+    { label: 'Models Tracking', value: brandData?.mentioned_in_models ?? compareVis.models?.length ?? 'N/A', color: C.zinc300 },
+  ]);
+
+  y += 8;
+
+  // ── Wins vs Losses Summary ────────────────────────────────────────────────
+  if (compWins?.summary) {
+    y = sectionLabel(doc, 'CONTENT WINS vs LOSSES', y);
+    const ws = compWins.summary;
+    y = drawKpiRow(doc, y, [
+      { label: 'Brand Wins', value: ws.brand_wins ?? 0, color: C.emerald },
+      { label: 'Competitor Wins', value: ws.competitor_wins ?? 0, color: C.red },
+      { label: 'Win Rate', value: ws.brand_win_rate != null ? `${(ws.brand_win_rate * 100).toFixed(1)}%` : 'N/A', color: C.gold },
+      { label: 'Avg Content Gap', value: ws.avg_content_gap_score != null ? ws.avg_content_gap_score.toFixed(1) : 'N/A', color: C.amber },
+    ]);
+    y += 8;
+
+    // Win/Loss prompt table
+    if (compWins.detailed_results?.length > 0) {
+      if (y > PAGE_BREAK_Y - 40) {
+        drawFooter(doc, pageNum++);
+        doc.addPage({ size: 'A4', margin: 0 });
+        drawPageHeader(doc, title, subtitle, domain);
+        y = 102;
+      }
+      y = sectionLabel(doc, 'WIN / LOSS PROMPT BREAKDOWN', y);
+      const wlRows = (compWins.detailed_results as any[]).slice(0, 15).map((r: any) => [
+        r.prompt ? r.prompt.substring(0, 45) : '—',
+        r.winner === 'brand' ? 'WIN' : r.winner === 'competitor' ? 'LOSS' : r.winner?.toUpperCase() ?? '—',
+        r.winner_name ?? '—',
+        r.brand_rank != null ? `#${r.brand_rank}` : '—',
+        r.coverage_gap_score != null ? r.coverage_gap_score.toFixed(1) : '—',
+      ]);
+      y = drawTable(doc, y, ['Prompt', 'Result', 'Winner', 'Brand Rank', 'Gap Score'], wlRows, [160, 45, 100, 65, 60], 15);
+      y += 8;
+    }
+  }
+
+  // ── Competitor Visibility Comparison ──────────────────────────────────────
+  if (competitors.length > 0) {
+    if (y > PAGE_BREAK_Y - 40) {
+      drawFooter(doc, pageNum++);
+      doc.addPage({ size: 'A4', margin: 0 });
+      drawPageHeader(doc, title, subtitle, domain);
+      y = 102;
+    }
+    y = sectionLabel(doc, 'COMPETITOR VISIBILITY COMPARISON', y);
+
+    // Horizontal bar chart (visibility scores)
+    const allPlayers = [
+      ...(brandData ? [{ label: 'YOUR BRAND', value: Math.round(brandData.visibility_score ?? 0) }] : []),
+      ...competitors.slice(0, 8).map((c: any) => ({
+        label: c.name ? c.name.substring(0, 20) : 'Competitor',
+        value: Math.round(c.visibility_score ?? 0),
+      })),
+    ];
+    y = drawHBarChart(doc, y, allPlayers.map(p => ({
+      label: p.label,
+      value: p.value,
+      max: 100,
+      color: p.label === 'YOUR BRAND' ? C.gold : C.blue,
+    })));
+    y += 4;
+
+    // Competitor detail table
+    if (y > PAGE_BREAK_Y - 40) {
+      drawFooter(doc, pageNum++);
+      doc.addPage({ size: 'A4', margin: 0 });
+      drawPageHeader(doc, title, subtitle, domain);
+      y = 102;
+    }
+    y = sectionLabel(doc, 'COMPETITOR METRICS TABLE', y);
+    const compRows = competitors.slice(0, 12).map((c: any) => [
+      c.name ?? '—',
+      Math.round(c.visibility_score ?? 0).toString(),
+      `${(c.market_share_percent ?? 0).toFixed(1)}%`,
+      String(c.mentions_total ?? 0),
+      c.avg_rank != null ? `#${Math.round(c.avg_rank)}` : '—',
+      c.rank_difference_vs_brand != null
+        ? (c.rank_difference_vs_brand > 0 ? `+${c.rank_difference_vs_brand}` : String(c.rank_difference_vs_brand))
+        : '—',
+    ]);
+    y = drawTable(
+      doc, y,
+      ['Competitor', 'Visibility', 'Mkt Share', 'Mentions', 'Avg Rank', 'Rank Diff'],
+      compRows, [160, 55, 65, 60, 55, 55], 12,
+    );
+    y += 8;
+  }
+
+  // ── Per-Model Visibility (brand) ──────────────────────────────────────────
+  if (brandData?.per_model && Object.keys(brandData.per_model).length > 0) {
+    if (y > PAGE_BREAK_Y - 40) {
+      drawFooter(doc, pageNum++);
+      doc.addPage({ size: 'A4', margin: 0 });
+      drawPageHeader(doc, title, subtitle, domain);
+      y = 102;
+    }
+    y = sectionLabel(doc, 'BRAND PERFORMANCE PER AI MODEL', y);
+    const modelRows = Object.entries(brandData.per_model as Record<string, any>).map(([model, data]: [string, any]) => [
+      model.charAt(0).toUpperCase() + model.slice(1),
+      String(data.mentions ?? 0),
+      data.rank != null ? `#${data.rank}` : '—',
+      data.rank_percentile != null ? `${Math.round(data.rank_percentile)}%` : '—',
+      data.first_position != null ? `#${data.first_position}` : '—',
+    ]);
+    y = drawTable(doc, y, ['AI Model', 'Mentions', 'Rank', 'Rank Percentile', 'First Position'], modelRows, [130, 70, 70, 100, 100]);
+    y += 8;
+  }
+
+  // ── Gap Opportunities ─────────────────────────────────────────────────────
+  if (gapOps.length > 0) {
+    if (y > PAGE_BREAK_Y - 40) {
+      drawFooter(doc, pageNum++);
+      doc.addPage({ size: 'A4', margin: 0 });
+      drawPageHeader(doc, title, subtitle, domain);
+      y = 102;
+    }
+    y = sectionLabel(doc, `GAP OPPORTUNITIES (${gapOps.length})`, y);
+    const gapRows = gapOps.slice(0, 12).map((g: any) => [
+      g.competitor ?? '—',
+      g.gapScore != null ? g.gapScore.toFixed(1) : '—',
+      String(g.missingPrompts ?? 0),
+      g.potentialGainPercent != null ? `${g.potentialGainPercent.toFixed(1)}%` : '—',
+    ]);
+    y = drawTable(doc, y, ['Competitor', 'Gap Score', 'Missing Prompts', 'Potential Gain'], gapRows, [200, 80, 100, 90], 12);
+    y += 8;
+  }
+
+  // ── Source / Citation Analysis ────────────────────────────────────────────
+  if (srcAnalysis.length > 0) {
+    if (y > PAGE_BREAK_Y - 40) {
+      drawFooter(doc, pageNum++);
+      doc.addPage({ size: 'A4', margin: 0 });
+      drawPageHeader(doc, title, subtitle, domain);
+      y = 102;
+    }
+    y = sectionLabel(doc, 'COMPETITOR SOURCE & CITATION ANALYSIS', y);
+    const srcRows = srcAnalysis.slice(0, 10).map((s: any) => [
+      s.competitor ?? '—',
+      s.source_domain_influence_score != null ? s.source_domain_influence_score.toFixed(1) : '—',
+      s.average_domain_authority != null ? Math.round(s.average_domain_authority).toString() : '—',
+      String(s.citation_count ?? 0),
+      (s.top_citations ?? []).slice(0, 2).map((c: any) => c.domain ?? '').filter(Boolean).join(', ') || '—',
+    ]);
+    y = drawTable(doc, y, ['Competitor', 'Influence Score', 'Avg DA', 'Citations', 'Top Sources'], srcRows, [150, 80, 55, 60, 125], 10);
+    y += 8;
+  }
+
+  // ── Emerging Trends ───────────────────────────────────────────────────────
+  if (emergingTrends?.competitor_changes?.length > 0 || emergingTrends?.summary) {
+    if (y > PAGE_BREAK_Y - 40) {
+      drawFooter(doc, pageNum++);
+      doc.addPage({ size: 'A4', margin: 0 });
+      drawPageHeader(doc, title, subtitle, domain);
+      y = 102;
+    }
+    y = sectionLabel(doc, 'EMERGING TRENDS & MARKET SHIFTS', y);
+
+    if (emergingTrends.summary) {
+      const ts = emergingTrends.summary;
+      y = drawKpiRow(doc, y, [
+        { label: 'Trends Detected', value: ts.trends_detected ?? 0, color: C.blue },
+        { label: 'Avg Visibility Δ', value: ts.avg_visibility_delta != null ? `${ts.avg_visibility_delta.toFixed(1)}%` : 'N/A', color: C.amber },
+        { label: 'New Prompts', value: ts.new_prompts ?? 0, color: C.emerald },
+        { label: 'Threat Level', value: (ts.threat_level ?? '—').toUpperCase(), color: ts.threat_level === 'high' ? C.red : ts.threat_level === 'medium' ? C.amber : C.emerald },
+      ]);
+      y += 8;
+    }
+
+    if (emergingTrends.competitor_changes?.length > 0) {
+      const trendRows = (emergingTrends.competitor_changes as any[]).slice(0, 10).map((c: any) => [
+        c.name ?? '—',
+        c.status ? c.status.toUpperCase() : '—',
+        c.delta_visibility != null ? `${c.delta_visibility > 0 ? '+' : ''}${c.delta_visibility.toFixed(1)}%` : '—',
+        c.delta_market_share != null ? `${c.delta_market_share > 0 ? '+' : ''}${c.delta_market_share.toFixed(1)}%` : '—',
+      ]);
+      y = drawTable(doc, y, ['Competitor', 'Status', 'Visibility Δ', 'Market Share Δ'], trendRows, [200, 80, 90, 100], 10);
+      y += 8;
+    }
+  }
+
+  // ── Moat4 Recommendations (top actions) ──────────────────────────────────
+  const allActions: any[] = moat4?.all_actions ?? moat4?.role_output?.actions ?? [];
+  if (allActions.length > 0) {
+    if (y > PAGE_BREAK_Y - 40) {
+      drawFooter(doc, pageNum++);
+      doc.addPage({ size: 'A4', margin: 0 });
+      drawPageHeader(doc, title, subtitle, domain);
+      y = 102;
+    }
+    y = sectionLabel(doc, `STRATEGIC ACTION PLAN (Top ${Math.min(allActions.length, 10)})`, y);
+
+    const sortedActions = [...allActions]
+      .sort((a, b) => (b.priority_score ?? 0) - (a.priority_score ?? 0))
+      .slice(0, 10);
+
+    sortedActions.forEach((action: any, i: number) => {
+      if (y > PAGE_BREAK_Y) {
+        drawFooter(doc, pageNum++);
+        doc.addPage({ size: 'A4', margin: 0 });
+        drawPageHeader(doc, title, subtitle, domain);
+        y = 102;
+      }
+      const urgColor = (action.urgency_score ?? 0) >= 7 ? C.red : (action.urgency_score ?? 0) >= 4 ? C.amber : C.blue;
+      doc.rect(ML, y, CONTENT_W, 2).fill(urgColor);
+      y += 4;
+      doc.fillColor(urgColor).font('Helvetica-Bold').fontSize(8.5)
+        .text(`${i + 1}. ${action.action_title ?? ''}`, ML, y, { width: CONTENT_W - 120 });
+      doc.fillColor(C.zinc500).font('Helvetica').fontSize(7.5)
+        .text(`Priority: ${action.priority_score ?? '—'}  Impact: ${action.impact_score ?? '—'}  Effort: ${action.effort_score ?? '—'}`,
+          ML + CONTENT_W - 118, y, { width: 118, align: 'right' });
+      y += 13;
+      if (action.action_detail) {
+        doc.fillColor(C.zinc400).font('Helvetica').fontSize(7.5)
+          .text(action.action_detail, ML + 8, y, { width: CONTENT_W - 8 });
+        y += doc.heightOfString(action.action_detail, { width: CONTENT_W - 8 }) + 6;
+      }
+    });
+    y += 4;
+  }
+
+  // ── Metric Recommendations ────────────────────────────────────────────────
+  const recEntries = Object.entries(metricRecs).filter(([, v]) => v);
+  if (recEntries.length > 0) {
+    if (y > PAGE_BREAK_Y - 40) {
+      drawFooter(doc, pageNum++);
+      doc.addPage({ size: 'A4', margin: 0 });
+      drawPageHeader(doc, title, subtitle, domain);
+      y = 102;
+    }
+    y = sectionLabel(doc, 'METRIC-LEVEL RECOMMENDATIONS', y);
+    recEntries.slice(0, 8).forEach(([metric, rec]: [string, any]) => {
+      if (y > PAGE_BREAK_Y) {
+        drawFooter(doc, pageNum++);
+        doc.addPage({ size: 'A4', margin: 0 });
+        drawPageHeader(doc, title, subtitle, domain);
+        y = 102;
+      }
+      const metricLabel = metric.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      doc.fillColor(C.gold).font('Helvetica-Bold').fontSize(8).text(`• ${metricLabel}`, ML, y);
+      y += 12;
+      const why = typeof rec === 'string' ? rec : rec?.why ?? '';
+      const fix = typeof rec === 'object' ? rec?.fix ?? '' : '';
+      if (why) {
+        doc.fillColor(C.zinc400).font('Helvetica').fontSize(7.5).text(`Why: ${why}`, ML + 10, y, { width: CONTENT_W - 10 });
+        y += doc.heightOfString(`Why: ${why}`, { width: CONTENT_W - 10 }) + 3;
+      }
+      if (fix) {
+        doc.fillColor(C.emerald).fontSize(7.5).text(`Fix: ${fix}`, ML + 10, y, { width: CONTENT_W - 10 });
+        y += doc.heightOfString(`Fix: ${fix}`, { width: CONTENT_W - 10 }) + 4;
+      }
+    });
+  }
+
+  drawFooter(doc, pageNum);
+  return pdfToBuffer(doc);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── AI VISIBILITY SCORECARD PDF — reimplemented with full Module C data ───────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function buildAiScorecardPdfV2(jobId: string, domain: string): Promise<Buffer> {
+  const db = await connectToMongo();
+  const allJobIds = await resolveAllProjectJobIds(db, jobId);
+
+  const [aivsDoc, moduleE] = await Promise.all([
+    db.collection('module_c').findOne(
+      { jobId: { $in: allJobIds } },
+      { sort: { timestamp: -1 } } as any,
+    ),
+    db.collection('module_e').findOne(
+      { jobId: { $in: allJobIds } },
+      { projection: { master_analysis: 1 } },
+    ),
+  ]);
+
+  const modules: any = (aivsDoc as any)?.modules ?? {};
+  const aeoChecker = modules.aeo_checker ?? {};
+  const entityCoverage = modules.entity_coverage ?? {};
+  const answerCompleteness = modules.answer_completeness ?? {};
+  const llmSim = modules.llm_simulator ?? {};
+  const multiModel = modules.multi_model ?? {};
+  const pageActions = modules.page_actions ?? {};
+  const entityExtraction = modules.entity_extraction ?? {};
+  const missingInfo = modules.missing_info ?? {};
+  const modelsList: any[] = (moduleE as any)?.master_analysis?.models ?? [];
+  const overallScore: number | null = typeof (aivsDoc as any)?.overall_score === 'number'
+    ? Math.round((aivsDoc as any).overall_score) : null;
 
   const doc = new PDFDocument({ size: 'A4', margin: 0, info: { Title: 'AI Visibility Scorecard', Author: 'Colytics AI' } });
   const title = 'AI Visibility Scorecard';
   const subtitle = `Generated: ${new Date().toLocaleDateString('en-US', { dateStyle: 'long' })}`;
   drawPageHeader(doc, title, subtitle, domain);
-
   let y = 102;
+  let pageNum = 1;
+  const PAGE_BREAK_Y = PAGE_H - 60;
 
-  // ── Overall score ──────────────────────────────────────────────────────
+  // ── Overall + sub-scores KPIs ─────────────────────────────────────────────
   y = sectionLabel(doc, 'OVERALL AI VISIBILITY SCORE', y);
-
-  const scoreColor = overallScore !== null ? (overallScore >= 80 ? C.emerald : overallScore >= 60 ? C.gold : C.red) : C.zinc500;
+  const scoreColor = overallScore !== null ? (overallScore >= 70 ? C.emerald : overallScore >= 50 ? C.gold : C.red) : C.zinc500;
   drawScoreGauge(doc, PAGE_W / 2, y + 50, overallScore, 'AIVS Score', scoreColor);
   y += 115;
 
-  // ── Model-by-model scorecards ─────────────────────────────────────────
+  y = sectionLabel(doc, 'MODULE SCORES', y);
+  y = drawKpiRow(doc, y, [
+    { label: 'LLM Friendliness', value: aeoChecker.llm_friendliness_score != null ? Math.round(aeoChecker.llm_friendliness_score) : 'N/A', color: C.gold },
+    { label: 'Entity Coverage', value: entityCoverage.coverage?.entity_coverage_pct != null ? `${Math.round(entityCoverage.coverage.entity_coverage_pct)}%` : 'N/A', color: C.blue },
+    { label: 'Answer Completeness', value: answerCompleteness.completeness_score != null ? Math.round(answerCompleteness.completeness_score) : 'N/A', color: C.emerald },
+    { label: 'LLM Simulator', value: multiModel.overall != null ? Math.round(multiModel.overall) : 'N/A', color: C.purple },
+  ]);
+  y += 8;
+
+  // ── AEO Checker sub-scores ────────────────────────────────────────────────
+  if (aeoChecker.sub_scores) {
+    y = sectionLabel(doc, 'LLM FRIENDLINESS BREAKDOWN', y);
+    const ss = aeoChecker.sub_scores;
+    const subScoreBars: Array<{ label: string; value: number; max: number; color: string }> = [
+      { label: 'Crawl Access', value: ss.crawl_access?.score ?? ss.crawl_access?.weighted_score ?? 0, max: 100, color: C.blue },
+      { label: 'Schema / Struct. Data', value: ss.schema?.score ?? ss.schema?.weighted_score ?? 0, max: 100, color: C.gold },
+      { label: 'Content Quality', value: ss.content?.score ?? ss.content?.weighted_score ?? 0, max: 100, color: C.emerald },
+      { label: 'Tech Hygiene', value: ss.tech_hygiene?.score ?? ss.tech_hygiene?.weighted_score ?? 0, max: 100, color: C.amber },
+      { label: 'Structure', value: ss.structure?.score ?? ss.structure?.weighted_score ?? 0, max: 100, color: C.purple },
+    ].filter(b => b.value > 0);
+    if (subScoreBars.length > 0) {
+      y = drawHBarChart(doc, y, subScoreBars);
+      y += 4;
+    }
+    // Page type & topic
+    if (aeoChecker.page_type || aeoChecker.page_topic) {
+      doc.fillColor(C.zinc400).font('Helvetica').fontSize(8)
+        .text(`Page Type: ${aeoChecker.page_type ?? '—'}   |   Topic: ${aeoChecker.page_topic ?? '—'}`, ML, y);
+      y += 14;
+    }
+  }
+
+  // ── Readability metrics ───────────────────────────────────────────────────
+  if (aeoChecker.readability) {
+    const read = aeoChecker.readability;
+    y = sectionLabel(doc, 'READABILITY & CONTENT METRICS', y);
+    y = drawKpiRow(doc, y, [
+      { label: 'Word Count', value: entityExtraction.word_count ?? aeoChecker.word_count ?? 'N/A', color: C.zinc300 },
+      { label: 'Readability Score', value: read.flesch_score != null ? Math.round(read.flesch_score) : 'N/A', color: C.blue },
+      { label: 'Fog Index', value: read.fog_index != null ? read.fog_index.toFixed(1) : 'N/A', color: C.amber },
+      { label: 'Avg Sentence Length', value: read.avg_sentence_length != null ? `${read.avg_sentence_length.toFixed(1)} wds` : 'N/A', color: C.zinc300 },
+    ]);
+    y += 8;
+  }
+
+  // ── Entity Coverage ───────────────────────────────────────────────────────
+  if (y > PAGE_BREAK_Y - 40) {
+    drawFooter(doc, pageNum++);
+    doc.addPage({ size: 'A4', margin: 0 });
+    drawPageHeader(doc, title, subtitle, domain);
+    y = 102;
+  }
+  y = sectionLabel(doc, 'ENTITY COVERAGE ANALYSIS', y);
+  y = drawKpiRow(doc, y, [
+    { label: 'Coverage %', value: entityCoverage.coverage?.entity_coverage_pct != null ? `${Math.round(entityCoverage.coverage.entity_coverage_pct)}%` : 'N/A', color: C.emerald },
+    { label: 'Matched Entities', value: entityCoverage.coverage?.matched_count ?? 'N/A', color: C.blue },
+    { label: 'Expected Entities', value: entityCoverage.coverage?.expected_count ?? 'N/A', color: C.zinc300 },
+    { label: 'Critical Missing', value: entityCoverage.critical_missing_count ?? 'N/A', color: C.red },
+  ]);
+  y += 6;
+
+  const critMissing: any[] = entityCoverage.critical_missing ?? entityCoverage.missing_entities ?? [];
+  if (critMissing.length > 0) {
+    y = sectionLabel(doc, 'MISSING ENTITIES', y);
+    const entRows = critMissing.slice(0, 12).map((e: any) => [
+      typeof e === 'string' ? e : (e.name ?? '—'),
+      typeof e === 'object' ? (e.type ?? '—') : '—',
+      typeof e === 'object' ? ((e.importance ?? e.severity ?? '—').toUpperCase()) : '—',
+    ]);
+    y = drawTable(doc, y, ['Entity', 'Type', 'Importance'], entRows, [250, 120, 100], 12);
+    y += 8;
+  }
+
+  // ── Answer Completeness ───────────────────────────────────────────────────
+  if (y > PAGE_BREAK_Y - 40) {
+    drawFooter(doc, pageNum++);
+    doc.addPage({ size: 'A4', margin: 0 });
+    drawPageHeader(doc, title, subtitle, domain);
+    y = 102;
+  }
+  y = sectionLabel(doc, 'ANSWER COMPLETENESS', y);
+  y = drawKpiRow(doc, y, [
+    { label: 'Completeness Score', value: answerCompleteness.completeness_score != null ? Math.round(answerCompleteness.completeness_score) : 'N/A', color: C.emerald },
+    { label: 'Questions Tested', value: answerCompleteness.questions_generated ?? 'N/A', color: C.zinc300 },
+    { label: 'Fully Answered', value: answerCompleteness.fully_answered ?? 'N/A', color: C.emerald },
+    { label: 'Not Answered', value: answerCompleteness.not_answered ?? 'N/A', color: C.red },
+  ]);
+  y += 6;
+
+  const answerResults: any[] = (answerCompleteness.results ?? []).slice(0, 10);
+  if (answerResults.length > 0) {
+    y = sectionLabel(doc, 'QUESTION COVERAGE DETAIL', y);
+    const aqRows = answerResults.map((r: any) => [
+      r.question ? r.question.substring(0, 60) : '—',
+      (r.status ?? '—').toUpperCase(),
+      r.evidence ? r.evidence.substring(0, 60) : '—',
+    ]);
+    y = drawTable(doc, y, ['Question', 'Status', 'Evidence'], aqRows, [200, 70, 200], 10);
+    y += 8;
+  }
+
+  // ── LLM Simulator results ─────────────────────────────────────────────────
+  if (llmSim.accuracy || llmSim.consistency) {
+    if (y > PAGE_BREAK_Y - 40) {
+      drawFooter(doc, pageNum++);
+      doc.addPage({ size: 'A4', margin: 0 });
+      drawPageHeader(doc, title, subtitle, domain);
+      y = 102;
+    }
+    y = sectionLabel(doc, 'LLM SIMULATOR — ACCURACY & CONSISTENCY', y);
+    y = drawKpiRow(doc, y, [
+      { label: 'Accuracy Overall', value: llmSim.accuracy?.overall != null ? Math.round(llmSim.accuracy.overall) : 'N/A', color: C.gold },
+      { label: 'Completeness Overall', value: llmSim.completeness?.overall != null ? Math.round(llmSim.completeness.overall) : 'N/A', color: C.blue },
+      { label: 'Consistency Score', value: llmSim.consistency?.consistency_score != null ? Math.round(llmSim.consistency.consistency_score) : 'N/A', color: C.emerald },
+      { label: 'Claims Extracted', value: llmSim.accuracy?.claims_extracted ?? 'N/A', color: C.zinc300 },
+    ]);
+    y += 6;
+
+    // Per-model accuracy
+    const perModelAcc = llmSim.accuracy?.per_model ?? {};
+    const perModelKeys = Object.keys(perModelAcc);
+    if (perModelKeys.length > 0) {
+      y = sectionLabel(doc, 'PER-MODEL ACCURACY', y);
+      y = drawHBarChart(doc, y, perModelKeys.map(m => ({
+        label: m.charAt(0).toUpperCase() + m.slice(1),
+        value: typeof perModelAcc[m] === 'number' ? Math.round(perModelAcc[m]) : 0,
+        max: 100,
+        color: C.gold,
+      })));
+      y += 8;
+    }
+  }
+
+  // ── Multi-model comparison ────────────────────────────────────────────────
+  if (multiModel.model_friendliness?.per_model) {
+    if (y > PAGE_BREAK_Y - 40) {
+      drawFooter(doc, pageNum++);
+      doc.addPage({ size: 'A4', margin: 0 });
+      drawPageHeader(doc, title, subtitle, domain);
+      y = 102;
+    }
+    y = sectionLabel(doc, 'MULTI-MODEL FRIENDLINESS', y);
+    const pm = multiModel.model_friendliness.per_model as Record<string, number>;
+    y = drawHBarChart(doc, y, Object.entries(pm).map(([m, v]) => ({
+      label: m.charAt(0).toUpperCase() + m.slice(1),
+      value: typeof v === 'number' ? Math.round(v) : 0,
+      max: 100,
+      color: C.blue,
+    })));
+    y += 8;
+  }
+
+  // ── Page Actions ──────────────────────────────────────────────────────────
+  if (pageActions.total_actions > 0) {
+    if (y > PAGE_BREAK_Y - 40) {
+      drawFooter(doc, pageNum++);
+      doc.addPage({ size: 'A4', margin: 0 });
+      drawPageHeader(doc, title, subtitle, domain);
+      y = 102;
+    }
+    y = sectionLabel(doc, 'PAGE ACTIONS', y);
+    y = drawKpiRow(doc, y, [
+      { label: 'Total Actions', value: pageActions.total_actions ?? 0, color: C.zinc300 },
+      { label: 'High Priority', value: pageActions.high_priority ?? 0, color: C.red },
+      { label: 'Current LLM Score', value: pageActions.current_llm_friendliness != null ? Math.round(pageActions.current_llm_friendliness) : 'N/A', color: C.gold },
+      { label: 'Predicted Score', value: pageActions.predicted_llm_friendliness != null ? Math.round(pageActions.predicted_llm_friendliness) : 'N/A', color: C.emerald },
+    ]);
+    y += 6;
+
+    const actions: any[] = (pageActions.actions ?? []).slice(0, 12);
+    if (actions.length > 0) {
+      y = sectionLabel(doc, 'TOP PAGE ACTIONS', y);
+      const actRows = actions.map((a: any) => [
+        a.action ? a.action.substring(0, 60) : '—',
+        (a.priority ?? '—').toUpperCase(),
+        a.category ?? '—',
+        a.impact_points != null ? `+${a.impact_points}` : '—',
+      ]);
+      y = drawTable(doc, y, ['Action', 'Priority', 'Category', 'Impact Pts'], actRows, [250, 60, 110, 60], 12);
+      y += 8;
+    }
+  }
+
+  // ── Model breakdown table (from module_e master_analysis) ─────────────────
   if (modelsList.length > 0) {
-    y = sectionLabel(doc, 'PERFORMANCE BY MODEL', y);
+    if (y > PAGE_BREAK_Y - 40) {
+      drawFooter(doc, pageNum++);
+      doc.addPage({ size: 'A4', margin: 0 });
+      drawPageHeader(doc, title, subtitle, domain);
+      y = 102;
+    }
+    y = sectionLabel(doc, 'BRAND PERFORMANCE BY AI MODEL', y);
     y = drawHBarChart(doc, y, modelsList.map((m: any) => ({
       label: typeof m.model === 'string' ? m.model.charAt(0).toUpperCase() + m.model.slice(1) : 'Model',
       value: typeof m.model_wise_performance_score === 'number' ? Math.round(m.model_wise_performance_score) : 0,
       max: 100,
       color: C.gold,
     })));
+    y += 6;
 
-    y += 8;
-
-    // ── Detailed model table ──────────────────────────────────────────────
-    y = sectionLabel(doc, 'MODEL METRIC BREAKDOWN', y);
-    const rows = modelsList.map((m: any) => [
+    y = sectionLabel(doc, 'DETAILED MODEL METRICS', y);
+    const mRows = modelsList.map((m: any) => [
       typeof m.model === 'string' ? m.model.charAt(0).toUpperCase() + m.model.slice(1) : '—',
-      typeof m.model_wise_performance_score === 'number' ? `${Math.round(m.model_wise_performance_score)}` : '—',
-      typeof m.completeness_score === 'number' ? `${Math.round(m.completeness_score)}` : '—',
-      typeof m.content_consistency?.score === 'number' ? `${Math.round(m.content_consistency.score)}` : '—',
-      typeof m.entity_coverage?.score === 'number' ? `${Math.round(m.entity_coverage.score)}` : '—',
+      typeof m.model_wise_performance_score === 'number' ? String(Math.round(m.model_wise_performance_score)) : '—',
+      typeof m.completeness_score === 'number' ? String(Math.round(m.completeness_score)) : '—',
+      typeof m.content_consistency?.score === 'number' ? String(Math.round(m.content_consistency.score)) : '—',
+      typeof m.entity_coverage?.score === 'number' ? String(Math.round(m.entity_coverage.score)) : '—',
+      typeof m.accuracy_of_generated_response === 'number' ? String(Math.round(m.accuracy_of_generated_response)) : '—',
     ]);
-    y = drawTable(doc, y, ['Model', 'Perf. Score', 'Completeness', 'Consistency', 'Entity Cov.'], rows, [120, 90, 90, 90, 80]);
-  } else {
-    doc.fillColor(C.zinc500).font('Helvetica').fontSize(9).text('No model data available for this job.', ML, y + 12);
-    y += 30;
+    y = drawTable(doc, y, ['Model', 'Perf.', 'Completeness', 'Consistency', 'Entity Cov.', 'Accuracy'], mRows, [110, 50, 80, 80, 75, 75]);
+    y += 8;
   }
 
-  // ── Recommendations ───────────────────────────────────────────────────
-  const recommendations: any[] = (aivsDoc as any)?.recommendations ?? [];
-  if (recommendations.length > 0) {
-    y += 8;
-    y = sectionLabel(doc, 'RECOMMENDATIONS', y);
-    recommendations.slice(0, 6).forEach((r: any, i) => {
-      doc.fillColor(C.gold).font('Helvetica-Bold').fontSize(8).text(`${i + 1}. ${r.title ?? ''}`, ML, y);
-      y += 12;
-      if (r.issue) {
-        doc.fillColor(C.zinc400).font('Helvetica').fontSize(7.5).text(r.issue, ML + 8, y, { width: CONTENT_W - 8 });
-        y += doc.heightOfString(r.issue, { width: CONTENT_W - 8 }) + 4;
+  // ── Missing info / knowledge gaps ─────────────────────────────────────────
+  const missingFacts: string[] = missingInfo.missing_facts ?? [];
+  if (missingFacts.length > 0) {
+    if (y > PAGE_BREAK_Y - 40) {
+      drawFooter(doc, pageNum++);
+      doc.addPage({ size: 'A4', margin: 0 });
+      drawPageHeader(doc, title, subtitle, domain);
+      y = 102;
+    }
+    y = sectionLabel(doc, `KNOWLEDGE GAPS — MISSING FACTS (${missingFacts.length})`, y);
+    missingFacts.slice(0, 10).forEach((fact: string) => {
+      if (y > PAGE_BREAK_Y) {
+        drawFooter(doc, pageNum++);
+        doc.addPage({ size: 'A4', margin: 0 });
+        drawPageHeader(doc, title, subtitle, domain);
+        y = 102;
       }
+      doc.fillColor(C.red).font('Helvetica-Bold').fontSize(7.5).text('✕', ML, y + 1, { width: 14 });
+      doc.fillColor(C.zinc300).font('Helvetica').fontSize(7.5).text(fact, ML + 16, y, { width: CONTENT_W - 16 });
+      y += doc.heightOfString(fact, { width: CONTENT_W - 16 }) + 5;
     });
   }
 
-  drawFooter(doc, 1);
+  drawFooter(doc, pageNum);
+  return pdfToBuffer(doc);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── BRAND INTELLIGENCE REPORT PDF — reimplemented with full Module E data ─────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function buildCompetitorReportPdfV2(jobId: string, domain: string): Promise<Buffer> {
+  const db = await connectToMongo();
+  const allJobIds = await resolveAllProjectJobIds(db, jobId);
+
+  const moduleE: any = await db.collection('module_e').findOne({ jobId: { $in: allJobIds } });
+
+  const brandAnalysis = moduleE?.brand_analysis ?? {};
+  const sentimentTracking = moduleE?.sentiment_tracking ?? {};
+  const sovData = moduleE?.ai_share_of_voice ?? {};
+  const sovHistory: any[] = moduleE?.ai_sov_history ?? [];
+  const competitors: any[] = moduleE?.competitor_mentions?.data ?? [];
+  const rankingAnalysis = moduleE?.ranking_analysis ?? {};
+  const contentConsistency = moduleE?.content_consistency ?? {};
+  const entityCoverage = moduleE?.entity_coverage ?? {};
+  const masterAnalysis = moduleE?.master_analysis ?? {};
+  const scoreHistory: any[] = moduleE?.score_history ?? [];
+
+  const doc = new PDFDocument({ size: 'A4', margin: 0, info: { Title: 'Brand Intelligence Report', Author: 'Colytics AI' } });
+  const title = 'Brand & Competitor Intelligence Report';
+  const subtitle = `Generated: ${new Date().toLocaleDateString('en-US', { dateStyle: 'long' })}`;
+  drawPageHeader(doc, title, subtitle, domain);
+  let y = 102;
+  let pageNum = 1;
+  const PAGE_BREAK_Y = PAGE_H - 60;
+
+  // ── Overall Brand Metrics ─────────────────────────────────────────────────
+  y = sectionLabel(doc, 'BRAND OVERVIEW', y);
+  y = drawKpiRow(doc, y, [
+    { label: 'Total Citations', value: brandAnalysis.total_mentions ?? '—', color: C.gold },
+    { label: 'Overall Sentiment', value: (brandAnalysis.sentiment?.label ?? '—').toUpperCase(), color: brandAnalysis.sentiment?.label === 'positive' ? C.emerald : brandAnalysis.sentiment?.label === 'negative' ? C.red : C.zinc400 },
+    { label: 'Share of Voice', value: sovData.overall_sov != null ? `${sovData.overall_sov.toFixed(1)}%` : '—', color: C.blue },
+    { label: 'Visibility Tier', value: (sovData.visibility_tier ?? '—').toUpperCase(), color: C.purple },
+  ]);
+  y += 4;
+
+  // Sentiment breakdown KPIs
+  if (brandAnalysis.sentiment?.counts) {
+    const sc = brandAnalysis.sentiment.counts;
+    y = drawKpiRow(doc, y, [
+      { label: 'Positive', value: sc.positive ?? 0, color: C.emerald },
+      { label: 'Neutral', value: sc.neutral ?? 0, color: C.zinc400 },
+      { label: 'Negative', value: sc.negative ?? 0, color: C.red },
+      { label: 'Brand', value: brandAnalysis.brand_name ?? domain.replace(/^https?:\/\//, ''), color: C.zinc300 },
+    ]);
+    y += 8;
+  }
+
+  // ── SOV by model ──────────────────────────────────────────────────────────
+  if (sovData.by_model && Object.keys(sovData.by_model).length > 0) {
+    y = sectionLabel(doc, 'SHARE OF VOICE BY AI MODEL', y);
+    const modelBars = Object.entries(sovData.by_model as Record<string, any>).map(([k, v]) => ({
+      label: k.charAt(0).toUpperCase() + k.slice(1),
+      value: typeof v.sov === 'number' ? Math.round(v.sov) : 0,
+    }));
+    y = drawHBarChart(doc, y, modelBars.map(m => ({ label: m.label, value: m.value, max: 100, color: C.gold })));
+    y += 4;
+
+    // SOV table with brand_mentions / competitor_mentions
+    y = sectionLabel(doc, 'SOV DETAIL BY MODEL', y);
+    const sovRows = Object.entries(sovData.by_model as Record<string, any>).map(([model, v]: [string, any]) => [
+      model.charAt(0).toUpperCase() + model.slice(1),
+      typeof v.sov === 'number' ? `${v.sov.toFixed(1)}%` : '—',
+      String(v.brand_mentions ?? 0),
+      String(v.competitor_mentions ?? 0),
+      v.brand_known ? 'Yes' : 'No',
+    ]);
+    y = drawTable(doc, y, ['Model', 'SOV', 'Brand Mentions', 'Competitor Mentions', 'Brand Known'], sovRows, [130, 65, 90, 110, 75]);
+    y += 8;
+  }
+
+  // ── SOV trend ────────────────────────────────────────────────────────────
+  if (sovHistory.length >= 2) {
+    if (y > PAGE_BREAK_Y - 60) {
+      drawFooter(doc, pageNum++);
+      doc.addPage({ size: 'A4', margin: 0 });
+      drawPageHeader(doc, title, subtitle, domain);
+      y = 102;
+    }
+    y = sectionLabel(doc, 'SHARE OF VOICE — TREND', y);
+    const sovTrend = sovHistory.slice(-8).map((h: any) => ({
+      label: h.date ? new Date(h.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '',
+      value: typeof h.overall_sov === 'number' ? Math.round(h.overall_sov) : 0,
+    }));
+    y = drawVBarChart(doc, y, sovTrend, 100, 70, [C.gold, C.goldLight, C.amber, C.gold, C.goldLight, C.amber, C.gold, C.goldLight]);
+    y += 8;
+  }
+
+  // ── Sentiment Tracking ────────────────────────────────────────────────────
+  if (sentimentTracking.sentiment) {
+    if (y > PAGE_BREAK_Y - 40) {
+      drawFooter(doc, pageNum++);
+      doc.addPage({ size: 'A4', margin: 0 });
+      drawPageHeader(doc, title, subtitle, domain);
+      y = 102;
+    }
+    y = sectionLabel(doc, 'SENTIMENT ANALYSIS', y);
+    const st = sentimentTracking.sentiment;
+    y = drawKpiRow(doc, y, [
+      { label: 'Overall Sentiment Score', value: st.overall_score != null ? Math.round(st.overall_score) : 'N/A', color: st.overall_score >= 70 ? C.emerald : st.overall_score >= 40 ? C.amber : C.red },
+      { label: 'Positive', value: `${st.distribution?.Positive ?? 0}%`, color: C.emerald },
+      { label: 'Neutral',  value: `${st.distribution?.Neutral ?? 0}%`, color: C.zinc400 },
+      { label: 'Negative', value: `${st.distribution?.Negative ?? 0}%`, color: C.red },
+    ]);
+    y += 6;
+
+    // Per-model sentiment
+    if (st.by_model && Object.keys(st.by_model).length > 0) {
+      y = sectionLabel(doc, 'SENTIMENT BY MODEL', y);
+      const sentRows = Object.entries(st.by_model as Record<string, any>).map(([m, d]: [string, any]) => [
+        m.charAt(0).toUpperCase() + m.slice(1),
+        d.score != null ? Math.round(d.score).toString() : '—',
+        `${d.distribution?.Positive ?? 0}%`,
+        `${d.distribution?.Neutral ?? 0}%`,
+        `${d.distribution?.Negative ?? 0}%`,
+      ]);
+      y = drawTable(doc, y, ['Model', 'Score', 'Positive', 'Neutral', 'Negative'], sentRows, [150, 60, 80, 80, 80]);
+      y += 8;
+    }
+  }
+
+  // ── Visibility stats ──────────────────────────────────────────────────────
+  if (sentimentTracking.visibility) {
+    if (y > PAGE_BREAK_Y - 40) {
+      drawFooter(doc, pageNum++);
+      doc.addPage({ size: 'A4', margin: 0 });
+      drawPageHeader(doc, title, subtitle, domain);
+      y = 102;
+    }
+    const vis = sentimentTracking.visibility;
+    y = sectionLabel(doc, 'AI MODEL VISIBILITY', y);
+    y = drawKpiRow(doc, y, [
+      { label: 'Visibility Score', value: vis.overall_visibility_score != null ? Math.round(vis.overall_visibility_score) : 'N/A', color: C.gold },
+      { label: 'Appearance Rate', value: vis.overall_appearance_rate != null ? `${(vis.overall_appearance_rate * 100).toFixed(1)}%` : 'N/A', color: C.blue },
+      { label: 'Brand', value: sentimentTracking.brand_name ?? '—', color: C.zinc300 },
+      { label: 'Industry', value: sentimentTracking.industry ?? '—', color: C.zinc300 },
+    ]);
+    y += 6;
+
+    if (vis.by_model && Object.keys(vis.by_model).length > 0) {
+      y = sectionLabel(doc, 'VISIBILITY BY MODEL', y);
+      const visRows = Object.entries(vis.by_model as Record<string, any>).map(([m, d]: [string, any]) => [
+        m.charAt(0).toUpperCase() + m.slice(1),
+        d.visibility_score != null ? Math.round(d.visibility_score).toString() : '—',
+        d.appearance_rate != null ? `${(d.appearance_rate * 100).toFixed(1)}%` : '—',
+        String(d.appearances ?? 0),
+        String(d.total_prompts ?? 0),
+      ]);
+      y = drawTable(doc, y, ['Model', 'Visibility Score', 'Appearance Rate', 'Appearances', 'Total Prompts'], visRows, [130, 80, 90, 80, 90]);
+      y += 8;
+    }
+  }
+
+  // ── Ranking analysis ──────────────────────────────────────────────────────
+  if (rankingAnalysis.ranking_position_per_prompt?.length > 0) {
+    if (y > PAGE_BREAK_Y - 40) {
+      drawFooter(doc, pageNum++);
+      doc.addPage({ size: 'A4', margin: 0 });
+      drawPageHeader(doc, title, subtitle, domain);
+      y = 102;
+    }
+    y = sectionLabel(doc, 'RANKING ANALYSIS — PROMPT POSITIONS', y);
+    const rankRows = (rankingAnalysis.ranking_position_per_prompt as any[]).slice(0, 15).map((r: any) => [
+      r.prompt ? r.prompt.substring(0, 50) : '—',
+      r.model ?? '—',
+      r.position != null ? `#${r.position}` : 'Not Cited',
+      r.mention_status ?? '—',
+      r.percentile != null ? `${Math.round(r.percentile)}%` : '—',
+      r.credibility_score != null ? r.credibility_score.toFixed(1) : '—',
+    ]);
+    y = drawTable(
+      doc, y,
+      ['Prompt', 'Model', 'Position', 'Mention Status', 'Percentile', 'Credibility'],
+      rankRows, [155, 70, 55, 90, 60, 60], 15,
+    );
+    y += 6;
+
+    // Entity coverage in rankings
+    if (rankingAnalysis.entity_coverage) {
+      const ec = rankingAnalysis.entity_coverage;
+      y = sectionLabel(doc, 'ENTITY COVERAGE IN RANKINGS', y);
+      y = drawKpiRow(doc, y, [
+        { label: 'Entity Coverage', value: ec.score != null ? `${Math.round(ec.score)}%` : 'N/A', color: C.emerald },
+        { label: 'Found Entities', value: ec.found_entities?.length ?? 0, color: C.blue },
+        { label: 'Missing Entities', value: ec.missing_entities?.length ?? 0, color: C.red },
+        { label: 'Total Expected', value: ec.total_expected ?? 0, color: C.zinc300 },
+      ]);
+      y += 8;
+    }
+  }
+
+  // ── Competitor Mentions Table ─────────────────────────────────────────────
+  if (competitors.length > 0) {
+    if (y > PAGE_BREAK_Y - 40) {
+      drawFooter(doc, pageNum++);
+      doc.addPage({ size: 'A4', margin: 0 });
+      drawPageHeader(doc, title, subtitle, domain);
+      y = 102;
+    }
+    y = sectionLabel(doc, 'COMPETITOR MENTIONS IN AI MODELS', y);
+    const compRows = competitors.slice(0, 15).map((c: any) => [
+      c.name ?? '—',
+      String(c.mentions ?? 0),
+      typeof c.sentiment === 'string' ? c.sentiment.toUpperCase() : '—',
+      Array.isArray(c.trend) && c.trend.length > 1
+        ? (c.trend[c.trend.length - 1] > c.trend[0] ? '↑ UP' : c.trend[c.trend.length - 1] < c.trend[0] ? '↓ DOWN' : '→ STABLE')
+        : '—',
+    ]);
+    y = drawTable(doc, y, ['Competitor', 'Mentions', 'Sentiment', 'Trend'], compRows, [250, 70, 80, 70], 15);
+    y += 8;
+  }
+
+  // ── Score history ─────────────────────────────────────────────────────────
+  if (scoreHistory.length >= 2) {
+    if (y > PAGE_BREAK_Y - 60) {
+      drawFooter(doc, pageNum++);
+      doc.addPage({ size: 'A4', margin: 0 });
+      drawPageHeader(doc, title, subtitle, domain);
+      y = 102;
+    }
+    y = sectionLabel(doc, 'SCORE HISTORY TREND', y);
+    const histBars = scoreHistory.slice(-8).map((h: any) => ({
+      label: h.date ? new Date(h.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '',
+      value: typeof h.visibilityScore === 'number' ? Math.round(h.visibilityScore) : 0,
+    }));
+    y = drawVBarChart(doc, y, histBars, 100, 70, [C.blue, C.blue, C.blue, C.blue, C.blue, C.blue, C.blue, C.blue]);
+    y += 8;
+  }
+
+  // ── Content Consistency ───────────────────────────────────────────────────
+  if (contentConsistency.score != null) {
+    if (y > PAGE_BREAK_Y - 40) {
+      drawFooter(doc, pageNum++);
+      doc.addPage({ size: 'A4', margin: 0 });
+      drawPageHeader(doc, title, subtitle, domain);
+      y = 102;
+    }
+    y = sectionLabel(doc, 'CONTENT CONSISTENCY & ENTITY COVERAGE', y);
+    const mandate = contentConsistency.mandate ?? masterAnalysis.mandate ?? {};
+    y = drawKpiRow(doc, y, [
+      { label: 'Content Consistency', value: Math.round(contentConsistency.score), color: contentConsistency.score >= 70 ? C.emerald : C.amber },
+      { label: 'Entity Coverage', value: entityCoverage.score != null ? `${Math.round(entityCoverage.score)}%` : 'N/A', color: C.blue },
+      { label: 'Topic', value: mandate.topic ? mandate.topic.substring(0, 18) : '—', color: C.zinc300 },
+      { label: 'Audience', value: mandate.audience ? mandate.audience.substring(0, 18) : '—', color: C.zinc300 },
+    ]);
+    y += 8;
+  }
+
+  drawFooter(doc, pageNum);
   return pdfToBuffer(doc);
 }
 
@@ -697,9 +1618,13 @@ export class ExportPdfService {
       case 'audit-report':
         return buildAuditReportPdf(jobId, userId, domain);
       case 'competitor-report':
-        return buildCompetitorReportPdf(jobId, domain);
+        return buildCompetitorReportPdfV2(jobId, domain);
       case 'ai-scorecard':
-        return buildAiScorecardPdf(jobId, domain);
+        return buildAiScorecardPdfV2(jobId, domain);
+      case 'serp-analysis':
+        return buildSerpAnalysisPdf(jobId, domain);
+      case 'competitor-ai-report':
+        return buildCompetitorAiReportPdf(jobId, domain);
       default:
         throw new Error(`Unknown report type: ${type}`);
     }

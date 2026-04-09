@@ -1,8 +1,24 @@
 import { OAuth2Client } from 'google-auth-library';
 import { UserRepository } from '../user/user.repository';
 import { env } from '../../config/env';
-import { GA4Property, GA4TrafficResponse, GA4PageTraffic } from './ga4.types';
+import { GA4Property, GA4TrafficResponse, GA4PageTraffic, LLMTrafficResponse, LLMPlatformBreakdown, LLMDailyTrend, LLMTopLandingPage, LLMTopLandingPagesResponse, CitationSparklineResponse } from './ga4.types';
 import { logger } from '../../shared/logger/logger';
+import { getRedisClient } from '../../config/redis';
+import { connectToMongo } from '../../config/mongo';
+import { getLLMSourceMap } from './ga4.repository';
+
+const LLM_CACHE_TTL_SECONDS = 4 * 60 * 60; // 4 hours
+const llmCacheKey = (userId: string, propertyId: string, startDate: string, endDate: string) =>
+  `ga4:llm:${userId}:${propertyId}:${startDate}:${endDate}`;
+
+const TOP_LANDING_PAGES_TTL_SECONDS = 10 * 60; // 10 minutes
+const topLandingPagesCacheKey = (
+  userId: string,
+  propertyId: string,
+  startDate: string,
+  endDate: string,
+  projectId: string,
+) => `ga4:tlp:${userId}:${propertyId}:${startDate}:${endDate}:${projectId}`;
 
 export class GA4Service {
   private userRepository: UserRepository;
@@ -224,5 +240,638 @@ export class GA4Service {
         selectedPropertyId: null,
       },
     });
+  }
+
+  // ── LLM Traffic ────────────────────────────────────────────────────────────
+
+  /**
+   * Fetch LLM traffic data from GA4, with 4-hour Redis caching.
+   * Pass forceRefresh=true to bypass cache (Sync Now button).
+   */
+  async getLLMTraffic(
+    userId: string,
+    propertyId: string,
+    startDate: string = '30daysAgo',
+    endDate: string = 'today',
+    forceRefresh = false,
+  ): Promise<LLMTrafficResponse> {
+    const redis = getRedisClient();
+    const cacheKey = llmCacheKey(userId, propertyId, startDate, endDate);
+
+    if (!forceRefresh) {
+      try {
+        const cached = await redis.get(cacheKey);
+        if (cached) {
+          const parsed = JSON.parse(cached) as LLMTrafficResponse;
+          parsed.fromCache = true;
+          return parsed;
+        }
+      } catch (err) {
+        logger.warn(`GA4 LLM cache read failed: ${(err as Error).message}`);
+      }
+    }
+
+    const data = await this._fetchLLMTrafficFromGA4(userId, propertyId, startDate, endDate);
+
+    try {
+      await redis.set(cacheKey, JSON.stringify(data), 'EX', LLM_CACHE_TTL_SECONDS);
+    } catch (err) {
+      logger.warn(`GA4 LLM cache write failed: ${(err as Error).message}`);
+    }
+
+    return data;
+  }
+
+  /**
+   * Core GA4 API calls for LLM traffic — used by getLLMTraffic. Not cached.
+   */
+  private async _fetchLLMTrafficFromGA4(
+    userId: string,
+    propertyId: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<LLMTrafficResponse> {
+    const client = await this.getAuthenticatedClient(userId);
+    const tokenResult = await client.getAccessToken();
+    const accessToken = tokenResult.token;
+    if (!accessToken) throw new Error('Failed to obtain access token');
+
+    const propertyPath = propertyId.startsWith('properties/')
+      ? propertyId
+      : `properties/${propertyId}`;
+
+    const sourceMap = await getLLMSourceMap();
+    const sourceDomains = Object.keys(sourceMap);
+
+    // ── 1. LLM sessions broken down by sessionSource ──────────────────────
+    const llmReportBody = {
+      dimensions: [{ name: 'sessionSource' }, { name: 'sessionMedium' }],
+      metrics: [
+        { name: 'sessions' },
+        { name: 'totalUsers' },
+        { name: 'bounceRate' },
+        { name: 'averageSessionDuration' },
+      ],
+      dateRanges: [{ startDate, endDate }],
+      dimensionFilter: {
+        filter: {
+          fieldName: 'sessionSource',
+          inListFilter: { values: sourceDomains },
+        },
+      },
+      metricAggregations: ['TOTAL'],
+      limit: 100,
+    };
+
+    // ── 2. Total site sessions (no filter) ────────────────────────────────
+    const totalReportBody = {
+      dimensions: [],
+      metrics: [{ name: 'sessions' }],
+      dateRanges: [{ startDate, endDate }],
+      metricAggregations: ['TOTAL'],
+      limit: 1,
+    };
+
+    // ── 3. Previous period — equal-length window before current start ─────
+    const prevRange = this._previousPeriodRange(startDate, endDate);
+
+    const prevLLMReportBody = {
+      dimensions: [{ name: 'sessionSource' }],
+      metrics: [{ name: 'sessions' }],
+      dateRanges: [prevRange],
+      dimensionFilter: {
+        filter: {
+          fieldName: 'sessionSource',
+          inListFilter: { values: sourceDomains },
+        },
+      },
+      metricAggregations: ['TOTAL'],
+      limit: 100,
+    };
+
+    // ── 4. Daily trend per LLM platform ────────────────────────────────────
+    const trendBody = {
+      dimensions: [{ name: 'date' }, { name: 'sessionSource' }],
+      metrics: [{ name: 'sessions' }],
+      dateRanges: [{ startDate, endDate }],
+      dimensionFilter: {
+        filter: {
+          fieldName: 'sessionSource',
+          inListFilter: { values: sourceDomains },
+        },
+      },
+      orderBys: [{ dimension: { dimensionName: 'date' }, desc: false }],
+      limit: 3000,
+    };
+
+    const GA4_URL = `https://analyticsdata.googleapis.com/v1beta/${propertyPath}:runReport`;
+    const headers = {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    };
+
+    const [llmRes, totalRes, prevRes, trendRes] = await Promise.all([
+      fetch(GA4_URL, { method: 'POST', headers, body: JSON.stringify(llmReportBody) }),
+      fetch(GA4_URL, { method: 'POST', headers, body: JSON.stringify(totalReportBody) }),
+      fetch(GA4_URL, { method: 'POST', headers, body: JSON.stringify(prevLLMReportBody) }),
+      fetch(GA4_URL, { method: 'POST', headers, body: JSON.stringify(trendBody) }),
+    ]);
+
+    if (!llmRes.ok) {
+      const e = (await llmRes.json().catch(() => ({}))) as any;
+      throw new Error(e.error?.message || `GA4 LLM report error ${llmRes.status}`);
+    }
+    if (!totalRes.ok) {
+      const e = (await totalRes.json().catch(() => ({}))) as any;
+      throw new Error(e.error?.message || `GA4 total sessions error ${totalRes.status}`);
+    }
+
+    const llmData = (await llmRes.json()) as any;
+    const totalData = (await totalRes.json()) as any;
+    const prevData = prevRes.ok ? ((await prevRes.json()) as any) : null;
+    const trendData = trendRes.ok ? ((await trendRes.json()) as any) : null;
+
+    // ── Parse LLM breakdown ───────────────────────────────────────────────
+    const aggregated: Record<string, { sessions: number; users: number; bounceRate: number; avgDuration: number; sourceDomain: string }> = {};
+
+    for (const row of llmData.rows ?? []) {
+      const sourceDomain: string = row.dimensionValues?.[0]?.value ?? '';
+      const platform = sourceMap[sourceDomain] ?? sourceDomain;
+      const sessions = parseInt(row.metricValues?.[0]?.value ?? '0', 10);
+      const users = parseInt(row.metricValues?.[1]?.value ?? '0', 10);
+      const bounceRate = parseFloat(row.metricValues?.[2]?.value ?? '0') * 100; // GA4 returns 0–1
+      const avgDuration = parseFloat(row.metricValues?.[3]?.value ?? '0');
+
+      if (!aggregated[platform]) {
+        aggregated[platform] = { sessions: 0, users: 0, bounceRate: 0, avgDuration: 0, sourceDomain };
+      }
+      aggregated[platform].sessions += sessions;
+      aggregated[platform].users += users;
+      // Weighted bounce-rate average
+      const prev = aggregated[platform];
+      const total = prev.sessions + sessions;
+      aggregated[platform].bounceRate =
+        total > 0
+          ? (prev.bounceRate * prev.sessions + bounceRate * sessions) / total
+          : 0;
+      aggregated[platform].avgDuration =
+        total > 0
+          ? (prev.avgDuration * prev.sessions + avgDuration * sessions) / total
+          : 0;
+      aggregated[platform].sessions = total;
+    }
+
+    const totalLLMSessions = Object.values(aggregated).reduce((s, p) => s + p.sessions, 0);
+
+    const breakdown: LLMPlatformBreakdown[] = Object.entries(aggregated)
+      .sort((a, b) => b[1].sessions - a[1].sessions)
+      .map(([platform, p]) => ({
+        platform,
+        sourceDomain: p.sourceDomain,
+        sessions: p.sessions,
+        users: p.users,
+        bounceRate: parseFloat(p.bounceRate.toFixed(1)),
+        avgSessionDuration: parseFloat(p.avgDuration.toFixed(1)),
+        percentOfLLMTotal:
+          totalLLMSessions > 0
+            ? parseFloat(((p.sessions / totalLLMSessions) * 100).toFixed(1))
+            : 0,
+      }));
+
+    // ── Total site sessions ───────────────────────────────────────────────
+    const totalSessions = parseInt(
+      (totalData.totals?.[0]?.metricValues?.[0]?.value ?? (totalData.rows?.[0]?.metricValues?.[0]?.value ?? '0')),
+      10,
+    );
+
+    // ── Previous period ───────────────────────────────────────────────────
+    let prevLLMSessions = 0;
+    for (const row of prevData?.rows ?? []) {
+      prevLLMSessions += parseInt(row.metricValues?.[0]?.value ?? '0', 10);
+    }
+    const prevTotalBody = {
+      dimensions: [],
+      metrics: [{ name: 'sessions' }],
+      dateRanges: [prevRange],
+      metricAggregations: ['TOTAL'],
+      limit: 1,
+    };
+    const prevTotalRes = await fetch(GA4_URL, { method: 'POST', headers, body: JSON.stringify(prevTotalBody) });
+    const prevTotalData = prevTotalRes.ok ? ((await prevTotalRes.json()) as any) : null;
+    const prevTotalSessions = parseInt(
+      (prevTotalData?.totals?.[0]?.metricValues?.[0]?.value ?? '0'),
+      10,
+    );
+
+    // ── Daily trend ───────────────────────────────────────────────────────
+    const trend: LLMDailyTrend[] = [];
+    for (const row of trendData?.rows ?? []) {
+      const rawDate: string = row.dimensionValues?.[0]?.value ?? '';
+      const sourceDomain: string = row.dimensionValues?.[1]?.value ?? '';
+      const sessions = parseInt(row.metricValues?.[0]?.value ?? '0', 10);
+      const platform = sourceMap[sourceDomain] ?? sourceDomain;
+      trend.push({
+        date: `${rawDate.slice(0, 4)}-${rawDate.slice(4, 6)}-${rawDate.slice(6, 8)}`,
+        platform,
+        sessions,
+      });
+    }
+
+    return {
+      propertyId,
+      dateRange: { startDate, endDate },
+      totalLLMSessions,
+      totalSiteSessions: totalSessions,
+      llmPercentOfTotal:
+        totalSessions > 0
+          ? parseFloat(((totalLLMSessions / totalSessions) * 100).toFixed(2))
+          : 0,
+      previousPeriod: {
+        totalLLMSessions: prevLLMSessions,
+        llmPercentOfTotal:
+          prevTotalSessions > 0
+            ? parseFloat(((prevLLMSessions / prevTotalSessions) * 100).toFixed(2))
+            : 0,
+      },
+      breakdown,
+      trend,
+      lastSyncedAt: new Date().toISOString(),
+      fromCache: false,
+    };
+  }
+
+  /**
+   * Calculate an equal-length previous-period date range.
+   * Works for GA4 relative strings (NdaysAgo / today / yesterday) and YYYY-MM-DD.
+   */
+  private _previousPeriodRange(
+    startDate: string,
+    endDate: string,
+  ): { startDate: string; endDate: string } {
+    const resolve = (d: string): Date => {
+      if (d === 'today') return new Date();
+      if (d === 'yesterday') {
+        const y = new Date();
+        y.setDate(y.getDate() - 1);
+        return y;
+      }
+      const m = d.match(/^(\d+)daysAgo$/);
+      if (m) {
+        const t = new Date();
+        t.setDate(t.getDate() - parseInt(m[1], 10));
+        return t;
+      }
+      return new Date(d);
+    };
+
+    const toStr = (d: Date): string => d.toISOString().slice(0, 10);
+
+    const start = resolve(startDate);
+    const end = resolve(endDate);
+    const rangeMs = end.getTime() - start.getTime();
+    const prevEnd = new Date(start.getTime() - 86_400_000);
+    const prevStart = new Date(prevEnd.getTime() - rangeMs);
+
+    return { startDate: toStr(prevStart), endDate: toStr(prevEnd) };
+  }
+
+  /**
+   * Resolve a GA4 relative date string (e.g. '30daysAgo', 'today') to YYYY-MM-DD.
+   */
+  private _resolveDate(d: string): string {
+    if (d === 'today') return new Date().toISOString().slice(0, 10);
+    if (d === 'yesterday') {
+      const y = new Date();
+      y.setDate(y.getDate() - 1);
+      return y.toISOString().slice(0, 10);
+    }
+    const m = d.match(/^(\d+)daysAgo$/);
+    if (m) {
+      const t = new Date();
+      t.setDate(t.getDate() - parseInt(m[1], 10));
+      return t.toISOString().slice(0, 10);
+    }
+    return d; // already YYYY-MM-DD
+  }
+
+  /**
+   * Fetch Top Landing Pages: GA4 LLM-sourced landing pages enriched with
+   * citation snapshot data from cbm_citation_snapshots.
+   */
+  async getTopLandingPages(
+    userId: string,
+    propertyId: string,
+    startDate: string,
+    endDate: string,
+    projectId: string,
+    sessionUrl?: string,
+    platform?: string,
+    page: number = 1,
+    pageSize: number = 50,
+  ): Promise<LLMTopLandingPagesResponse> {
+    const redis = getRedisClient();
+    const cacheKey = topLandingPagesCacheKey(userId, propertyId, startDate, endDate, projectId);
+
+    // ── Cache check ──────────────────────────────────────────────────────
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached) as LLMTopLandingPagesResponse;
+        // Re-apply pagination on cached full page list
+        const allPages = parsed.pages;
+        const start = (page - 1) * pageSize;
+        const pageSlice = allPages.slice(start, start + pageSize);
+        return {
+          ...parsed,
+          pages: pageSlice,
+          pagination: { total: allPages.length, page, pageSize },
+          fromCache: true,
+        };
+      }
+    } catch (err) {
+      logger.warn(`GA4 TLP cache read failed: ${(err as Error).message}`);
+    }
+
+    const client = await this.getAuthenticatedClient(userId);
+    const tokenResult = await client.getAccessToken();
+    const accessToken = tokenResult.token;
+    if (!accessToken) throw new Error('Failed to obtain access token');
+
+    const propertyPath = propertyId.startsWith('properties/')
+      ? propertyId
+      : `properties/${propertyId}`;
+
+    const sourceMap = await getLLMSourceMap();
+    const sourceDomains = Object.keys(sourceMap);
+
+    // ── Optional platform filter ─────────────────────────────────────────
+    let filteredSources = sourceDomains;
+    if (platform && platform !== 'ALL') {
+      const platformUpper = platform.toUpperCase();
+      filteredSources = sourceDomains.filter((d) => {
+        const mapped = (sourceMap[d] ?? '').toUpperCase();
+        return mapped === platformUpper || mapped.startsWith(platformUpper);
+      });
+      if (filteredSources.length === 0) filteredSources = sourceDomains;
+    }
+
+    // ── GA4: landingPage + sessionSource breakdown ────────────────────────
+    const reportBody = {
+      dimensions: [{ name: 'landingPage' }, { name: 'sessionSource' }],
+      metrics: [
+        { name: 'sessions' },
+        { name: 'totalUsers' },
+        { name: 'bounceRate' },
+      ],
+      dateRanges: [{ startDate, endDate }],
+      dimensionFilter: {
+        filter: {
+          fieldName: 'sessionSource',
+          inListFilter: { values: filteredSources },
+        },
+      },
+      orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+      limit: 5000,
+    };
+
+    const GA4_URL = `https://analyticsdata.googleapis.com/v1beta/${propertyPath}:runReport`;
+    const headers = {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    };
+
+    const res = await fetch(GA4_URL, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(reportBody),
+    });
+
+    if (!res.ok) {
+      const e = (await res.json().catch(() => ({}))) as any;
+      throw new Error(e.error?.message || `GA4 Top Landing Pages error ${res.status}`);
+    }
+
+    const data = (await res.json()) as any;
+
+    // ── Step 1: Aggregate GA4 rows by landingPage ────────────────────────
+    type PageAgg = {
+      llmSessions: number;
+      users: number;
+      bounceRateWeighted: number;
+      platformBreakdown: Record<string, number>;
+    };
+
+    const pageAgg: Record<string, PageAgg> = {};
+
+    for (const row of data.rows ?? []) {
+      const path: string = row.dimensionValues?.[0]?.value ?? '/';
+      const source: string = row.dimensionValues?.[1]?.value ?? '';
+      const sessions = parseInt(row.metricValues?.[0]?.value ?? '0', 10);
+      const users = parseInt(row.metricValues?.[1]?.value ?? '0', 10);
+      const bounceRate = parseFloat(row.metricValues?.[2]?.value ?? '0') * 100;
+      const platformName = sourceMap[source] ?? source;
+
+      if (!pageAgg[path]) {
+        pageAgg[path] = { llmSessions: 0, users: 0, bounceRateWeighted: 0, platformBreakdown: {} };
+      }
+
+      const prev = pageAgg[path];
+      const combined = prev.llmSessions + sessions;
+      prev.bounceRateWeighted =
+        combined > 0
+          ? (prev.bounceRateWeighted * prev.llmSessions + bounceRate * sessions) / combined
+          : 0;
+      prev.llmSessions = combined;
+      prev.users += users;
+      prev.platformBreakdown[platformName] = (prev.platformBreakdown[platformName] ?? 0) + sessions;
+    }
+
+    // Sort by LLM sessions descending — NO slice here, full list kept for pagination
+    const sortedPaths = Object.entries(pageAgg)
+      .sort(([, a], [, b]) => b.llmSessions - a.llmSessions);
+
+    if (sortedPaths.length === 0) {
+      return {
+        propertyId,
+        dateRange: { startDate, endDate },
+        totalLLMPages: 0,
+        topPage: null,
+        avgBounceRate: 0,
+        pages: [],
+        pagination: { total: 0, page, pageSize },
+        fromCache: false,
+      };
+    }
+
+    // ── Step 2: Construct full URLs from session domain (if provided) ────
+    let baseUrl = '';
+    if (sessionUrl) {
+      try {
+        const u = new URL(sessionUrl.startsWith('http') ? sessionUrl : `https://${sessionUrl}`);
+        baseUrl = `${u.protocol}//${u.hostname}`;
+      } catch {
+        baseUrl = '';
+      }
+    }
+
+    const topPaths = sortedPaths.map(([p]) => p);
+    const fullUrls = baseUrl ? topPaths.map((p) => `${baseUrl}${p}`) : [];
+
+    // ── Step 3: Batch-query citation snapshots ───────────────────────────
+    const fromDateStr = this._resolveDate(startDate);
+    const citationMap: Record<string, { count: number; modelCounts: Record<string, number> }> = {};
+
+    if (projectId && fullUrls.length > 0) {
+      try {
+        const db = await connectToMongo();
+        const snapshots = await db
+          .collection('cbm_citation_snapshots')
+          .aggregate([
+            {
+              $match: {
+                projectId,
+                citedUrl: { $in: fullUrls },
+                snapshotDate: { $gte: fromDateStr },
+                citationPresent: true,
+              },
+            },
+            {
+              $group: {
+                _id: '$citedUrl',
+                count: { $sum: 1 },
+                models: { $push: '$llmModel' },
+              },
+            },
+          ])
+          .toArray();
+
+        for (const snap of snapshots) {
+          const citedUrl = snap._id as string;
+          const modelCounts: Record<string, number> = {};
+          for (const m of (snap.models as string[]) ?? []) {
+            modelCounts[m] = (modelCounts[m] ?? 0) + 1;
+          }
+          citationMap[citedUrl] = { count: snap.count as number, modelCounts };
+        }
+      } catch (err) {
+        logger.warn(`getTopLandingPages: citation lookup failed: ${(err as Error).message}`);
+      }
+    }
+
+    // ── Step 4: Build enriched page list ────────────────────────────────
+    const pages: LLMTopLandingPage[] = sortedPaths.map(([path, agg]) => {
+      const url = baseUrl ? `${baseUrl}${path}` : path;
+      const citData = citationMap[url] ?? null;
+      const citationCount = citData?.count ?? 0;
+
+      const primaryModel =
+        citData
+          ? Object.entries(citData.modelCounts).sort(([, a], [, b]) => b - a)[0]?.[0] ?? ''
+          : '';
+
+      const citationTrafficRatio =
+        citationCount > 0 ? parseFloat((agg.llmSessions / citationCount).toFixed(2)) : null;
+
+      let gapFlag: LLMTopLandingPage['gapFlag'] = null;
+      if (citationCount > 20 && agg.llmSessions < 50) {
+        gapFlag = 'OPPORTUNITY_GAP';
+      } else if (citationCount > 20 && agg.llmSessions >= 50) {
+        gapFlag = 'PERFORMING';
+      }
+
+      return {
+        path,
+        url,
+        llmSessions: agg.llmSessions,
+        users: agg.users,
+        bounceRate: parseFloat(agg.bounceRateWeighted.toFixed(1)),
+        citationCount,
+        primaryModel,
+        citationTrafficRatio,
+        gapFlag,
+        platformBreakdown: agg.platformBreakdown,
+      };
+    });
+
+    // ── Step 5: Summary metrics ──────────────────────────────────────────
+    const totalBounce =
+      pages.length > 0
+        ? pages.reduce((s, p) => s + p.bounceRate * p.llmSessions, 0) /
+          pages.reduce((s, p) => s + p.llmSessions, 0)
+        : 0;
+
+    const topPage = pages[0]
+      ? { url: pages[0].url, path: pages[0].path, llmSessions: pages[0].llmSessions }
+      : null;
+
+    // ── Cache the full page list before slicing ──────────────────────────
+    const fullResponse: LLMTopLandingPagesResponse = {
+      propertyId,
+      dateRange: { startDate, endDate },
+      totalLLMPages: pages.length,
+      topPage,
+      avgBounceRate: parseFloat(totalBounce.toFixed(1)),
+      pages, // full list
+      pagination: { total: pages.length, page: 1, pageSize },
+      fromCache: false,
+    };
+
+    try {
+      await redis.set(cacheKey, JSON.stringify(fullResponse), 'EX', TOP_LANDING_PAGES_TTL_SECONDS);
+    } catch (err) {
+      logger.warn(`GA4 TLP cache write failed: ${(err as Error).message}`);
+    }
+
+    // ── Apply pagination ─────────────────────────────────────────────────
+    const start = (page - 1) * pageSize;
+    return {
+      ...fullResponse,
+      pages: pages.slice(start, start + pageSize),
+      pagination: { total: pages.length, page, pageSize },
+    };
+  }
+
+  /**
+   * Citation sparkline: weekly citation counts for a specific URL.
+   * Returns up to 8 weekly data points for rendering as a sparkline.
+   */
+  async getCitationSparkline(
+    projectId: string,
+    url: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<CitationSparklineResponse> {
+    const fromDateStr = this._resolveDate(startDate);
+    const toDateStr = this._resolveDate(endDate);
+
+    const db = await connectToMongo();
+    const snapshots = await db
+      .collection('cbm_citation_snapshots')
+      .find({
+        projectId,
+        citedUrl: url,
+        snapshotDate: { $gte: fromDateStr, $lte: toDateStr },
+        citationPresent: true,
+      })
+      .toArray();
+
+    // Bucket by ISO week start (Monday)
+    const weekMap: Record<string, number> = {};
+    for (const snap of snapshots) {
+      const d = new Date(snap.snapshotDate as string);
+      const day = d.getUTCDay(); // 0=Sun
+      const diff = day === 0 ? -6 : 1 - day;
+      const monday = new Date(d);
+      monday.setUTCDate(d.getUTCDate() + diff);
+      const weekKey = monday.toISOString().slice(0, 10);
+      weekMap[weekKey] = (weekMap[weekKey] ?? 0) + 1;
+    }
+
+    const dataPoints = Object.entries(weekMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-8)
+      .map(([week, citations]) => ({ week, citations }));
+
+    return { url, dataPoints };
   }
 }

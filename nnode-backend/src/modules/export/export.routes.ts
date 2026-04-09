@@ -15,7 +15,11 @@ router.post('/export/api-key/regenerate', ctrl.regenerateApiKey);
 router.get('/export/schedule', ctrl.getSchedule);
 router.post('/export/schedule', ctrl.saveSchedule);
 
-// ── PDF exports  (type = weekly-summary | audit-report | competitor-report | ai-scorecard)
+// ── Readiness check (pre-flight before any download)
+// GET /export/check/:type?project_id=...&job_id=...
+router.get('/export/check/:type', ctrl.checkReadiness);
+
+// ── PDF exports  (type = weekly-summary | audit-report | competitor-report | ai-scorecard | serp-analysis | competitor-ai-report)
 router.get('/export/pdf/:type', ctrl.getPdf);
 
 // ── CSV exports  (type = crawl-data | citations | prompts | competitors | alerts)

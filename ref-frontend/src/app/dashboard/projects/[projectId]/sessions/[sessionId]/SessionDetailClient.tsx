@@ -12,7 +12,7 @@ import { Recommendations } from '@/components/module_A/MainContentAudit/Recommen
 import { AIIntelligenceModule, ContentMetricsModule } from '@/components/module_C'
 import { AICitationRanking, SentimentTracking, CompetitorMentionsSection, ShareOfVoiceSection, BrandAnalysisSection, TrendsByModelSection, DashboardOverview } from '@/components/module_E'
 import { ExportsTab } from '@/components/session/exports'
-import { GA4TrafficSection } from '@/components/ga4'
+import { GA4TrafficSection, LLMTrafficPanel, TopLandingPagesPanel } from '@/components/ga4'
 import ExecutiveSnapshotPanel from '@/components/executive-snapshot/ExecutiveSnapshotPanel'
 import PriorityAlertsPanel from '@/components/alerts/PriorityAlertsPanel'
 import { AlertBanner } from '@/components/alerts/AlertBanner'
@@ -1522,6 +1522,24 @@ export default function SessionDetailClient() {
           </div>
         )}
 
+        {/* LLM Traffic — Impact Analytics → Sub-nav Item 2 */}
+        {activeSection === 'content-roi' && (
+          <div>
+            <LLMTrafficPanel onNavigate={handleSectionChange} />
+          </div>
+        )}
+
+        {/* Top Landing Pages — Impact Analytics → Sub-nav Item 3 */}
+        {activeSection === 'top-landing-pages' && (
+          <div>
+            <TopLandingPagesPanel
+              projectId={projectId}
+              sessionUrl={session?.startUrl}
+              onNavigate={handleSectionChange}
+            />
+          </div>
+        )}
+
         {/* SERP Analyzer */}
         {activeSection === 'serp-analyzer' && (
           <div>
@@ -1668,7 +1686,7 @@ export default function SessionDetailClient() {
         )}
 
         {/* Placeholder for other tabs */}
-        {activeSection !== 'crawler' && activeSection !== 'crawled-data' && activeSection !== 'page-metrics' && activeSection !== 'text-quality' && activeSection !== 'wordcount' && activeSection !== 'broken-links' && activeSection !== 'audit-checker' && activeSection !== 'link-analysis' && activeSection !== 'performance' && activeSection !== 'ga4-traffic' && activeSection !== 'recommendations' && activeSection !== 'schema-generator' && activeSection !== 'ai-intelligence' && activeSection !== 'module-e' && activeSection !== 'content-metrics' && activeSection !== 'discover-prompts' && activeSection !== 'topic-clusters' && activeSection !== 'content-matrix' && activeSection !== 'keyword-intelligence' && activeSection !== 'exports' && activeSection !== 'serp-analyzer' && activeSection !== 'audit-reports' && activeSection !== 'priority-alerts' && activeSection !== 'executive-snapshot' && activeSection !== 'wins-losses' && activeSection !== 'dashboard' && (
+        {activeSection !== 'crawler' && activeSection !== 'crawled-data' && activeSection !== 'page-metrics' && activeSection !== 'text-quality' && activeSection !== 'wordcount' && activeSection !== 'broken-links' && activeSection !== 'audit-checker' && activeSection !== 'link-analysis' && activeSection !== 'performance' && activeSection !== 'ga4-traffic' && activeSection !== 'content-roi' && activeSection !== 'top-landing-pages' && activeSection !== 'recommendations' && activeSection !== 'schema-generator' && activeSection !== 'ai-intelligence' && activeSection !== 'module-e' && activeSection !== 'content-metrics' && activeSection !== 'discover-prompts' && activeSection !== 'topic-clusters' && activeSection !== 'content-matrix' && activeSection !== 'keyword-intelligence' && activeSection !== 'exports' && activeSection !== 'serp-analyzer' && activeSection !== 'audit-reports' && activeSection !== 'priority-alerts' && activeSection !== 'executive-snapshot' && activeSection !== 'wins-losses' && activeSection !== 'dashboard' && (
           <div className="rounded-2xl p-8 border border-zinc-800 bg-[#111113] text-center">
             <h2 className="text-xl font-semibold text-white mb-2">
               {activeSection.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}

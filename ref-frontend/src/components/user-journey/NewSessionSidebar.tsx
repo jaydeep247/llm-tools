@@ -41,7 +41,6 @@ import {
   FileCheck,
   Users,
   Code2,
-  DollarSign,
   Map,
   MousePointer,
   ArrowLeftRight,
@@ -178,8 +177,8 @@ export const sessionSections: Section[] = [
     icon: TrendingUp,
     children: [
       { id: 'ga4-traffic', label: 'GA4 Traffic Analysis', icon: BarChart3 },
-      { id: 'content-roi', label: 'LLM Traffic', icon: DollarSign },
-      { id: 'attribution-soon', label: 'Top Landing Pages', icon: Map },
+      { id: 'content-roi', label: 'LLM Traffic', icon: Brain },
+      { id: 'top-landing-pages', label: 'Top Landing Pages', icon: Map },
       { id: 'events-and-Conversions', label: 'Events & Conversions', icon: MousePointer },
       { id: 'visibility-traffic-correlation', label: 'Visibility ↔ Traffic Correlation', icon: ArrowLeftRight },
     ],

@@ -41,6 +41,99 @@ export interface GA4TrafficParams {
   endDate?: string;
 }
 
+// ── LLM Traffic types ─────────────────────────────────────────────────────────
+
+export interface LLMPlatformBreakdown {
+  platform: string;
+  sourceDomain: string;
+  sessions: number;
+  users: number;
+  bounceRate: number;
+  avgSessionDuration: number;
+  percentOfLLMTotal: number;
+}
+
+export interface LLMDailyTrend {
+  date: string;
+  platform: string;
+  sessions: number;
+}
+
+export interface LLMTrafficResponse {
+  propertyId: string;
+  dateRange: { startDate: string; endDate: string };
+  totalLLMSessions: number;
+  totalSiteSessions: number;
+  llmPercentOfTotal: number;
+  previousPeriod: {
+    totalLLMSessions: number;
+    llmPercentOfTotal: number;
+  };
+  breakdown: LLMPlatformBreakdown[];
+  trend: LLMDailyTrend[];
+  lastSyncedAt: string;
+  fromCache: boolean;
+}
+
+export interface LLMTrafficParams {
+  propertyId: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+// ── Top Landing Pages types ───────────────────────────────────────────────────
+
+export interface LLMTopLandingPage {
+  path: string;
+  url: string;
+  llmSessions: number;
+  users: number;
+  bounceRate: number;
+  citationCount: number;
+  primaryModel: string;
+  citationTrafficRatio: number | null;
+  gapFlag: 'OPPORTUNITY_GAP' | 'PERFORMING' | null;
+  platformBreakdown: Record<string, number>;
+}
+
+export interface LLMTopLandingPagesResponse {
+  propertyId: string;
+  dateRange: { startDate: string; endDate: string };
+  totalLLMPages: number;
+  topPage: { url: string; path: string; llmSessions: number } | null;
+  avgBounceRate: number;
+  pages: LLMTopLandingPage[];
+  pagination: { total: number; page: number; pageSize: number };
+  fromCache: boolean;
+}
+
+export interface TopLandingPagesParams {
+  propertyId: string;
+  projectId: string;
+  startDate?: string;
+  endDate?: string;
+  sessionUrl?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface CitationSparklinePoint {
+  week: string;
+  citations: number;
+}
+
+export interface CitationSparklineResponse {
+  url: string;
+  dataPoints: CitationSparklinePoint[];
+}
+
+export interface CitationSparklineParams {
+  projectId: string;
+  url: string;
+  startDate?: string;
+  endDate?: string;
+}
+
 const GA4_PREFIX = '/ga4';
 
 export const ga4Api = baseApi.injectEndpoints({
@@ -82,6 +175,51 @@ export const ga4Api = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['GA4'],
     }),
+
+    getLLMTraffic: builder.query<LLMTrafficResponse, LLMTrafficParams>({
+      query: ({ propertyId, startDate = '30daysAgo', endDate = 'today' }) => ({
+        url: `${GA4_PREFIX}/llm-traffic`,
+        params: { propertyId, startDate, endDate },
+      }),
+      transformResponse: (response: { data: LLMTrafficResponse }) => response.data,
+      providesTags: ['GA4'],
+    }),
+
+    syncLLMTraffic: builder.mutation<LLMTrafficResponse, LLMTrafficParams>({
+      query: ({ propertyId, startDate = '30daysAgo', endDate = 'today' }) => ({
+        url: `${GA4_PREFIX}/llm-traffic/sync`,
+        method: 'POST',
+        body: { propertyId, startDate, endDate },
+      }),
+      transformResponse: (response: { data: LLMTrafficResponse }) => response.data,
+      invalidatesTags: ['GA4'],
+    }),
+
+    getTopLandingPages: builder.query<LLMTopLandingPagesResponse, TopLandingPagesParams>({
+      query: ({ propertyId, projectId, startDate = '30daysAgo', endDate = 'today', sessionUrl, page, pageSize }) => ({
+        url: `${GA4_PREFIX}/top-landing-pages`,
+        params: {
+          propertyId,
+          projectId,
+          startDate,
+          endDate,
+          ...(sessionUrl ? { sessionUrl } : {}),
+          ...(page ? { page } : {}),
+          ...(pageSize ? { pageSize } : {}),
+        },
+      }),
+      transformResponse: (response: { data: LLMTopLandingPagesResponse }) => response.data,
+      providesTags: ['GA4'],
+    }),
+
+    getCitationSparkline: builder.query<CitationSparklineResponse, CitationSparklineParams>({
+      query: ({ projectId, url, startDate = '30daysAgo', endDate = 'today' }) => ({
+        url: `${GA4_PREFIX}/citation-sparkline`,
+        params: { projectId, url, startDate, endDate },
+      }),
+      transformResponse: (response: { data: CitationSparklineResponse }) => response.data,
+      providesTags: ['GA4'],
+    }),
   }),
 });
 
@@ -92,4 +230,8 @@ export const {
   useGetGA4TrafficQuery,
   useLazyGetGA4TrafficQuery,
   useDisconnectGA4Mutation,
+  useGetLLMTrafficQuery,
+  useSyncLLMTrafficMutation,
+  useGetTopLandingPagesQuery,
+  useGetCitationSparklineQuery,
 } = ga4Api;

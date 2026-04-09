@@ -41,7 +41,7 @@ export class ExportCsvService {
       case 'prompts':
         return this.promptsData(db, effectiveId, domain, dateFilter);
       case 'competitors':
-        return this.competitorsData(db, effectiveId, domain);
+        return this.competitorsData(db, effectiveId, domain, dateFilter);
       case 'alerts':
         return this.alertsData(db, effectiveId, domain, dateFilter);
       default:
@@ -62,10 +62,36 @@ export class ExportCsvService {
     if (dateFilter) query.createdAt = dateFilter;
 
     const pages = await db.collection('pages').find(query, {
-      projection: { url: 1, status_code: 1, title: 1, meta_description: 1, word_count: 1, crawl_depth: 1, createdAt: 1 },
+      projection: {
+        url: 1,
+        status_code: 1,
+        statusCode: 1,
+        title: 1,
+        title_length: 1,
+        meta_description: 1,
+        description_length: 1,
+        word_count: 1,
+        crawl_depth: 1,
+        canonical_url: 1,
+        meta_robots: 1,
+        response_time: 1,
+        page_size_bytes: 1,
+        h1: 1,
+        h2_count: 1,
+        internal_links_count: 1,
+        external_links_count: 1,
+        indexable: 1,
+        redirect_url: 1,
+        createdAt: 1,
+      },
     }).limit(5000).toArray();
 
-    const headers = row(['domain', 'timestamp', 'url', 'status_code', 'title', 'meta_description', 'word_count', 'crawl_depth']);
+    const headers = row([
+      'domain', 'timestamp', 'url', 'status_code', 'title', 'title_length',
+      'meta_description', 'description_length', 'word_count', 'crawl_depth',
+      'canonical_url', 'meta_robots', 'response_time_ms', 'page_size_bytes',
+      'h1', 'h2_count', 'internal_links', 'external_links', 'indexable', 'redirect_url',
+    ]);
     const dataRows = pages.map((p: any) =>
       row([
         domain,
@@ -73,25 +99,47 @@ export class ExportCsvService {
         p.url ?? '',
         p.status_code ?? p.statusCode ?? '',
         p.title ?? '',
+        p.title_length ?? '',
         p.meta_description ?? '',
+        p.description_length ?? '',
         p.word_count ?? '',
         p.crawl_depth ?? '',
+        p.canonical_url ?? '',
+        p.meta_robots ?? '',
+        p.response_time ?? '',
+        p.page_size_bytes ?? '',
+        p.h1 ?? '',
+        p.h2_count ?? '',
+        p.internal_links_count ?? '',
+        p.external_links_count ?? '',
+        p.indexable !== undefined ? (p.indexable ? 'yes' : 'no') : '',
+        p.redirect_url ?? '',
       ]),
     );
     return headers + dataRows.join('');
   }
 
   private async citationsData(db: any, jobId: string, domain: string, dateFilter: any): Promise<string> {
-    const query: any = { jobId };
-    if (dateFilter) query.createdAt = dateFilter;
-
-    // Pull from module_e brand_analysis
     const moduleE = await db.collection('module_e').findOne({ jobId });
+    // frequency_trend is the per-date citation trend
     const mentions: any[] = (moduleE as any)?.brand_analysis?.frequency_trend ?? [];
+    const brandName: string = (moduleE as any)?.brand_analysis?.brand_name ?? '';
+    const totalMentions: number = (moduleE as any)?.brand_analysis?.total_mentions ?? 0;
+    const sentimentLabel: string = (moduleE as any)?.brand_analysis?.sentiment?.label ?? '';
 
-    const headers = row(['domain', 'timestamp', 'date', 'citation_count', 'model', 'source']);
-    const dataRows = mentions.map((m: any) =>
-      row([domain, new Date().toISOString(), m.date ?? '', m.count ?? '', m.model ?? 'all', m.source ?? '']),
+    const filtered = dateFilter
+      ? mentions.filter((m: any) => {
+          if (!m.date) return true;
+          const d = new Date(m.date);
+          if (dateFilter.$gte && d < dateFilter.$gte) return false;
+          if (dateFilter.$lte && d > dateFilter.$lte) return false;
+          return true;
+        })
+      : mentions;
+
+    const headers = row(['domain', 'timestamp', 'brand_name', 'total_mentions', 'overall_sentiment', 'date', 'citation_count', 'model', 'source']);
+    const dataRows = filtered.map((m: any) =>
+      row([domain, new Date().toISOString(), brandName, totalMentions, sentimentLabel, m.date ?? '', m.count ?? '', m.model ?? 'all', m.source ?? '']),
     );
     return headers + dataRows.join('');
   }
@@ -101,10 +149,10 @@ export class ExportCsvService {
     if (dateFilter) query.created_at = dateFilter;
 
     const prompts = await db.collection('prompt_tracking').find(query, {
-      projection: { prompt: 1, model: 1, rank: 1, cited: 1, created_at: 1 },
+      projection: { prompt: 1, model: 1, rank: 1, cited: 1, citation_count: 1, credibility_score: 1, mention_status: 1, percentile: 1, created_at: 1 },
     }).limit(2000).toArray();
 
-    const headers = row(['domain', 'timestamp', 'prompt', 'model', 'rank', 'cited']);
+    const headers = row(['domain', 'timestamp', 'prompt', 'model', 'rank', 'cited', 'citation_count', 'credibility_score', 'mention_status', 'percentile']);
     const dataRows = prompts.map((p: any) =>
       row([
         domain,
@@ -113,26 +161,37 @@ export class ExportCsvService {
         p.model ?? '',
         p.rank ?? '',
         p.cited ? 'yes' : 'no',
+        p.citation_count ?? '',
+        p.credibility_score ?? '',
+        p.mention_status ?? '',
+        p.percentile ?? '',
       ]),
     );
     return headers + dataRows.join('');
   }
 
-  private async competitorsData(db: any, jobId: string, domain: string): Promise<string> {
+  private async competitorsData(db: any, jobId: string, domain: string, _dateFilter: any): Promise<string> {
     const moduleE = await db.collection('module_e').findOne({ jobId });
-    const competitors: any[] = (moduleE as any)?.competitor_mentions ?? [];
+    const competitors: any[] = (moduleE as any)?.competitor_mentions?.data ?? [];
+    const brandSov: number = (moduleE as any)?.ai_share_of_voice?.overall_sov ?? 0;
 
-    const headers = row(['domain', 'timestamp', 'competitor', 'mention_count', 'sentiment', 'models_cited']);
-    const dataRows = competitors.map((c: any) =>
-      row([
+    const headers = row(['domain', 'timestamp', 'brand_overall_sov', 'competitor', 'mention_count', 'sentiment', 'trend_direction', 'models_cited']);
+    const dataRows = competitors.map((c: any) => {
+      const trend: number[] = Array.isArray(c.trend) ? c.trend : [];
+      const trendDir = trend.length > 1
+        ? (trend[trend.length - 1] > trend[0] ? 'UP' : trend[trend.length - 1] < trend[0] ? 'DOWN' : 'STABLE')
+        : '';
+      return row([
         domain,
         new Date().toISOString(),
-        c.domain ?? c.brand ?? '',
-        c.mention_count ?? c.total_mentions ?? '',
-        c.sentiment?.label ?? '',
+        brandSov.toFixed(2),
+        c.name ?? c.domain ?? c.brand ?? '',
+        c.mention_count ?? c.mentions ?? c.total_mentions ?? '',
+        c.sentiment?.label ?? c.sentiment ?? '',
+        trendDir,
         Array.isArray(c.models) ? c.models.join(';') : '',
-      ]),
-    );
+      ]);
+    });
     return headers + dataRows.join('');
   }
 

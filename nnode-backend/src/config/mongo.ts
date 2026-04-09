@@ -6,9 +6,36 @@ let client: MongoClient | null = null;
 let db: Db | null = null;
 let indexesEnsured: Promise<void> | null = null;
 
+/** Seed entries for llm_source_map if the collection is empty. */
+const LLM_SOURCE_MAP_SEED = [
+  { source_domain: 'chatgpt.com',          display_name: 'ChatGPT',   is_active: true },
+  { source_domain: 'chat.openai.com',      display_name: 'ChatGPT',   is_active: true },
+  { source_domain: 'gemini.google.com',    display_name: 'Gemini',    is_active: true },
+  { source_domain: 'bard.google.com',      display_name: 'Gemini',    is_active: true },
+  { source_domain: 'perplexity.ai',        display_name: 'Perplexity',is_active: true },
+  { source_domain: 'claude.ai',            display_name: 'Claude',    is_active: true },
+  { source_domain: 'bing.com',             display_name: 'Bing AI',   is_active: true },
+  { source_domain: 'copilot.microsoft.com',display_name: 'Copilot',   is_active: true },
+  { source_domain: 'you.com',              display_name: 'You.com AI',is_active: true },
+  { source_domain: 'phind.com',            display_name: 'Phind',     is_active: true },
+  { source_domain: 'kagi.com',             display_name: 'Kagi AI',   is_active: true },
+  { source_domain: 'poe.com',              display_name: 'Poe',       is_active: true },
+];
+
+const seedLLMSourceMap = async (database: Db): Promise<void> => {
+  const col = database.collection('llm_source_map');
+  const count = await col.countDocuments();
+  if (count === 0) {
+    const now = new Date();
+    await col.insertMany(LLM_SOURCE_MAP_SEED.map((e) => ({ ...e, added_at: now })));
+    logger.info('llm_source_map seeded with default entries');
+  }
+};
+
 const ensureMongoIndexes = async (database: Db): Promise<void> => {
   if (!indexesEnsured) {
     indexesEnsured = Promise.all([
+      database.collection('llm_source_map').createIndex({ source_domain: 1 }, { unique: true }),
       database.collection('users').createIndex(
         { emailNormalized: 1 },
         {
@@ -66,6 +93,7 @@ export const connectToMongo = async (): Promise<Db> => {
 
     db = client.db(env.MONGO_DB_NAME);
     await ensureMongoIndexes(db);
+    await seedLLMSourceMap(db);
     logger.info('✅ Connected to MongoDB');
     return db;
   } catch (error: any) {
