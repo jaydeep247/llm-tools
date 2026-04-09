@@ -160,3 +160,46 @@ export interface LLMConversionsResponse {
   last_synced_at: string;
   from_cache: boolean;
 }
+
+// ── Visibility ↔ Traffic Correlation types ────────────────────────────────────
+
+export type CorrelationClassification = 'STRONG POSITIVE' | 'MODERATE' | 'WEAK' | 'INVERSE';
+
+export interface CorrelationResult {
+  r: number;                          // Pearson coefficient, 3dp
+  classification: CorrelationClassification;
+  data_points: number;
+  primary_lag: number;                // 0 | 1 | 2
+  lag_details: { lag: number; r: number }[];
+}
+
+export interface CorrelationWeeklyPoint {
+  week: string;        // 'YYYY-MM-DD' (ISO week Monday)
+  citations: number;
+  llm_sessions: number;
+}
+
+export interface CorrelationAnnotation {
+  date: string;        // 'YYYY-MM-DD'
+  type: 'content_published' | 'schema_added' | 'score_change';
+  label: string;
+}
+
+export interface CorrelationResponse {
+  status: 'success' | 'insufficient_data' | 'no_citation_data';
+  weeks_collected: number;
+  min_weeks_required: number;
+  correlation: CorrelationResult | null;
+  auto_insight: string | null;
+  timeseries: CorrelationWeeklyPoint[];
+  annotations: CorrelationAnnotation[];
+}
+
+export interface ContentEvent {
+  id: string;
+  domain_id: string;   // userId / projectId scope key
+  event_date: string;  // 'YYYY-MM-DD'
+  event_type: 'content_published' | 'schema_added' | 'score_change';
+  event_label: string;
+  created_at: Date;
+}

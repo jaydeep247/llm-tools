@@ -401,4 +401,102 @@ export class GA4Controller {
       return ResponseUtil.serverError(res, 'Failed to sync LLM conversions data');
     }
   };
+
+  // ── Visibility ↔ Traffic Correlation ──────────────────────────────────────
+
+  /**
+   * GET /ga4/correlation?propertyId=&projectId=&weeks=
+   */
+  getCorrelation = async (req: Request, res: Response): Promise<Response> => {
+    const userId = req.user?.userId;
+    if (!userId) return ResponseUtil.unauthorized(res);
+
+    const { propertyId, projectId, weeks } = req.query as Record<string, string>;
+
+    if (!propertyId) return ResponseUtil.error(res, 'propertyId is required', undefined, 400);
+    if (!/^(properties\/)?\d+$/.test(propertyId)) {
+      return ResponseUtil.error(res, 'Invalid propertyId format', undefined, 400);
+    }
+    if (!projectId) return ResponseUtil.error(res, 'projectId is required', undefined, 400);
+
+    const safeWeeks = weeks && /^\d+$/.test(weeks)
+      ? Math.min(52, Math.max(8, parseInt(weeks, 10)))
+      : 16;
+
+    try {
+      const data = await ga4Service.getCorrelation(userId, propertyId, projectId, safeWeeks);
+      return ResponseUtil.success(res, 'Correlation data retrieved', data);
+    } catch (error: any) {
+      if (error.message === 'GA4_NOT_CONNECTED') {
+        return ResponseUtil.error(res, 'Google Analytics is not connected.', undefined, 403);
+      }
+      logger.error(`GA4 getCorrelation error: ${error.message}`);
+      return ResponseUtil.serverError(res, 'Failed to compute correlation');
+    }
+  };
+
+  /**
+   * GET /ga4/content-events?startDate=&endDate=
+   * Returns content events (annotation markers) for the authenticated user.
+   */
+  getContentEvents = async (req: Request, res: Response): Promise<Response> => {
+    const userId = req.user?.userId;
+    if (!userId) return ResponseUtil.unauthorized(res);
+
+    const { startDate, endDate } = req.query as Record<string, string>;
+    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+    const safeStart = startDate && datePattern.test(startDate) ? startDate : undefined;
+    const safeEnd = endDate && datePattern.test(endDate) ? endDate : undefined;
+
+    try {
+      const events = await ga4Service.getContentEvents(userId, safeStart, safeEnd);
+      return ResponseUtil.success(res, 'Content events retrieved', events);
+    } catch (error: any) {
+      logger.error(`GA4 getContentEvents error: ${error.message}`);
+      return ResponseUtil.serverError(res, 'Failed to fetch content events');
+    }
+  };
+
+  /**
+   * POST /ga4/content-events
+   * Body: { event_date, event_type, event_label }
+   */
+  addContentEvent = async (req: Request, res: Response): Promise<Response> => {
+    const userId = req.user?.userId;
+    if (!userId) return ResponseUtil.unauthorized(res);
+
+    const { event_date, event_type, event_label } = req.body as Record<string, string>;
+
+    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+    if (!event_date || !datePattern.test(event_date)) {
+      return ResponseUtil.error(res, 'event_date must be YYYY-MM-DD', undefined, 400);
+    }
+
+    const validTypes = ['content_published', 'schema_added', 'score_change'];
+    if (!event_type || !validTypes.includes(event_type)) {
+      return ResponseUtil.error(res, `event_type must be one of: ${validTypes.join(', ')}`, undefined, 400);
+    }
+
+    if (!event_label || typeof event_label !== 'string' || event_label.trim().length === 0) {
+      return ResponseUtil.error(res, 'event_label is required', undefined, 400);
+    }
+
+    // Sanitise: strip any HTML/script characters
+    const safeLabel = event_label.replace(/[<>"'&]/g, '').trim().slice(0, 200);
+    if (!safeLabel) {
+      return ResponseUtil.error(res, 'event_label contains invalid characters', undefined, 400);
+    }
+
+    try {
+      const event = await ga4Service.addContentEvent(userId, {
+        event_date,
+        event_type: event_type as any,
+        event_label: safeLabel,
+      });
+      return ResponseUtil.success(res, 'Content event added', event);
+    } catch (error: any) {
+      logger.error(`GA4 addContentEvent error: ${error.message}`);
+      return ResponseUtil.serverError(res, 'Failed to add content event');
+    }
+  };
 }

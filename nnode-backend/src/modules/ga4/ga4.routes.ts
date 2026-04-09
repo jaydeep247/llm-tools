@@ -21,4 +21,9 @@ router.get('/ga4/events-list', authMiddleware, ga4Controller.listGA4Events);
 router.get('/ga4/llm-conversions', authMiddleware, ga4Controller.getLLMConversions);
 router.post('/ga4/llm-conversions/sync', authMiddleware, ga4Controller.syncLLMConversions);
 
+// Visibility ↔ Traffic Correlation
+router.get('/ga4/correlation', authMiddleware, ga4Controller.getCorrelation);
+router.get('/ga4/content-events', authMiddleware, ga4Controller.getContentEvents);
+router.post('/ga4/content-events', authMiddleware, ga4Controller.addContentEvent);
+
 export default router;

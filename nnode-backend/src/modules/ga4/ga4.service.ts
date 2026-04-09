@@ -1,7 +1,7 @@
 import { OAuth2Client } from 'google-auth-library';
 import { UserRepository } from '../user/user.repository';
 import { env } from '../../config/env';
-import { GA4Property, GA4TrafficResponse, GA4PageTraffic, LLMTrafficResponse, LLMPlatformBreakdown, LLMDailyTrend, LLMTopLandingPage, LLMTopLandingPagesResponse, CitationSparklineResponse, LLMConversionsResponse, ConversionPlatformBreakdown, ConversionTopPage } from './ga4.types';
+import { GA4Property, GA4TrafficResponse, GA4PageTraffic, LLMTrafficResponse, LLMPlatformBreakdown, LLMDailyTrend, LLMTopLandingPage, LLMTopLandingPagesResponse, CitationSparklineResponse, LLMConversionsResponse, ConversionPlatformBreakdown, ConversionTopPage, CorrelationResponse, CorrelationResult, CorrelationWeeklyPoint, CorrelationAnnotation, CorrelationClassification, ContentEvent } from './ga4.types';
 import { logger } from '../../shared/logger/logger';
 import { getRedisClient } from '../../config/redis';
 import { connectToMongo } from '../../config/mongo';
@@ -1316,5 +1316,358 @@ export class GA4Service {
       last_synced_at: new Date().toISOString(),
       from_cache: false,
     };
+  }
+
+  // ── Visibility ↔ Traffic Correlation ──────────────────────────────────────
+
+  /**
+   * Convert a GA4 `isoYearIsoWeek` string (e.g. "202405") to the ISO week's
+   * Monday date in YYYY-MM-DD format.
+   */
+  private _isoYearWeekToDate(yearWeek: string): string {
+    const year = parseInt(yearWeek.slice(0, 4), 10);
+    const week = parseInt(yearWeek.slice(4), 10);
+    // Jan 4 is always within ISO week 1
+    const jan4 = new Date(Date.UTC(year, 0, 4));
+    const jan4Day = jan4.getUTCDay() || 7; // Sun=0 → treat as 7
+    const monday = new Date(jan4);
+    monday.setUTCDate(jan4.getUTCDate() - (jan4Day - 1) + (week - 1) * 7);
+    return monday.toISOString().slice(0, 10);
+  }
+
+  /**
+   * Compute Pearson r for two equal-length numeric arrays.
+   * Returns null if variance is zero (no correlation computable).
+   */
+  private _pearson(x: number[], y: number[]): number | null {
+    const n = x.length;
+    if (n < 2) return null;
+
+    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
+    for (let i = 0; i < n; i++) {
+      sumX += x[i];
+      sumY += y[i];
+      sumXY += x[i] * y[i];
+      sumX2 += x[i] * x[i];
+      sumY2 += y[i] * y[i];
+    }
+
+    const numerator = n * sumXY - sumX * sumY;
+    const denominator = Math.sqrt(
+      (n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY),
+    );
+
+    if (denominator === 0) return null;
+    const r = numerator / denominator;
+    return parseFloat(Math.max(-1, Math.min(1, r)).toFixed(3));
+  }
+
+  private _classifyR(r: number): CorrelationClassification {
+    if (r < 0) return 'INVERSE';
+    if (r >= 0.7) return 'STRONG POSITIVE';
+    if (r >= 0.4) return 'MODERATE';
+    return 'WEAK';
+  }
+
+  /**
+   * GET /ga4/correlation
+   * Computes Pearson r between weekly citation counts and weekly LLM sessions
+   * over the last `weeks` weeks (default 16). Requires >= 8 complete data weeks.
+   */
+  async getCorrelation(
+    userId: string,
+    propertyId: string,
+    projectId: string,
+    weeks: number = 16,
+  ): Promise<CorrelationResponse> {
+    const MIN_WEEKS = 8;
+
+    // ── Step 01: Determine date range ──────────────────────────────────────
+    const today = new Date();
+    const weekStart = new Date(today);
+    weekStart.setUTCDate(today.getUTCDate() - (today.getUTCDay() || 7) + 1); // this Monday
+    const endDate = new Date(weekStart);
+    endDate.setUTCDate(weekStart.getUTCDate() - 1); // end = Sunday before this week
+
+    const startDate = new Date(endDate);
+    startDate.setUTCDate(endDate.getUTCDate() - weeks * 7 + 1);
+
+    const startStr = startDate.toISOString().slice(0, 10);
+    const endStr = endDate.toISOString().slice(0, 10);
+
+    // ── Step 02: Fetch weekly citations from cbm_citation_snapshots ────────
+    const db = await connectToMongo();
+
+    const citRows = await db.collection('cbm_citation_snapshots').aggregate([
+      {
+        $match: {
+          projectId,
+          snapshotDate: { $gte: startStr, $lte: endStr },
+          citationPresent: true,
+        },
+      },
+      {
+        $addFields: {
+          parsedDate: { $dateFromString: { dateString: '$snapshotDate' } },
+        },
+      },
+      {
+        $addFields: {
+          // ISO week number (1-based): days since nearest Thursday's week-start Monday
+          isoWeekDay: { $isoDayOfWeek: '$parsedDate' }, // Mon=1 … Sun=7
+          isoWeekYear: { $isoWeekYear: '$parsedDate' },
+          isoWeek: { $isoWeek: '$parsedDate' },
+        },
+      },
+      {
+        $addFields: {
+          // Compute the Monday of the ISO week
+          weekStart: {
+            $dateSubtract: {
+              startDate: '$parsedDate',
+              unit: 'day',
+              amount: { $subtract: ['$isoWeekDay', 1] },
+            },
+          },
+        },
+      },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$weekStart' } },
+          citations: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]).toArray();
+
+    const citationsByWeek: Record<string, number> = {};
+    for (const row of citRows) {
+      citationsByWeek[row._id as string] = row.citations as number;
+    }
+
+    // ── Step 03: Fetch weekly LLM sessions from GA4 ────────────────────────
+    const sourceMap = await getLLMSourceMap();
+    const sourceDomains = Object.keys(sourceMap);
+
+    const weeklySessionsByWeek: Record<string, number> = {};
+
+    if (sourceDomains.length > 0) {
+      const client = await this.getAuthenticatedClient(userId);
+      const tokenResult = await client.getAccessToken();
+      const accessToken = tokenResult.token;
+      if (!accessToken) throw new Error('Failed to obtain access token');
+
+      const propertyPath = propertyId.startsWith('properties/')
+        ? propertyId
+        : `properties/${propertyId}`;
+
+      const ga4Body = {
+        dimensions: [{ name: 'isoYearIsoWeek' }],
+        metrics: [{ name: 'sessions' }],
+        dateRanges: [{ startDate: startStr, endDate: endStr }],
+        dimensionFilter: {
+          filter: {
+            fieldName: 'sessionSource',
+            inListFilter: { values: sourceDomains },
+          },
+        },
+        orderBys: [{ dimension: { dimensionName: 'isoYearIsoWeek' }, desc: false }],
+        limit: 200,
+      };
+
+      const ga4Res = await fetch(
+        `https://analyticsdata.googleapis.com/v1beta/${propertyPath}:runReport`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(ga4Body),
+        },
+      );
+
+      if (ga4Res.ok) {
+        const ga4Data = (await ga4Res.json()) as any;
+        for (const row of ga4Data.rows ?? []) {
+          const yearWeek: string = row.dimensionValues?.[0]?.value ?? '';
+          if (yearWeek.length !== 6) continue;
+          const weekKey = this._isoYearWeekToDate(yearWeek);
+          const sessions = parseInt(row.metricValues?.[0]?.value ?? '0', 10);
+          weeklySessionsByWeek[weekKey] = (weeklySessionsByWeek[weekKey] ?? 0) + sessions;
+        }
+      } else {
+        const e = (await ga4Res.json().catch(() => ({}))) as any;
+        logger.warn(`GA4 correlation weekly report failed: ${e?.error?.message ?? ga4Res.status}`);
+      }
+    }
+
+    // ── Step 04: Build combined weekly series filling missing weeks ─────────
+    // Generate all week-start Mondays in the window
+    const allWeeks: string[] = [];
+    const cursor = new Date(startDate);
+    // Align to Monday
+    const dow = cursor.getUTCDay() || 7;
+    if (dow !== 1) cursor.setUTCDate(cursor.getUTCDate() - (dow - 1));
+
+    while (cursor <= endDate) {
+      allWeeks.push(cursor.toISOString().slice(0, 10));
+      cursor.setUTCDate(cursor.getUTCDate() + 7);
+    }
+
+    const timeseries: CorrelationWeeklyPoint[] = allWeeks.map((week) => ({
+      week,
+      citations: citationsByWeek[week] ?? 0,
+      llm_sessions: weeklySessionsByWeek[week] ?? 0,
+    }));
+
+    const weeksCollected = timeseries.length;
+
+    // ── Step 05: Fetch content_events annotations ──────────────────────────
+    const eventDocs = await db
+      .collection<ContentEvent>('content_events')
+      .find({ domain_id: userId, event_date: { $gte: startStr, $lte: endStr } })
+      .sort({ event_date: 1 })
+      .toArray();
+
+    const annotations: CorrelationAnnotation[] = eventDocs.map((e) => ({
+      date: e.event_date,
+      type: e.event_type,
+      label: e.event_label,
+    }));
+
+    // ── Step 06: Check minimum data requirement ────────────────────────────
+    if (weeksCollected < MIN_WEEKS) {
+      return {
+        status: 'insufficient_data',
+        weeks_collected: weeksCollected,
+        min_weeks_required: MIN_WEEKS,
+        correlation: null,
+        auto_insight: null,
+        timeseries,
+        annotations,
+      };
+    }
+
+    // ── Step 07: Pearson + lag analysis ───────────────────────────────────
+    const citations = timeseries.map((p) => p.citations);
+    const sessions = timeseries.map((p) => p.llm_sessions);
+
+    const lagResults: { lag: number; r: number }[] = [];
+    for (let lag = 0; lag <= 2; lag++) {
+      const x = citations.slice(0, citations.length - lag);
+      const y = sessions.slice(lag);
+      const r = this._pearson(x, y);
+      if (r !== null) lagResults.push({ lag, r });
+    }
+
+    if (lagResults.length === 0) {
+      return {
+        status: 'no_citation_data',
+        weeks_collected: weeksCollected,
+        min_weeks_required: MIN_WEEKS,
+        correlation: null,
+        auto_insight: null,
+        timeseries,
+        annotations,
+      };
+    }
+
+    const best = lagResults.reduce((best, cur) =>
+      Math.abs(cur.r) > Math.abs(best.r) ? cur : best,
+    );
+
+    const correlation: CorrelationResult = {
+      r: best.r,
+      classification: this._classifyR(best.r),
+      data_points: weeksCollected,
+      primary_lag: best.lag,
+      lag_details: lagResults,
+    };
+
+    // ── Step 08: Auto-insight ──────────────────────────────────────────────
+    let autoInsight: string | null = null;
+    const lag = best.lag;
+
+    // Find week with largest citation count increase vs previous week
+    let bestCitGrowthIdx = -1;
+    let bestCitGrowthPct = 0;
+    for (let i = 1; i < citations.length - lag; i++) {
+      if (citations[i - 1] > 0) {
+        const pct = ((citations[i] - citations[i - 1]) / citations[i - 1]) * 100;
+        if (pct > bestCitGrowthPct) {
+          bestCitGrowthPct = pct;
+          bestCitGrowthIdx = i;
+        }
+      }
+    }
+
+    if (bestCitGrowthIdx >= 0) {
+      const trafficIdx = bestCitGrowthIdx + lag;
+      const trafficPrev = trafficIdx > 0 ? sessions[trafficIdx - 1] : 0;
+      const trafficCurr = sessions[trafficIdx] ?? 0;
+      const trafficPct =
+        trafficPrev > 0
+          ? Math.round(((trafficCurr - trafficPrev) / trafficPrev) * 100)
+          : 0;
+
+      const weekLabel = `Week ${bestCitGrowthIdx + 1}`;
+      const trafficWeekLabel = `Week ${trafficIdx + 1}`;
+      const citPct = Math.round(bestCitGrowthPct);
+
+      if (lag === 0) {
+        autoInsight = `When citation count increased ${citPct}% in ${weekLabel}, LLM traffic also increased ${trafficPct}% in the same week.`;
+      } else {
+        autoInsight = `When citation count increased ${citPct}% in ${weekLabel}, LLM traffic increased ${trafficPct}% in ${trafficWeekLabel} (${lag}-week delay).`;
+      }
+    }
+
+    return {
+      status: 'success',
+      weeks_collected: weeksCollected,
+      min_weeks_required: MIN_WEEKS,
+      correlation,
+      auto_insight: autoInsight,
+      timeseries,
+      annotations,
+    };
+  }
+
+  /**
+   * List content events for a user (annotations on the correlation chart).
+   */
+  async getContentEvents(userId: string, startDate?: string, endDate?: string): Promise<ContentEvent[]> {
+    const db = await connectToMongo();
+    const filter: Record<string, any> = { domain_id: userId };
+    if (startDate || endDate) {
+      filter.event_date = {};
+      if (startDate) filter.event_date.$gte = startDate;
+      if (endDate) filter.event_date.$lte = endDate;
+    }
+    return db
+      .collection<ContentEvent>('content_events')
+      .find(filter)
+      .sort({ event_date: -1 })
+      .toArray() as unknown as ContentEvent[];
+  }
+
+  /**
+   * Add a content event annotation.
+   */
+  async addContentEvent(
+    userId: string,
+    payload: { event_date: string; event_type: ContentEvent['event_type']; event_label: string },
+  ): Promise<ContentEvent> {
+    const db = await connectToMongo();
+    const doc: ContentEvent = {
+      id: require('crypto').randomUUID() as string,
+      domain_id: userId,
+      event_date: payload.event_date,
+      event_type: payload.event_type,
+      event_label: payload.event_label.slice(0, 200), // sanitise length
+      created_at: new Date(),
+    };
+    await db.collection('content_events').insertOne(doc);
+    return doc;
   }
 }

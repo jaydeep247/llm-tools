@@ -191,6 +191,61 @@ export interface SaveConversionEventsPayload {
   events: Array<{ ga4_event_name: string; display_label: string }>;
 }
 
+// ── Visibility ↔ Traffic Correlation types ────────────────────────────────────
+
+export type CorrelationClassification = 'STRONG POSITIVE' | 'MODERATE' | 'WEAK' | 'INVERSE';
+
+export interface CorrelationResult {
+  r: number;
+  classification: CorrelationClassification;
+  data_points: number;
+  primary_lag: number;
+  lag_details: { lag: number; r: number }[];
+}
+
+export interface CorrelationWeeklyPoint {
+  week: string;          // 'YYYY-MM-DD'
+  citations: number;
+  llm_sessions: number;
+}
+
+export interface CorrelationAnnotation {
+  date: string;          // 'YYYY-MM-DD'
+  type: 'content_published' | 'schema_added' | 'score_change';
+  label: string;
+}
+
+export interface CorrelationResponse {
+  status: 'success' | 'insufficient_data' | 'no_citation_data';
+  weeks_collected: number;
+  min_weeks_required: number;
+  correlation: CorrelationResult | null;
+  auto_insight: string | null;
+  timeseries: CorrelationWeeklyPoint[];
+  annotations: CorrelationAnnotation[];
+}
+
+export interface CorrelationParams {
+  propertyId: string;
+  projectId: string;
+  weeks?: number;
+}
+
+export interface ContentEvent {
+  id: string;
+  domain_id: string;
+  event_date: string;
+  event_type: 'content_published' | 'schema_added' | 'score_change';
+  event_label: string;
+  created_at: string;
+}
+
+export interface AddContentEventPayload {
+  event_date: string;
+  event_type: 'content_published' | 'schema_added' | 'score_change';
+  event_label: string;
+}
+
 const GA4_PREFIX = '/ga4';
 
 export const ga4Api = baseApi.injectEndpoints({
@@ -321,6 +376,35 @@ export const ga4Api = baseApi.injectEndpoints({
       transformResponse: (response: { data: LLMConversionsResponse }) => response.data,
       invalidatesTags: ['GA4'],
     }),
+
+    // ── Visibility ↔ Traffic Correlation ──────────────────────────────────
+    getCorrelation: builder.query<CorrelationResponse, CorrelationParams>({
+      query: ({ propertyId, projectId, weeks = 16 }) => ({
+        url: `${GA4_PREFIX}/correlation`,
+        params: { propertyId, projectId, weeks },
+      }),
+      transformResponse: (response: { data: CorrelationResponse }) => response.data,
+      providesTags: ['GA4'],
+    }),
+
+    getContentEvents: builder.query<ContentEvent[], { startDate?: string; endDate?: string }>({
+      query: ({ startDate, endDate } = {}) => ({
+        url: `${GA4_PREFIX}/content-events`,
+        params: { ...(startDate ? { startDate } : {}), ...(endDate ? { endDate } : {}) },
+      }),
+      transformResponse: (response: { data: ContentEvent[] }) => response.data,
+      providesTags: ['GA4'],
+    }),
+
+    addContentEvent: builder.mutation<ContentEvent, AddContentEventPayload>({
+      query: (body) => ({
+        url: `${GA4_PREFIX}/content-events`,
+        method: 'POST',
+        body,
+      }),
+      transformResponse: (response: { data: ContentEvent }) => response.data,
+      invalidatesTags: ['GA4'],
+    }),
   }),
 });
 
@@ -340,4 +424,7 @@ export const {
   useListGA4EventsQuery,
   useGetLLMConversionsQuery,
   useSyncLLMConversionsMutation,
+  useGetCorrelationQuery,
+  useGetContentEventsQuery,
+  useAddContentEventMutation,
 } = ga4Api;

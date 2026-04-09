@@ -19,7 +19,7 @@ import CompetitorGrowthTrends from '@/components/module_F/CompetitorGrowthTrends
 import GapOpportunities from '@/components/module_F/GapOpportunities'
 import CompetitorCitedURLs from '@/components/module_F/CompetitorCitedURLs'
 import { ExportsTab } from '@/components/session/exports'
-import { GA4TrafficSection, LLMTrafficPanel, TopLandingPagesPanel, EventsConversionsPanel } from '@/components/ga4'
+import { GA4TrafficSection, LLMTrafficPanel, TopLandingPagesPanel, EventsConversionsPanel, CorrelationPanel } from '@/components/ga4'
 import ExecutiveSnapshotPanel from '@/components/executive-snapshot/ExecutiveSnapshotPanel'
 import WinsLossesPanel from '@/components/wins-losses/WinsLossesPanel'
 import PriorityAlertsPanel from '@/components/alerts/PriorityAlertsPanel'
@@ -1362,6 +1362,13 @@ export default function SessionDetailPage() {
         {activeSection === 'events-and-Conversions' && (
           <div>
             <EventsConversionsPanel />
+          </div>
+        )}
+
+        {/* Visibility ↔ Traffic Correlation — Impact Analytics → Sub-nav Item 5 */}
+        {activeSection === 'visibility-traffic-correlation' && (
+          <div>
+            <CorrelationPanel projectId={projectId} />
           </div>
         )}
 
