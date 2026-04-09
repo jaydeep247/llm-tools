@@ -14,5 +14,11 @@ router.get('/ga4/llm-traffic', authMiddleware, ga4Controller.getLLMTraffic);
 router.post('/ga4/llm-traffic/sync', authMiddleware, ga4Controller.syncLLMTraffic);
 router.get('/ga4/top-landing-pages', authMiddleware, ga4Controller.getTopLandingPages);
 router.get('/ga4/citation-sparkline', authMiddleware, ga4Controller.getCitationSparkline);
+// Events & Conversions
+router.get('/ga4/conversion-events', authMiddleware, ga4Controller.getConversionEvents);
+router.post('/ga4/conversion-events', authMiddleware, ga4Controller.saveConversionEvents);
+router.get('/ga4/events-list', authMiddleware, ga4Controller.listGA4Events);
+router.get('/ga4/llm-conversions', authMiddleware, ga4Controller.getLLMConversions);
+router.post('/ga4/llm-conversions/sync', authMiddleware, ga4Controller.syncLLMConversions);
 
 export default router;

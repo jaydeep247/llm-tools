@@ -11,6 +11,7 @@ import {
   ChevronUp,
   Loader2,
   TrendingUp,
+  TrendingDown,
   Unplug,
   Copy,
   Check,
@@ -260,8 +261,11 @@ const TABLE_COLS: { key: keyof GA4PageTraffic | 'fullUrl'; label: string }[] = [
   { key: 'sessions',            label: 'Sessions' },
   { key: 'views',               label: 'Views' },
   { key: 'activeUsers',         label: 'Active Users' },
+  { key: 'newUsers',            label: 'New Users' },
   { key: 'viewsPerActiveUser',  label: 'Views / Active User' },
   { key: 'avgEngagementTime',   label: 'Avg Engagement Time' },
+  { key: 'bounceRate',          label: 'Bounce Rate' },
+  { key: 'engagementRate',      label: 'Engagement Rate' },
   { key: 'eventCount',          label: 'Event Count' },
   { key: 'keyEvents',           label: 'Key Events' },
 ]
@@ -312,7 +316,7 @@ function TrafficTable({
     return sorted.slice(start, start + ITEMS_PER_PAGE)
   }, [sorted, currentPage])
 
-  const sortableKeys: Set<SortKey> = new Set(['pageTitle', 'pagePath', 'sessions', 'views', 'activeUsers', 'viewsPerActiveUser', 'avgEngagementTime', 'eventCount', 'keyEvents'])
+  const sortableKeys: Set<SortKey> = new Set(['pageTitle', 'pagePath', 'sessions', 'views', 'activeUsers', 'newUsers', 'viewsPerActiveUser', 'avgEngagementTime', 'bounceRate', 'engagementRate', 'eventCount', 'keyEvents'])
 
   return (
     <div className="flex flex-col gap-3">
@@ -404,6 +408,10 @@ function TrafficTable({
                       <td className="px-3 py-2 text-center text-zinc-200 tabular-nums">
                         {page.activeUsers.toLocaleString()}
                       </td>
+                      {/* New Users */}
+                      <td className="px-3 py-2 text-center text-zinc-200 tabular-nums">
+                        {page.newUsers.toLocaleString()}
+                      </td>
                       {/* Views / Active User */}
                       <td className="px-3 py-2 text-center text-zinc-200 tabular-nums">
                         {page.viewsPerActiveUser.toFixed(2)}
@@ -411,6 +419,14 @@ function TrafficTable({
                       {/* Avg Engagement Time */}
                       <td className="px-3 py-2 text-center text-zinc-200 tabular-nums">
                         {fmtDuration(page.avgEngagementTime)}
+                      </td>
+                      {/* Bounce Rate */}
+                      <td className="px-3 py-2 text-center text-zinc-200 tabular-nums">
+                        {page.bounceRate.toFixed(1)}%
+                      </td>
+                      {/* Engagement Rate */}
+                      <td className="px-3 py-2 text-center text-zinc-200 tabular-nums">
+                        {page.engagementRate.toFixed(1)}%
                       </td>
                       {/* Event Count */}
                       <td className="px-3 py-2 text-center text-zinc-200 tabular-nums">
@@ -650,7 +666,7 @@ export function GA4TrafficSection({ sessionUrl, jobId }: GA4TrafficSectionProps)
         {/* Summary */}
         {trafficData && !isDataLoading && (
           <div className="p-5">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-9 gap-3 mb-4">
               <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3.5 flex items-center gap-3">
                 <TrendingUp className="w-4 h-4 text-emerald-400 shrink-0" />
                 <div className="min-w-0">
@@ -672,6 +688,13 @@ export function GA4TrafficSection({ sessionUrl, jobId }: GA4TrafficSectionProps)
                   <p className="text-[11px] text-zinc-400 mt-0.5">Active Users</p>
                 </div>
               </div>
+              <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 p-3.5 flex items-center gap-3">
+                <TrendingUp className="w-4 h-4 text-sky-400 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-base font-bold text-white leading-none tabular-nums">{trafficData.totalNewUsers.toLocaleString()}</p>
+                  <p className="text-[11px] text-zinc-400 mt-0.5">New Users</p>
+                </div>
+              </div>
               <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3.5 flex items-center gap-3">
                 <TrendingUp className="w-4 h-4 text-amber-400 shrink-0" />
                 <div className="min-w-0">
@@ -684,6 +707,20 @@ export function GA4TrafficSection({ sessionUrl, jobId }: GA4TrafficSectionProps)
                 <div className="min-w-0">
                   <p className="text-base font-bold text-white leading-none tabular-nums">{trafficData.totalKeyEvents.toLocaleString()}</p>
                   <p className="text-[11px] text-zinc-400 mt-0.5">Key Events</p>
+                </div>
+              </div>
+              <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3.5 flex items-center gap-3">
+                <TrendingDown className="w-4 h-4 text-red-400 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-base font-bold text-white leading-none tabular-nums">{trafficData.totalBounceRate.toFixed(1)}%</p>
+                  <p className="text-[11px] text-zinc-400 mt-0.5">Bounce Rate</p>
+                </div>
+              </div>
+              <div className="rounded-xl border border-teal-500/20 bg-teal-500/5 p-3.5 flex items-center gap-3">
+                <TrendingUp className="w-4 h-4 text-teal-400 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-base font-bold text-white leading-none tabular-nums">{trafficData.totalEngagementRate.toFixed(1)}%</p>
+                  <p className="text-[11px] text-zinc-400 mt-0.5">Engagement Rate</p>
                 </div>
               </div>
             </div>

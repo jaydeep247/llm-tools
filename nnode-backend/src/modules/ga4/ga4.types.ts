@@ -15,6 +15,9 @@ export interface GA4PageTraffic {
   avgEngagementTime: number; // seconds
   eventCount: number;
   keyEvents: number;
+  bounceRate: number;    // percentage 0-100
+  newUsers: number;
+  engagementRate: number; // percentage 0-100
 }
 
 export interface GA4TrafficResponse {
@@ -23,8 +26,11 @@ export interface GA4TrafficResponse {
   totalSessions: number;
   totalViews: number;
   totalActiveUsers: number;
+  totalNewUsers: number;
   totalEventCount: number;
   totalKeyEvents: number;
+  totalBounceRate: number;    // percentage 0-100
+  totalEngagementRate: number; // percentage 0-100
   pages: GA4PageTraffic[];
 }
 
@@ -112,4 +118,45 @@ export interface CitationSparklinePoint {
 export interface CitationSparklineResponse {
   url: string;
   dataPoints: CitationSparklinePoint[];
+}
+
+// ── Events & Conversions types ───────────────────────────────────────────────
+
+export interface TrackedConversionEvent {
+  id: string;           // UUID
+  domain_id: string;    // matches the GA4 property ID stored by user
+  ga4_event_name: string;
+  display_label: string;
+  is_active: boolean;
+  added_at: Date;
+}
+
+export interface ConversionPlatformBreakdown {
+  platform: string;
+  conversions: number;
+  conversion_rate: number;
+  revenue: number | null;
+}
+
+export interface ConversionTopPage {
+  page_url: string;
+  llm_sessions: number;
+  conversions: number;
+  conversion_rate: number;
+  primary_event: string;
+  revenue: number | null;
+}
+
+export type ConversionStatus = 'success' | 'no_events_configured' | 'not_connected';
+
+export interface LLMConversionsResponse {
+  status: ConversionStatus;
+  total_conversions: number;
+  conversion_rate: number;       // LLM conversion rate %
+  site_conversion_rate: number;  // Site-wide benchmark %
+  revenue: number | null;        // null when ecommerce not enabled
+  platform_breakdown: ConversionPlatformBreakdown[];
+  top_pages: ConversionTopPage[];
+  last_synced_at: string;
+  from_cache: boolean;
 }

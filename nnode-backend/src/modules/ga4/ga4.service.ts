@@ -1,11 +1,11 @@
 import { OAuth2Client } from 'google-auth-library';
 import { UserRepository } from '../user/user.repository';
 import { env } from '../../config/env';
-import { GA4Property, GA4TrafficResponse, GA4PageTraffic, LLMTrafficResponse, LLMPlatformBreakdown, LLMDailyTrend, LLMTopLandingPage, LLMTopLandingPagesResponse, CitationSparklineResponse } from './ga4.types';
+import { GA4Property, GA4TrafficResponse, GA4PageTraffic, LLMTrafficResponse, LLMPlatformBreakdown, LLMDailyTrend, LLMTopLandingPage, LLMTopLandingPagesResponse, CitationSparklineResponse, LLMConversionsResponse, ConversionPlatformBreakdown, ConversionTopPage } from './ga4.types';
 import { logger } from '../../shared/logger/logger';
 import { getRedisClient } from '../../config/redis';
 import { connectToMongo } from '../../config/mongo';
-import { getLLMSourceMap } from './ga4.repository';
+import { getLLMSourceMap, getTrackedConversionEvents, saveTrackedConversionEvents } from './ga4.repository';
 
 const LLM_CACHE_TTL_SECONDS = 4 * 60 * 60; // 4 hours
 const llmCacheKey = (userId: string, propertyId: string, startDate: string, endDate: string) =>
@@ -19,6 +19,10 @@ const topLandingPagesCacheKey = (
   endDate: string,
   projectId: string,
 ) => `ga4:tlp:${userId}:${propertyId}:${startDate}:${endDate}:${projectId}`;
+
+const CONVERSIONS_TTL_SECONDS = 4 * 60 * 60; // 4 hours
+const conversionsCacheKey = (userId: string, propertyId: string, startDate: string, endDate: string) =>
+  `ga4:conv:${userId}:${propertyId}:${startDate}:${endDate}`;
 
 export class GA4Service {
   private userRepository: UserRepository;
@@ -53,7 +57,9 @@ export class GA4Service {
       expiry_date: expiryDate ?? undefined,
     });
 
-    const isExpired = expiryDate ? Date.now() >= expiryDate - 60_000 : false;
+    // Treat a missing expiryDate as expired so we proactively refresh and
+    // store the new expiry — prevents silent 401s when expiryDate was never persisted.
+    const isExpired = expiryDate ? Date.now() >= expiryDate - 60_000 : true;
     if (isExpired && refreshToken) {
       try {
         const { credentials } = await client.refreshAccessToken();
@@ -95,7 +101,7 @@ export class GA4Service {
     const accessToken = tokenResult.token;
     if (!accessToken) throw new Error('Failed to obtain access token');
 
-    const res = await fetch('https://analyticsadmin.googleapis.com/v1alpha/accountSummaries', {
+    const res = await fetch('https://analyticsadmin.googleapis.com/v1beta/accountSummaries', {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 
@@ -164,7 +170,10 @@ export class GA4Service {
         { name: 'activeUsers' },
         { name: 'userEngagementDuration' },
         { name: 'eventCount' },
-        { name: 'conversions' },
+        { name: 'keyEvents' },
+        { name: 'bounceRate' },
+        { name: 'newUsers' },
+        { name: 'engagementRate' },
       ],
       dateRanges: [{ startDate, endDate }],
       orderBys: [{ metric: { metricName: 'screenPageViews' }, desc: true }],
@@ -205,6 +214,9 @@ export class GA4Service {
         avgEngagementTime: activeUsers > 0 ? parseFloat((totalEngagement / activeUsers).toFixed(1)) : 0,
         eventCount: parseInt(row.metricValues?.[4]?.value ?? '0', 10),
         keyEvents: parseInt(row.metricValues?.[5]?.value ?? '0', 10),
+        bounceRate: parseFloat((parseFloat(row.metricValues?.[6]?.value ?? '0') * 100).toFixed(1)),
+        newUsers: parseInt(row.metricValues?.[7]?.value ?? '0', 10),
+        engagementRate: parseFloat((parseFloat(row.metricValues?.[8]?.value ?? '0') * 100).toFixed(1)),
       };
     });
 
@@ -214,6 +226,9 @@ export class GA4Service {
     const totalActiveUsers = parseInt(totalsRow[2]?.value ?? '0', 10);
     const totalEventCount = parseInt(totalsRow[4]?.value ?? '0', 10);
     const totalKeyEvents = parseInt(totalsRow[5]?.value ?? '0', 10);
+    const totalBounceRate = parseFloat((parseFloat(totalsRow[6]?.value ?? '0') * 100).toFixed(1));
+    const totalNewUsers = parseInt(totalsRow[7]?.value ?? '0', 10);
+    const totalEngagementRate = parseFloat((parseFloat(totalsRow[8]?.value ?? '0') * 100).toFixed(1));
 
     return {
       propertyId,
@@ -221,8 +236,11 @@ export class GA4Service {
       totalSessions,
       totalViews,
       totalActiveUsers,
+      totalNewUsers,
       totalEventCount,
       totalKeyEvents,
+      totalBounceRate,
+      totalEngagementRate,
       pages,
     };
   }
@@ -302,6 +320,23 @@ export class GA4Service {
 
     const sourceMap = await getLLMSourceMap();
     const sourceDomains = Object.keys(sourceMap);
+
+    // If no LLM sources are configured yet, return empty result to avoid
+    // GA4 API error caused by inListFilter with empty values array.
+    if (sourceDomains.length === 0) {
+      return {
+        propertyId,
+        dateRange: { startDate, endDate },
+        totalLLMSessions: 0,
+        totalSiteSessions: 0,
+        llmPercentOfTotal: 0,
+        previousPeriod: { totalLLMSessions: 0, llmPercentOfTotal: 0 },
+        breakdown: [],
+        trend: [],
+        lastSyncedAt: new Date().toISOString(),
+        fromCache: false,
+      };
+    }
 
     // ── 1. LLM sessions broken down by sessionSource ──────────────────────
     const llmReportBody = {
@@ -615,6 +650,20 @@ export class GA4Service {
       if (filteredSources.length === 0) filteredSources = sourceDomains;
     }
 
+    // Guard: inListFilter with empty values causes GA4 API 400
+    if (filteredSources.length === 0) {
+      return {
+        propertyId,
+        dateRange: { startDate, endDate },
+        totalLLMPages: 0,
+        topPage: null,
+        avgBounceRate: 0,
+        pages: [],
+        pagination: { total: 0, page, pageSize },
+        fromCache: false,
+      };
+    }
+
     // ── GA4: landingPage + sessionSource breakdown ────────────────────────
     const reportBody = {
       dimensions: [{ name: 'landingPage' }, { name: 'sessionSource' }],
@@ -873,5 +922,399 @@ export class GA4Service {
       .map(([week, citations]) => ({ week, citations }));
 
     return { url, dataPoints };
+  }
+
+  // ── Events & Conversions ──────────────────────────────────────────────────
+
+  /**
+   * Return all conversion events the user has configured.
+   */
+  async getConversionEvents(userId: string) {
+    return getTrackedConversionEvents(userId);
+  }
+
+  /**
+   * Save (replace) the conversion event configuration for a user.
+   */
+  async saveConversionEvents(
+    userId: string,
+    events: Array<{ ga4_event_name: string; display_label: string }>,
+  ): Promise<void> {
+    // Validate: ga4_event_name must be a non-empty string without special chars
+    const namePattern = /^[a-zA-Z0-9_]{1,100}$/;
+    for (const e of events) {
+      if (!namePattern.test(e.ga4_event_name)) {
+        throw new Error(`Invalid GA4 event name: ${e.ga4_event_name}`);
+      }
+    }
+    await saveTrackedConversionEvents(userId, events);
+  }
+
+  /**
+   * List all GA4 event names available in the property so the user can
+   * pick which ones to track as conversions.
+   */
+  async listGA4Events(
+    userId: string,
+    propertyId: string,
+    startDate: string = '30daysAgo',
+    endDate: string = 'today',
+  ): Promise<string[]> {
+    const client = await this.getAuthenticatedClient(userId);
+    const tokenResult = await client.getAccessToken();
+    const accessToken = tokenResult.token;
+    if (!accessToken) throw new Error('Failed to obtain access token');
+
+    const propertyPath = propertyId.startsWith('properties/')
+      ? propertyId
+      : `properties/${propertyId}`;
+
+    const body = {
+      dimensions: [{ name: 'eventName' }],
+      metrics: [{ name: 'eventCount' }],
+      dateRanges: [{ startDate, endDate }],
+      orderBys: [{ metric: { metricName: 'eventCount' }, desc: true }],
+      limit: 200,
+    };
+
+    const res = await fetch(
+      `https://analyticsdata.googleapis.com/v1beta/${propertyPath}:runReport`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      },
+    );
+
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as any;
+      throw new Error(err.error?.message || `GA4 events list error ${res.status}`);
+    }
+
+    const data = (await res.json()) as any;
+    return (data.rows ?? []).map((r: any) => r.dimensionValues?.[0]?.value ?? '').filter(Boolean);
+  }
+
+  /**
+   * Fetch LLM-attributed conversion data from GA4, with 4-hour caching.
+   */
+  async getLLMConversions(
+    userId: string,
+    propertyId: string,
+    startDate: string = '30daysAgo',
+    endDate: string = 'today',
+    forceRefresh = false,
+  ): Promise<LLMConversionsResponse> {
+    // Step 01 — Check setup
+    const trackedEvents = await getTrackedConversionEvents(userId);
+    if (trackedEvents.length === 0) {
+      return {
+        status: 'no_events_configured',
+        total_conversions: 0,
+        conversion_rate: 0,
+        site_conversion_rate: 0,
+        revenue: null,
+        platform_breakdown: [],
+        top_pages: [],
+        last_synced_at: new Date().toISOString(),
+        from_cache: false,
+      };
+    }
+
+    const redis = getRedisClient();
+    const cacheKey = conversionsCacheKey(userId, propertyId, startDate, endDate);
+
+    if (!forceRefresh) {
+      try {
+        const cached = await redis.get(cacheKey);
+        if (cached) {
+          const parsed = JSON.parse(cached) as LLMConversionsResponse;
+          parsed.from_cache = true;
+          return parsed;
+        }
+      } catch (err) {
+        logger.warn(`GA4 conversions cache read failed: ${(err as Error).message}`);
+      }
+    }
+
+    const data = await this._fetchLLMConversionsFromGA4(
+      userId,
+      propertyId,
+      startDate,
+      endDate,
+      trackedEvents,
+    );
+
+    try {
+      await redis.set(cacheKey, JSON.stringify(data), 'EX', CONVERSIONS_TTL_SECONDS);
+    } catch (err) {
+      logger.warn(`GA4 conversions cache write failed: ${(err as Error).message}`);
+    }
+
+    return data;
+  }
+
+  private async _fetchLLMConversionsFromGA4(
+    userId: string,
+    propertyId: string,
+    startDate: string,
+    endDate: string,
+    trackedEvents: Awaited<ReturnType<typeof getTrackedConversionEvents>>,
+  ): Promise<LLMConversionsResponse> {
+    const client = await this.getAuthenticatedClient(userId);
+    const tokenResult = await client.getAccessToken();
+    const accessToken = tokenResult.token;
+    if (!accessToken) throw new Error('Failed to obtain access token');
+
+    const propertyPath = propertyId.startsWith('properties/')
+      ? propertyId
+      : `properties/${propertyId}`;
+
+    const sourceMap = await getLLMSourceMap();
+    const sourceDomains = Object.keys(sourceMap);
+    const eventNames = trackedEvents.map((e) => e.ga4_event_name);
+
+    // Guard: avoid GA4 API 400 from inListFilter with empty values
+    if (sourceDomains.length === 0) {
+      return {
+        status: 'success',
+        total_conversions: 0,
+        conversion_rate: 0,
+        site_conversion_rate: 0,
+        revenue: null,
+        platform_breakdown: [],
+        top_pages: [],
+        last_synced_at: new Date().toISOString(),
+        from_cache: false,
+      } as LLMConversionsResponse;
+    }
+
+    const GA4_URL = `https://analyticsdata.googleapis.com/v1beta/${propertyPath}:runReport`;
+    const headers = {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    };
+
+    // ── Step 02 — LLM conversions report ─────────────────────────────────
+    const llmConvBody = {
+      dimensions: [
+        { name: 'eventName' },
+        { name: 'sessionSource' },
+        { name: 'landingPage' },
+      ],
+      metrics: [
+        { name: 'eventCount' },
+        { name: 'keyEvents' },
+        { name: 'purchaseRevenue' },
+      ],
+      dateRanges: [{ startDate, endDate }],
+      dimensionFilter: {
+        andGroup: {
+          expressions: [
+            {
+              filter: {
+                fieldName: 'sessionSource',
+                inListFilter: { values: sourceDomains },
+              },
+            },
+            {
+              filter: {
+                fieldName: 'eventName',
+                inListFilter: { values: eventNames },
+              },
+            },
+          ],
+        },
+      },
+      metricAggregations: ['TOTAL'],
+      limit: 10000,
+    };
+
+    // ── Step 05 — Site benchmark: eventCount for tracked events across all traffic ──
+    const siteBenchmarkBody = {
+      dimensions: [],
+      metrics: [
+        { name: 'eventCount' },
+        { name: 'sessions' },
+      ],
+      dateRanges: [{ startDate, endDate }],
+      dimensionFilter: {
+        filter: {
+          fieldName: 'eventName',
+          inListFilter: { values: eventNames },
+        },
+      },
+      metricAggregations: ['TOTAL'],
+      limit: 1,
+    };
+
+    // ── Step 02b — Total LLM sessions per platform (for overall conversion rate) ──
+    const llmSessionsBody = {
+      dimensions: [{ name: 'sessionSource' }],
+      metrics: [{ name: 'sessions' }],
+      dateRanges: [{ startDate, endDate }],
+      dimensionFilter: {
+        filter: {
+          fieldName: 'sessionSource',
+          inListFilter: { values: sourceDomains },
+        },
+      },
+      metricAggregations: ['TOTAL'],
+      limit: 100,
+    };
+
+    // ── LLM sessions broken down by landing page (for per-page conversion rate) ──
+    const pageLLMSessionsBody = {
+      dimensions: [{ name: 'landingPage' }],
+      metrics: [{ name: 'sessions' }],
+      dateRanges: [{ startDate, endDate }],
+      dimensionFilter: {
+        filter: {
+          fieldName: 'sessionSource',
+          inListFilter: { values: sourceDomains },
+        },
+      },
+      limit: 10000,
+    };
+
+    const [convRes, benchmarkRes, llmSessRes, pageSessRes] = await Promise.all([
+      fetch(GA4_URL, { method: 'POST', headers, body: JSON.stringify(llmConvBody) }),
+      fetch(GA4_URL, { method: 'POST', headers, body: JSON.stringify(siteBenchmarkBody) }),
+      fetch(GA4_URL, { method: 'POST', headers, body: JSON.stringify(llmSessionsBody) }),
+      fetch(GA4_URL, { method: 'POST', headers, body: JSON.stringify(pageLLMSessionsBody) }),
+    ]);
+
+    if (!convRes.ok) {
+      const e = (await convRes.json().catch(() => ({}))) as any;
+      throw new Error(e.error?.message || `GA4 conversions report error ${convRes.status}`);
+    }
+
+    const convData = (await convRes.json()) as any;
+    const benchmarkData = benchmarkRes.ok ? ((await benchmarkRes.json()) as any) : null;
+    const llmSessData = llmSessRes.ok ? ((await llmSessRes.json()) as any) : null;
+    const pageSessData = pageSessRes.ok ? ((await pageSessRes.json()) as any) : null;
+
+    // ── Step 04A — Total conversions ─────────────────────────────────────
+    let totalConversions = 0;
+    let totalRevenue = 0;
+    let hasRevenue = false;
+
+    // Platform → aggregated data
+    const platformMap: Record<string, { conversions: number; revenue: number; sessions: number }> = {};
+    // Landing page → aggregated data
+    const pageMap: Record<string, { conversions: number; revenue: number; sessions: number; events: Record<string, number> }> = {};
+
+    for (const row of convData.rows ?? []) {
+      const eventName: string = row.dimensionValues?.[0]?.value ?? '';
+      const sourceDomain: string = row.dimensionValues?.[1]?.value ?? '';
+      const landingPage: string = row.dimensionValues?.[2]?.value ?? '/';
+      const eventCount = parseInt(row.metricValues?.[0]?.value ?? '0', 10);
+      // Use eventCount as the conversion signal — GA4's 'conversions' metric only
+      // counts events explicitly marked as key events in GA4 admin settings.
+      const conversions = eventCount;
+      const revenue = parseFloat(row.metricValues?.[2]?.value ?? '0');
+
+      totalConversions += conversions;
+      if (revenue > 0) { totalRevenue += revenue; hasRevenue = true; }
+
+      const platform = sourceMap[sourceDomain] ?? sourceDomain;
+      if (!platformMap[platform]) platformMap[platform] = { conversions: 0, revenue: 0, sessions: 0 };
+      platformMap[platform].conversions += conversions;
+      platformMap[platform].revenue += revenue;
+
+      if (!pageMap[landingPage]) pageMap[landingPage] = { conversions: 0, revenue: 0, sessions: 0, events: {} };
+      pageMap[landingPage].conversions += conversions;
+      pageMap[landingPage].revenue += revenue;
+      pageMap[landingPage].events[eventName] = (pageMap[landingPage].events[eventName] ?? 0) + eventCount;
+    }
+
+    // ── Total LLM sessions per platform (for conversion rate) ────────────
+    let totalLLMSessions = 0;
+    for (const row of llmSessData?.rows ?? []) {
+      const sourceDomain: string = row.dimensionValues?.[0]?.value ?? '';
+      const sessions = parseInt(row.metricValues?.[0]?.value ?? '0', 10);
+      totalLLMSessions += sessions;
+      const platform = sourceMap[sourceDomain] ?? sourceDomain;
+      if (platformMap[platform]) platformMap[platform].sessions += sessions;
+    }
+
+    // ── Per-page LLM sessions (for accurate per-page conversion rate) ────
+    for (const row of pageSessData?.rows ?? []) {
+      const landingPage: string = row.dimensionValues?.[0]?.value ?? '/';
+      const sessions = parseInt(row.metricValues?.[0]?.value ?? '0', 10);
+      if (pageMap[landingPage]) {
+        pageMap[landingPage].sessions += sessions;
+      }
+    }
+
+    // ── Step 04B — Conversion rate ────────────────────────────────────────
+    const llmConversionRate =
+      totalLLMSessions > 0
+        ? parseFloat(((totalConversions / totalLLMSessions) * 100).toFixed(2))
+        : 0;
+
+    // ── Step 03 — Platform breakdown ─────────────────────────────────────
+    const platformBreakdown: ConversionPlatformBreakdown[] = Object.entries(platformMap)
+      .sort((a, b) => b[1].conversions - a[1].conversions)
+      .map(([platform, p]) => ({
+        platform,
+        conversions: p.conversions,
+        conversion_rate:
+          p.sessions > 0
+            ? parseFloat(((p.conversions / p.sessions) * 100).toFixed(2))
+            : 0,
+        revenue: hasRevenue ? parseFloat(p.revenue.toFixed(2)) : null,
+      }));
+
+    // ── Step 05 — Site benchmark ─────────────────────────────────────────
+    const benchmarkTotals = benchmarkData?.totals?.[0]?.metricValues ?? [];
+    const siteConversions = parseFloat(benchmarkTotals[0]?.value ?? '0');
+    const siteSessions = parseFloat(benchmarkTotals[1]?.value ?? '1');
+    const siteConversionRate =
+      siteSessions > 0
+        ? parseFloat(((siteConversions / siteSessions) * 100).toFixed(2))
+        : 0;
+
+    // ── Step 06 — Top converting pages ───────────────────────────────────
+    const topPages: ConversionTopPage[] = Object.entries(pageMap)
+      .filter(([, p]) => p.conversions > 0)
+      .sort((a, b) => {
+        const rateA = a[1].sessions > 0 ? a[1].conversions / a[1].sessions : 0;
+        const rateB = b[1].sessions > 0 ? b[1].conversions / b[1].sessions : 0;
+        return rateB - rateA;
+      })
+      .slice(0, 20)
+      .map(([page, p]) => {
+        const primaryEvent =
+          Object.entries(p.events).sort(([, a], [, b]) => b - a)[0]?.[0] ?? eventNames[0];
+        const displayLabel =
+          trackedEvents.find((e) => e.ga4_event_name === primaryEvent)?.display_label ?? primaryEvent;
+        return {
+          page_url: page,
+          llm_sessions: p.sessions,
+          conversions: p.conversions,
+          conversion_rate:
+            p.sessions > 0
+              ? parseFloat(((p.conversions / p.sessions) * 100).toFixed(2))
+              : 0,
+          primary_event: displayLabel,
+          revenue: hasRevenue ? parseFloat(p.revenue.toFixed(2)) : null,
+        };
+      });
+
+    return {
+      status: 'success',
+      total_conversions: totalConversions,
+      conversion_rate: llmConversionRate,
+      site_conversion_rate: siteConversionRate,
+      revenue: hasRevenue ? parseFloat(totalRevenue.toFixed(2)) : null,
+      platform_breakdown: platformBreakdown,
+      top_pages: topPages,
+      last_synced_at: new Date().toISOString(),
+      from_cache: false,
+    };
   }
 }

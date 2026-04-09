@@ -17,6 +17,9 @@ export interface GA4PageTraffic {
   avgEngagementTime: number; // seconds
   eventCount: number;
   keyEvents: number;
+  bounceRate: number;    // percentage 0–100
+  newUsers: number;
+  engagementRate: number; // percentage 0–100
 }
 
 export interface GA4TrafficResponse {
@@ -25,8 +28,11 @@ export interface GA4TrafficResponse {
   totalSessions: number;
   totalViews: number;
   totalActiveUsers: number;
+  totalNewUsers: number;
   totalEventCount: number;
   totalKeyEvents: number;
+  totalBounceRate: number;    // percentage 0–100
+  totalEngagementRate: number; // percentage 0–100
   pages: GA4PageTraffic[];
 }
 
@@ -134,6 +140,57 @@ export interface CitationSparklineParams {
   endDate?: string;
 }
 
+// ── Events & Conversions types ────────────────────────────────────────────────
+
+export interface TrackedConversionEvent {
+  id: string;
+  domain_id: string;
+  ga4_event_name: string;
+  display_label: string;
+  is_active: boolean;
+  added_at: string;
+}
+
+export interface ConversionPlatformBreakdown {
+  platform: string;
+  conversions: number;
+  conversion_rate: number;
+  revenue: number | null;
+}
+
+export interface ConversionTopPage {
+  page_url: string;
+  llm_sessions: number;
+  conversions: number;
+  conversion_rate: number;
+  primary_event: string;
+  revenue: number | null;
+}
+
+export type ConversionStatus = 'success' | 'no_events_configured' | 'not_connected';
+
+export interface LLMConversionsResponse {
+  status: ConversionStatus;
+  total_conversions: number;
+  conversion_rate: number;
+  site_conversion_rate: number;
+  revenue: number | null;
+  platform_breakdown: ConversionPlatformBreakdown[];
+  top_pages: ConversionTopPage[];
+  last_synced_at: string;
+  from_cache: boolean;
+}
+
+export interface LLMConversionsParams {
+  propertyId: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface SaveConversionEventsPayload {
+  events: Array<{ ga4_event_name: string; display_label: string }>;
+}
+
 const GA4_PREFIX = '/ga4';
 
 export const ga4Api = baseApi.injectEndpoints({
@@ -220,6 +277,50 @@ export const ga4Api = baseApi.injectEndpoints({
       transformResponse: (response: { data: CitationSparklineResponse }) => response.data,
       providesTags: ['GA4'],
     }),
+
+    // ── Events & Conversions ────────────────────────────────────────────────
+    getConversionEvents: builder.query<TrackedConversionEvent[], void>({
+      query: () => `${GA4_PREFIX}/conversion-events`,
+      transformResponse: (response: { data: TrackedConversionEvent[] }) => response.data,
+      providesTags: ['GA4'],
+    }),
+
+    saveConversionEvents: builder.mutation<void, SaveConversionEventsPayload>({
+      query: (body) => ({
+        url: `${GA4_PREFIX}/conversion-events`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['GA4'],
+    }),
+
+    listGA4Events: builder.query<string[], { propertyId: string; startDate?: string; endDate?: string }>({
+      query: ({ propertyId, startDate = '30daysAgo', endDate = 'today' }) => ({
+        url: `${GA4_PREFIX}/events-list`,
+        params: { propertyId, startDate, endDate },
+      }),
+      transformResponse: (response: { data: string[] }) => response.data,
+      providesTags: ['GA4'],
+    }),
+
+    getLLMConversions: builder.query<LLMConversionsResponse, LLMConversionsParams>({
+      query: ({ propertyId, startDate = '30daysAgo', endDate = 'today' }) => ({
+        url: `${GA4_PREFIX}/llm-conversions`,
+        params: { propertyId, startDate, endDate },
+      }),
+      transformResponse: (response: { data: LLMConversionsResponse }) => response.data,
+      providesTags: ['GA4'],
+    }),
+
+    syncLLMConversions: builder.mutation<LLMConversionsResponse, LLMConversionsParams>({
+      query: ({ propertyId, startDate = '30daysAgo', endDate = 'today' }) => ({
+        url: `${GA4_PREFIX}/llm-conversions/sync`,
+        method: 'POST',
+        body: { propertyId, startDate, endDate },
+      }),
+      transformResponse: (response: { data: LLMConversionsResponse }) => response.data,
+      invalidatesTags: ['GA4'],
+    }),
   }),
 });
 
@@ -234,4 +335,9 @@ export const {
   useSyncLLMTrafficMutation,
   useGetTopLandingPagesQuery,
   useGetCitationSparklineQuery,
+  useGetConversionEventsQuery,
+  useSaveConversionEventsMutation,
+  useListGA4EventsQuery,
+  useGetLLMConversionsQuery,
+  useSyncLLMConversionsMutation,
 } = ga4Api;

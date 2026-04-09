@@ -265,4 +265,140 @@ export class GA4Controller {
       return ResponseUtil.serverError(res, 'Failed to fetch citation sparkline');
     }
   };
+
+  // ── Events & Conversions ────────────────────────────────────────────────────
+
+  /**
+   * GET /ga4/conversion-events
+   * Returns the tracked conversion events configured by the user.
+   */
+  getConversionEvents = async (req: Request, res: Response): Promise<Response> => {
+    const userId = req.user?.userId;
+    if (!userId) return ResponseUtil.unauthorized(res);
+
+    try {
+      const events = await ga4Service.getConversionEvents(userId);
+      return ResponseUtil.success(res, 'Conversion events retrieved', events);
+    } catch (error: any) {
+      logger.error(`GA4 getConversionEvents error: ${error.message}`);
+      return ResponseUtil.serverError(res, 'Failed to fetch conversion events');
+    }
+  };
+
+  /**
+   * POST /ga4/conversion-events
+   * Body: { events: [{ ga4_event_name, display_label }] }
+   */
+  saveConversionEvents = async (req: Request, res: Response): Promise<Response> => {
+    const userId = req.user?.userId;
+    if (!userId) return ResponseUtil.unauthorized(res);
+
+    const { events } = req.body;
+    if (!Array.isArray(events)) {
+      return ResponseUtil.error(res, 'events must be an array', undefined, 400);
+    }
+    if (events.length > 50) {
+      return ResponseUtil.error(res, 'Maximum 50 conversion events allowed', undefined, 400);
+    }
+
+    try {
+      await ga4Service.saveConversionEvents(userId, events);
+      return ResponseUtil.success(res, 'Conversion events saved');
+    } catch (error: any) {
+      if (error.message?.startsWith('Invalid GA4 event name')) {
+        return ResponseUtil.error(res, error.message, undefined, 400);
+      }
+      logger.error(`GA4 saveConversionEvents error: ${error.message}`);
+      return ResponseUtil.serverError(res, 'Failed to save conversion events');
+    }
+  };
+
+  /**
+   * GET /ga4/events-list?propertyId=&startDate=&endDate=
+   * Returns all GA4 event names available in the property for selection.
+   */
+  listGA4Events = async (req: Request, res: Response): Promise<Response> => {
+    const userId = req.user?.userId;
+    if (!userId) return ResponseUtil.unauthorized(res);
+
+    const { propertyId, startDate, endDate } = req.query as Record<string, string>;
+
+    if (!propertyId) return ResponseUtil.error(res, 'propertyId is required', undefined, 400);
+    if (!/^(properties\/)?\d+$/.test(propertyId)) {
+      return ResponseUtil.error(res, 'Invalid propertyId format', undefined, 400);
+    }
+
+    const datePattern = /^(\d{4}-\d{2}-\d{2}|\d+daysAgo|today|yesterday)$/;
+    const safeStart = startDate && datePattern.test(startDate) ? startDate : '30daysAgo';
+    const safeEnd = endDate && datePattern.test(endDate) ? endDate : 'today';
+
+    try {
+      const events = await ga4Service.listGA4Events(userId, propertyId, safeStart, safeEnd);
+      return ResponseUtil.success(res, 'GA4 events list retrieved', events);
+    } catch (error: any) {
+      if (error.message === 'GA4_NOT_CONNECTED') {
+        return ResponseUtil.error(res, 'Google Analytics is not connected.', undefined, 403);
+      }
+      logger.error(`GA4 listGA4Events error: ${error.message}`);
+      return ResponseUtil.serverError(res, 'Failed to fetch GA4 events list');
+    }
+  };
+
+  /**
+   * GET /ga4/llm-conversions?propertyId=&startDate=&endDate=
+   */
+  getLLMConversions = async (req: Request, res: Response): Promise<Response> => {
+    const userId = req.user?.userId;
+    if (!userId) return ResponseUtil.unauthorized(res);
+
+    const { propertyId, startDate, endDate } = req.query as Record<string, string>;
+    if (!propertyId) return ResponseUtil.error(res, 'propertyId is required', undefined, 400);
+    if (!/^(properties\/)?\d+$/.test(propertyId)) {
+      return ResponseUtil.error(res, 'Invalid propertyId format', undefined, 400);
+    }
+
+    const datePattern = /^(\d{4}-\d{2}-\d{2}|\d+daysAgo|today|yesterday)$/;
+    const safeStart = startDate && datePattern.test(startDate) ? startDate : '30daysAgo';
+    const safeEnd = endDate && datePattern.test(endDate) ? endDate : 'today';
+
+    try {
+      const data = await ga4Service.getLLMConversions(userId, propertyId, safeStart, safeEnd);
+      return ResponseUtil.success(res, 'LLM conversions retrieved', data);
+    } catch (error: any) {
+      if (error.message === 'GA4_NOT_CONNECTED') {
+        return ResponseUtil.error(res, 'Google Analytics is not connected.', undefined, 403);
+      }
+      logger.error(`GA4 getLLMConversions error: ${error.message}`);
+      return ResponseUtil.serverError(res, 'Failed to fetch LLM conversions data');
+    }
+  };
+
+  /**
+   * POST /ga4/llm-conversions/sync — force-refresh, clearing cache
+   */
+  syncLLMConversions = async (req: Request, res: Response): Promise<Response> => {
+    const userId = req.user?.userId;
+    if (!userId) return ResponseUtil.unauthorized(res);
+
+    const { propertyId, startDate, endDate } = req.body as Record<string, string>;
+    if (!propertyId) return ResponseUtil.error(res, 'propertyId is required', undefined, 400);
+    if (!/^(properties\/)?\d+$/.test(propertyId)) {
+      return ResponseUtil.error(res, 'Invalid propertyId format', undefined, 400);
+    }
+
+    const datePattern = /^(\d{4}-\d{2}-\d{2}|\d+daysAgo|today|yesterday)$/;
+    const safeStart = startDate && datePattern.test(startDate) ? startDate : '30daysAgo';
+    const safeEnd = endDate && datePattern.test(endDate) ? endDate : 'today';
+
+    try {
+      const data = await ga4Service.getLLMConversions(userId, propertyId, safeStart, safeEnd, true);
+      return ResponseUtil.success(res, 'LLM conversions synced', data);
+    } catch (error: any) {
+      if (error.message === 'GA4_NOT_CONNECTED') {
+        return ResponseUtil.error(res, 'Google Analytics is not connected.', undefined, 403);
+      }
+      logger.error(`GA4 syncLLMConversions error: ${error.message}`);
+      return ResponseUtil.serverError(res, 'Failed to sync LLM conversions data');
+    }
+  };
 }
