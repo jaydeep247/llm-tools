@@ -23,6 +23,8 @@ import { cn } from '@/lib/utils'
 import { useGetExecutiveSnapshotQuery } from '@/store/api/executiveSnapshotApi'
 import type { ExecutiveSnapshotData, TopAction, KpiStatus, ImpactLevel, EffortLevel } from '@/store/api/executiveSnapshotApi'
 import { CrawlStatusBanner } from '@/components/crawl/CrawlStatusBanner'
+import { useAppSelector } from '@/store/hooks'
+import { selectDateRangePreset } from '@/store/slices/dateRangeSlice'
 
 /* ─────────────────────────────────────────────────────────────────────────── */
 /*  Types                                                                      */
@@ -321,12 +323,13 @@ export default function ExecutiveSnapshotPanel({
   projectId,
   onNavigate,
 }: ExecutiveSnapshotPanelProps) {
+  const period = useAppSelector((s: any) => selectDateRangePreset(s))
   const {
     data: snapshot,
     isLoading,
     isError,
     refetch,
-  } = useGetExecutiveSnapshotQuery(jobId ?? '', {
+  } = useGetExecutiveSnapshotQuery({ jobId: jobId ?? '', period }, {
     skip: !jobId,
     refetchOnMountOrArgChange: true,
   })

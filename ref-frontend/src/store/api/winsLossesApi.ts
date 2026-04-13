@@ -3,7 +3,7 @@ import { baseApi } from './baseApi';
 export type WLDirection = 'WIN' | 'LOSS' | 'STABLE';
 export type WLImpact = 'HIGH' | 'MEDIUM' | 'LOW';
 export type WLEffort = 'LOW' | 'MEDIUM' | 'HIGH';
-export type WLCategory = 'Citations' | 'Share of Voice' | 'Visibility' | 'AIVS';
+export type WLCategory = 'Citations' | 'Share of Voice' | 'Visibility' | 'AIVS' | 'Prompt Coverage';
 
 export interface WLFix {
   title: string;
@@ -27,7 +27,11 @@ export interface WLMetricRow {
 export interface WinsLossesData {
   wins: WLMetricRow[];
   losses: WLMetricRow[];
+  /** Present when API returns full grid (includes STABLE); used by weekly summary backend. */
+  all_metrics?: WLMetricRow[];
+  baseline_job_ids?: { current: string; prior: string } | null;
   has_baseline: boolean;
+  baseline_reason?: 'missing_project' | 'missing_current_window' | 'missing_prior_window' | null;
   period_days: number;
   prior_date: string | null;
   current_date: string | null;

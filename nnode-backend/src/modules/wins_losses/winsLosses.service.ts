@@ -17,6 +17,7 @@ const CATEGORY_LINK: Record<string, string> = {
   'Share of Voice': 'share-of-voice',
   Visibility: 'keyword-intelligence',
   AIVS: 'ai-visibility-scorecards',
+  'Prompt Coverage': 'prompt-opportunities',
 };
 
 // ---------------------------------------------------------------------------
@@ -65,67 +66,148 @@ function makeRow(
 }
 
 // ---------------------------------------------------------------------------
+// Helper: safely extract sentiment_tracking.visibility.by_model from a
+// module_e document. Returns a map of modelName -> { visibility_score,
+// appearance_rate } or an empty object if the data is not available.
+// ---------------------------------------------------------------------------
+function extractPromptCoverageByModel(
+  moduleEDoc: Record<string, any> | null | undefined,
+): Record<string, { visibility_score: number; appearance_rate: number }> {
+  const byModel = moduleEDoc?.sentiment_tracking?.visibility?.by_model;
+  if (!byModel || typeof byModel !== 'object') return {};
+
+  const result: Record<string, { visibility_score: number; appearance_rate: number }> = {};
+
+  // Shape A (object map):
+  // {
+  //   openai: { visibility_score: 61, appearance_rate: 0.42 },
+  //   gemini: { ... }
+  // }
+  if (!Array.isArray(byModel)) {
+    for (const [model, data] of Object.entries(byModel)) {
+      const normalizedModel = normalizeModelName(model);
+      const d = data as any;
+      if (
+        typeof d?.visibility_score === 'number' ||
+        typeof d?.appearance_rate === 'number' ||
+        typeof d?.visibilityScore === 'number' ||
+        typeof d?.appearanceRate === 'number'
+      ) {
+        result[normalizedModel] = {
+          visibility_score:
+            typeof d.visibility_score === 'number'
+              ? d.visibility_score
+              : (typeof d.visibilityScore === 'number' ? d.visibilityScore : 0),
+          appearance_rate:
+            typeof d.appearance_rate === 'number'
+              ? d.appearance_rate
+              : (typeof d.appearanceRate === 'number' ? d.appearanceRate : 0),
+        };
+      }
+    }
+    return result;
+  }
+
+  // Shape B (array, as in docs):
+  // [
+  //   { model: "openai", visibility_score: 61, appearance_rate: 0.42 },
+  //   { model: "gemini", visibility_score: 55, appearance_rate: 0.35 }
+  // ]
+  for (const item of byModel as any[]) {
+    const rawModel = String(item?.model ?? item?.name ?? item?.llmModel ?? '').trim();
+    if (!rawModel) continue;
+    const normalizedModel = normalizeModelName(rawModel);
+
+    const visibility =
+      typeof item?.visibility_score === 'number'
+        ? item.visibility_score
+        : (typeof item?.visibilityScore === 'number' ? item.visibilityScore : 0);
+    const appearance =
+      typeof item?.appearance_rate === 'number'
+        ? item.appearance_rate
+        : (typeof item?.appearanceRate === 'number' ? item.appearanceRate : 0);
+
+    result[normalizedModel] = {
+      visibility_score: visibility,
+      appearance_rate: appearance,
+    };
+  }
+
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Normalize provider/model labels so comparisons are stable across runs.
+// Example: "openai" and "chatgpt" both map to "ChatGPT".
+// ---------------------------------------------------------------------------
+function normalizeModelName(model: string | null | undefined): string {
+  const raw = String(model ?? '').trim();
+  if (!raw) return 'Unknown';
+
+  const normalized = raw.toLowerCase();
+
+  if (
+    normalized === 'openai' ||
+    normalized === 'chatgpt' ||
+    normalized.startsWith('gpt-') ||
+    normalized.includes('chatgpt')
+  ) return 'ChatGPT';
+
+  if (normalized.includes('gemini') || normalized === 'bard') return 'Gemini';
+  if (normalized.includes('claude') || normalized.includes('anthropic')) return 'Claude';
+  if (normalized.includes('perplexity')) return 'Perplexity';
+
+  return raw;
+}
+
+// ---------------------------------------------------------------------------
 // Main service
 // ---------------------------------------------------------------------------
 export class WinsLossesService {
   private jobService = new JobService();
 
   async getWinsLosses(jobId: string, userId: string, _periodDays: number): Promise<WinsLossesResponse> {
-    // 1. Resolve job → projectId
+    // 1. Resolve job -> projectId (also validates ownership)
     const job = await this.jobService.getJobById(userId, jobId);
     const projectId: string = (job as any).projectId;
     if (!projectId) {
-      return { wins: [], losses: [], has_baseline: false, period_days: _periodDays, prior_date: null, current_date: null };
+      return {
+        wins: [],
+        losses: [],
+        all_metrics: [],
+        baseline_job_ids: null,
+        has_baseline: false,
+        baseline_reason: 'missing_project',
+        period_days: _periodDays,
+        prior_date: null,
+        current_date: null,
+      };
     }
 
     const db = await connectToMongo();
 
     // -----------------------------------------------------------------------
-    // 2. Find the two most-recent distinct MODULE_F jobIds for this project
-    //    that have cbm_citation_snapshots with entityType='client'.
+    // 2. Spec-aligned baseline selection (Dashboard Brief v1.0, "Wins & Losses"):
+    //    Compare two time windows:
+    //      - current window: last N days
+    //      - prior window:   the N days before that
     //
-    //    Key insight: the upsert key in runner.py is
-    //      { projectId, snapshotDate, entityName, llmModel, jobId }
-    //    So two runs on the SAME calendar day produce two separate documents
-    //    (different jobId). Grouping by jobId works even within 30 seconds.
+    //    We do this using `createdAt` so it works regardless of how snapshotDate
+    //    is stored (string vs Date) and regardless of whether the run came from
+    //    Module E quick start or other pipelines.
     // -----------------------------------------------------------------------
-    const jobGroups = await db
-      .collection('cbm_citation_snapshots')
-      .aggregate([
-        { $match: { projectId, entityType: 'client' } },
-        {
-          $group: {
-            _id: '$jobId',
-            latestCreatedAt: { $max: '$createdAt' },
-            snapshotDate: { $first: '$snapshotDate' },
-          },
-        },
-        { $sort: { latestCreatedAt: -1 } },
-        { $limit: 2 },
-      ])
-      .toArray();
+    const anchorDate = (job as any)?.createdAt ? new Date((job as any).createdAt) : new Date();
+    const currentTo = new Date(anchorDate);
+    const currentFrom = new Date(anchorDate);
+    currentFrom.setDate(currentFrom.getDate() - _periodDays);
+    const priorTo = new Date(currentFrom);
+    const priorFrom = new Date(anchorDate);
+    priorFrom.setDate(priorFrom.getDate() - _periodDays * 2);
 
-    if (jobGroups.length < 2) {
-      return {
-        wins: [],
-        losses: [],
-        has_baseline: false,
-        period_days: _periodDays,
-        current_date: jobGroups[0]?.snapshotDate ?? null,
-        prior_date: null,
-      };
-    }
-
-    const currentJobId = jobGroups[0]._id as string;
-    const priorJobId   = jobGroups[1]._id as string;
-    const currentDate  = (jobGroups[0].snapshotDate as string) ?? null;
-    const priorDate    = (jobGroups[1].snapshotDate as string) ?? null;
-
-    // 3. Fetch all client snapshots for both jobs in one query
-    const snapshots = await db
+    const snapshotsInRange = await db
       .collection('cbm_citation_snapshots')
       .find(
-        { projectId, entityType: 'client', jobId: { $in: [currentJobId, priorJobId] } },
+        { projectId, entityType: 'client', createdAt: { $gte: priorFrom, $lte: currentTo } },
         {
           projection: {
             jobId: 1,
@@ -133,67 +215,216 @@ export class WinsLossesService {
             citationPresent: 1,
             shareOfVoice: 1,
             visibilityScore: 1,
+            createdAt: 1,
           },
         },
       )
       .toArray();
 
-    // 4. Aggregate per (jobId, model)
-    type ModelAgg = { citations: number; sovSum: number; visSum: number; count: number };
-    const aggByJob: Record<string, Record<string, ModelAgg>> = {};
+    const currentSnapshots: typeof snapshotsInRange = [];
+    const priorSnapshots: typeof snapshotsInRange = [];
 
-    for (const s of snapshots) {
-      const jId  = s.jobId as string;
-      const m    = (s.llmModel as string) || 'Unknown';
-      if (!aggByJob[jId]) aggByJob[jId] = {};
-      if (!aggByJob[jId][m]) aggByJob[jId][m] = { citations: 0, sovSum: 0, visSum: 0, count: 0 };
-      if (s.citationPresent) aggByJob[jId][m].citations += 1;
-      if (typeof s.shareOfVoice   === 'number') aggByJob[jId][m].sovSum += s.shareOfVoice;
-      if (typeof s.visibilityScore === 'number') aggByJob[jId][m].visSum += s.visibilityScore;
-      aggByJob[jId][m].count += 1;
+    let currentLatest: { createdAt: Date; jobId: string } | null = null;
+    let priorLatest: { createdAt: Date; jobId: string } | null = null;
+
+    for (const s of snapshotsInRange) {
+      const createdAt = (s as any).createdAt instanceof Date ? ((s as any).createdAt as Date) : new Date((s as any).createdAt);
+      const jId = String((s as any).jobId ?? '');
+      if (!jId || Number.isNaN(createdAt.getTime())) continue;
+
+      if (createdAt >= currentFrom && createdAt <= currentTo) {
+        currentSnapshots.push(s);
+        if (!currentLatest || createdAt > currentLatest.createdAt) currentLatest = { createdAt, jobId: jId };
+      } else if (createdAt >= priorFrom && createdAt < priorTo) {
+        priorSnapshots.push(s);
+        if (!priorLatest || createdAt > priorLatest.createdAt) priorLatest = { createdAt, jobId: jId };
+      }
     }
 
-    const cur = aggByJob[currentJobId] ?? {};
-    const pri = aggByJob[priorJobId]   ?? {};
+    let currentJobId: string | null = currentLatest?.jobId ?? null;
+    let priorJobId: string | null = priorLatest?.jobId ?? null;
 
-    // 5. Fetch module_e doc for the current job (fix recommendations)
-    const moduleEDoc = await db.collection('module_e').findOne(
-      { jobId: currentJobId },
-      { projection: { citations_recommendations: 1, sov_recommendations: 1, tracked_prompts_recommendations: 1 } },
-    );
+    if (!currentJobId || !priorJobId) {
+      return {
+        wins: [],
+        losses: [],
+        all_metrics: [],
+        baseline_job_ids: null,
+        has_baseline: false,
+        baseline_reason: !currentJobId ? 'missing_current_window' : 'missing_prior_window',
+        period_days: _periodDays,
+        current_date: currentFrom.toISOString(),
+        prior_date: priorFrom.toISOString(),
+      };
+    }
 
-    // 6. Fetch AIVS (module_c overall_score) for both jobs (best-effort)
-    const [curAivs, priAivs] = await Promise.all([
+    const effectiveCurrentSnapshots = currentSnapshots;
+    const effectivePriorSnapshots = priorSnapshots;
+
+    const currentDate = currentFrom.toISOString();
+    const priorDate = priorFrom.toISOString();
+
+    // -----------------------------------------------------------------------
+    // 3. Fetch all data in parallel:
+    //    - cbm_citation_snapshots for both windows (Citations / SoV / Visibility)
+    //    - module_e for both jobs (fix recommendations + Prompt Coverage)
+    //    - module_c for both jobs (AIVS overall score)
+    // -----------------------------------------------------------------------
+    // In some pipelines, cbm_citation_snapshots jobId can differ from module_e/module_c jobId
+    // for the same project/time window. Build window jobId sets so we can fall back by window.
+    const [curWindowJobs, priWindowJobs] = await Promise.all([
+      db.collection('jobs')
+        .find(
+          { projectId, status: 'COMPLETED', createdAt: { $gte: currentFrom, $lte: currentTo } },
+          { projection: { id: 1 }, sort: { createdAt: -1 } } as any,
+        )
+        .toArray(),
+      db.collection('jobs')
+        .find(
+          { projectId, status: 'COMPLETED', createdAt: { $gte: priorFrom, $lt: priorTo } },
+          { projection: { id: 1 }, sort: { createdAt: -1 } } as any,
+        )
+        .toArray(),
+    ]);
+
+    const curWindowJobIds = curWindowJobs.map((j: any) => String(j.id)).filter(Boolean);
+    const priWindowJobIds = priWindowJobs.map((j: any) => String(j.id)).filter(Boolean);
+
+    const [moduleECurByJob, moduleEPriByJob, curAivsByJob, priAivsByJob, curD7ByJob, priD7ByJob] = await Promise.all([
+      db.collection('module_e').findOne(
+        { jobId: currentJobId },
+        {
+          projection: {
+            citations_recommendations: 1,
+            sov_recommendations: 1,
+            tracked_prompts_recommendations: 1,
+            sentiment_tracking: 1,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+        },
+      ),
+      db.collection('module_e').findOne(
+        { jobId: priorJobId },
+        { projection: { sentiment_tracking: 1, createdAt: 1, updatedAt: 1 } },
+      ),
       db.collection('module_c').findOne(
         { jobId: currentJobId },
-        { projection: { overall_score: 1 } },
+        { projection: { overall_score: 1, createdAt: 1, timestamp: 1 } },
       ),
       db.collection('module_c').findOne(
         { jobId: priorJobId },
-        { projection: { overall_score: 1 } },
+        { projection: { overall_score: 1, createdAt: 1, timestamp: 1 } },
+      ),
+      db.collection('cbm_aivs_d7').findOne(
+        { projectId, jobId: currentJobId },
+        { projection: { d7_score: 1, createdAt: 1 } },
+      ),
+      db.collection('cbm_aivs_d7').findOne(
+        { projectId, jobId: priorJobId },
+        { projection: { d7_score: 1, createdAt: 1 } },
       ),
     ]);
 
-    // 7. Build metric rows across all models seen in either run
+    const [moduleECurFallback, moduleEPriFallback, curAivsFallback, priAivsFallback, curD7Fallback, priD7Fallback] = await Promise.all([
+      moduleECurByJob || curWindowJobIds.length === 0
+        ? null
+        : db.collection('module_e').findOne(
+            { jobId: { $in: curWindowJobIds } },
+            {
+              projection: {
+                citations_recommendations: 1,
+                sov_recommendations: 1,
+                tracked_prompts_recommendations: 1,
+                sentiment_tracking: 1,
+                createdAt: 1,
+                updatedAt: 1,
+              },
+              sort: { updatedAt: -1, createdAt: -1 },
+            } as any,
+          ),
+      moduleEPriByJob || priWindowJobIds.length === 0
+        ? null
+        : db.collection('module_e').findOne(
+            { jobId: { $in: priWindowJobIds } },
+            { projection: { sentiment_tracking: 1, createdAt: 1, updatedAt: 1 }, sort: { updatedAt: -1, createdAt: -1 } } as any,
+          ),
+      curAivsByJob || curWindowJobIds.length === 0
+        ? null
+        : db.collection('module_c').findOne(
+            { jobId: { $in: curWindowJobIds } },
+            { projection: { overall_score: 1, createdAt: 1, timestamp: 1 }, sort: { timestamp: -1, createdAt: -1 } } as any,
+          ),
+      priAivsByJob || priWindowJobIds.length === 0
+        ? null
+        : db.collection('module_c').findOne(
+            { jobId: { $in: priWindowJobIds } },
+            { projection: { overall_score: 1, createdAt: 1, timestamp: 1 }, sort: { timestamp: -1, createdAt: -1 } } as any,
+          ),
+      curD7ByJob || curWindowJobIds.length === 0
+        ? null
+        : db.collection('cbm_aivs_d7').findOne(
+            { projectId, jobId: { $in: curWindowJobIds } },
+            { projection: { d7_score: 1, createdAt: 1 }, sort: { createdAt: -1 } } as any,
+          ),
+      priD7ByJob || priWindowJobIds.length === 0
+        ? null
+        : db.collection('cbm_aivs_d7').findOne(
+            { projectId, jobId: { $in: priWindowJobIds } },
+            { projection: { d7_score: 1, createdAt: 1 }, sort: { createdAt: -1 } } as any,
+          ),
+    ]);
+
+    const moduleECur = moduleECurByJob ?? moduleECurFallback;
+    const moduleEPri = moduleEPriByJob ?? moduleEPriFallback;
+    const curAivs = curAivsByJob ?? curAivsFallback;
+    const priAivs = priAivsByJob ?? priAivsFallback;
+    const curD7 = curD7ByJob ?? curD7Fallback;
+    const priD7 = priD7ByJob ?? priD7Fallback;
+
+    // -----------------------------------------------------------------------
+    // 4. Aggregate citation snapshots per (window, model)
+    // -----------------------------------------------------------------------
+    type ModelAgg = { citations: number; sovSum: number; visSum: number; count: number };
+    const aggCur: Record<string, ModelAgg> = {};
+    const aggPri: Record<string, ModelAgg> = {};
+
+    const add = (target: Record<string, ModelAgg>, s: any) => {
+      const m = normalizeModelName(s.llmModel as string);
+      if (!target[m]) target[m] = { citations: 0, sovSum: 0, visSum: 0, count: 0 };
+      if (s.citationPresent) target[m].citations += 1;
+      if (typeof s.shareOfVoice === 'number') target[m].sovSum += s.shareOfVoice;
+      if (typeof s.visibilityScore === 'number') target[m].visSum += s.visibilityScore;
+      target[m].count += 1;
+    };
+
+    for (const s of effectivePriorSnapshots) add(aggPri, s as any);
+    for (const s of effectiveCurrentSnapshots) add(aggCur, s as any);
+
+    const cur = aggCur;
+    const pri = aggPri;
+
+    // -----------------------------------------------------------------------
+    // 5. Build metric rows across all four categories
+    // -----------------------------------------------------------------------
     const rows: WLMetricRow[] = [];
     const allModels = new Set([...Object.keys(cur), ...Object.keys(pri)]);
 
     for (const model of allModels) {
-      const c = cur[model];
-      const p = pri[model];
-      if (!c || !p) continue; // need both periods to compare
+      const c = cur[model] ?? { citations: 0, sovSum: 0, visSum: 0, count: 0 };
+      const p = pri[model] ?? { citations: 0, sovSum: 0, visSum: 0, count: 0 };
 
-      // Citations count
+      // --- CATEGORY: Citations ---
       rows.push(makeRow(
         `${model} Citations`,
         'Citations',
         model as WLModel,
         p.citations,
         c.citations,
-        buildFix(moduleEDoc?.citations_recommendations, 'Citations'),
+        buildFix((moduleECur as any)?.citations_recommendations, 'Citations'),
       ));
 
-      // Share of Voice (average across prompts)
+      // --- CATEGORY: Share of Voice (average % across prompts) ---
       const cSov = c.count > 0 ? c.sovSum / c.count : 0;
       const pSov = p.count > 0 ? p.sovSum / p.count : 0;
       rows.push(makeRow(
@@ -202,10 +433,10 @@ export class WinsLossesService {
         model as WLModel,
         pSov,
         cSov,
-        buildFix(moduleEDoc?.sov_recommendations, 'Share of Voice'),
+        buildFix((moduleECur as any)?.sov_recommendations, 'Share of Voice'),
       ));
 
-      // Visibility Score (average)
+      // --- CATEGORY: Visibility Score (average across prompts) ---
       const cVis = c.count > 0 ? c.visSum / c.count : 0;
       const pVis = p.count > 0 ? p.visSum / p.count : 0;
       rows.push(makeRow(
@@ -214,25 +445,74 @@ export class WinsLossesService {
         model as WLModel,
         pVis,
         cVis,
-        buildFix(moduleEDoc?.citations_recommendations, 'Visibility'),
+        buildFix((moduleECur as any)?.citations_recommendations, 'Visibility'),
       ));
     }
 
-    // AIVS (model-agnostic overall score from module_c)
-    const curAivsScore = typeof curAivs?.overall_score === 'number' ? curAivs.overall_score : null;
-    const priAivsScore = typeof priAivs?.overall_score === 'number' ? priAivs.overall_score : null;
-    if (curAivsScore !== null && priAivsScore !== null) {
+    // --- CATEGORY: AIVS (model-agnostic overall score from module_c) ---
+    const curAivsScore =
+      typeof (curAivs as any)?.overall_score === 'number'
+        ? (curAivs as any).overall_score
+        : (typeof (curD7 as any)?.d7_score === 'number' ? (curD7 as any).d7_score : null);
+
+    const priAivsScore =
+      typeof (priAivs as any)?.overall_score === 'number'
+        ? (priAivs as any).overall_score
+        : (typeof (priD7 as any)?.d7_score === 'number' ? (priD7 as any).d7_score : null);
+    // Include AIVS when at least one side exists (Module F often has D7 on current only).
+    if (curAivsScore !== null || priAivsScore !== null) {
+      const c = typeof curAivsScore === 'number' ? curAivsScore : (priAivsScore as number);
+      const p = typeof priAivsScore === 'number' ? priAivsScore : (curAivsScore as number);
       rows.push(makeRow(
         'AI Visibility Score (AIVS)',
         'AIVS',
         'Overall',
-        priAivsScore,
-        curAivsScore,
-        buildFix(moduleEDoc?.citations_recommendations, 'AIVS'),
+        p,
+        c,
+        buildFix((moduleECur as any)?.citations_recommendations, 'AIVS'),
       ));
     }
 
-    // 8. Split WIN vs LOSS, exclude STABLE
+    // --- CATEGORY: Prompt Coverage ---
+    // Source: sentiment_tracking.visibility.by_model in module_e.
+    //   visibility_score = 0-100 brand visibility across all tracked prompts for that model.
+    //   appearance_rate  = 0-1  fraction of prompts where the brand appeared.
+    // We store appearance_rate * 100 so the frontend can display it as a percentage
+    // consistently with the other numeric metrics.
+    const curPromptCov = extractPromptCoverageByModel(moduleECur as any);
+    const priPromptCov = extractPromptCoverageByModel(moduleEPri as any);
+    const promptModels = new Set([...Object.keys(curPromptCov), ...Object.keys(priPromptCov)]);
+
+    for (const model of promptModels) {
+      const cPc = curPromptCov[model] ?? { visibility_score: 0, appearance_rate: 0 };
+      const pPc = priPromptCov[model] ?? { visibility_score: 0, appearance_rate: 0 };
+
+      // Prompt Visibility Score (0-100)
+      rows.push(makeRow(
+        `${model} Prompt Visibility`,
+        'Prompt Coverage',
+        model as WLModel,
+        pPc.visibility_score,
+        cPc.visibility_score,
+        buildFix((moduleECur as any)?.tracked_prompts_recommendations, 'Prompt Coverage'),
+      ));
+
+      // Prompt Appearance Rate (stored as percentage 0-100)
+      const cRate = parseFloat((cPc.appearance_rate * 100).toFixed(2));
+      const pRate = parseFloat((pPc.appearance_rate * 100).toFixed(2));
+      rows.push(makeRow(
+        `${model} Prompt Appearance Rate`,
+        'Prompt Coverage',
+        model as WLModel,
+        pRate,
+        cRate,
+        buildFix((moduleECur as any)?.tracked_prompts_recommendations, 'Prompt Coverage'),
+      ));
+    }
+
+    // -----------------------------------------------------------------------
+    // 6. Split WIN vs LOSS (exclude STABLE), sort by magnitude
+    // -----------------------------------------------------------------------
     const wins   = rows.filter((r) => r.direction === 'WIN').sort((a, b) => b.delta - a.delta);
     const losses = rows.filter((r) => r.direction === 'LOSS').sort((a, b) => a.delta - b.delta);
 
@@ -245,11 +525,13 @@ export class WinsLossesService {
     return {
       wins,
       losses,
+      all_metrics: rows,
+      baseline_job_ids: { current: currentJobId, prior: priorJobId },
       has_baseline: true,
+      baseline_reason: null,
       period_days: _periodDays,
       current_date: currentDate,
       prior_date: priorDate,
     };
   }
 }
-

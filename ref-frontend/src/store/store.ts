@@ -5,6 +5,7 @@ import { baseApi } from './api/baseApi';
 import liveJobReducer from './slices/liveJobSlice';
 import jobProgressReducer from './slices/jobProgressSlice';
 import crawlProgressReducer from './slices/crawlProgressSlice';
+import dateRangeReducer from './slices/dateRangeSlice';
 
 export const store = configureStore({
   reducer: {
@@ -12,6 +13,7 @@ export const store = configureStore({
     liveJob: liveJobReducer,
     jobProgress: jobProgressReducer,
     crawlProgress: crawlProgressReducer,
+    dateRange: dateRangeReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

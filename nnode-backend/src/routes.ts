@@ -22,6 +22,8 @@ import winsLossesRoutes from './modules/wins_losses/winsLosses.routes';
 import alertsRoutes from './modules/alerts/alerts.routes';
 import auditReportsRoutes from './modules/audit_reports/audit_reports.routes';
 import exportRoutes from './modules/export/export.routes';
+import weeklyReportsRoutes from './modules/weekly_reports/weekly_reports.routes';
+import competitorReportsRoutes from './modules/competitor_reports/competitorReports.routes';
 
 const router = Router();
 
@@ -55,5 +57,7 @@ router.use('/', winsLossesRoutes);
 router.use('/', alertsRoutes);
 router.use('/', auditReportsRoutes);
 router.use('/', exportRoutes);
+router.use('/', weeklyReportsRoutes);
+router.use('/', competitorReportsRoutes);
 
 export default router;

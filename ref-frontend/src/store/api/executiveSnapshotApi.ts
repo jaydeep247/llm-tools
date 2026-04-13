@@ -42,8 +42,8 @@ export interface ExecutiveSnapshotData {
 
 export const executiveSnapshotApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getExecutiveSnapshot: builder.query<ExecutiveSnapshotData, string>({
-      query: (jobId) => `/jobs/${jobId}/executive-snapshot`,
+    getExecutiveSnapshot: builder.query<ExecutiveSnapshotData, { jobId: string; period: '7d' | '30d' }>({
+      query: ({ jobId, period }) => `/jobs/${jobId}/executive-snapshot?period=${period}`,
       transformResponse: (response: { data: ExecutiveSnapshotData }) => response.data,
     }),
   }),
