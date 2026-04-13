@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Loader2,
   Info,
+  Filter,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useGetWinsLossesQuery } from '@/store/api/winsLossesApi'
@@ -20,21 +21,26 @@ import type { WLMetricRow, WLCategory, WLFix } from '@/store/api/winsLossesApi'
 import { useRunModuleFAnalysisMutation } from '@/store/api/module_F/moduleFApi'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { selectDateRangePreset, setPreset } from '@/store/slices/dateRangeSlice'
+import { DateRangeToggle } from '@/components/date-range/DateRangeToggle'
 
 /* ==========================================================================
    Types & constants
    ========================================================================== */
 
 type Period = '7d' | '30d'
+
+// Category filter IDs map to API WLCategory values
 type CategoryFilter = 'ALL' | 'Citations' | 'Share of Voice' | 'AIVS Dimensions' | 'Prompts'
+
 const ALL_CATEGORIES: { id: CategoryFilter; label: string }[] = [
   { id: 'ALL', label: 'All' },
   { id: 'Citations', label: 'Citations' },
   { id: 'Share of Voice', label: 'Share of Voice' },
-  { id: 'AIVS Dimensions', label: 'AIVS Dimensions' },
+  { id: 'AIVS Dimensions', label: 'AIVS' },
   { id: 'Prompts', label: 'Prompts' },
 ]
 
+// PDF spec model colour system
 const MODEL_COLORS: Record<string, string> = {
   ChatGPT: 'bg-blue-500/15 text-blue-300 border border-blue-500/25',
   Gemini: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/25',
@@ -60,6 +66,16 @@ function formatValue(value: number): string {
   return value.toFixed(1)
 }
 
+// Map category filter to API WLCategory values
+function rowMatchesCategory(r: WLMetricRow, filter: CategoryFilter): boolean {
+  if (filter === 'ALL') return true
+  if (filter === 'Citations') return r.category === 'Citations'
+  if (filter === 'Share of Voice') return r.category === 'Share of Voice'
+  if (filter === 'Prompts') return r.category === 'Prompt Coverage'
+  if (filter === 'AIVS Dimensions') return r.category === 'AIVS' || r.category === 'Visibility'
+  return true
+}
+
 /* ==========================================================================
    Skeleton loader
    ========================================================================== */
@@ -74,7 +90,7 @@ function SkeletonRows() {
 }
 
 /* ==========================================================================
-   No-baseline state
+   No-baseline empty state
    ========================================================================== */
 function NoBaselineState({ onRun, isRunning }: { onRun?: () => void; isRunning?: boolean }) {
   return (
@@ -85,8 +101,8 @@ function NoBaselineState({ onRun, isRunning }: { onRun?: () => void; isRunning?:
       <div className="space-y-2">
         <h3 className="text-lg font-semibold text-white">No baseline yet</h3>
         <p className="text-zinc-400 text-sm max-w-sm">
-          Your first comparison appears after Colytics collects data across two periods. Run analysis again later,
-          then return here to see wins, losses, and recommended fixes.
+          Your first comparison appears after Colytics collects data across two periods. Run
+          analysis again later, then return here to see wins, losses, and recommended fixes.
         </p>
       </div>
       {onRun && (
@@ -110,7 +126,7 @@ function NoBaselineState({ onRun, isRunning }: { onRun?: () => void; isRunning?:
 }
 
 /* ==========================================================================
-   Empty states
+   Empty column states
    ========================================================================== */
 function EmptyWins() {
   return (
@@ -122,6 +138,7 @@ function EmptyWins() {
     </div>
   )
 }
+
 function EmptyLosses() {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
@@ -134,7 +151,7 @@ function EmptyLosses() {
 }
 
 /* ==========================================================================
-   Fix chip (expandable)
+   Fix chip — expandable, PDF spec compliant
    ========================================================================== */
 function FixChip({ fix, onNavigate }: { fix: WLFix; onNavigate?: (tab: string) => void }) {
   const [expanded, setExpanded] = useState(false)
@@ -147,43 +164,31 @@ function FixChip({ fix, onNavigate }: { fix: WLFix; onNavigate?: (tab: string) =
         <span className="text-[11px] font-semibold text-rose-400 uppercase tracking-wide flex-1">
           Recommended Fix
         </span>
-        <ChevronDown
-          className={cn('h-4 w-4 text-rose-400/60 transition-transform', expanded && 'rotate-180')}
-        />
+        <ChevronDown className={cn('h-4 w-4 text-rose-400/60 transition-transform', expanded && 'rotate-180')} />
       </button>
       {expanded && (
         <div className="px-3 pb-3 space-y-2">
           <p className="text-[13px] font-medium text-white">{fix.title}</p>
-          {fix.issue && (
-            <p className="text-[11px] text-zinc-400 leading-relaxed">{fix.issue}</p>
-          )}
-          <div className="flex items-center gap-2">
-            <span
-              className={cn(
-                'px-2 py-0.5 rounded-full text-[10px] font-bold uppercase',
-                fix.impact === 'HIGH'
-                  ? 'bg-rose-500/20 text-rose-300'
-                  : fix.impact === 'MEDIUM'
-                  ? 'bg-amber-500/20 text-amber-300'
-                  : 'bg-zinc-700/60 text-zinc-400',
-              )}
-            >
+          {fix.issue && <p className="text-[11px] text-zinc-400 leading-relaxed">{fix.issue}</p>}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={cn(
+              'px-2 py-0.5 rounded-full text-[10px] font-bold uppercase',
+              fix.impact === 'HIGH' ? 'bg-rose-500/20 text-rose-300' :
+              fix.impact === 'MEDIUM' ? 'bg-amber-500/20 text-amber-300' :
+              'bg-zinc-700/60 text-zinc-400',
+            )}>
               Impact: {fix.impact}
             </span>
-            <span
-              className={cn(
-                'px-2 py-0.5 rounded-full text-[10px] font-bold uppercase',
-                fix.effort === 'LOW'
-                  ? 'bg-emerald-500/20 text-emerald-300'
-                  : fix.effort === 'MEDIUM'
-                  ? 'bg-amber-500/20 text-amber-300'
-                  : 'bg-rose-500/20 text-rose-300',
-              )}
-            >
+            <span className={cn(
+              'px-2 py-0.5 rounded-full text-[10px] font-bold uppercase',
+              fix.effort === 'LOW' ? 'bg-emerald-500/20 text-emerald-300' :
+              fix.effort === 'MEDIUM' ? 'bg-amber-500/20 text-amber-300' :
+              'bg-rose-500/20 text-rose-300',
+            )}>
               Effort: {fix.effort}
             </span>
           </div>
-          {onNavigate && (
+          {onNavigate && fix.link && (
             <button
               onClick={(e) => { e.stopPropagation(); onNavigate(fix.link) }}
               className="flex items-center gap-1 text-[12px] text-rose-400 hover:text-rose-300 transition-colors font-medium mt-1"
@@ -213,6 +218,19 @@ function WinRow({
 }) {
   const dimmed = activeModel !== null && row.model !== activeModel
 
+  // Navigate to the correct section based on category
+  const handleClick = () => {
+    if (!onNavigate) return
+    const dest =
+      row.category === 'Citations' ? 'prompt-opportunities' :
+      row.category === 'Share of Voice' ? 'share-of-voice' :
+      row.category === 'AIVS' ? 'ai-visibility-scorecards' :
+      row.category === 'Visibility' ? 'ai-visibility-scorecards' :
+      row.category === 'Prompt Coverage' ? 'prompt-opportunities' :
+      'keyword-intelligence'
+    onNavigate(dest)
+  }
+
   return (
     <div
       className={cn(
@@ -221,13 +239,7 @@ function WinRow({
           ? 'border-zinc-800/30 bg-zinc-900/20 opacity-40'
           : 'border-emerald-500/15 bg-emerald-950/10 hover:border-emerald-500/30 hover:bg-emerald-950/20',
       )}
-      onClick={() => row.category && onNavigate?.(
-        row.category === 'Citations' ? 'prompt-opportunities' :
-        row.category === 'Share of Voice' ? 'share-of-voice' :
-        row.category === 'AIVS' ? 'ai-visibility-scorecards' :
-        row.category === 'Prompt Coverage' ? 'prompt-opportunities' :
-        'keyword-intelligence',
-      )}
+      onClick={handleClick}
       title={`This metric improved by ${row.delta > 0 ? '+' : ''}${formatValue(row.delta)} compared to the previous ${periodLabel}.`}
     >
       <div className="flex items-start gap-3">
@@ -258,7 +270,15 @@ function WinRow({
 /* ==========================================================================
    Loss Row
    ========================================================================== */
-function LossRow({ row, onNavigate, activeModel }: { row: WLMetricRow; onNavigate?: (tab: string) => void; activeModel: string | null }) {
+function LossRow({
+  row,
+  onNavigate,
+  activeModel,
+}: {
+  row: WLMetricRow
+  onNavigate?: (tab: string) => void
+  activeModel: string | null
+}) {
   const [expanded, setExpanded] = useState(false)
   const dimmed = activeModel !== null && row.model !== activeModel
 
@@ -291,14 +311,11 @@ function LossRow({ row, onNavigate, activeModel }: { row: WLMetricRow; onNavigat
               <ChevronRight className="h-3 w-3 text-zinc-600" />
               <span className="text-rose-300 font-semibold">{formatValue(row.current)}</span>
             </div>
+            {/* Collapsed fix preview */}
             {!expanded && row.fix && (
               <div className="mt-2 inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-500/15">
-                <span className="text-[10px] font-bold uppercase tracking-wide text-rose-400">
-                  Recommended Fix
-                </span>
-                <span className="text-[11px] text-zinc-300 truncate max-w-[260px]">
-                  {row.fix.title}
-                </span>
+                <span className="text-[10px] font-bold uppercase tracking-wide text-rose-400">Fix</span>
+                <span className="text-[11px] text-zinc-300 truncate max-w-[200px]">{row.fix.title}</span>
               </div>
             )}
           </div>
@@ -307,13 +324,12 @@ function LossRow({ row, onNavigate, activeModel }: { row: WLMetricRow; onNavigat
               {formatValue(row.delta)}
             </span>
             {row.fix && (
-              <ChevronDown
-                className={cn('h-4 w-4 text-zinc-500 transition-transform', expanded && 'rotate-180')}
-              />
+              <ChevronDown className={cn('h-4 w-4 text-zinc-500 transition-transform', expanded && 'rotate-180')} />
             )}
           </div>
         </div>
       </div>
+      {/* Expanded fix chip */}
       {expanded && row.fix && (
         <div className="px-4 pb-3">
           <FixChip fix={row.fix} onNavigate={onNavigate} />
@@ -335,6 +351,7 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
   const dispatch = useAppDispatch()
   const preset = useAppSelector((s: any) => selectDateRangePreset(s))
   const period: Period = preset
+
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('ALL')
   const [activeModel, setActiveModel] = useState<string | null>(null)
   const [runQueued, setRunQueued] = useState(false)
@@ -347,46 +364,68 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
       await runModuleFAnalysis(jobId).unwrap()
       setRunQueued(true)
     } catch {
-      // best-effort; user can retry
+      // best-effort
     }
   }
 
-  const { data, isLoading, isFetching, refetch } = useGetWinsLossesQuery(
+  // Fetch — refetch whenever period (from global Redux store) changes
+  const { data, isLoading, isFetching, isError, refetch } = useGetWinsLossesQuery(
     { jobId: jobId!, period },
     { skip: !jobId, refetchOnMountOrArgChange: true },
   )
 
-  // Collect models from data for the model filter pills
+  // Collect all models present in the dataset for model filter pills
   const allModels = useMemo(
-    () => (data ? Array.from(new Set([...data.wins, ...data.losses].map((r) => r.model))) : []),
+    () =>
+      data
+        ? Array.from(new Set([...data.wins, ...data.losses].map((r) => r.model))).filter(
+            (m) => m !== 'Overall',
+          )
+        : [],
     [data],
   )
 
-  const rowMatchesFilters = (r: WLMetricRow) => {
-    if (categoryFilter === 'Citations' && r.category !== 'Citations') return false
-    if (categoryFilter === 'Share of Voice' && r.category !== 'Share of Voice') return false
-    if (categoryFilter === 'Prompts' && r.category !== 'Prompt Coverage') return false
-    if (categoryFilter === 'AIVS Dimensions' && !(r.category === 'AIVS' || r.category === 'Visibility')) return false
-    if (activeModel !== null && r.model !== activeModel) return false
-    return true
-  }
+  // Filtered rows
+  const filteredWins = useMemo(
+    () =>
+      data
+        ? data.wins.filter(
+            (r) =>
+              rowMatchesCategory(r, categoryFilter) &&
+              (activeModel === null || r.model === activeModel),
+          )
+        : [],
+    [data, categoryFilter, activeModel],
+  )
 
-  const filterRows = (rows: WLMetricRow[]) => {
-    let filtered = rows
-    if (categoryFilter !== 'ALL' || activeModel !== null) filtered = filtered.filter(rowMatchesFilters)
-    return filtered
-  }
+  const filteredLosses = useMemo(
+    () =>
+      data
+        ? data.losses.filter(
+            (r) =>
+              rowMatchesCategory(r, categoryFilter) &&
+              (activeModel === null || r.model === activeModel),
+          )
+        : [],
+    [data, categoryFilter, activeModel],
+  )
 
-  const filteredWins = data ? filterRows(data.wins) : []
-  const filteredLosses = data ? filterRows(data.losses) : []
-  const filteredAllMetrics = data?.all_metrics ? data.all_metrics.filter(rowMatchesFilters) : []
-  const filteredStableMetrics = filteredAllMetrics.filter((r) => r.direction === 'STABLE')
-  const hasOnlyStableForCurrentFilter =
+  // Check if all metrics are stable under current filter
+  const filteredAllMetrics = useMemo(() => {
+    if (!data?.all_metrics) return []
+    return data.all_metrics.filter(
+      (r) =>
+        rowMatchesCategory(r, categoryFilter) &&
+        (activeModel === null || r.model === activeModel),
+    )
+  }, [data, categoryFilter, activeModel])
+
+  const stableOnly =
     !!data &&
     data.has_baseline &&
     filteredWins.length === 0 &&
     filteredLosses.length === 0 &&
-    filteredStableMetrics.length > 0
+    filteredAllMetrics.some((r) => r.direction === 'STABLE')
 
   const handleModelClick = (model: string) => {
     setActiveModel((prev) => (prev === model ? null : model))
@@ -397,7 +436,7 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
 
   return (
     <div className="space-y-6 animate-fade-in-hero">
-      {/* Header */}
+      {/* ── Header ──────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
         <div>
           <h2 className="text-2xl font-bold text-white tracking-tight">Wins &amp; Losses</h2>
@@ -406,24 +445,9 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          {/* Period toggle */}
-          <div className="flex items-center rounded-xl border border-zinc-700/50 bg-zinc-900/60 overflow-hidden">
-            {(['7d', '30d'] as Period[]).map((p) => (
-              <button
-                key={p}
-                onClick={() => dispatch(setPreset(p))}
-                className={cn(
-                  'px-4 py-2 text-sm font-medium transition-colors',
-                  period === p
-                    ? 'bg-white/10 text-white'
-                    : 'text-zinc-400 hover:text-white',
-                )}
-              >
-                {p === '7d' ? '7 Days' : '30 Days'}
-              </button>
-            ))}
-          </div>
-          {/* Refresh */}
+          {/* Global period toggle — updates Redux store → all components refetch */}
+          <DateRangeToggle />
+          {/* Manual refresh */}
           <button
             onClick={() => refetch()}
             disabled={loading}
@@ -435,7 +459,17 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
         </div>
       </div>
 
-      {/* Model filter pills */}
+      {/* ── Period date context ──────────────────────────────────────────── */}
+      {data?.prior_date && data?.current_date && (
+        <p className="text-[12px] text-zinc-500">
+          Comparing{' '}
+          <span className="text-zinc-400 font-medium">{data.prior_date.slice(0, 10)}</span>
+          {' '}→{' '}
+          <span className="text-zinc-400 font-medium">{data.current_date.slice(0, 10)}</span>
+        </p>
+      )}
+
+      {/* ── Model filter pills ───────────────────────────────────────────── */}
       {allModels.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center gap-2 flex-wrap">
@@ -458,23 +492,22 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
             ))}
           </div>
           {activeModel && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[12px] text-zinc-500">
-                Showing <span className="text-zinc-300 font-medium">{activeModel}</span> data only. Click again to show all models.
-              </span>
+            <p className="text-[12px] text-zinc-500">
+              Showing <span className="text-zinc-300 font-medium">{activeModel}</span> data only. Click again to show all models.{' '}
               <button
                 onClick={() => setActiveModel(null)}
-                className="px-3 py-1 rounded-full text-[12px] text-zinc-400 hover:text-white border border-zinc-700/50 hover:border-zinc-600 transition-colors"
+                className="text-zinc-400 hover:text-white underline underline-offset-2 transition-colors"
               >
-                Show all models
+                Clear
               </button>
-            </div>
+            </p>
           )}
         </div>
       )}
 
-      {/* Category pill tabs */}
+      {/* ── Category pill tabs ───────────────────────────────────────────── */}
       <div className="flex items-center gap-2 flex-wrap border-b border-zinc-800/60 pb-4">
+        <Filter className="h-3.5 w-3.5 text-zinc-600 shrink-0" />
         {ALL_CATEGORIES.map((cat) => (
           <button
             key={cat.id}
@@ -491,7 +524,7 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
         ))}
       </div>
 
-      {/* Loading skeleton */}
+      {/* ── Loading skeleton ─────────────────────────────────────────────── */}
       {loading && !data && (
         <div className="space-y-4">
           <p className="text-zinc-500 text-sm text-center animate-pulse">Calculating your wins and losses...</p>
@@ -502,13 +535,27 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
         </div>
       )}
 
-      {/* No baseline */}
+      {/* ── Error state ──────────────────────────────────────────────────── */}
+      {isError && !loading && (
+        <div className="flex flex-col items-center justify-center py-16 text-center gap-4">
+          <AlertTriangle className="h-8 w-8 text-rose-500/60" />
+          <p className="text-zinc-400 text-sm">We could not load wins &amp; losses data. Please retry.</p>
+          <button
+            onClick={() => refetch()}
+            className="px-4 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-zinc-300 text-sm hover:bg-zinc-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* ── No baseline state (has_baseline: false) ──────────────────────── */}
       {!loading && data && !data.has_baseline && (
         <NoBaselineState onRun={handleRunAnalysis} isRunning={isTriggering || runQueued} />
       )}
 
-      {/* All empty (no movement) */}
-      {!loading && data && data.has_baseline && data.wins.length === 0 && data.losses.length === 0 && !hasOnlyStableForCurrentFilter && (
+      {/* ── No movement at all ───────────────────────────────────────────── */}
+      {!loading && data && data.has_baseline && data.wins.length === 0 && data.losses.length === 0 && !stableOnly && (
         <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
           <div className="w-14 h-14 rounded-2xl bg-zinc-800 flex items-center justify-center">
             <Minus className="h-7 w-7 text-zinc-500" />
@@ -522,7 +569,7 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
           {onNavigate && (
             <button
               onClick={() => onNavigate('keyword-intelligence')}
-              className="px-5 py-2.5 rounded-xl bg-white/10 border border-white/15 text-white text-sm font-semibold hover:bg-white/15 hover:border-white/25 transition-all"
+              className="px-5 py-2.5 rounded-xl bg-white/10 border border-white/15 text-white text-sm font-semibold hover:bg-white/15 transition-all"
             >
               Set Up Prompt Tracking
             </button>
@@ -530,8 +577,8 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
         </div>
       )}
 
-      {/* Stable-only state for current filter (especially Prompts tab) */}
-      {!loading && hasOnlyStableForCurrentFilter && (
+      {/* ── Stable-only state (all metrics stable for current filter) ────── */}
+      {!loading && stableOnly && (
         <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-zinc-800 flex items-center justify-center">
             <Minus className="h-6 w-6 text-zinc-400" />
@@ -539,82 +586,66 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
           <h3 className="text-lg font-semibold text-white">All selected metrics are stable</h3>
           <p className="text-zinc-400 text-sm max-w-xl">
             {categoryFilter === 'Prompts'
-              ? `Prompt visibility and prompt appearance metrics are stable for ${periodLabel} compared to the previous ${periodLabel}.`
-              : `No win/loss movement for the selected filters. Metrics are stable for ${periodLabel} compared to the previous ${periodLabel}.`}
+              ? `Prompt visibility metrics are stable for the ${periodLabel} period.`
+              : `No win/loss movement for the selected filters over the ${periodLabel} period.`}
           </p>
         </div>
       )}
 
-      {/* Columns */}
+      {/* ── Main columns ─────────────────────────────────────────────────── */}
       {!loading && data && data.has_baseline && (data.wins.length > 0 || data.losses.length > 0) && (
-        <>
-          {/* Date range context */}
-          {data.prior_date && data.current_date && (
-            <p className="text-[12px] text-zinc-500">
-              Comparing{' '}
-              <span className="text-zinc-400 font-medium">{data.prior_date}</span>
-              {' '}→{' '}
-              <span className="text-zinc-400 font-medium">{data.current_date}</span>
-            </p>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Wins column */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-6 h-6 rounded-lg bg-emerald-500/15 flex items-center justify-center">
-                  <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
-                </div>
-                <h3 className="text-sm font-semibold text-emerald-400 uppercase tracking-wide">
-                  Wins
-                </h3>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[11px] font-bold">
-                  {filteredWins.length}
-                </span>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Wins column */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-6 h-6 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+                <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
               </div>
-              {filteredWins.length === 0 ? (
-                <EmptyWins />
-              ) : (
-                filteredWins.map((row, i) => (
-                  <WinRow
-                    key={`win-${i}`}
-                    row={row}
-                    onNavigate={onNavigate}
-                    activeModel={activeModel}
-                    periodLabel={periodLabel}
-                  />
-                ))
-              )}
+              <h3 className="text-sm font-semibold text-emerald-400 uppercase tracking-wide">Wins</h3>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[11px] font-bold">
+                {filteredWins.length}
+              </span>
             </div>
-
-            {/* Losses column */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-6 h-6 rounded-lg bg-rose-500/15 flex items-center justify-center">
-                  <TrendingDown className="h-3.5 w-3.5 text-rose-400" />
-                </div>
-                <h3 className="text-sm font-semibold text-rose-400 uppercase tracking-wide">
-                  Losses
-                </h3>
-                <span className="px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 text-[11px] font-bold">
-                  {filteredLosses.length}
-                </span>
-              </div>
-              {filteredLosses.length === 0 ? (
-                <EmptyLosses />
-              ) : (
-                filteredLosses.map((row, i) => (
-                  <LossRow
-                    key={`loss-${i}`}
-                    row={row}
-                    onNavigate={onNavigate}
-                    activeModel={activeModel}
-                  />
-                ))
-              )}
-            </div>
+            {filteredWins.length === 0 ? (
+              <EmptyWins />
+            ) : (
+              filteredWins.map((row, i) => (
+                <WinRow
+                  key={`win-${row.metric}-${row.model}-${i}`}
+                  row={row}
+                  onNavigate={onNavigate}
+                  activeModel={activeModel}
+                  periodLabel={periodLabel}
+                />
+              ))
+            )}
           </div>
-        </>
+
+          {/* Losses column */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-6 h-6 rounded-lg bg-rose-500/15 flex items-center justify-center">
+                <TrendingDown className="h-3.5 w-3.5 text-rose-400" />
+              </div>
+              <h3 className="text-sm font-semibold text-rose-400 uppercase tracking-wide">Losses</h3>
+              <span className="px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 text-[11px] font-bold">
+                {filteredLosses.length}
+              </span>
+            </div>
+            {filteredLosses.length === 0 ? (
+              <EmptyLosses />
+            ) : (
+              filteredLosses.map((row, i) => (
+                <LossRow
+                  key={`loss-${row.metric}-${row.model}-${i}`}
+                  row={row}
+                  onNavigate={onNavigate}
+                  activeModel={activeModel}
+                />
+              ))
+            )}
+          </div>
+        </div>
       )}
     </div>
   )

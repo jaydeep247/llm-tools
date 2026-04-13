@@ -20,7 +20,9 @@ export default function PriorityAlertsPanel({ jobId, onNavigate }: PriorityAlert
     error,
   } = useGetAlertsQuery(jobId!, {
     skip: !jobId,
-    pollingInterval: 5 * 60 * 1000, // refresh every 5 min
+    // Poll every 5 min — keeps sidebar badge count current (PDF spec)
+    pollingInterval: 5 * 60 * 1000,
+    refetchOnMountOrArgChange: true,
   })
 
   if (!jobId) {
@@ -35,7 +37,7 @@ export default function PriorityAlertsPanel({ jobId, onNavigate }: PriorityAlert
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <Header loading />
+        <PanelHeader loading />
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
             <div key={i} className="rounded-xl border border-zinc-800 bg-[#111113] p-4 animate-pulse">
@@ -53,7 +55,10 @@ export default function PriorityAlertsPanel({ jobId, onNavigate }: PriorityAlert
       <div className="flex flex-col items-center justify-center py-20 text-zinc-500">
         <AlertTriangle className="h-10 w-10 mb-3 text-rose-700/60" />
         <p className="text-sm text-rose-400">Failed to load alerts.</p>
-        <button onClick={() => refetch()} className="mt-3 text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer">
+        <button
+          onClick={() => refetch()}
+          className="mt-3 text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer"
+        >
           Retry
         </button>
       </div>
@@ -66,13 +71,14 @@ export default function PriorityAlertsPanel({ jobId, onNavigate }: PriorityAlert
   const highs = activeAlerts.filter((a) => a.severity === 'high')
   const mediums = activeAlerts.filter((a) => a.severity === 'medium')
   const infos = activeAlerts.filter((a) => a.severity === 'info')
+  const snoozedOrPending = alerts.filter((a) => !a.is_active && !a.resolved_at && !a.is_dismissed)
 
   const allEmpty = activeAlerts.length === 0
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <Header
+      {/* ── Header ──────────────────────────────────────────────────────── */}
+      <PanelHeader
         activeCount={data?.active_count ?? 0}
         criticalCount={data?.critical_count ?? 0}
         highCount={data?.high_count ?? 0}
@@ -82,23 +88,25 @@ export default function PriorityAlertsPanel({ jobId, onNavigate }: PriorityAlert
         onRefresh={refetch}
       />
 
-      {/* Critical banners — shown inline at top when on this tab */}
+      {/* ── Critical banners at top ──────────────────────────────────────── */}
       {criticals.length > 0 && (
         <AlertBanner alerts={criticals} onNavigate={onNavigate} />
       )}
 
-      {/* Empty state */}
+      {/* ── All clear empty state ────────────────────────────────────────── */}
       {allEmpty && (
         <div className="rounded-xl border border-emerald-500/15 bg-emerald-950/10 px-6 py-10 flex flex-col items-center gap-3">
           <ShieldCheck className="h-12 w-12 text-emerald-500/60" />
-          <p className="text-base font-semibold text-emerald-300">All clear. No issues detected in the last 7 days.</p>
+          <p className="text-base font-semibold text-emerald-300">
+            All clear. No issues detected in the last 7 days.
+          </p>
           <p className="text-sm text-emerald-500/60 text-center max-w-sm">
             Your AI visibility is stable. We&apos;re watching 24/7 and will alert you at the first sign of change.
           </p>
         </div>
       )}
 
-      {/* Critical alerts */}
+      {/* ── Critical ────────────────────────────────────────────────────── */}
       {criticals.length > 0 && (
         <AlertGroup label="Critical" count={criticals.length} colorClass="text-red-400">
           {criticals.map((a) => (
@@ -107,7 +115,7 @@ export default function PriorityAlertsPanel({ jobId, onNavigate }: PriorityAlert
         </AlertGroup>
       )}
 
-      {/* High alerts */}
+      {/* ── High ────────────────────────────────────────────────────────── */}
       {highs.length > 0 && (
         <AlertGroup label="High Priority" count={highs.length} colorClass="text-orange-400">
           {highs.map((a) => (
@@ -116,7 +124,7 @@ export default function PriorityAlertsPanel({ jobId, onNavigate }: PriorityAlert
         </AlertGroup>
       )}
 
-      {/* Medium alerts */}
+      {/* ── Medium ──────────────────────────────────────────────────────── */}
       {mediums.length > 0 && (
         <AlertGroup label="Medium Priority" count={mediums.length} colorClass="text-amber-400">
           {mediums.map((a) => (
@@ -125,7 +133,7 @@ export default function PriorityAlertsPanel({ jobId, onNavigate }: PriorityAlert
         </AlertGroup>
       )}
 
-      {/* Info alerts */}
+      {/* ── Info ────────────────────────────────────────────────────────── */}
       {infos.length > 0 && (
         <AlertGroup label="Informational" count={infos.length} colorClass="text-zinc-400">
           {infos.map((a) => (
@@ -134,10 +142,10 @@ export default function PriorityAlertsPanel({ jobId, onNavigate }: PriorityAlert
         </AlertGroup>
       )}
 
-      {/* Resolved / snoozed — show count if any */}
-      {alerts.length > activeAlerts.length && (
+      {/* ── Snoozed count footer ────────────────────────────────────────── */}
+      {snoozedOrPending.length > 0 && (
         <p className="text-[11px] text-zinc-600 text-center">
-          {alerts.length - activeAlerts.length} snoozed or pending resolution.
+          {snoozedOrPending.length} alert{snoozedOrPending.length !== 1 ? 's' : ''} snoozed or pending resolution.
         </p>
       )}
     </div>
@@ -146,7 +154,7 @@ export default function PriorityAlertsPanel({ jobId, onNavigate }: PriorityAlert
 
 /* ── Sub-components ─────────────────────────────────────────────────────────── */
 
-function Header({
+function PanelHeader({
   loading = false,
   activeCount = 0,
   criticalCount = 0,
