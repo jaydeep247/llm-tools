@@ -177,6 +177,7 @@ export class WinsLossesService {
         all_metrics: [],
         baseline_job_ids: null,
         has_baseline: false,
+        baseline_reason: 'missing_project',
         period_days: _periodDays,
         prior_date: null,
         current_date: null,
@@ -195,16 +196,18 @@ export class WinsLossesService {
     //    is stored (string vs Date) and regardless of whether the run came from
     //    Module E quick start or other pipelines.
     // -----------------------------------------------------------------------
-    const now = new Date();
-    const currentFrom = new Date(now);
+    const anchorDate = (job as any)?.createdAt ? new Date((job as any).createdAt) : new Date();
+    const currentTo = new Date(anchorDate);
+    const currentFrom = new Date(anchorDate);
     currentFrom.setDate(currentFrom.getDate() - _periodDays);
-    const priorFrom = new Date(now);
+    const priorTo = new Date(currentFrom);
+    const priorFrom = new Date(anchorDate);
     priorFrom.setDate(priorFrom.getDate() - _periodDays * 2);
 
     const snapshotsInRange = await db
       .collection('cbm_citation_snapshots')
       .find(
-        { projectId, entityType: 'client', createdAt: { $gte: priorFrom } },
+        { projectId, entityType: 'client', createdAt: { $gte: priorFrom, $lte: currentTo } },
         {
           projection: {
             jobId: 1,
@@ -229,42 +232,17 @@ export class WinsLossesService {
       const jId = String((s as any).jobId ?? '');
       if (!jId || Number.isNaN(createdAt.getTime())) continue;
 
-      if (createdAt >= currentFrom) {
+      if (createdAt >= currentFrom && createdAt <= currentTo) {
         currentSnapshots.push(s);
         if (!currentLatest || createdAt > currentLatest.createdAt) currentLatest = { createdAt, jobId: jId };
-      } else {
+      } else if (createdAt >= priorFrom && createdAt < priorTo) {
         priorSnapshots.push(s);
         if (!priorLatest || createdAt > priorLatest.createdAt) priorLatest = { createdAt, jobId: jId };
       }
     }
 
-    // If the prior window has no data yet (common on Day 1), fall back to
-    // "two most-recent distinct job runs" within the last 2N days. This matches
-    // the product expectation of "run twice to see comparison" without waiting a week.
     let currentJobId: string | null = currentLatest?.jobId ?? null;
     let priorJobId: string | null = priorLatest?.jobId ?? null;
-
-    if (!priorJobId) {
-      const jobGroups = await db
-        .collection('cbm_citation_snapshots')
-        .aggregate([
-          { $match: { projectId, entityType: 'client', createdAt: { $gte: priorFrom } } },
-          {
-            $group: {
-              _id: '$jobId',
-              latestCreatedAt: { $max: '$createdAt' },
-            },
-          },
-          { $sort: { latestCreatedAt: -1 } },
-          { $limit: 2 },
-        ])
-        .toArray();
-
-      if (jobGroups.length >= 2) {
-        currentJobId = String(jobGroups[0]._id);
-        priorJobId = String(jobGroups[1]._id);
-      }
-    }
 
     if (!currentJobId || !priorJobId) {
       return {
@@ -273,21 +251,15 @@ export class WinsLossesService {
         all_metrics: [],
         baseline_job_ids: null,
         has_baseline: false,
+        baseline_reason: !currentJobId ? 'missing_current_window' : 'missing_prior_window',
         period_days: _periodDays,
         current_date: currentFrom.toISOString(),
         prior_date: priorFrom.toISOString(),
       };
     }
 
-    // When using the job-run fallback, rebuild window lists based on jobIds so
-    // aggregation is consistent with the chosen baseline.
-    const useJobFallback = !priorLatest?.jobId;
-    const effectiveCurrentSnapshots = useJobFallback
-      ? snapshotsInRange.filter((s: any) => String(s.jobId ?? '') === currentJobId)
-      : currentSnapshots;
-    const effectivePriorSnapshots = useJobFallback
-      ? snapshotsInRange.filter((s: any) => String(s.jobId ?? '') === priorJobId)
-      : priorSnapshots;
+    const effectiveCurrentSnapshots = currentSnapshots;
+    const effectivePriorSnapshots = priorSnapshots;
 
     const currentDate = currentFrom.toISOString();
     const priorDate = priorFrom.toISOString();
@@ -303,13 +275,13 @@ export class WinsLossesService {
     const [curWindowJobs, priWindowJobs] = await Promise.all([
       db.collection('jobs')
         .find(
-          { projectId, status: 'COMPLETED', createdAt: { $gte: currentFrom } },
+          { projectId, status: 'COMPLETED', createdAt: { $gte: currentFrom, $lte: currentTo } },
           { projection: { id: 1 }, sort: { createdAt: -1 } } as any,
         )
         .toArray(),
       db.collection('jobs')
         .find(
-          { projectId, status: 'COMPLETED', createdAt: { $gte: priorFrom, $lt: currentFrom } },
+          { projectId, status: 'COMPLETED', createdAt: { $gte: priorFrom, $lt: priorTo } },
           { projection: { id: 1 }, sort: { createdAt: -1 } } as any,
         )
         .toArray(),
@@ -556,6 +528,7 @@ export class WinsLossesService {
       all_metrics: rows,
       baseline_job_ids: { current: currentJobId, prior: priorJobId },
       has_baseline: true,
+      baseline_reason: null,
       period_days: _periodDays,
       current_date: currentDate,
       prior_date: priorDate,

@@ -31,6 +31,7 @@ export interface WinsLossesData {
   all_metrics?: WLMetricRow[];
   baseline_job_ids?: { current: string; prior: string } | null;
   has_baseline: boolean;
+  baseline_reason?: 'missing_project' | 'missing_current_window' | 'missing_prior_window' | null;
   period_days: number;
   prior_date: string | null;
   current_date: string | null;

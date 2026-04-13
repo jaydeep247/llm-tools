@@ -92,7 +92,25 @@ function SkeletonRows() {
 /* ==========================================================================
    No-baseline empty state
    ========================================================================== */
-function NoBaselineState({ onRun, isRunning }: { onRun?: () => void; isRunning?: boolean }) {
+function getNoBaselineCopy(reason?: 'missing_project' | 'missing_current_window' | 'missing_prior_window' | null) {
+  if (reason === 'missing_prior_window') {
+    return 'The selected run has current-period data, but there is no earlier period to compare against yet. Runs from the same day or same comparison window do not count as a baseline.'
+  }
+  if (reason === 'missing_current_window') {
+    return 'This run does not have enough current-period snapshot data yet, so wins and losses cannot be calculated.'
+  }
+  return 'Your first comparison appears after Colytics collects data across two periods. Run analysis again later, then return here to see wins, losses, and recommended fixes.'
+}
+
+function NoBaselineState({
+  onRun,
+  isRunning,
+  reason,
+}: {
+  onRun?: () => void
+  isRunning?: boolean
+  reason?: 'missing_project' | 'missing_current_window' | 'missing_prior_window' | null
+}) {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center gap-5">
       <div className="w-14 h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center">
@@ -101,8 +119,7 @@ function NoBaselineState({ onRun, isRunning }: { onRun?: () => void; isRunning?:
       <div className="space-y-2">
         <h3 className="text-lg font-semibold text-white">No baseline yet</h3>
         <p className="text-zinc-400 text-sm max-w-sm">
-          Your first comparison appears after Colytics collects data across two periods. Run
-          analysis again later, then return here to see wins, losses, and recommended fixes.
+          {getNoBaselineCopy(reason)}
         </p>
       </div>
       {onRun && (
@@ -551,7 +568,11 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
 
       {/* ── No baseline state (has_baseline: false) ──────────────────────── */}
       {!loading && data && !data.has_baseline && (
-        <NoBaselineState onRun={handleRunAnalysis} isRunning={isTriggering || runQueued} />
+        <NoBaselineState
+          onRun={handleRunAnalysis}
+          isRunning={isTriggering || runQueued}
+          reason={data.baseline_reason}
+        />
       )}
 
       {/* ── No movement at all ───────────────────────────────────────────── */}

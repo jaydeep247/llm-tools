@@ -34,6 +34,7 @@ export interface WinsLossesResponse {
   baseline_job_ids: { current: string; prior: string } | null;
   /** true when at least 2 module_F runs exist on different dates for this project */
   has_baseline: boolean;
+  baseline_reason?: 'missing_project' | 'missing_current_window' | 'missing_prior_window' | null;
   period_days: number;
   prior_date: string | null;
   current_date: string | null;
