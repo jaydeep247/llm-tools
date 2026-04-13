@@ -118,10 +118,8 @@ export default function CompetitorReportsPanel({
   const loadingCombined = isLoading || isLoadingReport
 
   // No prior job — show insufficient data state
-  const noPriorJob =
-    !loadingCombined &&
-    reportData?.meta?.prior_job_id === '' &&
-    filteredCompetitors.length === 0
+  const noPriorJob = !loadingCombined && reportData?.meta?.prior_job_id === ''
+  const showSnapshotNotice = noPriorJob && filteredCompetitors.length > 0
 
   const primaryModelByCompetitor = useMemo(() => {
     const out: Record<string, string> = {}
@@ -352,13 +350,23 @@ export default function CompetitorReportsPanel({
         </div>
       )}
 
+      {showSnapshotNotice && (
+        <div className={cn(CARD_CLASS, 'p-5')}>
+          <p className="text-zinc-200 font-medium">Showing current competitor snapshot</p>
+          <p className="text-zinc-500 text-sm mt-1">
+            This is your first completed analysis in the selected period. Current competitor data
+            is available now, and deltas will appear automatically after a later comparison run.
+          </p>
+        </div>
+      )}
+
       {/* ── No prior job / insufficient data ────────────────────────────── */}
-      {noPriorJob && (
+      {noPriorJob && !hasData && (
         <div className={cn(CARD_CLASS, 'p-10 text-center')}>
           <p className="text-zinc-300 font-medium">Comparison data not yet available</p>
           <p className="text-zinc-500 text-sm mt-1">
-            Competitor reports require at least 2 analysis runs. Run another analysis to see
-            changes.
+            Your first run has finished, but no competitor snapshot data was found yet for this
+            period. Run analysis again after competitor tracking is configured to see changes.
           </p>
         </div>
       )}
@@ -383,7 +391,7 @@ export default function CompetitorReportsPanel({
       )}
 
       {/* ── Main content ─────────────────────────────────────────────────── */}
-      {!loadingCombined && !noPriorJob && hasData && (
+      {!loadingCombined && hasData && (
         <>
           {/* SoV Comparison Table */}
           <div className={cn(CARD_CLASS, 'p-4 md:p-5 overflow-x-auto')}>

@@ -47,23 +47,9 @@ export class CompetitorReportsService {
       { projectId, status: 'COMPLETED', createdAt: { $lte: baselineCutoff } },
       { sort: { createdAt: -1 }, projection: { id: 1, createdAt: 1 } },
     );
-    if (!priorJob?.id) {
-      return {
-        meta: {
-          project_id: projectId,
-          period,
-          period_days: periodDays,
-          current_job_id: String(currentJob.id),
-          prior_job_id: '',
-          compared_to_label: '',
-        },
-        competitors: [],
-        top_pages: [],
-      };
-    }
 
     const currentJobId = String(currentJob.id);
-    const priorJobId = String(priorJob.id);
+    const priorJobId = priorJob?.id ? String(priorJob.id) : '';
 
     // Aggregate SoV + citations per competitor per model for both jobs.
     type RowAgg = {
@@ -96,7 +82,10 @@ export class CompetitorReportsService {
       return rows as any;
     };
 
-    const [curAgg, priAgg] = await Promise.all([aggForJob(currentJobId), aggForJob(priorJobId)]);
+    const [curAgg, priAgg] = await Promise.all([
+      aggForJob(currentJobId),
+      priorJobId ? aggForJob(priorJobId) : Promise.resolve([] as RowAgg[]),
+    ]);
 
     const byKey = (rows: RowAgg[]) => {
       const out = new Map<string, RowAgg>();
@@ -224,7 +213,7 @@ export class CompetitorReportsService {
       })) : [],
     }));
 
-    const comparedLabel = `Compared to ${priorJobId}`;
+    const comparedLabel = priorJobId ? `Compared to ${priorJobId}` : 'Current analysis snapshot';
     logger.info(`[COMPETITOR_REPORTS] project=${projectId} period=${period} cur=${currentJobId} prior=${priorJobId} competitors=${competitors.length}`);
 
     return {
