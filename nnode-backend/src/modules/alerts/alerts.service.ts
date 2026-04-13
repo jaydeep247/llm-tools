@@ -64,26 +64,34 @@ interface PendingAlert {
 }
 
 async function evaluateScoreDrop(db: any, projectId: string): Promise<PendingAlert[]> {
-  // module_c has no projectId — join via jobs collection
-  const jobIds = await db
+  // PDF: compare current vs 7-day baseline (not "previous run").
+  const currentJob = await db
     .collection('jobs')
-    .distinct('id', { projectId, status: 'COMPLETED' });
+    .findOne({ projectId, status: 'COMPLETED' }, { sort: { createdAt: -1 }, projection: { id: 1, createdAt: 1 } });
+  if (!currentJob?.id || !currentJob?.createdAt) return [];
 
-  if (jobIds.length === 0) return [];
+  const baselineCutoff = new Date(currentJob.createdAt);
+  baselineCutoff.setDate(baselineCutoff.getDate() - 7);
 
-  // Find two most-recent module_c docs for this project
-  const recentDocs = await db
-    .collection('module_c')
-    .find({ jobId: { $in: jobIds } }, { projection: { overall_score: 1, timestamp: 1, jobId: 1 } })
-    .sort({ timestamp: -1 })
-    .limit(2)
-    .toArray();
+  const baselineJob = await db.collection('jobs').findOne(
+    { projectId, status: 'COMPLETED', createdAt: { $lte: baselineCutoff } },
+    { sort: { createdAt: -1 }, projection: { id: 1 } },
+  );
+  if (!baselineJob?.id) return [];
 
-  if (recentDocs.length < 2) return [];
+  const [curDoc, baseDoc] = await Promise.all([
+    db.collection('module_c').findOne(
+      { jobId: String(currentJob.id) },
+      { projection: { overall_score: 1 }, sort: { timestamp: -1 } } as any,
+    ),
+    db.collection('module_c').findOne(
+      { jobId: String(baselineJob.id) },
+      { projection: { overall_score: 1 }, sort: { timestamp: -1 } } as any,
+    ),
+  ]);
 
-  const current = typeof recentDocs[0]?.overall_score === 'number' ? recentDocs[0].overall_score : null;
-  const prev = typeof recentDocs[1]?.overall_score === 'number' ? recentDocs[1].overall_score : null;
-
+  const current = typeof curDoc?.overall_score === 'number' ? curDoc.overall_score : null;
+  const prev = typeof baseDoc?.overall_score === 'number' ? baseDoc.overall_score : null;
   if (current === null || prev === null) return [];
 
   const drop = prev - current;
@@ -118,11 +126,39 @@ async function evaluateCrawlFailure(db: any, jobId: string): Promise<PendingAler
     }];
   }
 
-  // Check crawl_status in job_summaries for soft failure / paused states
-  const summary = await db
-    .collection('job_summaries')
-    .findOne({ jobId }, { projection: { crawl_status: 1 } });
+  // PDF: CRITICAL when crawl failure on > 15% of pages.
+  // Use pages.status_code (crawler output) with fallback to pages.statusCode.
+  const [totalPages, failedPages, summary] = await Promise.all([
+    db.collection('job_summaries').findOne({ jobId }, { projection: { total_pages: 1, crawl_status: 1 } }),
+    db.collection('pages').countDocuments({
+      jobId,
+      $or: [
+        { status_code: { $gte: 400 } },
+        { statusCode: { $gte: 400 } },
+      ],
+    }),
+    db.collection('job_summaries').findOne({ jobId }, { projection: { crawl_status: 1 } }),
+  ]);
 
+  const total = typeof (totalPages as any)?.total_pages === 'number'
+    ? (totalPages as any).total_pages
+    : await db.collection('pages').countDocuments({ jobId });
+
+  if (total > 0) {
+    const failPct = (failedPages / total) * 100;
+    if (failPct > 15) {
+      return [{
+        alert_type: 'crawl_fail',
+        severity: 'critical',
+        message: `CRITICAL: Crawl failures detected on ${failPct.toFixed(0)}% of pages. This impacts your visibility data accuracy.`,
+        recommendation: 'Review server response codes for failed URLs, robots.txt rules, redirects, and rate limiting. Fix 4xx/5xx and re-run the crawl to restore full coverage.',
+        affected_metric: `${failedPages}/${total} pages failed`,
+        affected_model: null,
+      }];
+    }
+  }
+
+  // Soft failure statuses (still useful as a HIGH alert)
   if (summary?.crawl_status === 'failed' || summary?.crawl_status === 'error') {
     return [{
       alert_type: 'crawl_fail',
@@ -313,33 +349,40 @@ async function evaluatePromptZeroVisibility(db: any, jobId: string): Promise<Pen
 }
 
 async function evaluateSovDrop(db: any, projectId: string): Promise<PendingAlert[]> {
-  // module_e has no projectId — join via jobs collection
-  const jobIds = await db
+  // PDF: Share of Voice drops > 5 points in 30 days.
+  const currentJob = await db
     .collection('jobs')
-    .distinct('id', { projectId, status: 'COMPLETED' });
+    .findOne({ projectId, status: 'COMPLETED' }, { sort: { createdAt: -1 }, projection: { id: 1, createdAt: 1 } });
+  if (!currentJob?.id || !currentJob?.createdAt) return [];
 
-  if (jobIds.length === 0) return [];
+  const baselineCutoff = new Date(currentJob.createdAt);
+  baselineCutoff.setDate(baselineCutoff.getDate() - 30);
 
-  // Compare module_e.ai_share_of_voice.overall_sov between two most-recent runs
-  const runs = await db
-    .collection('module_e')
-    .find(
-      { jobId: { $in: jobIds } },
-      { projection: { 'ai_share_of_voice.overall_sov': 1, createdAt: 1, jobId: 1 } },
-    )
-    .sort({ createdAt: -1 })
-    .limit(2)
-    .toArray();
+  const baselineJob = await db.collection('jobs').findOne(
+    { projectId, status: 'COMPLETED', createdAt: { $lte: baselineCutoff } },
+    { sort: { createdAt: -1 }, projection: { id: 1 } },
+  );
+  if (!baselineJob?.id) return [];
 
-  if (runs.length < 2) return [];
+  const sovForJob = async (jobId: string): Promise<number | null> => {
+    const agg = await db.collection('cbm_citation_snapshots').aggregate([
+      { $match: { projectId, jobId, entityType: 'client' } },
+      {
+        $group: {
+          _id: null,
+          sovSum: { $sum: { $cond: [{ $isNumber: '$shareOfVoice' }, '$shareOfVoice', 0] } },
+          sovN: { $sum: { $cond: [{ $isNumber: '$shareOfVoice' }, 1, 0] } },
+        },
+      },
+    ]).toArray();
+    if (!agg[0] || (agg[0] as any).sovN <= 0) return null;
+    return (agg[0] as any).sovSum / (agg[0] as any).sovN;
+  };
 
-  const current = typeof runs[0]?.ai_share_of_voice?.overall_sov === 'number'
-    ? runs[0].ai_share_of_voice.overall_sov
-    : null;
-  const prev = typeof runs[1]?.ai_share_of_voice?.overall_sov === 'number'
-    ? runs[1].ai_share_of_voice.overall_sov
-    : null;
-
+  const [current, prev] = await Promise.all([
+    sovForJob(String(currentJob.id)),
+    sovForJob(String(baselineJob.id)),
+  ]);
   if (current === null || prev === null) return [];
 
   const drop = prev - current;

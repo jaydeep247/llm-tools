@@ -5,6 +5,7 @@ import { logger } from './shared/logger/logger';
 import { initSocket } from './socket';
 import { startJobEventsConsumer } from './consumers/job-events.consumer';
 import { urlCacheRepository } from './modules/url_cache/urlCache.repository';
+import { startWeeklyReportsScheduler } from './modules/weekly_reports/weekly_reports.scheduler';
 
 const startServer = async () => {
   try {
@@ -30,6 +31,8 @@ const startServer = async () => {
 
     // Start Job Events Consumer
     startJobEventsConsumer();
+
+    startWeeklyReportsScheduler();
 
     // Graceful shutdown
     const gracefulShutdown = async (signal: string) => {

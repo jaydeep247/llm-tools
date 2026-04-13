@@ -77,7 +77,7 @@ interface KpiData {
 }
 
 async function fetchKpiData(db: ReturnType<typeof getMongoDb>, jobId: string): Promise<KpiData> {
-  const [aivsDoc, healthAgg, moduleE, jobSummary] = await Promise.all([
+  const [aivsDoc, healthAgg, citationAgg, jobSummary] = await Promise.all([
     // AIVS score from module_c
     db
       .collection('module_c')
@@ -99,10 +99,20 @@ async function fetchKpiData(db: ReturnType<typeof getMongoDb>, jobId: string): P
       ])
       .toArray(),
 
-    // Citations & SOV from module_e (most recent doc)
     db
-      .collection('module_e')
-      .findOne({ jobId }, { projection: { brand_analysis: 1, ai_share_of_voice: 1 } }),
+      .collection('cbm_citation_snapshots')
+      .aggregate([
+        { $match: { jobId, entityType: 'client' } },
+        {
+          $group: {
+            _id: null,
+            citations: { $sum: { $cond: [{ $eq: ['$citationPresent', true] }, 1, 0] } },
+            sovSum: { $sum: { $cond: [{ $isNumber: '$shareOfVoice' }, '$shareOfVoice', 0] } },
+            sovN: { $sum: { $cond: [{ $isNumber: '$shareOfVoice' }, 1, 0] } },
+          },
+        },
+      ])
+      .toArray(),
 
     // Crawl stats from job_summaries
     db
@@ -117,12 +127,15 @@ async function fetchKpiData(db: ReturnType<typeof getMongoDb>, jobId: string): P
       ? Math.round(healthAgg[0].avg_health_score)
       : null;
   const citationCount =
-    typeof (moduleE as any)?.brand_analysis?.total_mentions === 'number'
-      ? (moduleE as any).brand_analysis.total_mentions
+    citationAgg.length > 0 && typeof (citationAgg[0] as any)?.citations === 'number'
+      ? (citationAgg[0] as any).citations
       : null;
   const sovPercent =
-    typeof (moduleE as any)?.ai_share_of_voice?.overall_sov === 'number'
-      ? parseFloat(((moduleE as any).ai_share_of_voice.overall_sov).toFixed(1))
+    citationAgg.length > 0 &&
+    typeof (citationAgg[0] as any)?.sovSum === 'number' &&
+    typeof (citationAgg[0] as any)?.sovN === 'number' &&
+    (citationAgg[0] as any).sovN > 0
+      ? parseFloat((((citationAgg[0] as any).sovSum / (citationAgg[0] as any).sovN) as number).toFixed(1))
       : null;
 
   const rawCrawlStatus = (jobSummary as any)?.crawl_status ?? null;
@@ -215,7 +228,7 @@ export class ExecutiveSnapshotService {
     this.jobService = new JobService();
   }
 
-  async getSnapshot(userId: string, jobId: string): Promise<ExecutiveSnapshotResponse> {
+  async getSnapshot(userId: string, jobId: string, periodDays: number = 7): Promise<ExecutiveSnapshotResponse> {
     // Validate ownership
     const job = await this.jobService.getJobById(userId, jobId);
     const effectiveId = await this.jobRepository.resolveEffectiveJobId(jobId);
@@ -242,6 +255,9 @@ export class ExecutiveSnapshotService {
     let sovBaseline: number | null = null;
 
     try {
+      const baselineCutoff = new Date(job.createdAt);
+      baselineCutoff.setDate(baselineCutoff.getDate() - Math.max(1, periodDays));
+
       const previousJob = await db
         .collection('jobs')
         .findOne(
@@ -249,7 +265,7 @@ export class ExecutiveSnapshotService {
             projectId: job.projectId,
             id: { $ne: effectiveId },
             status: JobStatus.COMPLETED,
-            createdAt: { $lt: job.createdAt },
+            createdAt: { $lt: baselineCutoff },
           },
           { sort: { createdAt: -1 } },
         );

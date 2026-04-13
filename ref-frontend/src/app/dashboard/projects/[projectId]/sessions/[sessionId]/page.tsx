@@ -26,6 +26,8 @@ import PriorityAlertsPanel from '@/components/alerts/PriorityAlertsPanel'
 import AuditReportsPanel from '@/components/audit-reports/AuditReportsPanel'
 import { ExportApiHub } from '@/components/export-api/ExportApiHub'
 import { AlertBanner } from '@/components/alerts/AlertBanner'
+import CompetitorReportsPanel from '@/components/competitor-reports/CompetitorReportsPanel'
+import WeeklySummaryPanel from '@/components/weekly-summary/WeeklySummaryPanel'
 import { useGetAlertsQuery } from '@/store/api/alertsApi'
 import { BrandOnboardingResultsPanel } from '@/components/brand-onboarding/BrandOnboardingResultsPanel'
 import { useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
@@ -1145,6 +1147,15 @@ export default function SessionDetailPage() {
           />
         )}
 
+        {activeSection === 'weekly-summary' && (
+          <WeeklySummaryPanel
+            projectId={projectId}
+            jobId={jobId}
+            domainLabel={project?.name}
+            onNavigate={handleSectionChange}
+          />
+        )}
+
         {/* Priority Alerts */}
         {activeSection === 'priority-alerts' && (
           <PriorityAlertsPanel
@@ -1157,6 +1168,16 @@ export default function SessionDetailPage() {
         {activeSection === 'audit-reports' && (
           <AuditReportsPanel
             jobId={jobId}
+            onNavigate={handleSectionChange}
+          />
+        )}
+
+        {/* Competitor Reports */}
+        {activeSection === 'competitor-reports' && (
+          <CompetitorReportsPanel
+            jobId={jobId}
+            data={moduleFQueryData?.data}
+            isLoading={isLoadingModuleF}
             onNavigate={handleSectionChange}
           />
         )}

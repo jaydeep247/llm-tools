@@ -1,7 +1,7 @@
 export type WLDirection = 'WIN' | 'LOSS' | 'STABLE';
 export type WLImpact = 'HIGH' | 'MEDIUM' | 'LOW';
 export type WLEffort = 'LOW' | 'MEDIUM' | 'HIGH';
-export type WLCategory = 'Citations' | 'Share of Voice' | 'Visibility' | 'AIVS';
+export type WLCategory = 'Citations' | 'Share of Voice' | 'Visibility' | 'AIVS' | 'Prompt Coverage';
 export type WLModel = 'ChatGPT' | 'Gemini' | 'Perplexity' | 'Claude' | string;
 
 export interface WLFix {
@@ -28,6 +28,10 @@ export interface WLMetricRow {
 export interface WinsLossesResponse {
   wins: WLMetricRow[];
   losses: WLMetricRow[];
+  /** Full metric grid (includes STABLE rows). Used by weekly summary KPIs. */
+  all_metrics: WLMetricRow[];
+  /** Resolved comparison jobs when has_baseline; null otherwise */
+  baseline_job_ids: { current: string; prior: string } | null;
   /** true when at least 2 module_F runs exist on different dates for this project */
   has_baseline: boolean;
   period_days: number;

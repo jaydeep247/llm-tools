@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   TrendingUp,
   TrendingDown,
@@ -18,19 +18,21 @@ import { cn } from '@/lib/utils'
 import { useGetWinsLossesQuery } from '@/store/api/winsLossesApi'
 import type { WLMetricRow, WLCategory, WLFix } from '@/store/api/winsLossesApi'
 import { useRunModuleFAnalysisMutation } from '@/store/api/module_F/moduleFApi'
+import { useAppDispatch, useAppSelector } from '@/store/hooks'
+import { selectDateRangePreset, setPreset } from '@/store/slices/dateRangeSlice'
 
 /* ==========================================================================
    Types & constants
    ========================================================================== */
 
 type Period = '7d' | '30d'
-type CategoryFilter = 'ALL' | WLCategory
+type CategoryFilter = 'ALL' | 'Citations' | 'Share of Voice' | 'AIVS Dimensions' | 'Prompts'
 const ALL_CATEGORIES: { id: CategoryFilter; label: string }[] = [
   { id: 'ALL', label: 'All' },
   { id: 'Citations', label: 'Citations' },
   { id: 'Share of Voice', label: 'Share of Voice' },
-  { id: 'Visibility', label: 'AIVS Dimensions' },
-  { id: 'AIVS', label: 'Prompts' },
+  { id: 'AIVS Dimensions', label: 'AIVS Dimensions' },
+  { id: 'Prompts', label: 'Prompts' },
 ]
 
 const MODEL_COLORS: Record<string, string> = {
@@ -83,8 +85,8 @@ function NoBaselineState({ onRun, isRunning }: { onRun?: () => void; isRunning?:
       <div className="space-y-2">
         <h3 className="text-lg font-semibold text-white">No baseline yet</h3>
         <p className="text-zinc-400 text-sm max-w-sm">
-          Wins &amp; Losses needs at least two Competitor AI Intelligence runs to compare. Run it
-          once now, then run it again to see your first comparison.
+          Your first comparison appears after Colytics collects data across two periods. Run analysis again later,
+          then return here to see wins, losses, and recommended fixes.
         </p>
       </div>
       {onRun && (
@@ -96,7 +98,7 @@ function NoBaselineState({ onRun, isRunning }: { onRun?: () => void; isRunning?:
           {isRunning ? (
             <><Loader2 className="h-4 w-4 animate-spin" />Queuing analysis…</>
           ) : (
-            <><RefreshCw className="h-4 w-4" />Run Competitor AI Intelligence</>          
+            <><RefreshCw className="h-4 w-4" />Run analysis</>
           )}
         </button>
       )}
@@ -198,7 +200,17 @@ function FixChip({ fix, onNavigate }: { fix: WLFix; onNavigate?: (tab: string) =
 /* ==========================================================================
    Win Row
    ========================================================================== */
-function WinRow({ row, onNavigate, activeModel }: { row: WLMetricRow; onNavigate?: (tab: string) => void; activeModel: string | null }) {
+function WinRow({
+  row,
+  onNavigate,
+  activeModel,
+  periodLabel,
+}: {
+  row: WLMetricRow
+  onNavigate?: (tab: string) => void
+  activeModel: string | null
+  periodLabel: string
+}) {
   const dimmed = activeModel !== null && row.model !== activeModel
 
   return (
@@ -213,9 +225,10 @@ function WinRow({ row, onNavigate, activeModel }: { row: WLMetricRow; onNavigate
         row.category === 'Citations' ? 'prompt-opportunities' :
         row.category === 'Share of Voice' ? 'share-of-voice' :
         row.category === 'AIVS' ? 'ai-visibility-scorecards' :
+        row.category === 'Prompt Coverage' ? 'prompt-opportunities' :
         'keyword-intelligence',
       )}
-      title={`This metric improved by ${row.delta > 0 ? '+' : ''}${formatValue(row.delta)} compared to the previous ${row.category}.`}
+      title={`This metric improved by ${row.delta > 0 ? '+' : ''}${formatValue(row.delta)} compared to the previous ${periodLabel}.`}
     >
       <div className="flex items-start gap-3">
         <div className="mt-0.5 w-7 h-7 rounded-lg bg-emerald-500/15 flex items-center justify-center shrink-0">
@@ -278,6 +291,16 @@ function LossRow({ row, onNavigate, activeModel }: { row: WLMetricRow; onNavigat
               <ChevronRight className="h-3 w-3 text-zinc-600" />
               <span className="text-rose-300 font-semibold">{formatValue(row.current)}</span>
             </div>
+            {!expanded && row.fix && (
+              <div className="mt-2 inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-500/15">
+                <span className="text-[10px] font-bold uppercase tracking-wide text-rose-400">
+                  Recommended Fix
+                </span>
+                <span className="text-[11px] text-zinc-300 truncate max-w-[260px]">
+                  {row.fix.title}
+                </span>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <span className="px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-300 text-[12px] font-bold">
@@ -309,7 +332,9 @@ interface WinsLossesPanelProps {
 }
 
 export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelProps) {
-  const [period, setPeriod] = useState<Period>('7d')
+  const dispatch = useAppDispatch()
+  const preset = useAppSelector((s: any) => selectDateRangePreset(s))
+  const period: Period = preset
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('ALL')
   const [activeModel, setActiveModel] = useState<string | null>(null)
   const [runQueued, setRunQueued] = useState(false)
@@ -328,30 +353,47 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
 
   const { data, isLoading, isFetching, refetch } = useGetWinsLossesQuery(
     { jobId: jobId!, period },
-    { skip: !jobId },
+    { skip: !jobId, refetchOnMountOrArgChange: true },
   )
 
   // Collect models from data for the model filter pills
-  const allModels = data
-    ? Array.from(new Set([...data.wins, ...data.losses].map((r) => r.model)))
-    : []
+  const allModels = useMemo(
+    () => (data ? Array.from(new Set([...data.wins, ...data.losses].map((r) => r.model))) : []),
+    [data],
+  )
+
+  const rowMatchesFilters = (r: WLMetricRow) => {
+    if (categoryFilter === 'Citations' && r.category !== 'Citations') return false
+    if (categoryFilter === 'Share of Voice' && r.category !== 'Share of Voice') return false
+    if (categoryFilter === 'Prompts' && r.category !== 'Prompt Coverage') return false
+    if (categoryFilter === 'AIVS Dimensions' && !(r.category === 'AIVS' || r.category === 'Visibility')) return false
+    if (activeModel !== null && r.model !== activeModel) return false
+    return true
+  }
 
   const filterRows = (rows: WLMetricRow[]) => {
     let filtered = rows
-    if (categoryFilter !== 'ALL') {
-      filtered = filtered.filter((r) => r.category === categoryFilter)
-    }
-    if (activeModel !== null) {
-      filtered = filtered.filter((r) => r.model === activeModel)
-    }
+    if (categoryFilter !== 'ALL' || activeModel !== null) filtered = filtered.filter(rowMatchesFilters)
     return filtered
   }
+
+  const filteredWins = data ? filterRows(data.wins) : []
+  const filteredLosses = data ? filterRows(data.losses) : []
+  const filteredAllMetrics = data?.all_metrics ? data.all_metrics.filter(rowMatchesFilters) : []
+  const filteredStableMetrics = filteredAllMetrics.filter((r) => r.direction === 'STABLE')
+  const hasOnlyStableForCurrentFilter =
+    !!data &&
+    data.has_baseline &&
+    filteredWins.length === 0 &&
+    filteredLosses.length === 0 &&
+    filteredStableMetrics.length > 0
 
   const handleModelClick = (model: string) => {
     setActiveModel((prev) => (prev === model ? null : model))
   }
 
   const loading = isLoading || isFetching
+  const periodLabel = period === '7d' ? '7 days' : '30 days'
 
   return (
     <div className="space-y-6 animate-fade-in-hero">
@@ -369,7 +411,7 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
             {(['7d', '30d'] as Period[]).map((p) => (
               <button
                 key={p}
-                onClick={() => setPeriod(p)}
+                onClick={() => dispatch(setPreset(p))}
                 className={cn(
                   'px-4 py-2 text-sm font-medium transition-colors',
                   period === p
@@ -395,31 +437,38 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
 
       {/* Model filter pills */}
       {allModels.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[11px] text-zinc-500 uppercase tracking-wide font-semibold mr-1">Model</span>
-          {allModels.map((model) => (
-            <button
-              key={model}
-              onClick={() => handleModelClick(model)}
-              className={cn(
-                'px-3 py-1 rounded-full text-[12px] font-semibold transition-all duration-200',
-                activeModel === model
-                  ? modelColor(model, true)
-                  : activeModel !== null
-                  ? cn(modelColor(model), 'opacity-40')
-                  : modelColor(model),
-              )}
-            >
-              {model}
-            </button>
-          ))}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] text-zinc-500 uppercase tracking-wide font-semibold mr-1">Model</span>
+            {allModels.map((model) => (
+              <button
+                key={model}
+                onClick={() => handleModelClick(model)}
+                className={cn(
+                  'px-3 py-1 rounded-full text-[12px] font-semibold transition-all duration-200',
+                  activeModel === model
+                    ? modelColor(model, true)
+                    : activeModel !== null
+                    ? cn(modelColor(model), 'opacity-40')
+                    : modelColor(model),
+                )}
+              >
+                {model}
+              </button>
+            ))}
+          </div>
           {activeModel && (
-            <button
-              onClick={() => setActiveModel(null)}
-              className="px-3 py-1 rounded-full text-[12px] text-zinc-400 hover:text-white border border-zinc-700/50 hover:border-zinc-600 transition-colors"
-            >
-              Clear filter
-            </button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[12px] text-zinc-500">
+                Showing <span className="text-zinc-300 font-medium">{activeModel}</span> data only. Click again to show all models.
+              </span>
+              <button
+                onClick={() => setActiveModel(null)}
+                className="px-3 py-1 rounded-full text-[12px] text-zinc-400 hover:text-white border border-zinc-700/50 hover:border-zinc-600 transition-colors"
+              >
+                Show all models
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -459,15 +508,40 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
       )}
 
       {/* All empty (no movement) */}
-      {!loading && data && data.has_baseline && data.wins.length === 0 && data.losses.length === 0 && (
+      {!loading && data && data.has_baseline && data.wins.length === 0 && data.losses.length === 0 && !hasOnlyStableForCurrentFilter && (
         <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
           <div className="w-14 h-14 rounded-2xl bg-zinc-800 flex items-center justify-center">
             <Minus className="h-7 w-7 text-zinc-500" />
           </div>
           <div>
             <h3 className="text-lg font-semibold text-white mb-1">No movement detected this period</h3>
-            <p className="text-zinc-400 text-sm">All metrics are stable. Continue your current strategy.</p>
+            <p className="text-zinc-400 text-sm max-w-md">
+              No movement detected this period. This means no data was collected. Ensure prompt tracking is active.
+            </p>
           </div>
+          {onNavigate && (
+            <button
+              onClick={() => onNavigate('keyword-intelligence')}
+              className="px-5 py-2.5 rounded-xl bg-white/10 border border-white/15 text-white text-sm font-semibold hover:bg-white/15 hover:border-white/25 transition-all"
+            >
+              Set Up Prompt Tracking
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Stable-only state for current filter (especially Prompts tab) */}
+      {!loading && hasOnlyStableForCurrentFilter && (
+        <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-zinc-800 flex items-center justify-center">
+            <Minus className="h-6 w-6 text-zinc-400" />
+          </div>
+          <h3 className="text-lg font-semibold text-white">All selected metrics are stable</h3>
+          <p className="text-zinc-400 text-sm max-w-xl">
+            {categoryFilter === 'Prompts'
+              ? `Prompt visibility and prompt appearance metrics are stable for ${periodLabel} compared to the previous ${periodLabel}.`
+              : `No win/loss movement for the selected filters. Metrics are stable for ${periodLabel} compared to the previous ${periodLabel}.`}
+          </p>
         </div>
       )}
 
@@ -495,18 +569,19 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
                   Wins
                 </h3>
                 <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[11px] font-bold">
-                  {filterRows(data.wins).length}
+                  {filteredWins.length}
                 </span>
               </div>
-              {filterRows(data.wins).length === 0 ? (
+              {filteredWins.length === 0 ? (
                 <EmptyWins />
               ) : (
-                filterRows(data.wins).map((row, i) => (
+                filteredWins.map((row, i) => (
                   <WinRow
                     key={`win-${i}`}
                     row={row}
                     onNavigate={onNavigate}
                     activeModel={activeModel}
+                    periodLabel={periodLabel}
                   />
                 ))
               )}
@@ -522,13 +597,13 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
                   Losses
                 </h3>
                 <span className="px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 text-[11px] font-bold">
-                  {filterRows(data.losses).length}
+                  {filteredLosses.length}
                 </span>
               </div>
-              {filterRows(data.losses).length === 0 ? (
+              {filteredLosses.length === 0 ? (
                 <EmptyLosses />
               ) : (
-                filterRows(data.losses).map((row, i) => (
+                filteredLosses.map((row, i) => (
                   <LossRow
                     key={`loss-${i}`}
                     row={row}

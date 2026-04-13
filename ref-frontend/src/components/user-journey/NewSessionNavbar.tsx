@@ -4,6 +4,7 @@ import { ChevronRight, Menu, Search, Bell, Settings } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { sessionSections } from './NewSessionSidebar'
+import { DateRangeToggle } from '@/components/date-range/DateRangeToggle'
 
 interface SessionNavbarProps {
   projectId: string
@@ -80,6 +81,9 @@ export function SessionNavbar({ projectId, projectName, sessionId, sessionUrl, a
 
       {/* Right side — Search, Notifications, Avatar */}
       <div className="flex items-center gap-2">
+        <div className="hidden lg:block">
+          <DateRangeToggle />
+        </div>
         {/* Search bar */}
         <div className="hidden md:flex items-center gap-2 bg-zinc-800/50 border border-zinc-700/50 rounded-xl px-3 py-1.5 w-55 focus-within:border-zinc-600 focus-within:bg-zinc-800/80 transition-all duration-200">
           <Search className="h-3.5 w-3.5 text-zinc-500 shrink-0" />

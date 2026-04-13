@@ -16,7 +16,15 @@ export class WinsLossesController {
       }
 
       const rawPeriod = req.query.period as string | undefined;
-      const periodDays = rawPeriod === '30d' ? 30 : 7;
+      const fromRaw = String((req.query as any)?.from ?? '').trim();
+      const toRaw = String((req.query as any)?.to ?? '').trim();
+      const from = fromRaw ? new Date(fromRaw) : null;
+      const to = toRaw ? new Date(toRaw) : null;
+      const diffDays =
+        from && to && !Number.isNaN(from.getTime()) && !Number.isNaN(to.getTime())
+          ? Math.max(1, Math.floor((to.getTime() - from.getTime()) / (24 * 60 * 60 * 1000)) + 1)
+          : null;
+      const periodDays = diffDays ?? (rawPeriod === '30d' ? 30 : 7);
 
       const result = await this.service.getWinsLosses(jobId, userId, periodDays);
       return ResponseUtil.success(res, 'Wins & Losses retrieved', result);
