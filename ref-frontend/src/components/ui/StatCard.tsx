@@ -28,6 +28,13 @@ export interface StatCardProps {
   trend?: 'up' | 'down' | 'neutral'
   /** Renders a thin progress bar below the value */
   progress?: number
+  /**
+   * Period-over-period change as a plain number (positive = up, negative = down,
+   * null = no prior data — renders "— no prior data" in muted text).
+   */
+  delta?: number | null
+  /** Contextual label appended to the delta badge, e.g. "vs last week" */
+  deltaLabel?: string
   onClick?: () => void
   className?: string
 }
@@ -46,6 +53,8 @@ export function StatCard({
   accent = 'zinc',
   trend,
   progress,
+  delta,
+  deltaLabel = 'vs last period',
   onClick,
   className,
 }: StatCardProps) {
@@ -100,6 +109,28 @@ export function StatCard({
             >
               {subtext}
             </p>
+          </div>
+        )}
+
+        {/* Delta badge — period-over-period change */}
+        {typeof delta !== 'undefined' && (
+          <div className="mt-1.5">
+            {delta === null ? (
+              <span className="text-[10px] text-zinc-600">— no prior data</span>
+            ) : (
+              <span
+                className={cn(
+                  'inline-flex items-center gap-0.5 text-[11px] font-medium',
+                  delta > 0 && 'text-emerald-400',
+                  delta < 0 && 'text-rose-400',
+                  delta === 0 && 'text-zinc-500',
+                )}
+              >
+                {delta > 0 ? '↑' : delta < 0 ? '↓' : '→'}{' '}
+                {delta > 0 ? '+' : ''}{delta.toFixed(1)}%{' '}
+                <span className="text-zinc-600 font-normal">{deltaLabel}</span>
+              </span>
+            )}
           </div>
         )}
       </div>

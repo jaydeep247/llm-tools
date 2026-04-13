@@ -355,7 +355,7 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
           disabled={!projectId || isAskingAI}
           className={cn(
             'inline-flex items-center gap-2 rounded-full border-0 px-5 py-2.5 text-sm font-extrabold uppercase tracking-wider text-black shadow-lg shadow-fuchsia-950/30',
-            'bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300 hover:opacity-95',
+            'bg-linear-to-r from-purple-500 via-pink-500 to-amber-300 hover:opacity-95',
             'disabled:cursor-not-allowed disabled:opacity-50',
           )}
         >
