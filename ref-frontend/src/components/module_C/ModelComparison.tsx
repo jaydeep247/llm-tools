@@ -115,6 +115,14 @@ export default function ModelComparison({ jobId, url, projectId }: ModelComparis
   const llmSim = modules.llm_simulator as any
   const multiModel = modules.multi_model as any
 
+  // Canonical display names for the raw Python model keys
+  const MODEL_DISPLAY: Record<string, string> = {
+    openai:   'ChatGPT',
+    chat_gpt: 'ChatGPT',
+    gemini:   'Gemini',
+    claude:   'Claude',
+  }
+
   // Per-model grouped bar chart data
   const perModelChartData = useMemo(() => {
     const accuracy = llmSim?.accuracy?.per_model ?? {}
@@ -122,10 +130,11 @@ export default function ModelComparison({ jobId, url, projectId }: ModelComparis
     const friendliness = multiModel?.model_friendliness?.per_model ?? {}
     const allModels = new Set([...Object.keys(accuracy), ...Object.keys(completeness), ...Object.keys(friendliness)])
     return Array.from(allModels).map((model) => ({
-      name: model.charAt(0).toUpperCase() + model.slice(1),
+      name: MODEL_DISPLAY[model] ?? (model.charAt(0).toUpperCase() + model.slice(1)),
+      _key: model,
       'Accuracy': Math.round(accuracy[model] ?? 0),
       'Completeness': Math.round(completeness[model] ?? 0),
-      'Friendliness': Math.round((friendliness[model] ?? 0) * 10),
+      'Friendliness': Math.round(friendliness[model] ?? 0),
     }))
   }, [llmSim, multiModel])
 
@@ -270,7 +279,7 @@ export default function ModelComparison({ jobId, url, projectId }: ModelComparis
           disabled={!projectId || isAskingAI}
           className={cn(
             'inline-flex items-center gap-2 rounded-full border-0 px-5 py-2.5 text-sm font-extrabold uppercase tracking-wider text-black shadow-lg shadow-fuchsia-950/30',
-            'bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300 hover:opacity-95',
+            'bg-linear-to-r from-purple-500 via-pink-500 to-amber-300 hover:opacity-95',
             'disabled:cursor-not-allowed disabled:opacity-50',
           )}
         >
