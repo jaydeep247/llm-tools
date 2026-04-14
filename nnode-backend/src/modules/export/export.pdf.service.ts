@@ -786,6 +786,11 @@ async function buildCompetitorAiReportPdf(jobId: string, domain: string): Promis
   const emergingTrends = fDoc?.emerging_trends ?? {};
   const moat4 = fDoc?.moat4_recommendations ?? {};
   const metricRecs: Record<string, any> = fDoc?.recommendations ?? fDoc?.metric_recommendations ?? {};
+  const topPagesData: any[] = fDoc?.top_pages ?? [];
+
+  // Fetch trend history from module_e
+  const moduleE = await db.collection('module_e').findOne({ jobId: { $in: allJobIds } });
+  const sovHistory: any[] = (moduleE as any)?.ai_sov_history ?? [];
 
   const doc = new PDFDocument({ size: 'A4', margin: 0, info: { Title: 'Competitor AI Intelligence', Author: 'Colytics AI' } });
   const title = 'Competitor AI Intelligence Report';
@@ -889,6 +894,54 @@ async function buildCompetitorAiReportPdf(jobId: string, domain: string): Promis
       compRows, [160, 55, 65, 60, 55, 55], 12,
     );
     y += 8;
+  }
+
+  // ── Growth Trend Chart ────────────────────────────────────────────────────
+  if (sovHistory.length >= 2) {
+    if (y > PAGE_BREAK_Y - 100) {
+      drawFooter(doc, pageNum++);
+      doc.addPage({ size: 'A4', margin: 0 });
+      drawPageHeader(doc, title, subtitle, domain);
+      y = 102;
+    }
+    y = sectionLabel(doc, 'GROWTH TREND (AI SHARE OF VOICE %)', y);
+    const trendBars = sovHistory.slice(-8).map((h: any) => ({
+      label: h.date ? new Date(h.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—',
+      value: typeof h.overall_sov === 'number' ? h.overall_sov : 0,
+    }));
+    const maxSov = Math.max(10, ...trendBars.map(b => b.value));
+    y = drawVBarChart(doc, y, trendBars, maxSov, 80, [C.gold, C.blue, C.emerald, C.purple, C.amber]);
+    y += 8;
+  }
+
+  // ── Competitor Top Pages ──────────────────────────────────────────────────
+  if (topPagesData.length > 0) {
+    if (y > PAGE_BREAK_Y - 40) {
+      drawFooter(doc, pageNum++);
+      doc.addPage({ size: 'A4', margin: 0 });
+      drawPageHeader(doc, title, subtitle, domain);
+      y = 102;
+    }
+    y = sectionLabel(doc, 'COMPETITOR TOP CITED PAGES', y);
+    
+    topPagesData.slice(0, 5).forEach((comp: any) => {
+      if (y > PAGE_BREAK_Y - 40) {
+        drawFooter(doc, pageNum++);
+        doc.addPage({ size: 'A4', margin: 0 });
+        drawPageHeader(doc, title, subtitle, domain);
+        y = 102;
+      }
+      doc.fillColor(C.white).font('Helvetica-Bold').fontSize(9).text(comp.name ?? '—', ML, y);
+      y += 12;
+      const pages = (comp.pages ?? []).slice(0, 3);
+      const pageRows = pages.map((p: any) => [
+        p.url ? (p.url.length > 70 ? p.url.substring(0, 67) + '...' : p.url) : '—',
+        String(p.citation_count ?? 0),
+        p.primary_model ?? '—',
+      ]);
+      y = drawTable(doc, y, ['Page URL', 'Citations', 'Primary Model'], pageRows, [340, 70, 80], 3);
+      y += 6;
+    });
   }
 
   // ── Per-Model Visibility (brand) ──────────────────────────────────────────
@@ -1347,261 +1400,6 @@ async function buildAiScorecardPdfV2(jobId: string, domain: string): Promise<Buf
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// ── BRAND INTELLIGENCE REPORT PDF — reimplemented with full Module E data ─────
-// ═══════════════════════════════════════════════════════════════════════════════
-
-async function buildCompetitorReportPdfV2(jobId: string, domain: string): Promise<Buffer> {
-  const db = await connectToMongo();
-  const allJobIds = await resolveAllProjectJobIds(db, jobId);
-
-  const moduleE: any = await db.collection('module_e').findOne({ jobId: { $in: allJobIds } });
-
-  const brandAnalysis = moduleE?.brand_analysis ?? {};
-  const sentimentTracking = moduleE?.sentiment_tracking ?? {};
-  const sovData = moduleE?.ai_share_of_voice ?? {};
-  const sovHistory: any[] = moduleE?.ai_sov_history ?? [];
-  const competitors: any[] = moduleE?.competitor_mentions?.data ?? [];
-  const rankingAnalysis = moduleE?.ranking_analysis ?? {};
-  const contentConsistency = moduleE?.content_consistency ?? {};
-  const entityCoverage = moduleE?.entity_coverage ?? {};
-  const masterAnalysis = moduleE?.master_analysis ?? {};
-  const scoreHistory: any[] = moduleE?.score_history ?? [];
-
-  const doc = new PDFDocument({ size: 'A4', margin: 0, info: { Title: 'Brand Intelligence Report', Author: 'Colytics AI' } });
-  const title = 'Brand & Competitor Intelligence Report';
-  const subtitle = `Generated: ${new Date().toLocaleDateString('en-US', { dateStyle: 'long' })}`;
-  drawPageHeader(doc, title, subtitle, domain);
-  let y = 102;
-  let pageNum = 1;
-  const PAGE_BREAK_Y = PAGE_H - 60;
-
-  // ── Overall Brand Metrics ─────────────────────────────────────────────────
-  y = sectionLabel(doc, 'BRAND OVERVIEW', y);
-  y = drawKpiRow(doc, y, [
-    { label: 'Total Citations', value: brandAnalysis.total_mentions ?? '—', color: C.gold },
-    { label: 'Overall Sentiment', value: (brandAnalysis.sentiment?.label ?? '—').toUpperCase(), color: brandAnalysis.sentiment?.label === 'positive' ? C.emerald : brandAnalysis.sentiment?.label === 'negative' ? C.red : C.zinc400 },
-    { label: 'Share of Voice', value: sovData.overall_sov != null ? `${sovData.overall_sov.toFixed(1)}%` : '—', color: C.blue },
-    { label: 'Visibility Tier', value: (sovData.visibility_tier ?? '—').toUpperCase(), color: C.purple },
-  ]);
-  y += 4;
-
-  // Sentiment breakdown KPIs
-  if (brandAnalysis.sentiment?.counts) {
-    const sc = brandAnalysis.sentiment.counts;
-    y = drawKpiRow(doc, y, [
-      { label: 'Positive', value: sc.positive ?? 0, color: C.emerald },
-      { label: 'Neutral', value: sc.neutral ?? 0, color: C.zinc400 },
-      { label: 'Negative', value: sc.negative ?? 0, color: C.red },
-      { label: 'Brand', value: brandAnalysis.brand_name ?? domain.replace(/^https?:\/\//, ''), color: C.zinc300 },
-    ]);
-    y += 8;
-  }
-
-  // ── SOV by model ──────────────────────────────────────────────────────────
-  if (sovData.by_model && Object.keys(sovData.by_model).length > 0) {
-    y = sectionLabel(doc, 'SHARE OF VOICE BY AI MODEL', y);
-    const modelBars = Object.entries(sovData.by_model as Record<string, any>).map(([k, v]) => ({
-      label: k.charAt(0).toUpperCase() + k.slice(1),
-      value: typeof v.sov === 'number' ? Math.round(v.sov) : 0,
-    }));
-    y = drawHBarChart(doc, y, modelBars.map(m => ({ label: m.label, value: m.value, max: 100, color: C.gold })));
-    y += 4;
-
-    // SOV table with brand_mentions / competitor_mentions
-    y = sectionLabel(doc, 'SOV DETAIL BY MODEL', y);
-    const sovRows = Object.entries(sovData.by_model as Record<string, any>).map(([model, v]: [string, any]) => [
-      model.charAt(0).toUpperCase() + model.slice(1),
-      typeof v.sov === 'number' ? `${v.sov.toFixed(1)}%` : '—',
-      String(v.brand_mentions ?? 0),
-      String(v.competitor_mentions ?? 0),
-      v.brand_known ? 'Yes' : 'No',
-    ]);
-    y = drawTable(doc, y, ['Model', 'SOV', 'Brand Mentions', 'Competitor Mentions', 'Brand Known'], sovRows, [130, 65, 90, 110, 75]);
-    y += 8;
-  }
-
-  // ── SOV trend ────────────────────────────────────────────────────────────
-  if (sovHistory.length >= 2) {
-    if (y > PAGE_BREAK_Y - 60) {
-      drawFooter(doc, pageNum++);
-      doc.addPage({ size: 'A4', margin: 0 });
-      drawPageHeader(doc, title, subtitle, domain);
-      y = 102;
-    }
-    y = sectionLabel(doc, 'SHARE OF VOICE — TREND', y);
-    const sovTrend = sovHistory.slice(-8).map((h: any) => ({
-      label: h.date ? new Date(h.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '',
-      value: typeof h.overall_sov === 'number' ? Math.round(h.overall_sov) : 0,
-    }));
-    y = drawVBarChart(doc, y, sovTrend, 100, 70, [C.gold, C.goldLight, C.amber, C.gold, C.goldLight, C.amber, C.gold, C.goldLight]);
-    y += 8;
-  }
-
-  // ── Sentiment Tracking ────────────────────────────────────────────────────
-  if (sentimentTracking.sentiment) {
-    if (y > PAGE_BREAK_Y - 40) {
-      drawFooter(doc, pageNum++);
-      doc.addPage({ size: 'A4', margin: 0 });
-      drawPageHeader(doc, title, subtitle, domain);
-      y = 102;
-    }
-    y = sectionLabel(doc, 'SENTIMENT ANALYSIS', y);
-    const st = sentimentTracking.sentiment;
-    y = drawKpiRow(doc, y, [
-      { label: 'Overall Sentiment Score', value: st.overall_score != null ? Math.round(st.overall_score) : 'N/A', color: st.overall_score >= 70 ? C.emerald : st.overall_score >= 40 ? C.amber : C.red },
-      { label: 'Positive', value: `${st.distribution?.Positive ?? 0}%`, color: C.emerald },
-      { label: 'Neutral',  value: `${st.distribution?.Neutral ?? 0}%`, color: C.zinc400 },
-      { label: 'Negative', value: `${st.distribution?.Negative ?? 0}%`, color: C.red },
-    ]);
-    y += 6;
-
-    // Per-model sentiment
-    if (st.by_model && Object.keys(st.by_model).length > 0) {
-      y = sectionLabel(doc, 'SENTIMENT BY MODEL', y);
-      const sentRows = Object.entries(st.by_model as Record<string, any>).map(([m, d]: [string, any]) => [
-        m.charAt(0).toUpperCase() + m.slice(1),
-        d.score != null ? Math.round(d.score).toString() : '—',
-        `${d.distribution?.Positive ?? 0}%`,
-        `${d.distribution?.Neutral ?? 0}%`,
-        `${d.distribution?.Negative ?? 0}%`,
-      ]);
-      y = drawTable(doc, y, ['Model', 'Score', 'Positive', 'Neutral', 'Negative'], sentRows, [150, 60, 80, 80, 80]);
-      y += 8;
-    }
-  }
-
-  // ── Visibility stats ──────────────────────────────────────────────────────
-  if (sentimentTracking.visibility) {
-    if (y > PAGE_BREAK_Y - 40) {
-      drawFooter(doc, pageNum++);
-      doc.addPage({ size: 'A4', margin: 0 });
-      drawPageHeader(doc, title, subtitle, domain);
-      y = 102;
-    }
-    const vis = sentimentTracking.visibility;
-    y = sectionLabel(doc, 'AI MODEL VISIBILITY', y);
-    y = drawKpiRow(doc, y, [
-      { label: 'Visibility Score', value: vis.overall_visibility_score != null ? Math.round(vis.overall_visibility_score) : 'N/A', color: C.gold },
-      { label: 'Appearance Rate', value: vis.overall_appearance_rate != null ? `${(vis.overall_appearance_rate * 100).toFixed(1)}%` : 'N/A', color: C.blue },
-      { label: 'Brand', value: sentimentTracking.brand_name ?? '—', color: C.zinc300 },
-      { label: 'Industry', value: sentimentTracking.industry ?? '—', color: C.zinc300 },
-    ]);
-    y += 6;
-
-    if (vis.by_model && Object.keys(vis.by_model).length > 0) {
-      y = sectionLabel(doc, 'VISIBILITY BY MODEL', y);
-      const visRows = Object.entries(vis.by_model as Record<string, any>).map(([m, d]: [string, any]) => [
-        m.charAt(0).toUpperCase() + m.slice(1),
-        d.visibility_score != null ? Math.round(d.visibility_score).toString() : '—',
-        d.appearance_rate != null ? `${(d.appearance_rate * 100).toFixed(1)}%` : '—',
-        String(d.appearances ?? 0),
-        String(d.total_prompts ?? 0),
-      ]);
-      y = drawTable(doc, y, ['Model', 'Visibility Score', 'Appearance Rate', 'Appearances', 'Total Prompts'], visRows, [130, 80, 90, 80, 90]);
-      y += 8;
-    }
-  }
-
-  // ── Ranking analysis ──────────────────────────────────────────────────────
-  if (rankingAnalysis.ranking_position_per_prompt?.length > 0) {
-    if (y > PAGE_BREAK_Y - 40) {
-      drawFooter(doc, pageNum++);
-      doc.addPage({ size: 'A4', margin: 0 });
-      drawPageHeader(doc, title, subtitle, domain);
-      y = 102;
-    }
-    y = sectionLabel(doc, 'RANKING ANALYSIS — PROMPT POSITIONS', y);
-    const rankRows = (rankingAnalysis.ranking_position_per_prompt as any[]).slice(0, 15).map((r: any) => [
-      r.prompt ? r.prompt.substring(0, 50) : '—',
-      r.model ?? '—',
-      r.position != null ? `#${r.position}` : 'Not Cited',
-      r.mention_status ?? '—',
-      r.percentile != null ? `${Math.round(r.percentile)}%` : '—',
-      r.credibility_score != null ? r.credibility_score.toFixed(1) : '—',
-    ]);
-    y = drawTable(
-      doc, y,
-      ['Prompt', 'Model', 'Position', 'Mention Status', 'Percentile', 'Credibility'],
-      rankRows, [155, 70, 55, 90, 60, 60], 15,
-    );
-    y += 6;
-
-    // Entity coverage in rankings
-    if (rankingAnalysis.entity_coverage) {
-      const ec = rankingAnalysis.entity_coverage;
-      y = sectionLabel(doc, 'ENTITY COVERAGE IN RANKINGS', y);
-      y = drawKpiRow(doc, y, [
-        { label: 'Entity Coverage', value: ec.score != null ? `${Math.round(ec.score)}%` : 'N/A', color: C.emerald },
-        { label: 'Found Entities', value: ec.found_entities?.length ?? 0, color: C.blue },
-        { label: 'Missing Entities', value: ec.missing_entities?.length ?? 0, color: C.red },
-        { label: 'Total Expected', value: ec.total_expected ?? 0, color: C.zinc300 },
-      ]);
-      y += 8;
-    }
-  }
-
-  // ── Competitor Mentions Table ─────────────────────────────────────────────
-  if (competitors.length > 0) {
-    if (y > PAGE_BREAK_Y - 40) {
-      drawFooter(doc, pageNum++);
-      doc.addPage({ size: 'A4', margin: 0 });
-      drawPageHeader(doc, title, subtitle, domain);
-      y = 102;
-    }
-    y = sectionLabel(doc, 'COMPETITOR MENTIONS IN AI MODELS', y);
-    const compRows = competitors.slice(0, 15).map((c: any) => [
-      c.name ?? '—',
-      String(c.mentions ?? 0),
-      typeof c.sentiment === 'string' ? c.sentiment.toUpperCase() : '—',
-      Array.isArray(c.trend) && c.trend.length > 1
-        ? (c.trend[c.trend.length - 1] > c.trend[0] ? '↑ UP' : c.trend[c.trend.length - 1] < c.trend[0] ? '↓ DOWN' : '→ STABLE')
-        : '—',
-    ]);
-    y = drawTable(doc, y, ['Competitor', 'Mentions', 'Sentiment', 'Trend'], compRows, [250, 70, 80, 70], 15);
-    y += 8;
-  }
-
-  // ── Score history ─────────────────────────────────────────────────────────
-  if (scoreHistory.length >= 2) {
-    if (y > PAGE_BREAK_Y - 60) {
-      drawFooter(doc, pageNum++);
-      doc.addPage({ size: 'A4', margin: 0 });
-      drawPageHeader(doc, title, subtitle, domain);
-      y = 102;
-    }
-    y = sectionLabel(doc, 'SCORE HISTORY TREND', y);
-    const histBars = scoreHistory.slice(-8).map((h: any) => ({
-      label: h.date ? new Date(h.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '',
-      value: typeof h.visibilityScore === 'number' ? Math.round(h.visibilityScore) : 0,
-    }));
-    y = drawVBarChart(doc, y, histBars, 100, 70, [C.blue, C.blue, C.blue, C.blue, C.blue, C.blue, C.blue, C.blue]);
-    y += 8;
-  }
-
-  // ── Content Consistency ───────────────────────────────────────────────────
-  if (contentConsistency.score != null) {
-    if (y > PAGE_BREAK_Y - 40) {
-      drawFooter(doc, pageNum++);
-      doc.addPage({ size: 'A4', margin: 0 });
-      drawPageHeader(doc, title, subtitle, domain);
-      y = 102;
-    }
-    y = sectionLabel(doc, 'CONTENT CONSISTENCY & ENTITY COVERAGE', y);
-    const mandate = contentConsistency.mandate ?? masterAnalysis.mandate ?? {};
-    y = drawKpiRow(doc, y, [
-      { label: 'Content Consistency', value: Math.round(contentConsistency.score), color: contentConsistency.score >= 70 ? C.emerald : C.amber },
-      { label: 'Entity Coverage', value: entityCoverage.score != null ? `${Math.round(entityCoverage.score)}%` : 'N/A', color: C.blue },
-      { label: 'Topic', value: mandate.topic ? mandate.topic.substring(0, 18) : '—', color: C.zinc300 },
-      { label: 'Audience', value: mandate.audience ? mandate.audience.substring(0, 18) : '—', color: C.zinc300 },
-    ]);
-    y += 8;
-  }
-
-  drawFooter(doc, pageNum);
-  return pdfToBuffer(doc);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
 // ── Public API ───────────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1618,7 +1416,7 @@ export class ExportPdfService {
       case 'audit-report':
         return buildAuditReportPdf(jobId, userId, domain);
       case 'competitor-report':
-        return buildCompetitorReportPdfV2(jobId, domain);
+        return buildCompetitorAiReportPdf(jobId, domain);
       case 'ai-scorecard':
         return buildAiScorecardPdfV2(jobId, domain);
       case 'serp-analysis':

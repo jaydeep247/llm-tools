@@ -297,7 +297,7 @@ export default function CompetitorReportsPanel({
       </div>
 
       {/* ── Competitor selector ──────────────────────────────────────────── */}
-      <div className={cn(CARD_CLASS, 'p-4 md:p-5')}>
+      <div className={cn(CARD_CLASS, 'p-4 md:p-5 relative z-40')}>
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <span className="text-[11px] text-zinc-500 uppercase tracking-[0.14em] font-semibold">
@@ -325,7 +325,7 @@ export default function CompetitorReportsPanel({
             <ChevronDown className="h-4 w-4" />
           </button>
           {selectorOpen && (
-            <div className="mt-2 w-72 rounded-xl border border-zinc-700 bg-zinc-900/95 backdrop-blur-md p-3 shadow-xl absolute">
+            <div className="mt-2 w-72 rounded-xl border border-zinc-700 bg-zinc-900/95 backdrop-blur-md p-3 shadow-xl absolute z-50">
               {allCompetitors.map((name) => (
                 <label key={name} className="flex items-center gap-2 text-sm text-zinc-200 py-1 cursor-pointer">
                   <input
@@ -534,8 +534,19 @@ export default function CompetitorReportsPanel({
                           </button>
                         </td>
                         {filteredCompetitors.map((c) => {
-                          const rankMap = ((row as any).rankings ?? {}) as Record<string, number>
-                          const rank = rankMap[c.name]
+                          const rankMap = ((row as any).ranks ?? (row as any).rankings ?? {}) as Record<string, number>
+                          
+                          // Helper to normalize keys for lookup
+                          const normalize = (s: string) => s.toLowerCase().trim().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '')
+                          const targetKey = normalize(c.name)
+                          
+                          // Try exact match then fuzzy match
+                          let rank = rankMap[c.name]
+                          if (rank === undefined) {
+                            const foundKey = Object.keys(rankMap).find(k => normalize(k) === targetKey)
+                            if (foundKey) rank = rankMap[foundKey]
+                          }
+
                           const status =
                             !rank || rank <= 0
                               ? 'NOT_CITED'

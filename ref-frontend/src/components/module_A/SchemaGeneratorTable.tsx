@@ -251,6 +251,7 @@ export function SchemaGeneratorTable({
   }
 
   const llmsPatch = patches.find((p: any) => p.patch_json?._file_type === 'llms.txt')
+  const llmsFullPatch = patches.find((p: any) => p.patch_json?._file_type === 'llms-full.txt')
   const factsPatch = patches.find((p: any) => p.patch_json?._file_type === 'facts.json')
 
   const openAskAiDialog = async (seedQuestion?: string) => {
@@ -580,6 +581,7 @@ export function SchemaGeneratorTable({
                 <div className="space-y-3">
                   {[
                     { key: 'llms_txt', name: 'llms.txt', lift: '+25%' },
+                    { key: 'llms_full_txt', name: 'llms-full.txt', lift: '+20%' },
                     { key: 'facts_json', name: 'facts.json', lift: '+18%' },
                   ].map(({ key, name, lift }) => (
                     <div key={key} className="flex items-center justify-between p-3 rounded-xl bg-zinc-900/50 border border-zinc-800">
@@ -787,19 +789,22 @@ export function SchemaGeneratorTable({
                   {tab === 'aifiles' && (
                     <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                       {[
-                        { key: 'llms_txt', name: 'llms.txt', patch: llmsPatch, desc: 'Direct LLM crawl permission.', lift: '+25%' },
-                        { key: 'facts_json', name: 'facts.json', patch: factsPatch, desc: 'Structured entity facts.', lift: '+18%' },
-                      ].map(({ key, name, patch, desc, lift }) => {
-                        const content = key === 'llms_txt'
-                          ? patch?.patch_json?._content
-                          : patch?.patch_json
-                            ? JSON.stringify(patch.patch_json, null, 2)
-                            : null
-                        const pKey = `ai-file-${key}`
-                        const liveUrl =
-                          originFromUrl &&
-                          (key === 'llms_txt'
-                            ? `${originFromUrl}/llms.txt`
+                      { key: 'llms_txt', name: 'llms.txt', patch: llmsPatch, desc: 'Direct LLM crawl permission.', lift: '+25%' },
+                      { key: 'llms_full_txt', name: 'llms-full.txt', patch: llmsFullPatch, desc: 'Full LLM context & documentation.', lift: '+20%' },
+                      { key: 'facts_json', name: 'facts.json', patch: factsPatch, desc: 'Structured entity facts.', lift: '+18%' },
+                    ].map(({ key, name, patch, desc, lift }) => {
+                      const content = (key === 'llms_txt' || key === 'llms_full_txt')
+                        ? patch?.patch_json?._content
+                        : patch?.patch_json
+                          ? JSON.stringify(patch.patch_json, null, 2)
+                          : null
+                      const pKey = `ai-file-${key}`
+                      const liveUrl =
+                        originFromUrl &&
+                        (key === 'llms_txt'
+                          ? `${originFromUrl}/llms.txt`
+                          : key === 'llms_full_txt'
+                            ? `${originFromUrl}/llms-full.txt`
                             : key === 'facts_json'
                               ? `${originFromUrl}/facts.json`
                               : '')

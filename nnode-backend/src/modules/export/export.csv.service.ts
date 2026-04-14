@@ -171,28 +171,76 @@ export class ExportCsvService {
   }
 
   private async competitorsData(db: any, jobId: string, domain: string, _dateFilter: any): Promise<string> {
-    const moduleE = await db.collection('module_e').findOne({ jobId });
-    const competitors: any[] = (moduleE as any)?.competitor_mentions?.data ?? [];
-    const brandSov: number = (moduleE as any)?.ai_share_of_voice?.overall_sov ?? 0;
+    const jobRepo = new JobRepository();
+    const effectiveId = await jobRepo.resolveEffectiveJobId(jobId);
+    
+    // Try to find Module F result first
+    const fDoc = await db.collection('module_f').findOne({ 
+      $or: [{ jobId: jobId }, { jobId: effectiveId }] 
+    });
+    
+    const compareVis = fDoc?.compare_visibility_against_competitors ?? {};
+    const brandData = compareVis.brand ?? {};
+    const competitors: any[] = compareVis.competitors ?? [];
+    
+    // Fallback to Module E if Module F is empty
+    if (competitors.length === 0) {
+      const moduleE = await db.collection('module_e').findOne({ jobId });
+      const eCompetitors: any[] = (moduleE as any)?.competitor_mentions?.data ?? [];
+      const brandSov: number = (moduleE as any)?.ai_share_of_voice?.overall_sov ?? 0;
 
-    const headers = row(['domain', 'timestamp', 'brand_overall_sov', 'competitor', 'mention_count', 'sentiment', 'trend_direction', 'models_cited']);
-    const dataRows = competitors.map((c: any) => {
-      const trend: number[] = Array.isArray(c.trend) ? c.trend : [];
-      const trendDir = trend.length > 1
-        ? (trend[trend.length - 1] > trend[0] ? 'UP' : trend[trend.length - 1] < trend[0] ? 'DOWN' : 'STABLE')
-        : '';
+      const headers = row(['domain', 'timestamp', 'brand_overall_sov', 'competitor', 'mention_count', 'sentiment', 'trend_direction', 'models_cited']);
+      const dataRows = eCompetitors.map((c: any) => {
+        const trend: number[] = Array.isArray(c.trend) ? c.trend : [];
+        const trendDir = trend.length > 1
+          ? (trend[trend.length - 1] > trend[0] ? 'UP' : trend[trend.length - 1] < trend[0] ? 'DOWN' : 'STABLE')
+          : '';
+        return row([
+          domain,
+          new Date().toISOString(),
+          brandSov.toFixed(2),
+          c.name ?? c.domain ?? c.brand ?? '',
+          c.mention_count ?? c.mentions ?? c.total_mentions ?? '',
+          c.sentiment?.label ?? c.sentiment ?? '',
+          trendDir,
+          Array.isArray(c.models) ? c.models.join(';') : '',
+        ]);
+      });
+      return headers + dataRows.join('');
+    }
+
+    // Module F data
+    const headers = row(['domain', 'timestamp', 'competitor', 'primary_model', 'sov_percent', 'sov_delta', 'citations', 'citation_delta', 'visibility_score', 'avg_rank']);
+    
+    const brandRow = row([
+      domain,
+      new Date().toISOString(),
+      'YOUR BRAND',
+      brandData.primary_model ?? 'n/a',
+      (brandData.market_share_percent ?? 0).toFixed(2),
+      (brandData.market_share_delta ?? 0).toFixed(2),
+      brandData.mentions_total ?? 0,
+      brandData.mentions_delta ?? 0,
+      (brandData.visibility_score ?? 0).toFixed(2),
+      brandData.avg_rank ?? '—',
+    ]);
+
+    const compRows = competitors.map((c: any) => {
       return row([
         domain,
         new Date().toISOString(),
-        brandSov.toFixed(2),
-        c.name ?? c.domain ?? c.brand ?? '',
-        c.mention_count ?? c.mentions ?? c.total_mentions ?? '',
-        c.sentiment?.label ?? c.sentiment ?? '',
-        trendDir,
-        Array.isArray(c.models) ? c.models.join(';') : '',
+        c.name ?? '—',
+        c.primary_model ?? 'n/a',
+        (c.market_share_percent ?? 0).toFixed(2),
+        (c.market_share_delta ?? 0).toFixed(2),
+        c.mentions_total ?? 0,
+        c.mentions_delta ?? 0,
+        (c.visibility_score ?? 0).toFixed(2),
+        c.avg_rank ?? '—',
       ]);
     });
-    return headers + dataRows.join('');
+    
+    return headers + brandRow + compRows.join('');
   }
 
   private async alertsData(db: any, jobId: string, domain: string, dateFilter: any): Promise<string> {
