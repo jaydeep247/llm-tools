@@ -63,6 +63,9 @@ const envSchema = z.object({
   // Applies to both the root crawl entry and each per-module result slot.
   // Set to 0 to disable caching entirely.
   URL_CACHE_TTL_DAYS: z.coerce.number().int().nonnegative().default(7),
+
+  // Brand Mentions — SerpAPI (https://serpapi.com)
+  SERPAPI_KEY: z.string().optional().default(''),
 });
 
 const isLocalInfraUrl = (value: string): boolean => {

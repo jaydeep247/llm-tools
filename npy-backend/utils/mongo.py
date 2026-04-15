@@ -162,6 +162,22 @@ class MongoManager:
         return self.db.content_metrics
 
     @property
+    def brand_profiles(self) -> Collection:
+        return self.db.brand_profiles
+
+    @property
+    def brand_topics(self) -> Collection:
+        return self.db.brand_topics
+
+    @property
+    def brand_prompts(self) -> Collection:
+        return self.db.brand_prompts
+
+    @property
+    def prompt_results(self) -> Collection:
+        return self.db.prompt_results
+
+    @property
     def module_e(self) -> Collection:
         return self.db.module_e
 

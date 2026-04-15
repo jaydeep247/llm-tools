@@ -59,6 +59,7 @@ services:
       MONGO_DB_NAME: ${MONGO_DB_NAME:-seo_crawler}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost,http://209.38.70.65}
       NPY_BACKEND_URL: http://npy-backend:8001
+      SERPAPI_KEY: ${SERPAPI_KEY}
     restart: unless-stopped
 
   npy-backend:

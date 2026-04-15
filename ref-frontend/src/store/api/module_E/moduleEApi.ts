@@ -39,6 +39,10 @@ export interface ModuleEResult {
     }>
     top_sources?: Array<{
       domain?: string
+      url?: string
+      title?: string
+      snippet?: string
+      mention_count?: number
     }>
   }
   master_analysis?: {

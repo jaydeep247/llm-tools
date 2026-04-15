@@ -12,7 +12,7 @@ import {
   useExecuteBrandPromptsMutation,
   useLazyGetOnboardingDataQuery,
 } from '@/store/api/brandOnboardingApi'
-import type { GeneratedPrompt, PromptResult } from '@/store/api/brandOnboardingApi'
+import type { GeneratedPrompt, TopicPrompts, PromptResult } from '@/store/api/brandOnboardingApi'
 import { useUpdateUserMutation } from '@/store/api/userApi'
 import { useToast } from '@/hooks/use-toast'
 import type { User } from '@/types/auth'
@@ -108,7 +108,8 @@ export function BrandOnboardingModal({
   const [isAdvancingToTopics, setIsAdvancingToTopics] = useState(false)
   const [isAdvancingToPrompts, setIsAdvancingToPrompts] = useState(false)
   const [isSavingPrompts, setIsSavingPrompts] = useState(false)
-  const [prompts, setPrompts] = useState<GeneratedPrompt[]>([])
+  const [prompts, setPrompts] = useState<TopicPrompts[]>([])
+  const [selectedPrompts, setSelectedPrompts] = useState<string[]>([])
   const [customPrompts, setCustomPrompts] = useState<string[]>([])
   const [promptResults, setPromptResults] = useState<PromptResult[]>([])
   const [isExecutingPrompts, setIsExecutingPrompts] = useState(false)
@@ -124,6 +125,7 @@ export function BrandOnboardingModal({
     setTopics([])
     setSelectedTopics([])
     setPrompts([])
+    setSelectedPrompts([])
     setCustomPrompts([])
     setPromptResults([])
   }, [open, jobId])
@@ -220,7 +222,15 @@ export function BrandOnboardingModal({
             setSelectedTopics(data.topics_selected)
           }
           if (data.prompts_generated?.length > 0 && prompts.length === 0) {
-            setPrompts(data.prompts_generated)
+            setPrompts(data.prompts_generated as TopicPrompts[])
+          }
+          if (data.prompts_selected?.length > 0 && selectedPrompts.length === 0) {
+            setSelectedPrompts(data.prompts_selected)
+            // Restore any custom prompts that aren't in the generated list
+            const generatedPromptStrings = (data.prompts_generated as TopicPrompts[] | undefined)
+              ?.flatMap(g => g.prompts.map(p => p.prompt)) ?? []
+            const custom = data.prompts_selected.filter((p: string) => !generatedPromptStrings.includes(p))
+            if (custom.length > 0) setCustomPrompts(custom)
           }
           if (data.prompt_results?.length > 0 && promptResults.length === 0) {
             setPromptResults(data.prompt_results)
@@ -273,7 +283,7 @@ export function BrandOnboardingModal({
           selectedTopics,
           jobId: jobId || undefined,
         }).unwrap()
-        setPrompts(result.prompts)
+        setPrompts(result.topics)
       } catch {
         setPrompts([])
       }
@@ -283,11 +293,21 @@ export function BrandOnboardingModal({
     goToStep(2)
   }
 
-  const runPromptExecution = useCallback(async () => {
-    const allPromptsForExecution: GeneratedPrompt[] = [
-      ...prompts,
-      ...customPrompts.map((p) => ({ prompt: p, type: 'custom' })),
-    ]
+  const runPromptExecution = useCallback(async (promptsOverride?: GeneratedPrompt[]) => {
+    let allPromptsForExecution: GeneratedPrompt[]
+    if (promptsOverride) {
+      allPromptsForExecution = promptsOverride
+    } else {
+      const flatGenerated = prompts.flatMap(g => g.prompts)
+      const activePrompts = selectedPrompts.length > 0
+        ? selectedPrompts
+        : [...flatGenerated.map(p => p.prompt), ...customPrompts]
+      allPromptsForExecution = [
+        ...flatGenerated,
+        ...customPrompts.map((p) => ({ prompt: p, type: 'custom' })),
+      ].filter(p => activePrompts.includes(p.prompt))
+    }
+
     if (allPromptsForExecution.length === 0) {
       toast({
         title: 'No prompts to analyze',
@@ -324,13 +344,20 @@ export function BrandOnboardingModal({
     } finally {
       setIsExecutingPrompts(false)
     }
-  }, [prompts, customPrompts, brandName, jobId, executeBrandPrompts, fetchOnboardingData, toast])
+  }, [prompts, customPrompts, selectedPrompts, brandName, jobId, executeBrandPrompts, fetchOnboardingData, toast])
 
   const handlePromptsContinue = async () => {
+    // Only execute the currently selected prompts
+    const flatGenerated = prompts.flatMap(g => g.prompts)
+    const activePrompts = selectedPrompts.length > 0
+      ? selectedPrompts
+      : [...flatGenerated.map(p => p.prompt), ...customPrompts]
+
     const allPromptsForExecution: GeneratedPrompt[] = [
-      ...prompts,
+      ...flatGenerated,
       ...customPrompts.map((p) => ({ prompt: p, type: 'custom' })),
-    ]
+    ].filter(p => activePrompts.includes(p.prompt))
+    
     if (allPromptsForExecution.length === 0) {
       toast({
         title: 'No prompts to analyze',
@@ -355,7 +382,8 @@ export function BrandOnboardingModal({
 
     if (promptResults.length > 0) return
 
-    void runPromptExecution()
+    // Pass the already-computed list directly to avoid stale-closure re-derivation
+    void runPromptExecution(allPromptsForExecution)
   }
 
   const handleSkip = () => {
@@ -430,7 +458,10 @@ export function BrandOnboardingModal({
           {currentStep === 2 && (
             <div key="brand-prompts" className="h-full">
               <StepBrandPrompts
-                prompts={prompts}
+                topicGroups={prompts}
+                onTopicGroupsChange={setPrompts}
+                selectedPrompts={selectedPrompts}
+                onSelectedPromptsChange={setSelectedPrompts}
                 customPrompts={customPrompts}
                 onCustomPromptsChange={setCustomPrompts}
                 isPromptsLoading={false}

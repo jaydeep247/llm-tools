@@ -48,7 +48,7 @@ async def run_brand_only(job_id: str, url: str, html_content: str = None) -> Dic
 
     # 3. Run Brand Analysis
     try:
-        brand_analysis = await BrandAnalyzer.analyze_brand(brand_name)
+        brand_analysis = await BrandAnalyzer.analyze_brand(brand_name, url=url)
     except Exception as e:
         logger.error(f"Brand analysis failed: {e}", exc_info=True)
         return {
@@ -65,6 +65,9 @@ async def run_brand_only(job_id: str, url: str, html_content: str = None) -> Dic
                 "$set": {
                     "jobId": job_id,
                     "brand_analysis": brand_analysis,
+                    # Store top_sources alongside brand_analysis for easy API access
+                    "top_sources": brand_analysis.get("top_sources", []),
+                    "top_sources_meta": brand_analysis.get("top_sources_meta", {}),
                     "updatedAt": datetime.utcnow(),
                 },
                 "$setOnInsert": {

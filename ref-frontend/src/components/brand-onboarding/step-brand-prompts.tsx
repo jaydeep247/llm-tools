@@ -7,33 +7,42 @@ import {
   Loader2,
   ArrowLeft,
   ArrowRight,
-  Info,
-  Search,
-  ShoppingCart,
-  ArrowLeftRight,
-  Bot,
-  PenLine,
+  ChevronDown,
+  ChevronUp,
   Plus,
+  Trash2,
+  Check,
+  ListChecks,
+  PenLine,
+  Tag,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
-const PROMPT_TYPE_META: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  informational: { label: 'Informational', color: 'bg-blue-50 text-blue-700 border-blue-200', icon: <Info className="w-3 h-3" /> },
-  commercial: { label: 'Commercial', color: 'bg-amber-50 text-amber-700 border-amber-200', icon: <Search className="w-3 h-3" /> },
-  comparative: { label: 'Comparative', color: 'bg-purple-50 text-purple-700 border-purple-200', icon: <ArrowLeftRight className="w-3 h-3" /> },
-  transactional: { label: 'Transactional', color: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: <ShoppingCart className="w-3 h-3" /> },
-  'agent-style': { label: 'Agent-style', color: 'bg-rose-50 text-rose-700 border-rose-200', icon: <Bot className="w-3 h-3" /> },
-}
-
 export interface GeneratedPrompt {
   prompt: string
   type: string
+  journey_stage?: string
+}
+
+export interface TopicPrompts {
+  topic: string
+  prompts: GeneratedPrompt[]
+}
+
+const JOURNEY_STAGE_META: Record<string, { label: string; color: string }> = {
+  awareness: { label: 'Awareness', color: 'bg-blue-50 text-blue-700 border-blue-200' },
+  consideration: { label: 'Consideration', color: 'bg-amber-50 text-amber-700 border-amber-200' },
+  decision: { label: 'Decision', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  post_purchase: { label: 'Post Purchase', color: 'bg-purple-50 text-purple-700 border-purple-200' },
 }
 
 interface StepBrandPromptsProps {
-  prompts: GeneratedPrompt[]
+  topicGroups: TopicPrompts[]
+  onTopicGroupsChange?: (groups: TopicPrompts[]) => void
   customPrompts: string[]
+  selectedPrompts?: string[]
+  onSelectedPromptsChange?: (prompts: string[]) => void
   onCustomPromptsChange: (prompts: string[]) => void
   isPromptsLoading: boolean
   isSaving: boolean
@@ -45,8 +54,11 @@ interface StepBrandPromptsProps {
 }
 
 export function StepBrandPrompts({
-  prompts,
+  topicGroups,
+  onTopicGroupsChange,
   customPrompts,
+  selectedPrompts = [],
+  onSelectedPromptsChange = () => {},
   onCustomPromptsChange,
   isPromptsLoading,
   isSaving,
@@ -56,27 +68,88 @@ export function StepBrandPrompts({
   currentStep,
   totalSteps,
 }: StepBrandPromptsProps) {
+  const [expandedTopics, setExpandedTopics] = useState<Set<string>>(
+    () => new Set(topicGroups.map(g => g.topic))
+  )
   const [showCustomInput, setShowCustomInput] = useState(false)
   const [customPrompt, setCustomPrompt] = useState('')
+
+  const allGeneratedPrompts = topicGroups.flatMap(g => g.prompts.map(p => p.prompt))
+  const allAvailable = [...allGeneratedPrompts, ...customPrompts]
+
+  const effectiveSelected = selectedPrompts.length > 0 ? selectedPrompts : allAvailable
+  const isAllSelected = allAvailable.length > 0 && allAvailable.every(p => effectiveSelected.includes(p))
+
+  const togglePrompt = (promptStr: string) => {
+    if (effectiveSelected.includes(promptStr)) {
+      onSelectedPromptsChange(effectiveSelected.filter(p => p !== promptStr))
+    } else {
+      onSelectedPromptsChange([...effectiveSelected, promptStr])
+    }
+  }
+
+  const toggleTopic = (topic: string, topicPrompts: GeneratedPrompt[]) => {
+    const topicPromptStrs = topicPrompts.map(p => p.prompt)
+    const allTopicSelected = topicPromptStrs.every(p => effectiveSelected.includes(p))
+    if (allTopicSelected) {
+      onSelectedPromptsChange(effectiveSelected.filter(p => !topicPromptStrs.includes(p)))
+    } else {
+      const merged = Array.from(new Set([...effectiveSelected, ...topicPromptStrs]))
+      onSelectedPromptsChange(merged)
+    }
+  }
+
+  const handleSelectAll = () => {
+    if (isAllSelected) {
+      onSelectedPromptsChange([])
+    } else {
+      onSelectedPromptsChange(allAvailable)
+    }
+  }
+
+  const toggleExpand = (topic: string) => {
+    setExpandedTopics(prev => {
+      const next = new Set(prev)
+      if (next.has(topic)) next.delete(topic)
+      else next.add(topic)
+      return next
+    })
+  }
+
+  const deletePromptFromGroup = (topic: string, promptStr: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (onTopicGroupsChange) {
+      onTopicGroupsChange(
+        topicGroups.map(g =>
+          g.topic === topic ? { ...g, prompts: g.prompts.filter(p => p.prompt !== promptStr) } : g
+        ).filter(g => g.prompts.length > 0)
+      )
+    }
+    onSelectedPromptsChange(effectiveSelected.filter(p => p !== promptStr))
+  }
+
+  const deleteCustomPrompt = (promptStr: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    onCustomPromptsChange(customPrompts.filter(p => p !== promptStr))
+    onSelectedPromptsChange(effectiveSelected.filter(p => p !== promptStr))
+  }
 
   const addCustomPrompt = () => {
     const trimmed = customPrompt.trim()
     if (!trimmed || customPrompts.includes(trimmed)) return
     onCustomPromptsChange([...customPrompts, trimmed])
+    onSelectedPromptsChange([...effectiveSelected, trimmed])
     setCustomPrompt('')
     setShowCustomInput(false)
   }
 
   const handleCustomKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      addCustomPrompt()
-    }
-    if (e.key === 'Escape') {
-      setShowCustomInput(false)
-      setCustomPrompt('')
-    }
+    if (e.key === 'Enter') { e.preventDefault(); addCustomPrompt() }
+    if (e.key === 'Escape') { setShowCustomInput(false); setCustomPrompt('') }
   }
+
+  const totalPrompts = allAvailable.length
+  const selectedCount = effectiveSelected.length
 
   return (
     <motion.div
@@ -86,109 +159,228 @@ export function StepBrandPrompts({
       className="flex flex-col h-full"
     >
       {/* Header */}
-      <div className="mb-5">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center border border-emerald-100">
-            <MessageSquareText className="w-4 h-4 text-emerald-600" />
+      <div className="mb-5 flex justify-between items-start">
+        <div>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center border border-emerald-100">
+              <MessageSquareText className="w-4 h-4 text-emerald-600" />
+            </div>
           </div>
+          <h2 className="text-2xl font-bold text-zinc-900 mb-2 tracking-tight">
+            Review AI prompts
+          </h2>
+          <p className="text-zinc-500 text-sm leading-relaxed">
+            {isPromptsLoading
+              ? 'Generating prompts per topic…'
+              : `${selectedCount} of ${totalPrompts} prompts selected across ${topicGroups.length} topic${topicGroups.length !== 1 ? 's' : ''}.`}
+          </p>
         </div>
-        <h2 className="text-2xl font-bold text-zinc-900 mb-2 tracking-tight">
-          Review AI prompts
-        </h2>
-        <p className="text-zinc-500 text-sm leading-relaxed">
-          We've generated prompts based on your topics. These are the exact queries we'll use to monitor your brand in AI responses.
-        </p>
+        {!isPromptsLoading && allAvailable.length > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSelectAll}
+            className="text-xs h-8 px-3 rounded-lg border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 shrink-0"
+          >
+            <ListChecks className="w-3.5 h-3.5 mr-1.5" />
+            {isAllSelected ? 'Deselect All' : 'Select All'}
+          </Button>
+        )}
       </div>
 
-      {/* Prompt list */}
-      <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
+      {/* Topic groups */}
+      <div className="flex-1 overflow-y-auto space-y-3 pr-1">
         {isPromptsLoading ? (
           <div className="flex flex-col items-center justify-center py-12 gap-3">
             <Loader2 className="w-6 h-6 text-emerald-600 animate-spin" />
-            <p className="text-sm text-zinc-400">Generating prompts from your topics…</p>
+            <p className="text-sm text-zinc-400">Generating prompts for each topic…</p>
           </div>
         ) : (
           <>
-            <AnimatePresence>
-              {prompts.map((item, idx) => {
-                const meta = PROMPT_TYPE_META[item.type] || PROMPT_TYPE_META['informational']
-                return (
-                  <motion.div
-                    key={item.prompt}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: idx * 0.035 }}
-                    className="w-full p-3.5 rounded-xl border border-zinc-200 bg-white"
-                  >
-                    <p className="text-sm text-zinc-700 leading-relaxed">
-                      {item.prompt}
-                    </p>
-                    <div className="mt-2">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider border ${meta.color}`}>
-                        {meta.icon}
-                        {meta.label}
-                      </span>
-                    </div>
-                  </motion.div>
-                )
-              })}
-            </AnimatePresence>
+            {topicGroups.map((group, gIdx) => {
+              const isExpanded = expandedTopics.has(group.topic)
+              const topicPromptStrs = group.prompts.map(p => p.prompt)
+              const selectedInTopic = topicPromptStrs.filter(p => effectiveSelected.includes(p)).length
+              const allTopicSelected = selectedInTopic === topicPromptStrs.length && topicPromptStrs.length > 0
+              const someTopicSelected = selectedInTopic > 0 && !allTopicSelected
 
-            {/* Custom prompts added by user */}
-            {customPrompts.map((prompt, idx) => (
-              <motion.div
-                key={`custom-${prompt}`}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="w-full p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/50"
-              >
-                <p className="text-sm text-zinc-700 leading-relaxed">
-                  {prompt}
-                </p>
-                <div className="mt-2">
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider border bg-zinc-50 text-zinc-600 border-zinc-200">
-                    <PenLine className="w-3 h-3" />
-                    Custom
-                  </span>
-                </div>
-              </motion.div>
-            ))}
-
-            {/* Add custom prompt */}
-            {showCustomInput ? (
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex gap-2 mt-1"
-              >
-                <Input
-                  autoFocus
-                  placeholder="Enter your own prompt…"
-                  value={customPrompt}
-                  onChange={(e) => setCustomPrompt(e.target.value)}
-                  onKeyDown={handleCustomKeyDown}
-                  className="bg-white! border-zinc-200! hover:border-zinc-300! shadow-none! text-zinc-900! placeholder:text-zinc-400! focus-visible:border-emerald-500! focus-visible:ring-2! focus-visible:ring-emerald-500/20! h-10 flex-1 text-sm rounded-xl"
-                />
-                <Button
-                  onClick={addCustomPrompt}
-                  disabled={!customPrompt.trim()}
-                  size="sm"
-                  className="h-10 px-4 bg-zinc-900 text-white hover:bg-zinc-700 rounded-lg text-sm"
+              return (
+                <motion.div
+                  key={group.topic}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: gIdx * 0.05 }}
+                  className="border border-zinc-200 rounded-xl overflow-hidden bg-white"
                 >
-                  Add
-                </Button>
-              </motion.div>
-            ) : (
-              <motion.button
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: prompts.length * 0.035 }}
+                  {/* Topic header row */}
+                  <div
+                    className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-zinc-50 transition-colors select-none"
+                    onClick={() => toggleExpand(group.topic)}
+                  >
+                    {/* Topic select toggle */}
+                    <div
+                      role="checkbox"
+                      aria-checked={allTopicSelected}
+                      onClick={e => { e.stopPropagation(); toggleTopic(group.topic, group.prompts) }}
+                      className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-all cursor-pointer ${
+                        allTopicSelected
+                          ? 'bg-emerald-600 border-emerald-600'
+                          : someTopicSelected
+                          ? 'bg-emerald-100 border-emerald-400'
+                          : 'border-zinc-300 bg-white'
+                      }`}
+                    >
+                      {allTopicSelected && <Check className="w-3 h-3 text-white" />}
+                      {someTopicSelected && <div className="w-2 h-0.5 bg-emerald-600 rounded-full" />}
+                    </div>
+
+                    <Tag className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                    <span className="flex-1 text-sm font-semibold text-zinc-800">{group.topic}</span>
+                    <span className="text-xs text-zinc-400 tabular-nums">
+                      {selectedInTopic}/{topicPromptStrs.length}
+                    </span>
+                    {isExpanded
+                      ? <ChevronUp className="w-4 h-4 text-zinc-400 shrink-0" />
+                      : <ChevronDown className="w-4 h-4 text-zinc-400 shrink-0" />}
+                  </div>
+
+                  {/* Prompts list */}
+                  <AnimatePresence initial={false}>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden border-t border-zinc-100"
+                      >
+                        <div className="p-2 space-y-1.5">
+                          {group.prompts.map((item, idx) => {
+                            const isSelected = effectiveSelected.includes(item.prompt)
+                            const stageMeta = JOURNEY_STAGE_META[item.journey_stage ?? ''] ?? null
+                            return (
+                              <motion.div
+                                key={item.prompt}
+                                initial={{ opacity: 0, y: 4 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: idx * 0.02 }}
+                                onClick={() => togglePrompt(item.prompt)}
+                                className={`group w-full p-3 rounded-lg border transition-all cursor-pointer flex gap-3 items-start ${
+                                  isSelected
+                                    ? 'bg-emerald-50/50 border-emerald-200'
+                                    : 'bg-zinc-50 border-transparent hover:border-zinc-200 hover:bg-white'
+                                }`}
+                              >
+                                <div
+                                  className={`w-4 h-4 mt-0.5 rounded border flex items-center justify-center shrink-0 transition-all ${
+                                    isSelected ? 'bg-emerald-600 border-emerald-600' : 'border-zinc-300 bg-white'
+                                  }`}
+                                >
+                                  {isSelected && <Check className="w-2.5 h-2.5 text-white" />}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className={`text-sm leading-relaxed ${isSelected ? 'text-zinc-900' : 'text-zinc-600'}`}>
+                                    {item.prompt}
+                                  </p>
+                                  {stageMeta && (
+                                    <span className={`mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider border ${stageMeta.color}`}>
+                                      {stageMeta.label}
+                                    </span>
+                                  )}
+                                </div>
+                                <div
+                                  role="button"
+                                  onClick={e => deletePromptFromGroup(group.topic, item.prompt, e)}
+                                  className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded transition-all shrink-0"
+                                  title="Remove prompt"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </div>
+                              </motion.div>
+                            )
+                          })}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              )
+            })}
+
+            {/* Custom prompts section */}
+            {(customPrompts.length > 0 || showCustomInput) && (
+              <div className="border border-dashed border-zinc-300 rounded-xl overflow-hidden">
+                <div className="px-4 py-3 border-b border-zinc-100 flex items-center gap-2">
+                  <PenLine className="w-3.5 h-3.5 text-zinc-400" />
+                  <span className="text-sm font-semibold text-zinc-600">Custom Prompts</span>
+                  <span className="text-xs text-zinc-400">{customPrompts.length}</span>
+                </div>
+                <div className="p-2 space-y-1.5">
+                  {customPrompts.map(prompt => {
+                    const isSelected = effectiveSelected.includes(prompt)
+                    return (
+                      <div
+                        key={`custom-${prompt}`}
+                        onClick={() => togglePrompt(prompt)}
+                        className={`group flex gap-3 items-start p-3 rounded-lg border cursor-pointer transition-all ${
+                          isSelected
+                            ? 'bg-emerald-50/50 border-emerald-200'
+                            : 'bg-zinc-50 border-transparent hover:border-zinc-200 hover:bg-white'
+                        }`}
+                      >
+                        <div
+                          className={`w-4 h-4 mt-0.5 rounded border flex items-center justify-center shrink-0 transition-all ${
+                            isSelected ? 'bg-emerald-600 border-emerald-600' : 'border-zinc-300 bg-white'
+                          }`}
+                        >
+                          {isSelected && <Check className="w-2.5 h-2.5 text-white" />}
+                        </div>
+                        <p className={`flex-1 text-sm leading-relaxed ${isSelected ? 'text-zinc-900' : 'text-zinc-600'}`}>
+                          {prompt}
+                        </p>
+                        <div
+                          role="button"
+                          onClick={e => deleteCustomPrompt(prompt, e)}
+                          className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded transition-all shrink-0"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {showCustomInput && (
+                    <div className="flex gap-2 p-1">
+                      <Input
+                        autoFocus
+                        placeholder="Enter your own prompt…"
+                        value={customPrompt}
+                        onChange={e => setCustomPrompt(e.target.value)}
+                        onKeyDown={handleCustomKeyDown}
+                        className="bg-white! border-zinc-200! shadow-none! text-zinc-900! placeholder:text-zinc-400! focus-visible:border-emerald-500! focus-visible:ring-2! focus-visible:ring-emerald-500/20! h-9 flex-1 text-sm rounded-lg"
+                      />
+                      <Button
+                        onClick={addCustomPrompt}
+                        disabled={!customPrompt.trim()}
+                        size="sm"
+                        className="h-9 px-4 bg-zinc-900 text-white hover:bg-zinc-700 rounded-lg text-sm"
+                      >
+                        Add
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Add custom prompt button */}
+            {!showCustomInput && (
+              <button
                 onClick={() => setShowCustomInput(true)}
                 className="w-full flex items-center gap-3 p-3.5 rounded-xl border border-dashed border-zinc-300 text-left hover:border-zinc-400 hover:bg-zinc-50 transition-all cursor-pointer"
               >
                 <Plus className="w-4 h-4 text-zinc-400" />
                 <span className="text-sm font-medium text-zinc-400">Add your own prompt</span>
-              </motion.button>
+              </button>
             )}
           </>
         )}
@@ -204,7 +396,6 @@ export function StepBrandPrompts({
             <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
             Go Back
           </button>
-
           <div className="flex items-center gap-3">
             {onSkip && (
               <Button
@@ -217,19 +408,19 @@ export function StepBrandPrompts({
               </Button>
             )}
             <Button
-            onClick={onNext}
-            disabled={isPromptsLoading || isSaving || (prompts.length === 0 && customPrompts.length === 0)}
-            className="bg-zinc-900 text-white hover:bg-zinc-700 px-6 h-10 text-sm font-medium rounded-full transition-all shadow-lg shadow-zinc-200 flex items-center disabled:opacity-50"
-          >
-            {isSaving ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <>
-                Finish
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </>
-            )}
-          </Button>
+              onClick={onNext}
+              disabled={isPromptsLoading || isSaving || (topicGroups.length === 0 && customPrompts.length === 0)}
+              className="bg-zinc-900 text-white hover:bg-zinc-700 px-6 h-10 text-sm font-medium rounded-full transition-all shadow-lg shadow-zinc-200 flex items-center disabled:opacity-50"
+            >
+              {isSaving ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  Finish
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </>
+              )}
+            </Button>
           </div>
         </div>
 
@@ -253,3 +444,4 @@ export function StepBrandPrompts({
     </motion.div>
   )
 }
+

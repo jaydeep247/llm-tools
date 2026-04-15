@@ -1,5 +1,44 @@
 import { baseApi } from './baseApi';
 
+// --- Rich brand profile returned by Stage 2 ---
+export interface BrandTargetAudience {
+  segment: string;
+  company_type: string | null;
+  evidence: string | null;
+}
+
+export interface BrandUseCase {
+  use_case: string;
+  evidence: string | null;
+}
+
+export interface BrandKeyFeature {
+  feature: string;
+  description: string | null;
+  source_page: string | null;
+}
+
+export interface BrandProfile {
+  brand_name: string | null;
+  one_liner: string | null;
+  description: string | null;
+  product_category: string | null;
+  business_model: string | null;
+  target_audience: BrandTargetAudience[];
+  core_use_cases: BrandUseCase[];
+  key_features: BrandKeyFeature[];
+  pain_points_solved: string[];
+  differentiators: string[];
+  pricing_model: string | null;
+  pricing_tiers: string[];
+  geographic_focus: string | null;
+  integrations_mentioned: string[];
+  competitors_mentioned: string[];
+  technology_signals: string[];
+  content_themes: string[];
+  website_url: string | null;
+}
+
 export interface BrandDescriptionRequest {
   url: string;
   jobId?: string;
@@ -7,6 +46,7 @@ export interface BrandDescriptionRequest {
 
 export interface BrandDescriptionResponse {
   description: string;
+  profile: BrandProfile | null;
 }
 
 export interface BrandTopicsRequest {
@@ -28,6 +68,12 @@ export interface SaveBrandTopicsRequest {
 export interface GeneratedPrompt {
   prompt: string;
   type: string;
+  journey_stage?: string;
+}
+
+export interface TopicPrompts {
+  topic: string;
+  prompts: GeneratedPrompt[];
 }
 
 export interface BrandPromptsRequest {
@@ -38,7 +84,7 @@ export interface BrandPromptsRequest {
 }
 
 export interface BrandPromptsResponse {
-  prompts: GeneratedPrompt[];
+  topics: TopicPrompts[];
 }
 
 export interface SaveBrandPromptsRequest {
@@ -50,7 +96,7 @@ export interface OnboardingDataResponse {
   description: string | null;
   topics_generated: string[];
   topics_selected: string[];
-  prompts_generated: GeneratedPrompt[];
+  prompts_generated: TopicPrompts[];
   prompts_selected: string[];
   prompt_results: PromptResult[];
 }

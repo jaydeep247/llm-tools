@@ -717,12 +717,16 @@ export default function DashboardOverview({
                   <p className="text-[11px] text-zinc-500 mb-1.5">Top Sources</p>
                   <div className="flex flex-wrap gap-1.5">
                     {brand.top_sources.slice(0, 5).map((src, i) => (
-                      <span
+                      <a
                         key={i}
-                        className="rounded-lg bg-zinc-800/40 border border-zinc-800 px-2.5 py-0.5 text-[11px] text-zinc-400"
+                        href={src.url || `https://${src.domain}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-lg bg-zinc-800/40 border border-zinc-800 px-2.5 py-0.5 text-[11px] text-cyan-400/80 hover:text-cyan-400 hover:bg-zinc-800 transition-colors truncate max-w-[150px]"
+                        title={src.title || src.domain}
                       >
                         {src.domain}
-                      </span>
+                      </a>
                     ))}
                   </div>
                 </div>

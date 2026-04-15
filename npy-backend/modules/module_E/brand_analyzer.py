@@ -2,6 +2,7 @@ import logging
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta
 from orchestrator.checkpoint.executor import execute_task
+from .top_sources_finder import find_top_sources
 
 logger = logging.getLogger("module_e_brand")
 
@@ -16,12 +17,14 @@ class BrandAnalyzer:
     """
 
     @staticmethod
-    async def analyze_brand(brand_name: str) -> Dict[str, Any]:
+    async def analyze_brand(brand_name: str, url: str = "") -> Dict[str, Any]:
         """
         Analyze brand mentions, sentiment, and sources from past 12 months.
         
         Args:
             brand_name: Brand/keyword to analyze (e.g., "Healthcare Apps")
+            url:        The brand's website URL — used by TopSourcesFinder to
+                        generate SERP queries and filter self-referential results.
             
         Returns:
             {
@@ -32,7 +35,13 @@ class BrandAnalyzer:
                     "label": str  # "Mostly Positive", "Mostly Negative", etc.
                 },
                 "frequency_trend": List[{"date": str, "count": int}],
-                "top_sources": List[{"domain": str}]
+                "top_sources": List[{
+                    "domain": str,
+                    "url": str,
+                    "title": str,
+                    "snippet": str,
+                    "mention_count": int,
+                }]
             }
         """
         if not brand_name or not isinstance(brand_name, str):
@@ -94,7 +103,33 @@ class BrandAnalyzer:
                     )
                     return BrandAnalyzer._empty_result(brand_name)
 
-                return BrandAnalyzer._aggregate_brand_data(brand_name, items, start_date)
+                brand_data = BrandAnalyzer._aggregate_brand_data(brand_name, items, start_date)
+
+                # ── Step 2: SERP-based Top Sources (replaces old domain_set) ──
+                try:
+                    top_sources_result = await find_top_sources(
+                        url=url,
+                        brand_name=brand_name,
+                    )
+                    brand_data["top_sources"] = top_sources_result.get("sources", [])
+                    brand_data["top_sources_meta"] = {
+                        "queries_used": top_sources_result.get("queries_used", []),
+                        "total_found": top_sources_result.get("total_found", 0),
+                        "scanned_at": top_sources_result.get("scanned_at", ""),
+                    }
+                    logger.info(
+                        "[BRAND] Top sources found: %d for brand=%r",
+                        brand_data["top_sources_meta"]["total_found"],
+                        brand_name,
+                    )
+                except Exception as ts_err:
+                    logger.warning(
+                        "[BRAND] TopSourcesFinder failed, falling back to empty: %s", ts_err
+                    )
+                    brand_data.setdefault("top_sources", [])
+                    brand_data.setdefault("top_sources_meta", {})
+
+                return brand_data
 
             except Exception as e:
                 logger.exception(
@@ -114,12 +149,16 @@ class BrandAnalyzer:
     @staticmethod
     def _aggregate_brand_data(brand_name: str, items: List[Dict], start_date: datetime) -> Dict[str, Any]:
         """
-        Aggregate monthly data into brand metrics.
+        Aggregate monthly data into brand metrics (mentions, sentiment, trend).
+
+        NOTE: top_sources is NOT computed here. It is populated separately by
+        find_top_sources() (SERP-based) in analyze_brand() after this method
+        returns. This keeps mention-trend aggregation cleanly separated from
+        source discovery.
         """
         total_mentions = 0
         history = []
         sentiment_counts = {"positive": 0, "negative": 0, "neutral": 0}
-        domain_set = set()
 
         for item in items:
             try:
@@ -149,18 +188,11 @@ class BrandAnalyzer:
                 sentiment_counts["negative"] += connotation.get("negative", 0)
                 sentiment_counts["neutral"] += connotation.get("neutral", 0)
 
-                # Top sources
-                top_domains = item.get("top_domains") or []
-                for domain_obj in top_domains:
-                    domain = domain_obj.get("domain")
-                    if domain:
-                        domain_set.add(domain)
-
             except Exception as e:
                 logger.debug("Error processing brand data item: %s", e)
                 continue
 
-        # Generate sentiment label
+        # Sentiment label
         total_sentiment = sum(sentiment_counts.values())
         if total_sentiment == 0:
             sentiment_label = "No Data"
@@ -177,7 +209,7 @@ class BrandAnalyzer:
             else:
                 sentiment_label = "Negative Leaning"
 
-        result = {
+        return {
             "brand_name": brand_name,
             "total_mentions": total_mentions,
             "sentiment": {
@@ -185,10 +217,10 @@ class BrandAnalyzer:
                 "label": sentiment_label
             },
             "frequency_trend": sorted(history, key=lambda x: x.get("date", "")),
-            "top_sources": [{"domain": d} for d in list(domain_set)[:5]]
+            # Placeholder — overwritten by find_top_sources() in analyze_brand()
+            "top_sources": [],
+            "top_sources_meta": {},
         }
-
-        return result
 
     @staticmethod
     def _empty_result(brand_name: str) -> Dict[str, Any]:
@@ -201,5 +233,6 @@ class BrandAnalyzer:
                 "label": "No Data"
             },
             "frequency_trend": [],
-            "top_sources": []
+            "top_sources": [],
+            "top_sources_meta": {},
         }

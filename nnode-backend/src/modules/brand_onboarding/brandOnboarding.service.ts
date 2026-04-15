@@ -7,7 +7,7 @@ export class BrandOnboardingService {
    * from the given URL.  When jobId is provided the Python backend will
    * load HTML from S3 and store the result in MongoDB.
    */
-  async generateBrandDescription(url: string, jobId?: string): Promise<string> {
+  async generateBrandDescription(url: string, jobId?: string): Promise<{ description: string; profile: Record<string, unknown> | null }> {
     const baseUrl = env.NPY_BACKEND_URL;
     const endpoint = `${baseUrl}/brand-onboarding/describe`;
 
@@ -28,15 +28,15 @@ export class BrandOnboardingService {
       throw new Error(`Brand description generation failed: ${detail}`);
     }
 
-    const data = (await res.json()) as { description: string };
-    return data.description;
+    const data = (await res.json()) as { description: string; profile: Record<string, unknown> | null };
+    return { description: data.description, profile: data.profile ?? null };
   }
 
   /**
    * Retrieve a previously generated brand description by job ID.
    * Returns null when no description has been stored yet.
    */
-  async getBrandDescription(jobId: string): Promise<string | null> {
+  async getBrandDescription(jobId: string): Promise<{ description: string; profile: Record<string, unknown> | null } | null> {
     const baseUrl = env.NPY_BACKEND_URL;
     const endpoint = `${baseUrl}/brand-onboarding/description/${encodeURIComponent(jobId)}`;
 
@@ -53,8 +53,8 @@ export class BrandOnboardingService {
       throw new Error(`Failed to get brand description: ${detail}`);
     }
 
-    const data = (await res.json()) as { description: string };
-    return data.description;
+    const data = (await res.json()) as { description: string; profile: Record<string, unknown> | null };
+    return { description: data.description, profile: data.profile ?? null };
   }
   /**
    * Retrieve all stored onboarding data by job ID.
@@ -154,7 +154,7 @@ export class BrandOnboardingService {
     brandDescription: string,
     selectedTopics: string[],
     jobId?: string,
-  ): Promise<Array<{ prompt: string; type: string }>> {
+  ): Promise<Array<{ topic: string; prompts: Array<{ prompt: string; type: string; journey_stage: string }> }>> {
     const baseUrl = env.NPY_BACKEND_URL;
     const endpoint = `${baseUrl}/brand-onboarding/prompts`;
 
@@ -179,8 +179,8 @@ export class BrandOnboardingService {
       throw new Error(`Brand prompts generation failed: ${detail}`);
     }
 
-    const data = (await res.json()) as { prompts: Array<{ prompt: string; type: string }> };
-    return data.prompts;
+    const data = (await res.json()) as { topics: Array<{ topic: string; prompts: Array<{ prompt: string; type: string; journey_stage: string }> }> };
+    return data.topics;
   }
 
   /**

@@ -14,7 +14,7 @@ import {
   useExecuteBrandPromptsMutation,
   useLazyGetOnboardingDataQuery,
 } from '@/store/api/brandOnboardingApi'
-import type { GeneratedPrompt, PromptResult } from '@/store/api/brandOnboardingApi'
+import type { GeneratedPrompt, TopicPrompts, PromptResult, BrandProfile } from '@/store/api/brandOnboardingApi'
 import { AnimatePresence } from 'framer-motion'
 import { useUpdateUserMutation } from '@/store/api/userApi'
 import { useToast } from '@/hooks/use-toast'
@@ -132,14 +132,17 @@ function BrandOnboardingContent() {
 
   const [currentStep, setCurrentStep] = useState(initialStep)
   const [brandDescription, setBrandDescription] = useState('')
+  const [brandProfile, setBrandProfile] = useState<BrandProfile | null>(null)
   const [isDescriptionLoading, setIsDescriptionLoading] = useState(true)
   const [topics, setTopics] = useState<string[]>([])
   const [selectedTopics, setSelectedTopics] = useState<string[]>([])
   const [isTopicsLoading, setIsTopicsLoading] = useState(false)
   const [isAdvancingToTopics, setIsAdvancingToTopics] = useState(false)
   const [isSavingTopics, setIsSavingTopics] = useState(false)
-  const [prompts, setPrompts] = useState<GeneratedPrompt[]>([])
+  const [prompts, setPrompts] = useState<TopicPrompts[]>([])
   const [customPrompts, setCustomPrompts] = useState<string[]>([])
+  const [selectedPrompts, setSelectedPrompts] = useState<string[]>([])
+  const [hasInitializedSelectedPrompts, setHasInitializedSelectedPrompts] = useState(false)
   const [isAdvancingToPrompts, setIsAdvancingToPrompts] = useState(false)
   const [isSavingPrompts, setIsSavingPrompts] = useState(false)
   const [promptResults, setPromptResults] = useState<PromptResult[]>([])
@@ -215,6 +218,7 @@ function BrandOnboardingContent() {
         const stored = await fetchStoredDescription(jobId).unwrap()
         if (stored?.description) {
           setBrandDescription(stored.description)
+          if (stored.profile) setBrandProfile(stored.profile)
           setIsDescriptionLoading(false)
           return
         }
@@ -226,6 +230,7 @@ function BrandOnboardingContent() {
         // Fall back: generate now (reads HTML from S3 + stores in DB)
         const result = await generateBrandDescription({ url: rawUrl, jobId }).unwrap()
         setBrandDescription(result.description)
+        if (result.profile) setBrandProfile(result.profile)
       } catch {
         // Silent — description will show as unavailable
       } finally {
@@ -247,15 +252,18 @@ function BrandOnboardingContent() {
           if (data.description && !brandDescription) {
             setBrandDescription(data.description)
             setIsDescriptionLoading(false)
-          }
-          if (data.topics_generated?.length > 0 && topics.length === 0) {
+          }          if (data.topics_generated?.length > 0 && topics.length === 0) {
             setTopics(data.topics_generated)
           }
           if (data.topics_selected?.length > 0 && selectedTopics.length === 0) {
             setSelectedTopics(data.topics_selected)
           }
           if (data.prompts_generated?.length > 0 && prompts.length === 0) {
-            setPrompts(data.prompts_generated)
+            setPrompts(data.prompts_generated as TopicPrompts[])
+          }
+          if (data.prompts_selected?.length > 0 && selectedPrompts.length === 0) {
+            setSelectedPrompts(data.prompts_selected)
+            setHasInitializedSelectedPrompts(true)
           }
           if (data.prompt_results?.length > 0 && promptResults.length === 0) {
             setPromptResults(data.prompt_results)
@@ -314,7 +322,11 @@ function BrandOnboardingContent() {
           selectedTopics,
           jobId: jobId || undefined,
         }).unwrap()
-        setPrompts(result.prompts)
+        setPrompts(result.topics)
+        if (!hasInitializedSelectedPrompts) {
+          setSelectedPrompts(result.topics.flatMap(t => t.prompts.map(p => p.prompt)))
+          setHasInitializedSelectedPrompts(true)
+        }
       } catch {
         setPrompts([])
       }
@@ -324,12 +336,10 @@ function BrandOnboardingContent() {
     goToStep(2)
   }
 
-  // Save all prompts (generated + custom) and advance to step 4 (results)
+  // Save all selected prompts and advance to step 4 (results)
   const handlePromptsContinue = async () => {
-    const allPrompts = [
-      ...prompts.map((p) => p.prompt),
-      ...customPrompts,
-    ]
+    // We only want to execute and save the selected ones
+    const allPrompts = selectedPrompts
     setIsSavingPrompts(true)
     try {
       if (jobId && allPrompts.length > 0) {
@@ -349,14 +359,20 @@ function BrandOnboardingContent() {
     // Execute prompts against all 3 LLMs
     setIsExecutingPrompts(true)
     try {
-      // Combine generated prompts + custom prompts into the execution list
-      const allPromptsForExecution: GeneratedPrompt[] = [
-        ...prompts,
-        ...customPrompts.map((p) => ({ prompt: p, type: 'custom' })),
-      ]
+      // Combine generated prompts + custom prompts into the execution list, filtering by selection
+      const executionList: GeneratedPrompt[] = []
+      for (const group of prompts) {
+        for (const p of group.prompts) {
+          if (selectedPrompts.includes(p.prompt)) executionList.push(p)
+        }
+      }
+      for (const p of customPrompts) {
+        if (selectedPrompts.includes(p)) executionList.push({ prompt: p, type: 'custom' })
+      }
+
       const result = await executeBrandPrompts({
         brandName,
-        prompts: allPromptsForExecution,
+        prompts: executionList,
         jobId: jobId || undefined,
       }).unwrap()
       setPromptResults(result.results)
@@ -405,6 +421,7 @@ function BrandOnboardingContent() {
             <StepBrandReady
               brandName={brandName}
               brandDescription={brandDescription}
+              brandProfile={brandProfile}
               url={rawUrl}
               onStart={handleGoToTopics}
               onSkip={handleSkip}
@@ -419,6 +436,7 @@ function BrandOnboardingContent() {
           <div key="brand-topics" className="h-full">
             <StepBrandTopics
               topics={topics}
+              onTopicsChange={setTopics}
               selectedTopics={selectedTopics}
               onSelectedTopicsChange={setSelectedTopics}
               isTopicsLoading={isTopicsLoading}
@@ -434,9 +452,12 @@ function BrandOnboardingContent() {
         {currentStep === 2 && (
           <div key="brand-prompts" className="h-full">
             <StepBrandPrompts
-              prompts={prompts}
+              topicGroups={prompts}
+              onTopicGroupsChange={setPrompts}
               customPrompts={customPrompts}
               onCustomPromptsChange={setCustomPrompts}
+              selectedPrompts={selectedPrompts}
+              onSelectedPromptsChange={setSelectedPrompts}
               isPromptsLoading={false}
               isSaving={isSavingPrompts}
               onNext={handlePromptsContinue}

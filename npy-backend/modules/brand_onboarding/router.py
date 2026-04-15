@@ -7,7 +7,7 @@ and suggest brand-relevant topics for tracking.
 """
 
 import logging
-from typing import Optional, List
+from typing import Optional, List, Any
 from pydantic import BaseModel, Field, field_validator
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
@@ -44,6 +44,7 @@ class BrandDescriptionRequest(BaseModel):
 
 class BrandDescriptionResponse(BaseModel):
     description: str
+    profile: Optional[Any] = None
 
 
 class BrandTopicsRequest(BaseModel):
@@ -80,10 +81,16 @@ class BrandPromptsRequest(BaseModel):
 class GeneratedPrompt(BaseModel):
     prompt: str
     type: str
+    journey_stage: str = ""
+
+
+class TopicPrompts(BaseModel):
+    topic: str
+    prompts: List[GeneratedPrompt]
 
 
 class BrandPromptsResponse(BaseModel):
-    prompts: List[GeneratedPrompt]
+    topics: List[TopicPrompts]
 
 
 class SaveBrandPromptsRequest(BaseModel):
@@ -102,8 +109,8 @@ async def describe_brand(body: BrandDescriptionRequest):
     can be retrieved later via ``GET /brand-onboarding/description/{job_id}``.
     """
     try:
-        description = await generate_brand_description(body.url, job_id=body.job_id)
-        return BrandDescriptionResponse(description=description)
+        result = await generate_brand_description(body.url, job_id=body.job_id)
+        return BrandDescriptionResponse(description=result["description"], profile=result.get("profile"))
     except Exception as exc:
         logger.error(f"Brand description failed for {body.url}: {exc}", exc_info=True)
         return JSONResponse(
@@ -118,9 +125,9 @@ async def get_description(job_id: str):
     Return the previously generated brand description for a job.
     Returns 404 when no description has been generated yet.
     """
-    description = await get_stored_description(job_id)
-    if description:
-        return BrandDescriptionResponse(description=description)
+    result = await get_stored_description(job_id)
+    if result:
+        return BrandDescriptionResponse(description=result["description"], profile=result.get("profile"))
     return JSONResponse(
         status_code=404,
         content={"error": "Brand description not found for this job"},
@@ -189,13 +196,21 @@ async def gen_prompts(body: BrandPromptsRequest):
     transactional, agent-style).
     """
     try:
-        prompts = await generate_brand_prompts(
+        topic_groups = await generate_brand_prompts(
             brand_name=body.brand_name,
             brand_description=body.brand_description,
             selected_topics=body.selected_topics,
             job_id=body.job_id,
         )
-        return BrandPromptsResponse(prompts=[GeneratedPrompt(**p) for p in prompts])
+        return BrandPromptsResponse(
+            topics=[
+                TopicPrompts(
+                    topic=g["topic"],
+                    prompts=[GeneratedPrompt(**p) for p in g["prompts"]],
+                )
+                for g in topic_groups
+            ]
+        )
     except Exception as exc:
         logger.error(f"Brand prompts generation failed: {exc}", exc_info=True)
         return JSONResponse(

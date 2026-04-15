@@ -15,17 +15,16 @@ export class ModuleFService {
 
   async getModuleFResult(jobId: string, userId: string): Promise<ModuleFResult | null> {
     const job = await this.jobService.getJobById(userId, jobId);
+
+    // 1. Session check: if the user explicitly ran module_f in this session, use it.
+    if (job?.sessionId) {
+      const sessionResult = await moduleFRepository.getLatestModuleFResultBySessionId(job.sessionId);
+      if (sessionResult) return sessionResult;
+    }
+
+    // 2. Cache fallback: use cache source job data if available.
     const effectiveId = await this.jobRepository.resolveEffectiveJobId(jobId);
-
-    const directResult = await moduleFRepository.getModuleFResultByJobId(effectiveId);
-    if (directResult) return directResult;
-
-    // Session fallback: only use it when the effective job belongs to this same session
-    // (i.e., not a cross-session cache-hit). Cross-session cache hits should have been
-    // served by getModuleFResultByJobId above; if that returned null the data doesn't exist.
-    if (!job?.sessionId) return null;
-    if (effectiveId !== jobId) return null; // cache-hit: data came from another session
-    return await moduleFRepository.getLatestModuleFResultBySessionId(job.sessionId);
+    return await moduleFRepository.getModuleFResultByJobId(effectiveId);
   }
 
   async getModuleFTrends(jobId: string, userId: string): Promise<ModuleFTrends | null> {
@@ -114,10 +113,30 @@ export class ModuleFService {
       throw new Error('Job not found or access denied');
     }
 
+    // Resolve the actual jobId where the module_f data lives (same logic as getModuleFResult)
+    let targetJobId = jobId;
+    let foundData = false;
+    if (job?.sessionId) {
+      const sessionResult = await moduleFRepository.getLatestModuleFResultBySessionId(job.sessionId);
+      if (sessionResult?.jobId) {
+        targetJobId = sessionResult.jobId;
+        foundData = true;
+      }
+    }
+    if (!foundData) {
+      const effectiveId = await this.jobRepository.resolveEffectiveJobId(jobId);
+      const cacheResult = await moduleFRepository.getModuleFResultByJobId(effectiveId);
+      if (cacheResult?.jobId) {
+        targetJobId = cacheResult.jobId;
+      } else {
+        targetJobId = effectiveId;
+      }
+    }
+
     const endpoint = `${env.NPY_BACKEND_URL}/module-f/ask-ai`;
     const body: Record<string, unknown> = {
       project_id: job.projectId,
-      job_id: jobId,
+      job_id: targetJobId,
       question: payload.question,
     };
     if (payload.conversationHistory?.length) {

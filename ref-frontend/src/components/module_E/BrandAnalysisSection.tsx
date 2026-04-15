@@ -408,38 +408,90 @@ export default function BrandAnalysisSection({ jobId, projectId }: BrandAnalysis
           {/* Top Sources */}
           {topSources.length > 0 && (
             <div className="rounded-2xl border border-zinc-800 bg-zinc-800/50 p-6">
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Globe className="w-4 h-4 text-white" />
-                  <h4 className="text-sm font-semibold uppercase tracking-wider text-white">
-                    Top Source Domains
-                  </h4>
+              <div className="space-y-4">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Globe className="w-4 h-4 text-cyan-400" />
+                    <h4 className="text-sm font-semibold uppercase tracking-wider text-white">
+                      Top Source Domains
+                    </h4>
+                  </div>
+                  <span className="text-xs text-zinc-500">
+                    {topSources.length} source{topSources.length !== 1 ? 's' : ''} found
+                  </span>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {topSources.slice(0, expandedSources ? undefined : 3).map((source, idx) => (
-                    <Badge key={idx} variant="secondary" className="text-xs">
-                      {source.domain}
-                    </Badge>
-                  ))}
-                  {topSources.length > 3 && !expandedSources && (
-                    <Badge
-                      variant="outline"
-                      className="text-xs cursor-pointer hover:bg-secondary"
-                      onClick={() => setExpandedSources(true)}
-                    >
-                      +{topSources.length - 3} more
-                    </Badge>
-                  )}
-                  {expandedSources && topSources.length > 3 && (
-                    <Badge
-                      variant="outline"
-                      className="text-xs cursor-pointer hover:bg-secondary"
-                      onClick={() => setExpandedSources(false)}
-                    >
-                      Show less
-                    </Badge>
-                  )}
+
+                {/* Source Cards */}
+                <div className="space-y-2">
+                  {topSources.slice(0, expandedSources ? undefined : 5).map((source: any, idx: number) => {
+                    const domain = source.domain || ''
+                    const pageUrl = source.url || (domain ? `https://${domain}` : '')
+                    const title = source.title || domain
+                    const snippet = source.snippet || ''
+                    const mentionCount = source.mention_count ?? null
+
+                    return (
+                      <a
+                        key={idx}
+                        href={pageUrl || '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-start gap-3 rounded-xl border border-zinc-700/50 bg-zinc-900/60 p-3 hover:border-cyan-500/40 hover:bg-zinc-900 transition-all group cursor-pointer"
+                      >
+                        {/* Favicon */}
+                        <div className="w-8 h-8 rounded-md bg-zinc-800 border border-zinc-700 flex items-center justify-center flex-shrink-0 mt-0.5 overflow-hidden">
+                          {domain ? (
+                            <img
+                              src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`}
+                              alt={domain}
+                              className="w-5 h-5"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none'
+                              }}
+                            />
+                          ) : (
+                            <Globe className="w-4 h-4 text-zinc-500" />
+                          )}
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 mb-0.5">
+                            <p className="text-sm font-semibold text-white truncate group-hover:text-cyan-300 transition-colors">
+                              {title || domain}
+                            </p>
+                            {mentionCount !== null && (
+                              <Badge className="text-[10px] px-1.5 py-0 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex-shrink-0">
+                                {mentionCount}&times;
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-zinc-500 truncate mb-1">
+                            {domain}
+                          </p>
+                          {snippet && (
+                            <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">
+                              {snippet}
+                            </p>
+                          )}
+                        </div>
+                      </a>
+                    )
+                  })}
                 </div>
+
+                {/* Show more / less toggle */}
+                {topSources.length > 5 && (
+                  <button
+                    onClick={() => setExpandedSources(!expandedSources)}
+                    className="w-full text-xs text-zinc-500 hover:text-zinc-300 transition-colors py-1"
+                  >
+                    {expandedSources
+                      ? 'Show less'
+                      : `Show ${topSources.length - 5} more source${topSources.length - 5 !== 1 ? 's' : ''}`}
+                  </button>
+                )}
               </div>
             </div>
           )}

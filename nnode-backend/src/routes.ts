@@ -24,6 +24,7 @@ import auditReportsRoutes from './modules/audit_reports/audit_reports.routes';
 import exportRoutes from './modules/export/export.routes';
 import weeklyReportsRoutes from './modules/weekly_reports/weekly_reports.routes';
 import competitorReportsRoutes from './modules/competitor_reports/competitorReports.routes';
+import brandMentionsRoutes from './modules/brand_mentions/brandMentions.routes';
 
 const router = Router();
 
@@ -59,5 +60,6 @@ router.use('/', auditReportsRoutes);
 router.use('/', exportRoutes);
 router.use('/', weeklyReportsRoutes);
 router.use('/', competitorReportsRoutes);
+router.use('/', brandMentionsRoutes);
 
 export default router;

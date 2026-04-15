@@ -12,8 +12,23 @@ const rawBaseQuery = fetchBaseQuery({
   credentials: 'include',
 });
 
-// Mutex flag — prevents parallel 401s from firing multiple refresh calls.
-let isRefreshing = false;
+/**
+ * Promise-based mutex for the single in-flight token refresh.
+ *
+ * Why not a boolean flag:
+ *   A boolean only prevents a second refresh from starting, but concurrent 401
+ *   requests that arrive while isRefreshing=true return their 401 error immediately
+ *   and are never retried. Those errors percolate up, cause component remounts,
+ *   and produce another wave of 401s — the classic infinite-refresh loop.
+ *
+ * How this works:
+ *   All concurrent 401 requests share one refresh Promise. They all await it
+ *   and all retry with the new cookie once it resolves. If refresh fails we
+ *   redirect to /signin — we do NOT call resetApiState() because that would
+ *   clear all RTK Query cache, immediately re-fire every subscribed query,
+ *   and restart the loop.
+ */
+let refreshingTokenPromise: Promise<boolean> | null = null;
 
 const baseQueryWithReauth: BaseQueryFn<
   string | FetchArgs,
@@ -25,25 +40,46 @@ const baseQueryWithReauth: BaseQueryFn<
   if (result.error?.status === 401) {
     const url = typeof args === 'string' ? args : args.url;
 
-    // Never attempt to refresh if the failing request is the refresh itself.
+    // Never attempt to refresh when the failing request IS the refresh itself.
     if (url === '/auth/refresh') return result;
 
-    if (!isRefreshing) {
-      isRefreshing = true;
-      const refreshResult = await rawBaseQuery(
-        { url: '/auth/refresh', method: 'POST' },
-        api,
-        extraOptions
-      );
-      isRefreshing = false;
+    if (!refreshingTokenPromise) {
+      // First 401 to arrive — start a single refresh and share the promise.
+      refreshingTokenPromise = (async () => {
+        try {
+          const refreshResult = await rawBaseQuery(
+            { url: '/auth/refresh', method: 'POST' },
+            api,
+            extraOptions,
+          );
+          if (refreshResult.error) {
+            // Refresh failed (session truly expired) — navigate to sign-in.
+            // IMPORTANT: do NOT call resetApiState() here. Clearing all
+            // RTK Query cache causes every active subscriber to immediately
+            // re-fire, each of which gets 401 → triggers another refresh →
+            // infinite loop. A hard redirect stops the cycle cleanly.
+            if (typeof window !== 'undefined') {
+              window.location.replace('/signin');
+            }
+            return false;
+          }
+          return true;
+        } catch {
+          if (typeof window !== 'undefined') {
+            window.location.replace('/signin');
+          }
+          return false;
+        } finally {
+          // Clear the shared promise so the next independent 401 starts fresh.
+          refreshingTokenPromise = null;
+        }
+      })();
+    }
 
-      if (refreshResult.error) {
-        // Refresh failed — wipe cached state so UI reflects logged-out.
-        api.dispatch(baseApi.util.resetApiState());
-      } else {
-        // Token renewed — retry the original request.
-        result = await rawBaseQuery(args, api, extraOptions);
-      }
+    // All 401 requests (including the initiator) wait here, then retry.
+    const wasRefreshed = await refreshingTokenPromise;
+    if (wasRefreshed) {
+      result = await rawBaseQuery(args, api, extraOptions);
     }
   }
 

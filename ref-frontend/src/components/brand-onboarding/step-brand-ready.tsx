@@ -1,12 +1,17 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Sparkles, Globe, Loader2, ArrowRight, FileText } from 'lucide-react'
+import {
+  Sparkles, Globe, Loader2, ArrowRight, FileText,
+  Tag, Users, Zap, TrendingUp, Puzzle, Cpu, BookOpen, AlertCircle,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import type { BrandProfile } from '@/store/api/brandOnboardingApi'
 
 interface StepBrandReadyProps {
   brandName: string
   brandDescription: string
+  brandProfile?: BrandProfile | null
   url: string
   onStart: () => void
   onSkip: () => void
@@ -16,9 +21,42 @@ interface StepBrandReadyProps {
   totalSteps: number
 }
 
+// Renders a compact label chip
+function Chip({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-700 text-xs font-medium border border-zinc-200">
+      {label}
+    </span>
+  )
+}
+
+// A single labelled card row
+function ProfileSection({
+  icon,
+  label,
+  children,
+}: {
+  icon: React.ReactNode
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="flex items-start gap-3 p-3.5 rounded-xl bg-white border border-zinc-200 shadow-sm">
+      <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center border border-emerald-100 shrink-0 mt-0.5">
+        {icon}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] uppercase tracking-wider text-zinc-500 font-bold mb-1">{label}</p>
+        {children}
+      </div>
+    </div>
+  )
+}
+
 export function StepBrandReady({
   brandName,
   brandDescription,
+  brandProfile,
   url,
   onStart,
   onSkip,
@@ -27,6 +65,20 @@ export function StepBrandReady({
   currentStep,
   totalSteps,
 }: StepBrandReadyProps) {
+
+  // Helpers to safely pull list-of-dicts fields
+  const audiences = brandProfile?.target_audience?.filter(a => a?.segment) ?? []
+  const useCases = brandProfile?.core_use_cases?.filter(u => u?.use_case) ?? []
+  const features = brandProfile?.key_features?.filter(f => f?.feature) ?? []
+  const painPoints = (brandProfile?.pain_points_solved ?? []).filter(Boolean)
+  const differentiators = (brandProfile?.differentiators ?? []).filter(Boolean)
+  const integrations = (brandProfile?.integrations_mentioned ?? []).filter(Boolean)
+  const techSignals = (brandProfile?.technology_signals ?? []).filter(Boolean)
+  const contentThemes = (brandProfile?.content_themes ?? []).filter(Boolean)
+  const pricingTiers = (brandProfile?.pricing_tiers ?? []).filter(Boolean)
+
+  const hasRichProfile = !!brandProfile && !isDescriptionLoading
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -35,75 +87,182 @@ export function StepBrandReady({
       className="flex flex-col h-full"
     >
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-4">
         <div className="flex items-center gap-3 mb-3">
           <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center border border-emerald-100">
             <Sparkles className="w-4 h-4 text-emerald-600" />
           </div>
         </div>
-        <h2 className="text-2xl font-bold text-zinc-900 mb-2 tracking-tight">Brand Profile Summary</h2>
+        <h2 className="text-2xl font-bold text-zinc-900 mb-1 tracking-tight">Brand Intelligence Overview</h2>
         <p className="text-zinc-500 text-sm">
-          Here's a summary of the brand information we've gathered.
+          Evidence-based analysis extracted directly from your website.
         </p>
       </div>
 
-      {/* Summary */}
-      <div className="flex-1 space-y-3">
-        {/* Brand name */}
-        <div className="flex items-start gap-3 p-3.5 rounded-xl bg-white border border-zinc-200 shadow-sm">
-          <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center border border-emerald-100 shrink-0 mt-0.5">
-            <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[11px] uppercase tracking-wider text-zinc-500 font-bold mb-0.5">Brand</p>
-            <p className="text-sm text-zinc-900 font-medium truncate">{brandName || '—'}</p>
-          </div>
+      {/* Scrollable card body */}
+      <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 pb-2">
+
+        {/* Brand + URL row */}
+        <div className="grid grid-cols-2 gap-2.5">
+          <ProfileSection icon={<Sparkles className="w-3.5 h-3.5 text-emerald-600" />} label="Brand">
+            <p className="text-sm text-zinc-900 font-medium truncate">
+              {brandProfile?.brand_name || brandName || '—'}
+            </p>
+          </ProfileSection>
+          <ProfileSection icon={<Globe className="w-3.5 h-3.5 text-emerald-600" />} label="Analysing">
+            <p className="text-sm text-zinc-900 font-medium truncate">{url || '—'}</p>
+          </ProfileSection>
         </div>
 
-        {/* Brand description */}
-        <div className="flex items-start gap-3 p-3.5 rounded-xl bg-white border border-zinc-200 shadow-sm">
-          <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center border border-emerald-100 shrink-0 mt-0.5">
-            <FileText className="w-3.5 h-3.5 text-emerald-600" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] uppercase tracking-wider text-zinc-500 font-bold mb-0.5">
-              AI-Generated Description
-            </p>
-            {isDescriptionLoading ? (
-              <div className="flex items-center gap-2 py-1">
-                <Loader2 className="w-3.5 h-3.5 text-emerald-600 animate-spin" />
-                <span className="text-sm text-zinc-400">Generating description from your website…</span>
-              </div>
-            ) : brandDescription ? (
-              <p className="text-sm text-zinc-700 leading-relaxed">{brandDescription}</p>
-            ) : (
-              <p className="text-sm text-zinc-400 italic">Description will be available shortly.</p>
+        {/* Category + Business Model row */}
+        {hasRichProfile && (brandProfile.product_category || brandProfile.business_model) && (
+          <div className="grid grid-cols-2 gap-2.5">
+            {brandProfile.product_category && (
+              <ProfileSection icon={<Tag className="w-3.5 h-3.5 text-emerald-600" />} label="Category">
+                <p className="text-sm text-zinc-800">{brandProfile.product_category}</p>
+              </ProfileSection>
+            )}
+            {brandProfile.business_model && (
+              <ProfileSection icon={<TrendingUp className="w-3.5 h-3.5 text-emerald-600" />} label="Business Model">
+                <p className="text-sm text-zinc-800">{brandProfile.business_model}</p>
+              </ProfileSection>
             )}
           </div>
-        </div>
+        )}
 
-        {/* URL */}
-        <div className="flex items-start gap-3 p-3.5 rounded-xl bg-white border border-zinc-200 shadow-sm">
-          <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center border border-emerald-100 shrink-0 mt-0.5">
-            <Globe className="w-3.5 h-3.5 text-emerald-600" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[11px] uppercase tracking-wider text-zinc-500 font-bold mb-0.5">Analysing</p>
-            <p className="text-sm text-zinc-900 font-medium truncate">{url || '—'}</p>
-          </div>
-        </div>
+        {/* Description */}
+        <ProfileSection icon={<FileText className="w-3.5 h-3.5 text-emerald-600" />} label="Brand Overview">
+          {isDescriptionLoading ? (
+            <div className="flex items-center gap-2 py-1">
+              <Loader2 className="w-3.5 h-3.5 text-emerald-600 animate-spin" />
+              <span className="text-sm text-zinc-400">Analysing your website…</span>
+            </div>
+          ) : (brandProfile?.description || brandDescription) ? (
+            <p className="text-sm text-zinc-700 leading-relaxed">
+              {brandProfile?.description || brandDescription}
+            </p>
+          ) : (
+            <p className="text-sm text-zinc-400 italic">Description will be available shortly.</p>
+          )}
+        </ProfileSection>
 
+        {/* Target Audience */}
+        {hasRichProfile && audiences.length > 0 && (
+          <ProfileSection icon={<Users className="w-3.5 h-3.5 text-emerald-600" />} label="Target Audience">
+            <div className="flex flex-wrap gap-1.5">
+              {audiences.map((a, i) => (
+                <Chip key={i} label={a.segment} />
+              ))}
+            </div>
+          </ProfileSection>
+        )}
+
+        {/* Core Use Cases */}
+        {hasRichProfile && useCases.length > 0 && (
+          <ProfileSection icon={<Zap className="w-3.5 h-3.5 text-emerald-600" />} label="Core Use Cases">
+            <ul className="space-y-1">
+              {useCases.slice(0, 5).map((u, i) => (
+                <li key={i} className="text-sm text-zinc-700 flex items-start gap-1.5">
+                  <span className="mt-1.5 w-1 h-1 rounded-full bg-emerald-400 shrink-0" />
+                  {u.use_case}
+                </li>
+              ))}
+            </ul>
+          </ProfileSection>
+        )}
+
+        {/* Key Features */}
+        {hasRichProfile && features.length > 0 && (
+          <ProfileSection icon={<BookOpen className="w-3.5 h-3.5 text-emerald-600" />} label="Key Features">
+            <div className="flex flex-wrap gap-1.5">
+              {features.slice(0, 8).map((f, i) => (
+                <Chip key={i} label={f.feature} />
+              ))}
+            </div>
+          </ProfileSection>
+        )}
+
+        {/* Pain Points */}
+        {hasRichProfile && painPoints.length > 0 && (
+          <ProfileSection icon={<AlertCircle className="w-3.5 h-3.5 text-emerald-600" />} label="Pain Points Solved">
+            <ul className="space-y-1">
+              {painPoints.slice(0, 4).map((p, i) => (
+                <li key={i} className="text-sm text-zinc-700 flex items-start gap-1.5">
+                  <span className="mt-1.5 w-1 h-1 rounded-full bg-emerald-400 shrink-0" />
+                  {p}
+                </li>
+              ))}
+            </ul>
+          </ProfileSection>
+        )}
+
+        {/* Differentiators */}
+        {hasRichProfile && differentiators.length > 0 && (
+          <ProfileSection icon={<TrendingUp className="w-3.5 h-3.5 text-emerald-600" />} label="Differentiators">
+            <ul className="space-y-1">
+              {differentiators.slice(0, 4).map((d, i) => (
+                <li key={i} className="text-sm text-zinc-700 flex items-start gap-1.5">
+                  <span className="mt-1.5 w-1 h-1 rounded-full bg-emerald-400 shrink-0" />
+                  {d}
+                </li>
+              ))}
+            </ul>
+          </ProfileSection>
+        )}
+
+        {/* Pricing */}
+        {hasRichProfile && (brandProfile.pricing_model || pricingTiers.length > 0) && (
+          <ProfileSection icon={<Tag className="w-3.5 h-3.5 text-emerald-600" />} label="Pricing">
+            {brandProfile.pricing_model && (
+              <p className="text-sm text-zinc-700 mb-1.5">{brandProfile.pricing_model}</p>
+            )}
+            {pricingTiers.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {pricingTiers.map((t, i) => <Chip key={i} label={t} />)}
+              </div>
+            )}
+          </ProfileSection>
+        )}
+
+        {/* Integrations & Tech */}
+        {hasRichProfile && (integrations.length > 0 || techSignals.length > 0) && (
+          <div className="grid grid-cols-2 gap-2.5">
+            {integrations.length > 0 && (
+              <ProfileSection icon={<Puzzle className="w-3.5 h-3.5 text-emerald-600" />} label="Integrations">
+                <div className="flex flex-wrap gap-1.5">
+                  {integrations.slice(0, 6).map((t, i) => <Chip key={i} label={t} />)}
+                </div>
+              </ProfileSection>
+            )}
+            {techSignals.length > 0 && (
+              <ProfileSection icon={<Cpu className="w-3.5 h-3.5 text-emerald-600" />} label="Technology">
+                <div className="flex flex-wrap gap-1.5">
+                  {techSignals.slice(0, 6).map((t, i) => <Chip key={i} label={t} />)}
+                </div>
+              </ProfileSection>
+            )}
+          </div>
+        )}
+
+        {/* Content Themes */}
+        {hasRichProfile && contentThemes.length > 0 && (
+          <ProfileSection icon={<BookOpen className="w-3.5 h-3.5 text-emerald-600" />} label="Content Themes">
+            <div className="flex flex-wrap gap-1.5">
+              {contentThemes.slice(0, 8).map((t, i) => <Chip key={i} label={t} />)}
+            </div>
+          </ProfileSection>
+        )}
 
       </div>
 
       {/* Footer */}
-      <div className="mt-auto pt-6">
+      <div className="mt-auto pt-4">
         {isDescriptionLoading && (
           <p className="text-xs text-zinc-400 text-center mb-3">
-            Waiting for AI description before you can continue…
+            Waiting for AI analysis before you can continue…
           </p>
         )}
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center mb-4">
           <Button
             onClick={onSkip}
             variant="ghost"
@@ -123,7 +282,7 @@ export function StepBrandReady({
             ) : isDescriptionLoading ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Generating…
+                Analysing…
               </>
             ) : (
               <>
@@ -135,7 +294,7 @@ export function StepBrandReady({
         </div>
 
         {/* Progress */}
-        <div className="pt-6 border-t border-zinc-200 flex items-center justify-between">
+        <div className="pt-4 border-t border-zinc-200 flex items-center justify-between">
           <div className="flex gap-1.5">
             {Array.from({ length: totalSteps }).map((_, idx) => (
               <div

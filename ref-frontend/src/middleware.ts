@@ -56,13 +56,26 @@ export function middleware(request: NextRequest) {
   // ── Regular user route protection ──────────────────────────────────────
   const token = request.cookies.get(AUTH_COOKIE)?.value
 
-  // If user is already authenticated and tries to visit /signin, redirect to /dashboard
-  if (token && isSignin) {
+  // Validate the token is present AND not expired.
+  // Checking only existence would cause a redirect loop: an expired cookie
+  // would redirect /signin → /dashboard → /signin ad infinitum because the
+  // middleware never sees the token as absent.
+  const isValidToken = !!token && (() => {
+    const payload = decodeJwtPayload(token)
+    if (!payload || typeof payload['exp'] !== 'number') return false
+    // exp is seconds since epoch; Date.now() is milliseconds
+    return payload['exp'] * 1000 > Date.now()
+  })()
+
+  if (isValidToken && isSignin) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
-  if (!token && (isOnboarding || isDashboard)) {
-    return NextResponse.redirect(new URL('/signin', request.url))
+  if (!isValidToken && (isOnboarding || isDashboard)) {
+    const response = NextResponse.redirect(new URL('/signin', request.url))
+    // Clear the stale/expired cookie so it cannot cause further redirect loops.
+    if (token) response.cookies.delete(AUTH_COOKIE)
+    return response
   }
 
   return NextResponse.next()

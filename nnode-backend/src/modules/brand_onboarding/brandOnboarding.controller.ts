@@ -18,8 +18,8 @@ export class BrandOnboardingController {
   describeBrand = async (req: Request, res: Response): Promise<Response> => {
     try {
       const { url, jobId } = brandDescriptionSchema.parse(req.body);
-      const description = await this.brandOnboardingService.generateBrandDescription(url, jobId);
-      return ResponseUtil.success(res, 'Brand description generated', { description });
+      const result = await this.brandOnboardingService.generateBrandDescription(url, jobId);
+      return ResponseUtil.success(res, 'Brand description generated', result);
     } catch (error: any) {
       logger.error(`Brand description error: ${error.message}`);
       if (error.name === 'ZodError') {
@@ -39,11 +39,11 @@ export class BrandOnboardingController {
       if (!jobId) {
         return ResponseUtil.error(res, 'jobId is required');
       }
-      const description = await this.brandOnboardingService.getBrandDescription(jobId);
-      if (!description) {
+      const result = await this.brandOnboardingService.getBrandDescription(jobId);
+      if (!result) {
         return ResponseUtil.error(res, 'Brand description not yet available', undefined, 404);
       }
-      return ResponseUtil.success(res, 'Brand description retrieved', { description });
+      return ResponseUtil.success(res, 'Brand description retrieved', result);
     } catch (error: any) {
       logger.error(`Get brand description error: ${error.message}`);
       return ResponseUtil.serverError(res, 'Failed to retrieve brand description');
@@ -114,8 +114,8 @@ export class BrandOnboardingController {
   generatePrompts = async (req: Request, res: Response): Promise<Response> => {
     try {
       const { brandName, brandDescription, selectedTopics, jobId } = brandPromptsSchema.parse(req.body);
-      const prompts = await this.brandOnboardingService.generateBrandPrompts(brandName, brandDescription, selectedTopics, jobId);
-      return ResponseUtil.success(res, 'Brand prompts generated', { prompts });
+      const topics = await this.brandOnboardingService.generateBrandPrompts(brandName, brandDescription, selectedTopics, jobId);
+      return ResponseUtil.success(res, 'Brand prompts generated', { topics });
     } catch (error: any) {
       logger.error(`Brand prompts error: ${error.message}`);
       if (error.name === 'ZodError') {

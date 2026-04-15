@@ -307,11 +307,11 @@ async def _fetch_and_store_homepage(job_id: str, url: str) -> str:
     return html
 
 
-async def _run_brand(job_id: str, brand_name: str) -> Dict[str, Any]:
+async def _run_brand(job_id: str, brand_name: str, url: str = "") -> Dict[str, Any]:
     """Run Brand Analysis and upsert `brand_analysis` into quick_start."""
     logger.info(f"[QS] Brand analysis started for '{brand_name}'")
     try:
-        brand_analysis = await BrandAnalyzer.analyze_brand(brand_name)
+        brand_analysis = await BrandAnalyzer.analyze_brand(brand_name, url=url)
     except Exception as exc:
         logger.error(f"[QS] Brand analysis error: {exc}", exc_info=True)
         return {"error": str(exc)}
@@ -323,6 +323,9 @@ async def _run_brand(job_id: str, brand_name: str) -> Dict[str, Any]:
                 "$set": {
                     "jobId": job_id,
                     "brand_analysis": brand_analysis,
+                    # Hoist top_sources to root level for easy API access
+                    "top_sources": brand_analysis.get("top_sources", []),
+                    "top_sources_meta": brand_analysis.get("top_sources_meta", {}),
                     "updatedAt": datetime.utcnow(),
                 },
                 "$setOnInsert": {"createdAt": datetime.utcnow()},
@@ -559,7 +562,7 @@ async def run_quick_start(
         _publish_event(job_id, "QS_STEP_UPDATE", {"step": "ranking_analysis",    "stepStatus": "running"})
 
         brand_result, competitor_result, ranking_result = await asyncio.gather(
-            _run_brand(job_id, brand_name),
+            _run_brand(job_id, brand_name, url=url),
             _run_competitors_and_sov(job_id, url, brand_name, brand_description=brand_description),
             _run_ranking(job_id, url, html_content=html_content),  # pre-fetched HTML — no extra fetch
             return_exceptions=True,

@@ -162,7 +162,7 @@ async def run_module_e(job_id: str, url: str, html_content: str = None, source_j
     brand_name = consistency_result.get("mandate", {}).get("brand_name")
     
     if brand_name:
-        brand_analysis = await BrandAnalyzer.analyze_brand(brand_name)
+        brand_analysis = await BrandAnalyzer.analyze_brand(brand_name, url=url)
         
         # Sentiment & Visibility Tracking
         try:

@@ -2,12 +2,13 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Compass, Loader2, ArrowLeft, ArrowRight, Check, PenLine } from 'lucide-react'
+import { Compass, Loader2, ArrowLeft, ArrowRight, Check, PenLine, Trash2, ListChecks } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
 interface StepBrandTopicsProps {
   topics: string[]
+  onTopicsChange?: (topics: string[]) => void
   selectedTopics: string[]
   onSelectedTopicsChange: (topics: string[]) => void
   isTopicsLoading: boolean
@@ -21,6 +22,7 @@ interface StepBrandTopicsProps {
 
 export function StepBrandTopics({
   topics,
+  onTopicsChange,
   selectedTopics,
   onSelectedTopicsChange,
   isTopicsLoading,
@@ -34,11 +36,32 @@ export function StepBrandTopics({
   const [showCustomInput, setShowCustomInput] = useState(false)
   const [customTopic, setCustomTopic] = useState('')
 
+  // Combine topics from API with any custom topics the user added
+  const allDisplayedTopics = Array.from(new Set([...topics, ...selectedTopics]))
+
+  const isAllSelected = allDisplayedTopics.length > 0 && allDisplayedTopics.every(t => selectedTopics.includes(t))
+
   const toggleTopic = (topic: string) => {
     if (selectedTopics.includes(topic)) {
       onSelectedTopicsChange(selectedTopics.filter((t) => t !== topic))
     } else {
       onSelectedTopicsChange([...selectedTopics, topic])
+    }
+  }
+
+  const deleteTopic = (topic: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    onSelectedTopicsChange(selectedTopics.filter((t) => t !== topic))
+    if (onTopicsChange && topics.includes(topic)) {
+      onTopicsChange(topics.filter((t) => t !== topic))
+    }
+  }
+
+  const handleSelectAllToggle = () => {
+    if (isAllSelected) {
+      onSelectedTopicsChange([])
+    } else {
+      onSelectedTopicsChange(allDisplayedTopics)
     }
   }
 
@@ -69,18 +92,31 @@ export function StepBrandTopics({
       className="flex flex-col h-full"
     >
       {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center border border-emerald-100">
-            <Compass className="w-4 h-4 text-emerald-600" />
+      <div className="mb-6 flex justify-between items-start">
+        <div>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center border border-emerald-100">
+              <Compass className="w-4 h-4 text-emerald-600" />
+            </div>
           </div>
+          <h2 className="text-2xl font-bold text-zinc-900 mb-2 tracking-tight">
+            Choose topics to track
+          </h2>
+          <p className="text-zinc-500 text-sm">
+            Select the topics most relevant to your brand. We'll monitor how your brand appears in AI responses for these topics.
+          </p>
         </div>
-        <h2 className="text-2xl font-bold text-zinc-900 mb-2 tracking-tight">
-          Choose topics to track
-        </h2>
-        <p className="text-zinc-500 text-sm">
-          Select the topics most relevant to your brand. We'll monitor how your brand appears in AI responses for these topics.
-        </p>
+        {!isTopicsLoading && allDisplayedTopics.length > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSelectAllToggle}
+            className="text-xs h-8 px-3 rounded-lg border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50"
+          >
+            <ListChecks className="w-3.5 h-3.5 mr-1.5" />
+            {isAllSelected ? "Deselect All" : "Select All"}
+          </Button>
+        )}
       </div>
 
       {/* Topic Selection */}
@@ -93,8 +129,10 @@ export function StepBrandTopics({
         ) : (
           <>
             <AnimatePresence>
-              {topics.map((topic, idx) => {
+              {allDisplayedTopics.map((topic, idx) => {
                 const isSelected = selectedTopics.includes(topic)
+                const isCustom = !topics.includes(topic)
+                
                 return (
                   <motion.button
                     key={topic}
@@ -102,28 +140,44 @@ export function StepBrandTopics({
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.04 }}
                     onClick={() => toggleTopic(topic)}
-                    className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                    className={`group w-full flex items-center justify-between p-3 rounded-xl border text-left transition-all cursor-pointer ${
                       isSelected
                         ? 'bg-emerald-50 border-emerald-200 shadow-sm'
                         : 'bg-white border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50'
                     }`}
                   >
-                    <div
-                      className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-all ${
-                        isSelected
-                          ? 'bg-emerald-600 border-emerald-600'
-                          : 'border-zinc-300 bg-white'
-                      }`}
-                    >
-                      {isSelected && <Check className="w-3 h-3 text-white" />}
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-all ${
+                          isSelected
+                            ? 'bg-emerald-600 border-emerald-600'
+                            : 'border-zinc-300 bg-white'
+                        }`}
+                      >
+                        {isSelected && <Check className="w-3 h-3 text-white" />}
+                      </div>
+                      <span
+                        className={`text-sm font-medium ${
+                          isSelected ? 'text-zinc-900' : 'text-zinc-600'
+                        }`}
+                      >
+                        {topic}
+                      </span>
+                      {isCustom && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider border bg-zinc-50 text-zinc-500 border-zinc-200 ml-2">
+                          Custom
+                        </span>
+                      )}
                     </div>
-                    <span
-                      className={`text-sm font-medium ${
-                        isSelected ? 'text-zinc-900' : 'text-zinc-600'
-                      }`}
+                    
+                    <div 
+                      role="button"
+                      onClick={(e) => deleteTopic(topic, e)}
+                      className="opacity-0 group-hover:opacity-100 p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-all"
+                      title="Permanently remove"
                     >
-                      {topic}
-                    </span>
+                      <Trash2 className="w-4 h-4" />
+                    </div>
                   </motion.button>
                 )
               })}

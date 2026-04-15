@@ -14,6 +14,16 @@ class TaskRegistry:
         # "chat_completion": ["openai", "gemini", "claude"],
         # "dataforseo_generic": ["dataforseo"],
         
+        # Brand Pipeline Tasks
+        "brand_description_v2": ["openai", "gemini", "claude"],
+        "brand_overview_v3": ["openai", "gemini", "claude"],
+        "brand_topics_v2": ["openai", "gemini", "claude"],
+        "brand_prompts_v2": ["openai", "gemini", "claude"],
+        "brand_prompts_v3": ["openai", "gemini", "claude"],
+        "brand_sv_lookup": ["dataforseo"],
+        "ai_execution_v2": ["openai", "gemini", "claude"],
+        "ai_analysis_v2": ["openai", "gemini", "claude"],
+
         # # Module C Tasks
         "aeo_visibility_report": ["openai"],
         "aeo_ai_presence_check": ["openai", "gemini", "claude"],
@@ -72,6 +82,8 @@ class TaskRegistry:
         "module_e_ranking_chat_gpt": ["dataforseo"],
         "module_e_ranking_claude": ["dataforseo"],
         "module_e_ranking_gemini": ["dataforseo"],
+        # Top Sources Finder — SERP-based brand mention discovery
+        "module_e_top_sources_serp": ["dataforseo"],
 
         # Module F Tasks
         "module_f_source_influence": ["openai", "gemini", "claude"],
