@@ -78,7 +78,7 @@ export class WeeklyReportsController {
       }
       if (format === 'pdf') {
         const domain = report.reportData.meta.domain_label || 'report';
-        const buffer = await this.pdfSvc.generate('weekly-summary', report.jobId, userId, domain);
+        const buffer = await this.pdfSvc.generate('weekly-summary', report.jobId, userId, domain, report.reportData);
         res.set({
           'Content-Type': 'application/pdf',
           'Content-Disposition': `attachment; filename="weekly-summary-${report.weekStart}.pdf"`,

@@ -114,23 +114,31 @@ export class WeeklyReportsService {
         ? wl.all_metrics
         : [...(wl.wins ?? []), ...(wl.losses ?? [])];
 
-    const wins: WeeklyReportWinRow[] = (wl.wins ?? []).slice(0, 3).map((r) => ({
-      metric: r.metric,
-      model: r.model,
-      previous: r.prev,
-      current: r.current,
-      delta: r.delta,
-    }));
+    // Filter wins/losses to ensure we don't have empty metrics and take top 3
+    // We allow wins/losses even on first week (where delta = current value)
+    const wins: WeeklyReportWinRow[] = (wl.wins ?? [])
+      .filter((r) => r.metric && r.delta > 0)
+      .slice(0, 3)
+      .map((r) => ({
+        metric: r.metric,
+        model: r.model,
+        previous: r.prev,
+        current: r.current,
+        delta: r.delta,
+      }));
 
-    const losses: WeeklyReportLossRow[] = (wl.losses ?? []).slice(0, 3).map((r) => ({
-      metric: r.metric,
-      model: r.model,
-      previous: r.prev,
-      current: r.current,
-      delta: r.delta,
-      fix_title: r.fix?.title ?? null,
-      fix_link: r.fix?.link ?? null,
-    }));
+    const losses: WeeklyReportLossRow[] = (wl.losses ?? [])
+      .filter((r) => r.metric && r.delta < 0)
+      .slice(0, 3)
+      .map((r) => ({
+        metric: r.metric,
+        model: r.model,
+        previous: r.prev,
+        current: r.current,
+        delta: r.delta,
+        fix_title: r.fix?.title ?? null,
+        fix_link: r.fix?.link ?? null,
+      }));
 
     let aivsScore: number | null = null;
     let aivsDelta: number | null = null;
@@ -145,15 +153,15 @@ export class WeeklyReportsService {
     const projectId = (job as any).projectId as string;
     const db = await connectToMongo();
 
-    const now = new Date();
-    const currentFrom = new Date(now);
+    const anchorDate = (job as any)?.createdAt ? new Date((job as any).createdAt) : new Date();
+    const currentFrom = new Date(anchorDate);
     currentFrom.setDate(currentFrom.getDate() - PERIOD_DAYS);
-    const priorFrom = new Date(now);
+    const priorFrom = new Date(anchorDate);
     priorFrom.setDate(priorFrom.getDate() - PERIOD_DAYS * 2);
 
     let citationCount: number;
     let citationPrev: number;
-    if (wl.has_baseline && metrics.length > 0) {
+    if (wl.baseline_job_ids && metrics.length > 0) {
       let cc = 0;
       let cp = 0;
       for (const r of metrics) {
@@ -165,24 +173,34 @@ export class WeeklyReportsService {
       citationCount = cc;
       citationPrev = cp;
     } else {
+      const currentMatch: any = {
+        projectId,
+        entityType: 'client',
+        citationPresent: true,
+      };
+      const priorMatch: any = {
+        projectId,
+        entityType: 'client',
+        citationPresent: true,
+      };
+
+      if (wl.baseline_job_ids) {
+        currentMatch.jobId = wl.baseline_job_ids.current;
+        priorMatch.jobId = wl.baseline_job_ids.prior;
+      } else {
+        currentMatch.createdAt = { $gte: currentFrom };
+        priorMatch.createdAt = { $gte: priorFrom, $lt: currentFrom };
+      }
+
       [citationCount, citationPrev] = await Promise.all([
-        db.collection('cbm_citation_snapshots').countDocuments({
-          projectId,
-          entityType: 'client',
-          createdAt: { $gte: currentFrom },
-          citationPresent: true,
-        }),
-        db.collection('cbm_citation_snapshots').countDocuments({
-          projectId,
-          entityType: 'client',
-          createdAt: { $gte: priorFrom, $lt: currentFrom },
-          citationPresent: true,
-        }),
+        db.collection('cbm_citation_snapshots').countDocuments(currentMatch),
+        db.collection('cbm_citation_snapshots').countDocuments(priorMatch),
       ]);
     }
 
     for (const r of metrics) {
-      if (r.category === 'AIVS' && r.model === 'Overall') {
+      // Use case-insensitive and partial match for AIVS
+      if ((r.category === 'AIVS' || r.metric.includes('AIVS')) && (r.model === 'Overall' || r.model === 'Total')) {
         aivsScore = r.current;
         aivsDelta = r.delta;
       }
@@ -195,6 +213,15 @@ export class WeeklyReportsService {
         visSum += r.current;
         visPrevSum += r.prev;
         visN += 1;
+      }
+    }
+
+    // Fallback for AIVS if not found in metrics
+    if (aivsScore === null) {
+      const aivsRow = metrics.find(m => m.metric.includes('AI Visibility Score') || m.category === 'AIVS');
+      if (aivsRow) {
+        aivsScore = aivsRow.current;
+        aivsDelta = aivsRow.delta;
       }
     }
 
@@ -230,10 +257,10 @@ export class WeeklyReportsService {
       citationPresent: true,
       citedUrl: { $exists: true, $nin: [null, ''] },
     };
-    if (wl.baseline_job_ids) {
+    if (wl.baseline_job_ids?.current) {
       clientSnapMatch.jobId = wl.baseline_job_ids.current;
     } else {
-      clientSnapMatch.createdAt = { $gte: currentFrom };
+      clientSnapMatch.jobId = jobId; // Ensure we always filter by the current job ID to avoid data leakage
     }
 
     const topPagesAgg = await db
@@ -272,10 +299,11 @@ export class WeeklyReportsService {
     );
     const recommendations = pickRecommendations(moduleEDoc as any);
 
-    const compCurFilter = wl.baseline_job_ids
+    const compCurFilter = wl.baseline_job_ids?.current
       ? { projectId, entityType: 'competitor' as const, jobId: wl.baseline_job_ids.current }
-      : { projectId, entityType: 'competitor' as const, createdAt: { $gte: currentFrom } };
-    const compPriFilter = wl.baseline_job_ids
+      : { projectId, entityType: 'competitor' as const, jobId }; // Always prefer filtering by jobId
+
+    const compPriFilter = wl.baseline_job_ids?.prior
       ? { projectId, entityType: 'competitor' as const, jobId: wl.baseline_job_ids.prior }
       : {
           projectId,
@@ -413,8 +441,11 @@ export class WeeklyReportsService {
     lines.push(`kpi,aivs_score,${data.aivs_score ?? ''}`);
     lines.push(`kpi,aivs_delta,${data.aivs_delta ?? ''}`);
     lines.push(`kpi,health_score,${data.health_score ?? ''}`);
+    lines.push(`kpi,health_delta,${data.health_delta ?? ''}`);
     lines.push(`kpi,citation_count,${data.citation_count}`);
+    lines.push(`kpi,citation_delta,${data.citation_delta ?? ''}`);
     lines.push(`kpi,sov_percent,${data.sov_percent ?? ''}`);
+    lines.push(`kpi,sov_delta,${data.sov_delta ?? ''}`);
     data.wins.forEach((w, i) => {
       lines.push(`win_${i + 1},metric,${this.csvEsc(w.metric)}`);
       lines.push(`win_${i + 1},model,${this.csvEsc(w.model)}`);

@@ -187,14 +187,10 @@ export class WinsLossesService {
     const db = await connectToMongo();
 
     // -----------------------------------------------------------------------
-    // 2. Spec-aligned baseline selection (Dashboard Brief v1.0, "Wins & Losses"):
-    //    Compare two time windows:
-    //      - current window: last N days
-    //      - prior window:   the N days before that
-    //
-    //    We do this using `createdAt` so it works regardless of how snapshotDate
-    //    is stored (string vs Date) and regardless of whether the run came from
-    //    Module E quick start or other pipelines.
+    // 2. Spec-aligned baseline selection:
+    //    We prioritize the jobId passed in as the current job ID.
+    //    We then look for the latest snapshot in the current window to confirm.
+    //    For the prior window, we look for the latest snapshot in the prior window.
     // -----------------------------------------------------------------------
     const anchorDate = (job as any)?.createdAt ? new Date((job as any).createdAt) : new Date();
     const currentTo = new Date(anchorDate);
@@ -229,37 +225,45 @@ export class WinsLossesService {
 
     for (const s of snapshotsInRange) {
       const createdAt = (s as any).createdAt instanceof Date ? ((s as any).createdAt as Date) : new Date((s as any).createdAt);
-      const jId = String((s as any).jobId ?? '');
-      if (!jId || Number.isNaN(createdAt.getTime())) continue;
+      if (Number.isNaN(createdAt.getTime())) continue;
 
       if (createdAt >= currentFrom && createdAt <= currentTo) {
         currentSnapshots.push(s);
-        if (!currentLatest || createdAt > currentLatest.createdAt) currentLatest = { createdAt, jobId: jId };
+        const jId = String((s as any).jobId ?? '');
+        // If snapshot has the jobId we are looking for, it's definitely the current latest
+        if (jId === jobId) {
+          currentLatest = { createdAt, jobId: jId };
+        } else if (jId && (!currentLatest || createdAt > currentLatest.createdAt)) {
+          // Fallback: latest snapshot in window if none match the jobId exactly
+          currentLatest = { createdAt, jobId: jId };
+        }
       } else if (createdAt >= priorFrom && createdAt < priorTo) {
         priorSnapshots.push(s);
-        if (!priorLatest || createdAt > priorLatest.createdAt) priorLatest = { createdAt, jobId: jId };
+        const jId = String((s as any).jobId ?? '');
+        if (jId && (!priorLatest || createdAt > priorLatest.createdAt)) {
+          priorLatest = { createdAt, jobId: jId };
+        }
       }
     }
 
-    let currentJobId: string | null = currentLatest?.jobId ?? null;
+    // STICK TO THE JOB ID WE WERE CALLED WITH if possible
+    let currentJobId: string = jobId; 
     let priorJobId: string | null = priorLatest?.jobId ?? null;
 
-    if (!currentJobId || !priorJobId) {
-      return {
-        wins: [],
-        losses: [],
-        all_metrics: [],
-        baseline_job_ids: null,
-        has_baseline: false,
-        baseline_reason: !currentJobId ? 'missing_current_window' : 'missing_prior_window',
-        period_days: _periodDays,
-        current_date: currentFrom.toISOString(),
-        prior_date: priorFrom.toISOString(),
-      };
-    }
+    // Filter snapshots to only include those from the identified latest jobs
+    // but allow null/empty jobId to pass through if it's the only data we have
+    const effectiveCurrentSnapshots = currentSnapshots.filter(s => {
+      const sJobId = (s as any).jobId ? String((s as any).jobId) : null;
+      // Strictly filter by the jobId we are generating for
+      return sJobId === currentJobId || (!sJobId && !currentLatest?.jobId);
+    });
 
-    const effectiveCurrentSnapshots = currentSnapshots;
-    const effectivePriorSnapshots = priorSnapshots;
+    const effectivePriorSnapshots = priorJobId 
+      ? priorSnapshots.filter(s => {
+          const sJobId = (s as any).jobId ? String((s as any).jobId) : null;
+          return sJobId === priorJobId;
+        })
+      : [];
 
     const currentDate = currentFrom.toISOString();
     const priorDate = priorFrom.toISOString();
@@ -304,26 +308,32 @@ export class WinsLossesService {
           },
         },
       ),
-      db.collection('module_e').findOne(
-        { jobId: priorJobId },
-        { projection: { sentiment_tracking: 1, createdAt: 1, updatedAt: 1 } },
-      ),
+      priorJobId
+        ? db.collection('module_e').findOne(
+            { jobId: priorJobId },
+            { projection: { sentiment_tracking: 1, createdAt: 1, updatedAt: 1 } },
+          )
+        : null,
       db.collection('module_c').findOne(
         { jobId: currentJobId },
         { projection: { overall_score: 1, createdAt: 1, timestamp: 1 } },
       ),
-      db.collection('module_c').findOne(
-        { jobId: priorJobId },
-        { projection: { overall_score: 1, createdAt: 1, timestamp: 1 } },
-      ),
+      priorJobId
+        ? db.collection('module_c').findOne(
+            { jobId: priorJobId },
+            { projection: { overall_score: 1, createdAt: 1, timestamp: 1 } },
+          )
+        : null,
       db.collection('cbm_aivs_d7').findOne(
         { projectId, jobId: currentJobId },
         { projection: { d7_score: 1, createdAt: 1 } },
       ),
-      db.collection('cbm_aivs_d7').findOne(
-        { projectId, jobId: priorJobId },
-        { projection: { d7_score: 1, createdAt: 1 } },
-      ),
+      priorJobId
+        ? db.collection('cbm_aivs_d7').findOne(
+            { projectId, jobId: priorJobId },
+            { projection: { d7_score: 1, createdAt: 1 } },
+          )
+        : null,
     ]);
 
     const [moduleECurFallback, moduleEPriFallback, curAivsFallback, priAivsFallback, curD7Fallback, priD7Fallback] = await Promise.all([
@@ -526,9 +536,9 @@ export class WinsLossesService {
       wins,
       losses,
       all_metrics: rows,
-      baseline_job_ids: { current: currentJobId, prior: priorJobId },
-      has_baseline: true,
-      baseline_reason: null,
+      baseline_job_ids: currentJobId ? { current: currentJobId, prior: priorJobId } : null,
+      has_baseline: !!priorJobId,
+      baseline_reason: priorJobId ? null : 'missing_prior_window',
       period_days: _periodDays,
       current_date: currentDate,
       prior_date: priorDate,

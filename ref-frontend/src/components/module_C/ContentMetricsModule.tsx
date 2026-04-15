@@ -725,24 +725,26 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
       {/* Content Analysis Metrics Tab */}
       {activeTab === 'content-analysis' && (
         <div className="rounded-xl border border-zinc-800 bg-[#111113] p-6 space-y-6">
-          <div className="flex items-center justify-end">
-            <Button
-              type="button"
-              onClick={openAskAiDialog}
-              disabled={!projectId || isAskingAI}
-              className={cn(
-                'rounded-full border-0 shadow-lg shadow-fuchsia-950/30',
-                'text-sm font-extrabold uppercase tracking-wider sm:text-base',
-                'bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300',
-                'text-black hover:opacity-95 hover:shadow-xl',
-                'h-auto min-h-[44px] px-5 py-2.5',
-                'gap-2',
-              )}
-            >
-              <MessageSquare className="size-5 shrink-0" strokeWidth={2.25} aria-hidden />
-              Ask AI
-            </Button>
-          </div>
+          {contentMetrics && (
+            <div className="flex items-center justify-end">
+              <Button
+                type="button"
+                onClick={openAskAiDialog}
+                disabled={!projectId || isAskingAI}
+                className={cn(
+                  'rounded-full border-0 shadow-lg shadow-fuchsia-950/30',
+                  'text-sm font-extrabold uppercase tracking-wider sm:text-base',
+                  'bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300',
+                  'text-black hover:opacity-95 hover:shadow-xl',
+                  'h-auto min-h-[44px] px-5 py-2.5',
+                  'gap-2',
+                )}
+              >
+                <MessageSquare className="size-5 shrink-0" strokeWidth={2.25} aria-hidden />
+                Ask AI
+              </Button>
+            </div>
+          )}
 
           {/* Empty State + Trigger */}
           {!contentMetrics && !isLoadingMetrics && !metricsError && !isWaitingForAnalysis && !isStartingAnalysis && (

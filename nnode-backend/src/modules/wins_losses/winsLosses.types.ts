@@ -31,7 +31,7 @@ export interface WinsLossesResponse {
   /** Full metric grid (includes STABLE rows). Used by weekly summary KPIs. */
   all_metrics: WLMetricRow[];
   /** Resolved comparison jobs when has_baseline; null otherwise */
-  baseline_job_ids: { current: string; prior: string } | null;
+  baseline_job_ids: { current: string; prior: string | null } | null;
   /** true when at least 2 module_F runs exist on different dates for this project */
   has_baseline: boolean;
   baseline_reason?: 'missing_project' | 'missing_current_window' | 'missing_prior_window' | null;

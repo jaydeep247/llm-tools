@@ -1457,11 +1457,11 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
         </div>
       )}
 
-      <div className="flex-1 flex gap-4 min-h-0">
+      <div className="flex-1 flex gap-4 min-h-0 animate-in fade-in duration-700">
         {(viewMode === 'split' || viewMode === 'tree') && (
           <div
             ref={setContainerRef}
-            className="flex-1 rounded-2xl border border-white/10 overflow-hidden relative bg-white/5 backdrop-blur-xl"
+            className="flex-1 rounded-2xl border border-white/10 overflow-hidden relative bg-white/5 backdrop-blur-xl transition-all duration-500"
           >
             {(() => {
               const isSeoBusy = seoEnabled && (seoLoading || seoBatchLoading)
@@ -1508,7 +1508,7 @@ export function SiteStructure({ sessionId, pages, startUrl, jobId, projectId }: 
 
         {seoEnabled && (viewMode === 'split' || viewMode === 'table') && (
           <div
-            className={`${viewMode === 'table' ? 'flex-1' : 'w-full md:w-104 lg:w-120'} h-full overflow-y-auto rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-5 flex flex-col gap-5 text-xs text-white/80 shadow-[0_18px_45px_rgba(15,23,42,0.9)]`}
+            className={`${viewMode === 'table' ? 'flex-1' : 'w-full md:w-104 lg:w-120'} h-full overflow-y-auto rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl p-5 flex flex-col gap-5 text-xs text-white/80 shadow-[0_18px_45px_rgba(15,23,42,0.9)] animate-in slide-in-from-right duration-500`}
           >
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-3">

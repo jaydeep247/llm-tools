@@ -361,64 +361,109 @@ function badgeColor(severity: string): string {
 // ── WEEKLY SUMMARY PDF ──────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════════
 
-async function buildWeeklySummaryPdf(jobId: string, domain: string): Promise<Buffer> {
+async function buildWeeklySummaryPdf(jobId: string, domain: string, reportData?: any): Promise<Buffer> {
   const db = await connectToMongo();
   const jobRepo = new JobRepository();
-  // effectiveId is the crawl job — used for fields/pages/job_summaries
-  const effectiveId = await jobRepo.resolveEffectiveJobId(jobId);
-  // allJobIds includes AEO_ANALYSIS, MODULE_E_* etc. — needed for module_c/module_e
-  const allJobIds = await resolveAllProjectJobIds(db, jobId);
 
-  // ── Fetch data in parallel ──────────────────────────────────────────────
-    const [aivsDoc, pageStats, moduleE, jobSummary, topActionsRaw] = await Promise.all([
-    db.collection('module_c').findOne(
-      { jobId: { $in: allJobIds } },
-      { projection: { overall_score: 1, modules: 1 }, sort: { timestamp: -1 } } as any,
-    ),
-    db.collection('fields').aggregate([
-      { $match: { jobId: effectiveId } },
-      { $group: { _id: null, avg_health: { $avg: { $ifNull: ['$recommendations.health_score', 100] } }, total: { $sum: 1 } } },
-    ]).toArray(),
-    db.collection('module_e').findOne(
-      { jobId: { $in: allJobIds } },
-      { projection: { brand_analysis: 1, ai_share_of_voice: 1, ai_sov_history: 1, master_analysis: 1 } },
-    ),
-    db.collection('job_summaries').findOne({ jobId: effectiveId }, { projection: { total_pages: 1, completed_at: 1 } }),
-    db.collection('fields').aggregate([
-      { $match: { jobId: effectiveId } },
-      { $unwind: { path: '$recommendations.recommendations', preserveNullAndEmptyArrays: false } },
-      { $group: { _id: '$recommendations.recommendations.title', title: { $first: '$recommendations.recommendations.title' }, severity: { $first: '$recommendations.recommendations.severity' }, category: { $first: '$recommendations.recommendations.category' }, count: { $sum: 1 } } },
-      { $addFields: { order: { $switch: { branches: [{ case: { $eq: ['$severity', 'critical'] }, then: 1 }, { case: { $eq: ['$severity', 'warning'] }, then: 2 }], default: 3 } } } },
-      { $sort: { order: 1, count: -1 } },
-      { $limit: 8 },
-    ]).toArray(),
-  ]);
+  let aivsScore: number | null = null;
+  let aivsDelta: number | null = null;
+  let healthScore: number | null = null;
+  let healthDelta: number | null = null;
+  let citations: number | null = null;
+  let citationDelta: number | null = null;
+  let sov: number | null = null;
+  let sovDelta: number | null = null;
+  let pagesCrawled: number | null = null;
+  let crawlDate = 'N/A';
+  let modelScores: Array<{ label: string; value: number }> = [];
+  let sovHistory: Array<{ label: string; value: number }> = [];
+  let topActionsRaw: any[] = [];
+  let wins: any[] = [];
+  let losses: any[] = [];
+  let topPages: any[] = [];
 
-  const aivsScore: number | null = typeof aivsDoc?.overall_score === 'number' ? Math.round(aivsDoc.overall_score) : null;
-  const healthScore: number | null = pageStats[0]?.avg_health != null ? Math.round(pageStats[0].avg_health) : null;
-  const citations: number | null = (moduleE as any)?.brand_analysis?.total_mentions ?? null;
-  const sov: number | null = (moduleE as any)?.ai_share_of_voice?.overall_sov ?? null;
-  const pagesCrawled: number | null = (jobSummary as any)?.total_pages ?? null;
-  const crawlDate = (jobSummary as any)?.completed_at
-    ? new Date((jobSummary as any).completed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-    : 'N/A';
+  if (reportData) {
+    // ── Use existing report data ──────────────────────────────────────────
+    aivsScore = reportData.aivs_score;
+    aivsDelta = reportData.aivs_delta;
+    healthScore = reportData.health_score;
+    healthDelta = reportData.health_delta;
+    citations = reportData.citation_count;
+    citationDelta = reportData.citation_delta;
+    sov = reportData.sov_percent;
+    sovDelta = reportData.sov_delta;
+    wins = reportData.wins || [];
+    losses = reportData.losses || [];
+    topPages = reportData.top_pages || [];
 
-  // Model-wise scores from module_e master_analysis
-  const modelScores: Array<{ label: string; value: number }> = [];
-  const masterModels: any[] = (moduleE as any)?.master_analysis?.models ?? [];
-  masterModels.forEach((m: any) => {
-    if (typeof m.model === 'string' && typeof m.model_wise_performance_score === 'number') {
-      modelScores.push({ label: m.model.charAt(0).toUpperCase() + m.model.slice(1), value: Math.round(m.model_wise_performance_score) });
-    }
-  });
+    const job = await db.collection('jobs').findOne({ id: jobId }, { projection: { total_pages: 1, completedAt: 1 } });
+    pagesCrawled = (job as any)?.total_pages ?? null;
+    crawlDate = (job as any)?.completedAt
+      ? new Date((job as any).completedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      : 'N/A';
+  } else {
+    // ── Fetch data in parallel (Legacy / General Export) ──────────────────
+    // effectiveId is the crawl job — used for fields/pages/job_summaries
+    const effectiveId = await jobRepo.resolveEffectiveJobId(jobId);
+    // allJobIds includes AEO_ANALYSIS, MODULE_E_* etc. — needed for module_c/module_e
+    const allJobIds = await resolveAllProjectJobIds(db, jobId);
 
-  // SOV history for trend
-  const sovHistory: Array<{ label: string; value: number }> = ((moduleE as any)?.ai_sov_history ?? [])
-    .slice(-6)
-    .map((h: any) => ({
-      label: h.date ? new Date(h.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '',
-      value: typeof h.overall_sov === 'number' ? Math.round(h.overall_sov) : 0,
-    }));
+    const [aivsDoc, pageStats, moduleE, jobSummary, topActions] = await Promise.all([
+      db.collection('module_c').findOne(
+        { jobId: { $in: allJobIds } },
+        { projection: { overall_score: 1, modules: 1 }, sort: { timestamp: -1 } } as any,
+      ),
+      db.collection('fields').aggregate([
+        { $match: { jobId: effectiveId } },
+        { $group: { _id: null, avg_health: { $avg: { $ifNull: ['$recommendations.health_score', 100] } }, total: { $sum: 1 } } },
+      ]).toArray(),
+      db.collection('module_e').findOne(
+        { jobId: { $in: allJobIds } },
+        { projection: { brand_analysis: 1, ai_share_of_voice: 1, ai_sov_history: 1, master_analysis: 1 } },
+      ),
+      db.collection('job_summaries').findOne({ jobId: effectiveId }, { projection: { total_pages: 1, completed_at: 1 } }),
+      db.collection('fields').aggregate([
+        { $match: { jobId: effectiveId } },
+        { $unwind: { path: '$recommendations.recommendations', preserveNullAndEmptyArrays: false } },
+        { $group: { _id: '$recommendations.recommendations.title', title: { $first: '$recommendations.recommendations.title' }, severity: { $first: '$recommendations.recommendations.severity' }, category: { $first: '$recommendations.recommendations.category' }, count: { $sum: 1 } } },
+        { $addFields: { order: { $switch: { branches: [{ case: { $eq: ['$severity', 'critical'] }, then: 1 }, { case: { $eq: ['$severity', 'warning'] }, then: 2 }], default: 3 } } } },
+        { $sort: { order: 1, count: -1 } },
+        { $limit: 8 },
+      ]).toArray(),
+    ]);
+
+    aivsScore = typeof aivsDoc?.overall_score === 'number' ? Math.round(aivsDoc.overall_score) : null;
+    healthScore = pageStats[0]?.avg_health != null ? Math.round(pageStats[0].avg_health) : null;
+    citations = (moduleE as any)?.brand_analysis?.total_mentions ?? null;
+    sov = (moduleE as any)?.ai_share_of_voice?.overall_sov ?? null;
+    pagesCrawled = (jobSummary as any)?.total_pages ?? null;
+    crawlDate = (jobSummary as any)?.completed_at
+      ? new Date((jobSummary as any).completed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      : 'N/A';
+    topActionsRaw = topActions;
+
+    // Model-wise scores from module_e master_analysis
+    const masterModels: any[] = (moduleE as any)?.master_analysis?.models ?? [];
+    masterModels.forEach((m: any) => {
+      if (typeof m.model === 'string' && typeof m.model_wise_performance_score === 'number') {
+        modelScores.push({ label: m.model.charAt(0).toUpperCase() + m.model.slice(1), value: Math.round(m.model_wise_performance_score) });
+      }
+    });
+
+    // SOV history for trend
+    sovHistory = ((moduleE as any)?.ai_sov_history ?? [])
+      .slice(-6)
+      .map((h: any) => ({
+        label: h.date ? new Date(h.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '',
+        value: typeof h.overall_sov === 'number' ? Math.round(h.overall_sov) : 0,
+      }));
+  }
+
+  // Helper for delta text
+  const fmtDelta = (d: number | null | undefined) => {
+    if (d == null || d === 0) return '';
+    return `${d > 0 ? '+' : ''}${d.toFixed(1)}`;
+  };
 
   // ── Build PDF ───────────────────────────────────────────────────────────
   const doc = new PDFDocument({ size: 'A4', margin: 0, info: { Title: 'Weekly Summary Report', Author: 'Colytics AI' } });
@@ -430,13 +475,38 @@ async function buildWeeklySummaryPdf(jobId: string, domain: string): Promise<Buf
   // ── KPI Section ──────────────────────────────────────────────────────────
   y = sectionLabel(doc, 'KEY PERFORMANCE INDICATORS', y);
   y = drawKpiRow(doc, y, [
-    { label: 'AI Visibility Score', value: aivsScore !== null ? aivsScore : 'N/A', color: C.gold },
-    { label: 'Website Health', value: healthScore !== null ? `${healthScore}%` : 'N/A', color: C.emerald },
-    { label: 'Total Citations', value: citations !== null ? citations : '—', color: C.blue },
-    { label: 'Share of Voice', value: sov !== null ? `${sov.toFixed(1)}%` : '—', color: C.purple },
+    { label: 'AI Visibility Score', value: aivsScore !== null ? aivsScore : 'N/A', sub: aivsDelta ? `${fmtDelta(aivsDelta)} vs prior` : '', color: C.gold },
+    { label: 'Website Health', value: healthScore !== null ? `${healthScore}%` : 'N/A', sub: healthDelta ? `${fmtDelta(healthDelta)} vs prior` : '', color: C.emerald },
+    { label: 'Total Citations', value: citations !== null ? citations : '—', sub: citationDelta ? `${fmtDelta(citationDelta)} vs prior` : '', color: C.blue },
+    { label: 'Share of Voice', value: sov !== null ? `${sov.toFixed(1)}%` : '—', sub: sovDelta ? `${fmtDelta(sovDelta)} vs prior` : '', color: C.purple },
   ]);
 
   y += 6;
+
+  // ── Wins & Losses Section (If data available) ───────────────────────────
+  if (wins.length > 0 || losses.length > 0) {
+    y = sectionLabel(doc, 'TOP WINS & LOSSES', y);
+    const rows: string[][] = [];
+    wins.slice(0, 3).forEach(w => rows.push([w.metric, w.model, `${w.previous.toFixed(1)}`, `${w.current.toFixed(1)}`, `+${w.delta.toFixed(1)} (WIN)`]));
+    losses.slice(0, 3).forEach(l => rows.push([l.metric, l.model, `${l.previous.toFixed(1)}`, `${l.current.toFixed(1)}`, `${l.delta.toFixed(1)} (LOSS)`]));
+
+    if (rows.length > 0) {
+      y = drawTable(doc, y, ['Metric', 'Model', 'Prev', 'Now', 'Change'], rows, [180, 80, 60, 60, 90]);
+      y += 8;
+    }
+  }
+
+  // ── Top Cited Pages ──────────────────────────────────────────────────────
+  if (topPages.length > 0) {
+    y = sectionLabel(doc, 'TOP CITED PAGES', y);
+    const rows = topPages.slice(0, 5).map(p => [
+      p.url,
+      String(p.citations),
+      p.primary_model || '—',
+    ]);
+    y = drawTable(doc, y, ['Page URL', 'Citations', 'Primary Model'], rows, [320, 80, 70]);
+    y += 8;
+  }
 
   // ── AIVS Gauge + Model breakdown ──────────────────────────────────────────
   if (aivsScore !== null) {
@@ -1409,10 +1479,11 @@ export class ExportPdfService {
     jobId: string,
     userId: string,
     domain: string,
+    reportData?: any,
   ): Promise<Buffer> {
     switch (type) {
       case 'weekly-summary':
-        return buildWeeklySummaryPdf(jobId, domain);
+        return buildWeeklySummaryPdf(jobId, domain, reportData);
       case 'audit-report':
         return buildAuditReportPdf(jobId, userId, domain);
       case 'competitor-report':
