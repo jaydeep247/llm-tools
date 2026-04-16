@@ -14,14 +14,16 @@ export function FieldTooltip({ description }: FieldTooltipProps) {
     <TooltipPrimitive.Provider delayDuration={100}>
       <TooltipPrimitive.Root>
         <TooltipPrimitive.Trigger asChild>
-          <button
-            type="button"
+          <span
+            role="button"
+            tabIndex={0}
             className="inline-flex items-center justify-center text-zinc-500 hover:text-zinc-200 transition-colors focus:outline-none shrink-0 cursor-help"
             onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
             aria-label="Field description"
           >
             <Info className="h-3 w-3" />
-          </button>
+          </span>
         </TooltipPrimitive.Trigger>
 
         <TooltipPrimitive.Portal>

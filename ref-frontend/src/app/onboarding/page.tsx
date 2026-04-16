@@ -120,6 +120,32 @@ function OnboardingContent() {
   const [gaStatus, setGaStatus] = useState<'connected' | 'error' | undefined>(undefined)
   const [gaError, setGaError] = useState<string | undefined>(undefined)
 
+  // Persisted form values — survive back-navigation and page refresh via sessionStorage
+  const [projectName, setProjectName] = useState<string>(() =>
+    typeof window !== 'undefined' ? (sessionStorage.getItem('onb_project_name') ?? '') : ''
+  )
+  const [projectDescription, setProjectDescription] = useState<string>(() =>
+    typeof window !== 'undefined' ? (sessionStorage.getItem('onb_project_desc') ?? '') : ''
+  )
+  const [sessionUrl, setSessionUrl] = useState<string>(() =>
+    typeof window !== 'undefined' ? (sessionStorage.getItem('onb_session_url') ?? '') : ''
+  )
+
+  const handleProjectNameChange = (v: string) => {
+    setProjectName(v)
+    sessionStorage.setItem('onb_project_name', v)
+  }
+
+  const handleProjectDescriptionChange = (v: string) => {
+    setProjectDescription(v)
+    sessionStorage.setItem('onb_project_desc', v)
+  }
+
+  const handleSessionUrlChange = (v: string) => {
+    setSessionUrl(v)
+    sessionStorage.setItem('onb_session_url', v)
+  }
+
   const persistCoreProgress = async (stepIndex: number, projectId = createdProjectId, params = brandRedirectParams) => {
     if (!user) return
 
@@ -250,9 +276,18 @@ function OnboardingContent() {
   }
 
   const handleCreateProject = async (name: string, description?: string) => {
+    // If a project was already created in this session, just advance
+    if (createdProjectId) {
+      setCurrentStepIndex(1)
+      void persistCoreProgress(1, createdProjectId, null)
+      return
+    }
     try {
       const result = await createProject({ name, description }).unwrap()
       setCreatedProjectId(result.project.id)
+      // Clear persisted form data after successful creation
+      sessionStorage.removeItem('onb_project_name')
+      sessionStorage.removeItem('onb_project_desc')
       toast({ title: "Project created!", description: `"${name}" is ready.` })
       setCurrentStepIndex(1)
       void persistCoreProgress(1, result.project.id, null)
@@ -272,8 +307,15 @@ function OnboardingContent() {
       return
     }
 
-    setIsStartingSession(true)
+    // If a session was already started with the same URL, just advance
     const normalizedUrl = url.startsWith('http') ? url : `https://${url}`
+    if (brandRedirectParams && brandRedirectParams.url === normalizedUrl) {
+      setCurrentStepIndex(2)
+      void persistCoreProgress(2, createdProjectId, brandRedirectParams)
+      return
+    }
+
+    setIsStartingSession(true)
 
     try {
       const sessionResult = await createSession(createdProjectId).unwrap()
@@ -291,6 +333,8 @@ function OnboardingContent() {
         jobId: jobResult.job.id,
       }
       setBrandRedirectParams(params)
+      // Clear persisted URL after successful session start
+      sessionStorage.removeItem('onb_session_url')
       setCurrentStepIndex(2)
       void persistCoreProgress(2, createdProjectId, params)
     } catch (error: any) {
@@ -383,6 +427,11 @@ function OnboardingContent() {
             isLoading={isCreatingProject}
             currentStep={currentStepIndex}
             totalSteps={TOTAL_STEPS}
+            name={projectName}
+            description={projectDescription}
+            onNameChange={handleProjectNameChange}
+            onDescriptionChange={handleProjectDescriptionChange}
+            projectAlreadyCreated={!!createdProjectId}
           />
         )
       case 1:
@@ -394,6 +443,9 @@ function OnboardingContent() {
             isLoading={isStartingSession}
             currentStep={currentStepIndex}
             totalSteps={TOTAL_STEPS}
+            url={sessionUrl}
+            onUrlChange={handleSessionUrlChange}
+            sessionAlreadyStarted={!!brandRedirectParams}
           />
         )
       case 2:

@@ -26,7 +26,7 @@ export function OnboardingLayout({
       <DummyDashboard />
 
       {/* Solid dark overlay — no blur, clean backdrop like the reference */}
-      <div className="absolute inset-0 bg-black/60 z-10" />
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-[2px] z-10" />
 
       {/* Centered modal */}
       <div className="absolute inset-0 z-20 flex items-center justify-center p-4 sm:p-6">
@@ -41,12 +41,12 @@ export function OnboardingLayout({
             {Array.from({ length: totalSteps }).map((_, i) => (
               <div
                 key={i}
-                className={`h-1.5 rounded-full transition-all duration-300 ${
+                className={`h-2 rounded-full transition-all duration-300 ${
                   i === currentStep
-                    ? 'w-6 bg-brand-orange'
+                    ? 'w-8 bg-brand-orange'
                     : i < currentStep
-                    ? 'w-2 bg-brand-orange/40'
-                    : 'w-2 bg-zinc-200'
+                    ? 'w-4 bg-brand-orange/50'
+                    : 'w-4 bg-brand-warm'
                 }`}
               />
             ))}

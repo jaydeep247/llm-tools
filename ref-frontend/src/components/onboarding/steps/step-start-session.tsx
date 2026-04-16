@@ -14,6 +14,9 @@ interface StepStartSessionProps {
   isLoading: boolean
   currentStep: number
   totalSteps: number
+  url: string
+  onUrlChange: (v: string) => void
+  sessionAlreadyStarted?: boolean
 }
 
 export function StepStartSession({
@@ -21,12 +24,14 @@ export function StepStartSession({
   onSkip,
   onBack,
   isLoading,
+  url,
+  onUrlChange,
+  sessionAlreadyStarted = false,
 }: StepStartSessionProps) {
-  const [url, setUrl] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   const handleStart = async () => {
-    if (!url.trim()) {
+    if (!sessionAlreadyStarted && !url.trim()) {
       setError('Please enter a URL to analyze')
       return
     }
@@ -65,7 +70,7 @@ export function StepStartSession({
               placeholder="https://example.com"
               value={url}
               onChange={(e) => {
-                setUrl(e.target.value)
+                onUrlChange(e.target.value)
                 if (error) setError(null)
               }}
               onKeyDown={(e) => e.key === 'Enter' && handleStart()}
@@ -96,17 +101,16 @@ export function StepStartSession({
         </button>
 
         <div className="flex items-center gap-3">
-          <Button
+          <button
             onClick={onSkip}
-            variant="ghost"
             disabled={isLoading}
-            className="text-brand-muted hover:text-brand-charcoal px-4 h-10 text-sm font-medium rounded-xl cursor-pointer"
+            className="text-brand-muted hover:text-brand-charcoal px-4 h-10 text-sm font-medium rounded-xl cursor-pointer transition-colors disabled:opacity-40"
           >
             Skip
-          </Button>
+          </button>
           <Button
             onClick={handleStart}
-            disabled={!url.trim() || isLoading}
+            disabled={(!sessionAlreadyStarted && !url.trim()) || isLoading}
             className="bg-brand-orange text-white hover:bg-brand-orange-hover px-6 h-10 text-sm font-semibold rounded-full transition-all cursor-pointer"
           >
             {isLoading ? (

@@ -102,24 +102,32 @@ export function StepBrandTopics({
           </p>
         </div>
         {!isTopicsLoading && allDisplayedTopics.length > 0 && (
-          <Button
-            variant="outline"
-            size="sm"
+          <button
             onClick={handleSelectAllToggle}
-            className="text-xs h-8 px-3 rounded-lg border-brand-warm text-brand-muted hover:text-brand-charcoal hover:bg-brand-surface"
+            className="inline-flex items-center gap-1.5 text-xs h-8 px-3 rounded-lg bg-brand-orange-subtle border border-brand-orange-light text-brand-orange hover:bg-brand-orange/10 font-medium shrink-0 cursor-pointer transition-colors"
           >
-            <ListChecks className="w-3.5 h-3.5 mr-1.5" />
+            <ListChecks className="w-3.5 h-3.5" />
             {isAllSelected ? "Deselect All" : "Select All"}
-          </Button>
+          </button>
         )}
       </div>
 
       {/* Topic Selection */}
       <div className="flex-1 overflow-y-auto scrollbar-hide space-y-2 pr-1">
         {isTopicsLoading ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-3">
-            <Loader2 className="w-6 h-6 text-brand-orange animate-spin" />
-            <p className="text-sm text-brand-muted">Generating topics based on your brand…</p>
+          <div className="flex flex-col items-center justify-center py-12 gap-4">
+            <div className="relative w-10 h-10">
+              <div className="absolute inset-0 rounded-full border-2 border-brand-warm" />
+              <div className="absolute inset-0 rounded-full border-2 border-brand-orange border-t-transparent animate-spin" />
+            </div>
+            <div className="flex flex-col items-center gap-1.5">
+              <p className="text-sm font-medium text-brand-charcoal">Generating topics…</p>
+              <div className="flex gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-brand-orange animate-bounce [animation-delay:0ms]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-brand-orange animate-bounce [animation-delay:150ms]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-brand-orange animate-bounce [animation-delay:300ms]" />
+              </div>
+            </div>
           </div>
         ) : (
           <>
@@ -233,46 +241,31 @@ export function StepBrandTopics({
 
           <div className="flex items-center gap-3">
             {onSkip && (
-              <Button
+              <button
                 onClick={onSkip}
-                variant="ghost"
                 disabled={isSaving}
-                className="text-brand-muted hover:text-brand-charcoal hover:bg-brand-surface px-4 h-10 text-sm font-medium rounded-full"
+                className="text-brand-muted hover:text-brand-charcoal px-4 h-10 text-sm font-medium rounded-full transition-colors cursor-pointer disabled:opacity-40"
               >
                 Skip for now
-              </Button>
+              </button>
             )}
             <Button
-            onClick={onNext}
-            disabled={selectedTopics.length === 0 || isTopicsLoading || isSaving}
-            className="bg-brand-charcoal text-white hover:bg-brand-charcoal px-6 h-10 text-sm font-medium rounded-full transition-all shadow-lg shadow-brand-warm flex items-center disabled:opacity-50"
-          >
-            {isSaving ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <>
-                Continue
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </>
-            )}
-          </Button>
-          </div>
-        </div>
-
-        {/* Progress */}
-        <div className="pt-6 border-t border-brand-warm flex items-center justify-between">
-          <div className="flex gap-1.5">
-            {Array.from({ length: totalSteps }).map((_, idx) => (
-              <div
-                key={idx}
-                className={`h-1.5 rounded-full transition-all duration-300 ${
-                  idx <= currentStep ? 'w-8 bg-brand-charcoal' : 'w-1.5 bg-brand-warm'
-                }`}
-              />
-            ))}
-          </div>
-          <div className="text-[10px] uppercase tracking-wider text-brand-muted font-bold">
-            Step {currentStep + 1} of {totalSteps}
+              onClick={onNext}
+              disabled={selectedTopics.length === 0 || isTopicsLoading || isSaving}
+              className="bg-brand-orange text-white hover:bg-brand-orange-hover px-6 h-10 text-sm font-semibold rounded-full transition-all flex items-center disabled:opacity-50"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                <>
+                  Continue
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </>
+              )}
+            </Button>
           </div>
         </div>
       </div>

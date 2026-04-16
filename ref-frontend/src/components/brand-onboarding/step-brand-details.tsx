@@ -115,23 +115,6 @@ export function StepBrandDetails({
             Continue <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         </div>
-
-        {/* Progress */}
-        <div className="pt-4 border-t border-brand-warm/40 flex items-center justify-between">
-          <div className="flex gap-1.5">
-            {Array.from({ length: totalSteps }).map((_, idx) => (
-              <div
-                key={idx}
-                className={`h-1.5 rounded-full transition-all duration-300 ${
-                  idx <= currentStep ? 'w-6 bg-brand-orange' : 'w-2 bg-brand-warm'
-                }`}
-              />
-            ))}
-          </div>
-          <div className="text-[10px] uppercase tracking-wider text-brand-muted font-bold">
-            Step {currentStep + 1} of {totalSteps}
-          </div>
-        </div>
       </div>
     </motion.div>
   )

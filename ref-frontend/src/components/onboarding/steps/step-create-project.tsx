@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,6 +14,11 @@ interface StepCreateProjectProps {
   isLoading: boolean
   currentStep: number
   totalSteps: number
+  name: string
+  description: string
+  onNameChange: (v: string) => void
+  onDescriptionChange: (v: string) => void
+  projectAlreadyCreated?: boolean
 }
 
 export function StepCreateProject({
@@ -22,12 +26,14 @@ export function StepCreateProject({
   onSkip,
   onBack,
   isLoading,
+  name,
+  description,
+  onNameChange,
+  onDescriptionChange,
+  projectAlreadyCreated = false,
 }: StepCreateProjectProps) {
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-
   const handleAdd = async () => {
-    if (!name.trim()) return
+    if (!projectAlreadyCreated && !name.trim()) return
     await onAdd(name.trim(), description.trim() || undefined)
   }
 
@@ -58,7 +64,7 @@ export function StepCreateProject({
             id="onb-project-name"
             placeholder="Enter your project name"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => onNameChange(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
             className="h-11 bg-white! border-brand-warm! text-brand-charcoal! placeholder:text-brand-muted! rounded-xl! focus-visible:border-brand-orange! focus-visible:ring-2! focus-visible:ring-brand-orange/20! shadow-none!"
           />
@@ -72,7 +78,7 @@ export function StepCreateProject({
             id="onb-project-desc"
             placeholder="What are you analyzing?"
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => onDescriptionChange(e.target.value)}
             rows={3}
             className="bg-white! border-brand-warm! text-brand-charcoal! placeholder:text-brand-muted! rounded-xl! focus-visible:border-brand-orange! focus-visible:ring-2! focus-visible:ring-brand-orange/20! resize-none min-h-20 shadow-none!"
           />
@@ -81,21 +87,28 @@ export function StepCreateProject({
 
       {/* Action buttons */}
       <div className="flex items-center justify-end gap-3 mt-auto pt-5 border-t border-brand-warm/30">
-        <Button
+        <button
           onClick={onSkip}
-          variant="ghost"
           disabled={isLoading}
-          className="text-brand-muted hover:text-brand-charcoal px-4 h-10 text-sm font-medium rounded-xl cursor-pointer"
+          className="text-brand-muted hover:text-brand-charcoal px-4 h-10 text-sm font-medium rounded-xl cursor-pointer transition-colors disabled:opacity-40"
         >
           Skip
-        </Button>
+        </button>
         <Button
           onClick={handleAdd}
-          disabled={!name.trim() || isLoading}
+          disabled={(!projectAlreadyCreated && !name.trim()) || isLoading}
           className="bg-brand-orange text-white hover:bg-brand-orange-hover px-6 h-10 text-sm font-semibold rounded-full transition-all cursor-pointer"
         >
           {isLoading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Creating…
+            </>
+          ) : projectAlreadyCreated ? (
+            <>
+              Continue
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </>
           ) : (
             <>
               Create Project

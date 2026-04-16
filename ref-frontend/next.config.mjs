@@ -9,6 +9,24 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+
+  async headers() {
+    return [
+      {
+        // Google Sign-In (GSI) uses window.postMessage between the OAuth popup
+        // and this page. Next.js dev server auto-sets COOP: same-origin which
+        // blocks that channel. same-origin-allow-popups permits it while still
+        // isolating the page from unrelated cross-origin windows.
+        source: '/signin',
+        headers: [
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin-allow-popups',
+          },
+        ],
+      },
+    ]
+  },
   typescript: {
     ignoreBuildErrors: false,
   },

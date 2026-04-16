@@ -115,14 +115,13 @@ export function StepConnectAnalytics({
         </button>
 
         <div className="flex items-center gap-3">
-          <Button
+          <button
             onClick={onSkip}
-            variant="ghost"
             disabled={isRedirecting || gaStatus === 'connected'}
-            className="text-brand-muted hover:text-brand-charcoal px-4 h-10 text-sm font-medium rounded-xl cursor-pointer"
+            className="text-brand-muted hover:text-brand-charcoal px-4 h-10 text-sm font-medium rounded-xl cursor-pointer transition-colors disabled:opacity-40"
           >
             Skip for now
-          </Button>
+          </button>
           <Button
             onClick={gaStatus === 'connected' ? onSkip : handleConnect}
             disabled={isRedirecting}

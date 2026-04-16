@@ -258,22 +258,24 @@ export function StepBrandReady({
           </p>
         )}
         <div className="flex justify-between items-center mb-4">
-          <Button
+          <button
             onClick={onSkip}
-            variant="ghost"
             disabled={isLoading || isDescriptionLoading}
-            className="text-brand-muted hover:text-brand-charcoal hover:bg-brand-surface px-4 h-10 text-sm font-medium rounded-full"
+            className="text-brand-muted hover:text-brand-charcoal px-4 h-10 text-sm font-medium rounded-full transition-colors cursor-pointer disabled:opacity-40"
           >
             Skip for now
-          </Button>
+          </button>
 
           <Button
             onClick={onStart}
             disabled={isLoading || isDescriptionLoading}
-            className="bg-brand-charcoal text-white hover:bg-brand-charcoal px-6 h-10 text-sm font-medium rounded-full transition-all shadow-lg shadow-brand-warm flex items-center"
+            className="bg-brand-orange text-white hover:bg-brand-orange-hover px-6 h-10 text-sm font-semibold rounded-full transition-all flex items-center"
           >
             {isLoading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Starting…
+              </>
             ) : isDescriptionLoading ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -286,23 +288,6 @@ export function StepBrandReady({
               </>
             )}
           </Button>
-        </div>
-
-        {/* Progress */}
-        <div className="pt-4 border-t border-brand-warm flex items-center justify-between">
-          <div className="flex gap-1.5">
-            {Array.from({ length: totalSteps }).map((_, idx) => (
-              <div
-                key={idx}
-                className={`h-1.5 rounded-full transition-all duration-300 ${
-                  idx <= currentStep ? 'w-8 bg-brand-charcoal' : 'w-1.5 bg-brand-warm'
-                }`}
-              />
-            ))}
-          </div>
-          <div className="text-[10px] uppercase tracking-wider text-brand-muted font-bold">
-            Step {currentStep + 1} of {totalSteps}
-          </div>
         </div>
       </div>
     </motion.div>

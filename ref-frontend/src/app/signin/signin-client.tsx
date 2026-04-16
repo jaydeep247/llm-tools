@@ -262,7 +262,7 @@ export default function SigninClient() {
       <DummyDashboard />
 
       {/* Dark overlay so modal pops against the dashboard */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-[3px] z-10" />
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-[2px] z-10" />
 
       {/* Centered auth card */}
       <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-4 sm:p-8">
@@ -286,7 +286,7 @@ export default function SigninClient() {
         &larr; Back to Home
       </Link>
 
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl ring-1 ring-black/[0.06] overflow-hidden">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl ring-1 ring-black/6 overflow-hidden">
         <div className="px-7 sm:px-10 py-7 sm:py-8">
           {/* Header */}
           <div className={`text-center mb-6 transition-all duration-300 ${
