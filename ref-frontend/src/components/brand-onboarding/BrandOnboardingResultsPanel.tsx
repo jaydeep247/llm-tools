@@ -77,7 +77,7 @@ function PositionBadge({ position }: { position: string }) {
   const map: Record<string, string> = {
     first: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
     middle: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
-    last: 'text-orange-400 bg-orange-500/10 border-orange-500/30',
+    last: 'text-brand-orange bg-brand-orange/10 border-brand-orange/30',
     'not mentioned': 'text-zinc-500 bg-zinc-800/40 border-zinc-700/50',
   }
   const cls = map[position?.toLowerCase()] ?? map['not mentioned']

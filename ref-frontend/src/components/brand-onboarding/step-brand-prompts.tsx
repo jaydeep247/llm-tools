@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  MessageSquareText,
   Loader2,
   ArrowLeft,
   ArrowRight,
@@ -33,7 +32,7 @@ export interface TopicPrompts {
 const JOURNEY_STAGE_META: Record<string, { label: string; color: string }> = {
   awareness: { label: 'Awareness', color: 'bg-blue-50 text-blue-700 border-blue-200' },
   consideration: { label: 'Consideration', color: 'bg-amber-50 text-amber-700 border-amber-200' },
-  decision: { label: 'Decision', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  decision: { label: 'Decision', color: 'bg-teal-50 text-teal-700 border-teal-200' },
   post_purchase: { label: 'Post Purchase', color: 'bg-purple-50 text-purple-700 border-purple-200' },
 }
 
@@ -74,7 +73,7 @@ export function StepBrandPrompts({
   const [showCustomInput, setShowCustomInput] = useState(false)
   const [customPrompt, setCustomPrompt] = useState('')
 
-  const allGeneratedPrompts = topicGroups.flatMap(g => g.prompts.map(p => p.prompt))
+  const allGeneratedPrompts = topicGroups.flatMap(g => (g.prompts ?? []).map(p => p.prompt))
   const allAvailable = [...allGeneratedPrompts, ...customPrompts]
 
   const effectiveSelected = selectedPrompts.length > 0 ? selectedPrompts : allAvailable
@@ -161,15 +160,10 @@ export function StepBrandPrompts({
       {/* Header */}
       <div className="mb-5 flex justify-between items-start">
         <div>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center border border-emerald-100">
-              <MessageSquareText className="w-4 h-4 text-emerald-600" />
-            </div>
-          </div>
-          <h2 className="text-2xl font-bold text-zinc-900 mb-2 tracking-tight">
+          <h2 className="text-xl font-bold text-brand-charcoal mb-1.5 tracking-tight">
             Review AI prompts
           </h2>
-          <p className="text-zinc-500 text-sm leading-relaxed">
+          <p className="text-brand-muted text-sm leading-relaxed">
             {isPromptsLoading
               ? 'Generating prompts per topic…'
               : `${selectedCount} of ${totalPrompts} prompts selected across ${topicGroups.length} topic${topicGroups.length !== 1 ? 's' : ''}.`}
@@ -180,7 +174,7 @@ export function StepBrandPrompts({
             variant="outline"
             size="sm"
             onClick={handleSelectAll}
-            className="text-xs h-8 px-3 rounded-lg border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 shrink-0"
+            className="text-xs h-8 px-3 rounded-lg border-brand-warm text-brand-muted hover:text-brand-charcoal hover:bg-brand-surface shrink-0"
           >
             <ListChecks className="w-3.5 h-3.5 mr-1.5" />
             {isAllSelected ? 'Deselect All' : 'Select All'}
@@ -189,17 +183,17 @@ export function StepBrandPrompts({
       </div>
 
       {/* Topic groups */}
-      <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+      <div className="flex-1 overflow-y-auto scrollbar-hide space-y-3 pr-1">
         {isPromptsLoading ? (
           <div className="flex flex-col items-center justify-center py-12 gap-3">
-            <Loader2 className="w-6 h-6 text-emerald-600 animate-spin" />
-            <p className="text-sm text-zinc-400">Generating prompts for each topic…</p>
+            <Loader2 className="w-6 h-6 text-brand-orange animate-spin" />
+            <p className="text-sm text-brand-muted">Generating prompts for each topic…</p>
           </div>
         ) : (
           <>
             {topicGroups.map((group, gIdx) => {
               const isExpanded = expandedTopics.has(group.topic)
-              const topicPromptStrs = group.prompts.map(p => p.prompt)
+              const topicPromptStrs = (group.prompts ?? []).map(p => p.prompt)
               const selectedInTopic = topicPromptStrs.filter(p => effectiveSelected.includes(p)).length
               const allTopicSelected = selectedInTopic === topicPromptStrs.length && topicPromptStrs.length > 0
               const someTopicSelected = selectedInTopic > 0 && !allTopicSelected
@@ -210,38 +204,38 @@ export function StepBrandPrompts({
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: gIdx * 0.05 }}
-                  className="border border-zinc-200 rounded-xl overflow-hidden bg-white"
+                  className="border border-brand-warm rounded-xl overflow-hidden bg-white"
                 >
                   {/* Topic header row */}
                   <div
-                    className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-zinc-50 transition-colors select-none"
+                    className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-brand-surface transition-colors select-none"
                     onClick={() => toggleExpand(group.topic)}
                   >
                     {/* Topic select toggle */}
                     <div
                       role="checkbox"
                       aria-checked={allTopicSelected}
-                      onClick={e => { e.stopPropagation(); toggleTopic(group.topic, group.prompts) }}
+                      onClick={e => { e.stopPropagation(); toggleTopic(group.topic, group.prompts ?? []) }}
                       className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-all cursor-pointer ${
                         allTopicSelected
-                          ? 'bg-emerald-600 border-emerald-600'
+                          ? 'bg-brand-orange border-brand-orange'
                           : someTopicSelected
-                          ? 'bg-emerald-100 border-emerald-400'
-                          : 'border-zinc-300 bg-white'
+                          ? 'bg-brand-orange-light border-orange-400'
+                          : 'border-brand-warm bg-white'
                       }`}
                     >
                       {allTopicSelected && <Check className="w-3 h-3 text-white" />}
-                      {someTopicSelected && <div className="w-2 h-0.5 bg-emerald-600 rounded-full" />}
+                      {someTopicSelected && <div className="w-2 h-0.5 bg-brand-orange rounded-full" />}
                     </div>
 
-                    <Tag className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                    <span className="flex-1 text-sm font-semibold text-zinc-800">{group.topic}</span>
-                    <span className="text-xs text-zinc-400 tabular-nums">
+                    <Tag className="w-3.5 h-3.5 text-brand-muted shrink-0" />
+                    <span className="flex-1 text-sm font-semibold text-brand-charcoal">{group.topic}</span>
+                    <span className="text-xs text-brand-muted tabular-nums">
                       {selectedInTopic}/{topicPromptStrs.length}
                     </span>
                     {isExpanded
-                      ? <ChevronUp className="w-4 h-4 text-zinc-400 shrink-0" />
-                      : <ChevronDown className="w-4 h-4 text-zinc-400 shrink-0" />}
+                      ? <ChevronUp className="w-4 h-4 text-brand-muted shrink-0" />
+                      : <ChevronDown className="w-4 h-4 text-brand-muted shrink-0" />}
                   </div>
 
                   {/* Prompts list */}
@@ -252,10 +246,10 @@ export function StepBrandPrompts({
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
                         transition={{ duration: 0.2 }}
-                        className="overflow-hidden border-t border-zinc-100"
+                        className="overflow-hidden border-t border-brand-surface"
                       >
                         <div className="p-2 space-y-1.5">
-                          {group.prompts.map((item, idx) => {
+                          {(group.prompts ?? []).map((item, idx) => {
                             const isSelected = effectiveSelected.includes(item.prompt)
                             const stageMeta = JOURNEY_STAGE_META[item.journey_stage ?? ''] ?? null
                             return (
@@ -267,19 +261,19 @@ export function StepBrandPrompts({
                                 onClick={() => togglePrompt(item.prompt)}
                                 className={`group w-full p-3 rounded-lg border transition-all cursor-pointer flex gap-3 items-start ${
                                   isSelected
-                                    ? 'bg-emerald-50/50 border-emerald-200'
-                                    : 'bg-zinc-50 border-transparent hover:border-zinc-200 hover:bg-white'
+                                    ? 'bg-brand-orange-subtle/50 border-orange-200'
+                                    : 'bg-brand-surface border-transparent hover:border-brand-warm hover:bg-white'
                                 }`}
                               >
                                 <div
                                   className={`w-4 h-4 mt-0.5 rounded border flex items-center justify-center shrink-0 transition-all ${
-                                    isSelected ? 'bg-emerald-600 border-emerald-600' : 'border-zinc-300 bg-white'
+                                    isSelected ? 'bg-brand-orange border-brand-orange' : 'border-brand-warm bg-white'
                                   }`}
                                 >
                                   {isSelected && <Check className="w-2.5 h-2.5 text-white" />}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <p className={`text-sm leading-relaxed ${isSelected ? 'text-zinc-900' : 'text-zinc-600'}`}>
+                                  <p className={`text-sm leading-relaxed ${isSelected ? 'text-brand-charcoal' : 'text-brand-muted'}`}>
                                     {item.prompt}
                                   </p>
                                   {stageMeta && (
@@ -291,7 +285,7 @@ export function StepBrandPrompts({
                                 <div
                                   role="button"
                                   onClick={e => deletePromptFromGroup(group.topic, item.prompt, e)}
-                                  className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded transition-all shrink-0"
+                                  className="opacity-0 group-hover:opacity-100 p-1 text-brand-muted hover:text-red-500 hover:bg-red-50 rounded transition-all shrink-0"
                                   title="Remove prompt"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -309,11 +303,11 @@ export function StepBrandPrompts({
 
             {/* Custom prompts section */}
             {(customPrompts.length > 0 || showCustomInput) && (
-              <div className="border border-dashed border-zinc-300 rounded-xl overflow-hidden">
-                <div className="px-4 py-3 border-b border-zinc-100 flex items-center gap-2">
-                  <PenLine className="w-3.5 h-3.5 text-zinc-400" />
-                  <span className="text-sm font-semibold text-zinc-600">Custom Prompts</span>
-                  <span className="text-xs text-zinc-400">{customPrompts.length}</span>
+              <div className="border border-dashed border-brand-warm rounded-xl overflow-hidden">
+                <div className="px-4 py-3 border-b border-brand-surface flex items-center gap-2">
+                  <PenLine className="w-3.5 h-3.5 text-brand-muted" />
+                  <span className="text-sm font-semibold text-brand-muted">Custom Prompts</span>
+                  <span className="text-xs text-brand-muted">{customPrompts.length}</span>
                 </div>
                 <div className="p-2 space-y-1.5">
                   {customPrompts.map(prompt => {
@@ -324,24 +318,24 @@ export function StepBrandPrompts({
                         onClick={() => togglePrompt(prompt)}
                         className={`group flex gap-3 items-start p-3 rounded-lg border cursor-pointer transition-all ${
                           isSelected
-                            ? 'bg-emerald-50/50 border-emerald-200'
-                            : 'bg-zinc-50 border-transparent hover:border-zinc-200 hover:bg-white'
+                            ? 'bg-brand-orange-subtle/50 border-orange-200'
+                            : 'bg-brand-surface border-transparent hover:border-brand-warm hover:bg-white'
                         }`}
                       >
                         <div
                           className={`w-4 h-4 mt-0.5 rounded border flex items-center justify-center shrink-0 transition-all ${
-                            isSelected ? 'bg-emerald-600 border-emerald-600' : 'border-zinc-300 bg-white'
+                            isSelected ? 'bg-brand-orange border-brand-orange' : 'border-brand-warm bg-white'
                           }`}
                         >
                           {isSelected && <Check className="w-2.5 h-2.5 text-white" />}
                         </div>
-                        <p className={`flex-1 text-sm leading-relaxed ${isSelected ? 'text-zinc-900' : 'text-zinc-600'}`}>
+                        <p className={`flex-1 text-sm leading-relaxed ${isSelected ? 'text-brand-charcoal' : 'text-brand-muted'}`}>
                           {prompt}
                         </p>
                         <div
                           role="button"
                           onClick={e => deleteCustomPrompt(prompt, e)}
-                          className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded transition-all shrink-0"
+                          className="opacity-0 group-hover:opacity-100 p-1 text-brand-muted hover:text-red-500 hover:bg-red-50 rounded transition-all shrink-0"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </div>
@@ -356,13 +350,13 @@ export function StepBrandPrompts({
                         value={customPrompt}
                         onChange={e => setCustomPrompt(e.target.value)}
                         onKeyDown={handleCustomKeyDown}
-                        className="bg-white! border-zinc-200! shadow-none! text-zinc-900! placeholder:text-zinc-400! focus-visible:border-emerald-500! focus-visible:ring-2! focus-visible:ring-emerald-500/20! h-9 flex-1 text-sm rounded-lg"
+                        className="bg-white! border-brand-warm! shadow-none! text-brand-charcoal! placeholder:text-brand-muted! focus-visible:border-brand-orange! focus-visible:ring-2! focus-visible:ring-brand-orange/20! h-9 flex-1 text-sm rounded-lg"
                       />
                       <Button
                         onClick={addCustomPrompt}
                         disabled={!customPrompt.trim()}
                         size="sm"
-                        className="h-9 px-4 bg-zinc-900 text-white hover:bg-zinc-700 rounded-lg text-sm"
+                        className="h-9 px-4 bg-brand-charcoal text-white hover:bg-brand-charcoal rounded-lg text-sm"
                       >
                         Add
                       </Button>
@@ -376,10 +370,10 @@ export function StepBrandPrompts({
             {!showCustomInput && (
               <button
                 onClick={() => setShowCustomInput(true)}
-                className="w-full flex items-center gap-3 p-3.5 rounded-xl border border-dashed border-zinc-300 text-left hover:border-zinc-400 hover:bg-zinc-50 transition-all cursor-pointer"
+                className="w-full flex items-center gap-3 p-3.5 rounded-xl border border-dashed border-brand-warm text-left hover:border-brand-muted hover:bg-brand-surface transition-all cursor-pointer"
               >
-                <Plus className="w-4 h-4 text-zinc-400" />
-                <span className="text-sm font-medium text-zinc-400">Add your own prompt</span>
+                <Plus className="w-4 h-4 text-brand-muted" />
+                <span className="text-sm font-medium text-brand-muted">Add your own prompt</span>
               </button>
             )}
           </>
@@ -391,7 +385,7 @@ export function StepBrandPrompts({
         <div className="flex justify-between items-center mb-6">
           <button
             onClick={onBack}
-            className="text-zinc-400 hover:text-zinc-700 transition-colors flex items-center text-sm font-medium group cursor-pointer"
+            className="text-brand-muted hover:text-brand-charcoal transition-colors flex items-center text-sm font-medium group cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
             Go Back
@@ -402,7 +396,7 @@ export function StepBrandPrompts({
                 onClick={onSkip}
                 variant="ghost"
                 disabled={isSaving}
-                className="text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 px-4 h-10 text-sm font-medium rounded-full"
+                className="text-brand-muted hover:text-brand-charcoal hover:bg-brand-surface px-4 h-10 text-sm font-medium rounded-full"
               >
                 Skip for now
               </Button>
@@ -410,7 +404,7 @@ export function StepBrandPrompts({
             <Button
               onClick={onNext}
               disabled={isPromptsLoading || isSaving || (topicGroups.length === 0 && customPrompts.length === 0)}
-              className="bg-zinc-900 text-white hover:bg-zinc-700 px-6 h-10 text-sm font-medium rounded-full transition-all shadow-lg shadow-zinc-200 flex items-center disabled:opacity-50"
+              className="bg-brand-charcoal text-white hover:bg-brand-charcoal px-6 h-10 text-sm font-medium rounded-full transition-all shadow-lg shadow-brand-warm flex items-center disabled:opacity-50"
             >
               {isSaving ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -425,18 +419,18 @@ export function StepBrandPrompts({
         </div>
 
         {/* Progress */}
-        <div className="pt-6 border-t border-zinc-200 flex items-center justify-between">
+        <div className="pt-6 border-t border-brand-warm flex items-center justify-between">
           <div className="flex gap-1.5">
             {Array.from({ length: totalSteps }).map((_, idx) => (
               <div
                 key={idx}
                 className={`h-1.5 rounded-full transition-all duration-300 ${
-                  idx <= currentStep ? 'w-8 bg-zinc-900' : 'w-1.5 bg-zinc-200'
+                  idx <= currentStep ? 'w-8 bg-brand-charcoal' : 'w-1.5 bg-brand-warm'
                 }`}
               />
             ))}
           </div>
-          <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">
+          <div className="text-[10px] uppercase tracking-wider text-brand-muted font-bold">
             Step {currentStep + 1} of {totalSteps}
           </div>
         </div>

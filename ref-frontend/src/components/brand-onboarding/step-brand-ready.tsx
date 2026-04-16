@@ -24,7 +24,7 @@ interface StepBrandReadyProps {
 // Renders a compact label chip
 function Chip({ label }: { label: string }) {
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-700 text-xs font-medium border border-zinc-200">
+    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-brand-surface text-brand-charcoal text-xs font-medium border border-brand-warm">
       {label}
     </span>
   )
@@ -41,12 +41,12 @@ function ProfileSection({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex items-start gap-3 p-3.5 rounded-xl bg-white border border-zinc-200 shadow-sm">
-      <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center border border-emerald-100 shrink-0 mt-0.5">
+    <div className="flex items-start gap-3 p-3.5 rounded-xl bg-white border border-brand-warm shadow-sm">
+      <div className="w-7 h-7 rounded-lg bg-brand-orange-subtle flex items-center justify-center border border-brand-orange-light shrink-0 mt-0.5">
         {icon}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[11px] uppercase tracking-wider text-zinc-500 font-bold mb-1">{label}</p>
+        <p className="text-[11px] uppercase tracking-wider text-brand-muted font-bold mb-1">{label}</p>
         {children}
       </div>
     </div>
@@ -88,29 +88,24 @@ export function StepBrandReady({
     >
       {/* Header */}
       <div className="mb-4">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center border border-emerald-100">
-            <Sparkles className="w-4 h-4 text-emerald-600" />
-          </div>
-        </div>
-        <h2 className="text-2xl font-bold text-zinc-900 mb-1 tracking-tight">Brand Intelligence Overview</h2>
-        <p className="text-zinc-500 text-sm">
+        <h2 className="text-xl font-bold text-brand-charcoal mb-1 tracking-tight">Brand Intelligence Overview</h2>
+        <p className="text-brand-muted text-sm">
           Evidence-based analysis extracted directly from your website.
         </p>
       </div>
 
       {/* Scrollable card body */}
-      <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 pb-2">
+      <div className="flex-1 overflow-y-auto scrollbar-hide space-y-2.5 pr-1 pb-2">
 
         {/* Brand + URL row */}
         <div className="grid grid-cols-2 gap-2.5">
-          <ProfileSection icon={<Sparkles className="w-3.5 h-3.5 text-emerald-600" />} label="Brand">
-            <p className="text-sm text-zinc-900 font-medium truncate">
+          <ProfileSection icon={<Sparkles className="w-3.5 h-3.5 text-brand-orange" />} label="Brand">
+            <p className="text-sm text-brand-charcoal font-medium truncate">
               {brandProfile?.brand_name || brandName || '—'}
             </p>
           </ProfileSection>
-          <ProfileSection icon={<Globe className="w-3.5 h-3.5 text-emerald-600" />} label="Analysing">
-            <p className="text-sm text-zinc-900 font-medium truncate">{url || '—'}</p>
+          <ProfileSection icon={<Globe className="w-3.5 h-3.5 text-brand-orange" />} label="Analysing">
+            <p className="text-sm text-brand-charcoal font-medium truncate">{url || '—'}</p>
           </ProfileSection>
         </div>
 
@@ -118,37 +113,37 @@ export function StepBrandReady({
         {hasRichProfile && (brandProfile.product_category || brandProfile.business_model) && (
           <div className="grid grid-cols-2 gap-2.5">
             {brandProfile.product_category && (
-              <ProfileSection icon={<Tag className="w-3.5 h-3.5 text-emerald-600" />} label="Category">
-                <p className="text-sm text-zinc-800">{brandProfile.product_category}</p>
+              <ProfileSection icon={<Tag className="w-3.5 h-3.5 text-brand-orange" />} label="Category">
+                <p className="text-sm text-brand-charcoal">{brandProfile.product_category}</p>
               </ProfileSection>
             )}
             {brandProfile.business_model && (
-              <ProfileSection icon={<TrendingUp className="w-3.5 h-3.5 text-emerald-600" />} label="Business Model">
-                <p className="text-sm text-zinc-800">{brandProfile.business_model}</p>
+              <ProfileSection icon={<TrendingUp className="w-3.5 h-3.5 text-brand-orange" />} label="Business Model">
+                <p className="text-sm text-brand-charcoal">{brandProfile.business_model}</p>
               </ProfileSection>
             )}
           </div>
         )}
 
         {/* Description */}
-        <ProfileSection icon={<FileText className="w-3.5 h-3.5 text-emerald-600" />} label="Brand Overview">
+        <ProfileSection icon={<FileText className="w-3.5 h-3.5 text-brand-orange" />} label="Brand Overview">
           {isDescriptionLoading ? (
             <div className="flex items-center gap-2 py-1">
-              <Loader2 className="w-3.5 h-3.5 text-emerald-600 animate-spin" />
-              <span className="text-sm text-zinc-400">Analysing your website…</span>
+              <Loader2 className="w-3.5 h-3.5 text-brand-orange animate-spin" />
+              <span className="text-sm text-brand-muted">Analysing your website…</span>
             </div>
           ) : (brandProfile?.description || brandDescription) ? (
-            <p className="text-sm text-zinc-700 leading-relaxed">
+            <p className="text-sm text-brand-charcoal leading-relaxed">
               {brandProfile?.description || brandDescription}
             </p>
           ) : (
-            <p className="text-sm text-zinc-400 italic">Description will be available shortly.</p>
+            <p className="text-sm text-brand-muted italic">Description will be available shortly.</p>
           )}
         </ProfileSection>
 
         {/* Target Audience */}
         {hasRichProfile && audiences.length > 0 && (
-          <ProfileSection icon={<Users className="w-3.5 h-3.5 text-emerald-600" />} label="Target Audience">
+          <ProfileSection icon={<Users className="w-3.5 h-3.5 text-brand-orange" />} label="Target Audience">
             <div className="flex flex-wrap gap-1.5">
               {audiences.map((a, i) => (
                 <Chip key={i} label={a.segment} />
@@ -159,11 +154,11 @@ export function StepBrandReady({
 
         {/* Core Use Cases */}
         {hasRichProfile && useCases.length > 0 && (
-          <ProfileSection icon={<Zap className="w-3.5 h-3.5 text-emerald-600" />} label="Core Use Cases">
+          <ProfileSection icon={<Zap className="w-3.5 h-3.5 text-brand-orange" />} label="Core Use Cases">
             <ul className="space-y-1">
               {useCases.slice(0, 5).map((u, i) => (
-                <li key={i} className="text-sm text-zinc-700 flex items-start gap-1.5">
-                  <span className="mt-1.5 w-1 h-1 rounded-full bg-emerald-400 shrink-0" />
+                <li key={i} className="text-sm text-brand-charcoal flex items-start gap-1.5">
+                  <span className="mt-1.5 w-1 h-1 rounded-full bg-brand-orange shrink-0" />
                   {u.use_case}
                 </li>
               ))}
@@ -173,7 +168,7 @@ export function StepBrandReady({
 
         {/* Key Features */}
         {hasRichProfile && features.length > 0 && (
-          <ProfileSection icon={<BookOpen className="w-3.5 h-3.5 text-emerald-600" />} label="Key Features">
+          <ProfileSection icon={<BookOpen className="w-3.5 h-3.5 text-brand-orange" />} label="Key Features">
             <div className="flex flex-wrap gap-1.5">
               {features.slice(0, 8).map((f, i) => (
                 <Chip key={i} label={f.feature} />
@@ -184,11 +179,11 @@ export function StepBrandReady({
 
         {/* Pain Points */}
         {hasRichProfile && painPoints.length > 0 && (
-          <ProfileSection icon={<AlertCircle className="w-3.5 h-3.5 text-emerald-600" />} label="Pain Points Solved">
+          <ProfileSection icon={<AlertCircle className="w-3.5 h-3.5 text-brand-orange" />} label="Pain Points Solved">
             <ul className="space-y-1">
               {painPoints.slice(0, 4).map((p, i) => (
-                <li key={i} className="text-sm text-zinc-700 flex items-start gap-1.5">
-                  <span className="mt-1.5 w-1 h-1 rounded-full bg-emerald-400 shrink-0" />
+                <li key={i} className="text-sm text-brand-charcoal flex items-start gap-1.5">
+                  <span className="mt-1.5 w-1 h-1 rounded-full bg-brand-orange shrink-0" />
                   {p}
                 </li>
               ))}
@@ -198,11 +193,11 @@ export function StepBrandReady({
 
         {/* Differentiators */}
         {hasRichProfile && differentiators.length > 0 && (
-          <ProfileSection icon={<TrendingUp className="w-3.5 h-3.5 text-emerald-600" />} label="Differentiators">
+          <ProfileSection icon={<TrendingUp className="w-3.5 h-3.5 text-brand-orange" />} label="Differentiators">
             <ul className="space-y-1">
               {differentiators.slice(0, 4).map((d, i) => (
-                <li key={i} className="text-sm text-zinc-700 flex items-start gap-1.5">
-                  <span className="mt-1.5 w-1 h-1 rounded-full bg-emerald-400 shrink-0" />
+                <li key={i} className="text-sm text-brand-charcoal flex items-start gap-1.5">
+                  <span className="mt-1.5 w-1 h-1 rounded-full bg-brand-orange shrink-0" />
                   {d}
                 </li>
               ))}
@@ -212,9 +207,9 @@ export function StepBrandReady({
 
         {/* Pricing */}
         {hasRichProfile && (brandProfile.pricing_model || pricingTiers.length > 0) && (
-          <ProfileSection icon={<Tag className="w-3.5 h-3.5 text-emerald-600" />} label="Pricing">
+          <ProfileSection icon={<Tag className="w-3.5 h-3.5 text-brand-orange" />} label="Pricing">
             {brandProfile.pricing_model && (
-              <p className="text-sm text-zinc-700 mb-1.5">{brandProfile.pricing_model}</p>
+              <p className="text-sm text-brand-charcoal mb-1.5">{brandProfile.pricing_model}</p>
             )}
             {pricingTiers.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
@@ -228,14 +223,14 @@ export function StepBrandReady({
         {hasRichProfile && (integrations.length > 0 || techSignals.length > 0) && (
           <div className="grid grid-cols-2 gap-2.5">
             {integrations.length > 0 && (
-              <ProfileSection icon={<Puzzle className="w-3.5 h-3.5 text-emerald-600" />} label="Integrations">
+              <ProfileSection icon={<Puzzle className="w-3.5 h-3.5 text-brand-orange" />} label="Integrations">
                 <div className="flex flex-wrap gap-1.5">
                   {integrations.slice(0, 6).map((t, i) => <Chip key={i} label={t} />)}
                 </div>
               </ProfileSection>
             )}
             {techSignals.length > 0 && (
-              <ProfileSection icon={<Cpu className="w-3.5 h-3.5 text-emerald-600" />} label="Technology">
+              <ProfileSection icon={<Cpu className="w-3.5 h-3.5 text-brand-orange" />} label="Technology">
                 <div className="flex flex-wrap gap-1.5">
                   {techSignals.slice(0, 6).map((t, i) => <Chip key={i} label={t} />)}
                 </div>
@@ -246,7 +241,7 @@ export function StepBrandReady({
 
         {/* Content Themes */}
         {hasRichProfile && contentThemes.length > 0 && (
-          <ProfileSection icon={<BookOpen className="w-3.5 h-3.5 text-emerald-600" />} label="Content Themes">
+          <ProfileSection icon={<BookOpen className="w-3.5 h-3.5 text-brand-orange" />} label="Content Themes">
             <div className="flex flex-wrap gap-1.5">
               {contentThemes.slice(0, 8).map((t, i) => <Chip key={i} label={t} />)}
             </div>
@@ -258,7 +253,7 @@ export function StepBrandReady({
       {/* Footer */}
       <div className="mt-auto pt-4">
         {isDescriptionLoading && (
-          <p className="text-xs text-zinc-400 text-center mb-3">
+          <p className="text-xs text-brand-muted text-center mb-3">
             Waiting for AI analysis before you can continue…
           </p>
         )}
@@ -267,7 +262,7 @@ export function StepBrandReady({
             onClick={onSkip}
             variant="ghost"
             disabled={isLoading || isDescriptionLoading}
-            className="text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 px-4 h-10 text-sm font-medium rounded-full"
+            className="text-brand-muted hover:text-brand-charcoal hover:bg-brand-surface px-4 h-10 text-sm font-medium rounded-full"
           >
             Skip for now
           </Button>
@@ -275,7 +270,7 @@ export function StepBrandReady({
           <Button
             onClick={onStart}
             disabled={isLoading || isDescriptionLoading}
-            className="bg-zinc-900 text-white hover:bg-zinc-700 px-6 h-10 text-sm font-medium rounded-full transition-all shadow-lg shadow-zinc-200 flex items-center"
+            className="bg-brand-charcoal text-white hover:bg-brand-charcoal px-6 h-10 text-sm font-medium rounded-full transition-all shadow-lg shadow-brand-warm flex items-center"
           >
             {isLoading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -294,18 +289,18 @@ export function StepBrandReady({
         </div>
 
         {/* Progress */}
-        <div className="pt-4 border-t border-zinc-200 flex items-center justify-between">
+        <div className="pt-4 border-t border-brand-warm flex items-center justify-between">
           <div className="flex gap-1.5">
             {Array.from({ length: totalSteps }).map((_, idx) => (
               <div
                 key={idx}
                 className={`h-1.5 rounded-full transition-all duration-300 ${
-                  idx <= currentStep ? 'w-8 bg-zinc-900' : 'w-1.5 bg-zinc-200'
+                  idx <= currentStep ? 'w-8 bg-brand-charcoal' : 'w-1.5 bg-brand-warm'
                 }`}
               />
             ))}
           </div>
-          <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">
+          <div className="text-[10px] uppercase tracking-wider text-brand-muted font-bold">
             Step {currentStep + 1} of {totalSteps}
           </div>
         </div>

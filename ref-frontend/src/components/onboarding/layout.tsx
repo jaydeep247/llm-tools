@@ -1,95 +1,63 @@
 
 'use client'
 
-import { motion, AnimatePresence } from 'framer-motion'
-import { CheckCircle2, Rocket, Layers, FolderPlus } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { DummyDashboard } from '@/components/shared/DummyDashboard'
 
 interface OnboardingLayoutProps {
   currentStep: number
   totalSteps: number
   children: React.ReactNode
-  leftPanelContent: {
-    title: string
-    description: string
-    testimonial?: {
-      quote: string
-      author: string
-      role: string
-      avatar?: string
-    }
-  }
+  /** Use 'wide' for content-heavy flows like brand-onboarding */
+  size?: 'default' | 'wide'
 }
 
-export function OnboardingLayout({ 
-  currentStep, 
-  totalSteps, 
-  children, 
-  leftPanelContent 
+export function OnboardingLayout({
+  currentStep,
+  totalSteps,
+  children,
+  size = 'default',
 }: OnboardingLayoutProps) {
-  
+  const maxW = size === 'wide' ? 'max-w-5xl' : 'max-w-4xl'
+
   return (
-    <div className="h-screen w-full bg-white overflow-hidden">
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="w-full h-full flex bg-white relative"
-      >
-        {/* Left Panel - Dynamic Content */}
-        <div className="hidden lg:flex w-[40%] bg-emerald-600 p-8 lg:p-12 flex-col justify-between relative overflow-hidden">
-          {/* Subtle texture */}
-          <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
-          <div className="absolute -top-32 -right-32 w-80 h-80 bg-emerald-400/30 rounded-full blur-3xl" />
-          <div className="absolute -bottom-32 -left-32 w-80 h-80 bg-emerald-800/40 rounded-full blur-3xl" />
+    <div className="h-screen w-full bg-brand-surface relative overflow-hidden">
+      {/* Light-mode dummy dashboard background */}
+      <DummyDashboard />
 
-          {/* Branding */}
-          <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-10">
-              <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center font-bold text-white border border-white/30 text-sm">
-                C
-              </div>
-              <span className="font-bold text-white text-lg tracking-tight">Contentlytics</span>
-            </div>
+      {/* Solid dark overlay — no blur, clean backdrop like the reference */}
+      <div className="absolute inset-0 bg-black/60 z-10" />
 
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={leftPanelContent.title}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.4 }}
-              >
-                <h1 className="text-3xl md:text-4xl font-bold text-white mb-4 leading-tight">
-                  {leftPanelContent.title}
-                </h1>
-                <p className="text-emerald-100 text-base leading-relaxed max-w-sm">
-                  {leftPanelContent.description}
-                </p>
-              </motion.div>
-            </AnimatePresence>
+      {/* Centered modal */}
+      <div className="absolute inset-0 z-20 flex items-center justify-center p-4 sm:p-6">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.97, y: 10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.22, ease: 'easeOut' }}
+          className={`bg-white rounded-2xl shadow-xl ring-1 ring-black/8 w-full ${maxW} h-[min(88vh,700px)] overflow-hidden relative flex flex-col`}
+        >
+          {/* Progress dots — fixed height, never shifts */}
+          <div className="shrink-0 flex items-center justify-center gap-1.5 pt-5 pb-3 border-b border-zinc-100/60 bg-white">
+            {Array.from({ length: totalSteps }).map((_, i) => (
+              <div
+                key={i}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  i === currentStep
+                    ? 'w-6 bg-brand-orange'
+                    : i < currentStep
+                    ? 'w-2 bg-brand-orange/40'
+                    : 'w-2 bg-zinc-200'
+                }`}
+              />
+            ))}
           </div>
 
-          {/* Bottom trust badge */}
-          <div className="relative z-10 mt-auto">
-            <div className="flex items-center gap-2 text-emerald-100/80 text-xs">
-              <div className="flex -space-x-1.5">
-                {['#a7f3d0','#6ee7b7','#34d399'].map((c, i) => (
-                  <div key={i} className="w-6 h-6 rounded-full border-2 border-emerald-600" style={{ backgroundColor: c }} />
-                ))}
-              </div>
-              <span>Trusted by 1,200+ marketers</span>
-            </div>
+          {/* Step content — scrollable, scrollbar hidden */}
+          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-8 sm:px-10 pb-8 pt-5">
+            {children}
           </div>
-        </div>
-
-        {/* Right Panel - Form Content */}
-        <div className="w-full lg:w-[60%] bg-white p-6 lg:py-10 lg:px-24 relative flex flex-col overflow-hidden">
-          <div className="w-full max-w-lg mx-auto flex flex-col flex-1 min-h-0">
-            <div className="flex-1 flex flex-col min-h-0">
-              {children}
-            </div>
-          </div>
-        </div>
-      </motion.div>
+        </motion.div>
+      </div>
     </div>
   )
 }

@@ -25,45 +25,6 @@ import { StepBrandResults } from '@/components/brand-onboarding/step-brand-resul
 
 const TOTAL_STEPS = 4
 
-const LEFT_PANEL_CONTENT = [
-  {
-    title: 'Ready to run your first analysis.',
-    description: 'We\'ve generated an AI description from your website. Your quick-start analysis is already running in the background.',
-    testimonial: {
-      quote: 'I had actionable insights within minutes of starting my first session. Genuinely game-changing.',
-      author: 'Emily White',
-      role: 'Data Analyst',
-    },
-  },
-  {
-    title: 'What topics matter to your brand?',
-    description: 'We\'ll track how your brand appears in AI-generated responses for the topics you choose.',
-    testimonial: {
-      quote: 'Picking the right topics to monitor gave us clarity on where our brand was winning — and where we were invisible.',
-      author: 'James Carter',
-      role: 'Brand Strategist',
-    },
-  },
-  {
-    title: 'Review your AI prompts.',
-    description: 'We\'ve generated prompts based on your topics. These are the exact queries we\'ll use to monitor your brand in AI responses.',
-    testimonial: {
-      quote: 'Seeing the actual prompts gave us confidence that we were tracking exactly what mattered to our business.',
-      author: 'Sarah Mitchell',
-      role: 'Marketing Director',
-    },
-  },
-  {
-    title: 'Your brand visibility snapshot.',
-    description: 'We sent your prompts to GPT, Gemini, and Claude. Here\'s how your brand appears across AI-generated responses.',
-    testimonial: {
-      quote: 'Seeing our brand visibility scored across all major AI platforms was a real eye-opener for our strategy.',
-      author: 'David Chen',
-      role: 'Growth Lead',
-    },
-  },
-]
-
 interface BrandOnboardingModalProps {
   open: boolean
   projectId: string
@@ -228,7 +189,7 @@ export function BrandOnboardingModal({
             setSelectedPrompts(data.prompts_selected)
             // Restore any custom prompts that aren't in the generated list
             const generatedPromptStrings = (data.prompts_generated as TopicPrompts[] | undefined)
-              ?.flatMap(g => g.prompts.map(p => p.prompt)) ?? []
+              ?.flatMap(g => (g.prompts ?? []).map(p => p.prompt)) ?? []
             const custom = data.prompts_selected.filter((p: string) => !generatedPromptStrings.includes(p))
             if (custom.length > 0) setCustomPrompts(custom)
           }
@@ -298,7 +259,7 @@ export function BrandOnboardingModal({
     if (promptsOverride) {
       allPromptsForExecution = promptsOverride
     } else {
-      const flatGenerated = prompts.flatMap(g => g.prompts)
+      const flatGenerated = prompts.flatMap(g => g.prompts ?? [])
       const activePrompts = selectedPrompts.length > 0
         ? selectedPrompts
         : [...flatGenerated.map(p => p.prompt), ...customPrompts]
@@ -348,7 +309,7 @@ export function BrandOnboardingModal({
 
   const handlePromptsContinue = async () => {
     // Only execute the currently selected prompts
-    const flatGenerated = prompts.flatMap(g => g.prompts)
+    const flatGenerated = prompts.flatMap(g => g.prompts ?? [])
     const activePrompts = selectedPrompts.length > 0
       ? selectedPrompts
       : [...flatGenerated.map(p => p.prompt), ...customPrompts]
@@ -422,7 +383,7 @@ export function BrandOnboardingModal({
       <OnboardingLayout
         currentStep={currentStep}
         totalSteps={TOTAL_STEPS}
-        leftPanelContent={LEFT_PANEL_CONTENT[currentStep]}
+        size="wide"
       >
         <AnimatePresence mode="wait">
           {currentStep === 0 && (

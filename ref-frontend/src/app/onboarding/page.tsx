@@ -11,13 +11,12 @@ import { useToast } from '@/hooks/use-toast'
 import { AnimatePresence } from 'framer-motion'
 
 import { OnboardingLayout } from '@/components/onboarding/layout'
-import { StepWelcome } from '@/components/onboarding/steps/step-welcome'
 import { StepCreateProject } from '@/components/onboarding/steps/step-create-project'
 import { StepStartSession } from '@/components/onboarding/steps/step-start-session'
 import { StepConnectAnalytics } from '@/components/onboarding/steps/step-connect-analytics'
 import { hasCompletedOnboarding } from '@/lib/onboarding'
 
-const TOTAL_STEPS = 4
+const TOTAL_STEPS = 3
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '/api/v1'
 
@@ -36,11 +35,11 @@ function buildCoreOnboardingPath(stepIndex: number, projectId?: string | null, b
   params.set('step', String(stepIndex + 1))
 
   const resolvedProjectId = brandParams?.projectId ?? projectId
-  if (stepIndex >= 2 && resolvedProjectId) {
+  if (stepIndex >= 1 && resolvedProjectId) {
     params.set('projectId', resolvedProjectId)
   }
 
-  if (stepIndex >= 3 && brandParams) {
+  if (stepIndex >= 2 && brandParams) {
     params.set('projectId', brandParams.projectId)
     params.set('sessionId', brandParams.sessionId)
     params.set('jobId', brandParams.jobId)
@@ -62,49 +61,12 @@ function buildBrandOnboardingPath(params: BrandRedirectParams, stepIndex = 0) {
   return `/brand-onboarding?${search.toString()}`
 }
 
-const LEFT_PANEL_CONTENT = [
-  { // 0: Welcome
-    title: "Get powerful insights from your project data — instantly.",
-    description: "From schedule delays to risk predictions — Contentlytics gives you clarity in minutes, not days.",
-    testimonial: {
-      quote: "Thanks to Contentlytics, I've cut my documentation time in half. Now I can focus on strategy — not paperwork.",
-      author: "Lauren Mitchell",
-      role: "Product Manager"
-    }
-  },
-  { // 1: Create Project
-    title: "Set up your first project.",
-    description: "Projects help you organize your sessions and track progress over time.",
-    testimonial: {
-      quote: "Having everything in one project made it so much easier to track improvements across sprints.",
-      author: "Alex Turner",
-      role: "Growth Lead at Verve"
-    }
-  },
-  { // 2: Start First Session
-    title: "Run your first analysis.",
-    description: "Enter a URL and we'll audit it instantly — brand presence, competitor signals, and AI visibility.",
-    testimonial: {
-      quote: "I had actionable insights within minutes of starting my first session. Game-changing.",
-      author: "Emily White",
-      role: "Data Analyst"
-    }
-  },
-  { // 3: Connect Google Analytics
-    title: "Supercharge your insights with real traffic data.",
-    description: "Link Google Analytics to get audience behaviour, traffic trends, and AI-powered recommendations tailored to your brand.",
-    testimonial: {
-      quote: "Connecting Analytics turned our raw data into a story we could finally act on.",
-      author: "Marcus Reid",
-      role: "Head of Growth"
-    }
-  },
-]
+
 
 function LoadingScreen() {
   return (
-    <div className="h-screen w-full bg-zinc-950 flex items-center justify-center">
-      <div className="w-5 h-5 rounded-full border-2 border-white/20 border-t-white animate-spin" />
+    <div className="h-screen w-full bg-brand-surface flex items-center justify-center">
+      <div className="w-5 h-5 rounded-full border-2 border-brand-orange-light border-t-brand-orange animate-spin" />
     </div>
   )
 }
@@ -142,10 +104,10 @@ function OnboardingContent() {
     const rawStep = parseInt(searchParams.get('step') ?? '', 10)
     let stepIndex = rawStep >= 1 && rawStep <= TOTAL_STEPS ? rawStep - 1 : 0
 
-    if (stepIndex >= 3 && !initialBrandRedirectParams) {
-      stepIndex = projectIdParam ? 2 : 1
-    } else if (stepIndex >= 2 && !projectIdParam) {
-      stepIndex = 1
+    if (stepIndex >= 2 && !initialBrandRedirectParams) {
+      stepIndex = projectIdParam ? 1 : 0
+    } else if (stepIndex >= 1 && !projectIdParam) {
+      stepIndex = 0
     }
 
     return stepIndex
@@ -226,7 +188,7 @@ function OnboardingContent() {
     if (gaConnected === '1') {
       setGaStatus('connected')
       setBrandRedirectParams(params)
-      setCurrentStepIndex(3)
+      setCurrentStepIndex(2)
       skipGuardRedirect.current = true
       if (params) {
         void persistBrandEntry(params, 0)
@@ -244,9 +206,9 @@ function OnboardingContent() {
       setGaStatus('error')
       setGaError(gaErrorParam)
       setBrandRedirectParams(params)
-      setCurrentStepIndex(3)
+      setCurrentStepIndex(2)
       skipGuardRedirect.current = true
-      void persistCoreProgress(3, params?.projectId ?? projectIdParam, params)
+      void persistCoreProgress(2, params?.projectId ?? projectIdParam, params)
       toast({
         title: gaErrorParam === 'access_denied' ? 'Permission denied' : 'Connection failed',
         description:
@@ -292,8 +254,8 @@ function OnboardingContent() {
       const result = await createProject({ name, description }).unwrap()
       setCreatedProjectId(result.project.id)
       toast({ title: "Project created!", description: `"${name}" is ready.` })
-      setCurrentStepIndex(2)
-      void persistCoreProgress(2, result.project.id, null)
+      setCurrentStepIndex(1)
+      void persistCoreProgress(1, result.project.id, null)
     } catch (error: any) {
       toast({
         title: "Failed to create project",
@@ -329,8 +291,8 @@ function OnboardingContent() {
         jobId: jobResult.job.id,
       }
       setBrandRedirectParams(params)
-      setCurrentStepIndex(3)
-      void persistCoreProgress(3, createdProjectId, params)
+      setCurrentStepIndex(2)
+      void persistCoreProgress(2, createdProjectId, params)
     } catch (error: any) {
       toast({
         title: 'Failed to start session',
@@ -414,19 +376,16 @@ function OnboardingContent() {
   const renderStep = () => {
     switch (currentStepIndex) {
       case 0:
-        return <StepWelcome onNext={handleNext} />
-      case 1:
         return (
           <StepCreateProject
             onAdd={handleCreateProject}
             onSkip={handleSkipStep}
-            onBack={handleBack}
             isLoading={isCreatingProject}
             currentStep={currentStepIndex}
             totalSteps={TOTAL_STEPS}
           />
         )
-      case 2:
+      case 1:
         return (
           <StepStartSession
             onStart={handleStartSession}
@@ -437,7 +396,7 @@ function OnboardingContent() {
             totalSteps={TOTAL_STEPS}
           />
         )
-      case 3:
+      case 2:
         return (
           <StepConnectAnalytics
             onConnect={handleConnectGA}
@@ -458,7 +417,6 @@ function OnboardingContent() {
     <OnboardingLayout
       currentStep={currentStepIndex}
       totalSteps={TOTAL_STEPS}
-      leftPanelContent={LEFT_PANEL_CONTENT[currentStepIndex]}
     >
       <AnimatePresence mode="wait">
         <div key={currentStepIndex} className="h-full">

@@ -53,20 +53,39 @@ const baseQueryWithReauth: BaseQueryFn<
             extraOptions,
           );
           if (refreshResult.error) {
-            // Refresh failed (session truly expired) — navigate to sign-in.
+            // Refresh failed (session truly expired) — navigate to sign-in,
+            // but ONLY when the user is on a protected route. Public pages
+            // (/, /signin, marketing pages) also call useGetMeQuery to check
+            // auth state; blindly redirecting them breaks unauthenticated
+            // navigation. The Next.js middleware already enforces protection
+            // for /dashboard, /admin, /onboarding, and /brand-onboarding.
             // IMPORTANT: do NOT call resetApiState() here. Clearing all
             // RTK Query cache causes every active subscriber to immediately
             // re-fire, each of which gets 401 → triggers another refresh →
             // infinite loop. A hard redirect stops the cycle cleanly.
             if (typeof window !== 'undefined') {
-              window.location.replace('/signin');
+              const { pathname } = window.location;
+              const protectedPrefixes = ['/dashboard', '/admin', '/onboarding', '/brand-onboarding'];
+              const isProtected = protectedPrefixes.some(
+                p => pathname === p || pathname.startsWith(p + '/'),
+              );
+              if (isProtected) {
+                window.location.replace('/signin');
+              }
             }
             return false;
           }
           return true;
         } catch {
           if (typeof window !== 'undefined') {
-            window.location.replace('/signin');
+            const { pathname } = window.location;
+            const protectedPrefixes = ['/dashboard', '/admin', '/onboarding', '/brand-onboarding'];
+            const isProtected = protectedPrefixes.some(
+              p => pathname === p || pathname.startsWith(p + '/'),
+            );
+            if (isProtected) {
+              window.location.replace('/signin');
+            }
           }
           return false;
         } finally {

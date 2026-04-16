@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Building2, ArrowLeft, ArrowRight, FileText, Loader2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, FileText, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -39,13 +39,8 @@ export function StepBrandDetails({
     >
       {/* Header */}
       <div className="mb-6">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center border border-emerald-100">
-            <Building2 className="w-4 h-4 text-emerald-600" />
-          </div>
-        </div>
-        <h2 className="text-2xl font-bold text-zinc-900 mb-2 tracking-tight">Tell us about your brand</h2>
-        <p className="text-zinc-500 text-sm">
+        <h2 className="text-xl font-bold text-brand-charcoal mb-2 tracking-tight">Tell us about your brand</h2>
+        <p className="text-brand-muted text-sm">
           This helps us personalise your analysis and track brand mentions accurately.
         </p>
       </div>
@@ -53,7 +48,7 @@ export function StepBrandDetails({
       {/* Form */}
       <div className="flex-1 space-y-5">
         <div className="space-y-2">
-          <Label htmlFor="brand-name" className="text-zinc-700 text-sm font-medium">
+          <Label htmlFor="brand-name" className="text-brand-charcoal text-sm font-medium">
             Brand / Company Name
           </Label>
           <Input
@@ -62,17 +57,17 @@ export function StepBrandDetails({
             value={brandName}
             onChange={(e) => onBrandNameChange(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && brandName.trim() && onNext()}
-            className="bg-white border-zinc-300 shadow-sm text-zinc-900 placeholder:text-zinc-400 focus-visible:ring-2 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500 h-11"
+            className="bg-white! border-brand-warm! text-brand-charcoal! placeholder:text-brand-muted! focus-visible:ring-2! focus-visible:ring-brand-orange/20! focus-visible:border-brand-orange! h-11 shadow-none! rounded-xl!"
           />
         </div>
 
         {/* AI-generated brand description */}
         <div className="space-y-2">
-          <Label htmlFor="brand-description" className="text-zinc-700 text-sm font-medium flex items-center gap-2">
-            <FileText className="w-3.5 h-3.5 text-emerald-600" />
+          <Label htmlFor="brand-description" className="text-brand-charcoal text-sm font-medium flex items-center gap-2">
+            <FileText className="w-3.5 h-3.5 text-brand-orange" />
             Brand Description
             {isDescriptionLoading && (
-              <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 font-normal">
+              <span className="inline-flex items-center gap-1.5 text-xs text-brand-orange font-normal">
                 <Loader2 className="w-3 h-3 animate-spin" />
                 Generating…
               </span>
@@ -85,17 +80,17 @@ export function StepBrandDetails({
             onChange={(e) => onBrandDescriptionChange(e.target.value)}
             rows={4}
             disabled={isDescriptionLoading}
-            className="bg-white border-zinc-300 shadow-sm text-zinc-900 placeholder:text-zinc-400 focus-visible:ring-2 focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500 resize-none text-sm disabled:opacity-60"
+            className="bg-white! border-brand-warm! text-brand-charcoal! placeholder:text-brand-muted! focus-visible:ring-2! focus-visible:ring-brand-orange/20! focus-visible:border-brand-orange! resize-none text-sm disabled:opacity-60 rounded-xl! shadow-none!"
           />
           {brandDescription && !isDescriptionLoading && (
-            <p className="text-[11px] text-zinc-400">Auto-generated from your website. Feel free to edit.</p>
+            <p className="text-[11px] text-brand-muted">Auto-generated from your website. Feel free to edit.</p>
           )}
         </div>
 
-        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100">
-          <p className="text-zinc-500 text-xs leading-relaxed">
+        <div className="p-4 rounded-xl bg-brand-orange-subtle border border-brand-orange-light">
+          <p className="text-brand-muted text-xs leading-relaxed">
             We use your brand name to monitor{' '}
-            <span className="text-zinc-900 font-medium">brand mentions, AI share of voice</span>, and
+            <span className="text-brand-charcoal font-medium">brand mentions, AI share of voice</span>, and
             competitor comparisons across the web.
           </p>
         </div>
@@ -106,7 +101,7 @@ export function StepBrandDetails({
         <div className="flex justify-between items-center mb-6">
           <button
             onClick={onBack}
-            className="text-zinc-400 hover:text-zinc-700 transition-colors flex items-center text-sm font-medium group cursor-pointer"
+            className="text-brand-muted hover:text-brand-charcoal transition-colors flex items-center text-sm font-medium group cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
             Go Back
@@ -115,25 +110,25 @@ export function StepBrandDetails({
           <Button
             onClick={onNext}
             disabled={!brandName.trim()}
-            className="bg-zinc-900 text-white hover:bg-zinc-700 px-6 h-10 text-sm font-medium rounded-full transition-all shadow-lg shadow-zinc-200 flex items-center"
+            className="bg-brand-orange text-white hover:bg-brand-orange-hover px-6 h-10 text-sm font-semibold rounded-full transition-all flex items-center cursor-pointer"
           >
             Continue <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         </div>
 
         {/* Progress */}
-        <div className="pt-6 border-t border-zinc-200 flex items-center justify-between">
+        <div className="pt-4 border-t border-brand-warm/40 flex items-center justify-between">
           <div className="flex gap-1.5">
             {Array.from({ length: totalSteps }).map((_, idx) => (
               <div
                 key={idx}
                 className={`h-1.5 rounded-full transition-all duration-300 ${
-                  idx <= currentStep ? 'w-8 bg-zinc-900' : 'w-1.5 bg-zinc-200'
+                  idx <= currentStep ? 'w-6 bg-brand-orange' : 'w-2 bg-brand-warm'
                 }`}
               />
             ))}
           </div>
-          <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">
+          <div className="text-[10px] uppercase tracking-wider text-brand-muted font-bold">
             Step {currentStep + 1} of {totalSteps}
           </div>
         </div>
