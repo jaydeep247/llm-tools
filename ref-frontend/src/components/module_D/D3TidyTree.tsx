@@ -261,6 +261,8 @@ export default function D3TidyTree({ data, height = 600, orientation = 'horizont
         .append('g')
         .attr('class', 'nav-left')
         .attr('transform', 'translate(-18, 0)')
+        .style('opacity', (d: any) => (d.children ? 1 : 0))
+        .style('pointer-events', (d: any) => (d.children ? 'all' : 'none'))
         .on('click', (event, d: any) => {
           event.stopPropagation();
           toggleNode(d);
@@ -281,13 +283,14 @@ export default function D3TidyTree({ data, height = 600, orientation = 'horizont
         .style('fill', '#e5e7eb');
 
       const linkGroup = nodeEnter
-        .filter((d: any) => d.data?.attributes?.full || d.data?.text)
         .append('g')
         .attr('class', 'open-link')
         .attr('transform', function (d: any) {
           const w = (d as any).width || 40;
           return `translate(${w - 10}, 0)`;
         })
+        .style('opacity', (d: any) => (d._children ? 1 : 0))
+        .style('pointer-events', (d: any) => (d._children ? 'all' : 'none'))
         .on('click', (event, d: any) => {
           event.stopPropagation();
           toggleNode(d);
@@ -326,15 +329,20 @@ export default function D3TidyTree({ data, height = 600, orientation = 'horizont
           .transition().duration(400)
           .attr('stroke', collapsed ? '#38bdf8' : '#1e293b')
           .attr('fill', '#151515');
-        if (hasKids) {
-          const w = (d as any).width || 40;
-          group.select('.nav-left')
-            .transition().duration(500)
-            .attr('transform', 'translate(-18, 0)');
-          group.select('.open-link')
-            .transition().duration(500)
-            .attr('transform', `translate(${w - 10}, 0)`);
-        }
+
+        // Smoothly show/hide arrows based on state
+        group.select('.nav-left')
+          .transition().duration(500)
+          .style('opacity', expanded ? 1 : 0)
+          .style('pointer-events', expanded ? 'all' : 'none')
+          .attr('transform', 'translate(-18, 0)');
+
+        const w = (d as any).width || 40;
+        group.select('.open-link')
+          .transition().duration(500)
+          .style('opacity', collapsed ? 1 : 0)
+          .style('pointer-events', collapsed ? 'all' : 'none')
+          .attr('transform', `translate(${w - 10}, 0)`);
       });
 
       // --- Exiting Nodes (Smooth exit animation) ---

@@ -263,31 +263,49 @@ def _load_context_pack(
 
     # 1. Load latest Module F result
     try:
-        query = {"projectId": project_id}
+        mongo_manager.connect()
+        
+        # Build a flexible query that handles both camelCase (runner) and snake_case (JSON)
+        # and prioritizes jobId if provided.
         if job_id:
-            query["jobId"] = job_id
+            query = {"$or": [{"jobId": job_id}, {"job_id": job_id}]}
+        else:
+            query = {"$or": [{"projectId": project_id}, {"project_id": project_id}]}
 
         module_f_doc = mongo_manager.db.module_f.find_one(
             query,
-            sort=[("createdAt", -1)],
+            sort=[("updatedAt", -1), ("createdAt", -1)],
             projection={
-                "jobId": 1, "url": 1, "plan": 1, "role": 1,
+                "jobId": 1, "job_id": 1, "url": 1, "plan": 1, "role": 1,
+                "projectId": 1, "project_id": 1,
                 "d7_aivs_output": 1, "moat4_recommendations": 1,
                 "competitor_wins": 1, "gap_analysis": 1,
                 "compare_visibility_against_competitors": 1,
                 "emerging_trends": 1, "metric_recommendations": 1,
                 "wins_library_recommendations": 1,
-                "createdAt": 1, "_id": 0,
+                "createdAt": 1, "updatedAt": 1, "_id": 0,
             }
         )
     except Exception as e:
-        logger.error(f"Failed to load Module F doc: {e}")
+        logger.error(f"Failed to load Module F doc for project {project_id}: {e}")
         module_f_doc = None
+
+    if not module_f_doc:
+        # Fallback: if we still haven't found it, try one more time with project_id
+        # in case job_id was provided but that specific record is missing.
+        if job_id:
+            try:
+                module_f_doc = mongo_manager.db.module_f.find_one(
+                    {"$or": [{"projectId": project_id}, {"project_id": project_id}]},
+                    sort=[("updatedAt", -1), ("createdAt", -1)],
+                )
+            except Exception:
+                pass
 
     if not module_f_doc:
         return {"error": "No Module F analysis found for this project. Run a full analysis first."}
 
-    context["job_id"] = module_f_doc.get("jobId")
+    context["job_id"] = module_f_doc.get("jobId") or module_f_doc.get("job_id")
     context["url"] = module_f_doc.get("url", "")
     context["plan"] = module_f_doc.get("plan", "agency")
     context["role"] = module_f_doc.get("role", "seo_manager")
@@ -295,8 +313,9 @@ def _load_context_pack(
 
     # 2. Load Module E for brand info
     try:
+        target_job_id = module_f_doc.get("jobId") or module_f_doc.get("job_id")
         module_e_doc = mongo_manager.db.module_e.find_one(
-            {"jobId": module_f_doc.get("jobId")},
+            {"$or": [{"jobId": target_job_id}, {"job_id": target_job_id}]},
             projection={
                 "brand_description": 1, "ai_share_of_voice": 1,
                 "competitor_mentions": 1, "_id": 0,
@@ -782,9 +801,10 @@ def get_suggested_questions(project_id: str) -> List[str]:
     ]
 
     try:
+        mongo_manager.connect()
         doc = mongo_manager.db.module_f.find_one(
-            {"projectId": project_id},
-            sort=[("createdAt", -1)],
+            {"$or": [{"projectId": project_id}, {"project_id": project_id}]},
+            sort=[("updatedAt", -1), ("createdAt", -1)],
             projection={
                 "d7_aivs_output": 1,
                 "competitor_wins": 1,

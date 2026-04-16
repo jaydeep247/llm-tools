@@ -314,7 +314,7 @@ class SchemaExtractor:
           "nesting_depth": int,                # max nesting depth in JSON-LD
           "validation_errors": [...],          # malformed schema issues
           "properties_map": {type: {prop: val}},
-          "ai_files": {"llms_txt": bool, "facts_json": bool},
+          "ai_files": {"llms_txt": bool, "llms_full_txt": bool, "facts_json": bool},
         }
         """
         inventory: Dict[str, Any] = {
@@ -327,7 +327,7 @@ class SchemaExtractor:
             "nesting_depth":      0,
             "validation_errors":  [],
             "properties_map":     {},
-            "ai_files":           {"llms_txt": False, "facts_json": False},
+            "ai_files":           {"llms_txt": False, "llms_full_txt": False, "facts_json": False},
         }
 
         if not html:
@@ -503,7 +503,7 @@ class SchemaExtractor:
 
     def _detect_ai_files(self, soup, url: str) -> Dict[str, bool]:
         """
-        Detect llms.txt and facts.json using 3 strategies in order:
+        Detect llms.txt, llms-full.txt and facts.json using 3 strategies in order:
 
         1. HTML scan  — links/meta on the page (fast, no network)
         2. JSON-LD    — linked via schema markup (e.g. sameAs / url)
@@ -513,33 +513,38 @@ class SchemaExtractor:
 
         Probe paths checked:
           llms.txt  → /llms.txt
+          llms-full.txt → /llms-full.txt
           facts.json → /facts.json  and  /.well-known/ai/facts.json
         """
-        result = {"llms_txt": False, "facts_json": False}
+        result = {"llms_txt": False, "llms_full_txt": False, "facts_json": False}
 
         # ── Strategy 1: HTML links ─────────────────────────────────────
         for a in soup.find_all("a", href=True):
             href = (a.get("href") or "").lower()
             if "llms.txt"   in href: result["llms_txt"]   = True
+            if "llms-full.txt" in href: result["llms_full_txt"] = True
             if "facts.json" in href: result["facts_json"] = True
 
         # ── Strategy 2: meta tags ──────────────────────────────────────
         for meta in soup.find_all("meta"):
             c = (meta.get("content") or "").lower()
             if "llms.txt"   in c: result["llms_txt"]   = True
+            if "llms-full.txt" in c: result["llms_full_txt"] = True
             if "facts.json" in c: result["facts_json"] = True
 
         # ── Strategy 3: JSON-LD references ────────────────────────────
         page_text = str(soup)
         if "llms.txt"   in page_text.lower(): result["llms_txt"]   = True
+        if "llms-full.txt" in page_text.lower(): result["llms_full_txt"] = True
         if "facts.json" in page_text.lower(): result["facts_json"] = True
 
         # ── Strategy 4: HTTP probe domain root paths ───────────────────
         # Only probe if still not found — avoids unnecessary requests
-        if not result["llms_txt"] or not result["facts_json"]:
+        if not result["llms_txt"] or not result["llms_full_txt"] or not result["facts_json"]:
             if url:
                 probed = self._probe_ai_file_paths(url)
                 if probed.get("llms_txt"):   result["llms_txt"]   = True
+                if probed.get("llms_full_txt"): result["llms_full_txt"] = True
                 if probed.get("facts_json"): result["facts_json"] = True
 
         return result
@@ -550,6 +555,7 @@ class SchemaExtractor:
 
         Checks:
           /llms.txt
+          /llms-full.txt
           /facts.json
           /.well-known/ai/facts.json
 
@@ -559,7 +565,7 @@ class SchemaExtractor:
         """
         from urllib.parse import urlparse, urljoin
 
-        found = {"llms_txt": False, "facts_json": False}
+        found = {"llms_txt": False, "llms_full_txt": False, "facts_json": False}
 
         # Build domain root (scheme + netloc only, no path)
         try:
@@ -573,6 +579,7 @@ class SchemaExtractor:
         # Paths to probe per file type
         probe_map = {
             "llms_txt":   ["/llms.txt"],
+            "llms_full_txt": ["/llms-full.txt"],
             "facts_json": ["/facts.json", "/.well-known/ai/facts.json"],
         }
 
@@ -895,6 +902,21 @@ class SchemaGapDetector:
                     "Use the llms.txt generator to auto-populate it."
                 ),
             ))
+        if not ai_files.get("llms_full_txt"):
+            gaps.append(_schema_gap(
+                gap_type="MISSING_AI_FILE",
+                schema_type="llms-full.txt",
+                severity="Medium",
+                citation_lift_est=20.0,
+                message=(
+                    "llms-full.txt not detected. This file provides the full "
+                    "context and detailed documentation for LLMs."
+                ),
+                fix_instruction=(
+                    "Create /llms-full.txt at your domain root. "
+                    "This should contain the comprehensive version of your LLM documentation."
+                ),
+            ))
         if not ai_files.get("facts_json"):
             gaps.append(_schema_gap(
                 gap_type="MISSING_AI_FILE",
@@ -1174,12 +1196,14 @@ class LCSScorer:
         return fresh / total
 
     def _score_ai_files(self, ai_files: Dict[str, bool]) -> float:
-        """0.0–1.0: AI file presence (llms.txt + facts.json)."""
+        """0.0–1.0: AI file presence (llms.txt + llms-full.txt + facts.json)."""
         score = 0.0
         if ai_files.get("llms_txt"):
-            score += 0.6   # llms.txt is more impactful
-        if ai_files.get("facts_json"):
             score += 0.4
+        if ai_files.get("llms_full_txt"):
+            score += 0.3
+        if ai_files.get("facts_json"):
+            score += 0.3
         return score
 
     def _apply_model_weights(
@@ -1544,6 +1568,8 @@ class FixPatchGenerator:
         elif gap_type == "MISSING_AI_FILE":
             if schema_type == "llms.txt":
                 patch_json = self._llms_txt_template(page_data)
+            elif schema_type == "llms-full.txt":
+                patch_json = self._llms_full_txt_template(page_data)
             else:
                 patch_json = self._facts_json_template(page_data)
 
@@ -1668,6 +1694,34 @@ class FixPatchGenerator:
                 f"Disallow: /admin/\n"
                 f"Disallow: /checkout/\n"
                 f"Disallow: /account/\n"
+            ),
+        }
+
+    def _llms_full_txt_template(self, page_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate llms-full.txt content structure."""
+        url = page_data.get("url") or ""
+        host = urlparse(url).netloc if url else "yourdomain.com"
+        title = page_data.get("title") or host
+        return {
+            "_file_type": "llms-full.txt",
+            "_deploy_path": "/llms-full.txt",
+            "_content": (
+                f"# Full LLM Documentation for {title}\n"
+                f"# Generated by Colytics AI — MOAT 6\n\n"
+                f"## Overview\n"
+                f"This document provides comprehensive context for Large Language Models "
+                f"crawling {host}.\n\n"
+                f"## Brand Identity\n"
+                f"- Name: {title}\n"
+                f"- URL: {url}\n"
+                f"- Description: {page_data.get('meta', {}).get('description', 'Comprehensive resource for our products and services.')}\n\n"
+                f"## Core Content Areas\n"
+                f"- Blog & Insights: /blog/\n"
+                f"- Support & FAQs: /faq/\n"
+                f"- About the Company: /about/\n\n"
+                f"## Technical Specification\n"
+                f"For automated agents, please refer to our primary /llms.txt and "
+                f"structured /facts.json for entity disambiguation."
             ),
         }
 

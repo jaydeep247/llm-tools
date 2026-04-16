@@ -770,7 +770,7 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
                 <Button
                   type="button"
                   onClick={openAskAiDialog}
-                  disabled={isAskingAI}
+                  disabled={isAskingAI || !comparison}
                   className={cn(
                     'rounded-full border-0 shadow-lg shadow-fuchsia-950/30',
                     'text-xs font-extrabold uppercase tracking-wider',
@@ -795,7 +795,7 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
                   )}
                 >
                   {isRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                  {isRunning ? 'Analyzing Models...' : 'Re-Run Comparison'}
+                  {isRunning ? 'Analyzing Models...' : (comparison ? 'Re-Run Analysis' : 'Run Analysis')}
                 </button>
               </div>
             </div>

@@ -197,25 +197,22 @@ def _compute_citation_score(
     return round(min(100.0, score), 2)
  
  
-def _estimate_sentiment(text: str, brand_name: str) -> float:
+def _estimate_sentiment(text: str, brand_name: str, aliases: Optional[List[str]] = None) -> float:
     """
     Estimate sentiment around a brand mention (-1.0 to +1.0).
- 
-    Improvements over the original keyword counter:
-      1. ±400 char context window (was ±200) for better coverage.
-      2. Negation detection — "not the best" flips a positive signal to negative.
-         Negation scope: up to 5 tokens before the keyword.
-      3. Comparative handling — "better than X" scores positively for the
-         subject of the comparison, negatively for the compared entity.
-      4. Weighted keywords — strong signals (e.g. "best", "leading") count
-         more than mild ones (e.g. "good", "popular").
-      5. Neutral bias when evidence is weak (< 2 signals) — returns 0.0
-         rather than a noisy low-confidence score.
- 
-    Returns float in [-1.0, +1.0].
     """
     # ── 1. Locate mention ────────────────────────────────────────────────────
-    idx = text.lower().find(brand_name.lower())
+    names = [brand_name] + (aliases or [])
+    idx = -1
+    found_name = brand_name
+    
+    for name in names:
+        if not name: continue
+        idx = text.lower().find(name.lower())
+        if idx != -1:
+            found_name = name
+            break
+            
     if idx == -1:
         return 0.0
     ctx = text[max(0, idx - 400): min(len(text), idx + 400)].lower()
@@ -306,12 +303,18 @@ def _estimate_sentiment(text: str, brand_name: str) -> float:
     return round(max(-1.0, min(1.0, raw)), 3)
  
  
-def _detect_title_mention(text: str, brand_name: str) -> bool:
-    """Return True if brand appears inside a markdown heading line."""
-    return bool(re.search(
-        r"^#{1,3}\s.*" + re.escape(brand_name) + r".*$",
-        text, re.IGNORECASE | re.MULTILINE,
-    ))
+def _detect_title_mention(text: str, brand_name: str, aliases: Optional[List[str]] = None) -> bool:
+    """Return True if brand or its aliases appear inside a markdown heading OR start of a list item."""
+    names = [brand_name] + (aliases or [])
+    # Escape and join names for regex
+    names_pattern = "|".join([re.escape(n) for n in names if n])
+    
+    # Matches:
+    # 1. ### Brand Name
+    # 2. 1. Brand Name:
+    # 3. **Brand Name**
+    pattern = rf"(?:^#{1,3}\s|^[\d\-\*]\.?\s|\*\*|^)(?:{names_pattern})"
+    return bool(re.search(pattern, text, re.IGNORECASE | re.MULTILINE))
  
  
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1193,13 +1196,14 @@ class CompetitorAIIntelligence:
                 f"{', '.join(company_list_unique)}\n\n"
                 "Tasks:\n"
                 f"1) Rank the companies above for {topic_label} from best to worst. Use a numbered list.\n"
-                "2) For each company, give a 1-line reason focused on strengths/fit for the topic.\n"
+                "2) For each company, provide its name as a heading or list item, a 1-line reason focused on strengths, and its official website URL if known.\n"
                 "3) End with a short 'Honorable mentions' line that repeats any company not in your top 5.\n"
             )
  
         topic_used = topic
         batch_prompt = _build_batch_prompt(topic_used)
         entity_patterns = {e.name: _compile_patterns(e.terms) for e in entities}
+        entity_terms_map = {e.name: e.terms for e in entities}
  
         async def _run_models(prompt_text: str) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, str]]:
             async def _query(model: str) -> Tuple[str, Optional[str], Optional[str]]:
@@ -1253,12 +1257,13 @@ class CompetitorAIIntelligence:
                     spans = _find_unique_spans(text, patterns)
                     count = len(spans)
                     first_pos = spans[0][0] if spans else None
+                    aliases = entity_terms_map.get(entity_name, [])
  
                     # ── Sentiment from raw text (SOP §2 Step 3, weight 15 pts) ──
-                    sentiment = _estimate_sentiment(text_raw, entity_name) if count > 0 else 0.0
+                    sentiment = _estimate_sentiment(text_raw, entity_name, aliases=aliases) if count > 0 else 0.0
  
                     # ── Title/heading detection (SOP §2 Step 3, weight 10 pts) ──
-                    in_title = _detect_title_mention(text_raw, entity_name)
+                    in_title = _detect_title_mention(text_raw, entity_name, aliases=aliases)
  
                     # ── Citation present = URL from this entity's domain cited ──
                     cited_urls_for_entity = entity_cited_urls.get(entity_name, [])
@@ -1524,24 +1529,28 @@ class CompetitorAIIntelligence:
         brand_domain  = _extract_domain(url)
         brand_display = str(brand_name).strip() if isinstance(brand_name, str) and brand_name.strip() else brand_domain
         brand_key     = _normalize_term(brand_display)
- 
-        company_key_to_display: Dict[str, str] = {}
-        for name in [brand_display, *competitors]:
-            if not name:
-                continue
-            key = _normalize_term(name)
-            if not key or key in company_key_to_display:
-                continue
-            company_key_to_display[key] = str(name).strip() or key
- 
-        company_keys = list(company_key_to_display.keys())
+        
+        # Build terms for each entity for better matching
+        entities: List[EntityTerms] = [
+            _make_entity_terms(brand_display),
+            *[_make_entity_terms(c) for c in competitors if c]
+        ]
+        
+        # Map of normalized term -> primary entity name
+        term_to_name: Dict[str, str] = {}
+        for e in entities:
+            for term in e.terms:
+                if term not in term_to_name:
+                    term_to_name[term] = e.name
+
+        company_names = [e.name for e in entities]
         prompts_to_run = prompts[:10]
  
         async def check_prompt(prompt: str) -> Dict[str, Any]:
-            if not company_keys:
+            if not company_names:
                 return {"prompt": prompt, "error": "No companies to compare", "winner": "unknown"}
  
-            companies_block = "\n".join([f"- {company_key_to_display[k]}" for k in company_keys])
+            companies_block = "\n".join([f"- {name}" for name in company_names])
             eval_prompt = (
                 f'Query: "{prompt}"\n\n'
                 "Rank the companies below from best to worst for this query.\n"
@@ -1586,38 +1595,49 @@ class CompetitorAIIntelligence:
                 )
                 if not name:
                     continue
+                
+                # Match name back to primary entity name using terms
                 key = _normalize_term(str(name))
-                if key in company_key_to_display and key not in ranks:
-                    ranks[key] = rank_num
+                matched_name = term_to_name.get(key)
+                
+                if not matched_name:
+                    # Try partial match if no exact term match
+                    for term, primary_name in term_to_name.items():
+                        if term in key or key in term:
+                            matched_name = primary_name
+                            break
+                
+                if matched_name and matched_name not in ranks:
+                    ranks[matched_name] = rank_num
                     rank_num += 1
  
-            brand_rank = ranks.get(brand_key)
+            brand_rank = ranks.get(brand_display)
  
-            competitor_keys_local = [k for k in company_keys if k != brand_key]
+            competitor_names_local = [n for n in company_names if n != brand_display]
             competitor_ranks = [
-                (k, ranks[k]) for k in competitor_keys_local if isinstance(ranks.get(k), int)
+                (n, ranks[n]) for n in competitor_names_local if isinstance(ranks.get(n), int)
             ]
             competitor_ranks.sort(key=lambda x: x[1])
  
             # Winner determination
             winner = "none"
-            competitor_winner_key = None
+            competitor_winner_name = None
             if brand_rank is None:
                 if competitor_ranks:
                     winner = "competitor"
-                    competitor_winner_key = competitor_ranks[0][0]
+                    competitor_winner_name = competitor_ranks[0][0]
             else:
-                better = [k for k, r in competitor_ranks if r < brand_rank]
+                better = [n for n, r in competitor_ranks if r < brand_rank]
                 if better:
                     winner = "competitor"
-                    competitor_winner_key = better[0]
+                    competitor_winner_name = better[0]
                 else:
                     winner = "brand"
  
             # Coverage gap score:
             # brand rank 1 of N = 0 (no gap), brand rank N of N = 100 (max gap)
             # Formula: (brand_rank - 1) / (N - 1) × 100
-            total = len(company_keys)
+            total = len(company_names)
             if brand_rank is None:
                 coverage_gap_score = 100.0
             else:
@@ -1628,14 +1648,14 @@ class CompetitorAIIntelligence:
                 "prompt": prompt,
                 "winner": winner,
                 "winner_name": (
-                    company_key_to_display.get(competitor_winner_key)
+                    competitor_winner_name
                     if winner == "competitor"
-                    else (company_key_to_display.get(brand_key) if winner == "brand" else None)
+                    else (brand_display if winner == "brand" else None)
                 ),
                 "brand_rank": brand_rank,
                 "ranks": ranks,
                 "text_snippet": ", ".join([
-                    f"{company_key_to_display.get(k, k)}={r}"
+                    f"{k}={r}"
                     for k, r in sorted(ranks.items(), key=lambda kv: kv[1])
                 ])[:200] + "...",
                 "coverage_gap_score": coverage_gap_score,

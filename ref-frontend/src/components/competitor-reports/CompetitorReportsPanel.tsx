@@ -118,10 +118,8 @@ export default function CompetitorReportsPanel({
   const loadingCombined = isLoading || isLoadingReport
 
   // No prior job — show insufficient data state
-  const noPriorJob =
-    !loadingCombined &&
-    reportData?.meta?.prior_job_id === '' &&
-    filteredCompetitors.length === 0
+  const noPriorJob = !loadingCombined && reportData?.meta?.prior_job_id === ''
+  const showSnapshotNotice = noPriorJob && filteredCompetitors.length > 0
 
   const primaryModelByCompetitor = useMemo(() => {
     const out: Record<string, string> = {}
@@ -299,7 +297,7 @@ export default function CompetitorReportsPanel({
       </div>
 
       {/* ── Competitor selector ──────────────────────────────────────────── */}
-      <div className={cn(CARD_CLASS, 'p-4 md:p-5')}>
+      <div className={cn(CARD_CLASS, 'p-4 md:p-5 relative z-40')}>
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <span className="text-[11px] text-zinc-500 uppercase tracking-[0.14em] font-semibold">
@@ -327,7 +325,7 @@ export default function CompetitorReportsPanel({
             <ChevronDown className="h-4 w-4" />
           </button>
           {selectorOpen && (
-            <div className="mt-2 w-72 rounded-xl border border-zinc-700 bg-zinc-900/95 backdrop-blur-md p-3 shadow-xl absolute">
+            <div className="mt-2 w-72 rounded-xl border border-zinc-700 bg-zinc-900/95 backdrop-blur-md p-3 shadow-xl absolute z-50">
               {allCompetitors.map((name) => (
                 <label key={name} className="flex items-center gap-2 text-sm text-zinc-200 py-1 cursor-pointer">
                   <input
@@ -352,13 +350,23 @@ export default function CompetitorReportsPanel({
         </div>
       )}
 
+      {showSnapshotNotice && (
+        <div className={cn(CARD_CLASS, 'p-5')}>
+          <p className="text-zinc-200 font-medium">Showing current competitor snapshot</p>
+          <p className="text-zinc-500 text-sm mt-1">
+            This is your first completed analysis in the selected period. Current competitor data
+            is available now, and deltas will appear automatically after a later comparison run.
+          </p>
+        </div>
+      )}
+
       {/* ── No prior job / insufficient data ────────────────────────────── */}
-      {noPriorJob && (
+      {noPriorJob && !hasData && (
         <div className={cn(CARD_CLASS, 'p-10 text-center')}>
           <p className="text-zinc-300 font-medium">Comparison data not yet available</p>
           <p className="text-zinc-500 text-sm mt-1">
-            Competitor reports require at least 2 analysis runs. Run another analysis to see
-            changes.
+            Your first run has finished, but no competitor snapshot data was found yet for this
+            period. Run analysis again after competitor tracking is configured to see changes.
           </p>
         </div>
       )}
@@ -383,7 +391,7 @@ export default function CompetitorReportsPanel({
       )}
 
       {/* ── Main content ─────────────────────────────────────────────────── */}
-      {!loadingCombined && !noPriorJob && hasData && (
+      {!loadingCombined && hasData && (
         <>
           {/* SoV Comparison Table */}
           <div className={cn(CARD_CLASS, 'p-4 md:p-5 overflow-x-auto')}>
@@ -526,8 +534,19 @@ export default function CompetitorReportsPanel({
                           </button>
                         </td>
                         {filteredCompetitors.map((c) => {
-                          const rankMap = ((row as any).rankings ?? {}) as Record<string, number>
-                          const rank = rankMap[c.name]
+                          const rankMap = ((row as any).ranks ?? (row as any).rankings ?? {}) as Record<string, number>
+                          
+                          // Helper to normalize keys for lookup
+                          const normalize = (s: string) => s.toLowerCase().trim().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/+$/, '')
+                          const targetKey = normalize(c.name)
+                          
+                          // Try exact match then fuzzy match
+                          let rank = rankMap[c.name]
+                          if (rank === undefined) {
+                            const foundKey = Object.keys(rankMap).find(k => normalize(k) === targetKey)
+                            if (foundKey) rank = rankMap[foundKey]
+                          }
+
                           const status =
                             !rank || rank <= 0
                               ? 'NOT_CITED'
