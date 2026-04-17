@@ -82,6 +82,7 @@ export interface ModuleFCompetitorWins {
   }
   detailed_results: Array<{
     prompt: string
+    topic?: string
     winner: 'brand' | 'competitor' | 'none' | 'unknown'
     winner_name?: string | null
     brand_rank?: number | null
@@ -105,6 +106,35 @@ export interface ModuleFCompetitorWins {
     win_percent: number
     content_gap_score: number
   }>
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Topic-wise prompt wins (from brand_onboarding topic-grouped prompts)
+// topic_wins is present when brand_prompts collection has topic-tagged prompts
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ModuleFTopicWinResult {
+  prompt: string
+  topic: string
+  winner: 'brand' | 'competitor' | 'none' | 'unknown'
+  winner_name?: string | null
+  brand_rank?: number | null
+  ranks: Record<string, number>
+  text_snippet: string
+  coverage_gap_score: number
+  intent_coverage?: {
+    intent_coverage_score?: number
+    has_list?: boolean
+    direct_answer?: boolean
+  }
+}
+
+export interface ModuleFTopicWin {
+  topic: string
+  /** Total prompts generated for this topic during brand onboarding */
+  prompts_total: number
+  /** Only the prompts that were actually analyzed (capped by the analysis run) */
+  results: ModuleFTopicWinResult[]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -358,6 +388,8 @@ export interface ModuleFResult {
   feature_flags?: ModuleFFeatureFlags
   compare_visibility_against_competitors?: ModuleFCompareVisibilityAgainstCompetitors
   competitor_wins?: ModuleFCompetitorWins
+  /** Topic-wise prompt analysis — present when brand_prompts collection has topic-tagged prompts */
+  topic_wins?: ModuleFTopicWin[]
   gap_analysis?: ModuleFGapOpportunity[]
   gap_opportunities?: ModuleFGapOpportunity[]
   source_analysis?: ModuleFSourceAnalysis

@@ -250,16 +250,18 @@ class ExecuteBrandPromptsRequest(BaseModel):
 async def execute_prompts(body: ExecuteBrandPromptsRequest):
     """
     Execute all prompts against GPT, Gemini, and Claude.
-    Analyzes each response for brand visibility and stores results.
+    Analyzes each response locally for brand visibility (no secondary AI call).
+    Returns per-LLM results and aggregate stats (brand presence, avg rank,
+    positive/negative mentions, competitor presence, per-brand mention counts).
     """
     try:
         prompts_as_dicts = [{"prompt": p.prompt, "type": p.type} for p in body.prompts]
-        results = await execute_brand_prompts(
+        data = await execute_brand_prompts(
             brand_name=body.brand_name,
             prompts=prompts_as_dicts,
             job_id=body.job_id,
         )
-        return {"results": results}
+        return {"results": data["prompt_results"], "aggregate": data["aggregate"]}
     except Exception as exc:
         logger.error(f"Prompt execution failed: {exc}", exc_info=True)
         return JSONResponse(
@@ -272,10 +274,11 @@ async def execute_prompts(body: ExecuteBrandPromptsRequest):
 async def get_prompt_results(job_id: str):
     """
     Retrieve stored prompt execution & visibility results for a job.
+    Returns per-LLM results and aggregate stats.
     """
-    results = await get_brand_prompt_results(job_id)
-    if results is not None:
-        return {"results": results}
+    data = await get_brand_prompt_results(job_id)
+    if data is not None:
+        return data
     return JSONResponse(
         status_code=404,
         content={"error": "No prompt results found for this job"},

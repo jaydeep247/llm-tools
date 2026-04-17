@@ -14,7 +14,7 @@ import {
   useExecuteBrandPromptsMutation,
   useLazyGetOnboardingDataQuery,
 } from '@/store/api/brandOnboardingApi'
-import type { GeneratedPrompt, TopicPrompts, PromptResult, BrandProfile } from '@/store/api/brandOnboardingApi'
+import type { GeneratedPrompt, TopicPrompts, PromptResult, BrandProfile, AggregateStats } from '@/store/api/brandOnboardingApi'
 import { AnimatePresence } from 'framer-motion'
 import { useUpdateUserMutation } from '@/store/api/userApi'
 import { useToast } from '@/hooks/use-toast'
@@ -107,6 +107,7 @@ function BrandOnboardingContent() {
   const [isAdvancingToPrompts, setIsAdvancingToPrompts] = useState(false)
   const [isSavingPrompts, setIsSavingPrompts] = useState(false)
   const [promptResults, setPromptResults] = useState<PromptResult[]>([])
+  const [aggregate, setAggregate] = useState<AggregateStats | undefined>(undefined)
   const [isExecutingPrompts, setIsExecutingPrompts] = useState(false)
 
   const persistBrandProgress = async (step: number) => {
@@ -228,6 +229,7 @@ function BrandOnboardingContent() {
           }
           if (data.prompt_results?.length > 0 && promptResults.length === 0) {
             setPromptResults(data.prompt_results)
+            if (data.aggregate) setAggregate(data.aggregate)
           }
         }
       } catch {
@@ -337,6 +339,7 @@ function BrandOnboardingContent() {
         jobId: jobId || undefined,
       }).unwrap()
       setPromptResults(result.results)
+      if (result.aggregate) setAggregate(result.aggregate)
     } catch {
       // Results will show as empty
     } finally {
@@ -433,6 +436,7 @@ function BrandOnboardingContent() {
           <div key="brand-results" className="h-full">
             <StepBrandResults
               results={promptResults}
+              aggregate={aggregate}
               isLoading={isExecutingPrompts}
               brandName={brandName}
               onDashboard={async () => {

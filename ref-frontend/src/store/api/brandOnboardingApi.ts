@@ -92,6 +92,33 @@ export interface SaveBrandPromptsRequest {
   selectedPrompts: string[];
 }
 
+export interface BrandMentionCount {
+  name: string;
+  count: number;
+}
+
+export interface CompetitiveBrand {
+  name: string;
+  mention_count: number;
+  avg_rank: number | null;
+  providers_mentioned: string[];
+  is_our_brand: boolean;
+  organic_rank: number;
+}
+
+export interface AggregateStats {
+  total_responses: number;
+  brand_presence_count: number;
+  brand_presence_total: number;
+  brand_presence_rate: number;
+  avg_rank: number | null;
+  positive_mentions: number;
+  negative_mentions: number;
+  neutral_mentions: number;
+  competitors_presence: BrandMentionCount[];
+  all_brand_mentions: BrandMentionCount[];
+}
+
 export interface OnboardingDataResponse {
   description: string | null;
   topics_generated: string[];
@@ -99,13 +126,20 @@ export interface OnboardingDataResponse {
   prompts_generated: TopicPrompts[];
   prompts_selected: string[];
   prompt_results: PromptResult[];
+  aggregate?: AggregateStats;
+  competitive_landscape?: CompetitiveBrand[];
 }
 
 export interface BrandAnalysis {
   brand_mentioned: boolean;
-  brand_name: string;
-  mention_position: 'first' | 'middle' | 'last' | 'not mentioned';
-  competitors_mentioned: string[];
+  brand_mention_count: number;
+  brand_rank: number | null;
+  brand_rank_out_of: number;
+  mention_position: 'early' | 'middle' | 'late' | 'not_mentioned';
+  sentiment: 'positive' | 'neutral' | 'negative' | 'not_mentioned';
+  in_title: boolean;
+  competitors_mentioned: BrandMentionCount[];
+  all_mentioned_brands: BrandMentionCount[];
   brand_visibility_score: number;
 }
 
@@ -118,6 +152,7 @@ export interface ProviderResult {
 export interface PromptResult {
   prompt: string;
   type: string;
+  topic?: string;
   results: {
     openai: ProviderResult;
     gemini: ProviderResult;
@@ -133,6 +168,7 @@ export interface ExecuteBrandPromptsRequest {
 
 export interface ExecuteBrandPromptsResponse {
   results: PromptResult[];
+  aggregate?: AggregateStats;
 }
 
 export const brandOnboardingApi = baseApi.injectEndpoints({

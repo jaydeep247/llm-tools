@@ -1544,7 +1544,10 @@ class CompetitorAIIntelligence:
                     term_to_name[term] = e.name
 
         company_names = [e.name for e in entities]
-        prompts_to_run = prompts[:10]
+        # Allow up to 25 prompts so all brand-onboarding topics get coverage.
+        # The round-robin ordering from _fetch_topic_grouped_prompts ensures even
+        # distribution across topics within this limit.
+        prompts_to_run = prompts[:25]
  
         async def check_prompt(prompt: str) -> Dict[str, Any]:
             if not company_names:

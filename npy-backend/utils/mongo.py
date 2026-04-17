@@ -178,6 +178,14 @@ class MongoManager:
         return self.db.prompt_results
 
     @property
+    def brand_category_discovery(self) -> Collection:
+        return self.db.brand_category_discovery
+
+    @property
+    def brand_competitive_landscape(self) -> Collection:
+        return self.db.brand_competitive_landscape
+
+    @property
     def module_e(self) -> Collection:
         return self.db.module_e
 

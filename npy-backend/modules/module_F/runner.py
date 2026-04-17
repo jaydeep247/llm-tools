@@ -78,6 +78,120 @@ def _extract_plan_from_project(project_id: str) -> str:
         return "agency"
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# HELPERS — read from brand onboarding (single source of truth for competitors)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _fetch_competitors_from_onboarding(
+    module_e_job_id: str,
+    lookup_id: str,
+) -> List[str]:
+    """
+    Read competitor names from brand_competitive_landscape (Stage 7 output).
+    This is the canonical source for competitors — set during brand onboarding.
+
+    Priority:
+      1. Query by module_e_job_id (onboarding job linked to the current session)
+      2. Query by lookup_id as fallback
+    Returns [] if no onboarding landscape is found.
+    """
+    doc: Optional[Dict[str, Any]] = None
+    if module_e_job_id:
+        doc = mongo_manager.brand_competitive_landscape.find_one({"job_id": module_e_job_id})
+    if not doc and lookup_id and lookup_id != module_e_job_id:
+        doc = mongo_manager.brand_competitive_landscape.find_one({"job_id": lookup_id})
+    if not doc:
+        return []
+    landscape = doc.get("competitive_landscape") or []
+    return [
+        entry["name"]
+        for entry in landscape
+        if isinstance(entry, dict) and entry.get("name") and not entry.get("is_our_brand")
+    ]
+
+
+def _fetch_brand_name_from_onboarding(
+    module_e_job_id: str,
+    lookup_id: str,
+) -> Optional[str]:
+    """
+    Read brand_name from brand_profiles (onboarding Stage 2 output).
+    Returns None if not found — caller falls back to Module E extraction.
+    """
+    doc: Optional[Dict[str, Any]] = None
+    if module_e_job_id:
+        doc = mongo_manager.brand_profiles.find_one(
+            {"job_id": module_e_job_id}, {"brand_name": 1}
+        )
+    if not doc and lookup_id and lookup_id != module_e_job_id:
+        doc = mongo_manager.brand_profiles.find_one(
+            {"job_id": lookup_id}, {"brand_name": 1}
+        )
+    if doc:
+        name = str(doc.get("brand_name") or "").strip()
+        return name or None
+    return None
+
+
+def _fetch_topic_grouped_prompts(
+    lookup_id: str,
+    session_id: str,
+    module_e_job_id: str,
+) -> tuple:
+    """
+    Fetch topic-grouped prompts directly from the brand_prompts collection.
+
+    Priority:
+      1. Query by module_e_job_id (exact job match — most reliable)
+      2. Query by lookup_id as fallback
+      3. Returns empty if nothing found
+
+    Returns:
+        topic_groups     — [{topic: str, prompts: [str]}]
+        prompt_to_topic  — {prompt_str: topic_str}
+        flat_prompts     — [prompt_str] (ordered for analysis, one pass across topics)
+    """
+    prompt_docs: List[Dict[str, Any]] = []
+
+    # 1. Try exact job_id match (brand onboarding job)
+    if module_e_job_id:
+        prompt_docs = list(mongo_manager.brand_prompts.find({"job_id": module_e_job_id}))
+
+    # 2. Fallback: try the runner's lookup_id directly
+    if not prompt_docs and lookup_id and lookup_id != module_e_job_id:
+        prompt_docs = list(mongo_manager.brand_prompts.find({"job_id": lookup_id}))
+
+    if not prompt_docs:
+        return [], {}, []
+
+    # Group by topic, preserving insertion order
+    topic_map: Dict[str, List[str]] = {}
+    for doc in prompt_docs:
+        topic_val = str(doc.get("topic") or "").strip()
+        prompt_val = str(doc.get("prompt") or "").strip()
+        if topic_val and prompt_val:
+            topic_map.setdefault(topic_val, [])
+            if prompt_val not in topic_map[topic_val]:
+                topic_map[topic_val].append(prompt_val)
+
+    if not topic_map:
+        return [], {}, []
+
+    topic_groups = [{"topic": t, "prompts": ps} for t, ps in topic_map.items()]
+    prompt_to_topic = {p: t for t, ps in topic_map.items() for p in ps}
+    # Interleave: take prompts round-robin across topics so each topic gets coverage
+    # even when the analysis is capped (e.g. 10 prompts total)
+    all_topic_prompts = list(topic_map.values())
+    flat_prompts: List[str] = []
+    max_per_topic = max(len(ps) for ps in all_topic_prompts)
+    for i in range(max_per_topic):
+        for ps in all_topic_prompts:
+            if i < len(ps):
+                flat_prompts.append(ps[i])
+
+    return topic_groups, prompt_to_topic, flat_prompts
+
+
 def _extract_prompts_from_module_e(
     doc: Dict[str, Any],
     topic: Optional[str] = None,
@@ -690,16 +804,38 @@ async def run_module_f_competitor_ai_intelligence(
     ]
     module_e_doc = next(mongo_manager.module_e.aggregate(module_e_pipeline), {}) or {}
 
-    competitors = _extract_competitors_from_module_e(module_e_doc)
-    brand_name  = _extract_brand_name_from_module_e(module_e_doc)
-    topic       = _extract_topic_from_module_e(module_e_doc)
+    # Resolve module_e_job_id early — used as the onboarding job key for both
+    # brand_competitive_landscape and brand_prompts lookups.
+    module_e_job_id = str(module_e_doc.get("jobId") or lookup_id)
+
+    # Source 1 (preferred): onboarding competitive landscape (Stage 7 — single source of truth)
+    competitors = _fetch_competitors_from_onboarding(module_e_job_id, lookup_id)
+    if competitors:
+        logger.info(
+            f"Using {len(competitors)} competitors from brand_competitive_landscape "
+            f"(onboarding) for job {job_id}"
+        )
+    else:
+        # Source 2 (fallback): Module E competitor_mentions
+        competitors = _extract_competitors_from_module_e(module_e_doc)
+        if competitors:
+            logger.info(
+                f"Falling back to {len(competitors)} competitors from module_e for job {job_id}"
+            )
+
+    # brand_name: prefer onboarding profile (most accurate), fall back to Module E
+    brand_name = (
+        _fetch_brand_name_from_onboarding(module_e_job_id, lookup_id)
+        or _extract_brand_name_from_module_e(module_e_doc)
+    )
+    topic = _extract_topic_from_module_e(module_e_doc)
 
     if not competitors:
         logger.warning(f"No competitors found for job {job_id} (session {session_id})")
         result = {
             "job_id": job_id, "session_id": session_id,
             "project_id": project_id, "url": url,
-            "error": "No competitors found. Run Module E competitor analysis first.",
+            "error": "No competitors found. Complete brand onboarding (Stage 7) to populate the competitive landscape.",
             "created_at": datetime.utcnow().isoformat(),
         }
         mongo_manager.db.module_f.update_one(
@@ -729,10 +865,60 @@ async def run_module_f_competitor_ai_intelligence(
 
     # Step 2 — Prompt win/loss (SOP §3 Screen 3)
     topic_for_prompts = (comparison or {}).get("topic") or topic
-    prompts = _extract_prompts_from_module_e(module_e_doc, topic_for_prompts)
+
+    # Prefer topic-grouped prompts from brand_onboarding brand_prompts collection.
+    # This is the canonical source: prompts are generated per-topic during brand
+    # onboarding (pipeline.py stage4_prompts) and stored in brand_prompts with a
+    # `topic` field.  We need the exact job_id the module_e document was written
+    # under so we can locate the matching brand_prompts docs.
+    topic_groups, prompt_to_topic, topic_flat_prompts = _fetch_topic_grouped_prompts(
+        lookup_id=lookup_id,
+        session_id=session_id,
+        module_e_job_id=module_e_job_id,
+    )
+
+    if topic_flat_prompts:
+        prompts = topic_flat_prompts
+        logger.info(
+            f"Using {len(prompts)} prompts from brand_prompts collection "
+            f"({len(topic_groups)} topics) for job {job_id}"
+        )
+    else:
+        # Legacy fallback: read from module_e document fields
+        prompts = _extract_prompts_from_module_e(module_e_doc, topic_for_prompts)
+        logger.info(
+            f"No brand_prompts docs found — falling back to module_e "
+            f"({len(prompts)} prompts) for job {job_id}"
+        )
+
     competitor_wins = await analyzer.analyze_competitor_prompt_wins(
         prompts=prompts, competitors=competitors, brand_name=brand_name, url=url,
     )
+
+    # Tag each detailed_result with its topic using the prompt→topic lookup
+    if prompt_to_topic and competitor_wins.get("detailed_results"):
+        for _r in competitor_wins["detailed_results"]:
+            _p = str(_r.get("prompt") or "").strip()
+            _r["topic"] = prompt_to_topic.get(_p, "")
+
+    # Build topic_wins: [{topic, prompts_total, results: [...]}]
+    # Only topics that have at least one analyzed result are included.
+    topic_wins: List[Dict[str, Any]] = []
+    if topic_groups:
+        results_by_topic: Dict[str, List[Dict[str, Any]]] = {}
+        for _r in (competitor_wins.get("detailed_results") or []):
+            _t = str(_r.get("topic") or "").strip()
+            if _t:
+                results_by_topic.setdefault(_t, [])
+                results_by_topic[_t].append(_r)
+
+        for _grp in topic_groups:
+            _t = _grp["topic"]
+            topic_wins.append({
+                "topic": _t,
+                "prompts_total": len(_grp["prompts"]),
+                "results": results_by_topic.get(_t, []),
+            })
 
     # Step 3 — Gap analysis (SOP §3 Screen 5)
     gap_analysis = analyzer.compute_gap_analysis(
@@ -934,6 +1120,7 @@ async def run_module_f_competitor_ai_intelligence(
         "feature_flags":          feature_flags,
         "compare_visibility_against_competitors": comparison,
         "competitor_wins":        competitor_wins,
+        "topic_wins":             topic_wins if topic_wins else None,
         "gap_analysis":           gap_analysis,
         "source_analysis":        source_analysis,
         "metric_recommendations": recommendations,

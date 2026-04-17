@@ -497,91 +497,424 @@ Generate exactly 15 prompts, all about: {topic_name}
         return grouped
 
     @staticmethod
+    def _analyze_response_for_brand(
+        response_text: str,
+        brand_name: str,
+        brand_domain: str,
+        competitors: list,
+    ) -> dict:
+        """
+        Locally detect brand + competitor mentions in an LLM response.
+        No secondary AI call needed — reuses entity matching logic from module_F.
+
+        Returns:
+          brand_mentioned:       bool
+          brand_mention_count:   int
+          brand_rank:            int | None  (1-based, by first-occurrence order)
+          brand_rank_out_of:     int         (total distinct brands mentioned)
+          sentiment:             "positive" | "neutral" | "negative" | "not_mentioned"
+          in_title:              bool
+          visibility_score:      int  (0-100)
+          all_mentioned_brands:  [{name, count}]  sorted by first occurrence
+          competitors_mentioned: [{name, count}]  only those present
+          _brand_first_pos:      int  (internal – used for mention_position calc)
+        """
+        from modules.module_F.competitor_ai_intelligence import (
+            _make_entity_terms, _compile_patterns, _find_unique_spans,
+            _estimate_sentiment, _detect_title_mention, _compute_citation_score,
+            _extract_domain,
+        )
+
+        if not response_text:
+            return {
+                "brand_mentioned": False,
+                "brand_mention_count": 0,
+                "brand_rank": None,
+                "brand_rank_out_of": 0,
+                "sentiment": "not_mentioned",
+                "in_title": False,
+                "visibility_score": 0,
+                "all_mentioned_brands": [],
+                "competitors_mentioned": [],
+                "_brand_first_pos": -1,
+            }
+
+        # Extract clean domain name from URL (e.g. "https://example.com" → "example.com")
+        brand_domain_clean = _extract_domain(brand_domain) if brand_domain else ""
+
+        # Build entity terms for brand (domain + friendly name as alias)
+        brand_entity = _make_entity_terms(
+            brand_domain_clean or brand_name,
+            extra_terms=[brand_name] if brand_name and brand_name.strip().lower() != brand_domain_clean else None,
+        )
+
+        # Build entity terms for each competitor
+        comp_entities = [
+            _make_entity_terms(c.strip())
+            for c in (competitors or [])
+            if isinstance(c, str) and c.strip()
+        ]
+
+        all_entities = [brand_entity] + comp_entities
+        text_lower = response_text.lower()
+
+        # Find mentions for every entity
+        entity_stats: list = []
+        for entity in all_entities:
+            patterns = _compile_patterns(entity.terms)
+            spans = _find_unique_spans(text_lower, patterns)
+            count = len(spans)
+            first_pos = spans[0][0] if spans else -1
+            entity_stats.append({
+                "entity": entity,
+                "display_name": entity.name,
+                "count": count,
+                "first_pos": first_pos,
+            })
+
+        # Brand is always index 0
+        brand_stat = entity_stats[0]
+        # Override display name with the friendlier brand_name if provided
+        if brand_name:
+            brand_stat["display_name"] = brand_name
+
+        brand_mentioned = brand_stat["count"] > 0
+        brand_mention_count = brand_stat["count"]
+        brand_first_pos = brand_stat["first_pos"]
+
+        # Competitors that actually appeared in the response
+        comp_stats_present = [s for s in entity_stats[1:] if s["count"] > 0]
+
+        # All mentioned brands sorted by first occurrence → determines rank
+        all_mentioned = (
+            ([brand_stat] if brand_mentioned else []) + comp_stats_present
+        )
+        all_mentioned.sort(key=lambda x: x["first_pos"])
+
+        # Brand rank (1-based position in first-occurrence-sorted list)
+        brand_rank = None
+        if brand_mentioned:
+            for i, b in enumerate(all_mentioned):
+                if b is brand_stat:
+                    brand_rank = i + 1
+                    break
+
+        brand_rank_out_of = len(all_mentioned)
+
+        # Sentiment estimation around brand mentions
+        sentiment_float = 0.0
+        sentiment_label = "not_mentioned"
+        if brand_mentioned:
+            sentiment_float = _estimate_sentiment(
+                response_text,
+                brand_name,
+                aliases=list(brand_entity.terms),
+            )
+            if sentiment_float > 0.15:
+                sentiment_label = "positive"
+            elif sentiment_float < -0.15:
+                sentiment_label = "negative"
+            else:
+                sentiment_label = "neutral"
+
+        # Title / heading detection
+        in_title = False
+        if brand_mentioned:
+            in_title = _detect_title_mention(
+                response_text, brand_name, aliases=list(brand_entity.terms)
+            )
+
+        # Visibility score (0-100) reusing module_F citation-score weights
+        visibility_score = int(_compute_citation_score(
+            citation_present=False,
+            mention_present=brand_mentioned,
+            mention_position=brand_rank,       # 1-based rank; None if not mentioned
+            mention_sentiment=sentiment_float,
+            mention_in_title=in_title,
+        ))
+
+        return {
+            "brand_mentioned": brand_mentioned,
+            "brand_mention_count": brand_mention_count,
+            "brand_rank": brand_rank,
+            "brand_rank_out_of": brand_rank_out_of,
+            "sentiment": sentiment_label,
+            "in_title": in_title,
+            "visibility_score": visibility_score,
+            "all_mentioned_brands": [
+                {"name": b["display_name"], "count": b["count"]}
+                for b in all_mentioned
+            ],
+            "competitors_mentioned": [
+                {"name": s["display_name"], "count": s["count"]}
+                for s in comp_stats_present
+            ],
+            "_brand_first_pos": brand_first_pos,
+        }
+
+    @staticmethod
+    def _build_analysis_prompt(
+        user_prompt: str,
+        brand_name: str,
+        brand_domain: str,
+        competitors: list,
+    ) -> tuple:
+        """
+        Returns (system_message, user_message).
+
+        The system message instructs the AI to answer normally and then append a
+        single-line JSON block at the very end — no secondary API call needed.
+        """
+        brand_label = brand_name or brand_domain or "the brand"
+        competitors_str = json.dumps(competitors or [])
+        system_msg = (
+            "You are a helpful AI assistant. Answer every user question fully and accurately.\n\n"
+            "MANDATORY OUTPUT FORMAT (must follow for every single response):\n"
+            "1. Write your complete answer to the user's question.\n"
+            "2. On the very last line of your response, write the word ANALYSIS: followed immediately "
+            "by a single-line JSON object — no markdown fences, no extra text after it.\n\n"
+            "Example final line (replace values with real data):\n"
+            f'ANALYSIS: {{"brand_mentioned":false,"brand_mention_count":0,"brand_rank":null,'
+            f'"mention_position":"not_mentioned","sentiment":"not_mentioned","in_title":false,'
+            f'"all_mentioned_brands":[],"competitors_mentioned":[]}}\n\n'
+            f'Brand to track: "{brand_label}" (domain: "{brand_domain}")\n'
+            f'Competitors list: {competitors_str}\n\n'
+            "Field definitions:\n"
+            "  brand_mentioned       true if the brand appears anywhere in YOUR answer\n"
+            "  brand_mention_count   total number of times the brand is mentioned\n"
+            "  brand_rank            1-based position by first appearance among ALL brands (1=earliest), null if absent\n"
+            "  mention_position      which third of your answer the brand first appears: early/middle/late/not_mentioned\n"
+            "  sentiment             tone around the brand specifically: positive/negative/neutral/not_mentioned\n"
+            "  in_title              true only if brand appears inside a ## heading or **bold** label\n"
+            "  all_mentioned_brands  every brand/product/tool mentioned in your answer with rank and count\n"
+            "  competitors_mentioned only brands from the Competitors list above that appeared in your answer\n"
+            "IMPORTANT: The ANALYSIS: line must be the absolute last line. Do not add anything after it."
+        )
+        return system_msg, user_prompt
+
+    @staticmethod
+    def _parse_combined_response(
+        raw: str,
+        brand_name: str,
+        brand_domain: str,
+        competitors: list,
+    ) -> tuple:
+        """
+        Split the combined LLM output into (answer_text, analysis_dict).
+
+        The AI is instructed (via system message) to append a JSON line at the end.
+        This method finds the last JSON object in the response that contains
+        'brand_mentioned', strips it, and returns the clean answer text + parsed data.
+        Falls back to local regex if the JSON is missing or malformed.
+        """
+        if not raw:
+            fallback = BrandPipeline._analyze_response_for_brand("", brand_name, brand_domain, competitors)
+            fallback["mention_position"] = "not_mentioned"
+            return "", fallback
+
+        # ── 1. Find the ANALYSIS: marker (last occurrence) ──────────────────────────
+        # The system message tells every model to end with:
+        #   ANALYSIS: {"brand_mentioned":..., ...}
+        # Split on the last occurrence so prose in the answer can't confuse it.
+        # _extract_json handles markdown fences + surrounding whitespace/prose.
+        data = None
+        answer_text = raw.strip()
+
+        if "ANALYSIS:" in raw:
+            parts = raw.rsplit("ANALYSIS:", 1)
+            answer_text = parts[0].strip()
+            data = BrandPipeline._extract_json(parts[1].strip())
+
+        # Clean up any instruction artefacts some models echo back
+        answer_text = re.sub(
+            r"MANDATORY OUTPUT FORMAT.*$", "", answer_text, flags=re.DOTALL
+        ).strip()
+
+        if data and isinstance(data, dict) and "brand_mentioned" in data:
+            brand_mentioned = bool(data.get("brand_mentioned", False))
+            brand_mention_count = max(0, int(data.get("brand_mention_count") or 0))
+
+            raw_rank = data.get("brand_rank")
+            brand_rank: int | None = None
+            if raw_rank is not None:
+                try:
+                    brand_rank = int(raw_rank)
+                except (ValueError, TypeError):
+                    brand_rank = None
+
+            mention_position = data.get("mention_position") or "not_mentioned"
+            if mention_position not in ("early", "middle", "late", "not_mentioned"):
+                mention_position = "not_mentioned"
+            if not brand_mentioned:
+                mention_position = "not_mentioned"
+
+            sentiment = data.get("sentiment") or "not_mentioned"
+            if sentiment not in ("positive", "negative", "neutral", "not_mentioned"):
+                sentiment = "not_mentioned" if not brand_mentioned else "neutral"
+
+            in_title = bool(data.get("in_title", False))
+
+            all_mentioned_brands: list = []
+            for b in (data.get("all_mentioned_brands") or []):
+                if isinstance(b, dict) and b.get("name"):
+                    all_mentioned_brands.append({
+                        "name": str(b["name"]),
+                        "count": max(1, int(b.get("count") or 1)),
+                    })
+
+            brand_rank_out_of = len(all_mentioned_brands)
+
+            competitors_mentioned: list = []
+            for c in (data.get("competitors_mentioned") or []):
+                if isinstance(c, dict) and c.get("name"):
+                    competitors_mentioned.append({
+                        "name": str(c["name"]),
+                        "count": max(1, int(c.get("count") or 1)),
+                    })
+
+            from modules.module_F.competitor_ai_intelligence import _compute_citation_score
+            sentiment_float = (
+                1.0 if sentiment == "positive"
+                else (-1.0 if sentiment == "negative" else 0.0)
+            )
+            visibility_score = int(_compute_citation_score(
+                citation_present=False,
+                mention_present=brand_mentioned,
+                mention_position=brand_rank,
+                mention_sentiment=sentiment_float,
+                mention_in_title=in_title,
+            ))
+
+            _brand_first_pos = -1
+            total_len = len(answer_text)
+            if brand_mentioned and mention_position != "not_mentioned" and total_len > 0:
+                if mention_position == "early":
+                    _brand_first_pos = int(total_len * 0.10)
+                elif mention_position == "middle":
+                    _brand_first_pos = int(total_len * 0.50)
+                elif mention_position == "late":
+                    _brand_first_pos = int(total_len * 0.80)
+
+            return answer_text, {
+                "brand_mentioned": brand_mentioned,
+                "brand_mention_count": brand_mention_count,
+                "brand_rank": brand_rank,
+                "brand_rank_out_of": brand_rank_out_of,
+                "sentiment": sentiment,
+                "in_title": in_title,
+                "visibility_score": visibility_score,
+                "all_mentioned_brands": all_mentioned_brands,
+                "competitors_mentioned": competitors_mentioned,
+                "_brand_first_pos": _brand_first_pos,
+                "mention_position": mention_position,
+            }
+
+        # Fallback: local regex on the answer text
+        logger.warning("Combined response JSON block missing or malformed, falling back to local regex")
+        fallback = BrandPipeline._analyze_response_for_brand(
+            answer_text, brand_name, brand_domain, competitors
+        )
+        mention_position = "not_mentioned"
+        if fallback["brand_mentioned"] and answer_text:
+            fp = fallback["_brand_first_pos"]
+            tl = len(answer_text)
+            if fp >= 0 and tl > 0:
+                ratio = fp / tl
+                mention_position = "early" if ratio < 0.33 else ("middle" if ratio < 0.66 else "late")
+        fallback["mention_position"] = mention_position
+        return answer_text, fallback
+
+    # kept for backward-compat (module_F imports) — do not remove
+    @staticmethod
+    async def _ai_analyze_response_for_brand(
+        response_text: str,
+        brand_name: str,
+        brand_domain: str,
+        competitors: list,
+    ) -> dict:
+        """Deprecated — use _build_analysis_prompt + _parse_combined_response instead."""
+        raise NotImplementedError("Use _build_analysis_prompt + _parse_combined_response instead")
+
+    @staticmethod
     async def stage5_execution(prompts: list, brand_profile: dict, job_id: str) -> list:
-        """Stage 5: AI Execution (Prompt → Gemini / GPT / Claude)"""
+        """Stage 5: LLM Execution — primary call includes brand analysis JSON block."""
         semaphore = asyncio.Semaphore(10)
-        
-        async def _run_and_analyze(prompt_doc: dict, provider: str):
+
+        brand_name: str = brand_profile.get("brand_name") or ""
+        brand_domain: str = brand_profile.get("website_url") or ""
+        competitors: list = [
+            c for c in (brand_profile.get("competitors_mentioned") or [])
+            if isinstance(c, str) and c.strip()
+        ]
+
+        async def _run_prompt(prompt_doc: dict, provider: str):
             async with semaphore:
                 start = datetime.utcnow()
-                # 1. Execute Prompt
+                        # System message tells the AI to append a JSON line after its answer.
+                # Providers: OpenAI reads system role in messages; Claude reads input_data["system"];
+                # Gemini concatenates all message content — all three get the instruction.
+                system_msg, user_msg = BrandPipeline._build_analysis_prompt(
+                    prompt_doc["prompt"], brand_name, brand_domain, competitors
+                )
                 res = await execute_task(
                     task_name="ai_execution_v2",
-                    input_data={"prompt": prompt_doc["prompt"]},
+                    input_data={
+                        "messages": [
+                            {"role": "system", "content": system_msg},
+                            {"role": "user",   "content": user_msg},
+                        ],
+                        "system": system_msg,   # Claude dedicated system param
+                    },
                     provider=provider,
-                    options={"model": "gpt-4o" if provider=="openai" else ("gemini-1.5-pro" if provider=="google" else "claude-3-5-sonnet"), "temperature": 0.3, "max_tokens": 800}
+                    options={
+                        "model": "gpt-4o" if provider == "openai" else (
+                            "gemini-2.0-flash" if provider == "gemini" else "claude-3-haiku-20240307"
+                        ),
+                        "temperature": 0.3,
+                        "max_tokens": 1400,  # extra headroom for answer + JSON line
+                        "skip_cache": True,  # never serve stale cached analysis
+                    },
                 )
                 latency = int((datetime.utcnow() - start).total_seconds() * 1000)
-                
-                full_response = res.data if res.success else ""
-                
-                # 2. Analyze Response
-                analysis_prompt = f"""You are a brand visibility analyst. Analyze this AI response for brand presence signals.
+                raw_response = res.data if res.success else ""
 
-Return JSON:
-{{
-  "brand_mentioned": true | false,
-  "mention_type": "direct_name | product_category_leader | comparison | recommendation | not_mentioned",
-  "mention_position": "early | middle | late | not_mentioned",
-  "sentiment": "positive | neutral | negative | not_mentioned",
-  "competitors_mentioned": ["competitor1", "competitor2"],
-  "cited_sources": ["url1", "url2"],
-  "visibility_score": 0
-}}
-
-Scoring guide:
-- Direct name + positive + early position = 85-100
-- Direct name + neutral + any position = 60-80 
-- Category mentioned but not brand = 20-40
-- Not mentioned at all = 0
-
-Brand name: {brand_profile.get('brand_name')}
-AI Response: {full_response}"""
-
-                analysis_res = await execute_task(
-                    task_name="ai_analysis_v2",
-                    input_data={"prompt": analysis_prompt},
-                    provider="openai",
-                    options={"model": "gpt-4o-mini", "temperature": 0.1, "response_format": {"type": "json_object"}}
+                # Parse answer text + brand analysis from the combined response
+                full_response, analysis = BrandPipeline._parse_combined_response(
+                    raw_response, brand_name, brand_domain, competitors
                 )
-                
-                analysis_data = {}
-                if analysis_res.success:
-                    try:
-                        analysis_data = json.loads(analysis_res.data)
-                    except:
-                        pass
-                        
-                result_doc = {
+
+                mention_position = analysis.pop("mention_position", "not_mentioned")
+
+                return {
                     "job_id": job_id,
                     "prompt": prompt_doc["prompt"],
                     "model_name": provider,
                     "full_response_text": full_response,
-                    "brand_mentioned": analysis_data.get("brand_mentioned", False),
-                    "mention_type": analysis_data.get("mention_type", "not_mentioned"),
-                    "mention_position": analysis_data.get("mention_position", "not_mentioned"),
-                    "sentiment": analysis_data.get("sentiment", "not_mentioned"),
-                    "competitors_mentioned": analysis_data.get("competitors_mentioned", []),
-                    "cited_sources": analysis_data.get("cited_sources", []),
-                    "visibility_score": analysis_data.get("visibility_score", 0),
+                    # Brand presence fields
+                    "brand_mentioned": analysis["brand_mentioned"],
+                    "brand_mention_count": analysis["brand_mention_count"],
+                    "brand_rank": analysis["brand_rank"],
+                    "brand_rank_out_of": analysis["brand_rank_out_of"],
+                    "mention_position": mention_position,
+                    "sentiment": analysis["sentiment"],
+                    "in_title": analysis["in_title"],
+                    "visibility_score": analysis["visibility_score"],
+                    # Competitor / multi-brand fields
+                    "competitors_mentioned": analysis["competitors_mentioned"],
+                    "all_mentioned_brands": analysis["all_mentioned_brands"],
                     "executed_at": start,
-                    "latency_ms": latency
+                    "latency_ms": latency,
                 }
-                return result_doc
 
-        providers = ["openai", "google", "anthropic"]
-        tasks = []
-        for p in prompts:
-            for provider in providers:
-                tasks.append(_run_and_analyze(p, provider))
-                
+        providers = ["openai", "gemini", "claude"]
+        tasks = [_run_prompt(p, provider) for p in prompts for provider in providers]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         valid_results = [r for r in results if not isinstance(r, Exception)]
-        
+
         if valid_results:
             mongo_manager.prompt_results.delete_many({"job_id": job_id})
             mongo_manager.prompt_results.insert_many(valid_results)
-            
+
         return valid_results
 
     @staticmethod
@@ -627,6 +960,297 @@ AI Response: {full_response}"""
                 
         return {"status": "completed"}
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # STAGE 7: Unbranded Category Discovery
+    # Ask LLMs which brands lead the category WITHOUT ever mentioning our brand.
+    # This gives an organic, unbiased competitive landscape.
+    # ─────────────────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _build_discovery_prompts(brand_profile: dict) -> list:
+        """Build 5 unbranded prompts that discover the competitive landscape."""
+        product_category = (brand_profile.get("product_category") or "").strip()
+        core_use_cases = brand_profile.get("core_use_cases") or []
+        target_audience = brand_profile.get("target_audience") or []
+
+        # Resolve audience string
+        audience_str = ""
+        if isinstance(target_audience, list):
+            segs = []
+            for item in target_audience[:2]:
+                if isinstance(item, dict):
+                    segs.append(str(item.get("segment") or ""))
+                elif isinstance(item, str):
+                    segs.append(item)
+            audience_str = " and ".join(s for s in segs if s)
+        elif isinstance(target_audience, str):
+            audience_str = target_audience
+
+        # Resolve primary use-case string
+        use_case_str = ""
+        if isinstance(core_use_cases, list) and core_use_cases:
+            first = core_use_cases[0]
+            use_case_str = str(first.get("use_case") or first) if isinstance(first, dict) else str(first)
+        elif isinstance(core_use_cases, str):
+            use_case_str = core_use_cases
+
+        category = product_category or "software"
+        audience = audience_str or "businesses"
+        use_case = use_case_str or category
+
+        return [
+            f"What are the top {category} tools available today? List the most popular ones with brief descriptions.",
+            f"Which {category} platforms are considered industry leaders? Rank them by adoption and capabilities.",
+            f"What {category} solutions do most {audience} use? List the leading options.",
+            f"Compare the best {category} software on the market. Which ones are considered the gold standard?",
+            f"What are the most recommended tools for {use_case}? List the top solutions with their key strengths.",
+        ]
+
+    @staticmethod
+    def _extract_brands_from_text(text: str) -> list:
+        """
+        Fallback: extract brand names from structured list text when LLM doesn't
+        output a DISCOVERY: block.
+
+        Handles patterns like:
+          1. **Semrush** — description
+          - Ahrefs: description
+          ### Moz
+          1. Google Search Console
+        Returns [{name, rank}] in order of appearance.
+        """
+        # Patterns that signal a list item with a brand name
+        _LIST_PATTERNS = [
+            # numbered: "1. **BrandName**" or "1. BrandName"
+            re.compile(r"^\s*\d+[\.\)]\s+\*{0,2}([A-Z][A-Za-z0-9 \.\+&]{1,50})\*{0,2}(?:\s*[-–:–]|\s*\(|\s*$)", re.MULTILINE),
+            # bullet: "- **BrandName**" or "* BrandName"
+            re.compile(r"^\s*[-\*]\s+\*{0,2}([A-Z][A-Za-z0-9 \.\+&]{1,50})\*{0,2}(?:\s*[-–:–]|\s*\(|\s*$)", re.MULTILINE),
+            # markdown heading: "### BrandName" or "#### BrandName"
+            re.compile(r"^#{1,4}\s+([A-Z][A-Za-z0-9 \.\+&]{1,50})\s*$", re.MULTILINE),
+        ]
+        seen: set = set()
+        brands: list = []
+        rank = 1
+        for pattern in _LIST_PATTERNS:
+            for m in pattern.finditer(text):
+                name = m.group(1).strip()
+                # Skip generic phrases
+                if len(name) < 2 or name.lower() in {
+                    "here", "some", "top", "best", "note", "also", "these",
+                    "the", "this", "that", "both", "other", "each", "its",
+                }:
+                    continue
+                key = name.lower()
+                if key not in seen:
+                    seen.add(key)
+                    brands.append({"name": name, "rank": rank})
+                    rank += 1
+        return brands
+
+    @staticmethod
+    def _parse_discovery_response(raw_response: str) -> tuple:
+        """
+        Parse a discovery response. Tries two strategies:
+          1. Look for a DISCOVERY: JSON block appended by the LLM (case-insensitive).
+          2. Fallback: extract brand names from list structure in the answer text.
+
+        Returns (answer_text, brands_list).
+        """
+        if not raw_response:
+            return "", []
+
+        # Strategy 1: DISCOVERY: JSON block (case-insensitive)
+        discovery_match = re.search(r"DISCOVERY\s*:", raw_response, re.IGNORECASE)
+        if discovery_match:
+            split_pos = discovery_match.start()
+            answer_text = raw_response[:split_pos].strip()
+            discovery_raw = raw_response[discovery_match.end():].strip()
+            try:
+                data = BrandPipeline._extract_json(discovery_raw)
+                brands_raw = (data or {}).get("brands") or []
+                validated = []
+                for b in brands_raw:
+                    if isinstance(b, dict) and b.get("name"):
+                        name = str(b["name"]).strip()
+                        rank = b.get("rank")
+                        try:
+                            rank = int(rank)
+                        except (ValueError, TypeError):
+                            rank = None
+                        if name:
+                            validated.append({"name": name, "rank": rank})
+                if validated:
+                    return answer_text, validated
+            except Exception:
+                pass
+            # JSON parse failed — fall through to text extraction on answer_text
+            return answer_text, BrandPipeline._extract_brands_from_text(answer_text)
+
+        # Strategy 2: No DISCOVERY block — extract from list structure
+        return raw_response, BrandPipeline._extract_brands_from_text(raw_response)
+
+    @staticmethod
+    def _aggregate_discovery_results(results: list, brand_name: str) -> list:
+        """
+        Aggregate raw per-prompt/per-provider discovery results into a ranked
+        competitive landscape list.
+
+        Each entry: {name, mention_count, avg_rank, providers_mentioned, is_our_brand, organic_rank}
+        """
+        brand_stats: dict = {}
+
+        for r in results:
+            provider = str(r.get("model_name") or "")
+            for b in (r.get("brands_discovered") or []):
+                name = str(b.get("name") or "").strip()
+                rank = b.get("rank")
+                if not name:
+                    continue
+                if name not in brand_stats:
+                    brand_stats[name] = {
+                        "name": name,
+                        "mention_count": 0,
+                        "ranks": [],
+                        "providers_mentioned": [],
+                        "is_our_brand": False,
+                    }
+                brand_stats[name]["mention_count"] += 1
+                if rank is not None:
+                    brand_stats[name]["ranks"].append(rank)
+                if provider and provider not in brand_stats[name]["providers_mentioned"]:
+                    brand_stats[name]["providers_mentioned"].append(provider)
+
+        # Mark our brand using name match
+        if brand_name:
+            bn_lower = brand_name.strip().lower()
+            for name, stats in brand_stats.items():
+                if name.strip().lower() == bn_lower or bn_lower in name.strip().lower():
+                    stats["is_our_brand"] = True
+
+        # Compute avg_rank and clean up
+        landscape = []
+        for stats in brand_stats.values():
+            ranks = stats.pop("ranks", [])
+            stats["avg_rank"] = round(sum(ranks) / len(ranks), 2) if ranks else None
+            landscape.append(stats)
+
+        # Sort: most mentioned first, then by avg_rank ascending (lower = better)
+        landscape.sort(key=lambda x: (-x["mention_count"], x["avg_rank"] or 99))
+
+        # Assign organic_rank position
+        for i, entry in enumerate(landscape):
+            entry["organic_rank"] = i + 1
+
+        return landscape
+
+    @staticmethod
+    async def stage7_category_discovery(brand_profile: dict, job_id: str) -> list:
+        """
+        Stage 7: Unbranded Category Discovery.
+
+        Sends 5 category-level prompts to GPT-4o, Gemini 1.5 Flash, and Claude 3 Haiku
+        WITHOUT mentioning the brand name. Parses which brands each LLM organically
+        recommends and at what rank. Stores raw responses + an aggregated
+        competitive_landscape in MongoDB.
+
+        Returns the competitive_landscape list.
+        """
+        brand_name = str(brand_profile.get("brand_name") or "").strip()
+        discovery_prompts = BrandPipeline._build_discovery_prompts(brand_profile)
+
+        system_msg = (
+            "You are a market intelligence analyst providing objective, comprehensive analysis.\n"
+            "Answer the user's question by listing specific product and company names.\n"
+            "After your answer, append EXACTLY one line starting with 'DISCOVERY:' followed by JSON:\n"
+            "DISCOVERY: {\"brands\": [{\"name\": \"BrandName\", \"rank\": 1}, {\"name\": \"Other\", \"rank\": 2}]}\n"
+            "Rules for the DISCOVERY line:\n"
+            "- List every brand/product name you mentioned, in order of prominence (rank 1 = most prominent)\n"
+            "- Include only proper brand/product names, not generic category terms\n"
+            "- Aim for 5-10 brands if the category has that many well-known players\n"
+            "- The DISCOVERY line must be valid JSON on a single line at the very end"
+        )
+
+        semaphore = asyncio.Semaphore(6)
+
+        async def _run_discovery(prompt: str, provider: str):
+            async with semaphore:
+                start = datetime.utcnow()
+                try:
+                    res = await execute_task(
+                        task_name="ai_execution_v2",
+                        input_data={
+                            "messages": [
+                                {"role": "system", "content": system_msg},
+                                {"role": "user",   "content": prompt},
+                            ],
+                            "system": system_msg,
+                        },
+                        provider=provider,
+                        options={
+                            "model": (
+                                "gpt-4o" if provider == "openai"
+                                else "gemini-1.5-flash" if provider == "gemini"
+                                else "claude-3-haiku-20240307"
+                            ),
+                            "temperature": 0.3,
+                            "max_tokens": 1200,
+                            "skip_cache": True,
+                        },
+                    )
+                    raw = res.data if res.success else ""
+                except Exception as exc:
+                    logger.warning(f"Stage 7 discovery failed [{provider}]: {exc}")
+                    return None
+
+                latency = int((datetime.utcnow() - start).total_seconds() * 1000)
+                answer_text, brands = BrandPipeline._parse_discovery_response(raw)
+
+                return {
+                    "job_id": job_id,
+                    "prompt": prompt,
+                    "model_name": provider,
+                    "answer_text": answer_text,
+                    "brands_discovered": brands,
+                    "executed_at": start,
+                    "latency_ms": latency,
+                }
+
+        providers = ["openai", "gemini", "claude"]
+        tasks = [
+            _run_discovery(prompt, provider)
+            for prompt in discovery_prompts
+            for provider in providers
+        ]
+        raw_results = await asyncio.gather(*tasks, return_exceptions=True)
+        valid_results = [r for r in raw_results if r is not None and not isinstance(r, Exception)]
+
+        # Persist raw discovery responses
+        if valid_results:
+            mongo_manager.brand_category_discovery.delete_many({"job_id": job_id})
+            mongo_manager.brand_category_discovery.insert_many(valid_results)
+
+        # Aggregate into competitive landscape
+        competitive_landscape = BrandPipeline._aggregate_discovery_results(valid_results, brand_name)
+
+        # Persist aggregated landscape (upsert)
+        mongo_manager.brand_competitive_landscape.replace_one(
+            {"job_id": job_id},
+            {
+                "job_id": job_id,
+                "competitive_landscape": competitive_landscape,
+                "total_discovery_prompts": len(discovery_prompts) * len(providers),
+                "total_discovery_responses": len(valid_results),
+                "created_at": datetime.utcnow(),
+            },
+            upsert=True,
+        )
+
+        logger.info(
+            f"Stage 7 complete for job {job_id}: "
+            f"{len(valid_results)} responses, {len(competitive_landscape)} brands discovered"
+        )
+        return competitive_landscape
+
     @staticmethod
     async def run_full_pipeline(url: str, job_id: str):
         logger.info(f"Starting full pipeline for {url} (Job: {job_id})")
@@ -636,5 +1260,6 @@ AI Response: {full_response}"""
         prompts = await BrandPipeline.stage4_prompts(topics, profile, job_id)
         results = await BrandPipeline.stage5_execution(prompts, profile, job_id)
         await BrandPipeline.stage6_scoring(job_id)
+        await BrandPipeline.stage7_category_discovery(profile, job_id)
         logger.info(f"Pipeline completed for {url}")
         return profile

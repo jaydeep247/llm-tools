@@ -12,7 +12,7 @@ import {
   useExecuteBrandPromptsMutation,
   useLazyGetOnboardingDataQuery,
 } from '@/store/api/brandOnboardingApi'
-import type { GeneratedPrompt, TopicPrompts, PromptResult } from '@/store/api/brandOnboardingApi'
+import type { GeneratedPrompt, TopicPrompts, PromptResult, BrandProfile } from '@/store/api/brandOnboardingApi'
 import { useUpdateUserMutation } from '@/store/api/userApi'
 import { useToast } from '@/hooks/use-toast'
 import type { User } from '@/types/auth'
@@ -74,6 +74,7 @@ export function BrandOnboardingModal({
   const [customPrompts, setCustomPrompts] = useState<string[]>([])
   const [promptResults, setPromptResults] = useState<PromptResult[]>([])
   const [isExecutingPrompts, setIsExecutingPrompts] = useState(false)
+  const [brandProfile, setBrandProfile] = useState<BrandProfile | null>(null)
 
   // Reset state when modal opens with new params
   useEffect(() => {
@@ -89,6 +90,7 @@ export function BrandOnboardingModal({
     setSelectedPrompts([])
     setCustomPrompts([])
     setPromptResults([])
+    setBrandProfile(null)
   }, [open, jobId])
 
   // Infer brand name from URL domain
@@ -145,6 +147,7 @@ export function BrandOnboardingModal({
         const stored = await fetchStoredDescription(jobId).unwrap()
         if (stored?.description) {
           setBrandDescription(stored.description)
+          if (stored.profile) setBrandProfile(stored.profile)
           setIsDescriptionLoading(false)
           return
         }
@@ -154,6 +157,7 @@ export function BrandOnboardingModal({
       try {
         const result = await generateBrandDescription({ url: rawUrl, jobId }).unwrap()
         setBrandDescription(result.description)
+        if (result.profile) setBrandProfile(result.profile)
       } catch {
         // silent
       } finally {
@@ -391,6 +395,7 @@ export function BrandOnboardingModal({
               <StepBrandReady
                 brandName={brandName}
                 brandDescription={brandDescription}
+                brandProfile={brandProfile}
                 url={rawUrl}
                 onStart={handleGoToTopics}
                 onSkip={handleSkip}

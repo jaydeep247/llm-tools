@@ -75,12 +75,12 @@ function MentionBadge({ mentioned }: { mentioned: boolean }) {
 
 function PositionBadge({ position }: { position: string }) {
   const map: Record<string, string> = {
-    first: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
+    early: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
     middle: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
-    last: 'text-brand-orange bg-brand-orange/10 border-brand-orange/30',
-    'not mentioned': 'text-zinc-500 bg-zinc-800/40 border-zinc-700/50',
+    late: 'text-brand-orange bg-brand-orange/10 border-brand-orange/30',
+    not_mentioned: 'text-zinc-500 bg-zinc-800/40 border-zinc-700/50',
   }
-  const cls = map[position?.toLowerCase()] ?? map['not mentioned']
+  const cls = map[position?.toLowerCase()] ?? map['not_mentioned']
   return (
     <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium rounded border ${cls}`}>
       <MapPin className="w-3 h-3" /> {position || 'not mentioned'}
@@ -124,7 +124,7 @@ function ProviderCard({
             <div className="flex flex-wrap gap-1 mt-1">
               {analysis.competitors_mentioned.slice(0, 4).map((c, i) => (
                 <span key={i} className="px-1.5 py-0.5 text-[10px] text-zinc-400 bg-zinc-800/50 border border-zinc-700/50 rounded">
-                  {c}
+                  {c.name}
                 </span>
               ))}
               {analysis.competitors_mentioned.length > 4 && (
@@ -166,7 +166,7 @@ function PromptRow({ result, index }: { result: PromptResult; index: number }) {
     const set = new Set<string>()
     for (const provider of Object.keys(PROVIDER_META) as Provider[]) {
       const analysis = result.results?.[provider]?.analysis
-      analysis?.competitors_mentioned?.forEach((c) => set.add(c))
+      analysis?.competitors_mentioned?.forEach((c) => set.add(c.name))
     }
     return Array.from(set)
   }, [result])

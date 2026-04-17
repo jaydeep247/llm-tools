@@ -7,33 +7,29 @@ import { cn } from '@/lib/utils'
 import { SectionCard } from '@/components/ui/SectionCard'
 import { StatCard } from '@/components/ui/StatCard'
 import {
-  type ModuleFMetricRecommendation,
-  type ModuleFPerModelStats,
-  type ModuleFCompareVisibilityEntityRow,
   useGetModuleFResultQuery,
   useRunModuleFAnalysisMutation,
   resolveD7Output,
-  resolveFeatureFlags,
   useAskModuleFAIMutation,
   ModuleFResult,
 } from '@/store/api/module_F/moduleFApi'
 import {
-  ArrowDown, ArrowUp, CheckCircle2, Eye, Loader2, Percent, Swords,
-  Info, Shield, ChevronDown, ChevronUp, Gauge, TrendingUp, TrendingDown,
-  Star, Globe, MessageSquare, Link2, Zap, Trophy, Target, BarChart3,
-  Search, ExternalLink, Activity
+  Loader2, Percent, Swords,
+  ChevronDown, ChevronUp, Gauge,
+  Star, MessageSquare, Zap, Trophy, Target, Globe,
+  Search, Activity
 } from 'lucide-react'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { ModuleFAskAiChatShell } from '@/components/module_F/ModuleFAskAiChatShell'
+import {
+  useGetOnboardingDataQuery,
+  type PromptResult,
+  type AggregateStats,
+  type CompetitiveBrand,
+} from '@/store/api/brandOnboardingApi'
 
 interface VisibilityComparisonSectionProps {
   jobId?: string | null
@@ -184,186 +180,35 @@ function MetricAskButton({
   )
 }
 
-function getVisibilityColor(score: number) {
-  if (score >= 75) return 'text-emerald-400'
-  if (score >= 50) return 'text-blue-400'
-  if (score >= 25) return 'text-amber-400'
-  return 'text-red-400'
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Onboarding-based Model-by-Model Benchmark
+// Uses prompt_results per-provider data as single source of truth
+// ─────────────────────────────────────────────────────────────────────────────
+
+type OBBenchmarkRow = {
+  name: string
+  is_our_brand: boolean
+  per_model: Record<string, { mentions: number; avg_rank: number | null }>
 }
 
-function getGradeColor(grade: string) {
-  if (grade === 'A+' || grade === 'A') return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25'
-  if (grade === 'B') return 'text-blue-400 bg-blue-500/10 border-blue-500/25'
-  if (grade === 'C') return 'text-amber-400 bg-amber-500/10 border-amber-500/25'
-  return 'text-red-400 bg-red-500/10 border-red-500/25'
-}
-
-function formatDelta(delta?: number | null) {
-  if (delta === null || delta === undefined || Number.isNaN(delta)) return '—'
-  const sign = delta > 0 ? '+' : ''
-  return `${sign}${delta.toFixed(2)}`
-}
-
-function normalizeMetricRecommendation(value: unknown): ModuleFMetricRecommendation | null {
-  if (!value) return null
-  if (typeof value === 'string') return { why: '', fix: value }
-  if (typeof value === 'object') {
-    const rec = value as Partial<ModuleFMetricRecommendation>
-    const why = typeof rec.why === 'string' ? rec.why : ''
-    const fix = typeof rec.fix === 'string' ? rec.fix : ''
-    if (!why && !fix) return null
-    return { why, fix }
-  }
-  return null
-}
-
-function MetricTooltip({ rec }: { rec: ModuleFMetricRecommendation }) {
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger>
-          <Info className="w-3 h-3 text-zinc-500 hover:text-zinc-300 transition-colors" />
-        </TooltipTrigger>
-        <TooltipContent className="bg-zinc-900 border-zinc-800 text-zinc-300 max-w-xs text-xs p-3">
-          {rec.why && (
-            <>
-              <div className="font-medium text-zinc-100 mb-1">Why this score</div>
-              <div className="text-zinc-300">{rec.why}</div>
-            </>
-          )}
-          <div className={cn('font-medium text-zinc-100', rec.why ? 'mt-3 mb-1' : 'mb-1')}>
-            How to improve
-          </div>
-          <div className="text-zinc-300">{rec.fix}</div>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  )
-}
-
-function PerModelBreakdown({ perModel, entityName }: { perModel: Record<string, ModuleFPerModelStats>; entityName: string }) {
-  const models = Object.entries(perModel)
-  if (!models.length) return null
-
-  const MODEL_CONFIG: Record<string, { color: string; icon: any; bg: string }> = {
-    openai: { color: 'text-emerald-400', icon: Zap, bg: 'bg-emerald-500/10' },
-    gemini: { color: 'text-blue-400', icon: Activity, bg: 'bg-blue-500/10' },
-    claude: { color: 'text-amber-400', icon: Star, bg: 'bg-amber-500/10' },
-  }
-
-  return (
-    <div className="mt-4 space-y-4">
-      <div className="flex items-center gap-3">
-        <div className="h-px flex-1 bg-gradient-to-r from-transparent to-zinc-800" />
-        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.2em]">Model Insights — {entityName}</span>
-        <div className="h-px flex-1 bg-gradient-to-l from-transparent to-zinc-800" />
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {models.map(([model, stats]) => {
-          const mKey = model.toLowerCase()
-          const cfg = MODEL_CONFIG[mKey] ?? { color: 'text-zinc-400', icon: MessageSquare, bg: 'bg-zinc-800/50' }
-          const Icon = cfg.icon
-
-          return (
-            <div key={model} className="group relative rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4 transition-all duration-300 hover:border-zinc-700 hover:bg-zinc-900/60 overflow-hidden">
-              <div className={cn('absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 opacity-[0.03] transition-opacity group-hover:opacity-[0.07]', cfg.color)}>
-                <Icon className="w-full h-full" />
-              </div>
-              
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2.5">
-                  <div className={cn('p-2 rounded-xl shrink-0', cfg.bg)}>
-                    <Icon className={cn('w-4 h-4', cfg.color)} />
-                  </div>
-                  <span className="text-sm font-bold text-zinc-100 capitalize">{model}</span>
-                </div>
-                {stats.rank != null && (
-                  <div className="flex flex-col items-end">
-                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-tighter">Rank</span>
-                    <span className={cn('text-lg font-bold font-mono leading-none', cfg.color)}>#{stats.rank}</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <div className="bg-zinc-950/40 rounded-xl p-2.5 border border-zinc-800/50">
-                  <div className="text-[10px] font-bold text-zinc-500 uppercase mb-1">Mentions</div>
-                  <div className="text-sm font-mono text-zinc-200">{stats.mentions}</div>
-                </div>
-                {stats.sentiment != null && (
-                  <div className="bg-zinc-950/40 rounded-xl p-2.5 border border-zinc-800/50">
-                    <div className="text-[10px] font-bold text-zinc-500 uppercase mb-1">Sentiment</div>
-                    <div className={cn('text-sm font-mono', stats.sentiment > 0 ? 'text-emerald-400' : stats.sentiment < 0 ? 'text-rose-400' : 'text-zinc-400')}>
-                      {stats.sentiment > 0 ? '+' : ''}{stats.sentiment.toFixed(2)}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-zinc-500">In Title</span>
-                  <span className={cn('font-bold', stats.in_title ? 'text-emerald-400' : 'text-zinc-600')}>
-                    {stats.in_title ? 'YES' : 'NO'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-zinc-500">Cited</span>
-                  <span className={cn('font-bold', stats.citation_present ? 'text-emerald-400' : 'text-zinc-600')}>
-                    {stats.citation_present ? 'YES' : 'NO'}
-                  </span>
-                </div>
-              </div>
-
-              {stats.cited_urls && stats.cited_urls.length > 0 && (
-                <div className="mt-4 pt-3 border-t border-zinc-800/50">
-                  <div className="text-[10px] font-bold text-zinc-500 uppercase mb-2 flex items-center gap-1.5">
-                    <Link2 className="w-3 h-3" /> Sources
-                  </div>
-                  <div className="space-y-1.5">
-                    {stats.cited_urls.slice(0, 2).map((url, i) => (
-                      <div key={i} className="group/url flex items-center gap-2 text-[10px] text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer">
-                        <div className="w-1 h-1 rounded-full bg-zinc-700 group-hover/url:bg-blue-400" />
-                        <span className="truncate font-mono">{url}</span>
-                        <ExternalLink className="w-2.5 h-2.5 opacity-0 group-hover/url:opacity-100 transition-opacity" />
-                      </div>
-                    ))}
-                    {stats.cited_urls.length > 2 && (
-                      <div className="text-[9px] text-zinc-600 font-bold ml-3">
-                        +{stats.cited_urls.length - 2} ADDITIONAL SOURCES
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-function ModelBenchmarkMatrix({
-  brand,
-  competitors,
+function OBModelBenchmarkMatrix({
+  benchmarkData,
   jobId,
   isAskingAI,
   runMetricAskAi,
 }: {
-  brand: ModuleFCompareVisibilityEntityRow | null
-  competitors: ModuleFCompareVisibilityEntityRow[]
+  benchmarkData: OBBenchmarkRow[]
   jobId?: string | null
   isAskingAI: boolean
   runMetricAskAi: (target: VisibilityAskTarget, displayLabel: string) => void
 }) {
-  const entities = useMemo(() => (brand ? [brand, ...competitors] : competitors), [brand, competitors])
-
   const models = useMemo(() => {
     const m = new Set<string>()
-    entities.forEach((e) => Object.keys(e.per_model ?? {}).forEach((k) => m.add(k)))
+    benchmarkData.forEach((e) => Object.keys(e.per_model).forEach((k) => m.add(k)))
     return Array.from(m).sort((a, b) => a.localeCompare(b))
-  }, [entities])
+  }, [benchmarkData])
 
   const MODEL_CONFIG: Record<string, { color: string; icon: any; bg: string }> = {
     openai: { color: 'text-emerald-400', icon: Zap, bg: 'bg-emerald-500/10' },
@@ -371,12 +216,12 @@ function ModelBenchmarkMatrix({
     claude: { color: 'text-amber-400', icon: Star, bg: 'bg-amber-500/10' },
   }
 
-  if (!entities.length || !models.length) return null
+  if (!benchmarkData.length || !models.length) return null
 
   return (
-    <SectionCard 
-      title="Model-by-Model Benchmark" 
-      description="Leader cell per model is highlighted. Each cell shows rank and mentions."
+    <SectionCard
+      title="Model-by-Model Benchmark"
+      description="Mention frequency per AI provider across all prompts. Leader cell highlighted."
       className="bg-[#111113] overflow-hidden"
       actionSlot={
         <MetricAskButton
@@ -389,7 +234,7 @@ function ModelBenchmarkMatrix({
         <table className="w-full text-sm text-left">
           <thead>
             <tr className="border-b border-zinc-800 bg-zinc-900/50 text-zinc-400">
-              <th className="p-4 font-bold uppercase tracking-wider text-[10px] sticky left-0 bg-zinc-900/50 backdrop-blur-md z-10">Entity</th>
+              <th className="p-4 font-bold uppercase tracking-wider text-[10px] sticky left-0 bg-zinc-900/50 backdrop-blur-md z-10">Brand</th>
               {models.map((model) => {
                 const mKey = model.toLowerCase()
                 const cfg = MODEL_CONFIG[mKey] ?? { color: 'text-zinc-400', icon: MessageSquare, bg: 'bg-zinc-800/50' }
@@ -408,42 +253,40 @@ function ModelBenchmarkMatrix({
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-800">
-            {entities.map((entity) => (
+            {benchmarkData.map((entity) => (
               <tr key={entity.name} className="hover:bg-zinc-900/40 transition-colors group">
                 <td className="p-4 sticky left-0 bg-[#111113] group-hover:bg-[#161618] transition-colors z-10 border-r border-zinc-800/50">
                   <div className="flex items-center gap-2">
-                    <span className="text-zinc-100 font-semibold truncate max-w-48">{entity.name}</span>
-                    {entity.entity_type === 'client' && (
+                    <span className={cn('font-semibold truncate max-w-48', entity.is_our_brand ? 'text-blue-300' : 'text-zinc-100')}>
+                      {entity.name}
+                    </span>
+                    {entity.is_our_brand && (
                       <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-[9px] px-1 py-0 h-4">YOU</Badge>
                     )}
                   </div>
                 </td>
                 {models.map((model) => {
                   const stats = entity.per_model?.[model]
-                  const rank = stats?.rank ?? null
-                  const mentions = stats?.mentions ?? 0
-                  const bestRank = entities.reduce<number | null>((best, e) => {
-                    const r = e.per_model?.[model]?.rank
-                    if (r == null) return best
-                    if (best == null || r < best) return r
-                    return best
-                  }, null)
-                  const isLeader = rank != null && bestRank != null && rank === bestRank
+                  const bestMentions = benchmarkData.reduce<number>(
+                    (best, e) => Math.max(best, e.per_model?.[model]?.mentions ?? 0),
+                    0,
+                  )
+                  const isLeader = stats != null && stats.mentions > 0 && stats.mentions === bestMentions
 
                   return (
                     <td key={`${entity.name}-${model}`} className="p-3">
                       {stats ? (
                         <div className={cn(
                           'rounded-xl border p-3 text-center transition-all duration-300',
-                          isLeader 
-                            ? 'border-emerald-500/30 bg-emerald-500/10 shadow-[0_0_12px_rgba(16,185,129,0.1)] scale-[1.02]' 
-                            : 'border-zinc-800 bg-zinc-900/40'
+                          isLeader
+                            ? 'border-emerald-500/30 bg-emerald-500/10 shadow-[0_0_12px_rgba(16,185,129,0.1)] scale-[1.02]'
+                            : 'border-zinc-800 bg-zinc-900/40',
                         )}>
                           <div className={cn('text-lg font-bold font-mono', isLeader ? 'text-emerald-400' : 'text-zinc-100')}>
-                            {rank != null ? `#${rank}` : '—'}
+                            ×{stats.mentions}
                           </div>
                           <div className="text-[10px] font-medium text-zinc-500 mt-1 uppercase tracking-tighter">
-                            {mentions} Mentions
+                            {stats.avg_rank != null ? `Avg #${stats.avg_rank}` : 'mentions'}
                           </div>
                           {isLeader && (
                             <div className="mt-1.5 flex justify-center">
@@ -468,12 +311,356 @@ function ModelBenchmarkMatrix({
   )
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Brand Onboarding Visibility Panel
+// Shows onboarding prompt-results data: KPI cards, topic list, prompt table
+// ─────────────────────────────────────────────────────────────────────────────
+
+type OBProviders = 'openai' | 'gemini' | 'claude'
+const OB_PROVIDERS: OBProviders[] = ['openai', 'gemini', 'claude']
+const OB_PROVIDER_CFG: Record<OBProviders, { label: string; color: string; bg: string; border: string }> = {
+  openai: { label: 'GPT',    color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/25' },
+  gemini: { label: 'Gemini', color: 'text-blue-400',    bg: 'bg-blue-500/10',    border: 'border-blue-500/25'   },
+  claude: { label: 'Claude', color: 'text-amber-400',   bg: 'bg-amber-500/10',   border: 'border-amber-500/25'  },
+}
+
+function OBPresenceBadge({ mentioned }: { mentioned: boolean }) {
+  return mentioned ? (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+      Present
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium bg-zinc-800/50 text-zinc-600 border border-zinc-700/30">
+      <span className="w-1.5 h-1.5 rounded-full bg-zinc-700 inline-block" />
+      Absent
+    </span>
+  )
+}
+
+function OBRankBadge({ rank, outOf }: { rank: number | null; outOf: number }) {
+  if (rank == null) return <span className="text-[10px] text-zinc-700 font-mono">—</span>
+  return (
+    <span className={cn(
+      'inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold font-mono border',
+      rank === 1
+        ? 'text-amber-400 bg-amber-500/10 border-amber-500/25'
+        : 'text-zinc-400 bg-zinc-800/40 border-zinc-700/30',
+    )}>
+      #{rank}{outOf ? `/${outOf}` : ''}
+    </span>
+  )
+}
+
+function OBSentimentBadge({ sentiment }: { sentiment: string }) {
+  const cls: Record<string, string> = {
+    positive: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25',
+    negative: 'text-red-400 bg-red-500/10 border-red-500/25',
+    neutral:  'text-zinc-400 bg-zinc-800/40 border-zinc-700/30',
+  }
+  const sym: Record<string, string> = { positive: '↑', negative: '↓', neutral: '~' }
+  return (
+    <span className={cn('inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-medium border capitalize', cls[sentiment] ?? cls.neutral)}>
+      {sym[sentiment] ?? '~'} {sentiment}
+    </span>
+  )
+}
+
+function OBProviderCell({
+  provider,
+  result,
+}: {
+  provider: OBProviders
+  result: { response: string; analysis: PromptResult['results']['openai']['analysis']; error: string | null } | undefined
+}) {
+  const [showResp, setShowResp] = useState(false)
+  const cfg = OB_PROVIDER_CFG[provider]
+  const a = result?.analysis
+  return (
+    <div className={cn('rounded-lg border p-2.5 space-y-1.5', cfg.border, cfg.bg)}>
+      <div className="flex items-center justify-between gap-1">
+        <span className={cn('text-[9px] font-bold uppercase tracking-widest', cfg.color)}>{cfg.label}</span>
+        {!a && (
+          <span className="text-[9px] text-zinc-700">{result?.error ? 'Error' : '—'}</span>
+        )}
+      </div>
+      {a && (
+        <>
+          <div className="flex flex-wrap gap-1">
+            <OBPresenceBadge mentioned={a.brand_mentioned} />
+            {a.brand_mentioned && <OBRankBadge rank={a.brand_rank} outOf={a.brand_rank_out_of} />}
+            {a.brand_mentioned && <OBSentimentBadge sentiment={a.sentiment} />}
+          </div>
+          {a.brand_mentioned && a.all_mentioned_brands && a.all_mentioned_brands.length > 0 && (
+            <div className="flex flex-wrap gap-1 pt-0.5">
+              {a.all_mentioned_brands.slice(0, 5).map((b, i) => (
+                <span key={i} className="px-1 py-0.5 text-[8px] rounded bg-zinc-800/60 border border-zinc-700/40 text-zinc-500">
+                  {b.name}
+                </span>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+      {result?.response && (
+        <>
+          <button
+            onClick={() => setShowResp(!showResp)}
+            className="text-[8px] text-zinc-600 hover:text-zinc-400 underline"
+          >
+            {showResp ? 'hide response' : 'view response'}
+          </button>
+          {showResp && (
+            <div className="mt-1 p-1.5 bg-zinc-950/60 rounded border border-zinc-800/60 max-h-28 overflow-y-auto">
+              <p className="text-[8px] text-zinc-500 whitespace-pre-wrap leading-relaxed">{result.response}</p>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+function OBPromptRow({ result, index }: { result: PromptResult; index: number }) {
+  const [expanded, setExpanded] = useState(false)
+  const mentionedCount = OB_PROVIDERS.filter((p) => result.results?.[p]?.analysis?.brand_mentioned).length
+  const ranks = OB_PROVIDERS
+    .map((p) => result.results?.[p]?.analysis?.brand_rank)
+    .filter((r): r is number => r != null)
+  const avgRank = ranks.length ? (ranks.reduce((a, b) => a + b, 0) / ranks.length).toFixed(1) : null
+  return (
+    <div className="border border-zinc-800/50 rounded-xl overflow-hidden">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-zinc-800/20 transition-colors"
+      >
+        <span className="text-[10px] font-mono text-zinc-700 pt-0.5 shrink-0 w-5">{index + 1}</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-zinc-200 leading-snug">{result.prompt}</p>
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+            {OB_PROVIDERS.map((p) => {
+              const a = result.results?.[p]?.analysis
+              const cfg = OB_PROVIDER_CFG[p]
+              return (
+                <span key={p} className={cn('inline-flex items-center gap-0.5 text-[9px] font-bold', cfg.color)}>
+                  {cfg.label}
+                  <span className={a?.brand_mentioned ? 'text-emerald-500' : 'text-zinc-700'}>
+                    {a ? (a.brand_mentioned ? ' ✓' : ' ✗') : ' –'}
+                  </span>
+                </span>
+              )
+            })}
+            {mentionedCount > 0 && (
+              <span className="text-[9px] text-zinc-600">
+                {mentionedCount}/3 models{avgRank ? ` · avg #${avgRank}` : ''}
+              </span>
+            )}
+          </div>
+        </div>
+        {expanded
+          ? <ChevronUp className="w-3.5 h-3.5 text-zinc-600 shrink-0 mt-0.5" />
+          : <ChevronDown className="w-3.5 h-3.5 text-zinc-600 shrink-0 mt-0.5" />
+        }
+      </button>
+      {expanded && (
+        <div className="border-t border-zinc-800/40 px-4 pb-4 pt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {OB_PROVIDERS.map((p) => (
+            <OBProviderCell key={p} provider={p} result={result.results?.[p]} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function BrandOnboardingVisibilityPanel({ jobId }: { jobId?: string | null }) {
+  const { data, isLoading } = useGetOnboardingDataQuery(jobId ?? '', {
+    skip: !jobId,
+    refetchOnMountOrArgChange: true,
+  })
+  const [selectedTopic, setSelectedTopic] = useState<string | null>(null)
+
+  const results: PromptResult[] = data?.prompt_results ?? []
+  const aggregate: AggregateStats | undefined = data?.aggregate
+
+  // Group prompts by topic
+  const topicMap = useMemo<Record<string, PromptResult[]>>(() => {
+    const map: Record<string, PromptResult[]> = {}
+    for (const r of results) {
+      const key = r.topic || 'General'
+      if (!map[key]) map[key] = []
+      map[key].push(r)
+    }
+    return map
+  }, [results])
+
+  const topicList = useMemo(() => {
+    return Object.entries(topicMap).map(([topic, prompts]) => {
+      const totalResps = prompts.reduce(
+        (acc, p) => acc + OB_PROVIDERS.filter((pr) => p.results?.[pr]?.analysis != null).length,
+        0,
+      )
+      const mentionedResps = prompts.reduce(
+        (acc, p) => acc + OB_PROVIDERS.filter((pr) => p.results?.[pr]?.analysis?.brand_mentioned).length,
+        0,
+      )
+      const rate = totalResps ? Math.round((mentionedResps / totalResps) * 100) : 0
+      return { topic, prompts, rate, promptCount: prompts.length }
+    })
+  }, [topicMap])
+
+  const displayedPrompts = useMemo(
+    () => (selectedTopic ? topicMap[selectedTopic] ?? [] : results),
+    [selectedTopic, results, topicMap],
+  )
+
+  if (!jobId || isLoading || results.length === 0) return null
+
+  const presenceRate = aggregate?.brand_presence_rate ?? 0
+  const presenceCount = aggregate?.brand_presence_count ?? 0
+  const totalResps = aggregate?.total_responses ?? 0
+  const positivePct = presenceCount
+    ? Math.round(((aggregate?.positive_mentions ?? 0) / presenceCount) * 100)
+    : 0
+  const negativePct = presenceCount
+    ? Math.round(((aggregate?.negative_mentions ?? 0) / presenceCount) * 100)
+    : 0
+
+  return (
+    <div className="space-y-5">
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {([
+          {
+            label: 'Brand Presence',
+            value: `${presenceRate}%`,
+            sub: `${presenceCount} of ${totalResps} responses`,
+            color: 'text-blue-400',
+            bar: presenceRate,
+            barColor: 'bg-blue-500',
+          },
+          {
+            label: 'Average Rank',
+            value: aggregate?.avg_rank != null ? `#${aggregate.avg_rank}` : '—',
+            sub: 'across all models',
+            color: 'text-violet-400',
+            bar: null as number | null,
+            barColor: '',
+          },
+          {
+            label: 'Positive Mentions',
+            value: `${positivePct}%`,
+            sub: `${aggregate?.positive_mentions ?? 0} of ${presenceCount}`,
+            color: 'text-emerald-400',
+            bar: positivePct,
+            barColor: 'bg-emerald-500',
+          },
+          {
+            label: 'Negative Mentions',
+            value: `${negativePct}%`,
+            sub: `${aggregate?.negative_mentions ?? 0} of ${presenceCount}`,
+            color: 'text-red-400',
+            bar: negativePct,
+            barColor: 'bg-red-500',
+          },
+        ] as const).map(({ label, value, sub, color, bar, barColor }) => (
+          <div key={label} className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+            <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">{label}</div>
+            <div className={cn('text-2xl font-bold font-mono', color)}>{value}</div>
+            <div className="text-[10px] text-zinc-600 mt-0.5">{sub}</div>
+            {bar !== null && (
+              <div className="mt-3 h-1 rounded-full bg-zinc-800 overflow-hidden">
+                <div className={cn('h-full rounded-full', barColor)} style={{ width: `${bar}%` }} />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Brand presence by topic */}
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden">
+        <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
+          <span className="text-sm font-semibold text-zinc-100">Brand Presence by Topic</span>
+          <span className="text-[10px] text-zinc-600">
+            {topicList.length} topics · {results.length} prompts
+          </span>
+        </div>
+        <div className="divide-y divide-zinc-800/50 max-h-80 overflow-y-auto">
+          {topicList.length === 0 ? (
+            <p className="px-4 py-6 text-center text-[11px] text-zinc-600">No topic data</p>
+          ) : (
+            topicList.map(({ topic, rate, promptCount }) => (
+              <button
+                key={topic}
+                onClick={() => setSelectedTopic(selectedTopic === topic ? null : topic)}
+                className={cn(
+                  'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors',
+                  selectedTopic === topic ? 'bg-zinc-800/60' : 'hover:bg-zinc-800/30',
+                )}
+              >
+                <span className="flex-1 text-[11px] text-zinc-300 truncate">{topic}</span>
+                <span className="text-[10px] text-zinc-600 shrink-0">{promptCount} prompts</span>
+                <div className="w-20 shrink-0 flex items-center gap-1.5">
+                  <div className="flex-1 h-1 rounded-full bg-zinc-800">
+                    <div
+                      className={cn(
+                        'h-full rounded-full',
+                        rate >= 50 ? 'bg-emerald-500' : rate >= 25 ? 'bg-amber-500' : 'bg-zinc-600',
+                      )}
+                      style={{ width: `${rate}%` }}
+                    />
+                  </div>
+                  <span className={cn(
+                    'text-[9px] font-bold w-7 text-right',
+                    rate >= 50 ? 'text-emerald-400' : rate >= 25 ? 'text-amber-400' : 'text-zinc-600',
+                  )}>
+                    {rate}%
+                  </span>
+                </div>
+                {selectedTopic === topic
+                  ? <ChevronUp className="w-3 h-3 text-zinc-500 shrink-0" />
+                  : <ChevronDown className="w-3 h-3 text-zinc-600 shrink-0" />
+                }
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Prompt results table */}
+      <div className="rounded-xl border border-zinc-800 bg-[#111113] overflow-hidden">
+        <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-zinc-100">
+              {selectedTopic ? `Topic: ${selectedTopic}` : 'All Prompts'}
+            </span>
+            <span className="text-[10px] text-zinc-600">({displayedPrompts.length})</span>
+          </div>
+          {selectedTopic && (
+            <button
+              onClick={() => setSelectedTopic(null)}
+              className="text-[10px] text-zinc-500 hover:text-zinc-300 px-2 py-1 rounded border border-zinc-800 hover:border-zinc-700 transition-colors"
+            >
+              Show all
+            </button>
+          )}
+        </div>
+        <div className="p-3 space-y-2">
+          {displayedPrompts.map((r, i) => (
+            <OBPromptRow key={`${r.prompt}-${i}`} result={r} index={i} />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function VisibilityComparisonSection({ jobId }: VisibilityComparisonSectionProps) {
   const [isPolling, setIsPolling] = useState(false)
   const [pollCount, setPollCount] = useState(0)
   const [justCompleted, setJustCompleted] = useState(false)
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | undefined>(undefined)
-  const [expandedRow, setExpandedRow] = useState<string | null>(null)
+
   const { toast } = useToast()
 
   const [runModuleFAnalysis, { isLoading: isTriggering }] = useRunModuleFAnalysisMutation()
@@ -485,8 +672,20 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
   })
 
   const result = polledData?.data ?? null
-  const brandName = result?.compare_visibility_against_competitors?.brand?.name || 'Brand'
-  
+
+  // Onboarding data — single source of truth for competitor discovery
+  const { data: obData } = useGetOnboardingDataQuery(jobId ?? '', {
+    skip: !jobId,
+    refetchOnMountOrArgChange: true,
+  })
+  const competitiveLandscape: CompetitiveBrand[] = obData?.competitive_landscape ?? []
+  const promptResults: PromptResult[] = obData?.prompt_results ?? []
+
+  const brandName =
+    result?.compare_visibility_against_competitors?.brand?.name ||
+    competitiveLandscape.find((b) => b.is_our_brand)?.name ||
+    'Brand'
+
   const [askModuleFAI, { isLoading: isAskingAI, error: askAIError, reset: resetAskAI }] =
     useAskModuleFAIMutation()
 
@@ -624,9 +823,54 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
   }
   const updatedAt = result?.updatedAt
   const comparison = result?.compare_visibility_against_competitors
-  const recommendations = result?.recommendations ?? result?.metric_recommendations ?? null
   const d7 = resolveD7Output(result)
-  const flags = resolveFeatureFlags(result)
+
+  // Onboarding-derived competitor metrics — single source of truth
+  const obTopCompetitor = useMemo(
+    () => competitiveLandscape.find((b) => !b.is_our_brand) ?? null,
+    [competitiveLandscape],
+  )
+  const ourBrandOB = useMemo(
+    () => competitiveLandscape.find((b) => b.is_our_brand) ?? null,
+    [competitiveLandscape],
+  )
+  const obMarketShare = useMemo(() => {
+    const total = competitiveLandscape.reduce((s, b) => s + b.mention_count, 0)
+    if (!total || !ourBrandOB) return null
+    return Math.round((ourBrandOB.mention_count / total) * 100)
+  }, [competitiveLandscape, ourBrandOB])
+
+  const obBenchmarkData = useMemo<OBBenchmarkRow[]>(() => {
+    if (!competitiveLandscape.length || !promptResults.length) return []
+    const PROVIDERS = ['openai', 'gemini', 'claude'] as const
+    return competitiveLandscape.slice(0, 8).map((entry) => {
+      const per_model: OBBenchmarkRow['per_model'] = {}
+      for (const prov of PROVIDERS) {
+        let mentions = 0
+        const ranks: number[] = []
+        for (const pr of promptResults) {
+          const res = pr.results?.[prov]
+          if (!res?.analysis) continue
+          if (entry.is_our_brand) {
+            if (res.analysis.brand_mentioned) {
+              mentions++
+              if (res.analysis.brand_rank != null) ranks.push(res.analysis.brand_rank)
+            }
+          } else {
+            const found = res.analysis.all_mentioned_brands?.find(
+              (b) => b.name.toLowerCase() === entry.name.toLowerCase(),
+            )
+            if (found) mentions++
+          }
+        }
+        per_model[prov] = {
+          mentions,
+          avg_rank: ranks.length ? Math.round(ranks.reduce((a, b) => a + b, 0) / ranks.length) : null,
+        }
+      }
+      return { name: entry.name, is_our_brand: entry.is_our_brand, per_model }
+    })
+  }, [competitiveLandscape, promptResults])
 
   useEffect(() => {
     if (!isPolling) return
@@ -663,27 +907,6 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
   }, [jobId, runModuleFAnalysis, updatedAt])
 
   const isRunning = isTriggering || isPolling
-
-  const competitors = useMemo(() => {
-    const rows = comparison?.competitors ?? []
-    return [...rows].sort((a, b) => {
-      if (a.display_order != null && b.display_order != null) {
-        return a.display_order - b.display_order
-      }
-      return (b.visibility_score ?? 0) - (a.visibility_score ?? 0)
-    })
-  }, [comparison?.competitors])
-
-  const brand = comparison?.brand ?? null
-
-  const topCompetitor = useMemo(() => {
-    const sorted = [...(comparison?.competitors ?? [])].sort((a, b) => (b.visibility_score ?? 0) - (a.visibility_score ?? 0))
-    return sorted[0] ?? null
-  }, [comparison?.competitors])
-
-  const visibilityRec = normalizeMetricRecommendation(recommendations?.visibility_score)
-  const shareRec = normalizeMetricRecommendation(recommendations?.market_share)
-  const rankDeltaRec = normalizeMetricRecommendation(recommendations?.rank_delta)
 
   return (
     <div className="space-y-6">
@@ -816,11 +1039,11 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
         </div>
       )}
 
-      {!comparison && !isRunning && (
+      {!comparison && !isRunning && competitiveLandscape.length === 0 && (
         <AnalysisEmptyState
           icon={<Swords className="w-8 h-8 text-zinc-400" />}
-          title="No Visibility Comparison Data"
-          description="Run the analysis to compare your brand's AI visibility score against competitors across OpenAI, Gemini & Claude."
+          title="No Visibility Data Yet"
+          description="Complete the brand onboarding to discover your competitive landscape, then run the analysis for your AIVS™ D7 score."
           onRunAnalysis={handleRun}
           isAnalyzing={isRunning}
           disabled={!jobId}
@@ -828,32 +1051,20 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
         />
       )}
 
-      {comparison && (
-        <div className={cn('grid gap-4', d7 ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4' : 'grid-cols-1 md:grid-cols-3')}>
-          <StatCard
-            label="Your Visibility"
-            value={(brand?.visibility_score ?? 0).toFixed(1)}
-            subtext={brand?.name ?? 'Brand'}
-            icon={Eye}
-            accent={(brand?.visibility_score ?? 0) >= 75 ? 'emerald' : (brand?.visibility_score ?? 0) >= 50 ? 'blue' : (brand?.visibility_score ?? 0) >= 25 ? 'amber' : 'rose'}
-            progress={brand?.visibility_score ?? 0}
-            description={visibilityRec?.why || 'Overall AI search visibility score'}
-            labelAction={
-              <MetricAskButton
-                disabled={!jobId || isAskingAI}
-                onClick={() => runMetricAskAi('visibility_score', 'Your Visibility')}
-              />
-            }
-          />
-
+      {(competitiveLandscape.length > 0 || d7) && (
+        <div className={cn('grid gap-4', d7 ? 'grid-cols-1 md:grid-cols-3' : 'grid-cols-1 md:grid-cols-2')}>
           <StatCard
             label="Top Competitor"
-            value={topCompetitor?.name ?? '—'}
-            subtext={`Score: ${(topCompetitor?.visibility_score ?? 0).toFixed(1)}`}
+            value={obTopCompetitor?.name ?? '—'}
+            subtext={obTopCompetitor ? `×${obTopCompetitor.mention_count} mentions` : 'No competitor data yet'}
             icon={Trophy}
             accent="violet"
-            progress={topCompetitor?.visibility_score ?? 0}
-            description="Leading brand in this analysis"
+            progress={
+              obTopCompetitor && competitiveLandscape[0]
+                ? Math.round((obTopCompetitor.mention_count / competitiveLandscape[0].mention_count) * 100)
+                : 0
+            }
+            description="Leading brand by AI mention frequency"
             labelAction={
               <MetricAskButton
                 disabled={!jobId || isAskingAI}
@@ -864,12 +1075,12 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
 
           <StatCard
             label="Market Share"
-            value={`${(brand?.market_share_percent ?? 0).toFixed(1)}%`}
-            subtext={`${competitors.length} competitors tracked`}
+            value={obMarketShare != null ? `${obMarketShare}%` : '—'}
+            subtext={`${competitiveLandscape.length} brands tracked`}
             icon={Percent}
             accent="emerald"
-            progress={brand?.market_share_percent ?? 0}
-            description={shareRec?.why || 'Share of voice in AI results'}
+            progress={obMarketShare ?? 0}
+            description="Your share of AI recommendations"
             labelAction={
               <MetricAskButton
                 disabled={!jobId || isAskingAI}
@@ -899,7 +1110,9 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
         </div>
       )}
 
-      {comparison && competitors.length > 0 && (
+      <BrandOnboardingVisibilityPanel jobId={jobId} />
+
+      {competitiveLandscape.length > 0 && (
         <div className="bg-[#111113] rounded-xl border border-zinc-800 overflow-hidden">
           <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -908,206 +1121,109 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
               </div>
               <div>
                 <div className="text-sm font-medium text-zinc-100">Competitor Leaderboard</div>
-                <div className="text-[11px] text-zinc-600">{competitors.length} entities tracked</div>
+                <div className="text-[11px] text-zinc-600">
+                  {competitiveLandscape.length} brands · organic AI discovery
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <MetricAskButton
-                disabled={!jobId || isAskingAI}
-                onClick={() => runMetricAskAi('competitor_leaderboard', 'Competitor Leaderboard')}
-              />
-              <div className="flex items-center gap-2">
-                {!flags.leaderboard && (
-                  <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/25 text-[10px]">
-                    Upgrade to unlock
-                  </Badge>
-                )}
-                <Badge className="bg-zinc-900 text-zinc-400 border-zinc-800 text-xs">
-                  {competitors[0]?.display_order != null ? 'Custom order' : 'Sorted by visibility'}
-                </Badge>
-              </div>
-            </div>
+            <MetricAskButton
+              disabled={!jobId || isAskingAI}
+              onClick={() => runMetricAskAi('competitor_leaderboard', 'Competitor Leaderboard')}
+            />
           </div>
 
-          {flags.leaderboard ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead>
-                  <tr className="border-b border-zinc-800 bg-zinc-900/50 text-zinc-400">
-                    <th className="p-3 font-medium w-8">#</th>
-                    <th className="p-3 font-medium">Entity</th>
-                    <th className="p-3 font-medium">
-                      <span className="inline-flex items-center gap-1.5">
-                        Visibility
-                        {visibilityRec && <MetricTooltip rec={visibilityRec} />}
-                      </span>
-                    </th>
-                    <th className="p-3 font-medium">Benchmark</th>
-                    <th className="p-3 font-medium">
-                      <span className="inline-flex items-center gap-1.5">
-                        Rank Δ vs Brand
-                        {rankDeltaRec && <MetricTooltip rec={rankDeltaRec} />}
-                      </span>
-                    </th>
-                    <th className="p-3 font-medium">Rank Move</th>
-                    <th className="p-3 font-medium">Share of Voice %</th>
-                    <th className="p-3 font-medium">
-                      <span className="inline-flex items-center gap-1.5">
-                        Market Share
-                        {shareRec && <MetricTooltip rec={shareRec} />}
-                      </span>
-                    </th>
-                    <th className="p-3 font-medium">7D Score Δ</th>
-                    {flags.model_breakdown_view && <th className="p-3 font-medium w-8" />}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-800">
-                  {competitors.map((row, i) => {
-                    const delta = row.rank_difference_vs_brand
-                    const isBetter = delta !== null && delta !== undefined ? delta < 0 : false
-                    const isExpanded = expandedRow === row.name
-
-                    return (
-                      <React.Fragment key={`${row.name}-${i}`}>
-                        <tr className="hover:bg-zinc-900/50 transition-colors">
-                          <td className="p-3 text-zinc-600 text-xs font-mono">{row.rank_position ?? i + 1}</td>
-                          <td className="p-3">
-                            <div className="flex items-center gap-2">
-                              <div className={cn(
-                                'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
-                                row.entity_type === 'client' ? 'bg-blue-500/10 text-blue-400' : 'bg-zinc-800 text-zinc-400'
-                              )}>
-                                {row.entity_type === 'client' ? <Target className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
-                              </div>
-                              <div className="flex flex-col min-w-0">
-                                <span className="font-medium text-zinc-100 truncate max-w-55">{row.name}</span>
-                                {row.entity_type === 'client' && (
-                                  <span className="text-[9px] font-bold text-blue-400 uppercase tracking-tighter">Your Brand</span>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-3">
-                            <div className="space-y-1.5">
-                              <div className="flex items-center justify-between gap-2">
-                                <span className={cn('font-bold font-mono text-sm', getVisibilityColor(row.visibility_score ?? 0))}>
-                                  {(row.visibility_score ?? 0).toFixed(1)}
-                                </span>
-                                <span className="text-[10px] text-zinc-600 font-medium">/ 100</span>
-                              </div>
-                              <div className="h-1.5 w-24 bg-zinc-800/50 rounded-full overflow-hidden border border-zinc-800/50">
-                                <div
-                                  className={cn('h-full rounded-full transition-all duration-1000 ease-out',
-                                    (row.visibility_score ?? 0) >= 75 ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]' :
-                                    (row.visibility_score ?? 0) >= 50 ? 'bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.4)]' :
-                                    (row.visibility_score ?? 0) >= 25 ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)]'
-                                  )}
-                                  style={{ width: `${Math.min(100, row.visibility_score ?? 0)}%` }}
-                                />
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-3">
-                            <span className="font-mono text-xs text-zinc-400">
-                              {(row.benchmark_score ?? 0).toFixed(1)}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead>
+                <tr className="border-b border-zinc-800 bg-zinc-900/50 text-zinc-400">
+                  <th className="p-3 font-medium w-10 text-[10px] uppercase tracking-wider">#</th>
+                  <th className="p-3 font-medium text-[10px] uppercase tracking-wider">Brand</th>
+                  <th className="p-3 font-medium text-[10px] uppercase tracking-wider">Mentions</th>
+                  <th className="p-3 font-medium text-[10px] uppercase tracking-wider">Avg Rank</th>
+                  <th className="p-3 font-medium text-[10px] uppercase tracking-wider">Providers</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-800">
+                {competitiveLandscape.map((entry) => {
+                  const maxMentions = competitiveLandscape[0]?.mention_count ?? 1
+                  const barPct = Math.round((entry.mention_count / maxMentions) * 100)
+                  const providerLabels: Record<string, string> = { openai: 'GPT', gemini: 'GEM', claude: 'CLU' }
+                  return (
+                    <tr
+                      key={entry.name}
+                      className={cn(
+                        'hover:bg-zinc-900/50 transition-colors',
+                        entry.is_our_brand && 'bg-blue-950/20',
+                      )}
+                    >
+                      <td className="p-3">
+                        <span className="text-zinc-600 text-xs font-mono">
+                          {entry.organic_rank === 1
+                            ? <Trophy className="w-4 h-4 text-amber-400 inline" />
+                            : `#${entry.organic_rank}`}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        <div className="flex items-center gap-2">
+                          <div className={cn(
+                            'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
+                            entry.is_our_brand ? 'bg-blue-500/10 text-blue-400' : 'bg-zinc-800 text-zinc-400',
+                          )}>
+                            {entry.is_our_brand ? <Target className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className={cn(
+                              'font-medium truncate max-w-55',
+                              entry.is_our_brand ? 'text-blue-300' : 'text-zinc-100',
+                            )}>
+                              {entry.name}
                             </span>
-                          </td>
-                          <td className="p-3">
-                            <div className="flex items-center gap-1">
-                              {delta === null || delta === undefined ? (
-                                <span className="text-zinc-500">—</span>
-                              ) : isBetter ? (
-                                <ArrowUp className="w-4 h-4 text-emerald-400" />
-                              ) : (
-                                <ArrowDown className="w-4 h-4 text-amber-400" />
-                              )}
-                              <span className={cn('font-mono text-xs', delta === null || delta === undefined ? 'text-zinc-500' : isBetter ? 'text-emerald-400' : 'text-amber-400')}>
-                                {formatDelta(delta)}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="p-3">
-                            {row.rank_move != null && row.rank_move !== 0 ? (
-                              <div className={cn('flex items-center gap-1 text-xs font-mono',
-                                row.rank_move > 0 ? 'text-emerald-400' : 'text-rose-400'
-                              )}>
-                                {row.rank_move > 0 ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
-                                <span>{Math.abs(row.rank_move)}</span>
-                              </div>
-                            ) : (
-                              <span className="text-zinc-600 text-xs">—</span>
+                            {entry.is_our_brand && (
+                              <span className="text-[9px] font-bold text-blue-400 uppercase tracking-tighter">Your Brand</span>
                             )}
-                          </td>
-                          <td className="p-3">
-                            <span className="font-mono text-xs text-zinc-400">
-                              {(row.share_of_voice ?? 0).toFixed(1)}%
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-20 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                            <div
+                              className={cn('h-full rounded-full', entry.is_our_brand ? 'bg-blue-500' : 'bg-zinc-500/60')}
+                              style={{ width: `${barPct}%` }}
+                            />
+                          </div>
+                          <span className="text-xs font-mono text-zinc-400">×{entry.mention_count}</span>
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <span className="text-xs font-mono text-zinc-400">
+                          {entry.avg_rank != null ? `#${entry.avg_rank}` : '—'}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        <div className="flex gap-1 flex-wrap">
+                          {entry.providers_mentioned.map((p) => (
+                            <span
+                              key={p}
+                              className="text-[8px] font-mono bg-zinc-800 text-zinc-500 px-1.5 py-0.5 rounded"
+                            >
+                              {providerLabels[p] ?? p.slice(0, 3).toUpperCase()}
                             </span>
-                          </td>
-                          <td className="p-3">
-                            <span className="font-mono text-xs text-zinc-400">
-                              {(row.market_share_percent ?? 0).toFixed(1)}%
-                            </span>
-                          </td>
-                          <td className="p-3">
-                            {row.score_delta != null && row.score_delta !== 0 ? (
-                              <div className="flex items-center gap-1">
-                                {row.score_delta > 0 ? (
-                                  <TrendingUp className="w-3 h-3 text-emerald-400" />
-                                ) : (
-                                  <TrendingDown className="w-3 h-3 text-rose-400" />
-                                )}
-                                <span className={cn('font-mono text-xs', row.score_delta > 0 ? 'text-emerald-400' : 'text-rose-400')}>
-                                  {row.score_delta > 0 ? '+' : ''}{row.score_delta.toFixed(1)}
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="text-zinc-600 text-xs">—</span>
-                            )}
-                          </td>
-                          {flags.model_breakdown_view && (
-                            <td className="p-3">
-                              {row.per_model && Object.keys(row.per_model).length > 0 && (
-                                <button
-                                  onClick={() => setExpandedRow(isExpanded ? null : row.name)}
-                                  className="p-1 text-zinc-700 hover:text-zinc-300 transition-colors"
-                                >
-                                  {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                                </button>
-                              )}
-                            </td>
-                          )}
-                        </tr>
-                        {flags.model_breakdown_view && isExpanded && row.per_model && (
-                          <tr>
-                            <td colSpan={flags.model_breakdown_view ? 10 : 9} className="px-4 pb-4 bg-zinc-900/20">
-                              <PerModelBreakdown perModel={row.per_model} entityName={row.name} />
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="p-10 text-center">
-              <div className="w-14 h-14 rounded-2xl bg-zinc-800/50 border border-zinc-700/50 flex items-center justify-center mx-auto mb-4">
-                <Shield className="w-7 h-7 text-zinc-600" />
-              </div>
-              <h3 className="text-sm font-medium text-zinc-400 mb-1">Leaderboard Locked</h3>
-              <p className="text-xs text-zinc-600 max-w-sm mx-auto leading-relaxed">
-                Available on Pro plans and above. Upgrade to see full competitor rankings, score deltas, and per-model breakdowns.
-              </p>
-            </div>
-          )}
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
-      {comparison && competitors.length > 0 && flags.model_breakdown_view && (
-        <ModelBenchmarkMatrix 
-          brand={brand} 
-          competitors={competitors} 
+      {obBenchmarkData.length > 0 && (
+        <OBModelBenchmarkMatrix
+          benchmarkData={obBenchmarkData}
           jobId={jobId}
           isAskingAI={isAskingAI}
           runMetricAskAi={runMetricAskAi}
