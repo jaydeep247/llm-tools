@@ -11,7 +11,8 @@ import {
   useRunModuleFAnalysisMutation,
   resolveD7Output,
   useAskModuleFAIMutation,
-  ModuleFResult,
+  type ModuleFResult,
+  type ModuleFCompareVisibilityEntityRow,
 } from '@/store/api/module_F/moduleFApi'
 import {
   Loader2, Percent, Swords,
@@ -24,11 +25,11 @@ import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { ModuleFAskAiChatShell } from '@/components/module_F/ModuleFAskAiChatShell'
+import { PromptSourceURLsComponent } from '@/components/module_F/PromptSourceURLsComponent'
 import {
   useGetOnboardingDataQuery,
   type PromptResult,
   type AggregateStats,
-  type CompetitiveBrand,
 } from '@/store/api/brandOnboardingApi'
 
 interface VisibilityComparisonSectionProps {
@@ -655,6 +656,31 @@ function BrandOnboardingVisibilityPanel({ jobId }: { jobId?: string | null }) {
   )
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Wrapper to fetch onboarding data and display source URLs from prompts
+// ─────────────────────────────────────────────────────────────────────────────
+
+function PromptSourceURLsWrapper({ jobId }: { jobId?: string | null }) {
+  const { data: onboardingData, isLoading } = useGetOnboardingDataQuery(jobId ?? '', {
+    skip: !jobId,
+    refetchOnMountOrArgChange: true,
+  })
+
+  const prompts = useMemo(
+    () => onboardingData?.prompt_results ?? [],
+    [onboardingData?.prompt_results],
+  )
+
+  if (!jobId || !prompts.length) return null
+
+  return (
+    <PromptSourceURLsComponent
+      prompts={prompts}
+      isLoading={isLoading}
+    />
+  )
+}
+
 export default function VisibilityComparisonSection({ jobId }: VisibilityComparisonSectionProps) {
   const [isPolling, setIsPolling] = useState(false)
   const [pollCount, setPollCount] = useState(0)
@@ -673,18 +699,7 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
 
   const result = polledData?.data ?? null
 
-  // Onboarding data — single source of truth for competitor discovery
-  const { data: obData } = useGetOnboardingDataQuery(jobId ?? '', {
-    skip: !jobId,
-    refetchOnMountOrArgChange: true,
-  })
-  const competitiveLandscape: CompetitiveBrand[] = obData?.competitive_landscape ?? []
-  const promptResults: PromptResult[] = obData?.prompt_results ?? []
-
-  const brandName =
-    result?.compare_visibility_against_competitors?.brand?.name ||
-    competitiveLandscape.find((b) => b.is_our_brand)?.name ||
-    'Brand'
+  const brandName = result?.compare_visibility_against_competitors?.brand?.name ?? 'Brand'
 
   const [askModuleFAI, { isLoading: isAskingAI, error: askAIError, reset: resetAskAI }] =
     useAskModuleFAIMutation()
@@ -825,52 +840,59 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
   const comparison = result?.compare_visibility_against_competitors
   const d7 = resolveD7Output(result)
 
-  // Onboarding-derived competitor metrics — single source of truth
-  const obTopCompetitor = useMemo(
-    () => competitiveLandscape.find((b) => !b.is_our_brand) ?? null,
-    [competitiveLandscape],
-  )
-  const ourBrandOB = useMemo(
-    () => competitiveLandscape.find((b) => b.is_our_brand) ?? null,
-    [competitiveLandscape],
-  )
-  const obMarketShare = useMemo(() => {
-    const total = competitiveLandscape.reduce((s, b) => s + b.mention_count, 0)
-    if (!total || !ourBrandOB) return null
-    return Math.round((ourBrandOB.mention_count / total) * 100)
-  }, [competitiveLandscape, ourBrandOB])
+  // Single source of truth — all competitor data comes from compare_visibility_against_competitors
+  const competitors = comparison?.competitors ?? []
+  const comparisonBrand = comparison?.brand ?? null
+  const leaderboardCompetitors = useMemo<ModuleFCompareVisibilityEntityRow[]>(() => {
+    if (!comparison?.competitors?.length) return []
+    return [...comparison.competitors].sort((a, b) => a.rank_position - b.rank_position)
+  }, [comparison])
 
-  const obBenchmarkData = useMemo<OBBenchmarkRow[]>(() => {
-    if (!competitiveLandscape.length || !promptResults.length) return []
-    const PROVIDERS = ['openai', 'gemini', 'claude'] as const
-    return competitiveLandscape.slice(0, 8).map((entry) => {
-      const per_model: OBBenchmarkRow['per_model'] = {}
-      for (const prov of PROVIDERS) {
-        let mentions = 0
-        const ranks: number[] = []
-        for (const pr of promptResults) {
-          const res = pr.results?.[prov]
-          if (!res?.analysis) continue
-          if (entry.is_our_brand) {
-            if (res.analysis.brand_mentioned) {
-              mentions++
-              if (res.analysis.brand_rank != null) ranks.push(res.analysis.brand_rank)
-            }
-          } else {
-            const found = res.analysis.all_mentioned_brands?.find(
-              (b) => b.name.toLowerCase() === entry.name.toLowerCase(),
-            )
-            if (found) mentions++
-          }
-        }
-        per_model[prov] = {
-          mentions,
-          avg_rank: ranks.length ? Math.round(ranks.reduce((a, b) => a + b, 0) / ranks.length) : null,
-        }
-      }
-      return { name: entry.name, is_our_brand: entry.is_our_brand, per_model }
-    })
-  }, [competitiveLandscape, promptResults])
+  const leaderboardEntries = useMemo<ModuleFCompareVisibilityEntityRow[]>(() => {
+    if (!comparison) return []
+    const all = [
+      ...(comparison.brand ? [comparison.brand] : []),
+      ...leaderboardCompetitors,
+    ]
+    return all.sort((a, b) => a.rank_position - b.rank_position)
+  }, [comparison, leaderboardCompetitors])
+
+  const topCompetitor = useMemo(() => {
+    return leaderboardCompetitors[0] ?? null
+  }, [leaderboardCompetitors])
+
+  const topCompetitorProgress = useMemo(() => {
+    if (!topCompetitor) return 0
+    if (typeof topCompetitor.market_share_percent === 'number' && topCompetitor.market_share_percent > 0) {
+      return topCompetitor.market_share_percent
+    }
+    if (typeof topCompetitor.share_of_voice === 'number' && topCompetitor.share_of_voice > 0) {
+      return topCompetitor.share_of_voice
+    }
+    if (typeof topCompetitor.mentions_total === 'number') {
+      const maxMentions = leaderboardEntries[0]?.mentions_total ?? topCompetitor.mentions_total
+      return maxMentions ? Math.min(100, Math.round((topCompetitor.mentions_total / maxMentions) * 100)) : 0
+    }
+    return 0
+  }, [topCompetitor, leaderboardEntries])
+
+  const benchmarkData = useMemo<OBBenchmarkRow[]>(() => {
+    if (!comparison) return []
+    const entities: ModuleFCompareVisibilityEntityRow[] = [
+      ...(comparison.brand ? [comparison.brand] : []),
+      ...(comparison.competitors ?? []),
+    ]
+    return entities.slice(0, 8).map((e) => ({
+      name: e.name,
+      is_our_brand: e.entity_type === 'client',
+      per_model: Object.fromEntries(
+        Object.entries(e.per_model ?? {}).map(([k, v]) => [
+          k,
+          { mentions: v.mentions, avg_rank: v.rank ?? null },
+        ]),
+      ),
+    }))
+  }, [comparison])
 
   useEffect(() => {
     if (!isPolling) return
@@ -997,9 +1019,9 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
                   className={cn(
                     'rounded-full border-0 shadow-lg shadow-fuchsia-950/30',
                     'text-xs font-extrabold uppercase tracking-wider',
-                    'bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300',
+                    'bg-linear-to-r from-purple-500 via-pink-500 to-amber-300',
                     'text-black hover:opacity-95 hover:shadow-xl',
-                    'h-auto min-h-[44px] px-5 py-2.5',
+                    'h-auto min-h-11 px-5 py-2.5',
                     'gap-2',
                   )}
                 >
@@ -1039,7 +1061,7 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
         </div>
       )}
 
-      {!comparison && !isRunning && competitiveLandscape.length === 0 && (
+      {!comparison && !isRunning && (
         <AnalysisEmptyState
           icon={<Swords className="w-8 h-8 text-zinc-400" />}
           title="No Visibility Data Yet"
@@ -1051,19 +1073,15 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
         />
       )}
 
-      {(competitiveLandscape.length > 0 || d7) && (
+      {(comparison || d7) && (
         <div className={cn('grid gap-4', d7 ? 'grid-cols-1 md:grid-cols-3' : 'grid-cols-1 md:grid-cols-2')}>
           <StatCard
             label="Top Competitor"
-            value={obTopCompetitor?.name ?? '—'}
-            subtext={obTopCompetitor ? `×${obTopCompetitor.mention_count} mentions` : 'No competitor data yet'}
+            value={topCompetitor?.name ?? '—'}
+            subtext={topCompetitor ? `×${topCompetitor.mentions_total} mentions` : 'No competitor data yet'}
             icon={Trophy}
             accent="violet"
-            progress={
-              obTopCompetitor && competitiveLandscape[0]
-                ? Math.round((obTopCompetitor.mention_count / competitiveLandscape[0].mention_count) * 100)
-                : 0
-            }
+            progress={topCompetitorProgress}
             description="Leading brand by AI mention frequency"
             labelAction={
               <MetricAskButton
@@ -1075,11 +1093,11 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
 
           <StatCard
             label="Market Share"
-            value={obMarketShare != null ? `${obMarketShare}%` : '—'}
-            subtext={`${competitiveLandscape.length} brands tracked`}
+            value={comparisonBrand?.market_share_percent != null ? `${comparisonBrand.market_share_percent.toFixed(1)}%` : '—'}
+            subtext={`${competitors.length} brands tracked`}
             icon={Percent}
             accent="emerald"
-            progress={obMarketShare ?? 0}
+            progress={comparisonBrand?.market_share_percent ?? 0}
             description="Your share of AI recommendations"
             labelAction={
               <MetricAskButton
@@ -1112,7 +1130,10 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
 
       <BrandOnboardingVisibilityPanel jobId={jobId} />
 
-      {competitiveLandscape.length > 0 && (
+      {/* Source URLs from Prompts */}
+      <PromptSourceURLsWrapper jobId={jobId} />
+
+      {leaderboardEntries.length > 0 && (
         <div className="bg-[#111113] rounded-xl border border-zinc-800 overflow-hidden">
           <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -1122,7 +1143,7 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
               <div>
                 <div className="text-sm font-medium text-zinc-100">Competitor Leaderboard</div>
                 <div className="text-[11px] text-zinc-600">
-                  {competitiveLandscape.length} brands · organic AI discovery
+                  {leaderboardEntries.length} brands · organic AI discovery
                 </div>
               </div>
             </div>
@@ -1144,41 +1165,45 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-800">
-                {competitiveLandscape.map((entry) => {
-                  const maxMentions = competitiveLandscape[0]?.mention_count ?? 1
-                  const barPct = Math.round((entry.mention_count / maxMentions) * 100)
+                {leaderboardEntries.map((entry) => {
+                  const isOurBrand = entry.entity_type === 'client'
+                  const maxMentions = leaderboardEntries[0]?.mentions_total ?? 1
+                  const barPct = Math.round((entry.mentions_total / maxMentions) * 100)
                   const providerLabels: Record<string, string> = { openai: 'GPT', gemini: 'GEM', claude: 'CLU' }
+                  const mentionedProviders = Object.entries(entry.per_model ?? {})
+                    .filter(([, v]) => v.mentions > 0)
+                    .map(([k]) => k)
                   return (
                     <tr
                       key={entry.name}
                       className={cn(
                         'hover:bg-zinc-900/50 transition-colors',
-                        entry.is_our_brand && 'bg-blue-950/20',
+                        isOurBrand && 'bg-blue-950/20',
                       )}
                     >
                       <td className="p-3">
                         <span className="text-zinc-600 text-xs font-mono">
-                          {entry.organic_rank === 1
+                          {entry.rank_position === 1
                             ? <Trophy className="w-4 h-4 text-amber-400 inline" />
-                            : `#${entry.organic_rank}`}
+                            : `#${entry.rank_position}`}
                         </span>
                       </td>
                       <td className="p-3">
                         <div className="flex items-center gap-2">
                           <div className={cn(
                             'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
-                            entry.is_our_brand ? 'bg-blue-500/10 text-blue-400' : 'bg-zinc-800 text-zinc-400',
+                            isOurBrand ? 'bg-blue-500/10 text-blue-400' : 'bg-zinc-800 text-zinc-400',
                           )}>
-                            {entry.is_our_brand ? <Target className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
+                            {isOurBrand ? <Target className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
                           </div>
                           <div className="flex flex-col min-w-0">
                             <span className={cn(
                               'font-medium truncate max-w-55',
-                              entry.is_our_brand ? 'text-blue-300' : 'text-zinc-100',
+                              isOurBrand ? 'text-blue-300' : 'text-zinc-100',
                             )}>
                               {entry.name}
                             </span>
-                            {entry.is_our_brand && (
+                            {isOurBrand && (
                               <span className="text-[9px] font-bold text-blue-400 uppercase tracking-tighter">Your Brand</span>
                             )}
                           </div>
@@ -1188,11 +1213,11 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
                         <div className="flex items-center gap-2">
                           <div className="w-20 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
                             <div
-                              className={cn('h-full rounded-full', entry.is_our_brand ? 'bg-blue-500' : 'bg-zinc-500/60')}
+                              className={cn('h-full rounded-full', isOurBrand ? 'bg-blue-500' : 'bg-zinc-500/60')}
                               style={{ width: `${barPct}%` }}
                             />
                           </div>
-                          <span className="text-xs font-mono text-zinc-400">×{entry.mention_count}</span>
+                          <span className="text-xs font-mono text-zinc-400">×{entry.mentions_total}</span>
                         </div>
                       </td>
                       <td className="p-3">
@@ -1202,7 +1227,7 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
                       </td>
                       <td className="p-3">
                         <div className="flex gap-1 flex-wrap">
-                          {entry.providers_mentioned.map((p) => (
+                          {mentionedProviders.map((p) => (
                             <span
                               key={p}
                               className="text-[8px] font-mono bg-zinc-800 text-zinc-500 px-1.5 py-0.5 rounded"
@@ -1221,9 +1246,9 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
         </div>
       )}
 
-      {obBenchmarkData.length > 0 && (
+      {benchmarkData.length > 0 && (
         <OBModelBenchmarkMatrix
-          benchmarkData={obBenchmarkData}
+          benchmarkData={benchmarkData}
           jobId={jobId}
           isAskingAI={isAskingAI}
           runMetricAskAi={runMetricAskAi}
