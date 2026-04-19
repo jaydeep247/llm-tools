@@ -18,14 +18,14 @@ import {
   Loader2, Percent, Swords,
   ChevronDown, ChevronUp, Gauge,
   Star, MessageSquare, Zap, Trophy, Target, Globe,
-  Search, Activity
+  Search, Activity, ExternalLink, AlertCircle, Check
 } from 'lucide-react'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { ModuleFAskAiChatShell } from '@/components/module_F/ModuleFAskAiChatShell'
-import { PromptSourceURLsComponent } from '@/components/module_F/PromptSourceURLsComponent'
+import { useSearchBrandMentionsMutation } from '@/store/api/brandMentionsApi'
 import {
   useGetOnboardingDataQuery,
   type PromptResult,
@@ -424,6 +424,16 @@ function OBProviderCell({
 
 function OBPromptRow({ result, index }: { result: PromptResult; index: number }) {
   const [expanded, setExpanded] = useState(false)
+  const [sourcesFetched, setSourcesFetched] = useState(false)
+  const [searchBrandMentions, { data: searchData, isLoading: isSearching, error }] = useSearchBrandMentionsMutation()
+
+  useEffect(() => {
+    if (expanded && !sourcesFetched && !isSearching && !searchData) {
+      setSourcesFetched(true)
+      searchBrandMentions({ query: result.prompt, num: 10 })
+    }
+  }, [expanded, sourcesFetched, isSearching, searchData, searchBrandMentions, result.prompt])
+
   const mentionedCount = OB_PROVIDERS.filter((p) => result.results?.[p]?.analysis?.brand_mentioned).length
   const ranks = OB_PROVIDERS
     .map((p) => result.results?.[p]?.analysis?.brand_rank)
@@ -464,10 +474,70 @@ function OBPromptRow({ result, index }: { result: PromptResult; index: number })
         }
       </button>
       {expanded && (
-        <div className="border-t border-zinc-800/40 px-4 pb-4 pt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
-          {OB_PROVIDERS.map((p) => (
-            <OBProviderCell key={p} provider={p} result={result.results?.[p]} />
-          ))}
+        <div className="border-t border-zinc-800/40 px-4 pb-4 pt-3 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {OB_PROVIDERS.map((p) => (
+              <OBProviderCell key={p} provider={p} result={result.results?.[p]} />
+            ))}
+          </div>
+
+          {/* Sources Section */}
+          <div className="border-t border-zinc-800/40 pt-3">
+            <h4 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">
+              Source URLs
+            </h4>
+            {isSearching ? (
+              <div className="flex justify-center py-4">
+                <Loader2 className="w-4 h-4 text-zinc-600 animate-spin" />
+              </div>
+            ) : error ? (
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+                <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                <div className="text-[11px] text-red-200">Failed to fetch sources</div>
+              </div>
+            ) : searchData?.results && searchData.results.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {searchData.results.map((r, i) => (
+                  <a
+                    key={`${r.url}-${i}`}
+                    href={r.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-start gap-2.5 p-2.5 rounded-lg bg-zinc-900/60 hover:bg-zinc-800/60 border border-zinc-800 hover:border-zinc-700 transition-all group/link"
+                  >
+                    <div className="mt-0.5 shrink-0">
+                      <Globe className="w-3.5 h-3.5 text-zinc-500 group-hover/link:text-blue-400 transition-colors" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <p className="text-[11px] font-semibold text-zinc-200 group-hover/link:text-blue-300 transition-colors line-clamp-2">
+                            {r.title}
+                          </p>
+                          <p className="text-[10px] text-zinc-500 font-mono mt-0.5 truncate group-hover/link:text-zinc-400 transition-colors">
+                            {r.url}
+                          </p>
+                        </div>
+                        <ExternalLink className="w-3 h-3 text-zinc-600 group-hover/link:text-blue-400 shrink-0 mt-0.5 transition-colors" />
+                      </div>
+                      <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[8px] font-bold uppercase tracking-tighter text-zinc-600 px-1.5 py-0.5 rounded bg-zinc-800/50">
+                          Rank #{r.rank}
+                        </span>
+                        <span className="text-[8px] text-zinc-600 bg-zinc-800/40 px-1.5 py-0.5 rounded">
+                          {r.source_domain}
+                        </span>
+                      </div>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-4">
+                <p className="text-[11px] text-zinc-600">No sources found for this query</p>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -656,30 +726,7 @@ function BrandOnboardingVisibilityPanel({ jobId }: { jobId?: string | null }) {
   )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Wrapper to fetch onboarding data and display source URLs from prompts
-// ─────────────────────────────────────────────────────────────────────────────
 
-function PromptSourceURLsWrapper({ jobId }: { jobId?: string | null }) {
-  const { data: onboardingData, isLoading } = useGetOnboardingDataQuery(jobId ?? '', {
-    skip: !jobId,
-    refetchOnMountOrArgChange: true,
-  })
-
-  const prompts = useMemo(
-    () => onboardingData?.prompt_results ?? [],
-    [onboardingData?.prompt_results],
-  )
-
-  if (!jobId || !prompts.length) return null
-
-  return (
-    <PromptSourceURLsComponent
-      prompts={prompts}
-      isLoading={isLoading}
-    />
-  )
-}
 
 export default function VisibilityComparisonSection({ jobId }: VisibilityComparisonSectionProps) {
   const [isPolling, setIsPolling] = useState(false)
@@ -1130,8 +1177,7 @@ export default function VisibilityComparisonSection({ jobId }: VisibilityCompari
 
       <BrandOnboardingVisibilityPanel jobId={jobId} />
 
-      {/* Source URLs from Prompts */}
-      <PromptSourceURLsWrapper jobId={jobId} />
+
 
       {leaderboardEntries.length > 0 && (
         <div className="bg-[#111113] rounded-xl border border-zinc-800 overflow-hidden">

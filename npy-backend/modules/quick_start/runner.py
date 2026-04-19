@@ -18,6 +18,9 @@ from modules.module_E.competitor_analyzer import CompetitorAnalyzer
 from modules.module_E.ranking_runner import run_ranking_analysis
 from modules.brand_onboarding.service import generate_brand_description
 from workers.cancellation import is_job_cancelled, is_job_paused, mark_job_cancelled, JobCancelledError as _JobCancelledError
+from modules.module_C.runner import run_module_c
+from modules.module_F.runner import run_module_f_competitor_ai_intelligence
+
 
 logger = logging.getLogger("quick_start")
 
@@ -446,6 +449,36 @@ async def _run_ranking(job_id: str, url: str, html_content: str = None) -> Dict[
         logger.error(f"[QS] Ranking analysis error: {exc}", exc_info=True)
         return {"error": str(exc)}
 
+async def _run_module_c_task(job_id: str, url: str, html_content: str, industry: str) -> Dict[str, Any]:
+    """Run Module C (Content Intelligence) and persist results."""
+    try:
+        result = await run_module_c(
+            job_id=job_id,
+            url=url,
+            source_job_id=job_id,
+            html_content=html_content,
+            industry=industry,
+        )
+        return result
+    except Exception as exc:
+        logger.error(f"[QS] Module C error: {exc}", exc_info=True)
+        return {"error": str(exc)}
+
+async def _run_module_f_task(job_id: str, url: str, session_id: str, project_id: str) -> Dict[str, Any]:
+    """Run Module F (Competitor Intelligence) and persist results."""
+    try:
+        result = await run_module_f_competitor_ai_intelligence(
+            job_id=job_id,
+            url=url,
+            session_id=session_id,
+            project_id=project_id,
+            source_job_id=job_id,
+        )
+        return result
+    except Exception as exc:
+        logger.error(f"[QS] Module F error: {exc}", exc_info=True)
+        return {"error": str(exc)}
+
 
 # ---------------------------------------------------------------------------
 # public entry point
@@ -551,20 +584,22 @@ async def run_quick_start(
             _update_crawl_status(job_id, "cancelled")
             raise JobCancelledError(f"Job {job_id} was cancelled before analyses")
 
-        # ── Combined Phase: brand + competitor + ranking ALL in parallel ──────
+        # ── Combined Phase: brand + competitor + ranking + module_c ALL in parallel ──────
         # Ranking does NOT depend on brand or competitor results — it only
         # needs the URL and homepage HTML, both of which are now available.
         # Running all three concurrently cuts total wait time from
         #   T_brand + T_competitor + T_ranking   →   max(T_brand, T_competitor, T_ranking)
-        logger.info("[QS] Starting brand, competitor & ranking analyses in parallel")
+        logger.info("[QS] Starting brand, competitor, ranking & content metrics in parallel")
         _publish_event(job_id, "QS_STEP_UPDATE", {"step": "brand_analysis",      "stepStatus": "running"})
         _publish_event(job_id, "QS_STEP_UPDATE", {"step": "competitor_analysis", "stepStatus": "running"})
         _publish_event(job_id, "QS_STEP_UPDATE", {"step": "ranking_analysis",    "stepStatus": "running"})
+        _publish_event(job_id, "QS_STEP_UPDATE", {"step": "module_c",            "stepStatus": "running"})
 
-        brand_result, competitor_result, ranking_result = await asyncio.gather(
+        brand_result, competitor_result, ranking_result, c_result = await asyncio.gather(
             _run_brand(job_id, brand_name, url=url),
             _run_competitors_and_sov(job_id, url, brand_name, brand_description=brand_description),
             _run_ranking(job_id, url, html_content=html_content),  # pre-fetched HTML — no extra fetch
+            _run_module_c_task(job_id, url, html_content=html_content, industry=brand_description or ""),
             return_exceptions=True,
         )
 
@@ -589,10 +624,35 @@ async def run_quick_start(
         else:
             _publish_event(job_id, "QS_STEP_UPDATE", {"step": "ranking_analysis", "stepStatus": "completed"})
 
+        if isinstance(c_result, Exception):
+            logger.error(f"[QS] Module C task raised: {c_result}", exc_info=c_result)
+            c_result = {"error": str(c_result)}
+            _publish_event(job_id, "QS_STEP_UPDATE", {"step": "module_c", "stepStatus": "failed"})
+        else:
+            _publish_event(job_id, "QS_STEP_UPDATE", {"step": "module_c", "stepStatus": "completed"})
+
         if _is_cancelled(job_id):
             logger.info(f"[QS] Job {job_id} cancelled after analyses — aborting")
             _update_crawl_status(job_id, "cancelled")
             raise JobCancelledError(f"Job {job_id} was cancelled after analyses")
+
+        # ── Sequential Phase: Module F (Depends on Competitors & Prompts from Module E) ──────
+        logger.info("[QS] Starting Module F (Visibility Comparison) after Module E is complete")
+        _publish_event(job_id, "QS_STEP_UPDATE", {"step": "module_f", "stepStatus": "running"})
+        
+        f_result = await _run_module_f_task(job_id, url, _session_id, _project_id)
+        
+        if isinstance(f_result, Exception):
+            logger.error(f"[QS] Module F task raised: {f_result}")
+            f_result = {"error": str(f_result)}
+            _publish_event(job_id, "QS_STEP_UPDATE", {"step": "module_f", "stepStatus": "failed"})
+        else:
+            _publish_event(job_id, "QS_STEP_UPDATE", {"step": "module_f", "stepStatus": "completed"})
+
+        if _is_cancelled(job_id):
+            logger.info(f"[QS] Job {job_id} cancelled after Module F — aborting")
+            _update_crawl_status(job_id, "cancelled")
+            raise JobCancelledError(f"Job {job_id} was cancelled after Module F")
 
         _mark_completed(job_id, _session_id)
 
@@ -602,6 +662,8 @@ async def run_quick_start(
             "brand_analysis":      brand_result,
             "competitor_analysis": competitor_result,
             "ranking_analysis":    ranking_result,
+            "module_c":            c_result,
+            "module_f":            f_result,
             "success":             True,
         }
 

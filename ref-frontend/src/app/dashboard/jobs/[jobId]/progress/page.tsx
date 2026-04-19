@@ -41,6 +41,16 @@ const STEP_DEFINITIONS: StepDefinition[] = [
     label: 'Ranking Analysis',
     description: 'Checking brand ranking across AI models',
   },
+  {
+    id: 'module_c',
+    label: 'Content Intelligence',
+    description: 'Analyzing content metrics and AEO readiness',
+  },
+  {
+    id: 'module_f',
+    label: 'Visibility Comparison',
+    description: 'Benchmarking AI visibility against competitors',
+  },
 ]
 
 const TOTAL_STEPS = STEP_DEFINITIONS.length

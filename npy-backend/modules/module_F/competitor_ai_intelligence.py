@@ -119,23 +119,40 @@ def _safe_parse_json(text: Any) -> Optional[Dict[str, Any]]:
         return text
     raw = str(text).strip()
     # Strip markdown code fences that models sometimes add
-    raw = re.sub(r"^```(?:json)?\s*", "", raw)
-    raw = re.sub(r"\s*```$", "", raw)
-    raw = raw.strip()
+    match = re.search(r"```(?:json)?\s*(.*?)\s*```", raw, re.DOTALL | re.IGNORECASE)
+    if match:
+        raw = match.group(1).strip()
+    else:
+        raw = re.sub(r"^```(?:json)?\s*", "", raw)
+        raw = re.sub(r"\s*```$", "", raw)
+        raw = raw.strip()
     if not raw:
         return None
     try:
         parsed = json.loads(raw)
         return parsed if isinstance(parsed, dict) else None
     except Exception:
-        start = raw.find("{")
-        end = raw.rfind("}")
-        if start >= 0 and end > start:
+        # If standard parsing fails (likely due to truncation), try to parse whatever we can
+        # Especially if it's a list of dicts that got cut off
+        try:
+            import json_repair # if available, though we prefer built-in
+        except ImportError:
+            pass
+            
+        # Very simple fallback: find the last complete dictionary in the string
+        # and try to extract the competitor_sources list
+        if '"competitor_sources":' in raw:
+            # We know it's trying to build a list or dict of sources
+            # Let's try to extract completed items
             try:
-                parsed = json.loads(raw[start: end + 1])
-                return parsed if isinstance(parsed, dict) else None
-            except Exception:
+                # Find all completed dictionaries inside the array
+                import ast
+                # Just return an empty dict to let the next model try, or we could write a complex parser.
+                # Since the model hallucinated infinite numbers, the data is garbage anyway.
+                # Better to return None and let the retry mechanism or other models handle it.
                 return None
+            except Exception:
+                pass
         return None
  
  
@@ -963,17 +980,21 @@ class CompetitorAIIntelligence:
  
         prompt = (
             f"For the following companies in {topic}: {', '.join(top_competitors)}.\n"
-            "For EACH company, list up to 12 external citation sources (URLs or domains) that are likely to cite them "
+            "For EACH company, list up to 8 external citation sources (URLs or domains) that are likely to cite them "
             "or influence their perceived authority. Prefer well-known publications, research sites, standards bodies, "
             "and reputable directories.\n"
+            "CRITICAL: Keep URLs short and realistic. DO NOT hallucinate infinite number sequences or extremely long URLs.\n"
             "For each source, estimate a Domain Authority (DA) score from 0-100 based on its reputation.\n\n"
             "Return ONLY valid JSON in this format:\n"
             "{\n"
-            '  "competitor_sources": {\n'
-            '    "Competitor Name": [\n'
-            '      {"domain": "example.com", "url": "https://example.com/some-page", "authority_score": 85, "citation_type": "industry_report"}\n'
-            "    ]\n"
-            "  }\n"
+            '  "competitor_sources": [\n'
+            '    {\n'
+            '      "competitor": "Competitor Name",\n'
+            '      "sources": [\n'
+            '        {"domain": "example.com", "url": "https://example.com/some-page", "authority_score": 85, "citation_type": "industry_report"}\n'
+            "      ]\n"
+            "    }\n"
+            "  ]\n"
             "}"
         )
  
@@ -988,6 +1009,8 @@ class CompetitorAIIntelligence:
                     provider=provider,
                     options={
                         "temperature": 0.2,
+                        "max_tokens": 8000,
+                        "frequency_penalty": 0.5,
                         "response_format": {"type": "json_object"},
                         "skip_cache": True,
                     },
@@ -997,6 +1020,20 @@ class CompetitorAIIntelligence:
                     continue
                 data = _safe_parse_json(resp.data) or {}
                 candidate = data.get("competitor_sources") or data.get("competitorSources") or {}
+                
+                # Handle case where candidate is a list of dicts: [{"competitor": "Name", "sources": [...]}]
+                if isinstance(candidate, list) and candidate:
+                    new_map = {}
+                    for item in candidate:
+                        if isinstance(item, dict):
+                            comp_name = item.get("competitor") or item.get("name")
+                            srcs = item.get("sources") or item.get("citations")
+                            if comp_name and isinstance(srcs, list):
+                                new_map[comp_name] = srcs
+                    if new_map:
+                        sources_map = new_map
+                        break
+
                 if isinstance(candidate, dict) and candidate:
                     sources_map = candidate
                     break
@@ -1004,11 +1041,16 @@ class CompetitorAIIntelligence:
                     isinstance(data, dict) and data
                     and all(isinstance(k, str) for k in data.keys())
                     and all(isinstance(v, list) for v in data.values())
+                    and "competitor_source_analysis" not in data
                 ):
                     sources_map = data
                     break
+                    
+                # If we get here, log the unparsed data
+                logger.error(f"Failed to parse source influence output. raw resp.data: {resp.data}")
  
             if not sources_map:
+                logger.error("Final sources_map is empty, returning {}")
                 return {}
  
             results = []

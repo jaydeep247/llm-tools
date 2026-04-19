@@ -151,6 +151,16 @@ export function resolveCachedJobId(
   const moduleExpiry = entry.modulesExpiresAt?.[cacheKey];
   if (!moduleExpiry || new Date(moduleExpiry) <= new Date()) return null;
 
+  // For Quick Start, ensure we also have valid results for Module C and Module F.
+  // If they are missing (e.g. older cache entries), force a cache miss so they run.
+  if (jobType === JobType.MODULE_E_QUICK_START) {
+    const modC = entry.modules['module_c'];
+    const modF = entry.modules['module_f'];
+    if (modC !== jobId || modF !== jobId) {
+      return null;
+    }
+  }
+
   return jobId;
 }
 
@@ -214,5 +224,7 @@ export async function writeCacheOnCompletion(
   // same jobId (the quick_start job).
   if (jobType === JobType.MODULE_E_QUICK_START) {
     await setCrawlCache(url, jobId);
+    await setModuleCache(url, 'module_c', jobId);
+    await setModuleCache(url, 'module_f', jobId);
   }
 }
