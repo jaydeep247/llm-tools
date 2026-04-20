@@ -110,4 +110,175 @@ export class ModuleEService {
     }
     return raw;
   }
+
+  async getPerceptionSources(
+    userId: string,
+    query: {
+      job_id: string;
+      customer_root_domain: string;
+      search?: string;
+      llm?: string;
+      property?: string;
+      type?: 'all' | 'owned' | 'third-party';
+      date_from?: string;
+      date_to?: string;
+      limit_domains?: number;
+    },
+  ): Promise<Record<string, unknown>> {
+    await this.jobService.getJobById(userId, query.job_id);
+    const endpoint = `${env.NPY_BACKEND_URL}/module-e/perception-sources`;
+    const params = new URLSearchParams();
+
+    params.set('job_id', query.job_id);
+    params.set('customer_root_domain', query.customer_root_domain);
+    if (query.search) params.set('search', query.search);
+    if (query.llm) params.set('llm', query.llm);
+    if (query.property) params.set('property', query.property);
+    if (query.type) params.set('type', query.type);
+    if (query.date_from) params.set('date_from', query.date_from);
+    if (query.date_to) params.set('date_to', query.date_to);
+    if (typeof query.limit_domains === 'number') params.set('limit_domains', String(query.limit_domains));
+
+    const res = await fetch(`${endpoint}?${params.toString()}`, {
+      method: 'GET',
+      signal: AbortSignal.timeout(60_000),
+    });
+
+    const raw = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) {
+      const detail = typeof raw.detail === 'string' ? raw.detail : res.statusText;
+      logger.error(`Module E perception sources failed: ${res.status} - ${detail}`);
+      throw new Error(detail || 'Perception sources request failed');
+    }
+    return raw;
+  }
+
+  async getPerceptionSourceResponses(
+    userId: string,
+    query: {
+      job_id: string;
+      domain: string;
+      customer_root_domain: string;
+      llm?: string;
+      property?: string;
+      type?: 'all' | 'owned' | 'third-party';
+      date_from?: string;
+      date_to?: string;
+      limit?: number;
+    },
+  ): Promise<Record<string, unknown>> {
+    await this.jobService.getJobById(userId, query.job_id);
+    const endpoint = `${env.NPY_BACKEND_URL}/module-e/perception-sources/responses`;
+    const params = new URLSearchParams();
+
+    params.set('job_id', query.job_id);
+    params.set('domain', query.domain);
+    params.set('customer_root_domain', query.customer_root_domain);
+    if (query.llm) params.set('llm', query.llm);
+    if (query.property) params.set('property', query.property);
+    if (query.type) params.set('type', query.type);
+    if (query.date_from) params.set('date_from', query.date_from);
+    if (query.date_to) params.set('date_to', query.date_to);
+    if (typeof query.limit === 'number') params.set('limit', String(query.limit));
+
+    const res = await fetch(`${endpoint}?${params.toString()}`, {
+      method: 'GET',
+      signal: AbortSignal.timeout(60_000),
+    });
+
+    const raw = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) {
+      const detail = typeof raw.detail === 'string' ? raw.detail : res.statusText;
+      logger.error(`Module E perception source responses failed: ${res.status} - ${detail}`);
+      throw new Error(detail || 'Perception source responses request failed');
+    }
+    return raw;
+  }
+
+  async runPerceptionAnalysis(
+    userId: string,
+    body: {
+      job_id: string;
+      brand_name: string;
+      domain: string;
+      market?: string;
+      language?: string;
+      properties?: string[];
+      models?: string[];
+    },
+  ): Promise<Record<string, unknown>> {
+    await this.jobService.getJobById(userId, body.job_id);
+    const endpoint = `${env.NPY_BACKEND_URL}/module-e/perception/run`;
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(180_000),
+    });
+    const raw = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) {
+      const detail = typeof raw.detail === 'string' ? raw.detail : res.statusText;
+      logger.error(`Module E perception run failed: ${res.status} - ${detail}`);
+      throw new Error(detail || 'Perception run request failed');
+    }
+    return raw;
+  }
+
+  async getPerceptionAnalysis(
+    userId: string,
+    query: { job_id: string },
+  ): Promise<Record<string, unknown>> {
+    await this.jobService.getJobById(userId, query.job_id);
+    const endpoint = `${env.NPY_BACKEND_URL}/module-e/perception`;
+    const params = new URLSearchParams({ job_id: query.job_id });
+    const res = await fetch(`${endpoint}?${params.toString()}`, {
+      method: 'GET',
+      signal: AbortSignal.timeout(60_000),
+    });
+    const raw = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) {
+      const detail = typeof raw.detail === 'string' ? raw.detail : res.statusText;
+      logger.error(`Module E perception fetch failed: ${res.status} - ${detail}`);
+      throw new Error(detail || 'Perception fetch request failed');
+    }
+    return raw;
+  }
+
+  async getPerceptionSourcesOverview(
+    userId: string,
+    query: {
+      job_id: string;
+      customer_root_domain: string;
+      llm?: string;
+      property?: string;
+      type?: 'all' | 'owned' | 'third-party';
+      date_from?: string;
+      date_to?: string;
+      top_n_domains?: number;
+    },
+  ): Promise<Record<string, unknown>> {
+    await this.jobService.getJobById(userId, query.job_id);
+    const endpoint = `${env.NPY_BACKEND_URL}/module-e/perception-sources-overview`;
+    const params = new URLSearchParams();
+    params.set('job_id', query.job_id);
+    params.set('customer_root_domain', query.customer_root_domain);
+    if (query.llm) params.set('llm', query.llm);
+    if (query.property) params.set('property', query.property);
+    if (query.type) params.set('type', query.type);
+    if (query.date_from) params.set('date_from', query.date_from);
+    if (query.date_to) params.set('date_to', query.date_to);
+    if (typeof query.top_n_domains === 'number') params.set('top_n_domains', String(query.top_n_domains));
+
+    const res = await fetch(`${endpoint}?${params.toString()}`, {
+      method: 'GET',
+      signal: AbortSignal.timeout(60_000),
+    });
+    const raw = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!res.ok) {
+      const detail = typeof raw.detail === 'string' ? raw.detail : res.statusText;
+      logger.error(`Module E perception sources overview failed: ${res.status} - ${detail}`);
+      throw new Error(detail || 'Perception sources overview request failed');
+    }
+    return raw;
+  }
 }

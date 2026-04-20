@@ -25,6 +25,7 @@ import {
   ChevronLeft,
   Lightbulb,
   Zap,
+  Glasses,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -50,6 +51,10 @@ const menuItems = [
   { id: 'module-e', label: 'Brand Intelligence', icon: Activity },
   { id: 'ai-intelligence', label: 'AI Intelligence', icon: Brain },
   { id: 'ai-visibility-scorecards', label: 'AI Visibility Scorecards', icon: Brain },
+  { id: 'brand-perception', label: 'Brand Perception', icon: Glasses },
+  { id: 'perception-analysis', label: 'Perception Analysis', icon: Activity },
+  { id: 'perception-sources', label: 'Perception Sources', icon: Network },
+  { id: 'sources-overview', label: 'Sources Overview', icon: LayoutDashboard },
   { id: 'content-metrics', label: 'Content Metrics', icon: FileCheck },
   { id: 'answer-completeness', label: 'Answer Completeness', icon: Target },
   { id: 'entity-extractor', label: 'Entity Extractor', icon: Tags },

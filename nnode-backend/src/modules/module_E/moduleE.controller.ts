@@ -6,6 +6,11 @@ import { JobConflictError, JobType } from '../job/job.types';
 import {
   jobIdParamSchema,
   moduleEAskAIBodySchema,
+  moduleEPerceptionGetQuerySchema,
+  moduleEPerceptionRunBodySchema,
+  moduleEPerceptionSourceResponsesQuerySchema,
+  moduleEPerceptionSourcesOverviewQuerySchema,
+  moduleEPerceptionSourcesQuerySchema,
   moduleESuggestedQuestionsBodySchema,
 } from './moduleE.validator';
 import { logger } from '../../shared/logger/logger';
@@ -285,6 +290,100 @@ export class ModuleEController {
         return ResponseUtil.error(res, 'Validation failed', error.errors);
       }
       return ResponseUtil.serverError(res, 'Failed to fetch suggested questions', error.message || undefined);
+    }
+  };
+
+  getPerceptionSources = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const query = moduleEPerceptionSourcesQuerySchema.parse(req.query);
+      const result = await this.moduleEService.getPerceptionSources(userId, query);
+      return ResponseUtil.success(res, 'Module E perception sources retrieved', result);
+    } catch (error: any) {
+      logger.error('Error fetching Module E perception sources:', error);
+      if (error.message?.includes('not found') || error.message?.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      if (error.name === 'ZodError') {
+        return ResponseUtil.error(res, 'Validation failed', error.errors);
+      }
+      return ResponseUtil.serverError(res, 'Failed to fetch Module E perception sources', error.message || undefined);
+    }
+  };
+
+  getPerceptionSourceResponses = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const query = moduleEPerceptionSourceResponsesQuerySchema.parse(req.query);
+      const result = await this.moduleEService.getPerceptionSourceResponses(userId, query);
+      return ResponseUtil.success(res, 'Module E perception source responses retrieved', result);
+    } catch (error: any) {
+      logger.error('Error fetching Module E perception source responses:', error);
+      if (error.message?.includes('not found') || error.message?.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      if (error.name === 'ZodError') {
+        return ResponseUtil.error(res, 'Validation failed', error.errors);
+      }
+      return ResponseUtil.serverError(res, 'Failed to fetch Module E perception source responses', error.message || undefined);
+    }
+  };
+
+  runPerceptionAnalysis = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const body = moduleEPerceptionRunBodySchema.parse(req.body);
+      const result = await this.moduleEService.runPerceptionAnalysis(userId, body);
+      return ResponseUtil.success(res, 'Module E perception run completed', result);
+    } catch (error: any) {
+      logger.error('Error running Module E perception:', error);
+      if (error.message?.includes('not found') || error.message?.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      if (error.name === 'ZodError') {
+        return ResponseUtil.error(res, 'Validation failed', error.errors);
+      }
+      return ResponseUtil.serverError(res, 'Failed to run Module E perception analysis', error.message || undefined);
+    }
+  };
+
+  getPerceptionAnalysis = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const query = moduleEPerceptionGetQuerySchema.parse(req.query);
+      const result = await this.moduleEService.getPerceptionAnalysis(userId, query);
+      return ResponseUtil.success(res, 'Module E perception analysis retrieved', result);
+    } catch (error: any) {
+      logger.error('Error fetching Module E perception:', error);
+      if (error.message?.includes('not found') || error.message?.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      if (error.name === 'ZodError') {
+        return ResponseUtil.error(res, 'Validation failed', error.errors);
+      }
+      return ResponseUtil.serverError(res, 'Failed to fetch Module E perception analysis', error.message || undefined);
+    }
+  };
+
+  getPerceptionSourcesOverview = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = req.user!.userId;
+      const query = moduleEPerceptionSourcesOverviewQuerySchema.parse(req.query);
+      const result = await this.moduleEService.getPerceptionSourcesOverview(userId, query);
+      return ResponseUtil.success(res, 'Module E perception sources overview retrieved', result);
+    } catch (error: any) {
+      logger.error('Error fetching Module E perception sources overview:', error);
+      if (error.message?.includes('not found') || error.message?.includes('access denied')) {
+        return ResponseUtil.notFound(res, error.message);
+      }
+      if (error.name === 'ZodError') {
+        return ResponseUtil.error(res, 'Validation failed', error.errors);
+      }
+      return ResponseUtil.serverError(
+        res,
+        'Failed to fetch Module E perception sources overview',
+        error.message || undefined
+      );
     }
   };
 

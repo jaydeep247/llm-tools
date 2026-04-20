@@ -102,6 +102,7 @@ class MongoManager:
                 else:
                     raise
             self._db.module_e.create_index("jobId", unique=True)
+            self._db.module_e_perception.create_index("job_id", unique=True)
             self._db.module_f.create_index("jobId", unique=True)
             self._db.module_f.create_index([("sessionId", 1), ("updatedAt", -1)])
             self._db.module_c.create_index("jobId")

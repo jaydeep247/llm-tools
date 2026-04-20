@@ -20,6 +20,7 @@ import AuditReportsPanel from '@/components/audit-reports/AuditReportsPanel'
 import WinsLossesPanel from '@/components/wins-losses/WinsLossesPanel'
 import WeeklySummaryPanel from '@/components/weekly-summary/WeeklySummaryPanel'
 import CompetitorReportsPanel from '@/components/competitor-reports/CompetitorReportsPanel'
+import PerceptionAnalysis from '@/components/brand-perception/PerceptionAnalysis'
 import { useGetAlertsQuery } from '@/store/api/alertsApi'
 // import { useGetDataListQuery, useCheckLinksMutation, useGetLinkStatsQuery, useLazyGetPageLinksQuery } from '@/store/api/module_A/dataApi'
 import { useGetProjectQuery } from '@/store/api/projectApi'
@@ -208,6 +209,7 @@ export default function SessionDetailClient() {
   const tab = searchParams.get('tab') || 'dashboard'
   
   const activeSection = tab
+  const isPerceptionSection = activeSection.toLowerCase().includes('perception')
 
   useEffect(() => {
     return () => {
@@ -251,6 +253,12 @@ export default function SessionDetailClient() {
   const { data: dashboardModuleEData } = useGetModuleEResultQuery(jobId ?? '', {
     skip: !jobId || activeSection !== 'dashboard',
   })
+  const perceptionBrandName =
+    dashboardModuleEData?.data?.brand_analysis?.brand_name ||
+    dashboardModuleEData?.data?.sentiment_tracking?.brand_name ||
+    moduleEPolled?.data?.brand_analysis?.brand_name ||
+    moduleEPolled?.data?.sentiment_tracking?.brand_name ||
+    undefined
 
   // Mutation for resuming a paused crawl.
   const [resumeCrawl] = useResumeCrawlMutation()
@@ -1697,8 +1705,24 @@ export default function SessionDetailClient() {
           />
         )}
 
+        {/* ── Brand Perception ─────────────────────────────────────────────────── */}
+        {isPerceptionSection && (
+          <PerceptionAnalysis
+            brandName={perceptionBrandName}
+            domainName={session?.startUrl ?? 'Your Brand'}
+            jobId={jobId}
+            customerRootDomain={
+              session?.startUrl
+                ? new URL(
+                    session.startUrl.startsWith('http') ? session.startUrl : `https://${session.startUrl}`
+                  ).hostname.replace(/^www\./, '')
+                : undefined
+            }
+          />
+        )}
+
         {/* Placeholder for other tabs */}
-        {activeSection !== 'crawler' && activeSection !== 'crawled-data' && activeSection !== 'page-metrics' && activeSection !== 'text-quality' && activeSection !== 'wordcount' && activeSection !== 'broken-links' && activeSection !== 'audit-checker' && activeSection !== 'link-analysis' && activeSection !== 'performance' && activeSection !== 'ga4-traffic' && activeSection !== 'recommendations' && activeSection !== 'schema-generator' && activeSection !== 'ai-intelligence' && activeSection !== 'module-e' && activeSection !== 'content-metrics' && activeSection !== 'discover-prompts' && activeSection !== 'topic-clusters' && activeSection !== 'content-matrix' && activeSection !== 'keyword-intelligence' && activeSection !== 'exports' && activeSection !== 'serp-analyzer' && activeSection !== 'audit-reports' && activeSection !== 'priority-alerts' && activeSection !== 'executive-snapshot' && activeSection !== 'wins-losses' && activeSection !== 'weekly-summary' && activeSection !== 'competitor-reports' && activeSection !== 'export-api' && activeSection !== 'dashboard' && (
+        {activeSection !== 'crawler' && activeSection !== 'crawled-data' && activeSection !== 'page-metrics' && activeSection !== 'text-quality' && activeSection !== 'wordcount' && activeSection !== 'broken-links' && activeSection !== 'audit-checker' && activeSection !== 'link-analysis' && activeSection !== 'performance' && activeSection !== 'ga4-traffic' && activeSection !== 'recommendations' && activeSection !== 'schema-generator' && activeSection !== 'ai-intelligence' && activeSection !== 'module-e' && activeSection !== 'content-metrics' && activeSection !== 'discover-prompts' && activeSection !== 'topic-clusters' && activeSection !== 'content-matrix' && activeSection !== 'keyword-intelligence' && activeSection !== 'exports' && activeSection !== 'serp-analyzer' && activeSection !== 'audit-reports' && activeSection !== 'priority-alerts' && activeSection !== 'executive-snapshot' && activeSection !== 'wins-losses' && activeSection !== 'weekly-summary' && activeSection !== 'competitor-reports' && activeSection !== 'export-api' && activeSection !== 'dashboard' && !isPerceptionSection && (
           <div className="rounded-2xl p-8 border border-zinc-800 bg-[#111113] text-center">
             <h2 className="text-xl font-semibold text-white mb-2">
               {activeSection.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}

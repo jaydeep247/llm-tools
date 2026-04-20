@@ -326,11 +326,12 @@ def _dispatch(prompt_text: str, model: str, page_url: str, job_id: str) -> dict:
 
 # ─── DB writers ───────────────────────────────────────────────────────────────
 
-def _write_response(job_id, prompt_id, model, llm_source, text, cited_urls, inp, out):
+def _write_response(job_id, prompt_id, prompt_text, model, llm_source, text, cited_urls, inp, out):
     mongo_manager.connect()
     cost = _compute_cost(model, inp, out)
     res = mongo_manager.db.citation_responses.insert_one({
         "job_id": job_id, "prompt_id": prompt_id,
+        "prompt_text": prompt_text,
         "llm_source": llm_source, "model_version": model,
         "raw_response_text": text, "cited_urls": cited_urls,
         "response_tokens": inp + out, "input_tokens": inp, "output_tokens": out,
@@ -338,7 +339,7 @@ def _write_response(job_id, prompt_id, model, llm_source, text, cited_urls, inp,
     })
     return str(res.inserted_id)
 
-def _write_events(job_id, prompt_id, response_id, model, llm_source, text, citations, cust_domain, brand, comp_domains):
+def _write_events(job_id, prompt_id, prompt_text, response_id, model, llm_source, text, citations, cust_domain, brand, comp_domains):
     mongo_manager.connect()
     db  = mongo_manager.db
     now = datetime.utcnow()
@@ -361,6 +362,7 @@ def _write_events(job_id, prompt_id, response_id, model, llm_source, text, citat
             comp_cited.append(comp_d)
         db.citation_events.insert_one({
             "job_id": job_id, "prompt_id": prompt_id, "response_id": response_id,
+            "prompt_text": prompt_text,
             "llm_source": llm_source, "model_version": model,
             "cited_url": url, "raw_cited_url": raw,
             "is_customer_citation": is_cust, "is_competitor_citation": is_comp,
@@ -403,8 +405,8 @@ def _process_single_prompt(prompt_text, model, job_id, cust_domain, brand, comp_
     inp, out      = result.get("input_tokens", 0), result.get("output_tokens", 0)
     cited_urls    = [c.get("source","") for c in citations]
 
-    response_id   = _write_response(job_id, prompt_id, model, llm_source, text, cited_urls, inp, out)
-    event_summary = _write_events(job_id, prompt_id, response_id, model, llm_source, text, citations, cust_domain, brand, comp_domains)
+    response_id   = _write_response(job_id, prompt_id, prompt_text, model, llm_source, text, cited_urls, inp, out)
+    event_summary = _write_events(job_id, prompt_id, prompt_text, response_id, model, llm_source, text, citations, cust_domain, brand, comp_domains)
     cost          = _compute_cost(model, inp, out)
 
     logger.info("[LLM_RUNNER] Done | model=%s | '%s' | cites=%d | cust=%s | $%.4f",

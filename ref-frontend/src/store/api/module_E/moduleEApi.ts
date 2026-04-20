@@ -280,11 +280,226 @@ export interface ModuleEAskAIResponse {
   error?: string
 }
 
+export interface PerceptionSourceDomain {
+  domain: string
+  totalUrls: number
+  responses: number
+  urls: Array<{
+    url: string
+    responses: number
+  }>
+}
+
+export interface PerceptionSourcesApiData {
+  success: boolean
+  job_id: string
+  totals: {
+    unique_domains: number
+    unique_urls: number
+    responses: number
+  }
+  domains: PerceptionSourceDomain[]
+}
+
+export interface PerceptionSourcesResponse {
+  success: boolean
+  message: string
+  data?: PerceptionSourcesApiData
+  error?: string
+}
+
+export interface PerceptionSourceResponseRow {
+  response_id: string
+  prompt: string
+  property: string
+  llm: string
+  timestamp: string | null
+}
+
+export interface PerceptionSourceResponsesApiData {
+  success: boolean
+  job_id: string
+  domain: string
+  count: number
+  rows: PerceptionSourceResponseRow[]
+}
+
+export interface PerceptionSourceResponsesResponse {
+  success: boolean
+  message: string
+  data?: PerceptionSourceResponsesApiData
+  error?: string
+}
+
+export interface PerceptionSourcesQuery {
+  job_id: string
+  customer_root_domain: string
+  search?: string
+  llm?: string
+  property?: string
+  type?: 'all' | 'owned' | 'third-party'
+}
+
+export interface PerceptionSourceResponsesQuery {
+  job_id: string
+  domain: string
+  customer_root_domain: string
+  llm?: string
+  property?: string
+  type?: 'all' | 'owned' | 'third-party'
+}
+
+export interface PerceptionCell {
+  property: string
+  model: string
+  model_version: string
+  prompt: string
+  rating: 'Exceptional' | 'Great' | 'Good' | 'Unavailable'
+  rating_score: number
+  depth_score: number
+  accuracy_score: number
+  positivity_score: number
+  specificity_score: number
+  raw_response_text: string
+  citations: Array<{ source?: string }>
+}
+
+export interface PerceptionAnalysisData {
+  job_id: string
+  brand_name: string
+  domain: string
+  market: string
+  language: string
+  cells: PerceptionCell[]
+  history?: Array<{
+    run_at: string
+    scores: Array<{
+      property: string
+      model_version: string
+      model: string
+      rating_score: number
+      rating: 'Exceptional' | 'Great' | 'Good' | 'Unavailable'
+    }>
+  }>
+}
+
+export interface PerceptionAnalysisResponse {
+  success: boolean
+  message: string
+  data?: {
+    success: boolean
+    job_id: string
+    data: PerceptionAnalysisData
+  }
+  error?: string
+}
+
+export interface RunPerceptionRequest {
+  job_id: string
+  brand_name: string
+  domain: string
+  market?: string
+  language?: string
+  properties?: string[]
+  models?: string[]
+}
+
+export interface PerceptionSourcesOverviewResponse {
+  success: boolean
+  message: string
+  data?: {
+    success: boolean
+    job_id: string
+    kpis: {
+      total_sources: number
+      unique_domains: number
+    }
+    domain_share: Array<{
+      domain: string
+      citations: number
+      share_pct: number
+    }>
+    trend: {
+      timeline: string[]
+      series: Array<{
+        domain: string
+        points: Array<{
+          week_start: string
+          citations: number
+          share_pct: number
+        }>
+      }>
+    }
+  }
+  error?: string
+}
+
+export interface PerceptionSourcesOverviewQuery {
+  job_id: string
+  customer_root_domain: string
+  llm?: string
+  property?: string
+  type?: 'all' | 'owned' | 'third-party'
+}
+
 export const moduleEApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getModuleEResult: builder.query<ModuleEResultResponse, string>({
       query: (jobId) => `/module-e/jobs/${jobId}`,
       providesTags: (_result, _error, jobId) => [{ type: 'ModuleE' as const, id: jobId }],
+    }),
+    getPerceptionAnalysis: builder.query<PerceptionAnalysisResponse, string>({
+      query: (jobId) => `/module-e/perception?${new URLSearchParams({ job_id: jobId }).toString()}`,
+      providesTags: (_result, _error, jobId) => [{ type: 'ModuleE' as const, id: jobId }],
+    }),
+    runPerceptionAnalysis: builder.mutation<PerceptionAnalysisResponse, RunPerceptionRequest>({
+      query: (body) => ({
+        url: '/module-e/perception/run',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: (_result, _error, body) => [{ type: 'ModuleE' as const, id: body.job_id }],
+    }),
+    getPerceptionSources: builder.query<PerceptionSourcesResponse, PerceptionSourcesQuery>({
+      query: ({ job_id, customer_root_domain, search, llm, property, type }) => {
+        const params = new URLSearchParams({
+          job_id,
+          customer_root_domain,
+          search: search ?? '',
+          llm: llm ?? 'All Models',
+          property: property ?? 'All Properties',
+          type: type ?? 'all',
+        })
+        return `/module-e/perception-sources?${params.toString()}`
+      },
+      providesTags: (_result, _error, query) => [{ type: 'ModuleE' as const, id: query.job_id }],
+    }),
+    getPerceptionSourcesOverview: builder.query<PerceptionSourcesOverviewResponse, PerceptionSourcesOverviewQuery>({
+      query: ({ job_id, customer_root_domain, llm, property, type }) => {
+        const params = new URLSearchParams({
+          job_id,
+          customer_root_domain,
+          llm: llm ?? 'All Models',
+          property: property ?? 'All Topics',
+          type: type ?? 'all',
+        })
+        return `/module-e/perception-sources-overview?${params.toString()}`
+      },
+      providesTags: (_result, _error, query) => [{ type: 'ModuleE' as const, id: query.job_id }],
+    }),
+    getPerceptionSourceResponses: builder.query<PerceptionSourceResponsesResponse, PerceptionSourceResponsesQuery>({
+      query: ({ job_id, domain, customer_root_domain, llm, property, type }) => {
+        const params = new URLSearchParams({
+          job_id,
+          domain,
+          customer_root_domain,
+          llm: llm ?? 'All Models',
+          property: property ?? 'All Properties',
+          type: type ?? 'all',
+        })
+        return `/module-e/perception-sources/responses?${params.toString()}`
+      },
+      providesTags: (_result, _error, query) => [{ type: 'ModuleE' as const, id: query.job_id }],
     }),
     runModuleEAnalysis: builder.mutation<ModuleEResultResponse, string>({
       query: (jobId) => ({
@@ -354,6 +569,11 @@ export const moduleEApi = baseApi.injectEndpoints({
 
 export const {
   useGetModuleEResultQuery,
+  useGetPerceptionAnalysisQuery,
+  useRunPerceptionAnalysisMutation,
+  useGetPerceptionSourcesQuery,
+  useGetPerceptionSourceResponsesQuery,
+  useGetPerceptionSourcesOverviewQuery,
   useRunModuleEAnalysisMutation,
   useRunBrandAnalysisMutation,
   useRunSentimentAnalysisMutation,

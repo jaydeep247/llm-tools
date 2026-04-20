@@ -30,6 +30,9 @@ import CompetitorReportsPanel from '@/components/competitor-reports/CompetitorRe
 import WeeklySummaryPanel from '@/components/weekly-summary/WeeklySummaryPanel'
 import { useGetAlertsQuery } from '@/store/api/alertsApi'
 import { BrandOnboardingResultsPanel } from '@/components/brand-onboarding/BrandOnboardingResultsPanel'
+import PerceptionAnalysis from '@/components/brand-perception/PerceptionAnalysis'
+import PerceptionSources from '@/components/brand-perception/PerceptionSources'
+import SourcesOverview from '@/components/brand-perception/SourcesOverview'
 import { useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
 import { useGetQuickStartResultQuery, useResumeCrawlMutation } from '@/store/api/quick_start/quickStartApi'
 import { useGetModuleFResultQuery } from '@/store/api/module_F/moduleFApi'
@@ -164,6 +167,10 @@ export default function SessionDetailPage() {
     !!(moduleEQueryData as any)?.data?.ai_share_of_voice ||
     !!quickStartJob ||
     !!(quickStartResult as any)?.data
+  const perceptionBrandName =
+    (moduleEQueryData as any)?.data?.brand_analysis?.brand_name ||
+    (moduleEQueryData as any)?.data?.sentiment_tracking?.brand_name ||
+    undefined
 
   const rawCrawlStatus = (quickStartResult as any)?.data?.crawl_status ?? null
   const bgCrawlStatus: string | null =
@@ -1466,6 +1473,50 @@ export default function SessionDetailPage() {
         {/* AI Visibility Report */}
         {activeSection === 'ai-visibility-report' && (
           <AIVisibilityReport jobId={jobId} url={session?.startUrl || ''} />
+        )}
+
+        {/* Brand Perception Analysis (static for now) */}
+        {(activeSection === 'perception-analysis' || activeSection === 'preception-analysis') && (
+          <PerceptionAnalysis
+            brandName={perceptionBrandName}
+            domainName={session?.startUrl ?? 'Your Brand'}
+            jobId={jobId}
+            customerRootDomain={
+              session?.startUrl
+                ? new URL(
+                    session.startUrl.startsWith('http') ? session.startUrl : `https://${session.startUrl}`
+                  ).hostname.replace(/^www\./, '')
+                : undefined
+            }
+          />
+        )}
+
+        {/* Brand Perception Sources */}
+        {activeSection === 'perception-sources' && (
+          <PerceptionSources
+            jobId={jobId}
+            customerRootDomain={
+              session?.startUrl
+                ? new URL(
+                    session.startUrl.startsWith('http') ? session.startUrl : `https://${session.startUrl}`
+                  ).hostname.replace(/^www\./, '')
+                : undefined
+            }
+          />
+        )}
+
+        {/* Sources Overview */}
+        {activeSection === 'sources-overview' && (
+          <SourcesOverview
+            jobId={jobId}
+            customerRootDomain={
+              session?.startUrl
+                ? new URL(
+                    session.startUrl.startsWith('http') ? session.startUrl : `https://${session.startUrl}`
+                  ).hostname.replace(/^www\./, '')
+                : undefined
+            }
+          />
         )}
 
         {/* Show Module E on module-e tab */}

@@ -48,6 +48,7 @@ import {
   Lightbulb,
   Brain,
   Sparkles as SparklesIcon,
+  Glasses,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -57,6 +58,7 @@ const sectionColors: Record<string, string> = {
   overview: 'text-amber-400',
   'audit-center': 'text-rose-400',
   'ai-visibility': 'text-violet-400',
+  'brand-perception': 'text-indigo-400',
   'prompt-intelligence': 'text-blue-400',
   'prompt-tracking': 'text-cyan-400',
   competitors: 'text-orange-400',
@@ -121,6 +123,16 @@ export const sessionSections: Section[] = [
       { id: 'improvement-actions', label: 'Improvement Actions', icon: Zap },
       { id: 'model-comparison', label: 'Model Comparison', icon: Layers },
       { id: 'ai-visibility-report', label: 'AI Visibility Report', icon: Brain },
+    ],
+  },
+  {
+    id: 'brand-perception',
+    label: 'Brand Perception',
+    icon: Glasses,
+    children: [
+      { id: 'perception-analysis', label: 'Perception Analysis', icon: Activity },
+      { id: 'perception-sources', label: 'Perception Sources', icon: Network },
+      { id: 'sources-overview', label: 'Sources Overview', icon: LayoutDashboard },
     ],
   },
   {

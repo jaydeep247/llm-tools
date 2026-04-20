@@ -10,6 +10,11 @@ router.use(authMiddleware);
 
 // GET results endpoints — canonical read paths for Module E data
 router.get('/module-e/jobs/:jobId', moduleEController.getModuleEResult);
+router.post('/module-e/perception/run', moduleEController.runPerceptionAnalysis);
+router.get('/module-e/perception', moduleEController.getPerceptionAnalysis);
+router.get('/module-e/perception-sources', moduleEController.getPerceptionSources);
+router.get('/module-e/perception-sources/responses', moduleEController.getPerceptionSourceResponses);
+router.get('/module-e/perception-sources-overview', moduleEController.getPerceptionSourcesOverview);
 
 router.post('/module-e/ask-ai', moduleEController.askModuleEAI);
 router.post('/module-e/ask-ai/suggested-questions', moduleEController.moduleESuggestedQuestions);
