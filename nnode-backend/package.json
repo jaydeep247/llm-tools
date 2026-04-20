@@ -21,6 +21,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.90.0",
     "@types/pdfkit": "^0.17.5",
     "@types/socket.io": "^3.0.1",
     "amqplib": "^0.10.4",

@@ -125,6 +125,7 @@ export const baseApi = createApi({
     'AuditReport',
     'Export',
     'WeeklyReport',
+    'GeoContent',
   ],
   endpoints: () => ({}),
 });

@@ -255,7 +255,7 @@ function ProviderSummaryCard({
       if (!analysis) continue
       scores.push(analysis.brand_visibility_score ?? 0)
       if (analysis.brand_mentioned) mentioned++
-      analysis.competitors_mentioned?.forEach((c) => competitors.add(c))
+      analysis.competitors_mentioned?.forEach((c) => competitors.add(c.name ?? String(c)))
     }
     const avg = scores.length > 0
       ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)

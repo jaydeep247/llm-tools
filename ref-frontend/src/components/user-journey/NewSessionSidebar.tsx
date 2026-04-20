@@ -18,7 +18,7 @@ import {
   Settings2,
   FileText,
   Database,
-  Link,
+  Link as LinkIcon,
   Download,
   Star,
   GitBranch,
@@ -47,6 +47,7 @@ import {
   PanelLeft,
   Lightbulb,
   Brain,
+  Sparkles as SparklesIcon,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -61,6 +62,7 @@ const sectionColors: Record<string, string> = {
   competitors: 'text-orange-400',
   'reports-and-alerts': 'text-yellow-400',
   'impact-analytics': 'text-emerald-400',
+  'geo-content': 'text-indigo-400',
 }
 
 interface SessionSidebarProps {
@@ -104,7 +106,7 @@ export const sessionSections: Section[] = [
       { id: 'serp-analyzer', label: 'SERP Analyzer', icon: Search },
       { id: 'recommendations', label: 'Recommendations', icon: Lightbulb },
       { id: 'structured-data', label: 'Structured Data & AI Files', icon: Database },
-      { id: 'url-explorer', label: 'URL Explorer', icon: Link },
+      { id: 'url-explorer', label: 'URL Explorer', icon: LinkIcon },
       { id: 'exports', label: 'Exports', icon: Download },
     ],
   },
@@ -181,6 +183,15 @@ export const sessionSections: Section[] = [
       { id: 'top-landing-pages', label: 'Top Landing Pages', icon: Map },
       { id: 'events-and-Conversions', label: 'Events & Conversions', icon: MousePointer },
       { id: 'visibility-traffic-correlation', label: 'Visibility ↔ Traffic Correlation', icon: ArrowLeftRight },
+    ],
+  },
+  {
+    id: 'geo-content',
+    label: 'GEO Content',
+    icon: SparklesIcon,
+    children: [
+      { id: 'geo-content-list', label: 'My Articles', icon: FileText },
+      { id: 'geo-content-create', label: 'Create Article', icon: FilePen },
     ],
   },
 ]
@@ -382,6 +393,7 @@ export function SessionSidebar({
                     </div>
                   )
                 })}
+
               </div>
             </div>
           ))}

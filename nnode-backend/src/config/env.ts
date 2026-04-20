@@ -66,6 +66,9 @@ const envSchema = z.object({
 
   // Brand Mentions — SerpAPI (https://serpapi.com)
   SERPAPI_KEY: z.string().optional().default(''),
+
+  // GEO Content Generator — Anthropic Claude
+  ANTHROPIC_API_KEY: z.string().optional().default(''),
 });
 
 const isLocalInfraUrl = (value: string): boolean => {

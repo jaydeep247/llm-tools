@@ -37,6 +37,9 @@ import { useGetModuleFResultQuery } from '@/store/api/module_F/moduleFApi'
 import { useGetProjectQuery } from '@/store/api/projectApi'
 import { useGetSessionQuery } from '@/store/api/sessionApi'
 import { useGetSessionJobsQuery, useGetJobPagesQuery, useGetJobLinksQuery, useGetJobSitemapsQuery, useGetJobFieldsQuery, useGetJobSiteStructureQuery, useRetryJobMutation, useGetJobSummaryQuery, useGetJobSnapshotQuery } from '@/store/api/jobApi'
+import { GeoContentList } from '@/components/geo-content/GeoContentList'
+import { GeoContentCreate } from '@/components/geo-content/GeoContentCreate'
+import { GeoContentViewer } from '@/components/geo-content/GeoContentViewer'
 import { useAppSelector } from '@/store/hooks'
 import { selectCrawlProgressByJobId } from '@/store/slices/crawlProgressSlice'
 import { useContentAuditSocket } from '@/hooks/useContentAuditSocket'
@@ -306,6 +309,8 @@ export default function SessionDetailPage() {
   const subtab = searchParams.get('subtab') || 'page-metrics'
 
   const activeSection = tab
+  // Tracks which GEO article is open inline (replaces routing to /dashboard/geo-content/[id])
+  const [geoContentId, setGeoContentId] = useState<string | null>(null)
 
   useEffect(() => {
     return () => {
@@ -1625,6 +1630,34 @@ export default function SessionDetailPage() {
         {/* SERP Analyzer */}
         {activeSection === 'serp-analyzer' && (
           <SerpAnalyzer jobId={jobId} sessionId={sessionId} />
+        )}
+
+        {/* GEO Content — My Articles */}
+        {activeSection === 'geo-content-list' && !geoContentId && (
+          <GeoContentList
+            onCreateClick={() => handleSectionChange('geo-content-create')}
+            onViewItem={(id) => setGeoContentId(id)}
+          />
+        )}
+
+        {/* GEO Content — Article Viewer (inline, no route change) */}
+        {activeSection === 'geo-content-list' && geoContentId && (
+          <GeoContentViewer
+            id={geoContentId}
+            onBack={() => setGeoContentId(null)}
+          />
+        )}
+
+        {/* GEO Content — Create Article */}
+        {activeSection === 'geo-content-create' && (
+          <GeoContentCreate
+            jobId={jobId}
+            inSession
+            onSuccess={(id) => {
+              setGeoContentId(id)
+              handleSectionChange('geo-content-list')
+            }}
+          />
         )}
 
       </div>
