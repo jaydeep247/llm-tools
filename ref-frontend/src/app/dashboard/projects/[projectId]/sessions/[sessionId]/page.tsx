@@ -29,7 +29,6 @@ import { AlertBanner } from '@/components/alerts/AlertBanner'
 import CompetitorReportsPanel from '@/components/competitor-reports/CompetitorReportsPanel'
 import WeeklySummaryPanel from '@/components/weekly-summary/WeeklySummaryPanel'
 import { useGetAlertsQuery } from '@/store/api/alertsApi'
-import { BrandOnboardingResultsPanel } from '@/components/brand-onboarding/BrandOnboardingResultsPanel'
 import { useGetModuleEResultQuery } from '@/store/api/module_E/moduleEApi'
 import { useGetQuickStartResultQuery, useResumeCrawlMutation } from '@/store/api/quick_start/quickStartApi'
 import { useGetModuleFResultQuery } from '@/store/api/module_F/moduleFApi'
@@ -1268,9 +1267,6 @@ export default function SessionDetailPage() {
               }
             />
 
-            <div className="rounded-2xl border border-zinc-800 bg-[#121212] p-6">
-              <BrandOnboardingResultsPanel jobId={qsJobId || jobId} />
-            </div>
           </>
         )}
 

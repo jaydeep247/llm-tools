@@ -454,14 +454,11 @@ function BrandOnboardingContent() {
                     },
                   }).unwrap()
 
-                  if (jobId) {
-                    // Include projectId + sessionId so the progress page can redirect
-                    // to the session even when the snapshot doesn't carry those fields.
-                    const params = new URLSearchParams()
-                    if (projectId) params.set('projectId', projectId)
-                    if (sessionId) params.set('sessionId', sessionId)
-                    const query = params.toString()
-                    router.push(`/dashboard/jobs/${jobId}/progress${query ? `?${query}` : ''}`)
+                  // Redirect directly to the session page when we have the identifiers.
+                  // Avoids the intermediate /jobs/progress page which can fall back to
+                  // /dashboard if the job already completed before the redirect fires.
+                  if (projectId && sessionId) {
+                    router.push(`/dashboard/projects/${projectId}/sessions/${sessionId}`)
                   } else {
                     router.push('/dashboard')
                   }
