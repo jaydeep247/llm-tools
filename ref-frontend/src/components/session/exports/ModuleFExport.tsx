@@ -137,42 +137,42 @@ const EXPORT_OPTIONS = [
     label: 'Visibility Comparison',
     description: 'Brand vs competitor visibility scores, market share and per-model rankings.',
     icon: Swords,
-    color: 'text-orange-400',
+    color: 'text-orange-600',
   },
   {
     id: 'competitor-wins',
     label: 'Competitor Wins / Losses',
     description: 'Per-prompt winner analysis and coverage gap scores.',
     icon: Trophy,
-    color: 'text-amber-400',
+    color: 'text-amber-600',
   },
   {
     id: 'gap-opportunities',
     label: 'Gap Opportunities',
     description: 'Competitor gaps with missing prompts and potential gain percentages.',
     icon: Target,
-    color: 'text-rose-400',
+    color: 'text-rose-600',
   },
   {
     id: 'source-analysis',
     label: 'Competitor Cited URLs',
     description: 'Competitor source domain influence and top citation details.',
     icon: Globe,
-    color: 'text-blue-400',
+    color: 'text-blue-600',
   },
   {
     id: 'growth-trends',
     label: 'Growth Trends',
     description: 'Historical visibility, market share and mention trends over time.',
     icon: TrendingUp,
-    color: 'text-emerald-400',
+    color: 'text-emerald-600',
   },
   {
     id: 'all',
     label: 'Full Competitor Analysis (All Sheets)',
     description: 'All competitor intelligence in one Excel workbook.',
     icon: FileSpreadsheet,
-    color: 'text-indigo-400',
+    color: 'text-indigo-600',
   },
 ]
 
@@ -257,7 +257,7 @@ export default function ModuleFExport({ jobId, sessionName = 'session' }: Module
         className="w-full flex items-center justify-between px-5 py-4 hover:bg-(--nd-bg) transition-colors cursor-pointer"
       >
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-orange-50 border border-orange-200 flex items-center justify-center shrink-0">
             <Swords className="h-4 w-4 text-orange-600" />
           </div>
           <div className="text-left">
@@ -292,7 +292,7 @@ export default function ModuleFExport({ jobId, sessionName = 'session' }: Module
               <div
                 key={opt.id}
                 className={`flex items-center justify-between px-5 py-3.5 gap-4 ${
-                  opt.id === 'all' ? 'bg-indigo-500/5' : ''
+                  opt.id === 'all' ? 'bg-(--nd-bg)' : ''
                 }`}
               >
                 <div className="flex items-center gap-3 min-w-0">
@@ -312,9 +312,10 @@ export default function ModuleFExport({ jobId, sessionName = 'session' }: Module
                     onClick={() => handleDownload(opt.id)}
                     className={`h-8 px-3 text-xs rounded-xl cursor-pointer ${
                       opt.id === 'all'
-                        ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/30'
+                        ? 'text-white border-transparent hover:opacity-90'
                         : 'bg-white text-(--nd-text-secondary) border border-(--nd-border) hover:bg-(--nd-bg)'
                     }`}
+                    style={opt.id === 'all' ? { background: 'var(--nd-purple)' } : undefined}
                     variant="ghost"
                   >
                     {isDownloading ? (

@@ -39,16 +39,16 @@ import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
 /* ------------------------------------------------------------------ */
 
 const MODEL_META: Record<string, { label: string; color: string; bg: string }> = {
-  chat_gpt: { label: 'ChatGPT', color: '#059669', bg: '#ecfdf5' },
-  gemini:   { label: 'Gemini',  color: '#2563eb', bg: '#eff6ff' },
-  claude:   { label: 'Claude',  color: '#b45309', bg: '#fffbeb' },
+  chat_gpt: { label: 'ChatGPT', color: 'var(--nd-blue)', bg: 'var(--nd-purple-subtle)' },
+  gemini:   { label: 'Gemini',  color: 'var(--nd-emerald)', bg: 'var(--nd-purple-subtle)' },
+  claude:   { label: 'Claude',  color: 'var(--nd-purple)', bg: 'var(--nd-purple-subtle)' },
 }
 const MODEL_KEYS = ['chat_gpt', 'gemini', 'claude'] as const
 
 const SENTIMENT_COLORS: Record<string, string> = {
-  positive: '#22c55e',
-  negative: '#ef4444',
-  neutral:  '#6b7280',
+  positive: '#059669', // Emerald-600
+  negative: '#dc2626', // Rose-600
+  neutral:  '#6b7280', // Gray-500
 }
 
 /* ------------------------------------------------------------------ */
@@ -72,14 +72,14 @@ function SentimentBadge({ label }: { label?: string }) {
   const map: Record<string, { bg: string; border: string; text: string; icon: React.ElementType }> = {
     positive: { bg: '#ecfdf5', border: '#a7f3d0', text: '#059669', icon: TrendingUp },
     negative: { bg: '#fef2f2', border: '#fecaca', text: '#dc2626', icon: TrendingDown },
-    neutral:  { bg: '#f9fafb', border: '#e5e7eb', text: '#6b7280', icon: Minus },
+    neutral:  { bg: 'var(--nd-bg)', border: 'var(--nd-border)', text: 'var(--nd-text-secondary)', icon: Minus },
   }
   const s = map[label.toLowerCase()] ?? map.neutral
   const SIcon = s.icon
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-lg px-2.5 py-0.5 font-medium"
-      style={{ fontSize: 'var(--font-sm)', background: s.bg, border: `1px solid ${s.border}`, color: s.text }}
+      className="inline-flex items-center gap-1 rounded-lg px-2.5 py-0.5 font-bold uppercase tracking-tight"
+      style={{ fontSize: 10, background: s.bg, border: `1px solid ${s.border}`, color: s.text }}
     >
       <SIcon className="h-3 w-3" />
       {label}
@@ -534,17 +534,17 @@ export default function DashboardOverview({
               <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={trendData} margin={{ top: 8, right: 16, left: -8, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                    <XAxis dataKey="date" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--nd-border)" vertical={false} />
+                    <XAxis dataKey="date" tick={{ fill: 'var(--nd-text-muted)', fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
                     <YAxis
-                      tick={{ fill: '#6b7280', fontSize: 11 }}
+                      tick={{ fill: 'var(--nd-text-muted)', fontSize: 10, fontWeight: 700 }}
                       axisLine={false} tickLine={false}
                       tickFormatter={fmtValue}
                       domain={[0, 100]} ticks={[0, 25, 50, 75, 100]} width={44}
                     />
                     <RechartsTooltip
-                      contentStyle={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: 12, padding: '8px 12px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
-                      labelStyle={{ color: '#6b7280', fontSize: 11, marginBottom: 4 }}
+                      contentStyle={{ background: 'var(--nd-card-bg)', border: '1px solid var(--nd-border)', borderRadius: '12px', fontSize: 12, padding: '8px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                      labelStyle={{ color: 'var(--nd-text-muted)', fontSize: 10, fontWeight: 700, marginBottom: 4, textTransform: 'uppercase' }}
                       formatter={(value: number, name: string) =>
                         trendSource === 'module_c'
                           ? [String(Math.round(Number(value))), MODEL_META[name]?.label ?? name]
@@ -590,24 +590,24 @@ export default function DashboardOverview({
                 barGap={4}
                 margin={{ top: 8, right: 8, left: -16, bottom: 0 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                <XAxis dataKey="name" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--nd-border)" vertical={false} />
+                <XAxis dataKey="name" tick={{ fill: 'var(--nd-text-muted)', fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
                 <YAxis
                   domain={[0, 100]} ticks={[0, 25, 50, 75, 100]}
-                  tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false}
+                  tick={{ fill: 'var(--nd-text-muted)', fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false}
                   tickFormatter={(v: number) => String(v)}
                   width={32}
                 />
                 <RechartsTooltip
-                  contentStyle={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: 12, padding: '8px 12px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
-                  labelStyle={{ color: '#6b7280', fontSize: 11, marginBottom: 4 }}
+                  contentStyle={{ background: 'var(--nd-card-bg)', border: '1px solid var(--nd-border)', borderRadius: '12px', fontSize: 12, padding: '8px 12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                  labelStyle={{ color: 'var(--nd-text-muted)', fontSize: 10, fontWeight: 700, marginBottom: 4, textTransform: 'uppercase' }}
                   formatter={(value: number, name: string) => [String(Math.round(Number(value))), name]}
                   cursor={{ fill: 'rgba(0,0,0,0.03)' }}
                 />
-                <Legend wrapperStyle={{ fontSize: 11, color: '#6b7280' }} />
-                <Bar key="Accuracy"     dataKey="Accuracy"     fill="#4896FE" radius={[3, 3, 0, 0]} />
+                <Legend wrapperStyle={{ fontSize: 10, fontWeight: 700, color: 'var(--nd-text-muted)', textTransform: 'uppercase' }} />
+                <Bar key="Accuracy"     dataKey="Accuracy"     fill="var(--nd-blue)" radius={[3, 3, 0, 0]} />
                 <Bar key="Completeness" dataKey="Completeness" fill="#059669" radius={[3, 3, 0, 0]} />
-                <Bar key="Friendliness" dataKey="Friendliness" fill="#5347CE" radius={[3, 3, 0, 0]} />
+                <Bar key="Friendliness" dataKey="Friendliness" fill="var(--nd-purple)" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
             {trendData.length <= 1 && (

@@ -1,9 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Download, FileSpreadsheet, ChevronDown } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { Download, FileSpreadsheet } from 'lucide-react'
 import {
   createWorkbook,
   addSheet,
@@ -79,45 +77,46 @@ export default function ExportsTab({
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-(--nd-text-primary) flex items-center gap-2">
-            <FileSpreadsheet className="h-5 w-5 text-indigo-500" />
-            Exports
-          </h2>
-          <p className="text-sm text-(--nd-text-muted) mt-1">
-            Download your analysis data as Excel (.xlsx) files — choose individual reports or full
-            module workbooks.
-          </p>
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-2.5">
+            <FileSpreadsheet className="h-5 w-5 text-indigo-600" />
+          </div>
+          <div>
+            <h2 className="nd-page-title">Exports</h2>
+            <p className="nd-page-subtitle">
+              Download your analysis data as Excel (.xlsx) files — choose individual reports or full
+              module workbooks.
+            </p>
+          </div>
         </div>
-        <Button
+        <button
           onClick={handleDownloadAllModuleA}
           disabled={isLoading || pages.length === 0 || isDownloadingAll}
-          className="shrink-0 h-9 px-4 text-sm font-medium rounded-xl bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/30 cursor-pointer"
-          variant="ghost"
+          className="nd-btn-primary shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isDownloadingAll ? (
-            <span className="flex items-center gap-2">
+            <>
               <span className="h-3.5 w-3.5 border border-current border-t-transparent rounded-full animate-spin" />
               Preparing…
-            </span>
+            </>
           ) : (
-            <span className="flex items-center gap-2">
+            <>
               <Download className="h-3.5 w-3.5" />
               Download Full SEO Audit
-            </span>
+            </>
           )}
-        </Button>
+        </button>
       </div>
 
       {/* Stats Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Pages crawled', value: pages.length, color: 'text-blue-400' },
+          { label: 'Pages crawled', value: pages.length, color: 'text-blue-600' },
           {
             label: 'Total links',
             value: Object.values(linksMap).reduce((s, l) => s + l.length, 0),
-            color: 'text-amber-400',
+            color: 'text-amber-600',
           },
           {
             label: 'Broken links',
@@ -127,7 +126,7 @@ export default function ExportsTab({
               brokenLinks.brokenExternalLinks.count +
               brokenLinks.serverErrors.count +
               brokenLinks.timeoutUnreachable.count,
-            color: 'text-rose-400',
+            color: 'text-rose-600',
           },
           { label: 'Job ID', value: jobId ? `#${jobId.slice(-6)}` : '—', color: 'text-(--nd-text-muted)' },
         ].map((stat) => (

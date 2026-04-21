@@ -222,10 +222,10 @@ export default function D3TidyTree({ data, height = 600, orientation = 'horizont
         .attr('y', -21)
         .attr('height', 42)
         .attr('width', 10)
-        .attr('fill', '#151515')
-        .attr('stroke', '#38bdf8')
+        .attr('fill', 'var(--nd-card-bg)')
+        .attr('stroke', 'var(--nd-border)')
         .attr('stroke-width', 1.5)
-        .style('filter', 'drop-shadow(0 4px 6px rgba(0,0,0,0.5))');
+        .style('filter', 'drop-shadow(0 4px 6px rgba(0,0,0,0.05))');
 
       // 2. Text Label (Larger)
       nodeEnter.append('text')
@@ -234,7 +234,7 @@ export default function D3TidyTree({ data, height = 600, orientation = 'horizont
         .attr('text-anchor', 'start')
         .text((d: any) => d.data.text)
         .style('font-weight', '600') // Bolder
-        .style('fill', '#f9fafb') // Gray-50 (Brighter)
+        .style('fill', 'var(--nd-text-primary)') // Use theme text color
         .style('font-size', '16px') // Bigger font
         .style('opacity', 0)
         .transition().duration(400).style('opacity', 1);
@@ -270,8 +270,8 @@ export default function D3TidyTree({ data, height = 600, orientation = 'horizont
 
       leftNavGroup.append('circle')
         .attr('r', 10)
-        .attr('fill', '#1f2937')
-        .attr('stroke', '#6b7280')
+        .attr('fill', 'var(--nd-bg)')
+        .attr('stroke', 'var(--nd-border)')
         .attr('stroke-width', 1.5);
 
       leftNavGroup.append('text')
@@ -280,7 +280,7 @@ export default function D3TidyTree({ data, height = 600, orientation = 'horizont
         .text('<')
         .style('font-size', '12px')
         .style('font-weight', '700')
-        .style('fill', '#e5e7eb');
+        .style('fill', 'var(--nd-text-secondary)');
 
       const linkGroup = nodeEnter
         .append('g')
@@ -298,8 +298,8 @@ export default function D3TidyTree({ data, height = 600, orientation = 'horizont
 
       linkGroup.append('circle')
         .attr('r', 10)
-        .attr('fill', '#1f2937')
-        .attr('stroke', '#6b7280')
+        .attr('fill', 'var(--nd-bg)')
+        .attr('stroke', 'var(--nd-border)')
         .attr('stroke-width', 1.5);
 
       linkGroup.append('text')
@@ -309,7 +309,7 @@ export default function D3TidyTree({ data, height = 600, orientation = 'horizont
         .text('>')
         .style('font-size', '12px')
         .style('font-weight', '700')
-        .style('fill', '#e5e7eb');
+        .style('fill', 'var(--nd-text-secondary)');
 
 
       // --- Update Transitions (Smoother with longer duration) ---
@@ -327,8 +327,8 @@ export default function D3TidyTree({ data, height = 600, orientation = 'horizont
 
         group.select('rect')
           .transition().duration(400)
-          .attr('stroke', collapsed ? '#38bdf8' : '#1e293b')
-          .attr('fill', '#151515');
+          .attr('stroke', collapsed ? 'var(--nd-purple)' : 'var(--nd-border)')
+          .attr('fill', 'var(--nd-card-bg)');
 
         // Smoothly show/hide arrows based on state
         group.select('.nav-left')
@@ -365,7 +365,7 @@ export default function D3TidyTree({ data, height = 600, orientation = 'horizont
           return diagonal({ source: o, target: o });
         })
         .attr('fill', 'none')
-        .attr('stroke', '#4b5563')
+        .attr('stroke', 'var(--nd-border)')
         .attr('stroke-width', 1.5)
         .style('opacity', 0); // Fade in
 
@@ -373,7 +373,7 @@ export default function D3TidyTree({ data, height = 600, orientation = 'horizont
 
       linkUpdate.transition().duration(600)
         .attr('d', diagonal)
-        .style('opacity', 0.4); // Subtle lines
+        .style('opacity', 0.8); // Subtle lines
 
       linksSel.exit().transition().duration(500)
         .attr('d', () => {

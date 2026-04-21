@@ -19,8 +19,7 @@ export function UsageBar({ value, caption, fillClass, className }: UsageBarProps
   return (
     <div className={cn('space-y-1', className)}>
       <div
-        className="w-full rounded-full h-1.5 overflow-hidden"
-        style={{ background: 'var(--nd-bg, #ECEDF3)' }}
+        className="w-full rounded-full h-1.5 overflow-hidden bg-(--nd-bg,#ECEDF3)"
       >
         {fillClass ? (
           <div
@@ -29,16 +28,15 @@ export function UsageBar({ value, caption, fillClass, className }: UsageBarProps
           />
         ) : (
           <div
-            className="h-full rounded-full transition-all duration-700"
+            className="h-full rounded-full transition-all duration-700 bg-(--nd-purple,#5347CE)"
             style={{
               width: `${clamped}%`,
-              background: '#5347CE',
             }}
           />
         )}
       </div>
       {caption && (
-        <p className="text-[10px]" style={{ color: 'var(--nd-text-muted, #9DA3B3)' }}>
+        <p className="text-[10px] text-(--nd-text-muted,#9DA3B3)">
           {caption}
         </p>
       )}

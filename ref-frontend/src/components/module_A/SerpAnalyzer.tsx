@@ -58,26 +58,26 @@ const LOCATION_OPTIONS = [
 ]
 
 const FEATURE_META: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-  featured_snippet: { label: 'Featured Snippet',  icon: <Crown      className="w-3 h-3" />, color: 'text-amber-400' },
-  answer_box:       { label: 'Answer Box',        icon: <CheckCircle2 className="w-3 h-3" />, color: 'text-emerald-400' },
-  people_also_ask:  { label: 'PAA',               icon: <HelpCircle className="w-3 h-3" />, color: 'text-blue-400' },
-  knowledge_graph:  { label: 'Knowledge Panel',   icon: <BookOpen   className="w-3 h-3" />, color: 'text-violet-400' },
-  local_pack:       { label: 'Local Pack',        icon: <MapPin     className="w-3 h-3" />, color: 'text-rose-400' },
-  image_carousel:   { label: 'Images',            icon: <Image      className="w-3 h-3" />, color: 'text-cyan-400' },
-  video_carousel:   { label: 'Videos',            icon: <Video      className="w-3 h-3" />, color: 'text-orange-400' },
-  news_box:         { label: 'News',              icon: <Newspaper  className="w-3 h-3" />, color: 'text-sky-400' },
-  sitelinks:        { label: 'Sitelinks',         icon: <Link2      className="w-3 h-3" />, color: 'text-indigo-400' },
-  paid:             { label: 'Ads',               icon: <ShoppingBag className="w-3 h-3" />, color: 'text-yellow-400' },
+  featured_snippet: { label: 'Featured Snippet',  icon: <Crown      className="w-3 h-3" />, color: 'text-amber-600' },
+  answer_box:       { label: 'Answer Box',        icon: <CheckCircle2 className="w-3 h-3" />, color: 'text-emerald-600' },
+  people_also_ask:  { label: 'PAA',               icon: <HelpCircle className="w-3 h-3" />, color: 'text-blue-600' },
+  knowledge_graph:  { label: 'Knowledge Panel',   icon: <BookOpen   className="w-3 h-3" />, color: 'text-violet-600' },
+  local_pack:       { label: 'Local Pack',        icon: <MapPin     className="w-3 h-3" />, color: 'text-rose-600' },
+  image_carousel:   { label: 'Images',            icon: <Image      className="w-3 h-3" />, color: 'text-cyan-700' },
+  video_carousel:   { label: 'Videos',            icon: <Video      className="w-3 h-3" />, color: 'text-orange-600' },
+  news_box:         { label: 'News',              icon: <Newspaper  className="w-3 h-3" />, color: 'text-sky-600' },
+  sitelinks:        { label: 'Sitelinks',         icon: <Link2      className="w-3 h-3" />, color: 'text-indigo-600' },
+  paid:             { label: 'Ads',               icon: <ShoppingBag className="w-3 h-3" />, color: 'text-yellow-700' },
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function rankBadgeClass(rank: number | null): string {
-  if (!rank) return 'bg-zinc-100 text-zinc-500 border-zinc-300'
-  if (rank <= 3)  return 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-  if (rank <= 10) return 'bg-blue-500/15 text-blue-400 border-blue-500/30'
-  if (rank <= 20) return 'bg-amber-500/15 text-amber-400 border-amber-500/30'
-  return 'bg-zinc-100 text-zinc-500 border-zinc-300'
+  if (!rank) return 'bg-(--nd-bg) text-(--nd-text-muted) border-(--nd-border)'
+  if (rank <= 3)  return 'bg-emerald-50 text-emerald-700 border-emerald-200'
+  if (rank <= 10) return 'bg-blue-50 text-blue-700 border-blue-200'
+  if (rank <= 20) return 'bg-amber-50 text-amber-700 border-amber-200'
+  return 'bg-(--nd-bg) text-(--nd-text-muted) border-(--nd-border)'
 }
 
 function rankLabel(rank: number | null): string {
@@ -311,13 +311,10 @@ export function SerpAnalyzer({ jobId, sessionId }: SerpAnalyzerProps) {
       </Dialog>
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
         <div>
-          <h2 className="text-lg font-bold text-(--nd-text-primary) flex items-center gap-2">
-            <Search className="w-4 h-4 text-rose-500" />
-            SERP Analyzer
-          </h2>
-          <p className="text-xs text-(--nd-text-muted) mt-0.5">
+          <h2 className="nd-page-title">SERP Analyzer</h2>
+          <p className="nd-page-subtitle">
             See where your keywords rank on Google and discover opportunities to climb higher.
           </p>
         </div>
@@ -338,15 +335,16 @@ export function SerpAnalyzer({ jobId, sessionId }: SerpAnalyzerProps) {
             <button
               onClick={() => refetchSession()}
               disabled={isFetchingSession || isJobRunning}
-              className="flex items-center gap-1.5 text-xs text-(--nd-text-secondary) hover:text-(--nd-text-primary) border border-(--nd-border) hover:border-(--nd-text-secondary) rounded-lg px-3 py-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)', color: 'var(--nd-text-muted)' }}
+              title="Refresh"
             >
-              <RefreshCw className={cn('w-3 h-3', isFetchingSession && 'animate-spin')} />
-              Refresh
+              <RefreshCw className={cn('w-4 h-4', isFetchingSession && 'animate-spin')} />
             </button>
           )}
           <button
             onClick={() => { setShowForm((v) => !v); setRunError(null) }}
-            className="flex items-center gap-1.5 text-xs font-medium bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 border border-rose-500/30 rounded-lg px-3 py-1.5 transition-colors cursor-pointer"
+            className="nd-btn-primary cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             {showForm ? 'Cancel' : 'New Analysis'}
@@ -393,7 +391,7 @@ export function SerpAnalyzer({ jobId, sessionId }: SerpAnalyzerProps) {
       {/* Loading */}
       {isLoadingInitial && (
         <div className="flex flex-col items-center justify-center py-20 gap-4">
-          <Loader2 className="w-7 h-7 text-rose-500 animate-spin" />
+          <Loader2 className="w-7 h-7 text-(--nd-purple) animate-spin" />
           <p className="text-sm text-(--nd-text-muted)">Loading analysis data…</p>
         </div>
       )}
@@ -434,9 +432,9 @@ export function SerpAnalyzer({ jobId, sessionId }: SerpAnalyzerProps) {
           {/* Stat cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <StatCard label="Keywords Tracked" value={summary?.total_keywords ?? 0}        icon={<Search className="w-4 h-4" />}       color="text-(--nd-text-secondary)" />
-            <StatCard label="Ranking"           value={summary?.ranked_keywords ?? 0}       icon={<CheckCircle2 className="w-4 h-4" />} color="text-emerald-400" sub={summary?.total_keywords ? `of ${summary.total_keywords}` : undefined} />
-            <StatCard label="Avg Position"      value={summary?.avg_rank != null ? `#${summary.avg_rank}` : '—'} icon={<TrendingUp className="w-4 h-4" />}   color="text-rose-400" />
-            <StatCard label="Top 10"            value={summary?.top10 ?? 0}                 icon={<Target className="w-4 h-4" />}       color="text-blue-400" sub={summary?.top3 ? `${summary.top3} in top 3` : undefined} />
+            <StatCard label="Ranking"           value={summary?.ranked_keywords ?? 0}       icon={<CheckCircle2 className="w-4 h-4" />} color="text-emerald-600" sub={summary?.total_keywords ? `of ${summary.total_keywords}` : undefined} />
+            <StatCard label="Avg Position"      value={summary?.avg_rank != null ? `#${summary.avg_rank}` : '—'} icon={<TrendingUp className="w-4 h-4" />}   color="text-rose-600" />
+            <StatCard label="Top 10"            value={summary?.top10 ?? 0}                 icon={<Target className="w-4 h-4" />}       color="text-blue-600" sub={summary?.top3 ? `${summary.top3} in top 3` : undefined} />
           </div>
 
           {/* Keyword rankings table */}
@@ -462,7 +460,7 @@ export function SerpAnalyzer({ jobId, sessionId }: SerpAnalyzerProps) {
                     className={cn(
                       'cursor-pointer text-xs px-2.5 py-1 rounded-md transition-colors',
                       filter === f.id
-                        ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                        ? 'bg-(--nd-nav-active-bg) text-(--nd-nav-active-text) border border-(--nd-border)'
                         : 'text-(--nd-text-muted) hover:text-(--nd-text-secondary) border border-transparent hover:border-(--nd-border)'
                     )}
                   >
@@ -702,7 +700,7 @@ function WhatToImprove({ gaps }: { gaps: ContentGap[] }) {
                 </p>
               )}
               {gap.has_paa && gap.paa_questions.length > 0 && (
-                <p className="text-xs text-blue-400 flex items-center gap-1">
+                <p className="text-xs text-blue-600 flex items-center gap-1">
                   <HelpCircle className="w-3 h-3" />
                   Answer: {gap.paa_questions.slice(0, 2).join(' · ')}
                 </p>
@@ -831,9 +829,9 @@ function NewAnalysisForm({
   if (!mounted) return null
 
   return createPortal(
-    /* Backdrop */
+    /* Backdrop — nexus-dashboard class seeds all --nd-* CSS vars for portal content */
     <div
-      className="fixed inset-0 z-9999 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+      className="nexus-dashboard fixed inset-0 z-9999 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}
     >
       {/* Modal panel */}
@@ -872,7 +870,7 @@ function NewAnalysisForm({
           {/* Keywords */}
           <div className="space-y-2">
             <label className="block text-xs font-medium text-(--nd-text-secondary)">
-              Keywords to track <span className="text-rose-500">*</span>
+              Keywords to track <span className="text-(--nd-purple)">*</span>
             </label>
             <div className="flex gap-2">
               <input
@@ -881,7 +879,7 @@ function NewAnalysisForm({
                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addKeyword())}
                 placeholder="e.g. best seo tools"
                 autoFocus
-                className="flex-1 bg-white border border-(--nd-border) rounded-lg text-sm text-(--nd-text-primary) placeholder:text-(--nd-text-muted) px-3 py-2 focus:outline-none focus:border-rose-500/50 transition-colors"
+                className="flex-1 bg-white border border-(--nd-border) rounded-lg text-sm text-(--nd-text-primary) placeholder:text-(--nd-text-muted) px-3 py-2 focus:outline-none focus:border-[#5347CE] focus:ring-1 focus:ring-[#5347CE]/20 transition-colors"
               />
               <button
                 onClick={addKeyword}
@@ -896,7 +894,7 @@ function NewAnalysisForm({
                 {keywords.map((kw) => (
                   <span key={kw} className="flex items-center gap-1 bg-(--nd-bg) border border-(--nd-border) text-(--nd-text-secondary) text-xs rounded-full px-2.5 py-1">
                     {kw}
-                    <button onClick={() => removeKeyword(kw)} className="cursor-pointer text-(--nd-text-muted) hover:text-rose-500 transition-colors ml-0.5">
+                    <button onClick={() => removeKeyword(kw)} className="cursor-pointer text-(--nd-text-muted) hover:text-(--nd-purple) transition-colors ml-0.5">
                       <Trash2 className="w-3 h-3" />
                     </button>
                   </span>
@@ -918,7 +916,7 @@ function NewAnalysisForm({
                 onChange={(e) => setNewCompetitor(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCompetitor())}
                 placeholder="e.g. ahrefs.com"
-                className="flex-1 bg-white border border-(--nd-border) rounded-lg text-sm text-(--nd-text-primary) placeholder:text-(--nd-text-muted) px-3 py-2 focus:outline-none focus:border-rose-500/50 transition-colors"
+                className="flex-1 bg-white border border-(--nd-border) rounded-lg text-sm text-(--nd-text-primary) placeholder:text-(--nd-text-muted) px-3 py-2 focus:outline-none focus:border-[#5347CE] focus:ring-1 focus:ring-[#5347CE]/20 transition-colors"
               />
               <button
                 onClick={addCompetitor}
@@ -933,7 +931,7 @@ function NewAnalysisForm({
                 {competitors.map((c) => (
                   <span key={c} className="flex items-center gap-1 bg-(--nd-bg) border border-(--nd-border) text-(--nd-text-secondary) text-xs rounded-full px-2.5 py-1">
                     {c}
-                    <button onClick={() => removeCompetitor(c)} className="cursor-pointer text-(--nd-text-muted) hover:text-rose-500 transition-colors ml-0.5">
+                    <button onClick={() => removeCompetitor(c)} className="cursor-pointer text-(--nd-text-muted) hover:text-(--nd-purple) transition-colors ml-0.5">
                       <Trash2 className="w-3 h-3" />
                     </button>
                   </span>
@@ -950,7 +948,7 @@ function NewAnalysisForm({
                 <select
                   value={locationCode}
                   onChange={(e) => setLocationCode(Number(e.target.value))}
-                  className="cursor-pointer w-full appearance-none bg-white border border-(--nd-border) rounded-lg text-sm text-(--nd-text-primary) pl-3 pr-8 py-2 focus:outline-none focus:border-rose-500/50 transition-colors"
+                  className="cursor-pointer w-full appearance-none bg-white border border-(--nd-border) rounded-lg text-sm text-(--nd-text-primary) pl-3 pr-8 py-2 focus:outline-none focus:border-[#5347CE] focus:ring-1 focus:ring-[#5347CE]/20 transition-colors"
                 >
                   {LOCATION_OPTIONS.map((o) => (
                     <option key={o.value} value={o.value}>{o.label}</option>
@@ -969,7 +967,7 @@ function NewAnalysisForm({
                     className={cn(
                       'cursor-pointer flex-1 capitalize transition-colors text-sm',
                       device === d
-                        ? 'bg-rose-500/20 text-rose-600'
+                        ? 'bg-(--nd-purple-subtle) text-(--nd-purple) font-semibold'
                         : 'bg-white text-(--nd-text-secondary) hover:text-(--nd-text-primary)'
                     )}
                   >
@@ -992,7 +990,7 @@ function NewAnalysisForm({
           <button
             onClick={onRun}
             disabled={!keywords.length || isDispatching}
-            className="cursor-pointer flex items-center gap-2 bg-rose-600 hover:bg-rose-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg px-5 py-2 transition-colors"
+            className="cursor-pointer flex items-center gap-2 bg-(--nd-purple) hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg px-5 py-2 transition-opacity"
           >
             {isDispatching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
             {isDispatching

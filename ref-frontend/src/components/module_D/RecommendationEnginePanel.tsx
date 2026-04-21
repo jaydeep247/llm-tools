@@ -78,10 +78,10 @@ function getSeverityBadge(deltaClass?: string): { label: string; variant: 'criti
 }
 
 function severityColor(sev: Severity): { bar: string; pill: string; pillBg: string } {
-  if (sev === 'CRITICAL') return { bar: 'bg-rose-500', pill: 'text-rose-400', pillBg: 'bg-rose-500/10 border-rose-500/40' }
-  if (sev === 'HIGH') return { bar: 'bg-amber-400', pill: 'text-amber-300', pillBg: 'bg-amber-500/10 border-amber-500/40' }
-  if (sev === 'MEDIUM') return { bar: 'bg-yellow-300', pill: 'text-yellow-200', pillBg: 'bg-yellow-400/10 border-yellow-400/40' }
-  return { bar: 'bg-emerald-400', pill: 'text-emerald-300', pillBg: 'bg-emerald-500/10 border-emerald-500/40' }
+  if (sev === 'CRITICAL') return { bar: 'bg-[var(--nd-negative-text)]', pill: 'text-[var(--nd-negative-text)]', pillBg: 'bg-[var(--nd-negative-bg)] border-rose-500/20' }
+  if (sev === 'HIGH') return { bar: 'bg-amber-500', pill: 'text-amber-600', pillBg: 'bg-amber-50 border-amber-500/20' }
+  if (sev === 'MEDIUM') return { bar: 'bg-yellow-400', pill: 'text-yellow-600', pillBg: 'bg-yellow-50 border-yellow-400/20' }
+  return { bar: 'bg-[var(--nd-positive-text)]', pill: 'text-[var(--nd-positive-text)]', pillBg: 'bg-[var(--nd-positive-bg)] border-emerald-500/20' }
 }
 
 function formatModuleLabel(moduleName?: string): string {
@@ -108,7 +108,7 @@ function PriorityRing({ score, severity }: { score: number; severity: Severity }
   return (
     <div className="relative w-11 h-11">
       <svg className="-rotate-90" width="42" height="42" viewBox="0 0 42 42">
-        <circle cx="21" cy="21" r={radius} className="fill-none stroke-zinc-800" strokeWidth={3} />
+        <circle cx="21" cy="21" r={radius} className="fill-none" style={{ stroke: 'var(--nd-border)' }} strokeWidth={3} />
         <circle
           cx="21"
           cy="21"
@@ -118,7 +118,7 @@ function PriorityRing({ score, severity }: { score: number; severity: Severity }
           strokeDasharray={`${filled.toFixed(1)} ${circumference.toFixed(1)}`}
         />
       </svg>
-      <div className="absolute inset-0 flex items-center justify-center text-[11px] font-mono text-zinc-50">
+      <div className="absolute inset-0 flex items-center justify-center text-xs font-mono" style={{ color: 'var(--nd-text-primary)' }}>
         {score.toFixed(1)}
       </div>
     </div>
@@ -218,18 +218,18 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
 
   if (isLoading) {
     return (
-      <div className="rounded-2xl border border-zinc-800 bg-[#0b0c10] p-6">
-        <div className="h-5 w-40 bg-zinc-800 rounded mb-4" />
-        <div className="h-4 w-64 bg-zinc-900 rounded mb-6" />
+      <div className="rounded-2xl border p-6" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
+        <div className="h-5 w-40 rounded mb-4" style={{ background: 'var(--nd-border)' }} />
+        <div className="h-4 w-64 rounded mb-6" style={{ background: 'var(--nd-border)' }} />
         <div className="grid grid-cols-4 gap-2 mb-4">
-          <div className="h-16 bg-zinc-900 rounded" />
-          <div className="h-16 bg-zinc-900 rounded" />
-          <div className="h-16 bg-zinc-900 rounded" />
-          <div className="h-16 bg-zinc-900 rounded" />
+          <div className="h-16 rounded" style={{ background: 'var(--nd-border)' }} />
+          <div className="h-16 rounded" style={{ background: 'var(--nd-border)' }} />
+          <div className="h-16 rounded" style={{ background: 'var(--nd-border)' }} />
+          <div className="h-16 rounded" style={{ background: 'var(--nd-border)' }} />
         </div>
         <div className="space-y-2">
-          <div className="h-20 bg-zinc-900 rounded" />
-          <div className="h-20 bg-zinc-900 rounded" />
+          <div className="h-20 rounded" style={{ background: 'var(--nd-border)' }} />
+          <div className="h-20 rounded" style={{ background: 'var(--nd-border)' }} />
         </div>
       </div>
     )
@@ -237,8 +237,8 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
 
   if (!recommendations.length) {
     return (
-      <div className="rounded-2xl border border-zinc-800 bg-[#0b0c10] p-8 text-center text-sm text-zinc-500">
-        <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/40 text-emerald-400 mb-3">
+      <div className="rounded-2xl border p-8 text-center text-sm" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-muted)' }}>
+        <div className="inline-flex items-center justify-center w-10 h-10 rounded-full border mb-3" style={{ background: 'var(--nd-positive-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-positive-text)' }}>
           <Lightbulb className="w-5 h-5" />
         </div>
         No recommendation cards available yet. Run prompt tracking to generate prioritized actions.
@@ -247,32 +247,32 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
   }
 
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-[#0b0c10] p-6 space-y-6">
-      <div className="relative overflow-hidden rounded-2xl border border-zinc-800">
+    <div className="rounded-2xl border p-6 space-y-6" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
+      <div className="relative overflow-hidden rounded-2xl border" style={{ borderColor: 'var(--nd-border)' }}>
         <div className="absolute inset-0 bg-gradient-to-r from-violet-600/10 via-indigo-500/10 to-emerald-500/10" />
         <div className="relative p-6 flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-violet-500/15 border border-violet-500/40">
-              <Sparkles className="w-5 h-5 text-violet-300" />
+            <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl border" style={{ background: 'var(--nd-purple-subtle)', borderColor: 'var(--nd-border)', color: 'var(--nd-purple)' }}>
+              <Sparkles className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-2xl font-semibold tracking-tight text-zinc-50">Action Plan</h2>
+                <h2 className="text-2xl font-semibold tracking-tight" style={{ color: 'var(--nd-text-primary)' }}>Action Plan</h2>
                 <span
                   className={cn(
-                    'inline-flex items-center gap-2 px-2 py-0.5 rounded-md border text-[11px] font-mono',
-                    delta.variant === 'critical' && 'border-rose-500/40 bg-rose-500/10 text-rose-400',
-                    delta.variant === 'high' && 'border-amber-500/40 bg-amber-500/10 text-amber-300',
-                    delta.variant === 'medium' && 'border-yellow-400/40 bg-yellow-400/10 text-yellow-200',
-                    delta.variant === 'low' && 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300',
-                    delta.variant === 'info' && 'border-indigo-500/40 bg-indigo-500/10 text-indigo-300'
+                    'inline-flex items-center gap-2 px-2 py-0.5 rounded-md border text-xs font-mono',
+                    delta.variant === 'critical' && 'border-rose-200 bg-rose-50 text-rose-700',
+                    delta.variant === 'high' && 'border-amber-200 bg-amber-50 text-amber-700',
+                    delta.variant === 'medium' && 'border-yellow-200 bg-yellow-50 text-yellow-700',
+                    delta.variant === 'low' && 'border-emerald-200 bg-emerald-50 text-emerald-700',
+                    delta.variant === 'info' && 'border-indigo-200 bg-indigo-50 text-indigo-700'
                   )}
                 >
                   <AlertTriangle className="w-3.5 h-3.5" />
                   <span>{delta.label}</span>
                 </span>
               </div>
-              <p className="text-xs text-zinc-400">
+              <p className="text-sm" style={{ color: 'var(--nd-text-secondary)' }}>
                 {(data?.role_filter_applied || 'SEO Manager') +
                   ' · ' +
                   (data?.plan_limit_applied ?? recommendations.length) +
@@ -282,23 +282,23 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
             </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <div className="bg-[#111318] px-4 py-3 rounded-lg border border-zinc-800">
-              <div className="text-2xl font-extrabold tracking-tight text-zinc-50">{summary?.total ?? recommendations.length}</div>
-              <div className="text-[11px] text-zinc-500 font-mono uppercase tracking-[0.18em]">Total</div>
+            <div className="px-4 py-3 rounded-lg border" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
+              <div className="text-2xl font-extrabold tracking-tight" style={{ color: 'var(--nd-text-primary)' }}>{summary?.total ?? recommendations.length}</div>
+              <div className="text-xs font-mono uppercase tracking-[0.18em]" style={{ color: 'var(--nd-text-secondary)' }}>Total</div>
             </div>
-            <div className="bg-[#111318] px-4 py-3 rounded-lg border border-zinc-800">
-              <div className="text-2xl font-extrabold tracking-tight text-zinc-50">
+            <div className="px-4 py-3 rounded-lg border" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
+              <div className="text-2xl font-extrabold tracking-tight" style={{ color: 'var(--nd-text-primary)' }}>
                 {summary?.critical ?? recommendations.filter((r) => r.severity === 'CRITICAL').length}
               </div>
-              <div className="text-[11px] text-zinc-500 font-mono uppercase tracking-[0.18em]">Critical</div>
+              <div className="text-xs font-mono uppercase tracking-[0.18em]" style={{ color: 'var(--nd-text-secondary)' }}>Critical</div>
             </div>
-            <div className="bg-[#111318] px-4 py-3 rounded-lg border border-zinc-800">
-              <div className="text-2xl font-extrabold tracking-tight text-zinc-50">{highCount}</div>
-              <div className="text-[11px] text-zinc-500 font-mono uppercase tracking-[0.18em]">High</div>
+            <div className="px-4 py-3 rounded-lg border" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
+              <div className="text-2xl font-extrabold tracking-tight" style={{ color: 'var(--nd-text-primary)' }}>{highCount}</div>
+              <div className="text-xs font-mono uppercase tracking-[0.18em]" style={{ color: 'var(--nd-text-secondary)' }}>High</div>
             </div>
-            <div className="bg-[#111318] px-4 py-3 rounded-lg border border-zinc-800">
-              <div className="text-2xl font-extrabold tracking-tight text-zinc-50">{data?.plan_limit_applied ?? recommendations.length}</div>
-              <div className="text-[11px] text-zinc-500 font-mono uppercase tracking-[0.18em]">Plan</div>
+            <div className="px-4 py-3 rounded-lg border" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
+              <div className="text-2xl font-extrabold tracking-tight" style={{ color: 'var(--nd-text-primary)' }}>{data?.plan_limit_applied ?? recommendations.length}</div>
+              <div className="text-xs font-mono uppercase tracking-[0.18em]" style={{ color: 'var(--nd-text-secondary)' }}>Plan</div>
             </div>
           </div>
         </div>
@@ -311,9 +311,14 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
             size="sm"
             variant={severityFilter === sev ? 'default' : 'outline'}
             className={cn(
-              'h-8 px-3 text-[11px] font-mono rounded-md border',
-              severityFilter === sev ? 'bg-violet-500 text-white border-violet-500' : 'bg-[#111318] text-zinc-400 border-zinc-800 hover:bg-zinc-900'
+              'h-8 px-3 text-xs font-mono rounded-md border',
+              severityFilter === sev ? 'shadow-sm' : 'hover:bg-black/5'
             )}
+            style={
+              severityFilter === sev
+                ? { background: 'var(--nd-purple)', color: '#ffffff', borderColor: 'var(--nd-purple)' }
+                : { background: 'var(--nd-bg)', color: 'var(--nd-text-secondary)', borderColor: 'var(--nd-border)' }
+            }
             onClick={() => setSeverityFilter(sev as any)}
           >
             {sev === 'ALL' ? 'All priorities' : sev.charAt(0) + sev.slice(1).toLowerCase()}
@@ -321,18 +326,20 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
         ))}
         <div className="inline-flex items-center gap-2 ml-auto">
           <div className="relative">
-            <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2 top-2.5" />
+            <Search className="w-3.5 h-3.5 absolute left-2 top-2.5" style={{ color: 'var(--nd-text-muted)' }} />
             <Input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search by action, prompt, or module"
-              className="h-8 pl-7 text-[12px] bg-[#111318] border-zinc-800 text-zinc-200 placeholder:text-zinc-500"
+              className="h-8 pl-7 text-sm border"
+              style={{ background: 'var(--nd-bg)', color: 'var(--nd-text-primary)', borderColor: 'var(--nd-border)' }}
             />
           </div>
           <Button
             size="sm"
             variant="outline"
-            className="h-8 px-3 text-[11px] font-mono border-zinc-700 text-zinc-400 hover:text-zinc-100"
+            className="h-8 px-3 text-xs font-mono border hover:bg-black/5"
+            style={{ color: 'var(--nd-text-secondary)', borderColor: 'var(--nd-border)' }}
             onClick={() => setSortBy(sortBy === 'priority' ? 'severity' : sortBy === 'severity' ? 'impact' : 'priority')}
           >
             {sortBy === 'priority' && 'Sort: Priority'}
@@ -344,8 +351,8 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
 
       <div className="flex flex-col gap-3">
         {filtered.length === 0 && (
-          <div className="py-10 text-center text-sm text-zinc-500 font-mono">
-            <div className="text-3xl mb-2 text-emerald-400">✓</div>
+          <div className="py-10 text-center text-sm font-mono" style={{ color: 'var(--nd-text-muted)' }}>
+            <div className="text-3xl mb-2 text-emerald-500">✓</div>
             No {severityFilter.toLowerCase()} priority items
           </div>
         )}
@@ -364,10 +371,10 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
           const changeIsNegative = typeof changeVal === 'number' && changeVal < 0
           const changeColor =
             changeVal === null || changeVal === undefined
-              ? 'text-zinc-500'
+              ? 'text-gray-500'
               : changeIsPositive
-              ? 'text-emerald-400'
-              : 'text-rose-400'
+              ? 'text-emerald-600'
+              : 'text-rose-600'
 
           const isDone = completedIds.has(rec.recommendation_id)
           const isDismissed = dismissedIds.has(rec.recommendation_id)
@@ -377,67 +384,68 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
           const affectedTarget =
             rec.affected_url?.replace(/^https?:\/\//, '').split('/').slice(0, 2).join('/') || 'Not specified'
           const moduleIcon =
-            rec.module.toLowerCase().includes('prompt') ? <ListChecks className="w-4 h-4 text-violet-300" /> :
-            rec.module.toLowerCase().includes('visibility') ? <Gauge className="w-4 h-4 text-emerald-300" /> :
-            rec.module.toLowerCase().includes('content') ? <BarChart3 className="w-4 h-4 text-blue-300" /> :
-            rec.module.toLowerCase().includes('entity') ? <Target className="w-4 h-4 text-yellow-200" /> :
-            <Activity className="w-4 h-4 text-zinc-300" />
+            rec.module.toLowerCase().includes('prompt') ? <ListChecks className="w-4 h-4" style={{ color: 'var(--nd-purple)' }} /> :
+            rec.module.toLowerCase().includes('visibility') ? <Gauge className="w-4 h-4" style={{ color: 'var(--nd-teal)' }} /> :
+            rec.module.toLowerCase().includes('content') ? <BarChart3 className="w-4 h-4" style={{ color: 'var(--nd-blue)' }} /> :
+            rec.module.toLowerCase().includes('entity') ? <Target className="w-4 h-4" style={{ color: 'var(--nd-text-primary)' }} /> :
+            <Activity className="w-4 h-4" style={{ color: 'var(--nd-text-muted)' }} />
 
           return (
             <div
               key={rec.recommendation_id}
               className={cn(
-                'group rounded-xl border border-zinc-800 bg-[#111318] overflow-hidden transition-colors cursor-pointer',
+                'group rounded-xl border overflow-hidden transition-colors cursor-pointer',
                 expanded && 'border-violet-500/40'
               )}
+              style={{ background: 'var(--nd-card-bg)', borderColor: expanded ? 'var(--nd-purple)' : 'var(--nd-border)' }}
               onClick={() => handleToggleExpand(rec.recommendation_id)}
             >
               <div className="flex items-center gap-4 px-4 py-3">
                 <div className={cn('w-1.5 h-10 rounded-full', sevColors.bar)} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <div className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-[#151821] border border-zinc-800">
+                    <div className="inline-flex items-center justify-center w-7 h-7 rounded-md border" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
                       {moduleIcon}
                     </div>
-                    <div className="truncate text-sm font-semibold text-zinc-50">{rec.action_title}</div>
+                    <div className="truncate text-sm font-semibold" style={{ color: 'var(--nd-text-primary)' }}>{rec.action_title}</div>
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-zinc-500">
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs" style={{ color: 'var(--nd-text-secondary)' }}>
                     <span
                       className={cn(
                         'px-2 py-0.5 rounded-sm border',
                         sevColors.pillBg,
                         sevColors.pill,
-                        'uppercase tracking-[0.14em] text-[10px]'
+                        'uppercase tracking-[0.14em] text-xs font-bold'
                       )}
                     >
                       {rec.severity}
                     </span>
-                    <span>{moduleLabel}</span>
-                    <span className={cn('flex items-center gap-1', changeColor)}>
+                    <span className="font-medium">{moduleLabel}</span>
+                    <span className={cn('flex items-center gap-1 font-bold', changeColor)}>
                       {changeStr !== 'first run' && (
                         <span>{changeIsPositive ? '▲' : changeIsNegative ? '▼' : '•'}</span>
                       )}
                       <span>{changeStr}</span>
                     </span>
-                    <span className="text-zinc-600">Target: {affectedTarget}</span>
+                    <span style={{ color: 'var(--nd-text-secondary)' }}>Target: {affectedTarget}</span>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-4">
                     <div className="flex flex-col items-center gap-1">
-                      <div className="text-[13px] font-mono text-zinc-50">
+                      <div className="text-sm font-mono font-bold" style={{ color: 'var(--nd-text-primary)' }}>
                         {formatScore(snapshot.prompt_visibility_score)}
                       </div>
-                      <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.16em]">
+                      <div className="text-xs font-mono uppercase tracking-[0.16em]" style={{ color: 'var(--nd-text-secondary)' }}>
                         Visibility
                       </div>
                     </div>
                     <div className="flex flex-col items-center gap-1">
-                      <div className="text-[13px] font-mono text-zinc-50">
+                      <div className="text-sm font-mono font-bold" style={{ color: 'var(--nd-text-primary)' }}>
                         {formatPercent(snapshot.ctr_percent)}
                       </div>
-                      <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.16em]">
+                      <div className="text-xs font-mono uppercase tracking-[0.16em]" style={{ color: 'var(--nd-text-secondary)' }}>
                         CTR
                       </div>
                     </div>
@@ -445,118 +453,120 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
                   <PriorityRing score={rec.priority_score} severity={rec.severity} />
                 </div>
 
-                <div className="flex items-center justify-center w-6 h-6 text-[10px] text-zinc-500">
+                <div className="flex items-center justify-center w-6 h-6 text-xs" style={{ color: 'var(--nd-text-muted)' }}>
                   {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                 </div>
               </div>
 
               {expanded && (
                 <div
-                  className="px-4 pb-4 pt-2 border-t border-zinc-800 bg-[#0f1117]"
+                  className="px-4 pb-4 pt-2 border-t"
+                  style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="grid gap-3 md:grid-cols-3">
-                    <div className="rounded-lg border border-zinc-800 bg-[#141721] p-3">
-                      <div className="text-[10px] uppercase tracking-[0.16em] text-zinc-500 mb-1">What happened</div>
-                      <p className="text-sm text-zinc-200 leading-relaxed">
+                    <div className="rounded-lg border p-3" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
+                      <div className="text-xs uppercase tracking-[0.16em] mb-1 font-bold" style={{ color: 'var(--nd-text-secondary)' }}>What happened</div>
+                      <p className="text-sm leading-relaxed" style={{ color: 'var(--nd-text-primary)' }}>
                         {rec.action_title}
                       </p>
-                      <p className={cn('mt-2 text-xs font-mono', changeColor)}>
+                      <p className={cn('mt-2 text-xs font-mono font-bold', changeColor)}>
                         Visibility change: {changeStr}
                       </p>
                     </div>
-                    <div className="rounded-lg border border-zinc-800 bg-[#141721] p-3">
-                      <div className="text-[10px] uppercase tracking-[0.16em] text-zinc-500 mb-1">Why this matters</div>
-                      <p className="text-sm text-zinc-300 leading-relaxed">
+                    <div className="rounded-lg border p-3" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
+                      <div className="text-xs uppercase tracking-[0.16em] mb-1 font-bold" style={{ color: 'var(--nd-text-secondary)' }}>Why this matters</div>
+                      <p className="text-sm leading-relaxed" style={{ color: 'var(--nd-text-secondary)' }}>
                         Priority is {rec.priority_score.toFixed(2)} with {rec.severity.toLowerCase()} severity.
                         Trigger: {(rec.trigger_event || 'standard').replace(/_/g, ' ')}.
                       </p>
-                      <p className="mt-1 text-xs text-zinc-500">Module: {moduleLabel}</p>
+                      <p className="mt-1 text-xs font-medium" style={{ color: 'var(--nd-text-secondary)' }}>Module: {moduleLabel}</p>
                     </div>
-                    <div className="rounded-lg border border-zinc-800 bg-[#141721] p-3">
-                      <div className="text-[10px] uppercase tracking-[0.16em] text-zinc-500 mb-1">What to do now</div>
-                      <p className="text-sm text-zinc-200 leading-relaxed">
+                    <div className="rounded-lg border p-3" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
+                      <div className="text-xs uppercase tracking-[0.16em] mb-1 font-bold" style={{ color: 'var(--nd-text-secondary)' }}>What to do now</div>
+                      <p className="text-sm leading-relaxed" style={{ color: 'var(--nd-text-primary)' }}>
                         {rec.action_detail}
                       </p>
                     </div>
                   </div>
 
                   <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-                    <div className="rounded-md border border-zinc-800 bg-[#151821] px-2.5 py-2">
-                      <div className="text-sm font-mono text-zinc-50">{formatScore(snapshot.engagement_score)}</div>
-                      <div className="text-[10px] text-zinc-500 uppercase tracking-[0.14em]">Engagement</div>
+                    <div className="rounded-md border px-2.5 py-2" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
+                      <div className="text-sm font-mono font-bold" style={{ color: 'var(--nd-text-primary)' }}>{formatScore(snapshot.engagement_score)}</div>
+                      <div className="text-xs uppercase tracking-[0.14em]" style={{ color: 'var(--nd-text-secondary)' }}>Engagement</div>
                     </div>
-                    <div className="rounded-md border border-zinc-800 bg-[#151821] px-2.5 py-2">
-                      <div className="text-sm font-mono text-zinc-50">{formatScore(snapshot.traffic_estimate)}</div>
-                      <div className="text-[10px] text-zinc-500 uppercase tracking-[0.14em]">Traffic</div>
+                    <div className="rounded-md border px-2.5 py-2" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
+                      <div className="text-sm font-mono font-bold" style={{ color: 'var(--nd-text-primary)' }}>{formatScore(snapshot.traffic_estimate)}</div>
+                      <div className="text-xs uppercase tracking-[0.14em]" style={{ color: 'var(--nd-text-secondary)' }}>Traffic</div>
                     </div>
-                    <div className="rounded-md border border-zinc-800 bg-[#151821] px-2.5 py-2">
-                      <div className="text-sm font-mono text-zinc-50">{formatPercent(snapshot.citation_rate ? snapshot.citation_rate * 100 : snapshot.citation_rate)}</div>
-                      <div className="text-[10px] text-zinc-500 uppercase tracking-[0.14em]">Citation</div>
+                    <div className="rounded-md border px-2.5 py-2" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
+                      <div className="text-sm font-mono font-bold" style={{ color: 'var(--nd-text-primary)' }}>{formatPercent(snapshot.citation_rate ? snapshot.citation_rate * 100 : snapshot.citation_rate)}</div>
+                      <div className="text-xs uppercase tracking-[0.14em]" style={{ color: 'var(--nd-text-secondary)' }}>Citation</div>
                     </div>
-                    <div className="rounded-md border border-zinc-800 bg-[#151821] px-2.5 py-2">
-                      <div className="text-sm font-mono text-zinc-50">{formatScore(snapshot.avg_position)}</div>
-                      <div className="text-[10px] text-zinc-500 uppercase tracking-[0.14em]">Avg position</div>
+                    <div className="rounded-md border px-2.5 py-2" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
+                      <div className="text-sm font-mono font-bold" style={{ color: 'var(--nd-text-primary)' }}>{formatScore(snapshot.avg_position)}</div>
+                      <div className="text-xs uppercase tracking-[0.14em]" style={{ color: 'var(--nd-text-secondary)' }}>Avg position</div>
                     </div>
-                    <div className="rounded-md border border-zinc-800 bg-[#151821] px-2.5 py-2">
-                      <div className="text-sm font-mono text-zinc-50">{formatPercent(snapshot.share_of_voice ? snapshot.share_of_voice * 100 : snapshot.share_of_voice)}</div>
-                      <div className="text-[10px] text-zinc-500 uppercase tracking-[0.14em]">Share of voice</div>
+                    <div className="rounded-md border px-2.5 py-2" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
+                      <div className="text-sm font-mono font-bold" style={{ color: 'var(--nd-text-primary)' }}>{formatPercent(snapshot.share_of_voice ? snapshot.share_of_voice * 100 : snapshot.share_of_voice)}</div>
+                      <div className="text-xs uppercase tracking-[0.14em]" style={{ color: 'var(--nd-text-secondary)' }}>Share of voice</div>
                     </div>
-                    <div className="rounded-md border border-zinc-800 bg-[#151821] px-2.5 py-2">
-                      <div className="text-sm font-mono text-zinc-50">{formatScore(snapshot.difficulty_score)}</div>
-                      <div className="text-[10px] text-zinc-500 uppercase tracking-[0.14em]">Difficulty</div>
+                    <div className="rounded-md border px-2.5 py-2" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
+                      <div className="text-sm font-mono font-bold" style={{ color: 'var(--nd-text-primary)' }}>{formatScore(snapshot.difficulty_score)}</div>
+                      <div className="text-xs uppercase tracking-[0.14em]" style={{ color: 'var(--nd-text-secondary)' }}>Difficulty</div>
                     </div>
                   </div>
 
                   {/* SOP-002 §7.1 data quality badge — real vs estimated */}
                   {snapshot.calculation_method && (
-                    <div className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-zinc-800 bg-[#141621] px-2.5 py-1 font-mono text-[10px]">
-                      <span className="text-zinc-500">data source:</span>
+                    <div className="mt-3 inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 font-mono text-xs" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
+                      <span style={{ color: 'var(--nd-text-secondary)' }}>data source:</span>
                       <span className={cn(
-                        snapshot.calculation_method === 'real_citation_data' ? 'text-emerald-400' :
-                        snapshot.calculation_method === 'ranking' ? 'text-amber-300' :
-                        'text-zinc-400'
+                        'font-bold',
+                        snapshot.calculation_method === 'real_citation_data' ? 'text-emerald-600' :
+                        snapshot.calculation_method === 'ranking' ? 'text-amber-600' :
+                        'text-gray-500'
                       )}>
                         {snapshot.calculation_method.replace(/_/g, ' ')}
                       </span>
                       {snapshot.pvs_formula_version && (
-                        <span className="text-zinc-600 ml-1">· {snapshot.pvs_formula_version}</span>
+                        <span className="ml-1" style={{ color: 'var(--nd-text-secondary)' }}>· {snapshot.pvs_formula_version}</span>
                       )}
                     </div>
                   )}
 
                   <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="rounded-lg border border-zinc-800 bg-[#151821] px-3 py-2.5">
-                      <div className="text-base font-mono text-violet-300">{rec.impact_score.toFixed(1)}</div>
-                      <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.16em]">
+                    <div className="rounded-lg border px-3 py-2.5" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
+                      <div className="text-lg font-mono font-bold" style={{ color: 'var(--nd-purple)' }}>{rec.impact_score.toFixed(1)}</div>
+                      <div className="text-xs font-mono uppercase tracking-[0.16em] font-bold" style={{ color: 'var(--nd-text-secondary)' }}>
                         Impact ×0.50
                       </div>
                     </div>
-                    <div className="rounded-lg border border-zinc-800 bg-[#151821] px-3 py-2.5">
-                      <div className="text-base font-mono text-violet-300">
+                    <div className="rounded-lg border px-3 py-2.5" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
+                      <div className="text-lg font-mono font-bold" style={{ color: 'var(--nd-purple)' }}>
                         {(11 - rec.effort_score).toFixed(0)}
                       </div>
-                      <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.16em]">
+                      <div className="text-xs font-mono uppercase tracking-[0.16em] font-bold" style={{ color: 'var(--nd-text-secondary)' }}>
                         Effort inv. ×0.30
                       </div>
                     </div>
-                    <div className="rounded-lg border border-zinc-800 bg-[#151821] px-3 py-2.5">
-                      <div className="text-base font-mono text-violet-300">{rec.urgency_score.toFixed(1)}</div>
-                      <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.16em]">
+                    <div className="rounded-lg border px-3 py-2.5" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
+                      <div className="text-lg font-mono font-bold" style={{ color: 'var(--nd-purple)' }}>{rec.urgency_score.toFixed(1)}</div>
+                      <div className="text-xs font-mono uppercase tracking-[0.16em] font-bold" style={{ color: 'var(--nd-text-secondary)' }}>
                         Urgency ×0.20
                       </div>
                     </div>
-                    <div className="rounded-lg border border-violet-500/40 bg-[#17192a] px-3 py-2.5">
-                      <div className="text-base font-mono text-zinc-50">{rec.priority_score.toFixed(2)}</div>
-                      <div className="text-[10px] font-mono text-zinc-500 uppercase tracking-[0.16em]">
+                    <div className="rounded-lg border px-3 py-2.5" style={{ background: 'var(--nd-purple-subtle)', borderColor: 'var(--nd-purple)' }}>
+                      <div className="text-lg font-mono font-bold" style={{ color: 'var(--nd-purple)' }}>{rec.priority_score.toFixed(2)}</div>
+                      <div className="text-xs font-mono uppercase tracking-[0.16em] font-bold" style={{ color: 'var(--nd-purple)' }}>
                         Priority score
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-4 inline-flex max-w-full items-center gap-2 rounded-md border border-zinc-800 bg-[#141621] px-3 py-1.5 text-[11px] text-zinc-400">
-                    <span className="text-zinc-500">Main prompt:</span>
-                    <span className="truncate text-zinc-200">"{rec.prompt}"</span>
+                  <div className="mt-4 inline-flex max-w-full items-center gap-2 rounded-md border px-3 py-1.5 text-sm" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
+                    <span style={{ color: 'var(--nd-text-secondary)' }}>Main prompt:</span>
+                    <span className="truncate font-semibold" style={{ color: 'var(--nd-text-primary)' }}>"{rec.prompt}"</span>
                   </div>
 
                   {rec.additional_prompts && rec.additional_prompts.length > 0 && (
@@ -564,10 +574,11 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
                       {rec.additional_prompts.slice(0, 4).map((p) => (
                         <span
                           key={p}
-                          className="inline-flex max-w-full items-center gap-1 rounded-md border border-zinc-800 bg-[#111318] px-2 py-0.5 font-mono text-[10px] text-zinc-400"
+                          className="inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-0.5 font-mono text-xs"
+                          style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-secondary)' }}
                         >
-                          <span className="text-zinc-500">+ prompt</span>
-                          <span className="truncate">{p}</span>
+                          <span style={{ color: 'var(--nd-text-secondary)' }}>+ prompt</span>
+                          <span className="truncate font-medium">{p}</span>
                         </span>
                       ))}
                     </div>
@@ -579,11 +590,12 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
                       variant="default"
                       disabled={isPending || isDismissed}
                       className={cn(
-                        'h-8 px-3 text-[11px] font-mono',
+                        'h-8 px-3 text-xs font-mono font-bold',
                         isDone
-                          ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/40'
-                          : 'bg-violet-500 text-white border border-violet-500'
+                          ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                          : 'shadow-sm'
                       )}
+                      style={!isDone ? { background: 'var(--nd-purple)', color: '#ffffff', borderColor: 'var(--nd-purple)' } : undefined}
                       onClick={() => handleToggleDone(rec.recommendation_id)}
                     >
                       {isPending ? '…' : isDone ? '✓ Completed' : 'Mark as done'}
@@ -591,14 +603,15 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={isPending || isDone}
+                      disabled={isPending || isDone || isDismissed}
                       className={cn(
-                        'h-8 px-3 text-[11px] font-mono border-zinc-700 hover:text-zinc-100',
+                        'h-8 px-3 text-xs font-mono font-bold border hover:bg-black/5',
                         isDismissed
-                          ? 'text-zinc-600 border-zinc-800 cursor-default'
-                          : 'text-zinc-400'
+                          ? 'opacity-60'
+                          : ''
                       )}
-                      onClick={() => !isDismissed && handleDismiss(rec.recommendation_id)}
+                      style={{ color: 'var(--nd-text-secondary)', borderColor: 'var(--nd-border)' }}
+                      onClick={() => handleDismiss(rec.recommendation_id)}
                     >
                       {isDismissed ? 'Dismissed' : 'Dismiss'}
                     </Button>
@@ -606,7 +619,8 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
                       <Button
                         size="sm"
                         variant="outline"
-                        className="ml-auto h-8 px-3 text-[11px] font-mono border-zinc-700 text-zinc-400 hover:text-zinc-100"
+                        className="ml-auto h-8 px-3 text-xs font-mono font-bold border hover:bg-black/5"
+                        style={{ color: 'var(--nd-text-secondary)', borderColor: 'var(--nd-border)' }}
                         onClick={() => window.open(rec.affected_url, '_blank', 'noopener,noreferrer')}
                       >
                         Open target page ↗
@@ -619,8 +633,8 @@ export function RecommendationEnginePanel({ data, isLoading }: RecommendationEng
           )
         })}
       </div>
-      <div className="text-[10px] text-zinc-500 font-mono flex items-center gap-2">
-        <Flame className="w-3.5 h-3.5 text-emerald-400" />
+      <div className="text-xs font-mono flex items-center gap-2 font-medium" style={{ color: 'var(--nd-text-secondary)' }}>
+        <Flame className="w-3.5 h-3.5 text-[var(--nd-positive-text)]" />
         <span>Start with critical/high cards, open each card, and follow "What to do now".</span>
       </div>
     </div>

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useMemo, useRef, useEffect, type FormEvent } from 'react'
-import { Badge } from '@/components/ui/badge'
 import {
   Loader2, BarChart3, AlertTriangle,
   TrendingUp, Users, Zap, AlertCircle, ChevronDown, ChevronUp, MessageSquare
@@ -46,10 +45,10 @@ const TOOLTIPS = {
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 text-xs shadow-2xl">
-      <p className="text-zinc-300 font-semibold mb-1">{label}</p>
+    <div className="rounded-xl px-3 py-2 text-xs shadow-lg" style={{ background: 'var(--nd-card-bg)', border: '1px solid var(--nd-border)' }}>
+      <p className="font-semibold mb-1" style={{ color: 'var(--nd-text-primary)' }}>{label}</p>
       {payload.map((p: any, i: number) => (
-        <p key={i} style={{ color: p.color }}>{p.name}: <span className="font-bold text-white">{p.value}</span></p>
+        <p key={i} style={{ color: p.color }}>{p.name}: <span className="font-bold" style={{ color: 'var(--nd-text-primary)' }}>{p.value}</span></p>
       ))}
     </div>
   )
@@ -64,7 +63,7 @@ function ConsistencyGauge({ score, flag }: { score: number; flag?: string }) {
     <div className="flex flex-col items-center gap-2">
       <div className="relative" style={{ width: 120, height: 120 }}>
         <svg width={120} height={120} viewBox="0 0 120 120">
-          <circle cx={60} cy={60} r={radius} fill="none" stroke="rgba(255,255,255,0.06)"
+          <circle cx={60} cy={60} r={radius} fill="none" stroke="rgba(83,71,206,0.10)"
             strokeWidth={10} strokeDasharray={`${circumference} ${circumference}`}
             strokeDashoffset={circumference * 0.125} transform="rotate(-225 60 60)" />
           <circle cx={60} cy={60} r={radius} fill="none" stroke={color}
@@ -74,11 +73,11 @@ function ConsistencyGauge({ score, flag }: { score: number; flag?: string }) {
             transform="rotate(-225 60 60)" className="transition-all duration-700" />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-2xl font-bold text-white">{Math.round(score)}</span>
-          <span className="text-[9px] text-zinc-500">/100</span>
+          <span className="text-2xl font-bold" style={{ color: 'var(--nd-text-primary)' }}>{Math.round(score)}</span>
+                    <span className="text-[10px] font-medium" style={{ color: 'var(--nd-text-secondary)' }}>/100</span>
         </div>
       </div>
-      {flag && <p className="text-[11px] text-zinc-400 text-center max-w-32 leading-relaxed">{flag}</p>}
+      {flag && <p className="text-xs text-center max-w-32 leading-relaxed" style={{ color: 'var(--nd-text-primary)' }}>{flag}</p>}
     </div>
   )
 }
@@ -161,8 +160,8 @@ export default function ModelComparison({ jobId, url, projectId }: ModelComparis
   const modelsNotCiting: string[] = multiModel?.coverage_gaps?.models_not_citing ?? []
   const totalModels = multiModel?.coverage_gaps?.total_models ?? 0
 
-  const MODEL_COLORS: Record<string, string> = { Accuracy: '#3b82f6', Completeness: '#10b981', Friendliness: '#8b5cf6' }
-  const RADAR_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6']
+  const MODEL_COLORS: Record<string, string> = { Accuracy: '#5347CE', Completeness: '#10b981', Friendliness: '#f59e0b' }
+  const RADAR_COLORS = ['#5347CE', '#10b981', '#f59e0b', '#ef4444']
 
   const toggle = (key: string) => setExpandedSection(v => v === key ? null : key)
 
@@ -270,8 +269,8 @@ export default function ModelComparison({ jobId, url, projectId }: ModelComparis
       </Dialog>
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-white">Multi-Model AI Comparison</h2>
-          <p className="text-sm text-zinc-400 mt-0.5">How different AI engines perceive and represent your brand</p>
+          <h2 className="text-xl font-semibold" style={{ color: 'var(--nd-text-primary)' }}>Multi-Model AI Comparison</h2>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--nd-text-secondary)' }}>How different AI engines perceive and represent your brand</p>
         </div>
         <button
           type="button"
@@ -289,10 +288,13 @@ export default function ModelComparison({ jobId, url, projectId }: ModelComparis
       </div>
 
       {isLoadingData && (
-        <div className="flex items-center justify-center p-16 border border-zinc-800 rounded-2xl bg-zinc-800/30">
+        <div
+          className="flex items-center justify-center p-16 rounded-2xl"
+          style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-bg)' }}
+        >
           <div className="flex flex-col items-center gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
-            <p className="text-sm text-zinc-400">Loading...</p>
+            <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--nd-purple)' }} />
+            <p className="text-sm" style={{ color: 'var(--nd-text-muted)' }}>Loading...</p>
           </div>
         </div>
       )}
@@ -320,18 +322,18 @@ export default function ModelComparison({ jobId, url, projectId }: ModelComparis
           {/* SECTION 1: Summary Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: 'Accuracy Overall', val: `${Math.round(accuracyOverall)}`, tip: TOOLTIPS.accuracyOverall, color: 'text-blue-400', sub: '/100' },
-              { label: 'Completeness', val: `${Math.round(completenessOverall)}`, tip: TOOLTIPS.completenessOverall, color: 'text-emerald-400', sub: '/100' },
-              { label: 'Model Friendliness', val: modelFriendlinessAvg.toFixed(1), tip: TOOLTIPS.modelFriendlinessAvg, color: 'text-purple-400', sub: 'avg' },
-              { label: 'Coverage Score', val: `${Math.round(coverageScore)}`, tip: TOOLTIPS.coverageScore, color: coverageScore > 50 ? 'text-emerald-400' : 'text-red-400', sub: '/100' },
-            ].map(({ label, val, tip, color, sub }) => (
-              <div key={label} className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-4 text-center">
+              { label: 'Accuracy Overall', val: `${Math.round(accuracyOverall)}`, tip: TOOLTIPS.accuracyOverall, textStyle: { color: '#2563EB' }, sub: '/100' },
+              { label: 'Completeness', val: `${Math.round(completenessOverall)}`, tip: TOOLTIPS.completenessOverall, textStyle: { color: '#059669' }, sub: '/100' },
+              { label: 'Model Friendliness', val: modelFriendlinessAvg.toFixed(1), tip: TOOLTIPS.modelFriendlinessAvg, textStyle: { color: 'var(--nd-purple)' }, sub: 'avg' },
+              { label: 'Coverage Score', val: `${Math.round(coverageScore)}`, tip: TOOLTIPS.coverageScore, textStyle: { color: coverageScore > 50 ? '#059669' : '#DC2626' }, sub: '/100' },
+            ].map(({ label, val, tip, textStyle, sub }) => (
+              <div key={label} className="rounded-2xl p-4 text-center" style={{ background: 'var(--nd-card-bg)', border: '1px solid var(--nd-border)' }}>
                 <div className="flex justify-center items-center gap-1 mb-2">
-                  <span className="text-[10px] text-zinc-500">{label}</span>
+                  <span className="text-[10px]" style={{ color: 'var(--nd-text-muted)' }}>{label}</span>
                   <FieldTooltip description={tip} />
                 </div>
-                <span className={cn('text-3xl font-bold', color)}>{val}</span>
-                <span className="text-xs text-zinc-500 block">{sub}</span>
+                <span className="text-3xl font-bold" style={textStyle}>{val}</span>
+                <span className="text-xs block" style={{ color: 'var(--nd-text-muted)' }}>{sub}</span>
               </div>
             ))}
           </div>
@@ -351,7 +353,8 @@ export default function ModelComparison({ jobId, url, projectId }: ModelComparis
                 )
               }
               disabled={!projectId || !jobId || isAskingAI}
-              className="inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300 disabled:opacity-40"
+              className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold disabled:opacity-40"
+              style={{ color: 'var(--nd-purple)', background: 'var(--nd-purple-subtle)', borderColor: 'rgba(83,71,206,0.25)' }}
             >
               <MessageSquare className="size-3" />
               Ask AI
@@ -360,10 +363,10 @@ export default function ModelComparison({ jobId, url, projectId }: ModelComparis
 
           {/* SECTION 2: Per-Model Grouped Bar Chart */}
           {perModelChartData.length > 0 && (
-            <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-5">
+            <div className="rounded-2xl p-5" style={{ background: 'var(--nd-card-bg)', border: '1px solid var(--nd-border)' }}>
               <div className="flex items-center gap-2 mb-5">
-                <BarChart3 className="w-4 h-4 text-blue-400" />
-                <span className="text-sm font-semibold text-white">Per-Model Score Comparison</span>
+                <BarChart3 className="w-4 h-4 text-blue-500" />
+                <span className="text-sm font-semibold" style={{ color: 'var(--nd-text-primary)' }}>Per-Model Score Comparison</span>
                 <FieldTooltip description="Side-by-side comparison of Accuracy, Completeness, and Friendliness for each AI model tested." />
                 <button
                   type="button"
@@ -376,7 +379,8 @@ export default function ModelComparison({ jobId, url, projectId }: ModelComparis
                     )
                   }
                   disabled={!projectId || !jobId || isAskingAI}
-                  className="ml-auto inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300 disabled:opacity-40"
+                  className="ml-auto inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold disabled:opacity-40"
+                  style={{ color: 'var(--nd-purple)', background: 'var(--nd-purple-subtle)', borderColor: 'rgba(83,71,206,0.25)' }}
                 >
                   <MessageSquare className="size-3" />
                   Ask AI
@@ -384,11 +388,11 @@ export default function ModelComparison({ jobId, url, projectId }: ModelComparis
               </div>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={perModelChartData} barCategoryGap="25%" barGap={4}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                  <XAxis dataKey="name" tick={{ fill: '#a1a1aa', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <YAxis domain={[0, 100]} tick={{ fill: '#a1a1aa', fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
-                  <Legend wrapperStyle={{ fontSize: 11, color: '#a1a1aa' }} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--nd-border)" />
+                  <XAxis dataKey="name" tick={{ fill: '#737890', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis domain={[0, 100]} tick={{ fill: '#737890', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(83,71,206,0.04)' }} />
+                  <Legend wrapperStyle={{ fontSize: 11, color: '#737890' }} />
                   {(['Accuracy', 'Completeness', 'Friendliness'] as const).map((metric, i) => (
                     <Bar key={metric} dataKey={metric} fill={Object.values(MODEL_COLORS)[i]} radius={[3, 3, 0, 0]} />
                   ))}
@@ -398,16 +402,16 @@ export default function ModelComparison({ jobId, url, projectId }: ModelComparis
               {/* Per-model breakdown table */}
               <div className="mt-4 space-y-2">
                 {perModelChartData.map(({ name, Accuracy, Completeness, Friendliness }) => (
-                  <div key={name} className="flex items-center gap-3 py-2.5 px-3 bg-zinc-800/40 rounded-xl">
-                    <span className="text-xs font-semibold text-white w-20 shrink-0">{name}</span>
+                  <div key={name} className="flex items-center gap-3 py-2.5 px-3 rounded-xl" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
+                    <span className="text-xs font-semibold w-20 shrink-0" style={{ color: 'var(--nd-text-primary)' }}>{name}</span>
                     {[
-                      { label: 'Accuracy', val: Accuracy, color: '#3b82f6', tip: TOOLTIPS.accuracyPerModel },
+                      { label: 'Accuracy', val: Accuracy, color: '#5347CE', tip: TOOLTIPS.accuracyPerModel },
                       { label: 'Completeness', val: Completeness, color: '#10b981', tip: TOOLTIPS.completenessPerModel },
-                      { label: 'Friendliness', val: Friendliness, color: '#8b5cf6', tip: TOOLTIPS.modelFriendlinessPerModel },
+                      { label: 'Friendliness', val: Friendliness, color: '#f59e0b', tip: TOOLTIPS.modelFriendlinessPerModel },
                     ].map(({ label, val, color, tip }) => (
                       <div key={label} className="flex-1 text-center">
                         <div className="flex justify-center items-center gap-1 mb-0.5">
-                          <span className="text-[9px] text-zinc-500">{label}</span>
+                          <span className="text-[10px]" style={{ color: 'var(--nd-text-secondary)' }}>{label}</span>
                           <FieldTooltip description={tip} />
                         </div>
                         <span className="text-sm font-bold" style={{ color }}>{val}</span>
@@ -421,21 +425,21 @@ export default function ModelComparison({ jobId, url, projectId }: ModelComparis
 
           {/* SECTION 3: Radar Overview */}
           {radarData.length > 0 && perModelChartData.length > 1 && (
-            <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-5">
+            <div className="rounded-2xl p-5" style={{ background: 'var(--nd-card-bg)', border: '1px solid var(--nd-border)' }}>
               <div className="flex items-center gap-2 mb-4">
-                <TrendingUp className="w-4 h-4 text-purple-400" />
-                <span className="text-sm font-semibold text-white">Multi-Metric Radar</span>
+                <TrendingUp className="w-4 h-4" style={{ color: 'var(--nd-purple)' }} />
+                <span className="text-sm font-semibold" style={{ color: 'var(--nd-text-primary)' }}>Multi-Metric Radar</span>
                 <FieldTooltip description="Radar chart showing accuracy, completeness, and friendliness for each model simultaneously." />
               </div>
               <ResponsiveContainer width="100%" height={200}>
                 <RadarChart data={radarData} cx="50%" cy="50%">
-                  <PolarGrid stroke="rgba(255,255,255,0.08)" />
-                  <PolarAngleAxis dataKey="metric" tick={{ fill: '#a1a1aa', fontSize: 11 }} />
+                  <PolarGrid stroke="var(--nd-border)" />
+                  <PolarAngleAxis dataKey="metric" tick={{ fill: '#737890', fontSize: 11 }} />
                   {perModelChartData.map(({ name }, i) => (
                     <Radar key={name} name={name} dataKey={name} stroke={RADAR_COLORS[i % RADAR_COLORS.length]}
-                      fill={RADAR_COLORS[i % RADAR_COLORS.length]} fillOpacity={0.15} strokeWidth={2} />
+                      fill={RADAR_COLORS[i % RADAR_COLORS.length]} fillOpacity={0.12} strokeWidth={2} />
                   ))}
-                  <Legend wrapperStyle={{ fontSize: 11, color: '#a1a1aa' }} />
+                  <Legend wrapperStyle={{ fontSize: 11, color: '#737890' }} />
                   <Tooltip content={<CustomTooltip />} />
                 </RadarChart>
               </ResponsiveContainer>
@@ -443,10 +447,10 @@ export default function ModelComparison({ jobId, url, projectId }: ModelComparis
           )}
 
           {/* SECTION 4: Consistency */}
-          <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-5">
+          <div className="rounded-2xl p-5" style={{ background: 'var(--nd-card-bg)', border: '1px solid var(--nd-border)' }}>
             <div className="flex items-center gap-2 mb-4">
-              <Zap className="w-4 h-4 text-yellow-400" />
-              <span className="text-sm font-semibold text-white">Response Consistency</span>
+              <Zap className="w-4 h-4 text-amber-500" />
+              <span className="text-sm font-semibold" style={{ color: 'var(--nd-text-primary)' }}>Response Consistency</span>
               <FieldTooltip description={TOOLTIPS.consistencyScore} />
               <button
                 type="button"
@@ -464,7 +468,8 @@ export default function ModelComparison({ jobId, url, projectId }: ModelComparis
                   )
                 }
                 disabled={!projectId || !jobId || isAskingAI}
-                className="ml-auto inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300 disabled:opacity-40"
+                className="ml-auto inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold disabled:opacity-40"
+                style={{ color: 'var(--nd-purple)', background: 'var(--nd-purple-subtle)', borderColor: 'rgba(83,71,206,0.25)' }}
               >
                 <MessageSquare className="size-3" />
                 Ask AI
@@ -476,44 +481,44 @@ export default function ModelComparison({ jobId, url, projectId }: ModelComparis
               </div>
               <div className="sm:col-span-2 space-y-3">
                 {[
-                  { label: 'Consistency Score', val: `${Math.round(consistencyScore)}/100`, tip: TOOLTIPS.consistencyScore, color: consistencyScore >= 60 ? 'text-emerald-400' : 'text-red-400' },
-                  { label: 'Answer Variation', val: `${Math.round(variationScore)}%`, tip: TOOLTIPS.variationScore, color: variationScore > 50 ? 'text-red-400' : 'text-emerald-400' },
-                  { label: 'Avg Response Similarity', val: `${Math.round(avgSimilarity)}%`, tip: TOOLTIPS.avgSimilarity, color: 'text-zinc-300' },
-                  { label: 'Models Tested', val: totalModels, tip: TOOLTIPS.totalModels, color: 'text-blue-400' },
-                  { label: 'Models Not Citing', val: modelsNotCiting.length, tip: TOOLTIPS.modelsNotCiting, color: modelsNotCiting.length > 0 ? 'text-red-400' : 'text-emerald-400' },
-                ].map(({ label, val, tip, color }) => (
-                  <div key={label} className="flex justify-between items-center py-1.5 border-b border-zinc-800/60 last:border-0">
+                  { label: 'Consistency Score', val: `${Math.round(consistencyScore)}/100`, tip: TOOLTIPS.consistencyScore, textStyle: { color: consistencyScore >= 60 ? '#059669' : '#DC2626' } },
+                  { label: 'Answer Variation', val: `${Math.round(variationScore)}%`, tip: TOOLTIPS.variationScore, textStyle: { color: variationScore > 50 ? '#DC2626' : '#059669' } },
+                  { label: 'Avg Response Similarity', val: `${Math.round(avgSimilarity)}%`, tip: TOOLTIPS.avgSimilarity, textStyle: { color: 'var(--nd-text-primary)' } },
+                  { label: 'Models Tested', val: totalModels, tip: TOOLTIPS.totalModels, textStyle: { color: '#2563EB' } },
+                  { label: 'Models Not Citing', val: modelsNotCiting.length, tip: TOOLTIPS.modelsNotCiting, textStyle: { color: modelsNotCiting.length > 0 ? '#DC2626' : '#059669' } },
+                ].map(({ label, val, tip, textStyle }) => (
+                  <div key={label} className="flex justify-between items-center py-1.5 border-b last:border-0" style={{ borderColor: 'var(--nd-border)' }}>
                     <div className="flex items-center gap-1">
-                      <span className="text-xs text-zinc-400">{label}</span>
+                      <span className="text-xs font-medium" style={{ color: 'var(--nd-text-primary)' }}>{label}</span>
                       <FieldTooltip description={tip} />
                     </div>
-                    <span className={cn('text-sm font-bold', color)}>{val}</span>
+                    <span className="text-sm font-bold" style={textStyle}>{val}</span>
                   </div>
                 ))}
               </div>
             </div>
 
             {consistencyFlag && (
-              <div className="mt-4 flex items-start gap-2 p-3 bg-amber-500/8 border border-amber-500/20 rounded-xl">
-                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                <p className="text-xs text-amber-200/90 leading-relaxed">{consistencyFlag}</p>
+              <div className="mt-4 flex items-start gap-2 p-3 rounded-xl" style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-800 leading-relaxed">{consistencyFlag}</p>
               </div>
             )}
           </div>
 
           {/* SECTION 5: Models Not Citing */}
           {modelsNotCiting.length > 0 && (
-            <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-5">
+            <div className="rounded-2xl p-5" style={{ background: 'var(--nd-card-bg)', border: '1px solid var(--nd-border)' }}>
               <div className="flex items-center gap-2 mb-4">
-                <Users className="w-4 h-4 text-red-400" />
-                <span className="text-sm font-semibold text-white">Models Not Citing Your Page</span>
+                <Users className="w-4 h-4 text-red-500" />
+                <span className="text-sm font-semibold" style={{ color: 'var(--nd-text-primary)' }}>Models Not Citing Your Page</span>
                 <FieldTooltip description={TOOLTIPS.modelsNotCiting} />
               </div>
               <div className="flex flex-wrap gap-2">
                 {modelsNotCiting.map((model: string, i: number) => (
-                  <div key={i} className="flex items-center gap-1.5 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-1.5">
-                    <AlertCircle className="w-3 h-3 text-red-400 shrink-0" />
-                    <span className="text-xs text-red-200 font-medium capitalize">{model}</span>
+                  <div key={i} className="flex items-center gap-1.5 rounded-lg px-3 py-1.5" style={{ background: '#FEF2F2', border: '1px solid #FECACA' }}>
+                    <AlertCircle className="w-3 h-3 text-red-500 shrink-0" />
+                    <span className="text-xs font-medium text-red-700 capitalize">{model}</span>
                   </div>
                 ))}
               </div>
@@ -522,22 +527,28 @@ export default function ModelComparison({ jobId, url, projectId }: ModelComparis
 
           {/* SECTION 6: Contradictions */}
           {contradictions.length > 0 && (
-            <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-5">
-              <button onClick={() => toggle('contradictions')}
-                className="w-full flex items-center justify-between hover:bg-zinc-800/40 transition-colors rounded-lg -mx-2 px-2 py-1">
+            <div className="rounded-2xl p-5" style={{ background: 'var(--nd-card-bg)', border: '1px solid var(--nd-border)' }}>
+              <button
+                onClick={() => toggle('contradictions')}
+                className="w-full flex items-center justify-between transition-colors rounded-lg -mx-2 px-2 py-1"
+                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--nd-nav-hover-bg)'}
+                onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
+              >
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-rose-400" />
-                  <span className="text-sm font-semibold text-white">Detected Contradictions</span>
+                  <AlertTriangle className="w-4 h-4 text-rose-500" />
+                  <span className="text-sm font-semibold" style={{ color: 'var(--nd-text-primary)' }}>Detected Contradictions</span>
                   <FieldTooltip description={TOOLTIPS.contradictions} />
-                  <Badge className="bg-rose-500/15 text-rose-300 border border-rose-500/20 text-xs">{contradictions.length}</Badge>
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: '#FFF1F2', color: '#E11D48', border: '1px solid #FECDD3' }}>{contradictions.length}</span>
                 </div>
-                {expandedSection === 'contradictions' ? <ChevronUp className="w-4 h-4 text-zinc-500" /> : <ChevronDown className="w-4 h-4 text-zinc-500" />}
+                {expandedSection === 'contradictions'
+                  ? <ChevronUp className="w-4 h-4" style={{ color: 'var(--nd-text-muted)' }} />
+                  : <ChevronDown className="w-4 h-4" style={{ color: 'var(--nd-text-muted)' }} />}
               </button>
               {expandedSection === 'contradictions' && (
                 <div className="mt-4 space-y-2">
                   {contradictions.map((c: any, i: number) => (
-                    <div key={i} className="p-3 bg-rose-500/5 border border-rose-500/15 rounded-xl">
-                      <p className="text-xs text-rose-200/90">{typeof c === 'string' ? c : JSON.stringify(c)}</p>
+                    <div key={i} className="p-3 rounded-xl" style={{ background: '#FFF1F2', border: '1px solid #FECDD3' }}>
+                      <p className="text-xs text-rose-800">{typeof c === 'string' ? c : JSON.stringify(c)}</p>
                     </div>
                   ))}
                 </div>

@@ -156,7 +156,7 @@ const EXPORT_OPTIONS: ExportOption[] = [
     label: 'AI Presence',
     description: 'Robot accessibility, schema, Open Graph and multi-model understanding scores.',
     icon: Sparkles,
-    color: 'text-violet-400',
+    color: 'text-violet-600',
     dataKey: 'aeo_checker',
   },
   {
@@ -164,7 +164,7 @@ const EXPORT_OPTIONS: ExportOption[] = [
     label: 'Answerability',
     description: 'Completeness, depth, breadth and readability scores.',
     icon: BookOpen,
-    color: 'text-blue-400',
+    color: 'text-blue-600',
     dataKey: 'answer_completeness',
   },
   {
@@ -172,7 +172,7 @@ const EXPORT_OPTIONS: ExportOption[] = [
     label: 'Knowledge Base & Entities',
     description: 'Entity coverage, found/missing entities and gap analysis.',
     icon: Layers,
-    color: 'text-emerald-400',
+    color: 'text-emerald-600',
     dataKey: 'entity_coverage',
   },
   {
@@ -180,7 +180,7 @@ const EXPORT_OPTIONS: ExportOption[] = [
     label: 'LLM Simulator',
     description: 'Simulated AI model responses with accuracy and completeness scores.',
     icon: Cpu,
-    color: 'text-amber-400',
+    color: 'text-amber-600',
     dataKey: 'llm_simulator',
   },
   {
@@ -188,7 +188,7 @@ const EXPORT_OPTIONS: ExportOption[] = [
     label: 'Actionable Insights',
     description: 'Improvement actions with priority, impact and category.',
     icon: Zap,
-    color: 'text-rose-400',
+    color: 'text-rose-600',
     dataKey: 'page_actions',
   },
   {
@@ -196,7 +196,7 @@ const EXPORT_OPTIONS: ExportOption[] = [
     label: 'Full AI Intelligence (All Sheets)',
     description: 'All AI intelligence analysis in one Excel workbook.',
     icon: FileSpreadsheet,
-    color: 'text-indigo-400',
+    color: 'text-indigo-600',
     dataKey: '',
   },
 ]
@@ -268,7 +268,7 @@ export default function ModuleCExport({ jobId, sessionName = 'session' }: Module
         className="w-full flex items-center justify-between px-5 py-4 hover:bg-(--nd-bg) transition-colors cursor-pointer"
       >
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
             <Sparkles className="h-4 w-4 text-emerald-600" />
           </div>
           <div className="text-left">
@@ -303,7 +303,7 @@ export default function ModuleCExport({ jobId, sessionName = 'session' }: Module
               <div
                 key={opt.id}
                 className={`flex items-center justify-between px-5 py-3.5 gap-4 ${
-                  opt.id === 'all' ? 'bg-indigo-500/5' : ''
+                  opt.id === 'all' ? 'bg-(--nd-bg)' : ''
                 }`}
               >
                 <div className="flex items-center gap-3 min-w-0">
@@ -323,9 +323,10 @@ export default function ModuleCExport({ jobId, sessionName = 'session' }: Module
                     onClick={() => handleDownload(opt.id)}
                     className={`h-8 px-3 text-xs rounded-xl cursor-pointer ${
                       opt.id === 'all'
-                        ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/30'
+                        ? 'text-white border-transparent hover:opacity-90'
                         : 'bg-white text-(--nd-text-secondary) border border-(--nd-border) hover:bg-(--nd-bg)'
                     }`}
+                    style={opt.id === 'all' ? { background: 'var(--nd-purple)' } : undefined}
                     variant="ghost"
                   >
                     {isDownloading ? (

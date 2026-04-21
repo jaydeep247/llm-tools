@@ -246,8 +246,8 @@ export default function TrendsByModelSection({
 
   if (!jobId) {
     return (
-      <div className="p-6 border border-dashed border-border rounded-lg bg-muted/40">
-        <p className="text-sm text-muted-foreground">
+      <div className="p-6 border border-dashed rounded-lg" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
+        <p className="text-sm font-bold" style={{ color: 'var(--nd-text-muted)' }}>
           Trends by Model requires a completed Module E run.
         </p>
       </div>
@@ -257,9 +257,9 @@ export default function TrendsByModelSection({
   if (isResultLoading) {
     return (
       <div className="flex items-center justify-center p-10">
-        <div className="flex items-center gap-3 text-muted-foreground">
+        <div className="flex items-center gap-3" style={{ color: 'var(--nd-text-muted)' }}>
           <Loader2 className="w-5 h-5 animate-spin" />
-          <span className="text-sm">Loading model trends…</span>
+          <span className="text-sm font-bold">Loading model trends…</span>
         </div>
       </div>
     )
@@ -268,7 +268,7 @@ export default function TrendsByModelSection({
   if (!modelStats.length) {
     return (
       <AnalysisEmptyState
-        icon={<LineChart className="w-8 h-8 text-zinc-400" />}
+        icon={<LineChart className="w-8 h-8" style={{ color: 'var(--nd-text-muted)' }} />}
         title="No Trends Data"
         description="Run AI citation analysis to unlock model-level trends for citations, mentions, and ranking coverage across ChatGPT, Gemini, and Claude."
         onRunAnalysis={handleRunAnalysis}
@@ -285,18 +285,18 @@ export default function TrendsByModelSection({
       {askAiDialog}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-zinc-800/50 border border-zinc-800">
-            <LineChart className="w-5 h-5 text-white" />
+          <div className="flex items-center justify-center w-10 h-10 rounded-lg border" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
+            <LineChart className="w-5 h-5" style={{ color: 'var(--nd-text-primary)' }} />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <h3 className="text-lg font-semibold text-foreground">Trends by Model</h3>
+              <h3 className="text-lg font-semibold" style={{ color: 'var(--nd-text-primary)' }}>Trends by Model</h3>
               <FieldTooltip description={TRENDS_BY_MODEL_SECTION_DESCRIPTION} />
             </div>
           </div>
         </div>
 
-        <Badge variant="outline" className="text-xs">
+        <Badge variant="outline" className="text-xs font-bold" style={{ borderColor: 'var(--nd-border)', color: 'var(--nd-text-secondary)' }}>
           {totalPrompts} prompts
         </Badge>
       </div>
@@ -321,11 +321,12 @@ export default function TrendsByModelSection({
           return (
             <div
               key={m.model}
-              className="rounded-2xl border border-zinc-800 bg-zinc-800/50 p-4"
+              className="rounded-2xl border p-4"
+              style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}
             >
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-foreground">
+                  <span className="text-sm font-bold" style={{ color: 'var(--nd-text-primary)' }}>
                     {m.label}
                   </span>
                 <ModuleEMetricAskButton
@@ -349,15 +350,16 @@ export default function TrendsByModelSection({
                   {typeof m.sov === 'number' && (
                     <Badge
                       variant="outline"
-                      className="text-[10px] px-2 py-0.5"
+                      className="text-[10px] px-2 py-0.5 font-bold"
+                      style={{ background: 'var(--nd-purple-subtle)', color: 'var(--nd-purple)', borderColor: 'var(--nd-purple-subtle)' }}
                     >
                       SOV {m.sov.toFixed(1)}%
                     </Badge>
                   )}
                 </div>
 
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <TrendingUp className="w-3 h-3" />
+                <div className="flex items-center gap-1 text-xs font-bold" style={{ color: 'var(--nd-text-muted)' }}>
+                  <LineChart className="w-3 h-3" />
                   <span>{m.total} prompts</span>
                 </div>
               </div>
@@ -366,16 +368,16 @@ export default function TrendsByModelSection({
                 {/* Mention Breakdown */}
                 <div>
                   <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-muted-foreground">
+                    <span className="font-bold uppercase tracking-tight" style={{ color: 'var(--nd-text-muted)' }}>
                       Mention breakdown
                     </span>
-                    <span className="font-mono text-[11px] text-muted-foreground">
+                    <span className="font-bold font-mono text-[10px]" style={{ color: 'var(--nd-text-muted)' }}>
                       {citedRate.toFixed(0)}% cited ·{' '}
                       {mentionedRate.toFixed(0)}% mention only
                     </span>
                   </div>
 
-                  <div className="flex h-2.5 rounded-full overflow-hidden bg-zinc-800">
+                  <div className="flex h-2.5 rounded-full overflow-hidden" style={{ background: 'var(--nd-bg)' }}>
                     <div
                       className="bg-emerald-500"
                       style={{ width: `${citedRate}%` }}
@@ -385,8 +387,7 @@ export default function TrendsByModelSection({
                       style={{ width: `${mentionedRate}%` }}
                     />
                     <div
-                      className="bg-slate-600"
-                      style={{ width: `${notMentionedRate}%` }}
+                      style={{ width: `${notMentionedRate}%`, background: 'var(--nd-border)' }}
                     />
                   </div>
                 </div>
@@ -394,25 +395,25 @@ export default function TrendsByModelSection({
                 {/* Metrics */}
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <div>
-                    <div className="text-muted-foreground">
+                    <div className="font-bold uppercase tracking-tight mb-1" style={{ color: 'var(--nd-text-muted)' }}>
                       Avg Accuracy
                     </div>
-                    <div className="text-sm font-semibold">
+                    <div className="text-sm font-bold" style={{ color: 'var(--nd-text-secondary)' }}>
                       {m.avgAccuracy.toFixed(0)}%
                     </div>
                   </div>
 
                   <div>
-                    <div className="text-muted-foreground">
+                    <div className="font-bold uppercase tracking-tight mb-1" style={{ color: 'var(--nd-text-muted)' }}>
                       Avg Sentiment
                     </div>
                     <div className="flex items-center gap-1">
-                      <span className="text-sm font-semibold">
+                      <span className="text-sm font-bold" style={{ color: 'var(--nd-text-secondary)' }}>
                         {m.avgSentiment.toFixed(2)}
                       </span>
                       <Badge
                         variant={sentimentBadge}
-                        className="text-[10px] px-1.5 py-0"
+                        className="text-[10px] px-1.5 py-0 font-bold uppercase"
                       >
                         {m.avgSentiment > 0.1
                           ? 'Pos'
@@ -424,30 +425,30 @@ export default function TrendsByModelSection({
                   </div>
 
                   <div>
-                    <div className="text-muted-foreground">
-                      Avg Rank (when cited)
+                    <div className="font-bold uppercase tracking-tight mb-1" style={{ color: 'var(--nd-text-muted)' }}>
+                      Avg Rank
                     </div>
                     {m.avgRankWhenRanked != null ? (
                       <div className="flex items-center gap-1">
-                        <span className="text-sm font-semibold">
+                        <span className="text-sm font-bold" style={{ color: 'var(--nd-text-secondary)' }}>
                           #{m.avgRankWhenRanked.toFixed(1)}
                         </span>
                         {m.avgRankWhenRanked <= 3 ? (
-                          <ArrowUpRight className="w-3 h-3 text-emerald-500" />
+                          <ArrowUpRight className="w-3 h-3 text-emerald-600" />
                         ) : (
-                          <ArrowDownRight className="w-3 h-3 text-muted-foreground" />
+                          <ArrowDownRight className="w-3 h-3" style={{ color: 'var(--nd-text-muted)' }} />
                         )}
                       </div>
                     ) : (
-                      <span className="text-sm text-muted-foreground">—</span>
+                      <span className="text-sm font-bold" style={{ color: 'var(--nd-text-muted)' }}>—</span>
                     )}
                   </div>
                 </div>
 
                 {/* Ranking Coverage */}
-                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-tight" style={{ color: 'var(--nd-text-muted)' }}>
                   <span>Ranking Coverage</span>
-                  <span className="font-mono text-xs">
+                  <span className="font-mono text-xs" style={{ color: 'var(--nd-text-secondary)' }}>
                     {m.rankingCoverage.toFixed(1)}%
                   </span>
                 </div>

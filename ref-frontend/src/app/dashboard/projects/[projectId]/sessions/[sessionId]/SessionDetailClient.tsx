@@ -1018,14 +1018,14 @@ export default function SessionDetailClient() {
         onSectionChange={handleSectionChange}
       >
         <div className="p-6 space-y-6 sm:space-y-8 animate-fade-in-hero">
-          <div className="space-y-2">
+          <div className="space-y-3">
             <div className="h-8 sm:h-10 md:h-12 w-48 sm:w-64 rounded-2xl animate-pulse" style={{ background: 'var(--nd-border)' }}></div>
-            <div className="h-4 sm:h-5 w-32 sm:w-48 rounded-xl animate-pulse" style={{ background: 'var(--nd-border)' }}></div>
+            <div className="h-5 sm:h-6 w-32 sm:w-48 rounded-xl animate-pulse opacity-80" style={{ background: 'var(--nd-border)' }}></div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="rounded-2xl p-3 sm:p-4 md:p-5 animate-pulse" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
-                <div className="h-20 sm:h-24 rounded-xl" style={{ background: 'var(--nd-bg)' }}></div>
+              <div key={i} className="rounded-2xl p-3 sm:p-4 md:p-5 animate-pulse" style={{ border: '2px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+                <div className="h-20 sm:h-24 rounded-xl opacity-60" style={{ background: 'var(--nd-bg)' }}></div>
               </div>
             ))}
           </div>
@@ -1049,10 +1049,10 @@ export default function SessionDetailClient() {
               <AlertCircle className="h-8 w-8" style={{ color: '#EF4444' }} />
             </div>
             <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--nd-text-primary)' }}>Session not found</h2>
-            <p className="mb-6" style={{ color: 'var(--nd-text-muted)' }}>{error || 'The session you\'re looking for doesn\'t exist'}</p>
+            <p className="mb-6 font-bold" style={{ color: 'var(--nd-text-secondary)' }}>{error || 'The session you\'re looking for doesn\'t exist'}</p>
             <button 
               onClick={() => router.push(`/dashboard/projects/${projectId}`)} 
-              className="px-6 py-2 rounded-xl font-semibold text-sm cursor-pointer transition-colors border-none nd-btn-primary"
+              className="px-6 py-2 rounded-xl font-bold text-sm cursor-pointer transition-colors border-none nd-btn-primary"
             >
               Back to Project
             </button>
@@ -1284,36 +1284,36 @@ export default function SessionDetailClient() {
             />
 
             {/* Session Info */}
-            <div className="rounded-2xl p-4 sm:p-5 border border-zinc-800 bg-[#111113]">
-              <h2 className="text-base sm:text-lg font-semibold text-white mb-4">Session Details</h2>
+            <div className="rounded-2xl p-4 sm:p-5 border" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
+              <h2 className="text-base sm:text-lg font-bold mb-4" style={{ color: 'var(--nd-text-primary)' }}>Session Details</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 <div className="space-y-1">
-                  <p className="text-[11px] text-zinc-500 uppercase tracking-wider">Session ID</p>
-                  <p className="text-sm text-white font-medium font-mono">#{session.id}</p>
+                  <p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--nd-text-secondary)' }}>Session ID</p>
+                  <p className="text-sm font-bold font-mono" style={{ color: 'var(--nd-text-primary)' }}>#{session.id}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[11px] text-zinc-500 uppercase tracking-wider">Project ID</p>
-                  <p className="text-sm text-white font-medium">{session.projectId}</p>
+                  <p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--nd-text-secondary)' }}>Project ID</p>
+                  <p className="text-sm font-bold" style={{ color: 'var(--nd-text-primary)' }}>{session.projectId}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[11px] text-zinc-500 uppercase tracking-wider">Start URL</p>
-                  <p className="text-sm text-white font-medium truncate">{session.startUrl}</p>
+                  <p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--nd-text-secondary)' }}>Start URL</p>
+                  <p className="text-sm font-bold truncate" style={{ color: 'var(--nd-text-primary)' }}>{session.startUrl}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[11px] text-zinc-500 uppercase tracking-wider">Status</p>
-                  <span className={`${getStatusColor(session.status)} text-[10px] inline-flex items-center gap-1 px-2 py-0.5 rounded-full border font-medium`}>
+                  <p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--nd-text-secondary)' }}>Status</p>
+                  <span className={`${getStatusColor(session.status)} text-xs inline-flex items-center gap-1 px-2 py-0.5 rounded-full border font-bold`}>
                     {getStatusIcon(session.status)}
                     {session.status.toUpperCase()}
                   </span>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[11px] text-zinc-500 uppercase tracking-wider">Total Pages</p>
-                  <p className="text-sm text-blue-400 font-semibold">{totalPagesCount}</p>
+                  <p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--nd-text-secondary)' }}>Total Pages</p>
+                  <p className="text-sm font-bold" style={{ color: 'var(--nd-blue)' }}>{totalPagesCount}</p>
                 </div>
                 {(session.completedAt || jobSummary?.session?.completed_at) && (
                   <div className="space-y-1">
-                    <p className="text-[11px] text-zinc-500 uppercase tracking-wider">Completed</p>
-                    <p className="text-sm text-emerald-400 font-semibold">
+                    <p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--nd-text-secondary)' }}>Completed</p>
+                    <p className="text-sm font-bold text-emerald-600">
                       {new Date(session.completedAt || jobSummary?.session?.completed_at || '').toLocaleString()}
                     </p>
                   </div>
@@ -1323,12 +1323,13 @@ export default function SessionDetailClient() {
             </div>
 
             {/* Crawled Pages Summary Table */}
-            <div className="rounded-2xl border border-zinc-800 bg-[#111113] overflow-hidden">
-              <div className="px-5 py-3.5 border-b border-zinc-800/60 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-zinc-200">📄 Crawled Pages ({transformedPages.length})</h3>
+            <div className="rounded-2xl border overflow-hidden" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
+              <div className="px-5 py-3.5 border-b flex items-center justify-between" style={{ borderColor: 'var(--nd-border)' }}>
+                <h3 className="text-sm font-bold" style={{ color: 'var(--nd-text-primary)' }}>📄 Crawled Pages ({transformedPages.length})</h3>
                 <button 
                   onClick={() => refetchJobResults()}
-                  className="p-1.5 rounded-xl text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60 cursor-pointer transition-colors border-none bg-transparent"
+                  className="p-1.5 rounded-xl cursor-pointer transition-colors border-none bg-transparent"
+                  style={{ color: 'var(--nd-text-secondary)' }}
                 >
                   <RefreshCw className="h-4 w-4" />
                 </button>
@@ -1336,89 +1337,89 @@ export default function SessionDetailClient() {
               <div className="overflow-x-auto">
                 {isLoadingResults ? (
                   <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
-                    <span className="ml-2 text-zinc-500">Loading crawled pages...</span>
+                    <Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--nd-purple)' }} />
+                    <span className="ml-2 font-bold" style={{ color: 'var(--nd-text-secondary)' }}>Loading crawled pages...</span>
                   </div>
                 ) : transformedPages.length === 0 ? (
-                  <div className="flex items-center justify-center py-12 text-zinc-600">
+                  <div className="flex items-center justify-center py-12 font-bold" style={{ color: 'var(--nd-text-secondary)' }}>
                     No pages crawled yet
                   </div>
                 ) : (
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-zinc-800 bg-zinc-900/50">
-                        <th className="px-4 py-3 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider">URL</th>
-                        <th className="px-4 py-3 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Status</th>
-                        <th className="px-4 py-3 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Title</th>
-                        <th className="px-4 py-3 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Words</th>
-                        <th className="px-4 py-3 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Response</th>
-                        <th className="px-4 py-3 text-left text-[11px] font-medium text-zinc-500 uppercase tracking-wider">Depth</th>
+                      <tr className="border-b" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
+                        <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--nd-text-secondary)' }}>URL</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--nd-text-secondary)' }}>Status</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--nd-text-secondary)' }}>Title</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--nd-text-secondary)' }}>Words</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--nd-text-secondary)' }}>Response</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--nd-text-secondary)' }}>Depth</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-zinc-800/60">
+                    <tbody className="divide-y" style={{ borderColor: 'var(--nd-border)' }}>
                       {transformedPages.slice(0, 6).map((page: any, idx: number) => {
                         const responseTime = page.responseTime || page.response_time || 0;
                         const wordCount = page.wordCount || page.word_count || 0;
                         const crawlDepth = page.crawlDepth || page.crawl_depth || 0;
                         
                         return (
-                          <tr key={page.id || idx} className="hover:bg-zinc-800/30 transition-colors">
+                          <tr key={page.id || idx} className="hover:bg-black/5 transition-colors">
                             <td className="px-4 py-3">
                               <a 
                                 href={page.url} 
                                 target="_blank" 
                                 rel="noopener noreferrer"
-                                className="text-blue-400 hover:text-blue-300 text-sm truncate max-w-75 block"
+                                className="text-blue-600 hover:text-blue-800 text-sm font-bold truncate max-w-75 block"
                                 title={page.url}
                               >
                                 {page.url?.length > 50 ? page.url.substring(0, 50) + '...' : page.url}
                               </a>
                             </td>
                             <td className="px-4 py-3">
-                              <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
+                              <span className={`text-xs px-2 py-0.5 rounded-full border font-bold ${
                                 page.statusCode >= 200 && page.statusCode < 300 
-                                  ? 'bg-green-500/20 text-green-300 border-green-500/30' 
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
                                   : page.statusCode >= 300 && page.statusCode < 400
-                                  ? 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
-                                  : 'bg-red-500/20 text-red-300 border-red-500/30'
+                                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                  : 'bg-rose-50 text-rose-700 border-rose-200'
                               }`}>
                                 {page.statusCode || 'N/A'}
                               </span>
                             </td>
-                            <td className="px-4 py-3 text-sm text-zinc-400 truncate max-w-50" title={page.title}>
+                            <td className="px-4 py-3 text-sm font-medium truncate max-w-50" style={{ color: 'var(--nd-text-primary)' }} title={page.title}>
                               {page.title?.length > 40 ? page.title.substring(0, 40) + '...' : page.title || '-'}
                             </td>
                             <td className="px-4 py-3">
-                              <span className={`text-sm px-2 py-0.5 rounded ${
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-bold border ${
                                 wordCount > 1000 
-                                  ? 'bg-green-500/15 text-green-300' 
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
                                   : wordCount > 300 
-                                  ? 'bg-blue-500/15 text-blue-300'
-                                  : 'bg-orange-500/15 text-orange-300'
+                                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                  : 'bg-amber-50 text-amber-700 border-amber-200'
                               }`}>
                                 {wordCount.toLocaleString()}
                               </span>
                             </td>
                             <td className="px-4 py-3">
-                              <span className={`text-sm px-2 py-0.5 rounded ${
+                              <span className={`text-xs px-2 py-0.5 rounded-full border font-bold ${
                                 responseTime > 0 && responseTime < 500 
-                                  ? 'bg-green-500/15 text-green-300' 
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
                                   : responseTime >= 500 && responseTime < 1000 
-                                  ? 'bg-yellow-500/15 text-yellow-300'
+                                  ? 'bg-amber-50 text-amber-700 border-amber-200'
                                   : responseTime >= 1000
-                                  ? 'bg-red-500/15 text-red-300'
+                                  ? 'bg-rose-50 text-rose-700 border-rose-200'
                                   : 'text-zinc-600'
                               }`}>
                                 {responseTime > 0 ? `${responseTime}ms` : '-'}
                               </span>
                             </td>
                             <td className="px-4 py-3">
-                              <span className={`text-sm px-2 py-0.5 rounded ${
+                              <span className={`text-xs px-2 py-0.5 rounded-full border font-bold ${
                                 crawlDepth === 0 
-                                  ? 'bg-purple-500/15 text-purple-300' 
+                                  ? 'bg-violet-50 text-violet-700 border-violet-200' 
                                   : crawlDepth <= 2 
-                                  ? 'bg-blue-500/15 text-blue-300'
-                                  : 'bg-zinc-800/40 text-zinc-400'
+                                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                  : 'bg-gray-50 text-gray-600 border-gray-200'
                               }`}>
                                 {crawlDepth}
                               </span>
@@ -1430,10 +1431,11 @@ export default function SessionDetailClient() {
                   </table>
                 )}
                 {transformedPages.length > 6 && (
-                  <div className="px-4 py-3 border-t border-zinc-800/60 text-center">
+                  <div className="px-4 py-3 border-t text-center" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-bg)' }}>
                     <button
                       onClick={() => handleSectionChange('crawled-data')}
-                      className="px-3 py-1.5 rounded-xl text-sm text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 cursor-pointer transition-colors border-none bg-transparent font-medium"
+                      className="px-3 py-1.5 rounded-xl text-sm transition-colors border-none bg-transparent font-bold"
+                      style={{ color: 'var(--nd-purple)' }}
                     >
                       View all {transformedPages.length} pages →
                     </button>
@@ -1530,7 +1532,7 @@ export default function SessionDetailClient() {
         {/* Show Performance Audits on performance tab (now handled in Content Audit) */}
         {activeSection === 'performance' && (
           <div>
-            <div className="p-8 text-center text-zinc-400">
+            <div className="p-8 text-center font-bold" style={{ color: 'var(--nd-text-secondary)' }}>
               Performance Metrics have been moved to the Content Audit section.
             </div>
           </div>
@@ -1581,12 +1583,12 @@ export default function SessionDetailClient() {
         {activeSection === 'module-e' && (
           <div className="space-y-6">
             {/* Competitor Mentions */}
-            <div className="rounded-2xl p-6 border border-zinc-800 bg-[#111113]">
+            <div className="rounded-2xl p-6 border" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>
               <CompetitorMentionsSection jobId={jobId} projectId={projectId} />
             </div>
 
             {/* Brand Analysis */}
-            <div className="rounded-2xl p-6 border border-zinc-800 bg-[#111113]">
+            <div className="rounded-2xl p-6 border" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>
               <BrandAnalysisSection jobId={jobId} projectId={projectId} />
             </div>
 
@@ -1624,12 +1626,12 @@ export default function SessionDetailClient() {
             )}
 
             {/* AI Share of Voice */}
-            <div className="rounded-2xl p-6 border border-zinc-800 bg-[#111113]">
+            <div className="rounded-2xl p-6 border" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>
               <ShareOfVoiceSection jobId={jobId} projectId={projectId} />
             </div>
 
             {/* Trends by Model */}
-            <div className="rounded-2xl p-6 border border-zinc-800 bg-[#111113]">
+            <div className="rounded-2xl p-6 border" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>
               <TrendsByModelSection jobId={jobId} projectId={projectId} />
             </div>
           </div>
@@ -1637,7 +1639,7 @@ export default function SessionDetailClient() {
 
         {activeSection === 'keyword-intelligence' && (
           <div className="space-y-6">
-            <div className="rounded-2xl p-6 border border-zinc-800 bg-[#111113]">
+            <div className="rounded-2xl p-6 border" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>
               <AICitationRanking jobId={jobId} projectId={projectId} url={session?.startUrl || ''} />
             </div>
           </div>
@@ -1717,11 +1719,11 @@ export default function SessionDetailClient() {
 
         {/* Placeholder for other tabs */}
         {activeSection !== 'crawler' && activeSection !== 'crawled-data' && activeSection !== 'page-metrics' && activeSection !== 'text-quality' && activeSection !== 'wordcount' && activeSection !== 'broken-links' && activeSection !== 'audit-checker' && activeSection !== 'link-analysis' && activeSection !== 'performance' && activeSection !== 'ga4-traffic' && activeSection !== 'recommendations' && activeSection !== 'schema-generator' && activeSection !== 'ai-intelligence' && activeSection !== 'module-e' && activeSection !== 'content-metrics' && activeSection !== 'discover-prompts' && activeSection !== 'topic-clusters' && activeSection !== 'content-matrix' && activeSection !== 'keyword-intelligence' && activeSection !== 'exports' && activeSection !== 'serp-analyzer' && activeSection !== 'audit-reports' && activeSection !== 'priority-alerts' && activeSection !== 'executive-snapshot' && activeSection !== 'wins-losses' && activeSection !== 'weekly-summary' && activeSection !== 'competitor-reports' && activeSection !== 'export-api' && activeSection !== 'dashboard' && (
-          <div className="rounded-2xl p-8 border border-zinc-800 bg-[#111113] text-center">
-            <h2 className="text-xl font-semibold text-white mb-2">
+          <div className="rounded-2xl p-8 border text-center" style={{ borderColor: 'var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+            <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--nd-text-primary)' }}>
               {activeSection.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
             </h2>
-            <p className="text-zinc-500">This section is under development.</p>
+            <p style={{ color: 'var(--nd-text-secondary)' }}>This section is under development.</p>
           </div>
         )}
       </div>

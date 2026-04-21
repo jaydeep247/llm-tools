@@ -14,8 +14,6 @@ import {
   X,
 } from 'lucide-react'
 import { AnalysisEmptyState } from '@/components/common/AnalysisEmptyState'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
 export interface BrokenLink {
@@ -185,35 +183,35 @@ export default function BrokenLinkChecker({
           label: 'Broken Internal',
           count: checkResults.brokenInternalLinks.count,
           icon: LinkIcon,
-          active: 'text-red-300 border-red-500/30 bg-red-500/10',
+          active: 'text-red-700 border-red-200 bg-red-50',
         },
         {
           key: 'brokenExternal' as LinkCategory,
           label: 'Broken External',
           count: checkResults.brokenExternalLinks.count,
           icon: ExternalLink,
-          active: 'text-orange-300 border-orange-500/30 bg-orange-500/10',
+          active: 'text-orange-700 border-orange-200 bg-orange-50',
         },
         {
           key: 'missingPages' as LinkCategory,
           label: 'Missing Pages',
           count: checkResults.missingPages.count,
           icon: X,
-          active: 'text-rose-300 border-rose-500/30 bg-rose-500/10',
+          active: 'text-rose-700 border-rose-200 bg-rose-50',
         },
         {
           key: 'serverErrors' as LinkCategory,
           label: 'Server Errors',
           count: checkResults.serverErrors.count,
           icon: AlertTriangle,
-          active: 'text-red-200 border-red-700/40 bg-red-950/40',
+          active: 'text-red-700 border-red-200 bg-red-50',
         },
         {
           key: 'timeoutUnreachable' as LinkCategory,
           label: 'Timeout',
           count: checkResults.timeoutUnreachable.count,
           icon: Clock,
-          active: 'text-amber-300 border-amber-500/30 bg-amber-500/10',
+          active: 'text-amber-700 border-amber-200 bg-amber-50',
         },
       ]
     : []
@@ -225,11 +223,11 @@ export default function BrokenLinkChecker({
       <div className="rounded-2xl border border-(--nd-border) bg-white p-5 sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-3">
-            <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-2.5">
-              <LinkIcon className="h-5 w-5 text-sky-300" />
+            <div className="rounded-xl border border-blue-200 bg-blue-50 p-2.5">
+              <LinkIcon className="h-5 w-5 text-blue-600" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-(--nd-text-primary)">URL Explorer</h2>
+              <h2 className="nd-page-title">URL Explorer</h2>
               <p className="text-sm text-(--nd-text-muted)">
                 Audit discovered links, isolate failures by type, and inspect root causes quickly.
               </p>
@@ -237,43 +235,43 @@ export default function BrokenLinkChecker({
           </div>
 
           {(!hasResults || totalIssues > 0) && (
-            <Button
+            <button
               onClick={handleCheckLinks}
               disabled={isChecking}
-              className="bg-sky-600 text-white hover:bg-sky-500"
+              className="nd-btn-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isChecking ? (
                 <>
-                  <Clock className="mr-2 h-4 w-4 animate-spin" />
+                  <Clock className="w-4 h-4 animate-spin" />
                   Checking Links...
                 </>
               ) : (
                 <>
-                  <LinkIcon className="mr-2 h-4 w-4" />
+                  <LinkIcon className="w-4 h-4" />
                   Check Links
                 </>
               )}
-            </Button>
+            </button>
           )}
         </div>
 
         {hasResults && (
           <div className="mt-4 flex flex-wrap items-center gap-2">
             {totalIssues > 0 ? (
-              <Badge className="border-amber-500/30 bg-amber-500/10 text-amber-200">
-                <AlertTriangle className="mr-1 h-3 w-3" />
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700">
+                <AlertTriangle className="h-3 w-3" />
                 {totalIssues} issue{totalIssues === 1 ? '' : 's'} detected
-              </Badge>
+              </span>
             ) : (
-              <Badge className="border-emerald-500/30 bg-emerald-500/10 text-emerald-200">
-                <CheckCircle className="mr-1 h-3 w-3" />
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700">
+                <CheckCircle className="h-3 w-3" />
                 All links healthy
-              </Badge>
+              </span>
             )}
             {checkResults?.totalChecked !== undefined && (
-              <Badge variant="outline" className="border-(--nd-border) text-(--nd-text-secondary)">
+              <span className="inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full border border-(--nd-border) text-(--nd-text-secondary)">
                 Checked {checkResults.totalChecked}
-              </Badge>
+              </span>
             )}
           </div>
         )}
@@ -413,13 +411,13 @@ export default function BrokenLinkChecker({
                                 href={link.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="flex items-start gap-1 break-all text-sm text-red-300 hover:text-red-200 hover:underline"
+                                className="flex items-start gap-1 break-all text-sm text-rose-600 hover:text-rose-800 hover:underline"
                               >
                                 <span>{link.url}</span>
                                 <ExternalLink className="mt-0.5 h-3 w-3 shrink-0" />
                               </a>
                               {isExpanded && link.error && (
-                                <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-2 text-xs text-red-100/90">
+                                <div className="rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-700">
                                   <span className="font-semibold">Error:</span> {link.error}
                                 </div>
                               )}
@@ -431,7 +429,7 @@ export default function BrokenLinkChecker({
                                 href={link.sourceUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="flex items-start gap-1 break-all text-sm text-sky-300 hover:text-sky-200 hover:underline"
+                                className="flex items-start gap-1 break-all text-sm text-blue-600 hover:text-blue-800 hover:underline"
                               >
                                 <span>{link.sourceUrl}</span>
                                 <ExternalLink className="mt-0.5 h-3 w-3 shrink-0" />
@@ -441,9 +439,9 @@ export default function BrokenLinkChecker({
                             )}
                           </td>
                           <td className="px-4 py-3 align-top">
-                              <Badge variant="outline" className="border-(--nd-border) bg-white text-(--nd-text-secondary)">
+                            <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-md border border-(--nd-border) bg-(--nd-bg) text-(--nd-text-secondary)">
                               {link.statusCode || link.errorType || 'Error'}
-                            </Badge>
+                            </span>
                           </td>
                           <td className="px-4 py-3 align-top text-sm text-(--nd-text-secondary)">{link.categoryLabel}</td>
                           <td className="px-4 py-3 align-top text-sm text-(--nd-text-secondary)">
@@ -458,7 +456,7 @@ export default function BrokenLinkChecker({
             </div>
           ) : (
             <div className="rounded-2xl border border-(--nd-border) bg-white p-10 text-center">
-              <CheckCircle className="mx-auto mb-3 h-10 w-10 text-emerald-400" />
+              <CheckCircle className="mx-auto mb-3 h-10 w-10 text-emerald-600" />
               <p className="text-sm font-medium text-(--nd-text-primary)">
                 {totalIssues > 0 ? 'No links match the current filters.' : 'No broken links found.'}
               </p>

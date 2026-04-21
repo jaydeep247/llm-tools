@@ -71,35 +71,35 @@ function CircularProgress({ value, size = 120, strokeWidth = 8, label, sublabel 
     <div className="relative inline-flex flex-col items-center justify-center gap-1">
       <div className="relative inline-flex items-center justify-center">
         <svg width={size} height={size} className="transform -rotate-90">
-          <circle cx={size/2} cy={size/2} r={radius} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={strokeWidth} />
+          <circle cx={size/2} cy={size/2} r={radius} fill="none" stroke="var(--nd-border)" strokeWidth={strokeWidth} />
           <circle cx={size/2} cy={size/2} r={radius} fill="none" stroke={color} strokeWidth={strokeWidth}
             strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={offset}
             className="transition-all duration-700 ease-out" />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-3xl font-bold text-white">{Math.round(value)}</span>
-          <span className="text-xs text-zinc-500">/100</span>
+          <span className="text-3xl font-bold text-(--nd-text-primary)">{Math.round(value)}</span>
+          <span className="text-xs text-(--nd-text-muted)">/100</span>
         </div>
       </div>
-      {label && <span className="text-xs font-medium text-zinc-300">{label}</span>}
-      {sublabel && <span className="text-[10px] text-zinc-500">{sublabel}</span>}
+      {label && <span className="text-xs font-medium text-(--nd-text-secondary)">{label}</span>}
+      {sublabel && <span className="text-[10px] text-(--nd-text-muted)">{sublabel}</span>}
     </div>
   )
 }
 
 // Score pill label
 function ScoreLabel({ score }: { score: number }) {
-  const { text, cls } = score >= 70 ? { text: 'Good', cls: 'text-green-400 bg-green-500/10 border-green-500/20' }
-    : score >= 50 ? { text: 'Fair', cls: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20' }
-    : score >= 30 ? { text: 'Poor', cls: 'text-orange-400 bg-orange-500/10 border-orange-500/20' }
-    : { text: 'Critical', cls: 'text-red-400 bg-red-500/10 border-red-500/20' }
-  return <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-full border', cls)}>{text}</span>
+  const { text, cls } = score >= 70 ? { text: 'Good', cls: 'text-emerald-700 bg-emerald-50 border-emerald-200' }
+    : score >= 50 ? { text: 'Fair', cls: 'text-amber-700 bg-amber-50 border-amber-200' }
+    : score >= 30 ? { text: 'Poor', cls: 'text-orange-700 bg-orange-50 border-orange-200' }
+    : { text: 'Critical', cls: 'text-red-700 bg-red-50 border-red-200' }
+  return <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full border', cls)}>{text}</span>
 }
 
 // Mini progress bar
 function MiniBar({ value, color = 'bg-blue-500' }: { value: number; color?: string }) {
   return (
-    <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
+    <div className="h-2 w-full bg-(--nd-border) rounded-full overflow-hidden">
       <div className={cn('h-full rounded-full transition-all duration-500', color)} style={{ width: `${Math.min(value, 100)}%` }} />
     </div>
   )
@@ -109,10 +109,10 @@ function MiniBar({ value, color = 'bg-blue-500' }: { value: number; color?: stri
 function ChartTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 text-xs shadow-2xl">
-      <p className="text-zinc-300 font-semibold mb-1">{label}</p>
+    <div className="bg-white border border-(--nd-border) rounded-xl px-3 py-2 text-xs shadow-lg">
+      <p className="text-(--nd-text-secondary) font-semibold mb-1">{label}</p>
       {payload.map((p: any, i: number) => (
-        <p key={i} style={{ color: p.color }}>{p.name}: <span className="font-bold text-white">{p.value}</span></p>
+        <p key={i} style={{ color: p.color }}>{p.name}: <span className="font-bold text-(--nd-text-primary)">{p.value}</span></p>
       ))}
     </div>
   )
@@ -123,23 +123,23 @@ function MetricCard({ label, value, sublabel, tooltip, icon, accent = 'blue', la
   label: string; value: string | number; sublabel?: string; tooltip?: string; icon?: React.ReactNode; accent?: string; large?: boolean
 }) {
   const accentMap: Record<string, string> = {
-    blue: 'bg-blue-500/15 border-blue-500/20',
-    green: 'bg-green-500/15 border-green-500/20',
-    yellow: 'bg-yellow-500/15 border-yellow-500/20',
-    red: 'bg-red-500/15 border-red-500/20',
-    purple: 'bg-purple-500/15 border-purple-500/20',
-    cyan: 'bg-cyan-500/15 border-cyan-500/20',
-    orange: 'bg-orange-500/15 border-orange-500/20',
+    blue: 'bg-blue-50 border-blue-200',
+    green: 'bg-emerald-50 border-emerald-200',
+    yellow: 'bg-amber-50 border-amber-200',
+    red: 'bg-red-50 border-red-200',
+    purple: 'bg-violet-50 border-violet-200',
+    cyan: 'bg-cyan-50 border-cyan-200',
+    orange: 'bg-orange-50 border-orange-200',
   }
   return (
     <div className={cn('rounded-xl border p-4 flex flex-col gap-1', accentMap[accent] || accentMap['blue'])}>
       <div className="flex items-center gap-1.5">
         {icon && <span className="opacity-70">{icon}</span>}
-        <span className="text-xs text-zinc-400">{label}</span>
+        <span className="text-xs text-(--nd-text-secondary)">{label}</span>
         {tooltip && <FieldTooltip description={tooltip} />}
       </div>
-      <span className={cn('font-bold text-white', large ? 'text-3xl' : 'text-xl')}>{value}</span>
-      {sublabel && <span className="text-[10px] text-zinc-500">{sublabel}</span>}
+      <span className={cn('font-bold text-(--nd-text-primary)', large ? 'text-3xl' : 'text-xl')}>{value}</span>
+      {sublabel && <span className="text-[10px] text-(--nd-text-muted)">{sublabel}</span>}
     </div>
   )
 }
@@ -165,9 +165,9 @@ function MetricAskButton({
       }}
       disabled={disabled}
       className={cn(
-        'inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10',
-        'px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300',
-        'hover:bg-violet-500/18 transition-colors cursor-pointer shrink-0',
+        'inline-flex items-center gap-1 rounded-full border border-(--nd-border) bg-(--nd-nav-active-bg)',
+        'px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-(--nd-purple)',
+        'hover:opacity-80 transition-opacity cursor-pointer shrink-0',
         'disabled:opacity-40 disabled:cursor-not-allowed',
       )}
     >
@@ -223,7 +223,7 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
     const ss = aeo.sub_scores
     return [
       { name: 'Crawl Access', score: ss.crawl_access?.total ?? 0, fill: '#3b82f6' },
-      { name: 'Schema', score: ss.schema?.total ?? 0, fill: '#8b5cf6' },
+      { name: 'Schema', score: ss.schema?.total ?? 0, fill: '#5347CE' },
       { name: 'Content', score: ss.content?.total ?? 0, fill: '#10b981' },
       { name: 'Tech Hygiene', score: ss.tech_hygiene?.total ?? 0, fill: '#06b6d4' },
       { name: 'Structure', score: ss.structure?.total ?? 0, fill: '#f59e0b' },
@@ -232,7 +232,7 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
 
   // Module overview chart
   const moduleOverviewData = useMemo(() => [
-    { name: 'LLM Score', value: Math.round(llmScore), fill: '#3b82f6' },
+    { name: 'LLM Score', value: Math.round(llmScore), fill: '#5347CE' },
     { name: 'Entity Cov.', value: Math.round(entityPct), fill: '#10b981' },
     { name: 'Completeness', value: Math.round(completenessScore), fill: '#8b5cf6' },
     { name: 'Consistency', value: Math.round(consistencyScore), fill: '#f59e0b' },
@@ -346,18 +346,14 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-white">AI Visibility Scorecards</h2>
-          <p className="text-sm text-zinc-400 mt-0.5">How well your page performs across all AI engine dimensions</p>
+          <h2 className="nd-page-title">AI Visibility Scorecards</h2>
+          <p className="nd-page-subtitle mt-0.5">How well your page performs across all AI engine dimensions</p>
         </div>
         <button
           type="button"
           onClick={openAskAiDialog}
           disabled={!projectId || isAskingAI}
-          className={cn(
-            'inline-flex items-center gap-2 rounded-full border-0 px-5 py-2.5 text-sm font-extrabold uppercase tracking-wider text-black shadow-lg shadow-fuchsia-950/30',
-            'bg-linear-to-r from-purple-500 via-pink-500 to-amber-300 hover:opacity-95',
-            'disabled:cursor-not-allowed disabled:opacity-50',
-          )}
+          className="nd-btn-primary disabled:cursor-not-allowed disabled:opacity-50"
         >
           <MessageSquare className="size-4 shrink-0" />
           Ask AI
@@ -366,18 +362,18 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
 
       {/* ── No Job Warning ───────────────────────────────────────────────────── */}
       {!jobId && (
-        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
-          <p className="text-sm text-amber-300">Run a crawl first to enable AI Visibility analysis.</p>
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+          <p className="text-sm text-amber-700">Run a crawl first to enable AI Visibility analysis.</p>
         </div>
       )}
 
       {/* ── Loading ──────────────────────────────────────────────────────────── */}
       {isLoadingData && (
-        <div className="flex items-center justify-center p-16 border border-zinc-800 rounded-2xl bg-zinc-800/30">
+        <div className="flex items-center justify-center p-16 border border-(--nd-border) rounded-2xl bg-white">
           <div className="flex flex-col items-center gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
-            <p className="text-sm text-zinc-400">Loading data…</p>
+            <Loader2 className="w-8 h-8 animate-spin text-(--nd-purple)" />
+            <p className="text-sm text-(--nd-text-muted)">Loading data…</p>
           </div>
         </div>
       )}
@@ -404,13 +400,13 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
       {hasData && !isLoadingData && !isAnalyzing && (
         <>
           {/* ── SECTION 1: Hero Score ─────────────────────────────────────────── */}
-          <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-6">
+          <div className="bg-white border border-(--nd-border) rounded-2xl p-6">
             <div className="flex flex-col lg:flex-row gap-8 items-center">
               {/* Big circle */}
               <div className="shrink-0 flex flex-col items-center gap-2">
                 <CircularProgress value={overallScore} size={150} strokeWidth={12} />
                 <div className="flex items-center gap-1.5 mt-1">
-                  <span className="text-sm text-zinc-400">Overall Score</span>
+                  <span className="text-sm font-medium text-(--nd-text-secondary)">Overall Score</span>
                   <FieldTooltip description={TOOLTIPS.overallScore} />
                   <MetricAskButton
                     disabled={!projectId || !jobId || isAskingAI}
@@ -436,12 +432,12 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
                 {(aeo?.page_topic || aeo?.page_type) && (
                   <div className="flex flex-wrap gap-2 items-center">
                     {aeo.page_type && (
-                      <Badge className="bg-blue-500/15 text-blue-300 border border-blue-500/20 text-xs capitalize">
+                      <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-xs capitalize">
                         {aeo.page_type}
                       </Badge>
                     )}
                     {aeo.page_topic && (
-                      <span className="text-xs text-zinc-400 italic line-clamp-1 max-w-xs">"{aeo.page_topic}"</span>
+                      <span className="text-xs text-(--nd-text-muted) italic line-clamp-1 max-w-xs">"{aeo.page_topic}"</span>
                     )}
                     <FieldTooltip description={TOOLTIPS.pageTopic} />
                   </div>
@@ -450,18 +446,18 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
                 {/* Mini module overview bars */}
                 <div className="space-y-2.5">
                   {[
-                    { label: 'LLM Friendliness', val: llmScore, tip: TOOLTIPS.llmFriendliness, color: 'bg-blue-500' },
+                    { label: 'LLM Friendliness', val: llmScore, tip: TOOLTIPS.llmFriendliness, color: 'bg-[#5347CE]' },
                     { label: 'Entity Coverage', val: entityPct, tip: TOOLTIPS.entityCoverage, color: 'bg-emerald-500' },
-                    { label: 'Answer Completeness', val: completenessScore, tip: TOOLTIPS.answerCompleteness, color: 'bg-purple-500' },
+                    { label: 'Answer Completeness', val: completenessScore, tip: TOOLTIPS.answerCompleteness, color: 'bg-[#8b5cf6]' },
                     { label: 'LLM Consistency', val: consistencyScore, tip: TOOLTIPS.llmConsistency, color: 'bg-amber-500' },
                   ].map(({ label, val, tip, color }) => (
                     <div key={label}>
                       <div className="flex justify-between items-center mb-1">
                         <div className="flex items-center gap-1">
-                          <span className="text-xs text-zinc-400">{label}</span>
+                          <span className="text-xs font-medium text-(--nd-text-secondary)">{label}</span>
                           <FieldTooltip description={tip} />
                         </div>
-                        <span className="text-xs font-semibold text-white">{Math.round(val)}</span>
+                        <span className="text-xs font-bold text-(--nd-text-primary)">{Math.round(val)}</span>
                       </div>
                       <MiniBar value={val} color={color} />
                     </div>
@@ -472,26 +468,26 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
               {/* Score potential */}
               {pageAct && (
                 <div className="shrink-0 grid grid-cols-1 gap-3 min-w-36">
-                  <div className="bg-zinc-900/70 border border-zinc-700 rounded-xl p-4 text-center">
+                  <div className="bg-(--nd-bg) border border-(--nd-border) rounded-xl p-4 text-center">
                     <div className="flex items-center justify-center gap-1 mb-1">
-                      <span className="text-[10px] text-zinc-500 uppercase tracking-wide">Current</span>
+                      <span className="text-xs font-semibold text-(--nd-text-secondary) uppercase tracking-wide">Current</span>
                       <FieldTooltip description={TOOLTIPS.currentScore} />
                     </div>
-                    <span className="text-2xl font-bold text-white">{pageAct.current_llm_friendliness ?? overallScore}</span>
+                    <span className="text-2xl font-bold text-(--nd-text-primary)">{pageAct.current_llm_friendliness ?? overallScore}</span>
                   </div>
-                  <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl p-4 text-center">
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
                     <div className="flex items-center justify-center gap-1 mb-1">
-                      <span className="text-[10px] text-emerald-400 uppercase tracking-wide">Predicted</span>
+                      <span className="text-xs font-semibold text-emerald-700 uppercase tracking-wide">Predicted</span>
                       <FieldTooltip description={TOOLTIPS.predictedScore} />
                     </div>
-                    <span className="text-2xl font-bold text-emerald-400">{pageAct.predicted_llm_friendliness ?? '--'}</span>
+                    <span className="text-2xl font-bold text-emerald-700">{pageAct.predicted_llm_friendliness ?? '--'}</span>
                   </div>
-                  <div className="bg-blue-500/10 border border-blue-500/25 rounded-xl p-4 text-center">
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
                     <div className="flex items-center justify-center gap-1 mb-1">
-                      <span className="text-[10px] text-blue-400 uppercase tracking-wide">Potential</span>
+                      <span className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Potential</span>
                       <FieldTooltip description={TOOLTIPS.scoreDelta} />
                     </div>
-                    <span className="text-2xl font-bold text-blue-400">+{pageAct.predicted_llm_friendliness_delta ?? 0}</span>
+                    <span className="text-2xl font-bold text-blue-700">+{pageAct.predicted_llm_friendliness_delta ?? 0}</span>
                   </div>
                 </div>
               )}
@@ -499,10 +495,10 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
           </div>
 
           {/* ── SECTION 2: Module Overview Chart ────────────────────────────── */}
-          <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-6">
+          <div className="bg-white border border-(--nd-border) rounded-2xl p-6">
             <div className="flex items-center gap-2 mb-5">
-              <BarChart3 className="w-4 h-4 text-zinc-400" />
-              <span className="text-sm font-semibold text-white">Module Score Overview</span>
+              <BarChart3 className="w-4 h-4 text-(--nd-text-muted)" />
+              <span className="text-sm font-semibold text-(--nd-text-primary)">Module Score Overview</span>
               <FieldTooltip description="Comparison of scores across all four main AI analysis modules." />
               <MetricAskButton
                 disabled={!projectId || !jobId || isAskingAI}
@@ -514,13 +510,13 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
                 }
               />
             </div>
-            <ResponsiveContainer width="100%" height={160}>
-              <BarChart data={moduleOverviewData} barCategoryGap="30%">
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                <XAxis dataKey="name" tick={{ fill: '#a1a1aa', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis domain={[0, 100]} tick={{ fill: '#a1a1aa', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
-                <Bar dataKey="value" radius={[4, 4, 0, 0]} name="Score">
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={moduleOverviewData} barCategoryGap="28%">
+                <CartesianGrid strokeDasharray="3 3" stroke="#E8E9EF" />
+                <XAxis dataKey="name" tick={{ fill: '#4A5068', fontSize: 12 }} axisLine={false} tickLine={false} />
+                <YAxis domain={[0, 100]} tick={{ fill: '#737890', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(0,0,0,0.04)' }} />
+                <Bar dataKey="value" radius={[6, 6, 0, 0]} name="Score">
                   {moduleOverviewData.map((entry, idx) => <Cell key={idx} fill={entry.fill} />)}
                 </Bar>
               </BarChart>
@@ -529,10 +525,10 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
 
           {/* ── SECTION 3: AEO Sub-Score Breakdown ──────────────────────────── */}
           {aeo?.sub_scores && (
-            <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-6">
+            <div className="bg-white border border-(--nd-border) rounded-2xl p-6">
               <div className="flex items-center gap-2 mb-5">
-                <Shield className="w-4 h-4 text-blue-400" />
-                <span className="text-sm font-semibold text-white">AEO Checker — Sub-Score Breakdown</span>
+                <Shield className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-semibold text-(--nd-text-primary)">AEO Checker — Sub-Score Breakdown</span>
                 <FieldTooltip description="Detailed breakdown of the five pillars that make up the LLM Friendliness score." />
               <MetricAskButton
                 disabled={!projectId || !jobId || isAskingAI}
@@ -548,10 +544,10 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
                 {/* Chart */}
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={subScoreData} layout="vertical" barCategoryGap="20%">
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
-                    <XAxis type="number" domain={[0, 100]} tick={{ fill: '#a1a1aa', fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <YAxis type="category" dataKey="name" tick={{ fill: '#a1a1aa', fontSize: 11 }} axisLine={false} tickLine={false} width={90} />
-                    <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E8E9EF" horizontal={false} />
+                    <XAxis type="number" domain={[0, 100]} tick={{ fill: '#737890', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis type="category" dataKey="name" tick={{ fill: '#4A5068', fontSize: 12 }} axisLine={false} tickLine={false} width={90} />
+                    <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(0,0,0,0.04)' }} />
                     <Bar dataKey="score" radius={[0, 4, 4, 0]} name="Score">
                       {subScoreData.map((entry, idx) => <Cell key={idx} fill={entry.fill} />)}
                     </Bar>
@@ -562,7 +558,7 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
                 <div className="space-y-3">
                   {[
                     { key: 'crawl_access', label: 'Crawl Access', tip: TOOLTIPS.crawlAccess, color: 'bg-blue-500' },
-                    { key: 'schema', label: 'Schema Signals', tip: TOOLTIPS.schemaSignals, color: 'bg-purple-500' },
+                    { key: 'schema', label: 'Schema Signals', tip: TOOLTIPS.schemaSignals, color: 'bg-[#5347CE]' },
                     { key: 'content', label: 'Content Quality', tip: TOOLTIPS.contentScore, color: 'bg-emerald-500' },
                     { key: 'tech_hygiene', label: 'Tech Hygiene', tip: TOOLTIPS.techHygiene, color: 'bg-cyan-500' },
                     { key: 'structure', label: 'Structure', tip: TOOLTIPS.structureScore, color: 'bg-amber-500' },
@@ -572,11 +568,11 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
                       <div key={key}>
                         <div className="flex justify-between items-center mb-1">
                           <div className="flex items-center gap-1">
-                            <span className="text-xs text-zinc-300">{label}</span>
+                            <span className="text-xs text-(--nd-text-secondary)">{label}</span>
                             <FieldTooltip description={tip} />
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-semibold text-white">{val}/100</span>
+                            <span className="text-xs font-semibold text-(--nd-text-primary)">{val}/100</span>
                             <ScoreLabel score={val} />
                           </div>
                         </div>
@@ -593,10 +589,10 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Readability */}
             {aeo?.readability && (
-              <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-5">
+              <div className="bg-white border border-(--nd-border) rounded-2xl p-5">
                 <div className="flex items-center gap-2 mb-4">
-                  <BookOpen className="w-4 h-4 text-emerald-400" />
-                  <span className="text-sm font-semibold text-white">Readability Signals</span>
+                  <BookOpen className="w-4 h-4 text-emerald-600" />
+                  <span className="text-sm font-semibold text-(--nd-text-primary)">Readability Signals</span>
                   <FieldTooltip description="Readability metrics used by AI engines to assess how parseable your content is." />
                   <MetricAskButton
                     disabled={!projectId || !jobId || isAskingAI}
@@ -615,23 +611,23 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
                     { label: 'Fog Index', val: aeo.readability.fog_index ?? 0, tip: TOOLTIPS.fogIndex },
                     { label: 'Avg Sentence Len', val: aeo.readability.avg_sentence_length ?? 0, tip: TOOLTIPS.avgSentenceLen },
                   ].map(({ label, val, tip }) => (
-                    <div key={label} className="bg-zinc-800/50 rounded-xl p-3">
+                    <div key={label} className="bg-(--nd-bg) rounded-xl p-3">
                       <div className="flex items-center gap-1 mb-1">
-                        <span className="text-[10px] text-zinc-500">{label}</span>
+                        <span className="text-xs text-(--nd-text-secondary)">{label}</span>
                         <FieldTooltip description={tip} />
                       </div>
-                      <span className="text-lg font-bold text-white">{val}</span>
+                      <span className="text-lg font-bold text-(--nd-text-primary)">{val}</span>
                     </div>
                   ))}
                 </div>
                 {aeo.word_count && (
-                  <div className="mt-3 flex items-center justify-between p-2 bg-zinc-800/40 rounded-lg">
+                  <div className="mt-3 flex items-center justify-between p-2 bg-(--nd-bg) rounded-lg">
                     <div className="flex items-center gap-1">
-                      <FileText className="w-3 h-3 text-zinc-500" />
-                      <span className="text-xs text-zinc-400">Word Count</span>
+                      <FileText className="w-3 h-3 text-(--nd-text-muted)" />
+                      <span className="text-xs text-(--nd-text-secondary)">Word Count</span>
                       <FieldTooltip description={TOOLTIPS.wordCount} />
                     </div>
-                    <span className="text-sm font-semibold text-white">{aeo.word_count?.toLocaleString()}</span>
+                    <span className="text-sm font-semibold text-(--nd-text-primary)">{aeo.word_count?.toLocaleString()}</span>
                   </div>
                 )}
               </div>
@@ -639,10 +635,10 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
 
             {/* Structured Data */}
             {aeo?.structured_data && (
-              <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-5">
+              <div className="bg-white border border-(--nd-border) rounded-2xl p-5">
                 <div className="flex items-center gap-2 mb-4">
-                  <Globe className="w-4 h-4 text-purple-400" />
-                  <span className="text-sm font-semibold text-white">Structured Data Signals</span>
+                  <Globe className="w-4 h-4 text-violet-600" />
+                  <span className="text-sm font-semibold text-(--nd-text-primary)">Structured Data Signals</span>
                   <FieldTooltip description="Schema.org markup analysis — AI models rely heavily on structured data to cite accurate information." />
                   <MetricAskButton
                     disabled={!projectId || !jobId || isAskingAI}
@@ -656,13 +652,13 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
                 </div>
                 <div className="grid grid-cols-3 gap-3 mb-4">
                   {[
-                    { label: 'Type Coverage', val: `${aeo.structured_data.type_coverage_pct ?? 0}%`, tip: TOOLTIPS.structuredDataTypes, color: 'text-blue-400' },
-                    { label: 'Completeness', val: `${aeo.structured_data.completeness_score ?? 0}`, tip: TOOLTIPS.structuredDataCompletion, color: 'text-purple-400' },
-                    { label: 'Validation', val: `${aeo.structured_data.validation_score ?? 0}%`, tip: TOOLTIPS.structuredDataValidation, color: 'text-emerald-400' },
+                    { label: 'Type Coverage', val: `${aeo.structured_data.type_coverage_pct ?? 0}%`, tip: TOOLTIPS.structuredDataTypes, color: 'text-blue-600' },
+                    { label: 'Completeness', val: `${aeo.structured_data.completeness_score ?? 0}`, tip: TOOLTIPS.structuredDataCompletion, color: 'text-violet-600' },
+                    { label: 'Validation', val: `${aeo.structured_data.validation_score ?? 0}%`, tip: TOOLTIPS.structuredDataValidation, color: 'text-emerald-600' },
                   ].map(({ label, val, tip, color }) => (
-                    <div key={label} className="bg-zinc-800/50 rounded-xl p-3 text-center">
+                    <div key={label} className="bg-(--nd-bg) rounded-xl p-3 text-center">
                       <div className="flex justify-center items-center gap-1 mb-1">
-                        <span className="text-[10px] text-zinc-500">{label}</span>
+                        <span className="text-xs text-(--nd-text-secondary)">{label}</span>
                         <FieldTooltip description={tip} />
                       </div>
                       <span className={cn('text-lg font-bold', color)}>{val}</span>
@@ -672,12 +668,12 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
                 {aeo.structured_data.missing_types?.length > 0 && (
                   <div>
                     <div className="flex items-center gap-1 mb-2">
-                      <span className="text-[10px] text-zinc-500 uppercase tracking-wide">Missing Schema Types</span>
+                      <span className="text-xs font-semibold text-(--nd-text-secondary) uppercase tracking-wide">Missing Schema Types</span>
                       <FieldTooltip description="Schema.org types that are recommended for this page type but not currently present." />
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                       {aeo.structured_data.missing_types.map((t: string) => (
-                        <span key={t} className="text-[10px] bg-red-500/10 text-red-300 border border-red-500/20 rounded-full px-2 py-0.5">{t}</span>
+                        <span key={t} className="text-xs bg-red-50 text-red-700 border border-red-200 rounded-full px-2 py-0.5">{t}</span>
                       ))}
                     </div>
                   </div>
@@ -690,10 +686,10 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Entity ratio */}
             {aeo?.entity_ratio && (
-              <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-5">
+              <div className="bg-white border border-(--nd-border) rounded-2xl p-5">
                 <div className="flex items-center gap-2 mb-4">
-                  <Database className="w-4 h-4 text-cyan-400" />
-                  <span className="text-sm font-semibold text-white">Entity Signals</span>
+                  <Database className="w-4 h-4 text-cyan-700" />
+                  <span className="text-sm font-semibold text-(--nd-text-primary)">Entity Signals</span>
                   <FieldTooltip description="How many expected named entities your page contains vs. how many are expected for your topic." />
                   <MetricAskButton
                     disabled={!projectId || !jobId || isAskingAI}
@@ -711,22 +707,22 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
                     { label: 'Expected', val: aeo.entity_ratio.expected_count ?? 0, tip: 'Entities expected for this page topic based on industry benchmarks.' },
                     { label: 'Matched', val: aeo.entity_ratio.matched_count ?? 0, tip: 'Entities present on the page that match the expected entity list.' },
                   ].map(({ label, val, tip }) => (
-                    <div key={label} className="bg-zinc-800/50 rounded-xl p-3 text-center">
+                    <div key={label} className="bg-(--nd-bg) rounded-xl p-3 text-center">
                       <div className="flex justify-center items-center gap-1 mb-1">
-                        <span className="text-[10px] text-zinc-500">{label}</span>
+                        <span className="text-xs text-(--nd-text-secondary)">{label}</span>
                         <FieldTooltip description={tip} />
                       </div>
-                      <span className="text-xl font-bold text-white">{val}</span>
+                      <span className="text-xl font-bold text-(--nd-text-primary)">{val}</span>
                     </div>
                   ))}
                 </div>
                 <div>
                   <div className="flex justify-between mb-1">
                     <div className="flex items-center gap-1">
-                      <span className="text-xs text-zinc-400">Entity Ratio</span>
+                      <span className="text-xs font-medium text-(--nd-text-secondary)">Entity Ratio</span>
                       <FieldTooltip description={TOOLTIPS.entityRatio} />
                     </div>
-                    <span className="text-xs font-semibold text-white">{((aeo.entity_ratio.entity_ratio_pct ?? 0)).toFixed(1)}%</span>
+                    <span className="text-xs font-semibold text-(--nd-text-primary)">{((aeo.entity_ratio.entity_ratio_pct ?? 0)).toFixed(1)}%</span>
                   </div>
                   <MiniBar value={aeo.entity_ratio.entity_ratio_pct ?? 0} color="bg-cyan-500" />
                 </div>
@@ -735,10 +731,10 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
 
             {/* Page Actions Summary */}
             {pageAct && (
-              <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-5">
+              <div className="bg-white border border-(--nd-border) rounded-2xl p-5">
                 <div className="flex items-center gap-2 mb-4">
-                  <Zap className="w-4 h-4 text-amber-400" />
-                  <span className="text-sm font-semibold text-white">Actions Summary</span>
+                  <Zap className="w-4 h-4 text-amber-600" />
+                  <span className="text-sm font-semibold text-(--nd-text-primary)">Actions Summary</span>
                   <FieldTooltip description={TOOLTIPS.pageActions} />
                   <MetricAskButton
                     disabled={!projectId || !jobId || isAskingAI}
@@ -752,14 +748,14 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
                 </div>
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   {[
-                    { label: 'Total Actions', val: pageAct.total_actions ?? 0, tip: 'Total recommended improvements identified.', color: 'text-white' },
-                    { label: 'High Priority', val: pageAct.high_priority ?? 0, tip: 'Actions with the highest impact on your LLM Friendliness score.', color: 'text-red-400' },
-                    { label: 'Medium Priority', val: pageAct.medium_priority ?? 0, tip: 'Moderate-impact improvements.', color: 'text-yellow-400' },
-                    { label: 'Low Priority', val: pageAct.low_priority ?? 0, tip: 'Minor improvements with lower urgency.', color: 'text-zinc-400' },
+                    { label: 'Total Actions', val: pageAct.total_actions ?? 0, tip: 'Total recommended improvements identified.', color: 'text-(--nd-text-primary)' },
+                    { label: 'High Priority', val: pageAct.high_priority ?? 0, tip: 'Actions with the highest impact on your LLM Friendliness score.', color: 'text-red-600' },
+                    { label: 'Medium Priority', val: pageAct.medium_priority ?? 0, tip: 'Moderate-impact improvements.', color: 'text-amber-600' },
+                    { label: 'Low Priority', val: pageAct.low_priority ?? 0, tip: 'Minor improvements with lower urgency.', color: 'text-(--nd-text-muted)' },
                   ].map(({ label, val, tip, color }) => (
-                    <div key={label} className="bg-zinc-800/50 rounded-xl p-3 text-center">
+                    <div key={label} className="bg-(--nd-bg) rounded-xl p-3 text-center">
                       <div className="flex justify-center items-center gap-1 mb-1">
-                        <span className="text-[10px] text-zinc-500">{label}</span>
+                        <span className="text-xs text-(--nd-text-secondary)">{label}</span>
                         <FieldTooltip description={tip} />
                       </div>
                       <span className={cn('text-xl font-bold', color)}>{val}</span>
@@ -767,21 +763,21 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
                   ))}
                 </div>
                 {/* Score improvement bar */}
-                <div className="bg-zinc-900/60 rounded-xl p-3 border border-zinc-700/40">
+                <div className="bg-(--nd-bg) rounded-xl p-3 border border-(--nd-border)">
                   <div className="flex justify-between items-center mb-2">
                     <div className="flex items-center gap-1">
-                      <Activity className="w-3 h-3 text-emerald-400" />
-                      <span className="text-xs text-zinc-400">Score Improvement Potential</span>
+                      <Activity className="w-3 h-3 text-emerald-600" />
+                      <span className="text-xs font-semibold text-(--nd-text-secondary)">Score Improvement Potential</span>
                       <FieldTooltip description="The gap between your current and predicted score after all actions are applied." />
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-xs text-zinc-500 w-8">{pageAct.current_llm_friendliness ?? 0}</span>
-                    <div className="flex-1 h-3 bg-zinc-800 rounded-full overflow-hidden relative">
-                      <div className="h-full bg-zinc-600 rounded-full" style={{ width: `${pageAct.current_llm_friendliness ?? 0}%` }} />
-                      <div className="absolute inset-0 h-full bg-emerald-500/30 rounded-full" style={{ width: `${pageAct.predicted_llm_friendliness ?? 0}%` }} />
+                    <span className="text-xs font-semibold text-(--nd-text-secondary) w-8">{pageAct.current_llm_friendliness ?? 0}</span>
+                    <div className="flex-1 h-3 bg-(--nd-border) rounded-full overflow-hidden relative">
+                      <div className="h-full bg-[#D0D2DC] rounded-full" style={{ width: `${pageAct.current_llm_friendliness ?? 0}%` }} />
+                      <div className="absolute inset-0 h-full bg-emerald-300 rounded-full" style={{ width: `${pageAct.predicted_llm_friendliness ?? 0}%` }} />
                     </div>
-                    <span className="text-xs text-emerald-400 w-8">{pageAct.predicted_llm_friendliness ?? 0}</span>
+                    <span className="text-xs font-semibold text-emerald-600 w-8">{pageAct.predicted_llm_friendliness ?? 0}</span>
                   </div>
                 </div>
               </div>
@@ -790,10 +786,10 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
 
           {/* ── SECTION 6: Answer Completeness Snapshot ─────────────────────── */}
           {answerComp && (
-            <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-5">
+            <div className="bg-white border border-(--nd-border) rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-4">
-                <MessageCircle className="w-4 h-4 text-purple-400" />
-                <span className="text-sm font-semibold text-white">Answer Completeness Snapshot</span>
+                <MessageCircle className="w-4 h-4 text-violet-600" />
+                <span className="text-sm font-semibold text-(--nd-text-primary)">Answer Completeness Snapshot</span>
                 <FieldTooltip description={TOOLTIPS.answerCompleteness} />
                 <MetricAskButton
                   disabled={!projectId || !jobId || isAskingAI}
@@ -807,14 +803,14 @@ export default function AIVisibilityScorecards({ url, sessionId, jobId, projectI
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
-                  { label: 'Completeness Score', val: answerComp.completeness_score ?? 0, tip: 'Out-of-100 overall completeness score based on question analysis.', color: 'text-purple-400' },
-                  { label: 'Fully Answered', val: answerComp.fully_answered ?? 0, tip: 'Questions for which the page provides a full answer.', color: 'text-emerald-400' },
-                  { label: 'Partially Answered', val: answerComp.partially_answered ?? 0, tip: 'Questions where only partial information is available.', color: 'text-yellow-400' },
-                  { label: 'Not Answered', val: answerComp.not_answered ?? 0, tip: 'Questions that have no relevant information on the page.', color: 'text-red-400' },
+                  { label: 'Completeness Score', val: answerComp.completeness_score ?? 0, tip: 'Out-of-100 overall completeness score based on question analysis.', color: 'text-violet-600' },
+                  { label: 'Fully Answered', val: answerComp.fully_answered ?? 0, tip: 'Questions for which the page provides a full answer.', color: 'text-emerald-600' },
+                  { label: 'Partially Answered', val: answerComp.partially_answered ?? 0, tip: 'Questions where only partial information is available.', color: 'text-amber-600' },
+                  { label: 'Not Answered', val: answerComp.not_answered ?? 0, tip: 'Questions that have no relevant information on the page.', color: 'text-red-600' },
                 ].map(({ label, val, tip, color }) => (
-                  <div key={label} className="bg-zinc-800/50 rounded-xl p-4 text-center">
+                  <div key={label} className="bg-(--nd-bg) rounded-xl p-4 text-center">
                     <div className="flex justify-center items-center gap-1 mb-1">
-                      <span className="text-[10px] text-zinc-500">{label}</span>
+                      <span className="text-xs text-(--nd-text-secondary)">{label}</span>
                       <FieldTooltip description={tip} />
                     </div>
                     <span className={cn('text-2xl font-bold', color)}>{val}</span>

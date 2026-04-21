@@ -16,10 +16,9 @@ export function PageLoader({ className, size = 'md' }: PageLoaderProps) {
     <div className={cn('flex items-center justify-center', className)}>
       <div
         className={cn(
-          'rounded-full animate-spin',
+          'rounded-full animate-spin border-(--nd-border,#E8E9EF) border-t-(--nd-purple,#5347CE)',
           sizeMap[size]
         )}
-        style={{ borderColor: 'var(--nd-border, #E8E9EF)', borderTopColor: 'var(--nd-purple, #5347CE)' }}
       />
     </div>
   );
@@ -28,8 +27,7 @@ export function PageLoader({ className, size = 'md' }: PageLoaderProps) {
 export function SkeletonRow({ className }: { className?: string }) {
   return (
     <div
-      className={cn('h-4 rounded animate-pulse', className)}
-      style={{ background: 'var(--nd-border, #E8E9EF)' }}
+      className={cn('h-4 rounded animate-pulse bg-(--nd-border,#E2E8F0)', className)}
     />
   );
 }
@@ -37,8 +35,7 @@ export function SkeletonRow({ className }: { className?: string }) {
 export function SkeletonCard({ className }: { className?: string }) {
   return (
     <div
-      className={cn('rounded-xl border p-5 space-y-3', className)}
-      style={{ background: 'var(--nd-card-bg, #FFFFFF)', borderColor: 'var(--nd-border, #E8E9EF)' }}
+      className={cn('rounded-xl border border-(--nd-border,#E2E8F0) bg-(--nd-card-bg,#FFFFFF) p-5 space-y-3', className)}
     >
       <SkeletonRow className="w-1/3" />
       <SkeletonRow className="w-full" />
@@ -57,19 +54,18 @@ export function SkeletonCard({ className }: { className?: string }) {
 export function StatCardSkeleton({ className }: { className?: string }) {
   return (
     <div
-      className={cn('rounded-2xl border p-5 space-y-4 animate-pulse', className)}
-      style={{ background: 'var(--nd-card-bg, #FFFFFF)', borderColor: 'var(--nd-border, #E8E9EF)' }}
+      className={cn('rounded-2xl border border-(--nd-border,#E2E8F0) bg-(--nd-card-bg,#FFFFFF) p-5 space-y-4 animate-pulse', className)}
     >
       {/* icon row */}
       <div className="flex items-start justify-between">
-        <div className="w-10 h-10 rounded-xl" style={{ background: 'var(--nd-border, #E8E9EF)' }} />
-        <div className="w-4 h-4 rounded" style={{ background: 'var(--nd-border, #E8E9EF)' }} />
+        <div className="w-10 h-10 rounded-xl bg-(--nd-border,#E2E8F0)" />
+        <div className="w-4 h-4 rounded bg-(--nd-border,#E2E8F0)" />
       </div>
       {/* value */}
       <div className="space-y-2">
-        <div className="h-7 w-20 rounded" style={{ background: 'var(--nd-border, #E8E9EF)' }} />
-        <div className="h-3 w-28 rounded opacity-60" style={{ background: 'var(--nd-border, #E8E9EF)' }} />
-        <div className="h-1.5 w-full rounded-full opacity-60 mt-3" style={{ background: 'var(--nd-border, #E8E9EF)' }} />
+        <div className="h-7 w-20 rounded bg-(--nd-border,#E2E8F0)" />
+        <div className="h-3 w-28 rounded opacity-60 bg-(--nd-border,#E2E8F0)" />
+        <div className="h-1.5 w-full rounded-full opacity-60 mt-3 bg-(--nd-border,#E2E8F0)" />
       </div>
     </div>
   );
@@ -92,13 +88,12 @@ export function StatCardGridSkeleton({ count = 4, className }: { count?: number;
 export function SectionCardSkeleton({ rows = 3, className }: { rows?: number; className?: string }) {
   return (
     <div
-      className={cn('rounded-2xl border overflow-hidden animate-pulse', className)}
-      style={{ background: 'var(--nd-card-bg, #FFFFFF)', borderColor: 'var(--nd-border, #E8E9EF)' }}
+      className={cn('rounded-2xl border border-(--nd-border,#E2E8F0) bg-(--nd-card-bg,#FFFFFF) overflow-hidden animate-pulse', className)}
     >
       {/* header */}
-      <div className="flex items-center justify-between px-5 py-3.5 border-b" style={{ borderColor: 'var(--nd-border, #E8E9EF)' }}>
-        <div className="h-4 w-32 rounded" style={{ background: 'var(--nd-border, #E8E9EF)' }} />
-        <div className="h-3 w-16 rounded opacity-60" style={{ background: 'var(--nd-border, #E8E9EF)' }} />
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-(--nd-border,#E2E8F0)">
+        <div className="h-4 w-32 rounded bg-(--nd-border,#E2E8F0)" />
+        <div className="h-3 w-16 rounded opacity-60 bg-(--nd-border,#E2E8F0)" />
       </div>
       {/* body */}
       <div className="p-5 space-y-3">
@@ -116,14 +111,13 @@ export function SectionCardSkeleton({ rows = 3, className }: { rows?: number; cl
 export function ProjectRowSkeleton({ className }: { className?: string }) {
   return (
     <div
-      className={cn('rounded-xl p-4 border animate-pulse flex items-center justify-between gap-4', className)}
-      style={{ background: 'var(--nd-card-bg, #FFFFFF)', borderColor: 'var(--nd-border, #E8E9EF)' }}
+      className={cn('rounded-xl p-4 border border-(--nd-border,#E8E9EF) bg-(--nd-card-bg,#FFFFFF) animate-pulse flex items-center justify-between gap-4', className)}
     >
       <div className="space-y-2 flex-1">
-        <div className="h-4 w-40 rounded" style={{ background: 'var(--nd-border, #E8E9EF)' }} />
-        <div className="h-3 w-64 rounded" style={{ background: 'var(--nd-border, #E8E9EF)' }} />
+        <div className="h-4 w-40 rounded bg-(--nd-border,#E8E9EF)" />
+        <div className="h-3 w-64 rounded bg-(--nd-border,#E8E9EF)" />
       </div>
-      <div className="h-7 w-20 rounded-lg shrink-0" style={{ background: 'var(--nd-border, #E8E9EF)' }} />
+      <div className="h-7 w-20 rounded-lg shrink-0 bg-(--nd-border,#E8E9EF)" />
     </div>
   );
 }
@@ -135,8 +129,8 @@ export function ProjectsPageSkeleton({ className }: { className?: string }) {
   return (
     <div className={cn('space-y-4 animate-fade-in-hero', className)}>
       <div className="flex items-center justify-between">
-        <div className="h-8 w-32 rounded animate-pulse" style={{ background: 'var(--nd-border, #E8E9EF)' }} />
-        <div className="h-9 w-36 rounded-lg animate-pulse" style={{ background: 'var(--nd-border, #E8E9EF)' }} />
+        <div className="h-8 w-32 rounded animate-pulse bg-(--nd-border,#E8E9EF)" />
+        <div className="h-9 w-36 rounded-lg animate-pulse bg-(--nd-border,#E8E9EF)" />
       </div>
       <div className="flex flex-col gap-2">
         {[1, 2, 3].map((i) => <ProjectRowSkeleton key={i} />)}

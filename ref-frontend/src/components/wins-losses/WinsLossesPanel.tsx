@@ -49,11 +49,11 @@ const MODEL_COLORS: Record<string, string> = {
   Overall: 'bg-violet-50 text-violet-700 border border-violet-200',
 }
 const MODEL_SOLID: Record<string, string> = {
-  ChatGPT: 'bg-blue-500 text-white',
-  Gemini: 'bg-emerald-500 text-white',
-  Perplexity: 'bg-teal-500 text-white',
-  Claude: 'bg-orange-500 text-white',
-  Overall: 'bg-violet-500 text-white',
+  ChatGPT: 'bg-blue-600 text-white',
+  Gemini: 'bg-emerald-600 text-white',
+  Perplexity: 'bg-teal-600 text-white',
+  Claude: 'bg-orange-600 text-white',
+  Overall: 'bg-violet-600 text-white',
 }
 
 function modelColor(model: string, solid = false) {
@@ -159,8 +159,8 @@ function EmptyWins() {
 function EmptyLosses() {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
-      <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center">
-        <Trophy className="h-5 w-5 text-emerald-600" />
+      <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'var(--nd-positive-bg)', border: '1px solid var(--nd-border)' }}>
+        <Trophy className="h-5 w-5 text-[var(--nd-positive-text)]" />
       </div>
       <p className="text-sm" style={{ color: 'var(--nd-text-secondary)' }}>No losses this period. Maintain your current content and schema schedule.</p>
     </div>
@@ -173,34 +173,34 @@ function EmptyLosses() {
 function FixChip({ fix, onNavigate }: { fix: WLFix; onNavigate?: (tab: string) => void }) {
   const [expanded, setExpanded] = useState(false)
   return (
-    <div className="mt-2 rounded-xl border border-rose-200 bg-rose-50 overflow-hidden">
+    <div className="mt-2 rounded-xl border border-rose-200 bg-[var(--nd-negative-bg)] overflow-hidden">
       <button
         onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v) }}
         className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-rose-100 transition-colors"
       >
-        <span className="text-[11px] font-semibold text-rose-700 uppercase tracking-wide flex-1">
+        <span className="text-xs font-bold text-[var(--nd-negative-text)] uppercase tracking-wide flex-1">
           Recommended Fix
         </span>
         <ChevronDown className={cn('h-4 w-4 text-rose-500 transition-transform', expanded && 'rotate-180')} />
       </button>
       {expanded && (
         <div className="px-3 pb-3 space-y-2">
-          <p className="text-[13px] font-medium" style={{ color: 'var(--nd-text-primary)' }}>{fix.title}</p>
-          {fix.issue && <p className="text-[11px] leading-relaxed" style={{ color: 'var(--nd-text-secondary)' }}>{fix.issue}</p>}
+          <p className="text-sm font-bold" style={{ color: 'var(--nd-text-primary)' }}>{fix.title}</p>
+          {fix.issue && <p className="text-xs font-medium leading-relaxed" style={{ color: 'var(--nd-text-secondary)' }}>{fix.issue}</p>}
           <div className="flex items-center gap-2 flex-wrap">
             <span className={cn(
-              'px-2 py-0.5 rounded-full text-[10px] font-bold uppercase',
-              fix.impact === 'HIGH' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+              'px-2 py-0.5 rounded-full text-xs font-bold uppercase',
+              fix.impact === 'HIGH' ? 'bg-[var(--nd-negative-bg)] text-[var(--nd-negative-text)] border border-rose-200' :
               fix.impact === 'MEDIUM' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
               'bg-zinc-100 text-zinc-600 border border-zinc-200',
             )}>
               Impact: {fix.impact}
             </span>
             <span className={cn(
-              'px-2 py-0.5 rounded-full text-[10px] font-bold uppercase',
-              fix.effort === 'LOW' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+              'px-2 py-0.5 rounded-full text-xs font-bold uppercase',
+              fix.effort === 'LOW' ? 'bg-[var(--nd-positive-bg)] text-[var(--nd-positive-text)] border border-emerald-200' :
               fix.effort === 'MEDIUM' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-              'bg-rose-50 text-rose-700 border border-rose-200',
+              'bg-[var(--nd-negative-bg)] text-[var(--nd-negative-text)] border border-rose-200',
             )}>
               Effort: {fix.effort}
             </span>
@@ -208,7 +208,7 @@ function FixChip({ fix, onNavigate }: { fix: WLFix; onNavigate?: (tab: string) =
           {onNavigate && fix.link && (
             <button
               onClick={(e) => { e.stopPropagation(); onNavigate(fix.link) }}
-              className="flex items-center gap-1 text-[12px] text-rose-700 hover:text-rose-900 transition-colors font-medium mt-1"
+              className="flex items-center gap-1 text-sm text-rose-700 hover:text-rose-900 transition-colors font-bold mt-1"
             >
               Go to fix location <ArrowRight className="h-3.5 w-3.5" />
             </button>
@@ -254,30 +254,30 @@ function WinRow({
         'group rounded-xl border px-4 py-3 cursor-pointer transition-all duration-200',
         dimmed
           ? 'opacity-40'
-          : 'border-emerald-200 bg-emerald-50 hover:border-emerald-300 hover:bg-emerald-100',
+          : 'border-emerald-200 bg-[var(--nd-positive-bg)] hover:border-emerald-300 hover:bg-emerald-100',
       )}
       style={dimmed ? { border: '1px solid var(--nd-border)', background: 'var(--nd-bg)' } : undefined}
       onClick={handleClick}
       title={`This metric improved by ${row.delta > 0 ? '+' : ''}${formatValue(row.delta)} compared to the previous ${periodLabel}.`}
     >
       <div className="flex items-start gap-3">
-        <div className="mt-0.5 w-7 h-7 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
-          <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
+        <div className="mt-0.5 w-7 h-7 rounded-lg bg-[var(--nd-positive-bg)] border border-emerald-200 flex items-center justify-center shrink-0">
+          <TrendingUp className="h-3.5 w-3.5 text-[var(--nd-positive-text)]" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            <span className="text-[13px] font-medium leading-snug" style={{ color: 'var(--nd-text-primary)' }}>{row.metric}</span>
-            <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-semibold', modelColor(row.model))}>
+            <span className="text-sm font-bold leading-snug" style={{ color: 'var(--nd-text-primary)' }}>{row.metric}</span>
+            <span className={cn('px-2 py-0.5 rounded-full text-xs font-bold', modelColor(row.model))}>
               {row.model}
             </span>
           </div>
-          <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--nd-text-secondary)' }}>
+          <div className="flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--nd-text-secondary)' }}>
             <span>{formatValue(row.prev)}</span>
-            <ChevronRight className="h-3 w-3" style={{ color: 'var(--nd-text-muted)' }} />
-            <span className="text-emerald-700 font-semibold">{formatValue(row.current)}</span>
+            <ChevronRight className="h-3 w-3" style={{ color: 'var(--nd-text-secondary)' }} />
+            <span className="text-[var(--nd-positive-text)] font-bold">{formatValue(row.current)}</span>
           </div>
         </div>
-        <span className="shrink-0 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[12px] font-bold">
+        <span className="shrink-0 px-2.5 py-1 rounded-full bg-[var(--nd-positive-bg)] text-[var(--nd-positive-text)] border border-emerald-200 text-sm font-bold">
           +{formatValue(row.delta)}
         </span>
       </div>
@@ -306,7 +306,7 @@ function LossRow({
         'rounded-xl border transition-all duration-200',
         dimmed
           ? 'opacity-40'
-          : 'border-rose-200 bg-rose-50 hover:border-rose-300 hover:bg-rose-100',
+          : 'border-rose-200 bg-[var(--nd-negative-bg)] hover:border-rose-300 hover:bg-rose-100',
       )}
       style={dimmed ? { border: '1px solid var(--nd-border)', background: 'var(--nd-bg)' } : undefined}
     >
@@ -315,35 +315,35 @@ function LossRow({
         onClick={() => setExpanded((v) => !v)}
       >
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 w-7 h-7 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0">
-            <TrendingDown className="h-3.5 w-3.5 text-rose-600" />
+          <div className="mt-0.5 w-7 h-7 rounded-lg bg-[var(--nd-negative-bg)] border border-rose-200 flex items-center justify-center shrink-0">
+            <TrendingDown className="h-3.5 w-3.5 text-[var(--nd-negative-text)]" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1">
-              <span className="text-[13px] font-medium leading-snug" style={{ color: 'var(--nd-text-primary)' }}>{row.metric}</span>
-              <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-semibold', modelColor(row.model))}>
+              <span className="text-sm font-bold leading-snug" style={{ color: 'var(--nd-text-primary)' }}>{row.metric}</span>
+              <span className={cn('px-2 py-0.5 rounded-full text-xs font-bold', modelColor(row.model))}>
                 {row.model}
               </span>
             </div>
-            <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--nd-text-secondary)' }}>
+            <div className="flex items-center gap-2 text-sm font-medium" style={{ color: 'var(--nd-text-secondary)' }}>
               <span>{formatValue(row.prev)}</span>
-              <ChevronRight className="h-3 w-3" style={{ color: 'var(--nd-text-muted)' }} />
-              <span className="text-rose-700 font-semibold">{formatValue(row.current)}</span>
+              <ChevronRight className="h-3 w-3" style={{ color: 'var(--nd-text-secondary)' }} />
+              <span className="text-[var(--nd-negative-text)] font-bold">{formatValue(row.current)}</span>
             </div>
             {/* Collapsed fix preview */}
             {!expanded && row.fix && (
-              <div className="mt-2 inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-rose-50 border border-rose-200">
-                <span className="text-[10px] font-bold uppercase tracking-wide text-rose-700">Fix</span>
-                <span className="text-[11px] truncate max-w-50" style={{ color: 'var(--nd-text-secondary)' }}>{row.fix.title}</span>
+              <div className="mt-2 inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[var(--nd-negative-bg)] border border-rose-200">
+                <span className="text-xs font-bold uppercase tracking-wide text-[var(--nd-negative-text)]">Fix</span>
+                <span className="text-xs font-bold truncate max-w-50" style={{ color: 'var(--nd-text-secondary)' }}>{row.fix.title}</span>
               </div>
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <span className="px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[12px] font-bold">
+            <span className="px-2.5 py-1 rounded-full bg-[var(--nd-negative-bg)] text-[var(--nd-negative-text)] border border-rose-200 text-sm font-bold">
               {formatValue(row.delta)}
             </span>
             {row.fix && (
-              <ChevronDown className={cn('h-4 w-4 transition-transform', expanded && 'rotate-180')} style={{ color: 'var(--nd-text-muted)' }} />
+              <ChevronDown className={cn('h-4 w-4 transition-transform', expanded && 'rotate-180')} style={{ color: 'var(--nd-text-secondary)' }} />
             )}
           </div>
         </div>
@@ -479,11 +479,11 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
 
       {/* ── Period date context ──────────────────────────────────────────── */}
       {data?.prior_date && data?.current_date && (
-        <p className="text-[12px]" style={{ color: 'var(--nd-text-muted)' }}>
+        <p className="text-sm font-bold" style={{ color: 'var(--nd-text-secondary)' }}>
           Comparing{' '}
-          <span className="font-medium" style={{ color: 'var(--nd-text-secondary)' }}>{data.prior_date.slice(0, 10)}</span>
+          <span className="font-bold underline decoration-indigo-500/30" style={{ color: 'var(--nd-text-primary)' }}>{data.prior_date.slice(0, 10)}</span>
           {' '}→{' '}
-          <span className="font-medium" style={{ color: 'var(--nd-text-secondary)' }}>{data.current_date.slice(0, 10)}</span>
+          <span className="font-bold underline decoration-indigo-500/30" style={{ color: 'var(--nd-text-primary)' }}>{data.current_date.slice(0, 10)}</span>
         </p>
       )}
 
@@ -491,36 +491,22 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
       {allModels.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] uppercase tracking-wide font-semibold mr-1" style={{ color: 'var(--nd-text-muted)' }}>Model</span>
+            <span className="text-[10px] uppercase tracking-wider font-bold mr-1" style={{ color: 'var(--nd-text-muted)' }}>Filter by Model</span>
             {allModels.map((model) => (
               <button
                 key={model}
                 onClick={() => handleModelClick(model)}
                 className={cn(
-                  'px-3 py-1 rounded-full text-[12px] font-semibold transition-all duration-200',
+                  'px-3 py-1 rounded-full text-xs font-bold transition-all duration-200',
                   activeModel === model
                     ? modelColor(model, true)
-                    : activeModel !== null
-                    ? cn(modelColor(model), 'opacity-40')
-                    : modelColor(model),
+                    : modelColor(model, false) + ' opacity-70 hover:opacity-100',
                 )}
               >
                 {model}
               </button>
             ))}
           </div>
-          {activeModel && (
-            <p className="text-[12px]" style={{ color: 'var(--nd-text-muted)' }}>
-              Showing <span className="font-medium" style={{ color: 'var(--nd-text-secondary)' }}>{activeModel}</span> data only. Click again to show all models.{' '}
-              <button
-                onClick={() => setActiveModel(null)}
-                className="underline underline-offset-2 transition-colors"
-                style={{ color: 'var(--nd-text-secondary)' }}
-              >
-                Clear
-              </button>
-            </p>
-          )}
         </div>
       )}
 

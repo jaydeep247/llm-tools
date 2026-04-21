@@ -60,43 +60,46 @@ interface ScoreCardProps {
 
 function ScoreCard({ title, score, value, icon, color, trend, subStats, error, isLoading, description, footer, suffix = '/100', help, labelAction }: ScoreCardProps) {
   const getScoreLabel = (s: number) => {
-    if (s >= 80) return { text: 'Excellent', color: 'text-green-400 bg-green-500/10' }
-    if (s >= 60) return { text: 'Good', color: 'text-yellow-400 bg-yellow-500/10' }
-    if (s >= 40) return { text: 'Fair', color: 'text-orange-400 bg-orange-500/10' }
-    return { text: 'Needs Work', color: 'text-red-400 bg-red-500/10' }
+    if (s >= 80) return { text: 'Excellent', color: 'text-[var(--nd-positive-text)] bg-[var(--nd-positive-bg)] border-emerald-500/20' }
+    if (s >= 60) return { text: 'Good', color: 'text-amber-600 bg-amber-50 border-amber-500/20' }
+    if (s >= 40) return { text: 'Fair', color: 'text-orange-600 bg-orange-50 border-orange-500/20' }
+    return { text: 'Needs Work', color: 'text-[var(--nd-negative-text)] bg-[var(--nd-negative-bg)] border-rose-500/20' }
   }
 
   if (isLoading) {
     return (
-      <div className="bg-[#111113] rounded-xl p-5 border border-zinc-800 animate-pulse h-full">
+      <div className="rounded-xl p-5 border animate-pulse h-full" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-zinc-800" />
-          <div className="h-4 w-24 bg-zinc-800 rounded" />
+          <div className="w-10 h-10 rounded-xl" style={{ background: 'var(--nd-bg)' }} />
+          <div className="h-4 w-24 rounded" style={{ background: 'var(--nd-bg)' }} />
         </div>
-        <div className="h-12 w-20 bg-zinc-800 rounded mt-4" />
+        <div className="h-12 w-20 rounded mt-4" style={{ background: 'var(--nd-bg)' }} />
       </div>
     )
   }
 
   return (
-    <div className="bg-[#111113] rounded-xl p-5 border border-zinc-800 hover:bg-[#0D0D10] transition-all duration-300 group h-full flex flex-col">
+    <div className="rounded-xl p-5 border transition-all duration-300 group h-full flex flex-col" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-start gap-3">
-          <div className={cn("p-2.5 rounded-xl shrink-0", color)}>
+          <div className={cn("p-2.5 rounded-xl shrink-0 border", color)}>
             {icon}
           </div>
           <div className="flex items-center gap-1.5">
             <div className="min-w-0">
-              <span className="text-sm font-medium text-zinc-100 block">{title}</span>
-              {description && !help && <span className="text-xs text-zinc-400 block mt-0.5 leading-relaxed">{description}</span>}
+              <span className="text-sm font-medium block" style={{ color: 'var(--nd-text-primary)' }}>{title}</span>
+              {description && !help && <span className="text-xs block mt-0.5 leading-relaxed" style={{ color: 'var(--nd-text-secondary)' }}>{description}</span>}
             </div>
             {help && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     type="button"
-                    className="inline-flex items-center justify-center text-zinc-500 hover:text-zinc-200 transition-colors focus:outline-none shrink-0 cursor-help"
+                    className="inline-flex items-center justify-center transition-colors focus:outline-none shrink-0 cursor-help"
+                    style={{ color: 'var(--nd-text-muted)' }}
+                    onMouseEnter={(e) => e.currentTarget.style.color = 'var(--nd-text-secondary)'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = 'var(--nd-text-muted)'}
                     aria-label={`${title} help`}
                   >
                     <AlertCircle className="h-3.5 w-3.5" />
@@ -106,11 +109,12 @@ function ScoreCard({ title, score, value, icon, color, trend, subStats, error, i
                   side="top"
                   align="start"
                   sideOffset={10}
-                  className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5"
+                  className="max-w-64 border text-[11px] leading-relaxed rounded-2xl px-3 py-2.5"
+                  style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }}
                 >
                   <div className="space-y-1.5">
-                    {help.meaning && <div><span className="font-semibold text-zinc-200">Meaning: </span><span className="text-zinc-200/90">{help.meaning}</span></div>}
-                    {help.improve && <div><span className="font-semibold text-zinc-200">Improve: </span><span className="text-zinc-200/90">{help.improve}</span></div>}
+                    {help.meaning && <div><span className="font-semibold">Meaning: </span><span style={{ color: 'var(--nd-text-secondary)' }}>{help.meaning}</span></div>}
+                    {help.improve && <div><span className="font-semibold">Improve: </span><span style={{ color: 'var(--nd-text-secondary)' }}>{help.improve}</span></div>}
                   </div>
                 </TooltipContent>
               </Tooltip>
@@ -120,7 +124,7 @@ function ScoreCard({ title, score, value, icon, color, trend, subStats, error, i
         </div>
         {score !== undefined && score !== null && !error && (
           <span className={cn(
-            "text-xs px-2 py-1 rounded-full font-medium shrink-0 ml-2",
+            "text-xs px-2 py-1 rounded-full font-bold uppercase tracking-wider shrink-0 ml-2 border",
             getScoreLabel(score).color
           )}>
             {getScoreLabel(score).text}
@@ -132,21 +136,21 @@ function ScoreCard({ title, score, value, icon, color, trend, subStats, error, i
       <div className="flex items-end justify-between mb-4">
         <div>
           {error ? (
-            <div className="flex items-center gap-2 text-red-400">
+            <div className="flex items-center gap-2" style={{ color: 'var(--nd-negative-text)' }}>
               <AlertCircle className="w-5 h-5" />
               <span className="text-sm">Error</span>
             </div>
           ) : (
             <div className="flex items-baseline gap-1">
               {value !== undefined ? (
-                <span className="text-4xl font-bold text-white">{value}</span>
+                <span className="text-4xl font-bold" style={{ color: 'var(--nd-text-primary)' }}>{value}</span>
               ) : score !== undefined && score !== null ? (
                 <>
-                  <span className="text-4xl font-bold text-white">{score}</span>
-                  <span className="text-sm text-zinc-500">{suffix}</span>
+                  <span className="text-4xl font-bold" style={{ color: 'var(--nd-text-primary)' }}>{score}</span>
+                  <span className="text-sm" style={{ color: 'var(--nd-text-muted)' }}>{suffix}</span>
                 </>
               ) : (
-                <span className="text-3xl font-bold text-zinc-600">--</span>
+                <span className="text-3xl font-bold" style={{ color: 'var(--nd-text-muted)' }}>--</span>
               )}
             </div>
           )}
@@ -154,8 +158,8 @@ function ScoreCard({ title, score, value, icon, color, trend, subStats, error, i
           {/* Trend */}
           {trend !== undefined && !error && (
             <div className={cn(
-              "flex items-center gap-1 mt-2 text-xs font-medium",
-              trend >= 0 ? "text-green-400" : "text-red-400"
+              "flex items-center gap-1 mt-2 text-xs font-bold",
+              trend >= 0 ? "text-[var(--nd-positive-text)]" : "text-[var(--nd-negative-text)]"
             )}>
               {trend >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
               <span>{trend >= 0 ? '+' : ''}{trend.toFixed(1)}%</span>
@@ -168,13 +172,13 @@ function ScoreCard({ title, score, value, icon, color, trend, subStats, error, i
       <div className="mt-auto space-y-3">
         {subStats && subStats.length > 0 && !error && (
           <div className={cn(
-            "grid gap-3 pt-3 border-t border-zinc-800/50",
+            "grid gap-3 pt-3 border-t",
             subStats.length === 1 ? "grid-cols-1" : "grid-cols-2"
-          )}>
+          )} style={{ borderColor: 'var(--nd-border)' }}>
             {subStats.map((stat, i) => (
               <div key={i}>
-                <div className="text-xs text-zinc-500 mb-1">{stat.label}</div>
-                <div className="text-sm font-semibold text-zinc-100 truncate">{stat.value}</div>
+                <div className="text-xs mb-1" style={{ color: 'var(--nd-text-muted)' }}>{stat.label}</div>
+                <div className="text-sm font-semibold truncate" style={{ color: 'var(--nd-text-primary)' }}>{stat.value}</div>
               </div>
             ))}
           </div>
@@ -184,7 +188,7 @@ function ScoreCard({ title, score, value, icon, color, trend, subStats, error, i
 
       {/* Error Message */}
       {error && (
-        <p className="text-xs text-red-300/70 mt-2 line-clamp-2">{error}</p>
+        <p className="text-xs mt-2 line-clamp-2 text-rose-500">{error}</p>
       )}
     </div>
   )
@@ -370,11 +374,12 @@ function MetricAskButton({
       }}
       disabled={disabled}
       className={cn(
-        'inline-flex items-center gap-1 rounded-full border border-violet-500/35 bg-violet-500/10',
-        'px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-violet-300',
-        'hover:bg-violet-500/18 transition-colors cursor-pointer shrink-0',
+        'inline-flex items-center gap-1 rounded-full border border-[var(--nd-purple)]/30 bg-[var(--nd-purple)]/5',
+        'px-2 py-0.5 text-xs font-bold uppercase tracking-wider',
+        'hover:bg-[var(--nd-purple)]/10 transition-colors cursor-pointer shrink-0',
         'disabled:opacity-40 disabled:cursor-not-allowed',
       )}
+      style={{ color: 'var(--nd-purple)' }}
     >
       <MessageSquare className="size-3 shrink-0" aria-hidden />
       Ask AI
@@ -518,10 +523,10 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
   }, [isWaitingForAnalysis, jobId, refetch])
 
   const getScoreColor = (score: number) => {
-    if (score >= 80) return 'text-green-500'
-    if (score >= 60) return 'text-yellow-500'
-    if (score >= 40) return 'text-orange-500'
-    return 'text-red-500'
+    if (score >= 80) return 'text-emerald-600'
+    if (score >= 60) return 'text-amber-600'
+    if (score >= 40) return 'text-orange-600'
+    return 'text-rose-600'
   }
 
   const intentKeysInOrder: string[] = [
@@ -678,17 +683,18 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
       {!section && (
         <div className="space-y-6">
           {/* Tab Navigation - Larger size */}
-          <div className="flex flex-wrap items-center gap-2 border-zinc-800 bg-[#111113] p-1.5 rounded-xl border w-fit">
+          <div className="flex flex-wrap items-center gap-2 p-1.5 rounded-xl border w-fit" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
             <Button
               onClick={() => handleTabChange('content-analysis')}
               variant={activeTab === 'content-analysis' ? 'default' : 'ghost'}
               size="lg"
               className={cn(
-                "text-base font-semibold px-6 py-3 rounded-lg transition-all cursor-pointer",
+                "text-base font-bold px-6 py-3 rounded-lg transition-all cursor-pointer",
                 activeTab === 'content-analysis' 
-                  ? 'bg-primary text-primary-foreground shadow-lg' 
-                  : 'hover:bg-muted'
+                  ? 'shadow-lg' 
+                  : 'hover:bg-black/5'
               )}
+              style={activeTab === 'content-analysis' ? { background: 'var(--nd-purple)', color: '#ffffff' } : { color: 'var(--nd-text-secondary)' }}
             >
               Content Analysis Metrics
             </Button>
@@ -697,11 +703,12 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
               variant={activeTab === 'intent-clusters' ? 'default' : 'ghost'}
               size="lg"
               className={cn(
-                "text-base font-semibold px-6 py-3 rounded-lg transition-all cursor-pointer",
+                "text-base font-bold px-6 py-3 rounded-lg transition-all cursor-pointer",
                 activeTab === 'intent-clusters' 
-                  ? 'bg-primary text-primary-foreground shadow-lg' 
-                  : 'hover:bg-muted'
+                  ? 'shadow-lg' 
+                  : 'hover:bg-black/5'
               )}
+              style={activeTab === 'intent-clusters' ? { background: 'var(--nd-purple)', color: '#ffffff' } : { color: 'var(--nd-text-secondary)' }}
             >
               Prompt Intent Clusters
             </Button>
@@ -710,11 +717,12 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
               variant={activeTab === 'entity-detection' ? 'default' : 'ghost'}
               size="lg"
               className={cn(
-                "text-base font-semibold px-6 py-3 rounded-lg transition-all cursor-pointer",
+                "text-base font-bold px-6 py-3 rounded-lg transition-all cursor-pointer",
                 activeTab === 'entity-detection' 
-                  ? 'bg-primary text-primary-foreground shadow-lg' 
-                  : 'hover:bg-muted'
+                  ? 'shadow-lg' 
+                  : 'hover:bg-black/5'
               )}
+              style={activeTab === 'entity-detection' ? { background: 'var(--nd-purple)', color: '#ffffff' } : { color: 'var(--nd-text-secondary)' }}
             >
               Entity Detection Metrics
             </Button>
@@ -724,7 +732,7 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
 
       {/* Content Analysis Metrics Tab */}
       {activeTab === 'content-analysis' && (
-        <div className="rounded-xl border border-zinc-800 bg-[#111113] p-6 space-y-6">
+        <div className="rounded-xl border p-6 space-y-6" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
           {contentMetrics && (
             <div className="flex items-center justify-end">
               <Button
@@ -749,7 +757,7 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
           {/* Empty State + Trigger */}
           {!contentMetrics && !isLoadingMetrics && !metricsError && !isWaitingForAnalysis && !isStartingAnalysis && (
             <AnalysisEmptyState
-              icon={<FileText className="w-8 h-8 text-zinc-600" />}
+              icon={<FileText className="w-8 h-8" style={{ color: 'var(--nd-text-secondary)' }} />}
               title="No Content Metrics Data"
               description="No content metrics available yet. Run an analysis to see content insights."
               onRunAnalysis={jobId ? handleStartAnalysis : undefined}
@@ -761,9 +769,9 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
 
           {/* Loading / Waiting State */}
           {(isLoadingMetrics || isWaitingForAnalysis || isStartingAnalysis) && !contentMetrics && (
-            <div className="p-8 text-center border border-zinc-800 rounded-xl bg-[#0D0D10]">
-              <Loader2 className="w-10 h-10 mx-auto mb-4 text-primary animate-spin" />
-              <p className="text-sm text-zinc-400">
+            <div className="p-8 text-center border rounded-xl" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
+              <Loader2 className="w-10 h-10 mx-auto mb-4 animate-spin" style={{ color: 'var(--nd-purple)' }} />
+              <p className="text-sm" style={{ color: 'var(--nd-text-secondary)' }}>
                 {isStartingAnalysis ? 'Starting analysis...' : 'Running analysis — this may take a moment...'}
               </p>
             </div>
@@ -771,10 +779,10 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
 
           {/* Error Display */}
           {metricsError && !contentMetrics && (
-            <div className="p-4 border border-red-500/20 bg-red-500/10 rounded-lg">
+            <div className="p-4 border rounded-lg" style={{ background: 'rgba(244, 63, 94, 0.1)', borderColor: 'rgba(244, 63, 94, 0.2)' }}>
               <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-red-400" />
-                <p className="text-sm text-red-400">
+                <AlertCircle className="w-4 h-4 text-rose-500" />
+                <p className="text-sm text-rose-500">
                   {((metricsError as any)?.data?.error ?? (metricsError as any)?.message ?? 'Failed to load metrics')}
                 </p>
               </div>
@@ -789,8 +797,8 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                 title="Content Type Accuracy"
                 description="How accurately the system identifies your content type"
                 score={contentMetrics.content_type_accuracy || 0}
-                icon={<MessageSquare className="w-5 h-5 text-blue-400" />}
-                color="bg-blue-500/20"
+                icon={<MessageSquare className="w-5 h-5 text-blue-500" />}
+                color="bg-blue-50"
                 subStats={[
                   { label: 'Suggested Type', value: contentMetrics.suggested_content_type || 'Unknown' }
                 ]}
@@ -811,8 +819,8 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                 title="Prompt Intent Match"
                 description="How well your content matches user search intent"
                 score={contentMetrics.prompt_intent_match || 0}
-                icon={<Brain className="w-5 h-5 text-blue-400" />}
-                color="bg-blue-500/20"
+                icon={<Brain className="w-5 h-5 text-blue-500" />}
+                color="bg-blue-50"
                 subStats={[
                   { 
                     label: 'Matched Intents', 
@@ -820,10 +828,10 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                       <div className="flex flex-wrap gap-1">
                         {contentMetrics.prompt_intent_details?.matched_intents && contentMetrics.prompt_intent_details.matched_intents.length > 0 ? (
                           contentMetrics.prompt_intent_details.matched_intents.slice(0, 3).map((intent: string, idx: number) => (
-                            <span key={idx} className="text-[10px] px-1.5 py-0.5 rounded-full bg-zinc-800 text-zinc-200 border border-zinc-800/50">{intent}</span>
+                            <span key={idx} className="text-xs px-2 py-0.5 rounded-full border truncate font-medium" style={{ background: 'var(--nd-bg)', color: 'var(--nd-text-primary)', borderColor: 'var(--nd-border)' }}>{intent}</span>
                           ))
                         ) : (
-                          <span className="text-xs text-zinc-500">No intents detected</span>
+                          <span className="text-sm" style={{ color: 'var(--nd-text-secondary)' }}>No intents detected</span>
                         )}
                       </div>
                     )
@@ -847,8 +855,8 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                 title="Visibility Impact"
                 description="Potential impact on search visibility and ranking"
                 score={contentMetrics.visibility_impact || 0}
-                icon={<Eye className="w-5 h-5 text-emerald-400" />}
-                color="bg-emerald-500/20"
+                icon={<Eye className="w-5 h-5 text-emerald-600" />}
+                color="bg-emerald-50"
                 subStats={[
                   { 
                     label: 'Key Factors', 
@@ -856,10 +864,10 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                       <div className="flex flex-wrap gap-1">
                         {contentMetrics.visibility_factors?.factors && contentMetrics.visibility_factors.factors.length > 0 ? (
                           contentMetrics.visibility_factors.factors.slice(0, 2).map((factor: string, idx: number) => (
-                            <span key={idx} className="text-[10px] px-1.5 py-0.5 rounded-full bg-zinc-800 text-zinc-200 border border-zinc-800/50 truncate max-w-25 inline-block">{factor}</span>
+                            <span key={idx} className="text-xs px-2 py-0.5 rounded-full border truncate max-w-25 inline-block font-medium" style={{ background: 'var(--nd-bg)', color: 'var(--nd-text-primary)', borderColor: 'var(--nd-border)' }}>{factor}</span>
                           ))
                         ) : (
-                          <span className="text-xs text-zinc-500">No factors</span>
+                          <span className="text-sm" style={{ color: 'var(--nd-text-secondary)' }}>No factors</span>
                         )}
                       </div>
                     )
@@ -883,7 +891,7 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
 
       {/* Prompt Intent Clusters Tab */}
       {activeTab === 'intent-clusters' && (
-        <div className="rounded-xl border border-zinc-800 bg-[#111113] p-6 space-y-6">
+        <div className="rounded-xl border p-6 space-y-6" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
           {/* Empty State */}
           {!contentMetrics && !isLoadingMetrics && !metricsError && !isWaitingForAnalysis && !isStartingAnalysis && (
             <AnalysisEmptyState
@@ -899,9 +907,9 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
 
           {/* Loading / Waiting State */}
           {(isLoadingMetrics || isWaitingForAnalysis || isStartingAnalysis) && !contentMetrics && (
-            <div className="p-8 text-center border border-zinc-800 rounded-xl bg-[#0D0D10]">
-              <Loader2 className="w-10 h-10 mx-auto mb-4 text-primary animate-spin" />
-              <p className="text-sm text-zinc-400">
+            <div className="p-8 text-center border rounded-xl" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
+              <Loader2 className="w-10 h-10 mx-auto mb-4 animate-spin" style={{ color: 'var(--nd-purple)' }} />
+              <p className="text-sm" style={{ color: 'var(--nd-text-secondary)' }}>
                 {isStartingAnalysis ? 'Starting analysis...' : 'Running analysis — this may take a moment...'}
               </p>
             </div>
@@ -909,10 +917,10 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
 
           {/* Error Display */}
           {metricsError && !contentMetrics && (
-            <div className="p-4 border border-red-500/20 bg-red-500/10 rounded-lg">
+            <div className="p-4 border rounded-lg" style={{ background: 'var(--nd-negative-bg)', borderColor: 'var(--nd-border)' }}>
               <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-red-400" />
-                <p className="text-sm text-red-400">
+                <AlertCircle className="w-4 h-4 text-[var(--nd-negative-text)]" />
+                <p className="text-sm text-[var(--nd-negative-text)]">
                   {((metricsError as any)?.data?.error ?? (metricsError as any)?.message ?? 'Failed to load metrics')}
                 </p>
               </div>
@@ -938,8 +946,8 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                         ? '100%'
                         : `${Math.round(100 * (contentMetrics.prompt_intent_details.cluster_metrics.clustering_accuracy ?? 0))}%`
                     }
-                    icon={<Target className="w-5 h-5 text-green-400" />}
-                    color="bg-green-500/20"
+                    icon={<Target className="w-5 h-5 text-[var(--nd-positive-text)]" />}
+                    color="bg-[var(--nd-positive-bg)] border-emerald-500/20"
                     help={contentMetrics.metric_help ? {
                       meaning: contentMetrics.metric_help?.clustering_accuracy?.meaning,
                       improve: contentMetrics.metric_help?.clustering_accuracy?.improve,
@@ -958,8 +966,8 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                     title="Total Prompts"
                     description="Number of prompts analyzed"
                     value={trackingIntentDistribution ? trackingIntentTotal : (contentMetrics.prompt_intent_details.cluster_metrics.total_prompts ?? 0)}
-                    icon={<List className="w-5 h-5 text-blue-400" />}
-                    color="bg-blue-500/20"
+                    icon={<List className="w-5 h-5" style={{ color: 'var(--nd-blue)' }} />}
+                    color="bg-blue-50 border-blue-500/20"
                     help={contentMetrics.metric_help ? {
                       meaning: contentMetrics.metric_help?.total_prompts?.meaning,
                       improve: contentMetrics.metric_help?.total_prompts?.improve,
@@ -979,8 +987,8 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                     description="Prompts successfully mapped to intents"
                     score={trackingIntentDistribution ? 100 : (contentMetrics.prompt_intent_details.cluster_metrics.coverage_percentage ?? 0)}
                     value={trackingIntentDistribution ? '100.0%' : `${contentMetrics.prompt_intent_details.cluster_metrics.coverage_percentage?.toFixed(1) ?? 0}%`}
-                    icon={<Brain className="w-5 h-5 text-blue-400" />}
-                    color="bg-blue-500/20"
+                    icon={<Brain className="w-5 h-5" style={{ color: 'var(--nd-purple)' }} />}
+                    color="bg-violet-50 border-violet-500/20"
                     help={contentMetrics.metric_help ? {
                       meaning: contentMetrics.metric_help?.coverage_percentage?.meaning,
                       improve: contentMetrics.metric_help?.coverage_percentage?.improve,
@@ -996,12 +1004,12 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
               </div>
 
               {/* Intent Distribution Table */}
-              <div className="bg-[#111113] rounded-xl border border-zinc-800 overflow-hidden">
-                <div className="bg-[#0D0D10] px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
-                  <h4 className="text-sm font-semibold text-white">
+              <div className="rounded-xl border overflow-hidden" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
+                <div className="px-6 py-4 border-b flex items-center justify-between" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
+                  <h4 className="text-sm font-semibold" style={{ color: 'var(--nd-text-primary)' }}>
                     Intent Cluster Distribution
                     {trackingIntentDistribution && (
-                      <span className="ml-2 text-xs font-normal text-emerald-400">
+                      <span className="ml-2 text-xs font-bold text-emerald-600">
                         (from onboarding tracking prompts)
                       </span>
                     )}
@@ -1013,14 +1021,14 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-[#0D0D10] border-b border-zinc-800">
+                    <thead className="border-b" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-zinc-400 uppercase tracking-wider">Intent Cluster</th>
-                        <th className="px-6 py-3 text-center text-xs font-medium text-zinc-400 uppercase tracking-wider">Number of Prompts</th>
-                        <th className="px-6 py-3 text-center text-xs font-medium text-zinc-400 uppercase tracking-wider">% of Total</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--nd-text-secondary)' }}>Intent Cluster</th>
+                        <th className="px-6 py-3 text-center text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--nd-text-secondary)' }}>Number of Prompts</th>
+                        <th className="px-6 py-3 text-center text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--nd-text-secondary)' }}>% of Total</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-zinc-800/50">
+                    <tbody className="divide-y" style={{ borderColor: 'var(--nd-border)' }}>
                       {(() => {
                         const clusters: any = trackingIntentDistribution
                           ? Object.fromEntries(
@@ -1040,11 +1048,11 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                         }
 
                         const iconMap: Record<string, React.ReactNode> = {
-                          informational: <BookOpen className="w-4 h-4 text-blue-400" />,
-                          commercial: <ShoppingBag className="w-4 h-4 text-blue-400" />,
-                          comparative: <Scale className="w-4 h-4 text-orange-400" />,
-                          transactional: <CreditCard className="w-4 h-4 text-emerald-400" />,
-                          agent: <Bot className="w-4 h-4 text-cyan-400" />
+                          informational: <BookOpen className="w-4 h-4 text-blue-500" />,
+                          commercial: <ShoppingBag className="w-4 h-4 text-blue-500" />,
+                          comparative: <Scale className="w-4 h-4 text-orange-500" />,
+                          transactional: <CreditCard className="w-4 h-4 text-emerald-500" />,
+                          agent: <Bot className="w-4 h-4 text-cyan-500" />
                         }
 
                         return (
@@ -1055,20 +1063,20 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                               const percent = total > 0 ? Math.round((count / total) * 100) : 0
 
                               return (
-                                <tr key={key} className="hover:bg-[#0D0D10] transition-colors">
-                                  <td className="px-6 py-4 text-sm text-zinc-100 flex items-center gap-3">
-                                    <div className="p-1.5 rounded-lg bg-[#0D0D10]">
+                                <tr key={key} className="transition-colors hover:bg-black/5" style={{ background: 'var(--nd-card-bg)' }}>
+                                  <td className="px-6 py-4 text-sm flex items-center gap-3" style={{ color: 'var(--nd-text-primary)' }}>
+                                    <div className="p-1.5 rounded-lg" style={{ background: 'var(--nd-bg)' }}>
                                       {iconMap[key]}
                                     </div>
                                     {labelMap[key]}
                                   </td>
-                                  <td className="px-6 py-4 text-center text-sm font-semibold text-zinc-100">{count}</td>
+                                  <td className="px-6 py-4 text-center text-sm font-semibold" style={{ color: 'var(--nd-text-primary)' }}>{count}</td>
                                   <td className="px-6 py-4 text-center">
                                     <div className={cn(
-                                      "inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium",
+                                      "inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-bold border",
                                       percent >= 20 
-                                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
-                                        : "bg-zinc-800 text-zinc-400 border border-zinc-800"
+                                        ? "bg-emerald-50 text-emerald-600 border-emerald-200" 
+                                        : "bg-gray-50 text-gray-500 border-gray-200"
                                     )}>
                                       {percent}%
                                     </div>
@@ -1087,16 +1095,16 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                               const otherPercent = total > 0 ? Math.round((otherCount / total) * 100) : 0
 
                               return (
-                                <tr className="bg-[#0D0D10]">
-                                  <td className="px-6 py-4 text-sm text-zinc-400 flex items-center gap-3">
-                                    <div className="p-1.5 rounded-lg bg-[#111113]">
-                                      <HelpCircle className="w-4 h-4 text-zinc-500" />
+                                <tr style={{ background: 'var(--nd-bg)' }}>
+                                  <td className="px-6 py-4 text-sm flex items-center gap-3" style={{ color: 'var(--nd-text-secondary)' }}>
+                                    <div className="p-1.5 rounded-lg" style={{ background: 'var(--nd-card-bg)' }}>
+                                      <HelpCircle className="w-4 h-4 text-gray-500" />
                                     </div>
                                     Other / Uncategorized
                                   </td>
-                                  <td className="px-6 py-4 text-center text-sm font-semibold text-zinc-400">{otherCount}</td>
+                                  <td className="px-6 py-4 text-center text-sm font-semibold" style={{ color: 'var(--nd-text-secondary)' }}>{otherCount}</td>
                                   <td className="px-6 py-4 text-center">
-                                    <div className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#111113] text-zinc-500 border border-zinc-800">
+                                    <div className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-bold border" style={{ background: 'var(--nd-card-bg)', color: 'var(--nd-text-secondary)', borderColor: 'var(--nd-border)' }}>
                                       {otherPercent}%
                                     </div>
                                   </td>
@@ -1115,9 +1123,9 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
 
           {/* No Data Message for Intent Clusters */}
           {contentMetrics && (!contentMetrics.prompt_intent_details?.cluster_metrics || !contentMetrics.prompt_intent_details?.intent_clusters) && (
-            <div className="p-6 border border-zinc-800 rounded-xl bg-[#0D0D10] text-center">
-              <FileText className="w-12 h-12 mx-auto mb-4 text-zinc-700" />
-              <p className="text-sm text-zinc-400">
+            <div className="p-6 border rounded-xl text-center" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
+              <FileText className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--nd-text-muted)' }} />
+              <p className="text-sm" style={{ color: 'var(--nd-text-secondary)' }}>
                 No intent cluster data available for this analysis.
               </p>
             </div>
@@ -1127,7 +1135,7 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
 
       {/* Entity Detection Metrics Tab */}
       {activeTab === 'entity-detection' && (
-        <div className="rounded-xl border border-zinc-800 bg-[#111113] p-6 space-y-6">
+        <div className="rounded-xl border p-6 space-y-6" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
           {/* Empty State */}
           {!entityMetrics && !isLoadingMetrics && !metricsError && !isWaitingForAnalysis && !isStartingAnalysis && (
             <AnalysisEmptyState
@@ -1143,9 +1151,9 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
 
           {/* Loading / Waiting State */}
           {(isLoadingMetrics || isWaitingForAnalysis || isStartingAnalysis) && !entityMetrics && (
-            <div className="p-8 text-center border border-zinc-800 rounded-xl bg-[#0D0D10]">
-              <Loader2 className="w-10 h-10 mx-auto mb-4 text-primary animate-spin" />
-              <p className="text-sm text-zinc-400">
+            <div className="p-8 text-center border rounded-xl" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
+              <Loader2 className="w-10 h-10 mx-auto mb-4 animate-spin" style={{ color: 'var(--nd-purple)' }} />
+              <p className="text-sm" style={{ color: 'var(--nd-text-secondary)' }}>
                 {isStartingAnalysis ? 'Starting analysis...' : 'Running analysis — this may take a moment...'}
               </p>
             </div>
@@ -1153,10 +1161,10 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
 
           {/* Error Display */}
           {metricsError && !entityMetrics && (
-            <div className="p-4 border border-red-500/20 bg-red-500/10 rounded-lg">
+            <div className="p-4 border rounded-lg" style={{ background: 'rgba(244, 63, 94, 0.1)', borderColor: 'rgba(244, 63, 94, 0.2)' }}>
               <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-red-400" />
-                <p className="text-sm text-red-400">
+                <AlertCircle className="w-4 h-4 text-rose-500" />
+                <p className="text-sm text-rose-500">
                   {((metricsError as any)?.data?.error ?? (metricsError as any)?.message ?? 'Failed to load metrics')}
                 </p>
               </div>
@@ -1174,8 +1182,8 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                     title="Entities Detected"
                     description="Number of required entities found in content"
                     value={entityMetrics.entities_detected_count || 0}
-                    icon={<Database className="w-5 h-5 text-blue-400" />}
-                    color="bg-blue-500/20"
+                    icon={<Database className="w-5 h-5 text-blue-500" />}
+                    color="bg-blue-50"
                     help={contentMetrics?.metric_help?.entities_detected_count ?? null}
                     labelAction={
                       <MetricAskButton
@@ -1193,8 +1201,8 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                     description="Percentage of required entities included"
                     score={entityMetrics.entity_coverage_score || 0}
                     value={`${entityMetrics.entity_coverage_score || 0}%`}
-                    icon={<BarChart className="w-5 h-5 text-emerald-400" />}
-                    color="bg-emerald-500/20"
+                    icon={<BarChart className="w-5 h-5 text-emerald-600" />}
+                    color="bg-emerald-50"
                     help={contentMetrics?.metric_help?.entity_coverage_score ?? null}
                     labelAction={
                       <MetricAskButton
@@ -1211,8 +1219,8 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                     title="Entity Relevance"
                     description="How relevant entities are to search intent"
                     score={entityMetrics.entity_relevance_score || 0}
-                    icon={<Target className="w-5 h-5 text-blue-400" />}
-                    color="bg-blue-500/20"
+                    icon={<Target className="w-5 h-5 text-blue-500" />}
+                    color="bg-blue-50"
                     help={contentMetrics?.metric_help?.entity_relevance_score ?? null}
                     labelAction={
                       <MetricAskButton
@@ -1229,14 +1237,14 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                 (entityMetrics.entity_relevance_details?.irrelevant_entities && entityMetrics.entity_relevance_details.irrelevant_entities.length > 0)) && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {entityMetrics.entity_relevance_details?.relevant_entities && entityMetrics.entity_relevance_details.relevant_entities.length > 0 && (
-                    <div className="bg-emerald-500/5 rounded-xl border border-emerald-500/20 p-5">
-                      <h4 className="text-sm font-semibold text-emerald-400 mb-3 flex items-center gap-2">
+                    <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-5">
+                      <h4 className="text-sm font-semibold text-emerald-700 mb-3 flex items-center gap-2">
                         <span>✅</span>
                         Relevant Entities
                       </h4>
                       <div className="flex flex-wrap gap-2">
                         {entityMetrics.entity_relevance_details.relevant_entities.map((entity: string, idx: number) => (
-                          <Badge key={idx} variant="outline" className="border-green-500/50 text-green-300">
+                          <Badge key={idx} variant="outline" className="border-emerald-300 text-emerald-700 bg-emerald-100/50">
                             {entity}
                           </Badge>
                         ))}
@@ -1245,14 +1253,14 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                   )}
                   
                   {entityMetrics.entity_relevance_details?.irrelevant_entities && entityMetrics.entity_relevance_details.irrelevant_entities.length > 0 && (
-                    <div className="bg-amber-500/5 rounded-xl border border-amber-500/20 p-5">
-                      <h4 className="text-sm font-semibold text-amber-300 mb-3 flex items-center gap-2">
+                    <div className="bg-amber-50 rounded-xl border border-amber-200 p-5">
+                      <h4 className="text-sm font-semibold text-amber-700 mb-3 flex items-center gap-2">
                         <span>⚠️</span>
                         Irrelevant Entities
                       </h4>
                       <div className="flex flex-wrap gap-2">
                         {entityMetrics.entity_relevance_details.irrelevant_entities.map((entity: string, idx: number) => (
-                          <Badge key={idx} variant="outline" className="border-amber-500/50 text-amber-300">
+                          <Badge key={idx} variant="outline" className="border-amber-300 text-amber-700 bg-amber-100/50">
                             {entity}
                           </Badge>
                         ))}
@@ -1266,20 +1274,20 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
                 {/* Top Search Queries */}
                 {contentMetrics?.prompt_intent_details?.search_queries && contentMetrics.prompt_intent_details.search_queries.length > 0 && (
-                  <div className="bg-[#111113] rounded-xl border border-zinc-800 p-5">
-                    <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                      <div className="p-1.5 rounded-lg bg-blue-500/20">
-                        <Search className="w-4 h-4 text-blue-400" />
+                  <div className="rounded-xl border p-5" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
+                    <h4 className="text-sm font-semibold mb-3 flex items-center gap-2" style={{ color: 'var(--nd-text-primary)' }}>
+                      <div className="p-1.5 rounded-lg bg-blue-50">
+                        <Search className="w-4 h-4 text-blue-500" />
                       </div>
                       Top Search Queries
                     </h4>
                     <div className="space-y-2">
                       {contentMetrics.prompt_intent_details.search_queries.map((query: string, idx: number) => (
-                        <div key={idx} className="flex items-start gap-3 p-2 rounded-lg hover:bg-[#0D0D10] transition-colors">
-                          <span className="shrink-0 w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center text-xs font-bold">
+                        <div key={idx} className="flex items-start gap-3 p-2 rounded-lg transition-colors hover:bg-black/5">
+                          <span className="shrink-0 w-6 h-6 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xs font-bold">
                             {idx + 1}
                           </span>
-                          <span className="text-sm text-zinc-100">"{query}"</span>
+                          <span className="text-sm" style={{ color: 'var(--nd-text-primary)' }}>"{query}"</span>
                         </div>
                       ))}
                     </div>
@@ -1289,11 +1297,11 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                 {/* Visibility Score Breakdown */}
                 {contentMetrics?.visibility_factors?.score_breakdown && 
                  Object.keys(contentMetrics.visibility_factors.score_breakdown).length > 0 && (
-                  <div className="bg-[#111113] rounded-xl border border-zinc-800 p-5">
+                  <div className="rounded-xl border p-5" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
                     <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-sm font-semibold text-white flex items-center gap-2">
-                        <div className="p-1.5 rounded-lg bg-emerald-500/20">
-                          <BarChart className="w-4 h-4 text-emerald-400" />
+                      <h4 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--nd-text-primary)' }}>
+                        <div className="p-1.5 rounded-lg bg-emerald-50">
+                          <BarChart className="w-4 h-4 text-emerald-600" />
                         </div>
                         <span className="flex items-center gap-2">
                           Visibility Score Breakdown
@@ -1303,7 +1311,8 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                                 <TooltipTrigger asChild>
                                   <button
                                     type="button"
-                                    className="text-white/35 hover:text-white/70 transition-colors"
+                                    className="transition-colors"
+                                    style={{ color: 'var(--nd-text-muted)' }}
                                     aria-label="Visibility score breakdown help"
                                   >
                                     <HelpCircle className="h-3.5 w-3.5" />
@@ -1312,16 +1321,17 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                                 <TooltipContent
                                   side="top"
                                   align="start"
-                                  className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5"
+                                  className="max-w-64 border text-[11px] leading-relaxed rounded-2xl px-3 py-2.5"
+                                  style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }}
                                 >
                                   <div className="space-y-1.5">
                                     <div>
                                       <span className="font-semibold">Meaning: </span>
-                                      {contentMetrics.metric_help.visibility_score_breakdown.meaning}
+                                      <span style={{ color: 'var(--nd-text-secondary)' }}>{contentMetrics.metric_help.visibility_score_breakdown.meaning}</span>
                                     </div>
                                     <div>
                                       <span className="font-semibold">Improve: </span>
-                                      {contentMetrics.metric_help.visibility_score_breakdown.improve}
+                                      <span style={{ color: 'var(--nd-text-secondary)' }}>{contentMetrics.metric_help.visibility_score_breakdown.improve}</span>
                                     </div>
                                   </div>
                                 </TooltipContent>
@@ -1338,14 +1348,15 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                       {Object.entries(contentMetrics.visibility_factors.score_breakdown).map(([factor, score]) => (
                         <div key={factor} className="space-y-1">
                           <div className="flex items-center justify-between text-xs">
-                            <span className="text-zinc-400 capitalize flex items-center gap-1.5">
+                            <span className="capitalize flex items-center gap-1.5" style={{ color: 'var(--nd-text-secondary)' }}>
                               {factor.replace(/_/g, ' ')}
                               {contentMetrics?.metric_help?.[factor]?.meaning && contentMetrics?.metric_help?.[factor]?.improve && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <button
                                       type="button"
-                                      className="text-white/35 hover:text-white/70 transition-colors"
+                                      className="transition-colors"
+                                      style={{ color: 'var(--nd-text-muted)' }}
                                       aria-label={`${factor.replace(/_/g, ' ')} help`}
                                     >
                                       <HelpCircle className="h-3.5 w-3.5" />
@@ -1354,16 +1365,17 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                                   <TooltipContent
                                     side="top"
                                     align="start"
-                                    className="max-w-64 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5"
+                                    className="max-w-64 border text-[11px] leading-relaxed rounded-2xl px-3 py-2.5"
+                                    style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }}
                                   >
                                     <div className="space-y-1.5">
                                       <div>
                                         <span className="font-semibold">Meaning: </span>
-                                        {contentMetrics.metric_help[factor].meaning}
+                                        <span style={{ color: 'var(--nd-text-secondary)' }}>{contentMetrics.metric_help[factor].meaning}</span>
                                       </div>
                                       <div>
                                         <span className="font-semibold">Improve: </span>
-                                        {contentMetrics.metric_help[factor].improve}
+                                        <span style={{ color: 'var(--nd-text-secondary)' }}>{contentMetrics.metric_help[factor].improve}</span>
                                       </div>
                                     </div>
                                   </TooltipContent>
@@ -1372,7 +1384,7 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
                             </span>
                             <span className={`font-semibold ${getScoreColor(score as number)}`}>{score as number}</span>
                           </div>
-                          <div className="h-2 bg-[#0D0D10] rounded-full overflow-hidden">
+                          <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--nd-bg)' }}>
                             <div
                               className="h-full transition-all duration-300"
                               style={{
@@ -1397,7 +1409,7 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
 
       {/* Recommendations Tab (Prompt Intelligence) */}
       {activeTab === 'recommendations' && (
-        <div className="rounded-xl border border-zinc-800 bg-[#111113] p-6 space-y-6">
+        <div className="rounded-xl border p-6 space-y-6" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
           {!recommendations && !isLoadingMetrics && !metricsError && !isWaitingForAnalysis && !isStartingAnalysis && (
             <AnalysisEmptyState
               icon={<Zap className="w-8 h-8 text-zinc-600" />}
@@ -1411,19 +1423,19 @@ export default function ContentMetricsModule({ url, sessionId, projectId, initia
           )}
 
           {(isLoadingMetrics || isWaitingForAnalysis || isStartingAnalysis) && !recommendations && (
-            <div className="p-8 text-center border border-zinc-800 rounded-xl bg-[#0D0D10]">
-              <Loader2 className="w-10 h-10 mx-auto mb-4 text-primary animate-spin" />
-              <p className="text-sm text-zinc-400">
+            <div className="p-8 text-center border rounded-xl" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
+              <Loader2 className="w-10 h-10 mx-auto mb-4 animate-spin" style={{ color: 'var(--nd-purple)' }} />
+              <p className="text-sm" style={{ color: 'var(--nd-text-secondary)' }}>
                 {isStartingAnalysis ? 'Starting analysis...' : 'Running analysis — this may take a moment...'}
               </p>
             </div>
           )}
 
           {metricsError && !recommendations && (
-            <div className="p-4 border border-red-500/20 bg-red-500/10 rounded-lg">
+            <div className="p-4 border rounded-lg" style={{ background: 'rgba(244, 63, 94, 0.1)', borderColor: 'rgba(244, 63, 94, 0.2)' }}>
               <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-red-400" />
-                <p className="text-sm text-red-400">
+                <AlertCircle className="w-4 h-4 text-rose-500" />
+                <p className="text-sm text-rose-500">
                   {((metricsError as any)?.data?.error ?? (metricsError as any)?.message ?? 'Failed to load metrics')}
                 </p>
               </div>

@@ -244,33 +244,33 @@ export default function ContentConsistencyEntityCoverage({ jobId, projectId }: C
       return {
         label: 'ChatGPT',
         short: 'GPT',
-        colorClass: 'bg-emerald-500 text-emerald-950',
+        colorClass: 'bg-emerald-100 text-emerald-700',
       }
     }
     if (modelId.startsWith('gemini')) {
       return {
         label: 'Gemini',
         short: 'G',
-        colorClass: 'bg-sky-500 text-sky-950',
+        colorClass: 'bg-sky-100 text-sky-700',
       }
     }
     return {
       label: modelId,
       short: modelId.slice(0, 2).toUpperCase(),
-      colorClass: 'bg-slate-500 text-slate-950',
+      colorClass: 'bg-slate-100 text-slate-700',
     }
   }
 
   const scoreColor = (score: number) => {
-    if (score >= 80) return 'text-emerald-400'
-    if (score >= 60) return 'text-amber-400'
-    return 'text-rose-400'
+    if (score >= 80) return 'text-emerald-600'
+    if (score >= 60) return 'text-amber-600'
+    return 'text-rose-600'
   }
 
   const scoreBg = (score: number) => {
-    if (score >= 80) return 'bg-emerald-500/10 border-emerald-500/30'
-    if (score >= 60) return 'bg-amber-500/10 border-amber-500/30'
-    return 'bg-rose-500/10 border-rose-500/30'
+    if (score >= 80) return 'bg-emerald-50 border-emerald-200'
+    if (score >= 60) return 'bg-amber-50 border-amber-200'
+    return 'bg-rose-50 border-rose-200'
   }
 
   const mandateChips = useMemo(() => {
@@ -322,12 +322,12 @@ export default function ContentConsistencyEntityCoverage({ jobId, projectId }: C
 
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-zinc-800/50 border border-zinc-800">
-            <Gauge className="w-5 h-5 text-cyan-400" />
+          <div className="flex items-center justify-center w-10 h-10 rounded-xl border" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
+            <Gauge className="w-5 h-5" style={{ color: 'var(--nd-purple)' }} />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <h3 className="text-lg font-semibold text-foreground">Consistency & Coverage</h3>
+              <h2 className="nd-page-title">Consistency &amp; Coverage</h2>
               <FieldTooltip description={CONSISTENCY_COVERAGE_SECTION_DESCRIPTION} />
             </div>
           </div>
@@ -338,15 +338,13 @@ export default function ContentConsistencyEntityCoverage({ jobId, projectId }: C
             onClick={openAskAiDialog}
             disabled={!projectId || isAskingAI}
             size="sm"
-            className={cn(
-              'rounded-full border-0 font-extrabold uppercase tracking-wider text-black shadow-lg shadow-fuchsia-950/30',
-              'bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300 hover:opacity-95',
-            )}
+            className="rounded-full font-bold uppercase tracking-wider hover:opacity-80 transition-opacity"
+            style={{ background: 'var(--nd-purple-subtle)', color: 'var(--nd-purple)', border: '1px solid var(--nd-purple)' }}
           >
             <MessageSquare className="mr-2 h-4 w-4 shrink-0" strokeWidth={2.25} />
             Ask AI
           </Button>
-          <Button onClick={handleRunAnalysis} size="sm" variant="default" disabled={!jobId || isProcessing || isLoading}>
+          <Button onClick={handleRunAnalysis} size="sm" disabled={!jobId || isProcessing || isLoading} style={{ background: 'var(--nd-purple)', color: '#fff' }}>
             {isProcessing ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -356,7 +354,7 @@ export default function ContentConsistencyEntityCoverage({ jobId, projectId }: C
               'Run Analysis'
             )}
           </Button>
-          <Button onClick={() => refetch()} size="sm" variant="secondary" disabled={!jobId || isLoading}>
+          <Button onClick={() => refetch()} size="sm" variant="outline" disabled={!jobId || isLoading} style={{ borderColor: 'var(--nd-border)', color: 'var(--nd-text-secondary)', background: 'var(--nd-card-bg)' }}>
             {isLoading ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -373,16 +371,16 @@ export default function ContentConsistencyEntityCoverage({ jobId, projectId }: C
       </div>
 
       {!jobId && (
-        <div className="p-4 border border-amber-500/50 bg-amber-500/10 rounded-lg">
-          <p className="text-sm text-amber-700 dark:text-amber-400">
+        <div className="p-4 border border-amber-200 bg-amber-50 rounded-lg">
+          <p className="text-sm text-amber-700">
             Run a crawl to generate Module E results.
           </p>
         </div>
       )}
 
       {error && (
-        <div className="p-4 border border-destructive/50 bg-destructive/10 rounded-lg">
-          <p className="text-sm text-destructive">
+        <div className="p-4 border border-rose-200 bg-rose-50 rounded-lg">
+          <p className="text-sm text-rose-700">
             {((error as any)?.data?.error ?? (error as any)?.message ?? 'Failed to load Module E results')}
           </p>
         </div>
@@ -390,7 +388,7 @@ export default function ContentConsistencyEntityCoverage({ jobId, projectId }: C
 
       {!isLoading && !result && !error && jobId && (
         <AnalysisEmptyState
-          icon={<Layers className="w-8 h-8 text-zinc-400" />}
+          icon={<Layers className="w-8 h-8" style={{ color: 'var(--nd-text-muted)' }} />}
           title="No Content Consistency Data"
           description="No Module E data found yet. It runs automatically after crawl completion."
         />
@@ -401,8 +399,8 @@ export default function ContentConsistencyEntityCoverage({ jobId, projectId }: C
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className={cn('rounded-xl border p-6', scoreBg(consistencyScore))}>
               <div className="flex items-center gap-2 mb-4">
-                <Gauge className="w-4 h-4 text-foreground" />
-                <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground">Content Consistency</h4>
+                <Gauge className="w-4 h-4" style={{ color: 'var(--nd-text-secondary)' }} />
+                <h4 className="text-sm font-semibold uppercase tracking-wider" style={{ color: 'var(--nd-text-primary)' }}>Content Consistency</h4>
                 <ModuleEMetricAskButton
                   disabled={!projectId || !jobId || isAskingAI}
                   onClick={() =>
@@ -419,15 +417,15 @@ export default function ContentConsistencyEntityCoverage({ jobId, projectId }: C
               <div className="mb-4">
                 <div>
                   <div className={cn('text-5xl font-bold', scoreColor(consistencyScore))}>{consistencyScore}</div>
-                  <p className="text-xs text-muted-foreground mb-3">Score out of 100</p>
+                  <p className="text-xs mb-3" style={{ color: 'var(--nd-text-muted)' }}>Score out of 100</p>
                 </div>
               </div>
             </div>
 
             <div className={cn('rounded-xl border p-6', scoreBg(entityScore))}>
               <div className="flex items-center gap-2 mb-4">
-                <Layers className="w-4 h-4 text-foreground" />
-                <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground">Entity Coverage</h4>
+                <Layers className="w-4 h-4" style={{ color: 'var(--nd-text-secondary)' }} />
+                <h4 className="text-sm font-semibold uppercase tracking-wider" style={{ color: 'var(--nd-text-primary)' }}>Entity Coverage</h4>
                 <ModuleEMetricAskButton
                   disabled={!projectId || !jobId || isAskingAI}
                   onClick={() =>
@@ -446,11 +444,11 @@ export default function ContentConsistencyEntityCoverage({ jobId, projectId }: C
               <div className="flex items-end gap-4 mb-4">
                 <div>
                   <div className={cn('text-5xl font-bold', scoreColor(entityScore))}>{entityScore}</div>
-                  <p className="text-xs text-muted-foreground">Score out of 100</p>
+                  <p className="text-xs" style={{ color: 'var(--nd-text-muted)' }}>Score out of 100</p>
                 </div>
               </div>
               <div className="space-y-2">
-                <div className="text-xs text-muted-foreground">Missing entities</div>
+                <div className="text-xs mb-1.5" style={{ color: 'var(--nd-text-muted)' }}>Missing entities</div>
                 {missing.length === 0 ? (
                   <Badge variant="outline">None missing</Badge>
                 ) : (
@@ -467,14 +465,13 @@ export default function ContentConsistencyEntityCoverage({ jobId, projectId }: C
                           </Badge>
                         ))}
                     {missing.length > 8 && (
-                      <Button
+                      <button
                         onClick={() => setShowAllMissing(!showAllMissing)}
-                        size="sm"
-                        variant="outline"
-                        className="h-5 text-xs px-2 cursor-pointer"
+                        className="h-5 text-xs px-2 rounded-md border font-semibold cursor-pointer transition-colors"
+                        style={{ background: 'var(--nd-card-bg)', border: '1px solid var(--nd-border)', color: 'var(--nd-text-primary)' }}
                       >
                         {showAllMissing ? 'Show less' : `+${missing.length - 8} more`}
-                      </Button>
+                      </button>
                     )}
                   </div>
                 )}
@@ -483,23 +480,23 @@ export default function ContentConsistencyEntityCoverage({ jobId, projectId }: C
           </div>
 
           {masterModels.length > 0 && (
-            <div className="mt-6 border rounded-xl p-6">
+            <div className="mt-6 border rounded-xl p-6" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
               <div className="flex items-center justify-between mb-4">
-                <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground">
+                <h4 className="text-sm font-semibold uppercase tracking-wider" style={{ color: 'var(--nd-text-primary)' }}>
                   Model-wise Performance
                 </h4>
               </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full text-xs">
                   <thead>
-                    <tr className="border-b border-border">
+                    <tr className="border-b" style={{ borderColor: 'var(--nd-border)' }}>
                       {([
                         { key: 'Model', align: 'text-left', pad: 'py-2 pr-4' },
                         { key: 'Accuracy', align: 'text-right', pad: 'py-2 px-4' },
                         { key: 'Consistency', align: 'text-right', pad: 'py-2 px-4' },
                         { key: 'Performance', align: 'text-right', pad: 'py-2 pl-4' },
                       ] as const).map((col) => (
-                        <th key={col.key} className={cn(col.align, col.pad, 'font-medium text-muted-foreground')}>
+                        <th key={col.key} className={cn(col.align, col.pad, 'font-medium')} style={{ color: 'var(--nd-text-muted)' }}>
                           <div className={cn('flex items-center gap-1', col.align === 'text-right' ? 'justify-end' : 'justify-start')}>
                             <span>{col.key}</span>
                             <FieldTooltip description={MODEL_PERF_FIELD_DESCRIPTIONS[col.key] ?? ''} />
@@ -514,7 +511,7 @@ export default function ContentConsistencyEntityCoverage({ jobId, projectId }: C
                       const isChatGpt = meta.label === 'ChatGPT'
                       const isGemini = meta.label === 'Gemini'
                       return (
-                        <tr key={m.model} className="border-b border-border/60 last:border-0">
+                        <tr key={m.model} className="border-b last:border-0" style={{ borderColor: 'var(--nd-border)' }}>
                           <td className="py-2 pr-4">
                             {isChatGpt ? (
                               <div className="flex items-center">
@@ -535,15 +532,15 @@ export default function ContentConsistencyEntityCoverage({ jobId, projectId }: C
                                   {meta.short}
                                 </div>
                                 <div className="flex flex-col">
-                                  <span className="text-xs font-medium text-foreground">{meta.label}</span>
-                                  <span className="text-[10px] text-muted-foreground">{m.model}</span>
+                                  <span className="text-xs font-medium" style={{ color: 'var(--nd-text-primary)' }}>{meta.label}</span>
+                                  <span className="text-[10px]" style={{ color: 'var(--nd-text-muted)' }}>{m.model}</span>
                                 </div>
                               </div>
                             )}
                           </td>
-                          <td className="py-2 px-4 text-right">{m.accuracy_of_generated_response}</td>
-                          <td className="py-2 px-4 text-right">{m.content_consistency?.score ?? 0}</td>
-                          <td className="py-2 pl-4 text-right font-semibold">
+                          <td className="py-2 px-4 text-right" style={{ color: 'var(--nd-text-secondary)' }}>{m.accuracy_of_generated_response}</td>
+                          <td className="py-2 px-4 text-right" style={{ color: 'var(--nd-text-secondary)' }}>{m.content_consistency?.score ?? 0}</td>
+                          <td className="py-2 pl-4 text-right font-semibold" style={{ color: 'var(--nd-text-primary)' }}>
                             {m.model_wise_performance_score}
                           </td>
                         </tr>

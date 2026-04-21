@@ -38,14 +38,10 @@ export function SectionCard({
   return (
     <div
       className={cn(
-        'rounded-2xl border overflow-hidden transition-all duration-200',
+        'rounded-2xl border border-(--nd-border,#E8E9EF) bg-(--nd-card-bg,#FFFFFF) overflow-hidden transition-all duration-200',
         'hover:shadow-sm',
         className,
       )}
-      style={{
-        background: 'var(--nd-card-bg, #FFFFFF)',
-        borderColor: 'var(--nd-border, #E8E9EF)',
-      }}
     >
       <CardHeader
         title={title}

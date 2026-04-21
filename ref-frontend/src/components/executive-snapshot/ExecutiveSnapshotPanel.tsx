@@ -54,9 +54,9 @@ const STATUS_CONFIG: Record<KpiStatus, {
     label: 'HEALTHY',
     copy: 'Your AI visibility is strong. Keep your content and schema current.',
     icon: CheckCircle,
-    containerClass: 'border-emerald-200 bg-emerald-50',
+    containerClass: 'border-emerald-200 bg-[var(--nd-positive-bg)]',
     pillClass: 'bg-emerald-100 border border-emerald-200 text-emerald-700',
-    textClass: 'text-emerald-700',
+    textClass: 'text-[var(--nd-positive-text)]',
     iconClass: 'text-emerald-600',
   },
   NEEDS_ATTENTION: {
@@ -72,30 +72,30 @@ const STATUS_CONFIG: Record<KpiStatus, {
     label: 'AT RISK',
     copy: 'Critical issues detected. Take action today to stop visibility loss.',
     icon: AlertCircle,
-    containerClass: 'border-rose-200 bg-rose-50',
+    containerClass: 'border-rose-200 bg-[var(--nd-negative-bg)]',
     pillClass: 'bg-rose-100 border border-rose-200 text-rose-700',
-    textClass: 'text-rose-700',
+    textClass: 'text-[var(--nd-negative-text)]',
     iconClass: 'text-rose-600',
   },
 }
 
 const IMPACT_CONFIG: Record<ImpactLevel, { label: string; class: string }> = {
-  HIGH:   { label: 'HIGH',   class: 'bg-rose-50 text-rose-700 border-rose-200' },
+  HIGH:   { label: 'HIGH',   class: 'bg-[var(--nd-negative-bg)] text-[var(--nd-negative-text)] border-rose-200' },
   MEDIUM: { label: 'MEDIUM', class: 'bg-amber-50 text-amber-700 border-amber-200' },
   LOW:    { label: 'LOW',    class: 'bg-blue-50 text-blue-700 border-blue-200' },
 }
 
 const EFFORT_CONFIG: Record<EffortLevel, { label: string; class: string }> = {
-  LOW:    { label: 'LOW',    class: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  LOW:    { label: 'LOW',    class: 'bg-[var(--nd-positive-bg)] text-[var(--nd-positive-text)] border-emerald-200' },
   MEDIUM: { label: 'MEDIUM', class: 'bg-amber-50 text-amber-700 border-amber-200' },
-  HIGH:   { label: 'HIGH',   class: 'bg-rose-50 text-rose-700 border-rose-200' },
+  HIGH:   { label: 'HIGH',   class: 'bg-[var(--nd-negative-bg)] text-[var(--nd-negative-text)] border-rose-200' },
 }
 
 function DeltaBadge({ delta }: { delta: number | null }) {
   if (delta === null) return null
   if (delta === 0) {
     return (
-      <span className="inline-flex items-center gap-0.5 text-[11px]" style={{ color: 'var(--nd-text-muted)' }}>
+      <span className="inline-flex items-center gap-0.5 text-xs font-medium" style={{ color: 'var(--nd-text-secondary)' }}>
         <Minus className="h-3 w-3" />
         flat vs last week
       </span>
@@ -104,7 +104,7 @@ function DeltaBadge({ delta }: { delta: number | null }) {
   const isUp = delta > 0
   return (
     <span className={cn(
-      'inline-flex items-center gap-0.5 text-[11px] font-medium',
+      'inline-flex items-center gap-0.5 text-xs font-bold',
       isUp ? 'text-emerald-600' : 'text-rose-600',
     )}>
       {isUp
@@ -131,13 +131,13 @@ function StatusBanner({ status }: { status: KpiStatus }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className={cn(
-            'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold tracking-wider border',
+            'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold tracking-wider border',
             cfg.pillClass,
           )}>
             <Icon className="h-3 w-3" />
             {cfg.label}
           </span>
-          <p className="text-sm font-medium" style={{ color: 'var(--nd-text-primary)' }}>{cfg.copy}</p>
+          <p className="text-sm font-bold" style={{ color: 'var(--nd-text-primary)' }}>{cfg.copy}</p>
         </div>
       </div>
     </div>
@@ -187,21 +187,21 @@ function KpiCard({ label, value, delta, icon: Icon, iconClass, iconBg, score, st
         <div className="flex items-center gap-2">
           {statusBadge && (
             <span className={cn(
-              'text-[10px] font-semibold px-2 py-0.5 rounded-full border',
+              'text-xs font-bold px-2 py-0.5 rounded-full border',
               STATUS_CONFIG[statusBadge].pillClass,
             )}>
               {statusBadge === 'HEALTHY' ? '●' : statusBadge === 'NEEDS_ATTENTION' ? '◆' : '▲'} {STATUS_CONFIG[statusBadge].label}
             </span>
           )}
           {onClick && (
-            <ArrowUpRight className="h-4 w-4 transition-colors" style={{ color: 'var(--nd-text-muted)' }} />
+            <ArrowUpRight className="h-4 w-4 transition-colors" style={{ color: 'var(--nd-text-secondary)' }} />
           )}
         </div>
       </div>
 
       {/* Value */}
       <p className="text-3xl font-bold tracking-tight mb-1" style={{ color: 'var(--nd-text-primary)' }}>{value}</p>
-      <p className="text-[11px] font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--nd-text-secondary)' }}>{label}</p>
+      <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--nd-text-secondary)' }}>{label}</p>
 
       {/* Delta */}
       <DeltaBadge delta={delta} />
@@ -253,9 +253,9 @@ function ActionChip({ action, onNavigate }: { action: TopAction; onNavigate?: (t
 
       {/* Title block */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate" style={{ color: 'var(--nd-text-primary)' }}>{action.title}</p>
+        <p className="text-sm font-bold truncate" style={{ color: 'var(--nd-text-primary)' }}>{action.title}</p>
         {action.page_count > 1 && (
-          <p className="text-[11px] mt-0.5 truncate" style={{ color: 'var(--nd-text-muted)' }}>
+          <p className="text-xs mt-0.5 truncate font-medium" style={{ color: 'var(--nd-text-secondary)' }}>
             Affects {action.page_count} page{action.page_count !== 1 ? 's' : ''}
           </p>
         )}
@@ -264,18 +264,18 @@ function ActionChip({ action, onNavigate }: { action: TopAction; onNavigate?: (t
       {/* Badges */}
       <div className="flex items-center gap-1.5 shrink-0">
         <span className={cn(
-          'text-[10px] font-semibold px-2 py-0.5 rounded-full border',
+          'text-xs font-bold px-2 py-0.5 rounded-full border',
           impactCfg.class,
         )}>
           {impactCfg.label}
         </span>
         <span className={cn(
-          'text-[10px] font-semibold px-2 py-0.5 rounded-full border',
+          'text-xs font-bold px-2 py-0.5 rounded-full border',
           effortCfg.class,
         )}>
           {effortCfg.label}
         </span>
-        <ChevronRight className="h-4 w-4 ml-1 transition-colors" style={{ color: 'var(--nd-text-muted)' }} />
+        <ChevronRight className="h-4 w-4 ml-1 transition-colors" style={{ color: 'var(--nd-text-secondary)' }} />
       </div>
     </button>
   )
@@ -367,7 +367,7 @@ export default function ExecutiveSnapshotPanel({
         <div className="rounded-2xl h-14 animate-pulse" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-bg)' }} />
 
         {/* Section label */}
-        <p className="text-[11px] font-semibold uppercase tracking-widest px-0.5" style={{ color: 'var(--nd-text-muted)' }}>
+        <p className="text-[10px] font-bold uppercase tracking-wider px-0.5" style={{ color: 'var(--nd-text-muted)' }}>
           Analysing your AI visibility...
         </p>
 

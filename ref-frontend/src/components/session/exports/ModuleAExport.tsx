@@ -67,7 +67,7 @@ export default function ModuleAExport({
       description: 'All crawled pages with status codes, response times, sizes, redirects and SEO metadata.',
       icon: Globe,
       count: pages.length,
-      color: 'text-blue-400',
+      color: 'text-blue-600',
       sheetNames: ['Crawled Pages'],
     },
     {
@@ -76,7 +76,7 @@ export default function ModuleAExport({
       description: 'Titles, meta descriptions, canonical URLs, FAQ data, mixed content and page sizes.',
       icon: FileText,
       count: pages.length,
-      color: 'text-violet-400',
+      color: 'text-violet-600',
       sheetNames: ['Page Metrics'],
     },
     {
@@ -85,7 +85,7 @@ export default function ModuleAExport({
       description: 'Word counts, readability scores, grammar & spelling errors, thin / duplicate content.',
       icon: Type,
       count: pages.length,
-      color: 'text-emerald-400',
+      color: 'text-emerald-600',
       sheetNames: ['Text Quality'],
     },
     {
@@ -94,7 +94,7 @@ export default function ModuleAExport({
       description: 'Total, visible and unique word counts, sentence & paragraph structure.',
       icon: Hash,
       count: pages.length,
-      color: 'text-cyan-400',
+      color: 'text-cyan-600',
       sheetNames: ['Word Count'],
     },
     {
@@ -103,7 +103,7 @@ export default function ModuleAExport({
       description: 'All internal and external outlinks with anchor text and status codes.',
       icon: Link2,
       count: totalLinks,
-      color: 'text-amber-400',
+      color: 'text-amber-600',
       sheetNames: ['Links'],
     },
     {
@@ -112,7 +112,7 @@ export default function ModuleAExport({
       description: 'Categorised broken links: 404s, server errors, timeouts and external issues.',
       icon: AlertTriangle,
       count: totalBrokenLinks,
-      color: 'text-rose-400',
+      color: 'text-rose-600',
       sheetNames: ['Broken Links'],
     },
     {
@@ -121,7 +121,7 @@ export default function ModuleAExport({
       description: 'H1 and H2 headings per page with lengths and full heading tag breakdown.',
       icon: Layers,
       count: pages.length,
-      color: 'text-teal-400',
+      color: 'text-teal-600',
       sheetNames: ['Heading Structure'],
     },
     {
@@ -130,7 +130,7 @@ export default function ModuleAExport({
       description: 'Near-duplicate detection (SimHash) and semantic similarity scores between pages.',
       icon: GitMerge,
       count: pages.length,
-      color: 'text-orange-400',
+      color: 'text-orange-600',
       sheetNames: ['Semantic & Duplicates'],
     },
     {
@@ -139,7 +139,7 @@ export default function ModuleAExport({
       description: 'Download all of the above in a single Excel workbook with separate sheets.',
       icon: FileSpreadsheet,
       count: pages.length,
-      color: 'text-indigo-400',
+      color: 'text-indigo-600',
       sheetNames: ['Crawled Pages', 'Page Metrics', 'Text Quality', 'Word Count', 'Links', 'Broken Links', 'Heading Structure', 'Semantic & Duplicates'],
     },
   ]
@@ -192,8 +192,8 @@ export default function ModuleAExport({
         className="w-full flex items-center justify-between px-5 py-4 hover:bg-(--nd-bg) transition-colors cursor-pointer"
       >
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
-            <Globe className="h-4 w-4 text-blue-500" />
+          <div className="w-9 h-9 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center shrink-0">
+            <Globe className="h-4 w-4 text-blue-600" />
           </div>
           <div className="text-left">
             <p className="text-sm font-semibold text-(--nd-text-primary)">Technical SEO Audit (Module A)</p>
@@ -203,7 +203,7 @@ export default function ModuleAExport({
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <Badge className="bg-blue-500/10 text-blue-600 border-blue-200 text-[10px]">
+          <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-[10px]">
             {pages.length} pages
           </Badge>
           {expanded ? (
@@ -226,7 +226,7 @@ export default function ModuleAExport({
               <div
                 key={opt.id}
                 className={`flex items-center justify-between px-5 py-3.5 gap-4 ${
-                  opt.id === 'all' ? 'bg-indigo-500/5' : ''
+                  opt.id === 'all' ? 'bg-(--nd-bg)' : ''
                 }`}
               >
                 <div className="flex items-center gap-3 min-w-0">
@@ -248,9 +248,10 @@ export default function ModuleAExport({
                     onClick={() => handleDownload(opt.id)}
                     className={`h-8 px-3 text-xs rounded-xl cursor-pointer ${
                       opt.id === 'all'
-                        ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/30'
+                        ? 'text-white border-transparent hover:opacity-90'
                         : 'bg-white text-(--nd-text-secondary) border border-(--nd-border) hover:bg-(--nd-bg)'
                     }`}
+                    style={opt.id === 'all' ? { background: 'var(--nd-purple)' } : undefined}
                     variant="ghost"
                   >
                     {isDownloading ? (
