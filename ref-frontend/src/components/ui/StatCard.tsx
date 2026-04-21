@@ -5,43 +5,35 @@ import { FieldTooltip } from '@/components/module_A/FieldTooltip'
 
 type Accent = 'blue' | 'emerald' | 'amber' | 'rose' | 'violet' | 'cyan' | 'zinc'
 
-const accentMap: Record<Accent, { iconBg: string; iconText: string; hoverBorder: string; hoverGlow: string }> = {
-  blue:    { iconBg: 'bg-blue-500/15',    iconText: 'text-blue-400',    hoverBorder: 'hover:border-blue-500/20',    hoverGlow: 'group-hover:shadow-blue-500/10' },
-  emerald: { iconBg: 'bg-emerald-500/15', iconText: 'text-emerald-400', hoverBorder: 'hover:border-emerald-500/20', hoverGlow: 'group-hover:shadow-emerald-500/10' },
-  amber:   { iconBg: 'bg-amber-500/15',   iconText: 'text-amber-400',   hoverBorder: 'hover:border-amber-500/20',   hoverGlow: 'group-hover:shadow-amber-500/10' },
-  rose:    { iconBg: 'bg-rose-500/15',    iconText: 'text-rose-400',    hoverBorder: 'hover:border-rose-500/20',    hoverGlow: 'group-hover:shadow-rose-500/10' },
-  violet:  { iconBg: 'bg-violet-500/15',  iconText: 'text-violet-400',  hoverBorder: 'hover:border-violet-500/20',  hoverGlow: 'group-hover:shadow-violet-500/10' },
-  cyan:    { iconBg: 'bg-cyan-500/15',    iconText: 'text-cyan-400',    hoverBorder: 'hover:border-cyan-500/20',    hoverGlow: 'group-hover:shadow-cyan-500/10' },
-  zinc:    { iconBg: 'bg-zinc-700/40',    iconText: 'text-zinc-400',    hoverBorder: 'hover:border-zinc-700',       hoverGlow: 'group-hover:shadow-zinc-500/10' },
+const accentMap: Record<Accent, { iconBg: string; iconText: string; hoverBorder: string }> = {
+  blue:    { iconBg: 'bg-[#EEF4FF]',  iconText: 'text-[#4896FE]', hoverBorder: 'hover:border-[#4896FE]/30' },
+  emerald: { iconBg: 'bg-emerald-50',  iconText: 'text-emerald-600', hoverBorder: 'hover:border-emerald-200' },
+  amber:   { iconBg: 'bg-amber-50',    iconText: 'text-amber-600',   hoverBorder: 'hover:border-amber-200' },
+  rose:    { iconBg: 'bg-rose-50',     iconText: 'text-rose-600',    hoverBorder: 'hover:border-rose-200' },
+  violet:  { iconBg: 'bg-[#EEEDFC]',   iconText: 'text-[#5347CE]',   hoverBorder: 'hover:border-[#887CFD]/30' },
+  cyan:    { iconBg: 'bg-teal-50',     iconText: 'text-[#16C8C7]',   hoverBorder: 'hover:border-[#16C8C7]/30' },
+  zinc:    { iconBg: 'bg-[#F5F5FA]',   iconText: 'text-[#6B7188]',   hoverBorder: 'hover:border-[#D0D2DC]' },
 }
 
 export interface StatCardProps {
   label: string
   value: string | number
   subtext?: string
-  /** Tooltip shown next to the top-right arrow icon */
   description?: string
-  /** Small control rendered on the same row as the label (e.g. Ask AI) */
   labelAction?: ReactNode
   icon: LucideIcon
   accent?: Accent
   trend?: 'up' | 'down' | 'neutral'
-  /** Renders a thin progress bar below the value */
   progress?: number
-  /**
-   * Period-over-period change as a plain number (positive = up, negative = down,
-   * null = no prior data — renders "— no prior data" in muted text).
-   */
   delta?: number | null
-  /** Contextual label appended to the delta badge, e.g. "vs last week" */
   deltaLabel?: string
   onClick?: () => void
   className?: string
 }
 
 /**
- * Unified stat card used across dashboard/page.tsx, usage/page.tsx,
- * and module_E/DashboardOverview.tsx.
+ * Unified stat card — Nexus light theme.
+ * Used across dashboard/page.tsx, usage/page.tsx, and module_E/DashboardOverview.tsx.
  */
 export function StatCard({
   label,
@@ -67,10 +59,9 @@ export function StatCard({
       type={onClick ? 'button' : undefined}
       onClick={onClick}
       className={cn(
-        'group relative overflow-hidden rounded-2xl bg-[#111113] border border-zinc-800 p-5 text-left',
-        'transition-all duration-300 hover:border-zinc-700 hover:shadow-xl',
+        'group relative overflow-hidden rounded-2xl p-5 text-left border border-(--nd-border,#E8E9EF) bg-(--nd-card-bg,#FFFFFF)',
+        'transition-all duration-200 hover:shadow-md',
         s.hoverBorder,
-        s.hoverGlow,
         onClick && 'cursor-pointer w-full',
         className,
       )}
@@ -82,7 +73,9 @@ export function StatCard({
         </div>
         {onClick && (
           <div className="flex items-center gap-1">
-            <ArrowUpRight className="w-4 h-4 text-zinc-600 group-hover:text-zinc-400 transition-colors" />
+            <ArrowUpRight
+              className="w-4 h-4 transition-colors text-(--nd-text-muted,#9DA3B3)"
+            />
             <FieldTooltip description={description ?? ''} />
           </div>
         )}
@@ -90,21 +83,29 @@ export function StatCard({
 
       {/* Value block */}
       <div className="space-y-1">
-        <p className="text-2xl sm:text-3xl font-bold text-white tracking-tight">{value}</p>
+        <p
+          className="text-2xl sm:text-3xl font-bold tracking-tight text-(--nd-text-primary,#1A1D2B)"
+        >
+          {value}
+        </p>
         <div className="flex items-center justify-between gap-2 min-w-0">
-          <p className="text-xs font-medium text-zinc-500 uppercase tracking-wider min-w-0">{label}</p>
+          <p
+            className="text-xs font-semibold uppercase tracking-wider min-w-0 text-(--nd-text-muted,#9DA3B3)"
+          >
+            {label}
+          </p>
           {labelAction ? <div className="shrink-0">{labelAction}</div> : null}
         </div>
         {subtext && (
-          <div className="flex items-center gap-1.5 mt-2">
-            {trend === 'up'   && <TrendingUp   className="h-3 w-3 text-emerald-400" />}
-            {trend === 'down' && <TrendingDown  className="h-3 w-3 text-rose-400" />}
+          <div className="flex items-center gap-1.5 mt-1.5">
+            {trend === 'up'   && <TrendingUp   className="h-3 w-3 text-emerald-500" />}
+            {trend === 'down' && <TrendingDown  className="h-3 w-3 text-rose-500" />}
             <p
               className={cn(
-                'text-[11px]',
-                trend === 'up'   && 'text-emerald-400',
-                trend === 'down' && 'text-rose-400',
-                (!trend || trend === 'neutral') && 'text-zinc-500',
+                'text-[11px] font-medium',
+                trend === 'up'   && 'text-emerald-600',
+                trend === 'down' && 'text-rose-600',
+                (!trend || trend === 'neutral') && 'text-(--nd-text-muted,#9DA3B3)',
               )}
             >
               {subtext}
@@ -112,23 +113,27 @@ export function StatCard({
           </div>
         )}
 
-        {/* Delta badge — period-over-period change */}
+        {/* Delta badge */}
         {typeof delta !== 'undefined' && (
           <div className="mt-1.5">
             {delta === null ? (
-              <span className="text-[10px] text-zinc-600">— no prior data</span>
+              <span className="text-[10px] text-(--nd-text-muted,#9DA3B3)">
+                — no prior data
+              </span>
             ) : (
               <span
                 className={cn(
                   'inline-flex items-center gap-0.5 text-[11px] font-medium',
-                  delta > 0 && 'text-emerald-400',
-                  delta < 0 && 'text-rose-400',
-                  delta === 0 && 'text-zinc-500',
+                  delta > 0 && 'text-emerald-600',
+                  delta < 0 && 'text-rose-600',
+                  delta === 0 && 'text-(--nd-text-muted,#9DA3B3)',
                 )}
               >
                 {delta > 0 ? '↑' : delta < 0 ? '↓' : '→'}{' '}
                 {delta > 0 ? '+' : ''}{delta.toFixed(1)}%{' '}
-                <span className="text-zinc-600 font-normal">{deltaLabel}</span>
+                <span className="font-normal text-(--nd-text-muted,#9DA3B3)">
+                  {deltaLabel}
+                </span>
               </span>
             )}
           </div>
@@ -137,7 +142,9 @@ export function StatCard({
 
       {/* Optional progress bar */}
       {progress !== undefined && (
-        <div className="mt-3 w-full bg-zinc-800/50 rounded-full h-1.5 overflow-hidden">
+        <div
+          className="mt-3 w-full rounded-full h-1.5 overflow-hidden bg-(--nd-bg,#ECEDF3)"
+        >
           <div
             className={cn('h-full rounded-full transition-all duration-700', s.iconText.replace('text-', 'bg-'))}
             style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}

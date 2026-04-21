@@ -78,22 +78,22 @@ function DimBar({
   
   return (
     <div className="space-y-1.5">
-      <div className="flex items-center justify-between text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+      <div className="flex items-center justify-between text-[10px] font-medium uppercase tracking-wider text-(--nd-text-muted)">
         <div className="flex items-center gap-2">
           <span>{label}</span>
           {onAskAI && (
             <button
               type="button"
               onClick={onAskAI}
-              className="text-[9px] px-1.5 py-0.5 rounded border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+              className="text-[9px] px-1.5 py-0.5 rounded border border-(--nd-border) text-(--nd-text-muted) hover:text-(--nd-text-primary) hover:border-(--nd-text-secondary) transition-colors"
             >
               Ask AI
             </button>
           )}
         </div>
-        <span className="text-zinc-300">{val.toFixed(1)}<span className="text-zinc-600">/{max}</span></span>
+        <span className="text-(--nd-text-secondary)">{val.toFixed(1)}<span className="text-(--nd-text-muted)">/{max}</span></span>
       </div>
-      <div className="h-1.5 w-full bg-zinc-800/50 rounded-full overflow-hidden border border-zinc-800/50">
+      <div className="h-1.5 w-full bg-(--nd-border) rounded-full overflow-hidden border border-(--nd-border)">
         <div 
           className={cn('h-full transition-all duration-1000 ease-out rounded-full', colorClass)}
           style={{ width: `${pct}%` }}
@@ -105,10 +105,10 @@ function DimBar({
 
 function SevTag({ s }: { s: string }) {
   const cfg: Record<string, string> = {
-    Critical: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
-    High: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
-    Medium: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-    Low: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20',
+    Critical: 'bg-rose-50 text-rose-600 border-rose-200',
+    High: 'bg-orange-50 text-orange-600 border-orange-200',
+    Medium: 'bg-amber-50 text-amber-600 border-amber-200',
+    Low: 'bg-zinc-100 text-zinc-600 border-zinc-300',
   }
   return (
     <span className={cn('px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tight border', cfg[s] || cfg.Medium)}>
@@ -119,7 +119,7 @@ function SevTag({ s }: { s: string }) {
 
 function LiftTag({ lift }: { lift: string }) {
   return (
-    <span className="px-2 py-0.5 rounded text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 uppercase tracking-tight">
+    <span className="px-2 py-0.5 rounded text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 uppercase tracking-tight">
       {lift}
     </span>
   )
@@ -127,14 +127,14 @@ function LiftTag({ lift }: { lift: string }) {
 
 function GradeBadge({ grade }: { grade: string }) {
   const gradeMap: Record<string, string> = {
-    'A': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-    'B': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-    'C': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-    'D': 'bg-rose-500/10 text-rose-400 border-rose-500/20',
-    'F': 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+    'A': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    'B': 'bg-blue-50 text-blue-700 border-blue-200',
+    'C': 'bg-amber-50 text-amber-700 border-amber-200',
+    'D': 'bg-rose-50 text-rose-700 border-rose-200',
+    'F': 'bg-rose-50 text-rose-700 border-rose-200',
   }
   return (
-    <span className={cn('px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tight border', gradeMap[grade] || 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20')}>
+    <span className={cn('px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tight border', gradeMap[grade] || 'bg-zinc-100 text-zinc-600 border-zinc-300')}>
       Grade {grade}
     </span>
   )
@@ -354,14 +354,14 @@ export function SchemaGeneratorTable({
       {/* Header Section */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-white">Schema Intelligence</h2>
-          <p className="text-sm text-zinc-500 mt-1">Generate and analyze AI-optimized Schema.org markup</p>
+          <h2 className="text-xl font-bold text-(--nd-text-primary)">Schema Intelligence</h2>
+          <p className="text-sm text-(--nd-text-muted) mt-1">Generate and analyze AI-optimized Schema.org markup</p>
         </div>
         <div className="flex items-center gap-3">
           <Button
             onClick={() => openAskAiDialog('Summarize my schema intelligence matrix and top priorities.')}
             disabled={!jobId || isAskingAI}
-            className="bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300 text-black hover:opacity-95 rounded-xl px-4"
+            className="bg-linear-to-r from-purple-500 via-pink-500 to-amber-300 text-black hover:opacity-95 rounded-xl px-4"
           >
             <MessageSquare className="w-4 h-4 mr-2" />
             Ask AI
@@ -390,10 +390,10 @@ export function SchemaGeneratorTable({
         <SectionCard title="Schema Type" description="Select the most appropriate schema for your page">
           <div className="space-y-4">
             <Select value={selectedType} onValueChange={setSelectedType} disabled={loading}>
-              <SelectTrigger className="bg-zinc-900 border-zinc-800 text-zinc-200 rounded-xl h-11">
+              <SelectTrigger className="bg-white border-(--nd-border) text-(--nd-text-primary) rounded-xl h-11">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-zinc-900 border-zinc-800">
+              <SelectContent className="bg-white border-(--nd-border)">
                 {[
                   ['auto', '🤖 Auto-detect (Recommended)'],
                   ['Organization', '🏢 Organization'],
@@ -414,7 +414,7 @@ export function SchemaGeneratorTable({
                   ['JobPosting', '💼 Job Posting'],
                   ['Review', '⭐ Review'],
                 ].map(([v, l]) => (
-                  <SelectItem key={v} value={v} className="text-zinc-300 focus:bg-zinc-800 focus:text-white">
+                  <SelectItem key={v} value={v} className="text-(--nd-text-secondary) focus:bg-(--nd-bg) focus:text-(--nd-text-primary)">
                     {l}
                   </SelectItem>
                 ))}
@@ -431,13 +431,13 @@ export function SchemaGeneratorTable({
               value={customUrl}
               onChange={(e) => setCustomUrl(e.target.value)}
               disabled={loading}
-              className="bg-zinc-900 border-zinc-800 text-zinc-200 rounded-xl h-11"
+              className="bg-white border-(--nd-border) text-(--nd-text-primary) rounded-xl h-11"
             />
             <Button
               variant="outline"
               onClick={() => setCustomUrl(session?.startUrl || '')}
               disabled={loading || !session?.startUrl}
-              className="bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl h-11 whitespace-nowrap"
+              className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:text-(--nd-text-primary) hover:bg-(--nd-bg) rounded-xl h-11 whitespace-nowrap"
             >
               Use Start
             </Button>
@@ -456,13 +456,13 @@ export function SchemaGeneratorTable({
       {/* Loading State */}
       {loading && (
         <div className="py-24 flex flex-col items-center justify-center gap-4 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-zinc-800/50 flex items-center justify-center relative">
+          <div className="w-16 h-16 rounded-2xl bg-(--nd-bg) flex items-center justify-center relative">
             <Cpu className="w-8 h-8 text-emerald-400 animate-pulse" />
             <div className="absolute inset-0 border-2 border-emerald-500/20 rounded-2xl animate-ping" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-white font-semibold">Analyzing Intelligence</h3>
-            <p className="text-xs text-zinc-500 max-w-xs mx-auto">
+            <h3 className="text-(--nd-text-primary) font-semibold">Analyzing Intelligence</h3>
+            <p className="text-xs text-(--nd-text-muted) max-w-xs mx-auto">
               Running LCS™ scoring, 4-model analysis, and generating AI-optimized patches...
             </p>
           </div>
@@ -485,11 +485,11 @@ export function SchemaGeneratorTable({
 
           {/* Schema Types Strip */}
           {S.schema_types_present && S.schema_types_present.length > 0 && (
-            <div className="flex items-center gap-2 p-3 rounded-2xl bg-zinc-800/50 border border-zinc-800">
-              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Types Detected:</span>
+            <div className="flex items-center gap-2 p-3 rounded-2xl bg-(--nd-bg) border border-(--nd-border)">
+              <span className="text-[10px] font-bold text-(--nd-text-muted) uppercase tracking-wider">Types Detected:</span>
               <div className="flex flex-wrap gap-2">
                 {S.schema_types_present.map((type: string) => (
-                  <span key={type} className="px-2 py-0.5 rounded text-[10px] font-semibold text-cyan-300 bg-cyan-500/10 border border-cyan-500/20">
+                  <span key={type} className="px-2 py-0.5 rounded text-[10px] font-semibold text-cyan-700 bg-cyan-50 border border-cyan-200">
                     {type}
                   </span>
                 ))}
@@ -564,12 +564,12 @@ export function SchemaGeneratorTable({
               <SectionCard title="Model Scores" description="Performance against leading AI models">
                 <div className="space-y-3">
                   {Object.entries(S.model_scores || {}).map(([model, data]: [string, any]) => (
-                    <div key={model} className="flex items-center justify-between p-3 rounded-xl bg-zinc-900/50 border border-zinc-800">
+                    <div key={model} className="flex items-center justify-between p-3 rounded-xl bg-(--nd-bg) border border-(--nd-border)">
                       <div className="flex items-center gap-3">
-                        <span className="text-xs font-semibold text-zinc-200 uppercase">{model}</span>
+                        <span className="text-xs font-semibold text-(--nd-text-primary) uppercase">{model}</span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-xs font-mono text-zinc-400">{data.score.toFixed(2)}</span>
+                        <span className="text-xs font-mono text-(--nd-text-muted)">{data.score.toFixed(2)}</span>
                         <GradeBadge grade={data.grade} />
                       </div>
                     </div>
@@ -584,13 +584,13 @@ export function SchemaGeneratorTable({
                     { key: 'llms_full_txt', name: 'llms-full.txt', lift: '+20%' },
                     { key: 'facts_json', name: 'facts.json', lift: '+18%' },
                   ].map(({ key, name, lift }) => (
-                    <div key={key} className="flex items-center justify-between p-3 rounded-xl bg-zinc-900/50 border border-zinc-800">
+                    <div key={key} className="flex items-center justify-between p-3 rounded-xl bg-(--nd-bg) border border-(--nd-border)">
                       <div className="flex items-center gap-3">
                         <div className={cn(
                           'w-2 h-2 rounded-full',
                           ai[key] ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)]'
                         )} />
-                        <span className="text-xs font-semibold text-zinc-200">{name}</span>
+                        <span className="text-xs font-semibold text-(--nd-text-primary)">{name}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <button
@@ -600,7 +600,7 @@ export function SchemaGeneratorTable({
                               `How can I improve ${name} readiness? Current status is ${ai[key] ? 'Detected' : 'Not Detected'}.`,
                             )
                           }
-                          className="text-[9px] px-1.5 py-0.5 rounded border border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+                          className="text-[9px] px-1.5 py-0.5 rounded border border-(--nd-border) text-(--nd-text-muted) hover:text-(--nd-text-primary) hover:border-(--nd-text-secondary) transition-colors"
                         >
                           Ask AI
                         </button>
@@ -619,9 +619,9 @@ export function SchemaGeneratorTable({
 
             {/* Right Column: Tabbed Interface */}
             <div className="lg:col-span-2">
-              <div className="bg-[#111113] border border-zinc-800 rounded-2xl overflow-hidden flex flex-col h-full">
+              <div className="bg-white border border-(--nd-border) rounded-2xl overflow-hidden flex flex-col h-full">
                 {/* Tabs Header */}
-                <div className="flex items-center gap-1 p-1 bg-zinc-900/50 border-b border-zinc-800">
+                <div className="flex items-center gap-1 p-1 bg-(--nd-bg) border-b border-(--nd-border)">
                   {(['priority', 'gaps', 'patches', 'schema', 'aifiles'] as Tab[]).map((t) => (
                     <button
                       key={t}
@@ -629,8 +629,8 @@ export function SchemaGeneratorTable({
                       className={cn(
                         'px-4 py-2 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all',
                         tab === t 
-                          ? 'bg-zinc-800 text-white shadow-sm' 
-                          : 'text-zinc-500 hover:text-zinc-300'
+                          ? 'bg-white text-(--nd-text-primary) shadow-sm' 
+                          : 'text-(--nd-text-muted) hover:text-(--nd-text-secondary)'
                       )}
                     >
                       {t === 'priority' ? `Priority Queue (${recs.length})` : 
@@ -642,18 +642,18 @@ export function SchemaGeneratorTable({
                 </div>
 
                 {/* Tab Content */}
-                <div className="flex-1 overflow-y-auto max-h-[600px] custom-scrollbar">
+                <div className="flex-1 overflow-y-auto max-h-150 custom-scrollbar">
                   {tab === 'priority' && (
-                    <div className="divide-y divide-zinc-800/50">
+                    <div className="divide-y divide-(--nd-border)">
                       {recs.map((rec: any, i: number) => (
-                        <div key={i} className="p-4 hover:bg-zinc-800/20 transition-colors flex items-center gap-4">
-                          <span className="text-xs font-mono text-zinc-600">#{rec.priority}</span>
+                        <div key={i} className="p-4 hover:bg-(--nd-bg) transition-colors flex items-center gap-4">
+                          <span className="text-xs font-mono text-(--nd-text-muted)">#{rec.priority}</span>
                           <SevTag s={rec.severity} />
                           <div className="flex-1 min-w-0">
-                            <h4 className="text-xs font-bold text-zinc-200 truncate">
-                              {rec.schema_type}{rec.property ? ` / ${rec.property}` : ''}
-                            </h4>
-                            <p className="text-[11px] text-zinc-500 truncate mt-0.5">{rec.fix_instruction}</p>
+                              <h4 className="text-xs font-bold text-(--nd-text-primary) truncate">
+                                {rec.schema_type}{rec.property ? ` / ${rec.property}` : ''}
+                              </h4>
+                              <p className="text-[11px] text-(--nd-text-muted) truncate mt-0.5">{rec.fix_instruction}</p>
                           </div>
                           <LiftTag lift={rec.estimated_lift} />
                         </div>
@@ -661,37 +661,37 @@ export function SchemaGeneratorTable({
                       {recs.length === 0 && (
                         <div className="p-12 text-center">
                           <CheckCircle2 className="w-8 h-8 text-emerald-500/50 mx-auto mb-3" />
-                          <p className="text-sm text-zinc-500">No priority fixes — excellent coverage</p>
+                          <p className="text-sm text-(--nd-text-muted)">No priority fixes — excellent coverage</p>
                         </div>
                       )}
                     </div>
                   )}
 
                   {tab === 'gaps' && (
-                    <div className="divide-y divide-zinc-800/50">
+                    <div className="divide-y divide-(--nd-border)">
                       {gaps.map((gap: any, i: number) => (
                         <div key={i} className="group">
                           <button
                             onClick={() => setExpandedGap(expandedGap === i ? null : i)}
-                            className="w-full p-4 flex items-center gap-4 hover:bg-zinc-800/20 transition-colors text-left"
+                            className="w-full p-4 flex items-center gap-4 hover:bg-(--nd-bg) transition-colors text-left"
                           >
                             <SevTag s={gap.severity} />
                             <div className="flex-1 min-w-0">
-                              <h4 className="text-xs font-bold text-zinc-200">
-                                {gap.schema_type} <span className="text-zinc-500 ml-1">/ {gap.property_name || 'Generic'}</span>
+                              <h4 className="text-xs font-bold text-(--nd-text-primary)">
+                                {gap.schema_type} <span className="text-(--nd-text-muted) ml-1">/ {gap.property_name || 'Generic'}</span>
                               </h4>
-                              <p className="text-[11px] text-zinc-500 mt-0.5">{gap.gap_type?.replace(/_/g, ' ')}</p>
+                              <p className="text-[11px] text-(--nd-text-muted) mt-0.5">{gap.gap_type?.replace(/_/g, ' ')}</p>
                             </div>
                             <div className="flex items-center gap-3">
                               <LiftTag lift={`+${gap.citation_lift_est?.toFixed(0)}%`} />
-                              {expandedGap === i ? <ChevronUp className="w-4 h-4 text-zinc-600" /> : <ChevronDown className="w-4 h-4 text-zinc-600" />}
+                              {expandedGap === i ? <ChevronUp className="w-4 h-4 text-(--nd-text-muted)" /> : <ChevronDown className="w-4 h-4 text-(--nd-text-muted)" />}
                             </div>
                           </button>
                           {expandedGap === i && (
                             <div className="px-4 pb-4 animate-in fade-in slide-in-from-top-1 duration-200">
-                              <div className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 space-y-2">
-                                <p className="text-[11px] text-zinc-400"><span className="text-zinc-200 font-bold uppercase text-[9px] mr-2">Issue:</span>{gap.message}</p>
-                                <p className="text-[11px] text-emerald-400/80"><span className="text-emerald-400 font-bold uppercase text-[9px] mr-2">Fix:</span>{gap.fix_instruction}</p>
+                              <div className="p-3 rounded-xl bg-(--nd-bg) border border-(--nd-border) space-y-2">
+                                <p className="text-[11px] text-(--nd-text-secondary)"><span className="text-(--nd-text-primary) font-bold uppercase text-[9px] mr-2">Issue:</span>{gap.message}</p>
+                                <p className="text-[11px] text-emerald-600/80"><span className="text-emerald-600 font-bold uppercase text-[9px] mr-2">Fix:</span>{gap.fix_instruction}</p>
                               </div>
                             </div>
                           )}
@@ -701,7 +701,7 @@ export function SchemaGeneratorTable({
                   )}
 
                   {tab === 'patches' && (
-                    <div className="divide-y divide-zinc-800/50">
+                    <div className="divide-y divide-(--nd-border)">
                       {patches.map((patch: any, i: number) => {
                         const isFile = patch.patch_json?._file_type
                         const pKey = `patch-${i}`
@@ -713,26 +713,26 @@ export function SchemaGeneratorTable({
                           <div key={i} className="group">
                             <button
                               onClick={() => setExpandedPatch(expandedPatch === i ? null : i)}
-                              className="w-full p-4 flex items-center gap-4 hover:bg-zinc-800/20 transition-colors text-left"
+                              className="w-full p-4 flex items-center gap-4 hover:bg-(--nd-bg) transition-colors text-left"
                             >
                               <SevTag s={patch.severity} />
                               <div className="flex-1 min-w-0">
-                                <h4 className="text-xs font-bold text-zinc-200">
+                                <h4 className="text-xs font-bold text-(--nd-text-primary)">
                                   {isFile ? patch.patch_json._file_type : patch.schema_type}
                                 </h4>
-                                <p className="text-[11px] text-zinc-500 mt-0.5">{patch.gap_type?.replace(/_/g, ' ')}</p>
+                                <p className="text-[11px] text-(--nd-text-muted) mt-0.5">{patch.gap_type?.replace(/_/g, ' ')}</p>
                               </div>
                               <div className="flex items-center gap-3">
                                 <LiftTag lift={patch.estimated_lift} />
-                                {expandedPatch === i ? <ChevronUp className="w-4 h-4 text-zinc-600" /> : <ChevronDown className="w-4 h-4 text-zinc-600" />}
+                                {expandedPatch === i ? <ChevronUp className="w-4 h-4 text-(--nd-text-muted)" /> : <ChevronDown className="w-4 h-4 text-(--nd-text-muted)" />}
                               </div>
                             </button>
                             {expandedPatch === i && (
                               <div className="px-4 pb-4 animate-in fade-in slide-in-from-top-1 duration-200">
-                                <div className="rounded-xl bg-zinc-950 border border-zinc-800 overflow-hidden">
-                                  <div className="flex items-center justify-between px-3 py-2 bg-zinc-900/50 border-b border-zinc-800">
+                                <div className="rounded-xl bg-slate-50 border border-(--nd-border) overflow-hidden">
+                                  <div className="flex items-center justify-between px-3 py-2 bg-(--nd-bg) border-b border-(--nd-border)">
                                     <div className="flex items-center gap-2">
-                                      <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-widest">{isFile ? patch.patch_json._deploy_path : 'JSON-LD Patch'}</span>
+                                      <span className="text-[9px] font-mono text-(--nd-text-muted) uppercase tracking-widest">{isFile ? patch.patch_json._deploy_path : 'JSON-LD Patch'}</span>
                                       {patch.validation_status && (
                                         <div className={cn('flex items-center gap-1.5 px-2 py-0.5 rounded-full', patch.validation_status === 'valid' ? 'bg-emerald-500/10' : 'bg-rose-500/10')}>
                                           <div className={cn('w-1.5 h-1.5 rounded-full', patch.validation_status === 'valid' ? 'bg-emerald-500' : 'bg-rose-500')} />
@@ -746,13 +746,13 @@ export function SchemaGeneratorTable({
                                       size="sm"
                                       variant="ghost"
                                       onClick={(e) => { e.stopPropagation(); copyToClipboard(patchText, pKey); }}
-                                      className="h-7 text-[10px] text-zinc-400 hover:text-white"
+                                      className="h-7 text-[10px] text-(--nd-text-muted) hover:text-(--nd-text-primary)"
                                     >
-                                      {copiedKey === pKey ? <CheckCircle2 className="w-3 h-3 mr-1 text-emerald-400" /> : <Copy className="w-3 h-3 mr-1" />}
+                                      {copiedKey === pKey ? <CheckCircle2 className="w-3 h-3 mr-1 text-emerald-600" /> : <Copy className="w-3 h-3 mr-1" />}
                                       {copiedKey === pKey ? 'Copied' : 'Copy'}
                                     </Button>
                                   </div>
-                                  <pre className="p-4 text-[10px] font-mono text-zinc-400 overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-[300px]">
+                                  <pre className="p-4 text-[10px] font-mono text-slate-600 overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-75">
                                     {patchText}
                                   </pre>
                                 </div>
@@ -766,20 +766,20 @@ export function SchemaGeneratorTable({
 
                   {tab === 'schema' && (
                     <div className="p-4">
-                      <div className="rounded-2xl bg-zinc-950 border border-zinc-800 overflow-hidden">
-                        <div className="flex items-center justify-between px-4 py-3 bg-zinc-900/50 border-b border-zinc-800">
-                          <h4 className="text-xs font-bold text-zinc-200">Generated JSON-LD</h4>
+                      <div className="rounded-2xl bg-slate-50 border border-(--nd-border) overflow-hidden">
+                        <div className="flex items-center justify-between px-4 py-3 bg-(--nd-bg) border-b border-(--nd-border)">
+                          <h4 className="text-xs font-bold text-(--nd-text-primary)">Generated JSON-LD</h4>
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={() => copyToClipboard(schemaData?.schema_text || '', 'full-schema')}
-                            className="h-8 text-[11px] text-zinc-400 hover:text-white"
+                            className="h-8 text-[11px] text-(--nd-text-muted) hover:text-(--nd-text-primary)"
                           >
-                            {copiedKey === 'full-schema' ? <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 mr-1.5" />}
+                            {copiedKey === 'full-schema' ? <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 mr-1.5" />}
                             {copiedKey === 'full-schema' ? 'Copied!' : 'Copy Schema'}
                           </Button>
                         </div>
-                        <pre className="p-6 text-xs font-mono text-zinc-400 overflow-x-auto leading-relaxed max-h-[500px] custom-scrollbar">
+                        <pre className="p-6 text-xs font-mono text-slate-600 overflow-x-auto leading-relaxed max-h-125 custom-scrollbar">
                           {schemaData?.schema_text}
                         </pre>
                       </div>
@@ -812,43 +812,43 @@ export function SchemaGeneratorTable({
                         const hasLiveOnly = !content && ai[key] && !!liveUrl
                         
                         return (
-                          <div key={key} className="rounded-2xl bg-zinc-900/50 border border-zinc-800 overflow-hidden flex flex-col">
-                            <div className="p-4 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/30">
+                          <div key={key} className="rounded-2xl bg-white border border-(--nd-border) overflow-hidden flex flex-col">
+                            <div className="p-4 border-b border-(--nd-border) flex items-center justify-between bg-(--nd-bg)">
                               <div className="flex items-center gap-2">
-                                <FileText className="w-4 h-4 text-zinc-500" />
-                                <span className="text-xs font-bold text-zinc-200">{name}</span>
+                                <FileText className="w-4 h-4 text-(--nd-text-muted)" />
+                                <span className="text-xs font-bold text-(--nd-text-primary)">{name}</span>
                               </div>
                               <div className="flex items-center gap-1">
                                 <div className={cn('w-1.5 h-1.5 rounded-full', ai[key] ? 'bg-emerald-500' : 'bg-rose-500')} />
-                                <span className="text-[9px] font-bold text-zinc-500 uppercase">{ai[key] ? 'Live' : 'Not Detected'}</span>
+                                <span className="text-[9px] font-bold text-(--nd-text-muted) uppercase">{ai[key] ? 'Live' : 'Not Detected'}</span>
                               </div>
                             </div>
                             <div className="p-4 flex-1">
-                              <p className="text-[11px] text-zinc-500 mb-4">{desc}</p>
-                              <div className="rounded-xl bg-zinc-950 border border-zinc-800 p-3 h-32 overflow-y-auto custom-scrollbar">
+                              <p className="text-[11px] text-(--nd-text-muted) mb-4">{desc}</p>
+                              <div className="rounded-xl bg-slate-50 border border-(--nd-border) p-3 h-32 overflow-y-auto custom-scrollbar">
                                 {hasTemplate ? (
-                                  <pre className="text-[10px] font-mono text-zinc-500 whitespace-pre-wrap">{content}</pre>
+                                  <pre className="text-[10px] font-mono text-slate-500 whitespace-pre-wrap">{content}</pre>
                                 ) : hasLiveOnly ? (
-                                  <div className="h-full flex flex-col items-start justify-center text-[10px] text-zinc-500 space-y-1">
-                                    <span className="font-semibold text-zinc-300">File detected on your domain.</span>
+                                  <div className="h-full flex flex-col items-start justify-center text-[10px] text-(--nd-text-muted) space-y-1">
+                                    <span className="font-semibold text-(--nd-text-secondary)">File detected on your domain.</span>
                                     <span className="truncate">{liveUrl}</span>
                                   </div>
                                 ) : (
-                                  <div className="h-full flex items-center justify-center text-[10px] text-zinc-700 italic">
+                                  <div className="h-full flex items-center justify-center text-[10px] text-(--nd-text-muted) italic">
                                     No template available
                                   </div>
                                 )}
                               </div>
                             </div>
-                            <div className="px-4 py-3 bg-zinc-900/30 border-t border-zinc-800 flex items-center justify-between">
-                              <span className="text-[10px] font-bold text-emerald-400">{lift} Impact</span>
+                            <div className="px-4 py-3 bg-(--nd-bg) border-t border-(--nd-border) flex items-center justify-between">
+                              <span className="text-[10px] font-bold text-emerald-700">{lift} Impact</span>
                               {hasTemplate && (
                                 <div className="flex gap-2">
-                                <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] text-zinc-500 hover:text-zinc-300" onClick={() => copyToClipboard(content, pKey)}>
+                                <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] text-(--nd-text-muted) hover:text-(--nd-text-secondary)" onClick={() => copyToClipboard(content, pKey)}>
                                   <Copy className="w-3 h-3 mr-1" />
                                   {copiedKey === pKey ? 'Copied' : 'Copy'}
                                 </Button>
-                                <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] text-zinc-500 hover:text-zinc-300" onClick={() => {
+                                <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] text-(--nd-text-muted) hover:text-(--nd-text-secondary)" onClick={() => {
                                   const blob = new Blob([content], { type: 'text/plain' })
                                   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click()
                                 }}>
@@ -861,7 +861,7 @@ export function SchemaGeneratorTable({
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-7 px-2 text-[10px] text-zinc-500 hover:text-zinc-300"
+                                  className="h-7 px-2 text-[10px] text-(--nd-text-muted) hover:text-(--nd-text-secondary)"
                                   onClick={() => {
                                     if (!liveUrl) return
                                     window.open(liveUrl, '_blank', 'noopener,noreferrer')
@@ -886,13 +886,13 @@ export function SchemaGeneratorTable({
 
       {/* Empty State */}
       {!schemaData && !loading && !error && (
-        <div className="py-24 flex flex-col items-center justify-center gap-4 text-center border-2 border-dashed border-zinc-800/50 rounded-3xl">
-          <div className="w-16 h-16 rounded-2xl bg-zinc-900 flex items-center justify-center">
-            <Code2 className="w-8 h-8 text-zinc-700" />
+        <div className="py-24 flex flex-col items-center justify-center gap-4 text-center border-2 border-dashed border-(--nd-border) rounded-3xl">
+          <div className="w-16 h-16 rounded-2xl bg-(--nd-bg) flex items-center justify-center">
+            <Code2 className="w-8 h-8 text-(--nd-text-muted)" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-white font-semibold">Intelligence Engine Ready</h3>
-            <p className="text-sm text-zinc-500 max-w-sm mx-auto">
+            <h3 className="text-(--nd-text-primary) font-semibold">Intelligence Engine Ready</h3>
+            <p className="text-sm text-(--nd-text-muted) max-w-sm mx-auto">
               Select a schema type and click generate to begin the AI-driven analysis of your page structure.
             </p>
           </div>

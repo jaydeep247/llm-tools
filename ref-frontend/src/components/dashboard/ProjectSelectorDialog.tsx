@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
 import { X, Loader2, FolderOpen, Plus } from 'lucide-react'
 import { useGetProjectsQuery } from '@/store/api/projectApi'
 import { useRouter } from 'next/navigation'
@@ -127,13 +126,13 @@ export function ProjectSelectorDialog({ isOpen, onClose, onSelectProject, defaul
                 <p className="text-slate-900 font-semibold text-lg">No projects found</p>
                 <p className="text-slate-600 text-sm">Create your first project to start crawling</p>
               </div>
-              <Button 
+              <button 
                 onClick={handleCreateNewProject}
-                className="w-full py-3 bg-slate-900 text-white rounded-full font-semibold hover:bg-slate-800 transition-all duration-300 hover:scale-105 shadow-lg cursor-pointer"
+                className="w-full py-3 bg-(--nd-purple) text-white rounded-full font-semibold hover:opacity-90 transition-all duration-300 hover:scale-105 shadow-lg cursor-pointer"
               >
-                <Plus className="mr-2 h-5 w-5" />
+                <Plus className="inline-block mr-2 h-5 w-5" />
                 Create Your First Project
-              </Button>
+              </button>
             </div>
           ) : (
             <div className="space-y-6">

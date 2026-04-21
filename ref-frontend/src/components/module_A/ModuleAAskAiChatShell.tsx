@@ -94,10 +94,10 @@ export function ModuleAAskAiChatShell({
   const chipSuggestions = suggestions.length ? suggestions : FALLBACK_SUGGESTIONS
 
   return (
-    <div className="flex max-h-[min(92vh,880px)] min-h-0 w-full flex-col overflow-hidden rounded-2xl border border-zinc-800/90 bg-gradient-to-b from-[#141416] via-[#111113] to-[#0a0a0b] shadow-2xl shadow-black/60">
+    <div className="flex max-h-220 min-h-0 w-full flex-col overflow-hidden rounded-2xl border border-zinc-800/90 bg-linear-to-b from-[#141416] via-[#111113] to-[#0a0a0b] shadow-2xl shadow-black/60">
       <header className="shrink-0 border-b border-zinc-800/90 bg-zinc-950/40 px-5 py-5 sm:px-8 sm:py-6">
         <div className="flex gap-4">
-          <div className={cn('flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-fuchsia-600 shadow-lg shadow-violet-950/50 ring-2 ring-white/10')}>
+          <div className={cn('flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-linear-to-br from-violet-600 to-fuchsia-600 shadow-lg shadow-violet-950/50 ring-2 ring-white/10')}>
             <Sparkles className="h-6 w-6 text-white" />
           </div>
           <div className="min-w-0 space-y-1.5">
@@ -148,7 +148,7 @@ export function ModuleAAskAiChatShell({
           m.role === 'user' ? (
             <div key={m.id} className="flex flex-col items-end gap-1.5 pl-8 sm:pl-16">
               <span className="pr-1 text-[10px] font-bold uppercase tracking-widest text-zinc-600">You</span>
-              <div className="max-w-[min(100%,36rem)] whitespace-pre-wrap break-words rounded-2xl rounded-tr-md bg-gradient-to-r from-violet-600 via-fuchsia-600 to-pink-600 px-5 py-4 text-base leading-relaxed text-white">
+              <div className="max-w-[min(100%,36rem)] whitespace-pre-wrap wrap-break-word rounded-2xl rounded-tr-md bg-linear-to-r from-violet-600 via-fuchsia-600 to-pink-600 px-5 py-4 text-base leading-relaxed text-white">
                 {m.content}
               </div>
             </div>
@@ -210,7 +210,7 @@ export function ModuleAAskAiChatShell({
           <Button
             type="submit"
             disabled={isAskingAI || !chatInput.trim()}
-            className="h-11 w-11 shrink-0 rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white md:h-12 md:w-12"
+            className="h-11 w-11 shrink-0 rounded-xl bg-linear-to-br from-violet-600 to-fuchsia-600 text-white md:h-12 md:w-12"
             aria-label="Send message"
           >
             <Send className="h-5 w-5 md:h-6 md:w-6" />

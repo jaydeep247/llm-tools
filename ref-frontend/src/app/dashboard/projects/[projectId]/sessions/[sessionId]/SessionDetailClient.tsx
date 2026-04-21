@@ -2,9 +2,7 @@
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
-import { Button } from '@/components/ui/button'
 import { Clock, Globe, CheckCircle, XCircle, Loader2, AlertCircle, RefreshCw } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
 import { CrawlLogger, DiscoveredPages, CrawlStatusHeader, CrawlStatusBanner } from '@/components/crawl'
 import { SessionLayout } from '@/components/layout/SessionLayout'
 import { CrawledDataTable, MainContentAudit, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, SchemaGeneratorTable, AuditChecker, SerpAnalyzer } from '@/components/module_A'
@@ -1021,13 +1019,13 @@ export default function SessionDetailClient() {
       >
         <div className="p-6 space-y-6 sm:space-y-8 animate-fade-in-hero">
           <div className="space-y-2">
-            <div className="h-8 sm:h-10 md:h-12 w-48 sm:w-64 bg-zinc-800/40 rounded-2xl animate-pulse"></div>
-            <div className="h-4 sm:h-5 w-32 sm:w-48 bg-zinc-800/40 rounded-xl animate-pulse"></div>
+            <div className="h-8 sm:h-10 md:h-12 w-48 sm:w-64 rounded-2xl animate-pulse" style={{ background: 'var(--nd-border)' }}></div>
+            <div className="h-4 sm:h-5 w-32 sm:w-48 rounded-xl animate-pulse" style={{ background: 'var(--nd-border)' }}></div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="rounded-2xl p-3 sm:p-4 md:p-5 border border-zinc-800 bg-[#111113] animate-pulse">
-                <div className="h-20 sm:h-24 bg-zinc-800/40 rounded-xl"></div>
+              <div key={i} className="rounded-2xl p-3 sm:p-4 md:p-5 animate-pulse" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+                <div className="h-20 sm:h-24 rounded-xl" style={{ background: 'var(--nd-bg)' }}></div>
               </div>
             ))}
           </div>
@@ -1047,17 +1045,17 @@ export default function SessionDetailClient() {
       >
         <div className="p-6 space-y-8 animate-fade-in-hero">
           <div className="flex flex-col items-center justify-center py-20">
-            <div className="w-16 h-16 rounded-2xl bg-rose-500/10 flex items-center justify-center mb-4">
-              <AlertCircle className="h-8 w-8 text-rose-400" />
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style={{ background: '#FFF1F1' }}>
+              <AlertCircle className="h-8 w-8" style={{ color: '#EF4444' }} />
             </div>
-            <h2 className="text-2xl font-bold text-white mb-2">Session not found</h2>
-            <p className="text-zinc-500 mb-6">{error || 'The session you\'re looking for doesn\'t exist'}</p>
-            <Button 
+            <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--nd-text-primary)' }}>Session not found</h2>
+            <p className="mb-6" style={{ color: 'var(--nd-text-muted)' }}>{error || 'The session you\'re looking for doesn\'t exist'}</p>
+            <button 
               onClick={() => router.push(`/dashboard/projects/${projectId}`)} 
-              className="bg-white text-black hover:bg-zinc-200 rounded-xl px-6 cursor-pointer"
+              className="px-6 py-2 rounded-xl font-semibold text-sm cursor-pointer transition-colors border-none nd-btn-primary"
             >
               Back to Project
-            </Button>
+            </button>
           </div>
         </div>
       </SessionLayout>
@@ -1134,44 +1132,68 @@ export default function SessionDetailClient() {
               // ── Completed state ────────────────────────────────────────────
               if (crawlDone) {
                 return (
-                  <div className="rounded-2xl border border-emerald-500/20 bg-[#0D0D10] overflow-hidden">
+                  <div
+                    className="rounded-2xl border overflow-hidden"
+                    style={{ background: 'var(--nd-card-bg)', borderColor: '#a7f3d0' }}
+                  >
                     {/* Header */}
-                    <div className="flex items-center justify-between px-5 py-3.5 border-b border-zinc-800/60">
+                    <div
+                      className="flex items-center justify-between px-5 py-3.5 border-b"
+                      style={{ borderColor: 'var(--nd-border)' }}
+                    >
                       <div className="flex items-center gap-2.5">
-                        <CheckCircle className="h-4 w-4 text-emerald-400 shrink-0" />
-                        <span className="text-sm font-semibold text-white">Crawl completed</span>
-                        <span className="text-[10px] text-zinc-400 bg-zinc-700/40 px-2 py-0.5 rounded-full">done</span>
+                        <CheckCircle className="h-4 w-4 shrink-0" style={{ color: '#059669' }} />
+                        <span className="text-sm font-semibold" style={{ color: 'var(--nd-text-primary)' }}>
+                          Crawl completed
+                        </span>
+                        <span
+                          className="text-[10px] px-2 py-0.5 rounded-full"
+                          style={{ color: 'var(--nd-text-muted)', background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}
+                        >
+                          done
+                        </span>
                       </div>
                       <button
                         onClick={() => handleSectionChange('crawler')}
-                        className="text-[11px] text-zinc-400 hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
+                        className="text-[11px] flex items-center gap-1 cursor-pointer transition-colors"
+                        style={{ color: 'var(--nd-text-muted)' }}
                       >
                         Full view <Globe className="h-3 w-3" />
                       </button>
                     </div>
 
                     {/* Stats + CTA */}
-                    <div className="px-5 py-5 flex items-center justify-between gap-4">
+                    <div className="px-5 py-4 flex items-center justify-between gap-4">
                       <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3">
-                          <Globe className="h-5 w-5 text-emerald-400 shrink-0" />
+                        <div
+                          className="flex items-center gap-2.5 rounded-xl px-4 py-3"
+                          style={{ background: '#ecfdf5', border: '1px solid #a7f3d0' }}
+                        >
+                          <Globe className="h-5 w-5 shrink-0" style={{ color: '#059669' }} />
                           <div>
-                            <p className="text-2xl font-bold text-white leading-none">
+                            <p className="text-2xl font-bold leading-none" style={{ color: 'var(--nd-text-primary)' }}>
                               {displayPageCount > 0 ? displayPageCount.toLocaleString() : '—'}
                             </p>
-                            <p className="text-[11px] text-zinc-400 mt-0.5">pages found</p>
+                            <p className="text-[11px] mt-0.5" style={{ color: 'var(--nd-text-muted)' }}>pages found</p>
                           </div>
                         </div>
                         {crawlStats && crawlStats.duration > 0 && (
-                          <div className="hidden sm:flex flex-col">
-                            <p className="text-xs font-semibold text-white">{formatDurationReadable(crawlStats.duration)}</p>
-                            <p className="text-[10px] text-zinc-500">crawl duration</p>
+                          <div className="hidden sm:flex flex-col gap-0.5">
+                            <p className="text-xs font-semibold" style={{ color: 'var(--nd-text-primary)' }}>
+                              {formatDurationReadable(crawlStats.duration)}
+                            </p>
+                            <p className="text-[10px]" style={{ color: 'var(--nd-text-muted)' }}>crawl duration</p>
                           </div>
                         )}
                       </div>
                       <button
                         onClick={() => handleSectionChange('crawled-data')}
-                        className="flex items-center gap-1.5 text-sm font-medium px-4 py-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 hover:bg-indigo-500/20 transition-colors cursor-pointer shrink-0"
+                        className="flex items-center gap-1.5 text-sm font-medium px-4 py-2.5 rounded-xl transition-colors cursor-pointer shrink-0"
+                        style={{
+                          background: 'var(--nd-purple-subtle)',
+                          border: '1px solid rgba(83,71,206,0.2)',
+                          color: 'var(--nd-purple)',
+                        }}
                       >
                         View results
                         <CheckCircle className="h-4 w-4" />
@@ -1279,10 +1301,10 @@ export default function SessionDetailClient() {
                 </div>
                 <div className="space-y-1">
                   <p className="text-[11px] text-zinc-500 uppercase tracking-wider">Status</p>
-                  <Badge className={`${getStatusColor(session.status)} text-[10px] inline-flex items-center gap-1`}>
+                  <span className={`${getStatusColor(session.status)} text-[10px] inline-flex items-center gap-1 px-2 py-0.5 rounded-full border font-medium`}>
                     {getStatusIcon(session.status)}
                     {session.status.toUpperCase()}
-                  </Badge>
+                  </span>
                 </div>
                 <div className="space-y-1">
                   <p className="text-[11px] text-zinc-500 uppercase tracking-wider">Total Pages</p>
@@ -1304,14 +1326,12 @@ export default function SessionDetailClient() {
             <div className="rounded-2xl border border-zinc-800 bg-[#111113] overflow-hidden">
               <div className="px-5 py-3.5 border-b border-zinc-800/60 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-zinc-200">📄 Crawled Pages ({transformedPages.length})</h3>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
+                <button 
                   onClick={() => refetchJobResults()}
-                  className="text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60 rounded-xl"
+                  className="p-1.5 rounded-xl text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60 cursor-pointer transition-colors border-none bg-transparent"
                 >
                   <RefreshCw className="h-4 w-4" />
-                </Button>
+                </button>
               </div>
               <div className="overflow-x-auto">
                 {isLoadingResults ? (
@@ -1355,7 +1375,7 @@ export default function SessionDetailClient() {
                               </a>
                             </td>
                             <td className="px-4 py-3">
-                              <Badge className={`text-xs ${
+                              <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
                                 page.statusCode >= 200 && page.statusCode < 300 
                                   ? 'bg-green-500/20 text-green-300 border-green-500/30' 
                                   : page.statusCode >= 300 && page.statusCode < 400
@@ -1363,7 +1383,7 @@ export default function SessionDetailClient() {
                                   : 'bg-red-500/20 text-red-300 border-red-500/30'
                               }`}>
                                 {page.statusCode || 'N/A'}
-                              </Badge>
+                              </span>
                             </td>
                             <td className="px-4 py-3 text-sm text-zinc-400 truncate max-w-50" title={page.title}>
                               {page.title?.length > 40 ? page.title.substring(0, 40) + '...' : page.title || '-'}
@@ -1411,14 +1431,12 @@ export default function SessionDetailClient() {
                 )}
                 {transformedPages.length > 6 && (
                   <div className="px-4 py-3 border-t border-zinc-800/60 text-center">
-                    <Button
-                      variant="ghost"
-                      size="sm"
+                    <button
                       onClick={() => handleSectionChange('crawled-data')}
-                      className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-xl"
+                      className="px-3 py-1.5 rounded-xl text-sm text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 cursor-pointer transition-colors border-none bg-transparent font-medium"
                     >
                       View all {transformedPages.length} pages →
-                    </Button>
+                    </button>
                   </div>
                 )}
               </div>

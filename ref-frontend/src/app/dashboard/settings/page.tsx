@@ -1,235 +1,148 @@
 'use client'
 
 import { useAuth } from '@/hooks/useAuth'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Switch } from '@/components/ui/switch'
+import { NdTabs, NdTabsList, NdTabsTrigger, NdTabsContent } from '@/components/dashboard/ui/nd-tabs'
+import { NdSwitch } from '@/components/dashboard/ui/nd-switch'
+import { NdSelect, NdSelectItem } from '@/components/dashboard/ui/nd-select'
 import { Lock, Bell, Palette, Shield, Loader2 } from 'lucide-react'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 
 export default function SettingsPage() {
   const { user, isLoading } = useAuth()
 
-  if (isLoading) {
+  if (isLoading || !user) {
     return (
       <div className="flex h-full items-center justify-center pt-20">
-        <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
+        <Loader2 className="h-8 w-8 animate-spin" style={{ color: 'var(--nd-purple)' }} />
       </div>
     )
   }
 
-  // Guard: if auth data isn't available yet (e.g. brief window before first fetch
-  // or after an error) keep showing the spinner rather than rendering placeholder values.
-  if (!user) {
-    return (
-      <div className="flex h-full items-center justify-center pt-20">
-        <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
-      </div>
-    )
-  }
+  const inputCls = "rounded-lg text-sm h-10"
+  const inputStyle = { background: 'var(--nd-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }
+  const cardStyle = { background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }
+  const labelStyle = { color: 'var(--nd-text-secondary)' }
 
   return (
-    <div className="space-y-4 sm:space-y-6 md:space-y-8 animate-fade-in-hero">
-      {/* Header */}
+    <div className="space-y-4 sm:space-y-6 animate-fade-in-hero">
+      <h1 className="text-xl font-bold" style={{ color: 'var(--nd-text-primary)' }}>Settings</h1>
 
-      <Tabs defaultValue="account" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-2 bg-transparent border border-zinc-800 p-1 h-auto rounded-2xl">
-          <TabsTrigger 
-            value="account"
-            className="data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:font-semibold data-[state=inactive]:text-zinc-400 data-[state=inactive]:hover:text-white rounded-lg border border-white/0 data-[state=active]:border-white/0 transition-all duration-200 text-xs sm:text-sm py-2 cursor-pointer"
-          >
-            <span className="flex items-center gap-2">
-              <Palette className="h-4 w-4" />
-              <span className="hidden sm:inline">Account</span>
-            </span>
-          </TabsTrigger>
-          <TabsTrigger 
-            value="preferences"
-            className="data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:font-semibold data-[state=inactive]:text-zinc-400 data-[state=inactive]:hover:text-white rounded-lg border border-white/0 data-[state=active]:border-white/0 transition-all duration-200 text-xs sm:text-sm py-2 cursor-pointer"
-          >
-            <span className="flex items-center gap-2">
-              <Palette className="h-4 w-4" />
-              <span className="hidden sm:inline">Preferences</span>
-            </span>
-          </TabsTrigger>
-          <TabsTrigger 
-            value="security"
-            className="data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:font-semibold data-[state=inactive]:text-zinc-400 data-[state=inactive]:hover:text-white rounded-lg border border-white/0 data-[state=active]:border-white/0 transition-all duration-200 text-xs sm:text-sm py-2 cursor-pointer"
-          >
-            <span className="flex items-center gap-2">
-              <Shield className="h-4 w-4" />
-              <span className="hidden sm:inline">Security</span>
-            </span>
-          </TabsTrigger>
-          <TabsTrigger 
-            value="notifications"
-            className="data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:font-semibold data-[state=inactive]:text-zinc-400 data-[state=inactive]:hover:text-white rounded-lg border border-white/0 data-[state=active]:border-white/0 transition-all duration-200 text-xs sm:text-sm py-2 cursor-pointer"
-          >
-            <span className="flex items-center gap-2">
-              <Bell className="h-4 w-4" />
-              <span className="hidden sm:inline">Notifications</span>
-            </span>
-          </TabsTrigger>
-        </TabsList>
+      <NdTabs defaultValue="account">
+        <NdTabsList>
+          {[
+            { value: 'account', label: 'Account', icon: Palette },
+            { value: 'preferences', label: 'Preferences', icon: Palette },
+            { value: 'security', label: 'Security', icon: Shield },
+            { value: 'notifications', label: 'Notifications', icon: Bell },
+          ].map(({ value, label, icon: Icon }) => (
+            <NdTabsTrigger key={value} value={value}>
+              <span className="flex items-center gap-2">
+                <Icon className="h-4 w-4" />
+                <span className="hidden sm:inline">{label}</span>
+              </span>
+            </NdTabsTrigger>
+          ))}
+        </NdTabsList>
 
-        {/* Account Settings */}
-        <TabsContent value="account" className="space-y-6">
-          <div className="rounded-2xl border border-zinc-800 bg-[#111113] p-6">
-            <h2 className="text-xl font-bold text-white mb-6">Profile Information</h2>
-            {/* key={user.id} forces inputs to remount with correct defaultValue
-                when user data arrives — prevents blank fields after Google sign-in */}
-            <div key={user.id} className="space-y-6 max-w-2xl">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Account */}
+        <NdTabsContent value="account">
+          <div className="rounded-2xl border p-6" style={cardStyle}>
+            <h2 className="text-base font-bold mb-5" style={{ color: 'var(--nd-text-primary)' }}>Profile Information</h2>
+            <div key={user.id} className="space-y-5 max-w-2xl">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="space-y-2">
-                  <Label htmlFor="fullname" className="text-white/80 font-semibold text-sm">Full Name</Label>
-                  <Input 
-                    id="fullname" 
-                    placeholder="John Doe" 
-                    defaultValue={user?.name || "John Doe"}
-                    className="bg-[#1A1A1A] border border-zinc-800 text-white placeholder:text-white/30 hover:border-zinc-700 focus:border-white/30 transition-colors rounded-lg text-sm h-10"
-                  />
+                  <label htmlFor="fullname" className="text-sm" style={labelStyle}>Full Name</label>
+                  <input id="fullname" placeholder="John Doe" defaultValue={user?.name || ''} className={`${inputCls} w-full border px-3 outline-none`} style={inputStyle} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="text-white/80 font-semibold text-sm">Email Address</Label>
-                  <Input 
-                    id="email" 
-                    type="email"
-                    placeholder="john@example.com" 
-                    defaultValue={user?.email || "john@example.com"}
-                    disabled
-                    className="bg-[#1A1A1A] border border-zinc-800 text-white/50 placeholder:text-white/30 hover:border-zinc-700 focus:border-white/30 transition-colors rounded-lg text-sm h-10 opacity-70 cursor-not-allowed"
-                  />
+                  <label htmlFor="email" className="text-sm" style={labelStyle}>Email Address</label>
+                  <input id="email" type="email" defaultValue={user?.email || ''} disabled className={`${inputCls} w-full border px-3 outline-none opacity-60 cursor-not-allowed`} style={inputStyle} />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="bio" className="text-white/80 font-semibold text-sm">Bio</Label>
-                <textarea 
-                  id="bio"
-                  placeholder="Tell us about yourself"
-                  className="w-full bg-[#1A1A1A] border border-zinc-800 text-white placeholder:text-white/30 hover:border-zinc-700 focus:border-white/30 transition-colors rounded-lg p-3 min-h-24 text-sm resize-none"
-                />
+                <label htmlFor="bio" className="text-sm" style={labelStyle}>Bio</label>
+                <textarea id="bio" placeholder="Tell us about yourself" className="w-full border rounded-lg p-3 min-h-24 text-sm resize-none outline-none transition-colors" style={inputStyle} />
               </div>
-              <Button className="bg-white text-black hover:bg-slate-100 rounded-full font-semibold text-sm px-6 h-10 cursor-pointer">
-                Save Changes
-              </Button>
+              <button className="text-white rounded-lg font-semibold text-sm px-5 h-9 cursor-pointer" style={{ background: 'var(--nd-purple)' }}>Save Changes</button>
             </div>
           </div>
-        </TabsContent>
+        </NdTabsContent>
 
         {/* Preferences */}
-        <TabsContent value="preferences" className="space-y-6">
-          <div className="rounded-2xl border border-zinc-800 bg-[#111113] p-6">
-            <h2 className="text-xl font-bold text-white mb-6">Preferences</h2>
-            <div className="space-y-6 max-w-2xl">
+        <NdTabsContent value="preferences">
+          <div className="rounded-2xl border p-6" style={cardStyle}>
+            <h2 className="text-base font-bold mb-5" style={{ color: 'var(--nd-text-primary)' }}>Preferences</h2>
+            <div className="space-y-5 max-w-2xl">
               <div>
-                <Label htmlFor="language" className="text-white/80 font-semibold block mb-2 text-sm">Language</Label>
-                <Select defaultValue="en">
-                  <SelectTrigger className="bg-[#1A1A1A] border border-zinc-800 text-white rounded-lg text-sm h-10">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#1A1A1A] border border-zinc-800">
-                    <SelectItem value="en" className="text-white text-sm focus:bg-zinc-800/50 cursor-pointer">English</SelectItem>
-                    <SelectItem value="es" className="text-white text-sm focus:bg-zinc-800/50 cursor-pointer">Spanish</SelectItem>
-                    <SelectItem value="fr" className="text-white text-sm focus:bg-zinc-800/50 cursor-pointer">French</SelectItem>
-                    <SelectItem value="de" className="text-white text-sm focus:bg-zinc-800/50 cursor-pointer">German</SelectItem>
-                  </SelectContent>
-                </Select>
+                <label className="text-sm block mb-2" style={labelStyle}>Language</label>
+                <NdSelect defaultValue="en">
+                  {['en:English', 'es:Spanish', 'fr:French', 'de:German'].map(v => {
+                    const [val, label] = v.split(':')
+                    return <NdSelectItem key={val} value={val}>{label}</NdSelectItem>
+                  })}
+                </NdSelect>
               </div>
-
               <div>
-                <Label htmlFor="timezone" className="text-white/80 font-semibold block mb-2 text-sm">Timezone</Label>
-                <Select defaultValue="utc">
-                  <SelectTrigger className="bg-[#1A1A1A] border border-zinc-800 text-white rounded-lg text-sm h-10">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#1A1A1A] border border-zinc-800">
-                    <SelectItem value="utc" className="text-white text-sm focus:bg-zinc-800/50 cursor-pointer">UTC</SelectItem>
-                    <SelectItem value="est" className="text-white text-sm focus:bg-zinc-800/50 cursor-pointer">EST</SelectItem>
-                    <SelectItem value="cst" className="text-white text-sm focus:bg-zinc-800/50 cursor-pointer">CST</SelectItem>
-                    <SelectItem value="pst" className="text-white text-sm focus:bg-zinc-800/50 cursor-pointer">PST</SelectItem>
-                  </SelectContent>
-                </Select>
+                <label className="text-sm block mb-2" style={labelStyle}>Timezone</label>
+                <NdSelect defaultValue="utc">
+                  {['utc:UTC', 'est:EST', 'cst:CST', 'pst:PST'].map(v => {
+                    const [val, label] = v.split(':')
+                    return <NdSelectItem key={val} value={val}>{label}</NdSelectItem>
+                  })}
+                </NdSelect>
               </div>
-
-              <Button className="bg-white text-black hover:bg-slate-100 rounded-full font-semibold text-sm px-6 h-10 cursor-pointer">
-                Save Preferences
-              </Button>
+              <button className="text-white rounded-lg font-semibold text-sm px-5 h-9 cursor-pointer" style={{ background: 'var(--nd-purple)' }}>Save Preferences</button>
             </div>
           </div>
-        </TabsContent>
+        </NdTabsContent>
 
-        {/* Security Settings */}
-        <TabsContent value="security" className="space-y-6">
-          <div className="rounded-2xl border border-zinc-800 bg-[#111113] p-6">
-            <h2 className="text-xl font-bold text-white mb-6">Security Settings</h2>
-            <div className="space-y-6 max-w-2xl">
+        {/* Security */}
+        <NdTabsContent value="security">
+          <div className="rounded-2xl border p-6" style={cardStyle}>
+            <h2 className="text-base font-bold mb-5" style={{ color: 'var(--nd-text-primary)' }}>Security Settings</h2>
+            <div className="space-y-5 max-w-2xl">
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-white/80 font-semibold text-sm">Current Password</Label>
-                <Input 
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  className="bg-[#1A1A1A] border border-zinc-800 text-white placeholder:text-white/30 hover:border-zinc-700 focus:border-white/30 transition-colors rounded-lg text-sm h-10"
-                />
+                <label htmlFor="password" className="text-sm" style={labelStyle}>Current Password</label>
+                <input id="password" type="password" placeholder="••••••••" className={`${inputCls} w-full border px-3 outline-none`} style={inputStyle} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="newpassword" className="text-white/80 font-semibold text-sm">New Password</Label>
-                <Input 
-                  id="newpassword"
-                  type="password"
-                  placeholder="••••••••"
-                  className="bg-[#1A1A1A] border border-zinc-800 text-white placeholder:text-white/30 hover:border-zinc-700 focus:border-white/30 transition-colors rounded-lg text-sm h-10"
-                />
+                <label htmlFor="newpassword" className="text-sm" style={labelStyle}>New Password</label>
+                <input id="newpassword" type="password" placeholder="••••••••" className={`${inputCls} w-full border px-3 outline-none`} style={inputStyle} />
               </div>
-
-              <div className="rounded-2xl border border-zinc-800 bg-[#1A1A1A] p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Lock className="h-5 w-5 text-zinc-500" />
-                    <span className="text-zinc-400 text-sm">Two-Factor Authentication</span>
-                  </div>
-                  <Switch />
+              <div className="rounded-xl border p-4 flex items-center justify-between" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
+                <div className="flex items-center gap-3">
+                  <Lock className="h-4 w-4" style={{ color: 'var(--nd-text-muted)' }} />
+                  <span className="text-sm" style={{ color: 'var(--nd-text-secondary)' }}>Two-Factor Authentication</span>
                 </div>
+                <NdSwitch />
               </div>
-
-              <Button className="bg-white text-black hover:bg-slate-100 rounded-full font-semibold text-sm px-6 h-10 cursor-pointer">
-                Update Password
-              </Button>
+              <button className="text-white rounded-lg font-semibold text-sm px-5 h-9 cursor-pointer" style={{ background: 'var(--nd-purple)' }}>Update Password</button>
             </div>
           </div>
-        </TabsContent>
+        </NdTabsContent>
 
         {/* Notifications */}
-        <TabsContent value="notifications" className="space-y-6">
-          <div className="rounded-2xl border border-zinc-800 bg-[#111113] p-6">
-            <h2 className="text-xl font-bold text-white mb-6">Notification Preferences</h2>
-            <div className="space-y-4 max-w-2xl">
+        <NdTabsContent value="notifications">
+          <div className="rounded-2xl border p-6" style={cardStyle}>
+            <h2 className="text-base font-bold mb-5" style={{ color: 'var(--nd-text-primary)' }}>Notification Preferences</h2>
+            <div className="space-y-3 max-w-2xl">
               {[
-                { label: 'Email Notifications', desc: 'Receive updates via email' },
-                { label: 'Usage Alerts', desc: 'Get notified when usage reaches 80%' },
-                { label: 'Security Updates', desc: 'Important security notices' },
-                { label: 'Product Updates', desc: 'New features and improvements' },
+                { label: 'Email Notifications', desc: 'Receive updates via email', defaultOn: true },
+                { label: 'Usage Alerts', desc: 'Get notified when usage reaches 80%', defaultOn: true },
+                { label: 'Security Updates', desc: 'Important security notices', defaultOn: false },
+                { label: 'Product Updates', desc: 'New features and improvements', defaultOn: false },
               ].map((item, i) => (
-                <div key={i} className="rounded-lg border border-zinc-800 bg-[#1A1A1A] p-4 flex items-center justify-between gap-4">
+                <div key={i} className="rounded-xl border p-4 flex items-center justify-between gap-4" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
                   <div>
-                    <p className="text-white/90 font-semibold text-sm">{item.label}</p>
-                    <p className="text-xs text-zinc-500">{item.desc}</p>
+                    <p className="font-semibold text-sm" style={{ color: 'var(--nd-text-primary)' }}>{item.label}</p>
+                    <p className="text-xs" style={{ color: 'var(--nd-text-muted)' }}>{item.desc}</p>
                   </div>
-                  <Switch defaultChecked={i < 2} />
+                  <NdSwitch defaultChecked={item.defaultOn} />
                 </div>
               ))}
             </div>
           </div>
-        </TabsContent>
-      </Tabs>
+        </NdTabsContent>
+      </NdTabs>
     </div>
   )
 }

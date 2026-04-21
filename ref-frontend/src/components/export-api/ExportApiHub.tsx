@@ -79,16 +79,16 @@ interface SectionPanelProps {
 
 function SectionPanel({ title, description, badge, children }: SectionPanelProps) {
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-[#111113] overflow-hidden">
+    <div className="rounded-2xl border overflow-hidden" style={{ background: 'var(--nd-card-bg)', borderColor: 'var(--nd-border)' }}>
       {/* Header */}
-      <div className="border-b border-zinc-800 px-6 py-5">
+      <div className="border-b px-6 py-5" style={{ borderColor: 'var(--nd-border)' }}>
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <h2 className="text-[14px] font-semibold text-white">{title}</h2>
+              <h2 className="text-[14px] font-semibold" style={{ color: 'var(--nd-text-primary)' }}>{title}</h2>
               {badge}
             </div>
-            <p className="text-[12px] text-zinc-500 leading-relaxed max-w-2xl">{description}</p>
+            <p className="text-[12px] leading-relaxed max-w-2xl" style={{ color: 'var(--nd-text-secondary)' }}>{description}</p>
           </div>
         </div>
       </div>
@@ -109,65 +109,48 @@ export function ExportApiHub() {
   const activeTabData = TABS.find((t) => t.id === activeTab)!
 
   return (
-    <div className="min-h-screen bg-[#09090B]">
-      {/* ── Sticky page header ── */}
-      <div className="sticky top-0 z-10 border-b border-zinc-800 bg-[#09090B]/95 backdrop-blur-sm">
-        <div className="px-6 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/10 ring-1 ring-amber-500/20">
-              <Download className="h-4 w-4 text-amber-400" />
+    <div className="space-y-5">
+      {/* ── Page header ── */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl" style={{ background: 'var(--nd-purple-subtle)' }}>
+              <Download className="h-4 w-4" style={{ color: 'var(--nd-purple)' }} />
             </div>
             <div>
-              <h1 className="text-[15px] font-semibold text-white leading-none">Export &amp; API</h1>
-              <p className="text-[11px] text-zinc-500 mt-0.5">
-                Colytics as infrastructure — data out, integrations in.
-              </p>
+              <h1 className="text-[15px] font-semibold leading-none" style={{ color: 'var(--nd-text-primary)' }}>Export &amp; API</h1>
+              <p className="text-[11px] mt-0.5" style={{ color: 'var(--nd-text-secondary)' }}>Colytics as infrastructure — data out, integrations in.</p>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Project selector — only shown on data tabs */}
+            {/* Project selector */}
             {(activeTab === 'pdf' || activeTab === 'csv') && projects.length > 0 && (
               <div className="flex items-center gap-2">
-                <span className="hidden sm:inline text-[11px] text-zinc-500 shrink-0">Project</span>
-                <Select
-                  value={selectedProjectId || '__auto__'}
-                  onValueChange={(v) => setSelectedProjectId(v === '__auto__' ? '' : v)}
-                >
-                  <SelectTrigger className="h-7 w-[160px] border-zinc-800 bg-zinc-900 text-[12px] text-zinc-300 focus:ring-amber-500/40">
+                <span className="hidden sm:inline text-[11px] shrink-0" style={{ color: 'var(--nd-text-muted)' }}>Project</span>
+                <Select value={selectedProjectId || '__auto__'} onValueChange={(v) => setSelectedProjectId(v === '__auto__' ? '' : v)}>
+                  <SelectTrigger className="h-7 w-40 text-[12px] rounded-lg" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }}>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="border-zinc-800 bg-zinc-900">
-                    <SelectItem
-                      value="__auto__"
-                      className="text-[12px] text-zinc-400 focus:bg-zinc-800 focus:text-zinc-200"
-                    >
-                      Auto-detect
-                    </SelectItem>
+                  <SelectContent className="bg-white border border-[#E8E9EF] rounded-xl">
+                    <SelectItem value="__auto__" className="text-[12px] cursor-pointer">Auto-detect</SelectItem>
                     {projects.map((p) => (
-                      <SelectItem
-                        key={p.id}
-                        value={p.id}
-                        className="text-[12px] text-zinc-200 focus:bg-zinc-800 focus:text-white"
-                      >
-                        {p.name}
-                      </SelectItem>
+                      <SelectItem key={p.id} value={p.id} className="text-[12px] cursor-pointer">{p.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             )}
 
-            <div className="hidden sm:flex items-center gap-1 text-[11px] text-zinc-600">
+            <div className="hidden sm:flex items-center gap-1 text-[11px]" style={{ color: 'var(--nd-text-muted)' }}>
               <span>Colytics AI</span>
               <ChevronRight className="h-3 w-3" />
-              <span className="text-zinc-400">Export &amp; API</span>
+              <span style={{ color: 'var(--nd-text-secondary)' }}>Export &amp; API</span>
             </div>
           </div>
-        </div>
+      </div>
 
         {/* ── Tab bar ── */}
-        <div className="px-6 flex gap-0.5 overflow-x-auto scrollbar-hide pb-px">
+        <div className="flex gap-0.5 overflow-x-auto scrollbar-hide border-b" style={{ borderColor: 'var(--nd-border)' }}>
           {TABS.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
@@ -178,28 +161,21 @@ export function ExportApiHub() {
                 aria-selected={isActive}
                 role="tab"
                 className={cn(
-                  'group relative flex items-center gap-2 px-4 py-3 text-[13px] font-medium whitespace-nowrap transition-all duration-150 border-b-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 focus-visible:ring-offset-0',
-                  isActive
-                    ? 'border-amber-500 text-white'
-                    : 'border-transparent text-zinc-500 hover:text-zinc-300 hover:border-zinc-700',
+                  'group relative flex items-center gap-2 px-4 py-3 text-[13px] font-medium whitespace-nowrap transition-all duration-150 border-b-2 focus-visible:outline-none',
+                  isActive ? 'border-[#5347CE]' : 'border-transparent hover:border-[#E8E9EF]',
                 )}
+                style={{ color: isActive ? 'var(--nd-purple)' : 'var(--nd-text-muted)' }}
               >
-                <Icon
-                  className={cn(
-                    'h-3.5 w-3.5 shrink-0 transition-colors',
-                    isActive ? 'text-amber-400' : 'text-zinc-600 group-hover:text-zinc-400',
-                  )}
-                />
+                <Icon className={cn('h-3.5 w-3.5 shrink-0 transition-colors', isActive ? 'text-[#5347CE]' : '')} style={!isActive ? { color: 'var(--nd-text-muted)' } : {}} />
                 <span className="hidden sm:inline">{tab.label}</span>
                 <span className="sm:hidden">{tab.shortLabel}</span>
               </button>
             )
           })}
         </div>
-      </div>
 
       {/* ── Tab content ── */}
-      <div className="px-6 py-6 max-w-5xl">
+      <div className="py-5 max-w-5xl space-y-5">
         {activeTab === 'pdf' && (
           <SectionPanel title="PDF Exports" description={activeTabData.description}>
             <PdfExports projectId={selectedProjectId || undefined} />
@@ -218,7 +194,7 @@ export function ExportApiHub() {
             description={activeTabData.description}
             badge={
               !hasApiAccess ? (
-                <span className="inline-flex items-center rounded-md bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-400 ring-1 ring-amber-500/20 uppercase tracking-wide">
+                <span className="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide" style={{ background: 'var(--nd-purple-subtle)', color: 'var(--nd-purple)' }}>
                   Agency+
                 </span>
               ) : undefined
@@ -234,7 +210,7 @@ export function ExportApiHub() {
             description={activeTabData.description}
             badge={
               !hasApiAccess ? (
-                <span className="inline-flex items-center rounded-md bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-400 ring-1 ring-amber-500/20 uppercase tracking-wide">
+                <span className="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide" style={{ background: 'var(--nd-purple-subtle)', color: 'var(--nd-purple)' }}>
                   Agency+
                 </span>
               ) : undefined

@@ -4,7 +4,6 @@ import { ReactNode, useState } from 'react'
 import { SessionNavbar } from '@/components/user-journey/NewSessionNavbar'
 import { SessionSidebar } from '@/components/user-journey/NewSessionSidebar'
 import { ThemeProvider } from '@/components/common/theme-provider'
-import { cn } from '@/lib/utils'
 
 interface SessionLayoutProps {
   children: ReactNode
@@ -32,7 +31,10 @@ export function SessionLayout({
 
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-      <div className="min-h-screen bg-[#09090B] text-foreground flex">
+      <div
+        className="nexus-dashboard min-h-screen"
+        style={{ background: 'var(--nd-bg)' }}
+      >
         <SessionSidebar
           activeSection={activeSection}
           onSectionChange={onSectionChange}
@@ -43,26 +45,26 @@ export function SessionLayout({
           alertCount={alertCount}
         />
 
-        {/* Main content area */}
+        {/* Main content area — margin equals sidebar width */}
         <main
-          className={cn(
-            'flex-1 transition-all duration-300 ease-in-out p-1.5 md:p-3 h-screen overflow-hidden',
-            collapsed ? 'md:ml-14' : 'md:ml-68'
-          )}
+          className="flex flex-col min-h-screen transition-[margin-left] duration-300"
+          style={{
+            marginLeft: collapsed
+              ? 'var(--sidebar-collapsed-width)'
+              : 'var(--sidebar-width)',
+          }}
         >
-          <div className="bg-[#0F0F11] rounded-2xl border border-zinc-800 h-full flex flex-col overflow-hidden relative">
-            <SessionNavbar
-              projectId={projectId}
-              projectName={projectName}
-              sessionId={sessionId}
-              sessionUrl={sessionUrl}
-              activeSection={activeSection}
-              onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
-            />
-            <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-8">
-              <div className="mx-auto h-full">
-                {children}
-              </div>
+          <SessionNavbar
+            projectId={projectId}
+            projectName={projectName}
+            sessionId={sessionId}
+            sessionUrl={sessionUrl}
+            activeSection={activeSection}
+            onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
+          />
+          <div className="flex-1 overflow-y-auto px-4 md:px-6">
+            <div className="mx-auto max-w-360">
+              {children}
             </div>
           </div>
         </main>

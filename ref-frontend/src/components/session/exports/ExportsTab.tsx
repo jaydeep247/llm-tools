@@ -81,11 +81,11 @@ export default function ExportsTab({
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <FileSpreadsheet className="h-5 w-5 text-indigo-400" />
+          <h2 className="text-xl font-bold text-(--nd-text-primary) flex items-center gap-2">
+            <FileSpreadsheet className="h-5 w-5 text-indigo-500" />
             Exports
           </h2>
-          <p className="text-sm text-zinc-500 mt-1">
+          <p className="text-sm text-(--nd-text-muted) mt-1">
             Download your analysis data as Excel (.xlsx) files — choose individual reports or full
             module workbooks.
           </p>
@@ -129,25 +129,25 @@ export default function ExportsTab({
               brokenLinks.timeoutUnreachable.count,
             color: 'text-rose-400',
           },
-          { label: 'Job ID', value: jobId ? `#${jobId.slice(-6)}` : '—', color: 'text-zinc-400' },
+          { label: 'Job ID', value: jobId ? `#${jobId.slice(-6)}` : '—', color: 'text-(--nd-text-muted)' },
         ].map((stat) => (
           <div
             key={stat.label}
-            className="rounded-xl border border-zinc-800 bg-[#111113] px-4 py-3"
+            className="rounded-xl border border-(--nd-border) bg-white px-4 py-3"
           >
             <p className={`text-lg font-bold ${stat.color}`}>{stat.value.toLocaleString()}</p>
-            <p className="text-[11px] text-zinc-500 mt-0.5">{stat.label}</p>
+            <p className="text-[11px] text-(--nd-text-muted) mt-0.5">{stat.label}</p>
           </div>
         ))}
       </div>
 
       {/* Section label */}
       <div className="flex items-center gap-3">
-        <div className="h-px flex-1 bg-zinc-800" />
-        <span className="text-[11px] text-zinc-500 uppercase tracking-wider px-2">
+        <div className="h-px flex-1 bg-(--nd-border)" />
+        <span className="text-[11px] text-(--nd-text-muted) uppercase tracking-wider px-2">
           Module Exports
         </span>
-        <div className="h-px flex-1 bg-zinc-800" />
+        <div className="h-px flex-1 bg-(--nd-border)" />
       </div>
 
       {/* Module A — Technical SEO */}
@@ -169,7 +169,7 @@ export default function ExportsTab({
       <ModuleFExport jobId={jobId} sessionName={sessionName} />
 
       {/* Footer note */}
-      <p className="text-[11px] text-zinc-600 text-center pb-2">
+      <p className="text-[11px] text-(--nd-text-muted) text-center pb-2">
         Files are generated in your browser — no data leaves your device during export.
       </p>
     </div>

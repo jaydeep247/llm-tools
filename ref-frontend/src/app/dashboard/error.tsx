@@ -2,7 +2,6 @@
 
 import { useEffect } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 
 interface DashboardErrorProps {
   error: Error & { digest?: string };
@@ -17,21 +16,21 @@ export default function DashboardError({ error, reset }: DashboardErrorProps) {
   }, [error]);
 
   return (
-    <div className="flex flex-col items-center justify-center h-full  min-h-100 gap-6 p-8">
-      <AlertTriangle className="w-10 h-10 text-red-400" />
+    <div className="flex flex-col items-center justify-center h-full min-h-100 gap-6 p-8">
+      <AlertTriangle className="w-10 h-10" style={{ color: 'var(--nd-negative-text)' }} />
       <div className="text-center space-y-2 max-w-md">
-        <h2 className="text-base font-semibold text-zinc-100">Something went wrong</h2>
-        <p className="text-sm text-zinc-400">
+        <h2 className="text-base font-semibold" style={{ color: 'var(--nd-text-primary)' }}>Something went wrong</h2>
+        <p className="text-sm" style={{ color: 'var(--nd-text-secondary)' }}>
           {error.message ?? 'An unexpected error occurred in the dashboard.'}
         </p>
         {error.digest && (
-          <p className="text-xs text-zinc-600 font-mono">Error ID: {error.digest}</p>
+          <p className="text-xs font-mono" style={{ color: 'var(--nd-text-muted)' }}>Error ID: {error.digest}</p>
         )}
       </div>
-      <Button variant="outline" size="sm" onClick={reset} className="gap-2">
+      <button onClick={reset} className="nd-btn-outline gap-2 cursor-pointer">
         <RefreshCw className="w-3 h-3" />
         Try again
-      </Button>
+      </button>
     </div>
   );
 }

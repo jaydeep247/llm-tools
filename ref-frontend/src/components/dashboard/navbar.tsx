@@ -1,104 +1,216 @@
 'use client'
 
-import { Menu, Search, Bell, Settings, ChevronRight } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Menu, Search, Bell, Gift, Plus } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
-import Link from 'next/link'
 
 interface NavbarProps {
   onMenuToggle?: () => void
-}
-
-function toLabel(segment: string) {
-  return segment
-    .replace(/-/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 export function Navbar({ onMenuToggle }: NavbarProps) {
   const pathname = usePathname()
   const { user } = useAuth()
 
-  const segments = pathname.split('/').filter(Boolean)
-
-  // Build breadcrumb items: each gets a label and cumulative href
-  const crumbs = segments.map((seg, i) => ({
-    label: toLabel(seg),
-    href: '/' + segments.slice(0, i + 1).join('/'),
-    isLast: i === segments.length - 1,
-  }))
-
   const userInitial = user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'
 
   return (
-    <header className="flex h-15 shrink-0 items-center justify-between px-6 py-3 border-b border-white/4">
-      <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onMenuToggle}
-          className="md:hidden h-8 w-8"
-        >
-          <Menu className="h-4 w-4" />
-        </Button>
+    <header
+      className="shrink-0 flex items-center"
+      style={{
+        height: 60,
+        background: 'var(--nd-sidebar-bg)',
+        borderBottom: '1px solid var(--nd-border)',
+        padding: '0 20px 0 24px',
+        gap: 12,
+      }}
+    >
+      {/* Mobile hamburger */}
+      <button
+        onClick={onMenuToggle}
+        className="md:hidden flex items-center justify-center cursor-pointer"
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: 8,
+          background: 'transparent',
+          border: 'none',
+          color: 'var(--nd-text-secondary)',
+        }}
+      >
+        <Menu style={{ width: 18, height: 18 }} />
+      </button>
 
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-1.5 text-sm">
-          {crumbs.map((crumb, i) => (
-            <span key={crumb.href} className="flex items-center gap-1.5">
-              {i > 0 && <ChevronRight className="h-3 w-3 text-zinc-600 shrink-0" />}
-              {crumb.isLast ? (
-                <span className="text-white font-medium">{crumb.label}</span>
-              ) : (
-                <Link
-                  href={crumb.href}
-                  className="text-zinc-500 hover:text-zinc-300 transition-colors duration-200"
-                >
-                  {crumb.label}
-                </Link>
-              )}
-            </span>
-          ))}
-        </nav>
+      {/* ── Search bar (left) ── */}
+      <div
+        className="hidden md:flex items-center"
+        style={{
+          width: 240,
+          height: 36,
+          border: '1px solid var(--nd-border)',
+          borderRadius: 8,
+          background: 'var(--nd-sidebar-bg)',
+          padding: '0 12px',
+          gap: 8,
+          transition: 'border-color 150ms ease',
+        }}
+        onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--nd-border-hover)' }}
+        onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--nd-border)' }}
+      >
+        <Search
+          className="shrink-0"
+          style={{ width: 15, height: 15, color: 'var(--nd-text-muted)' }}
+        />
+        <input
+          type="text"
+          placeholder="Search..."
+          style={{
+            flex: 1,
+            border: 'none',
+            outline: 'none',
+            fontSize: 'var(--font-base)',
+            color: 'var(--nd-text-primary)',
+            background: 'transparent',
+            fontFamily: 'inherit',
+            lineHeight: 1,
+          }}
+        />
+        <span
+          style={{
+            fontSize: 'var(--font-xs)',
+            color: 'var(--nd-text-muted)',
+            whiteSpace: 'nowrap',
+            opacity: 0.8,
+          }}
+        >
+          ⌘ + F
+        </span>
       </div>
 
-      <div className="flex items-center gap-2">
-        {/* Search bar */}
-        <div className="hidden md:flex items-center gap-2 bg-zinc-800/50 border border-zinc-700/50 rounded-xl px-3 py-1.5 w-55 focus-within:border-zinc-600 focus-within:bg-zinc-800/80 transition-all duration-200">
-          <Search className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
-          <input
-            type="text"
-            placeholder="Search..."
-            className="bg-transparent text-sm text-zinc-300 placeholder:text-zinc-600 outline-none w-full"
-          />
-          <kbd className="hidden lg:inline-flex items-center gap-0.5 rounded-md bg-white/6 px-1.5 py-0.5 text-[10px] text-zinc-500 font-mono">
-            ⌘K
-          </kbd>
+      {/* ── Right section ── */}
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
+        {/* Gift icon */}
+        <button
+          className="flex items-center justify-center cursor-pointer"
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 8,
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--nd-text-secondary)',
+            transition: 'background 150ms ease, color 150ms ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--nd-nav-hover-bg)'
+            e.currentTarget.style.color = 'var(--nd-text-primary)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent'
+            e.currentTarget.style.color = 'var(--nd-text-secondary)'
+          }}
+        >
+          <Gift style={{ width: 18, height: 18 }} />
+        </button>
+
+        {/* Bell icon */}
+        <button
+          className="flex items-center justify-center cursor-pointer relative"
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 8,
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--nd-text-secondary)',
+            transition: 'background 150ms ease, color 150ms ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--nd-nav-hover-bg)'
+            e.currentTarget.style.color = 'var(--nd-text-primary)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent'
+            e.currentTarget.style.color = 'var(--nd-text-secondary)'
+          }}
+        >
+          <Bell style={{ width: 18, height: 18 }} />
+        </button>
+
+        {/* Plus icon */}
+        <button
+          className="flex items-center justify-center cursor-pointer"
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 8,
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--nd-text-secondary)',
+            transition: 'background 150ms ease, color 150ms ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--nd-nav-hover-bg)'
+            e.currentTarget.style.color = 'var(--nd-text-primary)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent'
+            e.currentTarget.style.color = 'var(--nd-text-secondary)'
+          }}
+        >
+          <Plus style={{ width: 18, height: 18 }} />
+        </button>
+
+        {/* Divider */}
+        <div
+          style={{
+            width: 1,
+            height: 20,
+            background: 'var(--nd-border)',
+            margin: '0 8px',
+          }}
+        />
+
+        {/* Avatar */}
+        <div
+          className="shrink-0"
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: '50%',
+            background: 'var(--nd-purple)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#FFFFFF',
+            fontSize: 'var(--font-sm)',
+            fontWeight: 'var(--font-weight-semibold)',
+          }}
+        >
+          {userInitial}
         </div>
 
-        {/* Notification bell */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 rounded-xl text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60 relative"
-        >
-          <Bell className="h-4 w-4" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-blue-500 ring-2 ring-[#0F0F12]" />
-        </Button>
-
-        {/* Settings */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 rounded-xl text-zinc-500 hover:text-indigo-400 hover:bg-zinc-800/60"
-        >
-          <Settings className="h-4 w-4" />
-        </Button>
-
-        {/* User avatar */}
-        <div className="w-8 h-8 rounded-xl bg-linear-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-semibold ml-1 cursor-pointer hover:ring-2 hover:ring-indigo-500/50 transition-all">
-          {userInitial}
+        {/* User info */}
+        <div className="hidden md:flex" style={{ flexDirection: 'column', gap: 1, marginLeft: 4 }}>
+          <span
+            style={{
+              fontSize: 'var(--font-base)',
+              fontWeight: 'var(--font-weight-medium)',
+              color: 'var(--nd-text-primary)',
+              lineHeight: 'var(--lh-tight)',
+            }}
+          >
+            {user?.name || 'Young Alaska'}
+          </span>
+          <span
+            style={{
+              fontSize: 'var(--font-xs)',
+              color: 'var(--nd-text-muted)',
+              lineHeight: 'var(--lh-tight)',
+            }}
+          >
+            Business
+          </span>
         </div>
       </div>
     </header>

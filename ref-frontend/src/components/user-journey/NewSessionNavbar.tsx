@@ -1,10 +1,10 @@
 'use client'
 
-import { ChevronRight, Menu, Search, Bell, Settings } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { ChevronRight, Menu, Search, Bell, Gift, Plus } from 'lucide-react'
 import Link from 'next/link'
 import { sessionSections } from './NewSessionSidebar'
 import { DateRangeToggle } from '@/components/date-range/DateRangeToggle'
+import { useAuth } from '@/hooks/useAuth'
 
 interface SessionNavbarProps {
   projectId: string
@@ -18,12 +18,10 @@ interface SessionNavbarProps {
 const sectionLabels: Record<string, { parent: string; label: string }> = (() => {
   const map: Record<string, { parent: string; label: string }> = {}
   for (const group of sessionSections) {
-    // Handle sections without children (like Dashboard)
     if (!group.children || group.children.length === 0) {
       map[group.id] = { parent: group.label, label: group.label }
       continue
     }
-    // Handle sections with children
     for (const child of group.children) {
       map[child.id] = { parent: group.label, label: child.label }
     }
@@ -33,92 +31,266 @@ const sectionLabels: Record<string, { parent: string; label: string }> = (() => 
 
 export function SessionNavbar({ projectId, projectName, sessionId, sessionUrl, activeSection, onMenuToggle }: SessionNavbarProps) {
   const current = activeSection ? sectionLabels[activeSection] : undefined
+  const { user } = useAuth()
+  const userInitial = user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'
 
   return (
-    <header className="flex h-15 shrink-0 items-center justify-between px-6 py-3 border-b border-white/4">
-      <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onMenuToggle}
-          className="md:hidden h-8 w-8"
+    <header
+      className="shrink-0 flex items-center"
+      style={{
+        height: 60,
+        background: 'var(--nd-sidebar-bg)',
+        borderBottom: '1px solid var(--nd-border)',
+        padding: '0 20px 0 24px',
+        gap: 12,
+      }}
+    >
+      {/* Mobile hamburger */}
+      <button
+        onClick={onMenuToggle}
+        className="md:hidden flex items-center justify-center cursor-pointer"
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: 8,
+          background: 'transparent',
+          border: 'none',
+          color: 'var(--nd-text-secondary)',
+        }}
+      >
+        <Menu style={{ width: 18, height: 18 }} />
+      </button>
+
+      {/* ── Breadcrumb ── */}
+      <nav className="flex items-center" style={{ gap: 6, fontSize: 'var(--font-base)' }}>
+        <Link
+          href="/dashboard/projects"
+          className="no-underline"
+          style={{ color: 'var(--nd-text-muted)', transition: 'color 150ms ease' }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--nd-text-primary)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--nd-text-muted)' }}
         >
-          <Menu className="h-4 w-4" />
-        </Button>
+          Projects
+        </Link>
 
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-1.5 text-sm">
-          <Link
-            href="/dashboard/projects"
-            className="text-zinc-500 hover:text-zinc-300 transition-colors duration-200"
-          >
-            Projects
-          </Link>
+        <ChevronRight style={{ width: 12, height: 12, color: 'var(--nd-text-muted)' }} />
 
-          <ChevronRight className="h-3 w-3 text-zinc-600" />
+        <Link
+          href={`/dashboard/projects/${projectId}`}
+          className="no-underline"
+          style={{
+            color: 'var(--nd-text-muted)',
+            transition: 'color 150ms ease',
+            maxWidth: 150,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--nd-text-primary)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--nd-text-muted)' }}
+        >
+          {projectName}
+        </Link>
 
-          <Link
-            href={`/dashboard/projects/${projectId}`}
-            className="text-zinc-500 hover:text-zinc-300 transition-colors duration-200 truncate max-w-25 sm:max-w-37.5 md:max-w-none"
-          >
-            {projectName}
-          </Link>
+        <ChevronRight style={{ width: 12, height: 12, color: 'var(--nd-text-muted)' }} />
 
-          <ChevronRight className="h-3 w-3 text-zinc-600" />
+        <span
+          style={{
+            color: 'var(--nd-text-secondary)',
+            maxWidth: 150,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+          title={sessionUrl}
+        >
+          {sessionUrl && sessionUrl.length > 0 ? new URL(sessionUrl).hostname : 'Session'}
+        </span>
 
-          <span className="text-zinc-500 truncate max-w-25 sm:max-w-37.5 md:max-w-none" title={sessionUrl}>
-            {sessionUrl && sessionUrl.length > 0 ? new URL(sessionUrl).hostname : 'Session'}
-          </span>
+        {current && (
+          <>
+            <ChevronRight style={{ width: 12, height: 12, color: 'var(--nd-text-muted)' }} />
+            <span style={{ color: 'var(--nd-text-primary)', fontWeight: 'var(--font-weight-medium)' }}>
+              {current.label}
+            </span>
+          </>
+        )}
+      </nav>
 
-          {current && (
-            <>
-              <ChevronRight className="h-3 w-3 text-zinc-600" />
-              <span className="text-white font-medium">{current.label}</span>
-            </>
-          )}
-        </nav>
-      </div>
-
-      {/* Right side — Search, Notifications, Avatar */}
-      <div className="flex items-center gap-2">
+      {/* ── Right section ── */}
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
         <div className="hidden lg:block">
           <DateRangeToggle />
         </div>
+
         {/* Search bar */}
-        <div className="hidden md:flex items-center gap-2 bg-zinc-800/50 border border-zinc-700/50 rounded-xl px-3 py-1.5 w-55 focus-within:border-zinc-600 focus-within:bg-zinc-800/80 transition-all duration-200">
-          <Search className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+        <div
+          className="hidden md:flex items-center"
+          style={{
+            width: 240,
+            height: 36,
+            border: '1px solid var(--nd-border)',
+            borderRadius: 8,
+            background: 'var(--nd-sidebar-bg)',
+            padding: '0 12px',
+            gap: 8,
+            transition: 'border-color 150ms ease',
+          }}
+          onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--nd-border-hover)' }}
+          onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--nd-border)' }}
+        >
+          <Search
+            className="shrink-0"
+            style={{ width: 15, height: 15, color: 'var(--nd-text-muted)' }}
+          />
           <input
             type="text"
             placeholder="Search..."
-            className="bg-transparent text-sm text-zinc-300 placeholder:text-zinc-600 outline-none w-full"
+            style={{
+              flex: 1,
+              border: 'none',
+              outline: 'none',
+              fontSize: 'var(--font-base)',
+              color: 'var(--nd-text-primary)',
+              background: 'transparent',
+              fontFamily: 'inherit',
+              lineHeight: 1,
+            }}
           />
-            <kbd className="hidden lg:inline-flex items-center gap-0.5 rounded-md bg-white/6 px-1.5 py-0.5 text-[10px] text-zinc-500 font-mono">
+          <span
+            style={{
+              fontSize: 'var(--font-xs)',
+              color: 'var(--nd-text-muted)',
+              whiteSpace: 'nowrap',
+              opacity: 0.8,
+            }}
+          >
             ⌘K
-          </kbd>
+          </span>
         </div>
 
-        {/* Notification bell */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 rounded-xl text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60 relative"
+        {/* Gift icon */}
+        <button
+          className="flex items-center justify-center cursor-pointer"
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 8,
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--nd-text-secondary)',
+            transition: 'background 150ms ease, color 150ms ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--nd-nav-hover-bg)'
+            e.currentTarget.style.color = 'var(--nd-text-primary)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent'
+            e.currentTarget.style.color = 'var(--nd-text-secondary)'
+          }}
         >
-          <Bell className="h-4 w-4" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-blue-500 ring-2 ring-[#0F0F12]" />
-        </Button>
+          <Gift style={{ width: 18, height: 18 }} />
+        </button>
 
-        {/* Settings */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 rounded-xl text-zinc-500 hover:text-indigo-400 hover:bg-zinc-800/60"
+        {/* Bell icon */}
+        <button
+          className="flex items-center justify-center cursor-pointer relative"
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 8,
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--nd-text-secondary)',
+            transition: 'background 150ms ease, color 150ms ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--nd-nav-hover-bg)'
+            e.currentTarget.style.color = 'var(--nd-text-primary)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent'
+            e.currentTarget.style.color = 'var(--nd-text-secondary)'
+          }}
         >
-          <Settings className="h-4 w-4" />
-        </Button>
+          <Bell style={{ width: 18, height: 18 }} />
+        </button>
 
-        {/* User avatar */}
-        <div className="w-8 h-8 rounded-xl bg-linear-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-semibold ml-1 cursor-pointer hover:ring-2 hover:ring-indigo-500/50 transition-all">
-          U
+        {/* Plus icon */}
+        <button
+          className="flex items-center justify-center cursor-pointer"
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 8,
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--nd-text-secondary)',
+            transition: 'background 150ms ease, color 150ms ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'var(--nd-nav-hover-bg)'
+            e.currentTarget.style.color = 'var(--nd-text-primary)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'transparent'
+            e.currentTarget.style.color = 'var(--nd-text-secondary)'
+          }}
+        >
+          <Plus style={{ width: 18, height: 18 }} />
+        </button>
+
+        {/* Divider */}
+        <div
+          style={{
+            width: 1,
+            height: 20,
+            background: 'var(--nd-border)',
+            margin: '0 8px',
+          }}
+        />
+
+        {/* Avatar */}
+        <div
+          className="shrink-0"
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: '50%',
+            background: 'var(--nd-purple)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#FFFFFF',
+            fontSize: 'var(--font-sm)',
+            fontWeight: 'var(--font-weight-semibold)',
+          }}
+        >
+          {userInitial}
+        </div>
+
+        {/* User info */}
+        <div className="hidden md:flex" style={{ flexDirection: 'column', gap: 1, marginLeft: 4 }}>
+          <span
+            style={{
+              fontSize: 'var(--font-base)',
+              fontWeight: 'var(--font-weight-medium)',
+              color: 'var(--nd-text-primary)',
+              lineHeight: 'var(--lh-tight)',
+            }}
+          >
+            {user?.name || 'User'}
+          </span>
+          <span
+            style={{
+              fontSize: 'var(--font-xs)',
+              color: 'var(--nd-text-muted)',
+              lineHeight: 'var(--lh-tight)',
+            }}
+          >
+            Business
+          </span>
         </div>
       </div>
     </header>

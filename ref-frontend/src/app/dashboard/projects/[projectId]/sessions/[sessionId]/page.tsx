@@ -2,9 +2,7 @@
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
-import { Button } from '@/components/ui/button'
 import { Clock, Globe, CheckCircle, XCircle, Loader2, AlertCircle, RefreshCw } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
 import { CrawlLogger, DiscoveredPages, CrawlStatusHeader, CrawlStatusBanner } from '@/components/crawl'
 import { SessionLayout } from '@/components/layout/SessionLayout'
 import { CrawledDataTable, MainContentAudit, TextQualityTable, WordCountAnalysis, BrokenLinkChecker, LinkAnalysis, SchemaGeneratorTable, AuditChecker, SerpAnalyzer } from '@/components/module_A'
@@ -1090,8 +1088,8 @@ export default function SessionDetailPage() {
   const BLOCKED_STATUSES = ['pending', 'created', 'running', 'auditing']
   if (session && BLOCKED_STATUSES.includes((session.status || '').toLowerCase())) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <Loader2 className="h-12 w-12 text-white/40 animate-spin" />
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--nd-bg)' }}>
+        <Loader2 className="h-12 w-12 animate-spin" style={{ color: 'var(--nd-text-muted)' }} />
       </div>
     )
   }
@@ -1107,15 +1105,17 @@ export default function SessionDetailPage() {
       >
         <div className="p-6 space-y-8 animate-fade-in-hero">
           <div className="flex flex-col items-center justify-center py-20">
-            <AlertCircle className="h-16 w-16 text-red-400 mb-4" />
-            <h2 className="text-2xl font-bold text-white mb-2">Session not found</h2>
-            <p className="text-white/60 mb-4">{error || 'The session you\'re looking for doesn\'t exist'}</p>
-            <Button
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4" style={{ background: '#FFF1F1' }}>
+              <AlertCircle className="h-8 w-8" style={{ color: '#EF4444' }} />
+            </div>
+            <h2 className="text-2xl font-bold mb-2" style={{ color: 'var(--nd-text-primary)' }}>Session not found</h2>
+            <p className="mb-4" style={{ color: 'var(--nd-text-muted)' }}>{error || 'The session you\'re looking for doesn\'t exist'}</p>
+            <button
               onClick={() => router.push(`/dashboard/projects/${projectId}`)}
-              className="bg-white text-black hover:bg-slate-100 cursor-pointer"
+              className="px-4 py-2 rounded-xl font-semibold text-sm cursor-pointer transition-colors nd-btn-primary"
             >
               Back to Project
-            </Button>
+            </button>
           </div>
         </div>
       </SessionLayout>
@@ -1397,7 +1397,7 @@ export default function SessionDetailPage() {
         {/* Show Performance Audits on performance tab (now handled in Content Audit) */}
         {activeSection === 'performance' && (
           <div>
-            <div className="p-8 text-center text-zinc-400">
+            <div className="p-8 text-center" style={{ color: 'var(--nd-text-muted)' }}>
               Performance Metrics have been moved to the Content Audit section.
             </div>
           </div>

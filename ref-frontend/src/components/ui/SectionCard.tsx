@@ -20,8 +20,8 @@ export interface SectionCardProps {
 }
 
 /**
- * Dark panel with accent header — used across module_E DashboardOverview,
- * crawl components, and any "sub-section" inside a report page.
+ * Light panel with accent header — Nexus theme.
+ * Uses CSS vars so it adapts inside .nexus-dashboard scope.
  */
 export function SectionCard({
   title,
@@ -38,10 +38,14 @@ export function SectionCard({
   return (
     <div
       className={cn(
-        'rounded-2xl border border-zinc-800 bg-[#111113] overflow-hidden',
-        'transition-all duration-300 hover:border-zinc-700',
+        'rounded-2xl border overflow-hidden transition-all duration-200',
+        'hover:shadow-sm',
         className,
       )}
+      style={{
+        background: 'var(--nd-card-bg, #FFFFFF)',
+        borderColor: 'var(--nd-border, #E8E9EF)',
+      }}
     >
       <CardHeader
         title={title}

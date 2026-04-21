@@ -15,6 +15,7 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
   const { user, isLoading: isAuthLoading } = useAuth()
@@ -27,9 +28,6 @@ export default function DashboardLayout({
   const shouldBypassOnboardingRedirect = isProjectFlowPage || isSessionPage || isJobProgressPage
   const shouldRedirectToOnboarding = !!user && requiresOnboarding(user) && !shouldBypassOnboardingRedirect
 
-  // When the user accesses a bypass page (project/session/job) while onboarding is still
-  // in-progress, they are clearly active users — silently mark onboarding as completed
-  // so navigating away from the bypass page never bounces them back to onboarding.
   useEffect(() => {
     if (!user || !shouldBypassOnboardingRedirect || !requiresOnboarding(user)) return
     if (didAutoCompleteOnboarding.current) return
@@ -60,8 +58,8 @@ export default function DashboardLayout({
   if (isAuthLoading || !user || shouldRedirectToOnboarding) {
     return (
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-        <div className="h-screen w-full bg-[#09090B] flex items-center justify-center">
-          <div className="w-5 h-5 rounded-full border-2 border-white/10 border-t-white animate-spin" />
+        <div className="nexus-dashboard h-screen w-full flex items-center justify-center" style={{ background: 'var(--nd-bg)' }}>
+          <div className="w-5 h-5 rounded-full border-2 border-[#E8E9EF] border-t-[#5347CE] animate-spin" />
         </div>
       </ThemeProvider>
     )
@@ -75,20 +73,35 @@ export default function DashboardLayout({
     )
   }
 
-  // Regular dashboard layout
+  // Regular dashboard layout — Nexus light theme
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-      <div className="min-h-screen bg-[#09090B] text-foreground flex">
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        
-        {/* Main content area */}
-        <main className="flex-1 transition-all duration-300 md:ml-68 p-1.5 md:p-3 h-screen overflow-hidden">
-          <div className="bg-[#0F0F11] rounded-2xl border border-zinc-800 h-full flex flex-col overflow-hidden relative">
-            <Navbar onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
-            <div className="flex-1 overflow-y-auto pt-10 px-4 md:px-8 pb-8">
-              <div className="mx-auto h-full">
-                {children}
-              </div>
+      <div
+        className="nexus-dashboard min-h-screen"
+        style={{
+          background: 'var(--nd-bg)',
+        }}
+      >
+        <Sidebar
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed((c) => !c)}
+        />
+
+        {/* Main content area — margin equals sidebar width */}
+        <main
+          className="flex flex-col min-h-screen transition-[margin-left] duration-300"
+          style={{
+            marginLeft: sidebarCollapsed
+              ? 'var(--sidebar-collapsed-width)'
+              : 'var(--sidebar-width)',
+          }}
+        >
+          <Navbar onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
+          <div className="flex-1 overflow-y-auto px-6 md:px-8 py-6">
+            <div className="mx-auto max-w-7xl">
+              {children}
             </div>
           </div>
         </main>

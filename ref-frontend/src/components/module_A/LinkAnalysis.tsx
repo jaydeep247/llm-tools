@@ -193,34 +193,34 @@ export default function LinkAnalysis({
       {/* Stats Summary */}
       {linkStats && (
         <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-          <div className="p-4 rounded-lg border border-zinc-800 bg-zinc-800/50">
-            <div className="text-3xl font-bold text-white">{linkStats.totalLinks}</div>
-            <div className="text-sm text-zinc-400 uppercase">Total Links</div>
+          <div className="p-4 rounded-lg border border-(--nd-border) bg-white">
+            <div className="text-3xl font-bold text-(--nd-text-primary)">{linkStats.totalLinks}</div>
+            <div className="text-sm text-(--nd-text-muted) uppercase">Total Links</div>
           </div>
-          <div className="p-4 rounded-lg border border-zinc-800 bg-zinc-800/50">
-            <div className="text-3xl font-bold text-white">{linkStats.internalLinks}</div>
-            <div className="text-sm text-zinc-400 uppercase">Internal</div>
+          <div className="p-4 rounded-lg border border-(--nd-border) bg-white">
+            <div className="text-3xl font-bold text-(--nd-text-primary)">{linkStats.internalLinks}</div>
+            <div className="text-sm text-(--nd-text-muted) uppercase">Internal</div>
           </div>
-          <div className="p-4 rounded-lg border border-zinc-800 bg-zinc-800/50">
-            <div className="text-3xl font-bold text-white">{linkStats.externalLinks}</div>
-            <div className="text-sm text-zinc-400 uppercase">External</div>
+          <div className="p-4 rounded-lg border border-(--nd-border) bg-white">
+            <div className="text-3xl font-bold text-(--nd-text-primary)">{linkStats.externalLinks}</div>
+            <div className="text-sm text-(--nd-text-muted) uppercase">External</div>
           </div>
-          <div className="p-4 rounded-lg border border-zinc-800 bg-zinc-800/50">
-            <div className="text-3xl font-bold text-white">
+          <div className="p-4 rounded-lg border border-(--nd-border) bg-white">
+            <div className="text-3xl font-bold text-(--nd-text-primary)">
               {pageStats.reduce((sum, page) => sum + (page.uniqueInlinks || 0), 0)}
             </div>
-            <div className="text-sm text-zinc-400 uppercase">Unique Inlinks</div>
+            <div className="text-sm text-(--nd-text-muted) uppercase">Unique Inlinks</div>
           </div>
-          <div className="p-4 rounded-lg border border-zinc-800 bg-zinc-800/50">
-            <div className="text-3xl font-bold text-white">
+          <div className="p-4 rounded-lg border border-(--nd-border) bg-white">
+            <div className="text-3xl font-bold text-(--nd-text-primary)">
               {pageStats.reduce((sum, page) => sum + (page.uniqueJsInlinks || 0), 0)}
             </div>
-            <div className="text-sm text-zinc-400 uppercase">Unique JS Inlinks</div>
+            <div className="text-sm text-(--nd-text-muted) uppercase">Unique JS Inlinks</div>
           </div>
           {linkStats.linksByPosition && linkStats.linksByPosition['Main'] !== undefined && (
-            <div className="p-4 rounded-lg border border-zinc-800 bg-zinc-800/50">
-              <div className="text-3xl font-bold text-white">{linkStats.linksByPosition['Main']}</div>
-              <div className="text-sm text-zinc-400 uppercase">Main</div>
+            <div className="p-4 rounded-lg border border-(--nd-border) bg-white">
+              <div className="text-3xl font-bold text-(--nd-text-primary)">{linkStats.linksByPosition['Main']}</div>
+              <div className="text-sm text-(--nd-text-muted) uppercase">Main</div>
             </div>
           )}
         </div>
@@ -229,62 +229,62 @@ export default function LinkAnalysis({
       {/* Main Content Area with Sidebar and Links Table */}
       <div className="flex gap-4 flex-1 min-h-0">
         {/* Sidebar - Page Selector */}
-        <div className="w-80 shrink-0 rounded-lg border border-zinc-800 bg-zinc-800/50 overflow-hidden flex flex-col max-h-[calc(100vh-20rem)]">
-          <div className="p-4 border-b border-zinc-800">
-            <h3 className="text-lg font-semibold text-white">Select Page</h3>
+        <div className="w-80 shrink-0 rounded-lg border border-(--nd-border) bg-white overflow-hidden flex flex-col max-h-[calc(100vh-20rem)]">
+          <div className="p-4 border-b border-(--nd-border)">
+            <h3 className="text-lg font-semibold text-(--nd-text-primary)">Select Page</h3>
           </div>
           <div className="flex-1 overflow-y-auto">
             {pageStats.map((page) => (
               <button
                 key={page.pageId}
                 onClick={() => handlePageSelect(page.pageId)}
-                className={`w-full p-4 text-left border-b border-zinc-800/50 transition-colors hover:bg-zinc-800 cursor-pointer ${
-                  selectedPageId === page.pageId ? 'bg-zinc-800' : ''
+                className={`w-full p-4 text-left border-b border-(--nd-border) transition-colors hover:bg-(--nd-bg) cursor-pointer ${
+                  selectedPageId === page.pageId ? 'bg-(--nd-bg)' : ''
                 }`}
               >
-                <div className="text-sm font-medium text-white mb-1 truncate">{page.title}</div>
-                <div className="text-xs text-blue-400 truncate">{page.url}</div>
+                <div className="text-sm font-medium text-(--nd-text-primary) mb-1 truncate">{page.title}</div>
+                <div className="text-xs text-blue-600 truncate">{page.url}</div>
               </button>
             ))}
           </div>
         </div>
 
         {/* Main Links Content */}
-        <div className="flex-1 rounded-lg border border-zinc-800 bg-zinc-800/50 overflow-hidden flex flex-col max-h-[calc(100vh-20rem)]">
+        <div className="flex-1 rounded-lg border border-(--nd-border) bg-white overflow-hidden flex flex-col max-h-[calc(100vh-20rem)]">
           {/* Controls */}
-          <div className="p-4 border-b border-zinc-800 flex items-center gap-3 flex-wrap">
+          <div className="p-4 border-b border-(--nd-border) flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2">
-              <label className="text-sm text-zinc-200 font-medium">Link Type:</label>
+              <label className="text-sm text-(--nd-text-secondary) font-medium">Link Type:</label>
               <div className="relative">
                 <select
                   value={linkType}
                   onChange={(e) => handleLinkTypeChange(e.target.value as 'out' | 'in')}
-                  className="px-3 py-2 pr-8 rounded-full bg-zinc-800/50 border border-zinc-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer appearance-none"
+                  className="px-3 py-2 pr-8 rounded-full bg-(--nd-bg) border border-(--nd-border) text-(--nd-text-primary) text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer appearance-none"
                 >
                   <option value="out">Outlinks</option>
                   <option value="in">Inlinks</option>
                 </select>
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                  <svg className="w-3 h-3 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3 h-3 text-(--nd-text-secondary)" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <label className="text-sm text-zinc-200 font-medium">Type:</label>
+              <label className="text-sm text-(--nd-text-secondary) font-medium">Type:</label>
               <div className="relative">
                 <select
                   value={internalFilter}
                   onChange={(e) => setInternalFilter(e.target.value)}
-                  className="px-3 py-2 pr-8 rounded-full bg-zinc-800/50 border border-zinc-800 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer appearance-none"
+                  className="px-3 py-2 pr-8 rounded-full bg-(--nd-bg) border border-(--nd-border) text-(--nd-text-primary) text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer appearance-none"
                 >
                   <option value="all">All</option>
                   <option value="internal">INTERNAL</option>
                   <option value="external">EXTERNAL</option>
                 </select>
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                  <svg className="w-3 h-3 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3 h-3 text-(--nd-text-secondary)" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </div>
@@ -295,7 +295,7 @@ export default function LinkAnalysis({
               placeholder="Search links..."
               value={linkSearchTerm}
               onChange={(e) => setLinkSearchTerm(e.target.value)}
-              className="flex-1 min-w-50 px-3 py-2 rounded-md bg-zinc-800/50 border border-zinc-800 text-white placeholder:text-zinc-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 min-w-50 px-3 py-2 rounded-md bg-(--nd-bg) border border-(--nd-border) text-(--nd-text-primary) placeholder:text-(--nd-text-muted) text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <button
               className="px-4 py-2 rounded-md bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium flex items-center gap-2 transition-colors cursor-pointer"
@@ -307,52 +307,52 @@ export default function LinkAnalysis({
 
           {/* Links Table */}
           {loadingLinks ? (
-            <div className="flex-1 flex items-center justify-center text-zinc-400">
+            <div className="flex-1 flex items-center justify-center text-(--nd-text-muted)">
               Loading links...
             </div>
           ) : selectedPageId && paginatedLinks.length > 0 ? (
             <>
               <div className="flex-1 overflow-auto">
                 <table className="w-full">
-                  <thead className="bg-gray-900 border-b border-zinc-700 sticky top-0 z-10">
+                  <thead className="bg-(--nd-bg) border-b border-(--nd-border) sticky top-0 z-10">
                     <tr>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-white whitespace-nowrap min-w-50">
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-(--nd-text-primary) whitespace-nowrap min-w-50">
                         Anchor Text
                       </th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-white whitespace-nowrap min-w-75">
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-(--nd-text-primary) whitespace-nowrap min-w-75">
                         {linkType === 'in' ? 'Source URL' : 'Target URL'}
                       </th>
-                      <th className="px-3 py-2 text-center text-xs font-semibold text-white whitespace-nowrap">
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-(--nd-text-primary) whitespace-nowrap">
                         Position
                       </th>
-                      <th className="px-3 py-2 text-center text-xs font-semibold text-white whitespace-nowrap">
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-(--nd-text-primary) whitespace-nowrap">
                         Type
                       </th>
-                      <th className="px-3 py-2 text-center text-xs font-semibold text-white whitespace-nowrap">
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-(--nd-text-primary) whitespace-nowrap">
                         Outlinks
                       </th>
-                      <th className="px-3 py-2 text-center text-xs font-semibold text-white whitespace-nowrap">
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-(--nd-text-primary) whitespace-nowrap">
                         Inlinks
                       </th>
-                      <th className="px-3 py-2 text-center text-xs font-semibold text-white whitespace-nowrap">
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-(--nd-text-primary) whitespace-nowrap">
                         Unique Inlinks
                       </th>
-                      <th className="px-3 py-2 text-center text-xs font-semibold text-white whitespace-nowrap">
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-(--nd-text-primary) whitespace-nowrap">
                         JS Inlinks
                       </th>
-                      <th className="px-3 py-2 text-center text-xs font-semibold text-white whitespace-nowrap">
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-(--nd-text-primary) whitespace-nowrap">
                         % Total
                       </th>
-                      <th className="px-3 py-2 text-center text-xs font-semibold text-white whitespace-nowrap">
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-(--nd-text-primary) whitespace-nowrap">
                         External Out
                       </th>
-                      <th className="px-3 py-2 text-center text-xs font-semibold text-white whitespace-nowrap">
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-(--nd-text-primary) whitespace-nowrap">
                         Internal Out
                       </th>
-                      <th className="px-3 py-2 text-center text-xs font-semibold text-white whitespace-nowrap">
+                      <th className="px-3 py-2 text-center text-xs font-semibold text-(--nd-text-primary) whitespace-nowrap">
                         Link Score
                       </th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-white whitespace-nowrap min-w-75">
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-(--nd-text-primary) whitespace-nowrap min-w-75">
                         XPath
                       </th>
                     </tr>
@@ -361,17 +361,17 @@ export default function LinkAnalysis({
                     {paginatedLinks.map((link) => (
                       <tr
                         key={link.id}
-                        className="border-t border-zinc-800/50 hover:bg-zinc-800/50 transition-colors"
+                        className="border-t border-(--nd-border) hover:bg-(--nd-bg) transition-colors"
                       >
-                        <td className="px-3 py-2 text-zinc-200 text-sm whitespace-normal overflow-wrap-break-word">
-                          {link.anchorText || <span className="text-zinc-500">(empty)</span>}
+                        <td className="px-3 py-2 text-(--nd-text-primary) text-sm whitespace-normal overflow-wrap-break-word">
+                          {link.anchorText || <span className="text-(--nd-text-muted)">(empty)</span>}
                         </td>
                         <td className="px-3 py-2 whitespace-normal overflow-wrap-break-word">
                           <a
                             href={linkType === 'in' ? link.sourceUrl : link.targetUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-sm text-blue-400 hover:text-blue-300 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                            className="text-sm text-blue-600 hover:text-blue-700 hover:underline inline-flex items-center gap-1 cursor-pointer"
                           >
                             {linkType === 'in' ? link.sourceUrl : link.targetUrl}
                             <ExternalLink className="w-3 h-3 shrink-0" />
@@ -387,8 +387,8 @@ export default function LinkAnalysis({
                             variant={link.isInternal ? 'default' : 'secondary'} 
                             className={`text-xs ${
                               link.isInternal 
-                                ? 'bg-green-500/20 text-green-400 border-green-500/30' 
-                                : 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+                                ? 'bg-green-50 text-green-700 border-green-200' 
+                                : 'bg-blue-50 text-blue-700 border-blue-200'
                             }`}
                           >
                             {link.isInternal ? 'INTERNAL' : 'EXTERNAL'}
@@ -434,7 +434,7 @@ export default function LinkAnalysis({
                             {selectedPage?.linkScore ? selectedPage.linkScore.toFixed(1) : '-'}
                           </span>
                         </td>
-                        <td className="px-3 py-2 text-xs text-zinc-500 font-mono whitespace-normal overflow-wrap-break-word">
+                        <td className="px-3 py-2 text-xs text-(--nd-text-muted) font-mono whitespace-normal overflow-wrap-break-word">
                           {link.xpath || '-'}
                         </td>
                       </tr>
@@ -445,15 +445,15 @@ export default function LinkAnalysis({
               
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="p-4 border-t border-zinc-800 flex items-center justify-between">
-                  <div className="text-sm text-zinc-400">
+                <div className="p-4 border-t border-(--nd-border) flex items-center justify-between">
+                  <div className="text-sm text-(--nd-text-muted)">
                     Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredLinks.length)} of {filteredLinks.length} results
                   </div>
                   <div className="flex gap-2">
                     <button
                       onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                       disabled={currentPage === 1}
-                      className="px-3 py-1.5 rounded-md bg-zinc-800/50 border border-zinc-700 text-white hover:bg-zinc-800 disabled:opacity-50 text-sm cursor-pointer"
+                      className="px-3 py-1.5 rounded-md bg-white border border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) disabled:opacity-50 text-sm cursor-pointer"
                     >
                       Previous
                     </button>
@@ -474,10 +474,10 @@ export default function LinkAnalysis({
                           <button
                             key={pageNum}
                             onClick={() => setCurrentPage(pageNum)}
-                            className={`px-3 py-1.5 rounded-md text-sm cursor-pointer ${
+                            className={`px-3 py-1.5 rounded-md text-sm cursor-pointer border ${
                               currentPage === pageNum
-                                ? 'bg-white text-black'
-                                : 'bg-zinc-800/50 border border-zinc-700 text-white hover:bg-zinc-800'
+                                ? 'bg-(--nd-purple) text-white border-(--nd-purple)'
+                                : 'bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg)'
                             }`}
                           >
                             {pageNum}
@@ -488,7 +488,7 @@ export default function LinkAnalysis({
                     <button
                       onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                       disabled={currentPage === totalPages}
-                      className="px-3 py-1.5 rounded-md bg-zinc-800/50 border border-zinc-700 text-white hover:bg-zinc-800 disabled:opacity-50 text-sm cursor-pointer"
+                      className="px-3 py-1.5 rounded-md bg-white border border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) disabled:opacity-50 text-sm cursor-pointer"
                     >
                       Next
                     </button>
@@ -497,7 +497,7 @@ export default function LinkAnalysis({
               )}
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-zinc-400">
+            <div className="flex-1 flex items-center justify-center text-(--nd-text-muted)">
               {!selectedPageId ? 'Select a page to view links' : 'No links found'}
             </div>
           )}

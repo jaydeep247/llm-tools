@@ -222,15 +222,15 @@ export default function BrokenLinkChecker({
 
   return (
     <div className="h-full w-full space-y-6">
-      <div className="rounded-2xl border border-zinc-800 bg-linear-to-br from-zinc-900/70 via-zinc-900/50 to-zinc-950/80 p-5 sm:p-6">
+      <div className="rounded-2xl border border-(--nd-border) bg-white p-5 sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-3">
             <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-2.5">
               <LinkIcon className="h-5 w-5 text-sky-300" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-zinc-100">URL Explorer</h2>
-              <p className="text-sm text-zinc-400">
+              <h2 className="text-lg font-semibold text-(--nd-text-primary)">URL Explorer</h2>
+              <p className="text-sm text-(--nd-text-muted)">
                 Audit discovered links, isolate failures by type, and inspect root causes quickly.
               </p>
             </div>
@@ -271,7 +271,7 @@ export default function BrokenLinkChecker({
               </Badge>
             )}
             {checkResults?.totalChecked !== undefined && (
-              <Badge variant="outline" className="border-zinc-700 text-zinc-300">
+              <Badge variant="outline" className="border-(--nd-border) text-(--nd-text-secondary)">
                 Checked {checkResults.totalChecked}
               </Badge>
             )}
@@ -281,7 +281,7 @@ export default function BrokenLinkChecker({
 
       {!hasResults ? (
         <AnalysisEmptyState
-          icon={<LinkIcon className="h-8 w-8 text-zinc-400" />}
+          icon={<LinkIcon className="h-8 w-8 text-(--nd-text-muted)" />}
           title="No URL Explorer Data"
           description="Run a link check to analyze internal and external URLs, identify failures, and inspect source pages."
           onRunAnalysis={handleCheckLinks}
@@ -298,7 +298,7 @@ export default function BrokenLinkChecker({
                   key={key}
                   onClick={() => toggleCategory(key)}
                   className={`rounded-2xl border p-4 text-left transition-all ${
-                    isSelected ? active : 'border-zinc-800 bg-zinc-900/40 text-zinc-500 hover:border-zinc-700'
+                    isSelected ? active : 'border-(--nd-border) bg-(--nd-bg) text-(--nd-text-muted) hover:border-(--nd-border)'
                   }`}
                 >
                   <div className="mb-3 flex items-center justify-between">
@@ -311,27 +311,27 @@ export default function BrokenLinkChecker({
             })}
           </div>
 
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4 sm:p-5">
+          <div className="rounded-2xl border border-(--nd-border) bg-white p-4 sm:p-5">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex items-center gap-2 text-xs text-zinc-400">
+              <div className="flex items-center gap-2 text-xs text-(--nd-text-muted)">
                 <span>{sortedLinks.length} visible result{sortedLinks.length === 1 ? '' : 's'}</span>
-                <span className="text-zinc-600">•</span>
+                <span className="text-(--nd-text-muted)">•</span>
                 <span>Sorted by {sortField}</span>
               </div>
 
               <div className="relative w-full lg:w-96">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-(--nd-text-muted)" />
                 <Input
                   type="text"
                   placeholder="Search by URL, source, or error"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="h-10 rounded-xl border-zinc-800 bg-zinc-950/40 pl-10 text-zinc-100 placeholder:text-zinc-500"
+                  className="h-10 rounded-xl border-(--nd-border) bg-(--nd-bg) pl-10 text-(--nd-text-primary) placeholder:text-(--nd-text-muted)"
                 />
                 {searchTerm && (
                   <button
                     onClick={() => setSearchTerm('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 transition-colors hover:text-zinc-300"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-(--nd-text-muted) transition-colors hover:text-(--nd-text-secondary)"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -341,15 +341,15 @@ export default function BrokenLinkChecker({
           </div>
 
           {sortedLinks.length > 0 ? (
-            <div className="overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/40">
+            <div className="overflow-hidden rounded-2xl border border-(--nd-border) bg-white">
               <div className="max-h-125 overflow-auto">
                 <table className="w-full min-w-230">
-                  <thead className="sticky top-0 z-10 bg-zinc-900/90 backdrop-blur">
-                    <tr className="border-b border-zinc-800">
+                  <thead className="sticky top-0 z-10 bg-white">
+                    <tr className="border-b border-(--nd-border)">
                       <th className="w-8 px-4 py-3" />
                       <th className="px-4 py-3 text-left">
                         <button
-                          className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-400 hover:text-zinc-100"
+                          className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-(--nd-text-muted) hover:text-(--nd-text-primary)"
                           onClick={() => handleSort('url')}
                         >
                           Broken Link
@@ -359,7 +359,7 @@ export default function BrokenLinkChecker({
                       </th>
                       <th className="px-4 py-3 text-left">
                         <button
-                          className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-400 hover:text-zinc-100"
+                          className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-(--nd-text-muted) hover:text-(--nd-text-primary)"
                           onClick={() => handleSort('sourceUrl')}
                         >
                           Source Page
@@ -369,7 +369,7 @@ export default function BrokenLinkChecker({
                       </th>
                       <th className="px-4 py-3 text-left">
                         <button
-                          className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-400 hover:text-zinc-100"
+                          className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-(--nd-text-muted) hover:text-(--nd-text-primary)"
                           onClick={() => handleSort('statusCode')}
                         >
                           Status
@@ -377,12 +377,12 @@ export default function BrokenLinkChecker({
                             (sortDirection === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />)}
                         </button>
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-(--nd-text-muted)">
                         Category
                       </th>
                       <th className="px-4 py-3 text-left">
                         <button
-                          className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-400 hover:text-zinc-100"
+                          className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-(--nd-text-muted) hover:text-(--nd-text-primary)"
                           onClick={() => handleSort('errorType')}
                         >
                           Error Type
@@ -398,11 +398,11 @@ export default function BrokenLinkChecker({
                       const isExpanded = expandedRows.has(rowKey)
 
                       return (
-                        <tr key={rowKey} className="border-t border-zinc-800/70 transition-colors hover:bg-zinc-800/35">
+                        <tr key={rowKey} className="border-t border-(--nd-border) transition-colors hover:bg-(--nd-bg)">
                           <td className="px-4 py-3 align-top">
                             <button
                               onClick={() => toggleRowExpansion(rowKey)}
-                              className="mt-0.5 text-zinc-500 transition-colors hover:text-zinc-100"
+                              className="mt-0.5 text-(--nd-text-muted) transition-colors hover:text-(--nd-text-primary)"
                             >
                               <ChevronRight className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                             </button>
@@ -437,16 +437,16 @@ export default function BrokenLinkChecker({
                                 <ExternalLink className="mt-0.5 h-3 w-3 shrink-0" />
                               </a>
                             ) : (
-                              <span className="text-sm text-zinc-500">-</span>
+                              <span className="text-sm text-(--nd-text-muted)">-</span>
                             )}
                           </td>
                           <td className="px-4 py-3 align-top">
-                            <Badge variant="outline" className="border-zinc-700 bg-zinc-900/70 text-zinc-200">
+                              <Badge variant="outline" className="border-(--nd-border) bg-white text-(--nd-text-secondary)">
                               {link.statusCode || link.errorType || 'Error'}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3 align-top text-sm text-zinc-300">{link.categoryLabel}</td>
-                          <td className="px-4 py-3 align-top text-sm text-zinc-300">
+                          <td className="px-4 py-3 align-top text-sm text-(--nd-text-secondary)">{link.categoryLabel}</td>
+                          <td className="px-4 py-3 align-top text-sm text-(--nd-text-secondary)">
                             {link.errorType || link.missingType || '-'}
                           </td>
                         </tr>
@@ -457,12 +457,12 @@ export default function BrokenLinkChecker({
               </div>
             </div>
           ) : (
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-10 text-center">
+            <div className="rounded-2xl border border-(--nd-border) bg-white p-10 text-center">
               <CheckCircle className="mx-auto mb-3 h-10 w-10 text-emerald-400" />
-              <p className="text-sm font-medium text-zinc-100">
+              <p className="text-sm font-medium text-(--nd-text-primary)">
                 {totalIssues > 0 ? 'No links match the current filters.' : 'No broken links found.'}
               </p>
-              <p className="mt-1 text-xs text-zinc-400">
+              <p className="mt-1 text-xs text-(--nd-text-muted)">
                 {totalIssues > 0 ? 'Try clearing search or re-enabling categories.' : 'Your latest scan shows all links are healthy.'}
               </p>
             </div>

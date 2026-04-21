@@ -16,21 +16,30 @@ export function PageLoader({ className, size = 'md' }: PageLoaderProps) {
     <div className={cn('flex items-center justify-center', className)}>
       <div
         className={cn(
-          'rounded-full border-zinc-700 border-t-zinc-300 animate-spin',
+          'rounded-full animate-spin',
           sizeMap[size]
         )}
+        style={{ borderColor: 'var(--nd-border, #E8E9EF)', borderTopColor: 'var(--nd-purple, #5347CE)' }}
       />
     </div>
   );
 }
 
 export function SkeletonRow({ className }: { className?: string }) {
-  return <div className={cn('h-4 rounded bg-zinc-800 animate-pulse', className)} />;
+  return (
+    <div
+      className={cn('h-4 rounded animate-pulse', className)}
+      style={{ background: 'var(--nd-border, #E8E9EF)' }}
+    />
+  );
 }
 
 export function SkeletonCard({ className }: { className?: string }) {
   return (
-    <div className={cn('rounded-xl border border-zinc-800 bg-zinc-900/50 p-5 space-y-3', className)}>
+    <div
+      className={cn('rounded-xl border p-5 space-y-3', className)}
+      style={{ background: 'var(--nd-card-bg, #FFFFFF)', borderColor: 'var(--nd-border, #E8E9EF)' }}
+    >
       <SkeletonRow className="w-1/3" />
       <SkeletonRow className="w-full" />
       <SkeletonRow className="w-2/3" />
@@ -48,21 +57,19 @@ export function SkeletonCard({ className }: { className?: string }) {
 export function StatCardSkeleton({ className }: { className?: string }) {
   return (
     <div
-      className={cn(
-        'rounded-2xl bg-[#111113] border border-zinc-800 p-5 space-y-4 animate-pulse',
-        className,
-      )}
+      className={cn('rounded-2xl border p-5 space-y-4 animate-pulse', className)}
+      style={{ background: 'var(--nd-card-bg, #FFFFFF)', borderColor: 'var(--nd-border, #E8E9EF)' }}
     >
       {/* icon row */}
       <div className="flex items-start justify-between">
-        <div className="w-10 h-10 rounded-xl bg-zinc-800" />
-        <div className="w-4 h-4 rounded bg-zinc-800" />
+        <div className="w-10 h-10 rounded-xl" style={{ background: 'var(--nd-border, #E8E9EF)' }} />
+        <div className="w-4 h-4 rounded" style={{ background: 'var(--nd-border, #E8E9EF)' }} />
       </div>
       {/* value */}
       <div className="space-y-2">
-        <div className="h-7 w-20 rounded bg-zinc-800" />
-        <div className="h-3 w-28 rounded bg-zinc-800/60" />
-        <div className="h-1.5 w-full rounded-full bg-zinc-800/60 mt-3" />
+        <div className="h-7 w-20 rounded" style={{ background: 'var(--nd-border, #E8E9EF)' }} />
+        <div className="h-3 w-28 rounded opacity-60" style={{ background: 'var(--nd-border, #E8E9EF)' }} />
+        <div className="h-1.5 w-full rounded-full opacity-60 mt-3" style={{ background: 'var(--nd-border, #E8E9EF)' }} />
       </div>
     </div>
   );
@@ -85,15 +92,13 @@ export function StatCardGridSkeleton({ count = 4, className }: { count?: number;
 export function SectionCardSkeleton({ rows = 3, className }: { rows?: number; className?: string }) {
   return (
     <div
-      className={cn(
-        'rounded-2xl border border-zinc-800 bg-[#111113] overflow-hidden animate-pulse',
-        className,
-      )}
+      className={cn('rounded-2xl border overflow-hidden animate-pulse', className)}
+      style={{ background: 'var(--nd-card-bg, #FFFFFF)', borderColor: 'var(--nd-border, #E8E9EF)' }}
     >
       {/* header */}
-      <div className="flex items-center justify-between px-5 py-3.5 border-b border-zinc-800/60">
-        <div className="h-4 w-32 bg-zinc-800 rounded" />
-        <div className="h-3 w-16 bg-zinc-800/60 rounded" />
+      <div className="flex items-center justify-between px-5 py-3.5 border-b" style={{ borderColor: 'var(--nd-border, #E8E9EF)' }}>
+        <div className="h-4 w-32 rounded" style={{ background: 'var(--nd-border, #E8E9EF)' }} />
+        <div className="h-3 w-16 rounded opacity-60" style={{ background: 'var(--nd-border, #E8E9EF)' }} />
       </div>
       {/* body */}
       <div className="p-5 space-y-3">
@@ -111,16 +116,14 @@ export function SectionCardSkeleton({ rows = 3, className }: { rows?: number; cl
 export function ProjectRowSkeleton({ className }: { className?: string }) {
   return (
     <div
-      className={cn(
-        'rounded-sm p-4 border border-white/10 bg-[#121212] animate-pulse flex items-center justify-between gap-4',
-        className,
-      )}
+      className={cn('rounded-xl p-4 border animate-pulse flex items-center justify-between gap-4', className)}
+      style={{ background: 'var(--nd-card-bg, #FFFFFF)', borderColor: 'var(--nd-border, #E8E9EF)' }}
     >
       <div className="space-y-2 flex-1">
-        <div className="h-4 w-40 bg-white/5 rounded" />
-        <div className="h-3 w-64 bg-white/5 rounded" />
+        <div className="h-4 w-40 rounded" style={{ background: 'var(--nd-border, #E8E9EF)' }} />
+        <div className="h-3 w-64 rounded" style={{ background: 'var(--nd-border, #E8E9EF)' }} />
       </div>
-      <div className="h-7 w-20 bg-white/5 rounded-sm shrink-0" />
+      <div className="h-7 w-20 rounded-lg shrink-0" style={{ background: 'var(--nd-border, #E8E9EF)' }} />
     </div>
   );
 }
@@ -132,8 +135,8 @@ export function ProjectsPageSkeleton({ className }: { className?: string }) {
   return (
     <div className={cn('space-y-4 animate-fade-in-hero', className)}>
       <div className="flex items-center justify-between">
-        <div className="h-8 w-32 bg-white/5 rounded animate-pulse" />
-        <div className="h-9 w-36 bg-white/5 rounded-sm animate-pulse" />
+        <div className="h-8 w-32 rounded animate-pulse" style={{ background: 'var(--nd-border, #E8E9EF)' }} />
+        <div className="h-9 w-36 rounded-lg animate-pulse" style={{ background: 'var(--nd-border, #E8E9EF)' }} />
       </div>
       <div className="flex flex-col gap-2">
         {[1, 2, 3].map((i) => <ProjectRowSkeleton key={i} />)}
@@ -194,7 +197,7 @@ export function TableRowSkeleton({ cols = 4, className }: { cols?: number; class
           key={i}
           className={cn(
             'h-3.5 rounded bg-zinc-800',
-            i === 0 ? 'flex-[2]' : 'flex-1',
+            i === 0 ? 'flex-2' : 'flex-1',
             i === cols - 1 && 'w-16 flex-none',
           )}
         />
@@ -206,7 +209,7 @@ export function TableRowSkeleton({ cols = 4, className }: { cols?: number; class
 /** A full-height centered loader used as a page-level fallback. */
 export function PageCenteredLoader({ className }: { className?: string }) {
   return (
-    <div className={cn('flex items-center justify-center h-full min-h-[400px]', className)}>
+    <div className={cn('flex items-center justify-center h-full min-h-100', className)}>
       <PageLoader size="lg" />
     </div>
   );

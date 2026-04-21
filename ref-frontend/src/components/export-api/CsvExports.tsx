@@ -128,27 +128,17 @@ export function CsvExports({ projectId }: { projectId?: string }) {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Data type */}
         <div className="space-y-1.5">
-          <Label className="text-[12px] text-zinc-400 flex items-center gap-1.5">
+          <Label className="text-[12px] flex items-center gap-1.5" style={{ color: 'var(--nd-text-secondary)' }}>
             <TableIcon className="h-3 w-3" />
             Data Type
           </Label>
-          <Select
-            value={dataType}
-            onValueChange={(v) => { setDataType(v); setError(null); setStatus('idle') }}
-            disabled={isBusy}
-          >
-            <SelectTrigger className="h-9 text-xs bg-zinc-800 border-zinc-700 text-white focus:ring-amber-500/40 focus:border-amber-500/40 rounded-xl">
+          <Select value={dataType} onValueChange={(v) => { setDataType(v); setError(null); setStatus('idle') }} disabled={isBusy}>
+            <SelectTrigger className="h-9 text-xs rounded-xl" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }}>
               <SelectValue placeholder="Select data type" />
             </SelectTrigger>
-            <SelectContent className="bg-zinc-900 border-zinc-700 text-white">
+            <SelectContent className="bg-white border border-[#E8E9EF] rounded-xl">
               {DATA_TYPES.map((d) => (
-                <SelectItem
-                  key={d.value}
-                  value={d.value}
-                  className="text-xs focus:bg-zinc-800 focus:text-white"
-                >
-                  {d.label}
-                </SelectItem>
+                <SelectItem key={d.value} value={d.value} className="text-xs cursor-pointer">{d.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -156,65 +146,53 @@ export function CsvExports({ projectId }: { projectId?: string }) {
 
         {/* Date from */}
         <div className="space-y-1.5">
-          <Label className="text-[12px] text-zinc-400 flex items-center gap-1.5">
+          <Label className="text-[12px] flex items-center gap-1.5" style={{ color: 'var(--nd-text-secondary)' }}>
             <CalendarRange className="h-3 w-3" />
             From
           </Label>
-          <Input
-            type="date"
-            value={fromDate}
-            max={toDate}
-            onChange={(e) => setFromDate(e.target.value)}
-            disabled={isBusy}
-            className="h-9 text-xs bg-zinc-800 border-zinc-700 text-white scheme-dark focus-visible:ring-amber-500/40 focus-visible:border-amber-500/40 rounded-xl"
+          <Input type="date" value={fromDate} max={toDate} onChange={(e) => setFromDate(e.target.value)} disabled={isBusy}
+            className="h-9 text-xs rounded-xl"
+            style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }}
           />
         </div>
 
         {/* Date to */}
         <div className="space-y-1.5">
-          <Label className="text-[12px] text-zinc-400 flex items-center gap-1.5">
+          <Label className="text-[12px] flex items-center gap-1.5" style={{ color: 'var(--nd-text-secondary)' }}>
             <CalendarRange className="h-3 w-3" />
             To
           </Label>
-          <Input
-            type="date"
-            value={toDate}
-            min={fromDate}
-            max={new Date().toISOString().split('T')[0]}
-            onChange={(e) => setToDate(e.target.value)}
-            disabled={isBusy}
-            className="h-9 text-xs bg-zinc-800 border-zinc-700 text-white scheme-dark focus-visible:ring-amber-500/40 focus-visible:border-amber-500/40 rounded-xl"
+          <Input type="date" value={toDate} min={fromDate} max={new Date().toISOString().split('T')[0]} onChange={(e) => setToDate(e.target.value)} disabled={isBusy}
+            className="h-9 text-xs rounded-xl"
+            style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }}
           />
         </div>
       </div>
 
       {/* Error banner */}
       {status === 'error' && error && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 space-y-1">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 space-y-1">
           <div className="flex items-start gap-2">
-            <AlertTriangle className="h-3.5 w-3.5 text-amber-400 mt-0.5 shrink-0" />
-            <p className="text-[12px] font-medium text-amber-300">{error.message}</p>
+            <AlertTriangle className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />
+            <p className="text-[12px] font-medium text-amber-700">{error.message}</p>
           </div>
-          {error.hint && (
-            <p className="text-[11px] text-amber-400/80 pl-5">{error.hint}</p>
-          )}
+          {error.hint && (<p className="text-[11px] text-amber-600 pl-5">{error.hint}</p>)}
         </div>
       )}
 
       {/* Info row */}
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-3">
-        <p className="text-[11px] text-zinc-500 leading-relaxed">
+      <div className="rounded-xl border px-4 py-3" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
+        <p className="text-[11px] leading-relaxed" style={{ color: 'var(--nd-text-secondary)' }}>
           Exported files include clean headers, a{' '}
-          <span className="text-zinc-300">timestamp</span> column, and a mandatory{' '}
-          <span className="text-zinc-300">domain identifier</span> column for multi-domain setups.
+          <span style={{ color: 'var(--nd-text-primary)' }}>timestamp</span> column, and a mandatory{' '}
+          <span style={{ color: 'var(--nd-text-primary)' }}>domain identifier</span> column for multi-domain setups.
         </p>
       </div>
 
       {/* Download button */}
-      <Button
-        onClick={handleDownload}
-        disabled={isBusy}
-        className="h-10 px-6 text-[13px] font-medium rounded-xl bg-zinc-800 text-white border border-zinc-700 hover:bg-amber-500 hover:text-black hover:border-amber-500 transition-all duration-200"
+      <Button onClick={handleDownload} disabled={isBusy}
+        className="h-10 px-6 text-[13px] font-medium rounded-xl text-white border-transparent transition-all duration-200 cursor-pointer"
+        style={{ background: 'var(--nd-purple)' }}
         variant="ghost"
       >
         {status === 'checking' ? (

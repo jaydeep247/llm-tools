@@ -73,11 +73,11 @@ const FEATURE_META: Record<string, { label: string; icon: React.ReactNode; color
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function rankBadgeClass(rank: number | null): string {
-  if (!rank) return 'bg-zinc-800 text-zinc-500 border-zinc-700'
+  if (!rank) return 'bg-zinc-100 text-zinc-500 border-zinc-300'
   if (rank <= 3)  return 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
   if (rank <= 10) return 'bg-blue-500/15 text-blue-400 border-blue-500/30'
   if (rank <= 20) return 'bg-amber-500/15 text-amber-400 border-amber-500/30'
-  return 'bg-zinc-800/80 text-zinc-400 border-zinc-700'
+  return 'bg-zinc-100 text-zinc-500 border-zinc-300'
 }
 
 function rankLabel(rank: number | null): string {
@@ -267,8 +267,8 @@ export function SerpAnalyzer({ jobId, sessionId }: SerpAnalyzerProps) {
   if (!jobId) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-        <Search className="w-10 h-10 text-zinc-700" />
-        <p className="text-sm text-zinc-500 max-w-xs">
+        <Search className="w-10 h-10 text-(--nd-text-muted)" />
+        <p className="text-sm text-(--nd-text-muted) max-w-xs">
           No crawl job found. Run a crawl first, then come back to analyze SERP rankings.
         </p>
       </div>
@@ -313,11 +313,11 @@ export function SerpAnalyzer({ jobId, sessionId }: SerpAnalyzerProps) {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <Search className="w-4 h-4 text-rose-400" />
+          <h2 className="text-lg font-bold text-(--nd-text-primary) flex items-center gap-2">
+            <Search className="w-4 h-4 text-rose-500" />
             SERP Analyzer
           </h2>
-          <p className="text-xs text-zinc-500 mt-0.5">
+          <p className="text-xs text-(--nd-text-muted) mt-0.5">
             See where your keywords rank on Google and discover opportunities to climb higher.
           </p>
         </div>
@@ -327,7 +327,7 @@ export function SerpAnalyzer({ jobId, sessionId }: SerpAnalyzerProps) {
             disabled={!jobId || isAskingAI}
             className={cn(
               'inline-flex items-center gap-2 rounded-full border-0 px-5 py-2.5 text-sm font-extrabold uppercase tracking-wider text-black shadow-lg shadow-fuchsia-950/30',
-              'bg-gradient-to-r from-purple-500 via-pink-500 to-amber-300 hover:opacity-95',
+              'bg-linear-to-r from-purple-500 via-pink-500 to-amber-300 hover:opacity-95',
               'cursor-pointer disabled:cursor-not-allowed disabled:opacity-50',
             )}
           >
@@ -338,7 +338,7 @@ export function SerpAnalyzer({ jobId, sessionId }: SerpAnalyzerProps) {
             <button
               onClick={() => refetchSession()}
               disabled={isFetchingSession || isJobRunning}
-              className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white border border-zinc-700 hover:border-zinc-500 rounded-lg px-3 py-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 text-xs text-(--nd-text-secondary) hover:text-(--nd-text-primary) border border-(--nd-border) hover:border-(--nd-text-secondary) rounded-lg px-3 py-1.5 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <RefreshCw className={cn('w-3 h-3', isFetchingSession && 'animate-spin')} />
               Refresh
@@ -356,11 +356,11 @@ export function SerpAnalyzer({ jobId, sessionId }: SerpAnalyzerProps) {
 
       {/* Running banner */}
       {isJobRunning && (
-        <div className="flex items-center gap-3 rounded-2xl border border-blue-500/20 bg-blue-500/5 px-4 py-3">
-          <Loader2 className="w-4 h-4 text-blue-400 animate-spin shrink-0" />
+        <div className="flex items-center gap-3 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3">
+          <Loader2 className="w-4 h-4 text-blue-600 animate-spin shrink-0" />
           <div>
-            <p className="text-sm font-medium text-blue-300">Fetching SERP data…</p>
-            <p className="text-xs text-zinc-500 mt-0.5">This usually takes 15–30 seconds per keyword.</p>
+            <p className="text-sm font-medium text-blue-700">Fetching SERP data…</p>
+            <p className="text-xs text-(--nd-text-muted) mt-0.5">This usually takes 15–30 seconds per keyword.</p>
           </div>
         </div>
       )}
@@ -393,15 +393,15 @@ export function SerpAnalyzer({ jobId, sessionId }: SerpAnalyzerProps) {
       {/* Loading */}
       {isLoadingInitial && (
         <div className="flex flex-col items-center justify-center py-20 gap-4">
-          <Loader2 className="w-7 h-7 text-rose-400 animate-spin" />
-          <p className="text-sm text-zinc-500">Loading analysis data…</p>
+          <Loader2 className="w-7 h-7 text-rose-500 animate-spin" />
+          <p className="text-sm text-(--nd-text-muted)">Loading analysis data…</p>
         </div>
       )}
 
       {/* Empty state */}
       {!isLoadingInitial && !isJobRunning && !result && (
         <AnalysisEmptyState
-          icon={<Search className="w-8 h-8 text-zinc-400" />}
+          icon={<Search className="w-8 h-8 text-(--nd-text-muted)" />}
           title="No SERP Analysis Yet"
           description="Run an analysis to see where your keywords rank on Google and discover opportunities to improve."
           onRunAnalysis={() => setShowForm(true)}
@@ -415,7 +415,7 @@ export function SerpAnalyzer({ jobId, sessionId }: SerpAnalyzerProps) {
         <div className="space-y-6">
 
           {/* Meta strip */}
-          <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-(--nd-text-muted)">
             <span className="flex items-center gap-1">
               <Globe className="w-3.5 h-3.5" />
               {result.target_domain}
@@ -433,19 +433,19 @@ export function SerpAnalyzer({ jobId, sessionId }: SerpAnalyzerProps) {
 
           {/* Stat cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <StatCard label="Keywords Tracked" value={summary?.total_keywords ?? 0}        icon={<Search className="w-4 h-4" />}       color="text-zinc-300" />
+            <StatCard label="Keywords Tracked" value={summary?.total_keywords ?? 0}        icon={<Search className="w-4 h-4" />}       color="text-(--nd-text-secondary)" />
             <StatCard label="Ranking"           value={summary?.ranked_keywords ?? 0}       icon={<CheckCircle2 className="w-4 h-4" />} color="text-emerald-400" sub={summary?.total_keywords ? `of ${summary.total_keywords}` : undefined} />
             <StatCard label="Avg Position"      value={summary?.avg_rank != null ? `#${summary.avg_rank}` : '—'} icon={<TrendingUp className="w-4 h-4" />}   color="text-rose-400" />
             <StatCard label="Top 10"            value={summary?.top10 ?? 0}                 icon={<Target className="w-4 h-4" />}       color="text-blue-400" sub={summary?.top3 ? `${summary.top3} in top 3` : undefined} />
           </div>
 
           {/* Keyword rankings table */}
-          <div className="rounded-2xl border border-zinc-800 bg-[#111113] overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-zinc-800">
-              <h3 className="text-sm font-semibold text-zinc-200 flex items-center gap-2">
-                <Crown className="w-4 h-4 text-amber-400" />
+          <div className="rounded-2xl border border-(--nd-border) bg-white overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-(--nd-border)">
+              <h3 className="text-sm font-semibold text-(--nd-text-primary) flex items-center gap-2">
+                <Crown className="w-4 h-4 text-amber-500" />
                 Keyword Rankings
-                <span className="text-xs font-normal text-zinc-500">({allKw.length})</span>
+                <span className="text-xs font-normal text-(--nd-text-muted)">({allKw.length})</span>
               </h3>
               <div className="flex gap-1 flex-wrap">
                 {(
@@ -462,8 +462,8 @@ export function SerpAnalyzer({ jobId, sessionId }: SerpAnalyzerProps) {
                     className={cn(
                       'cursor-pointer text-xs px-2.5 py-1 rounded-md transition-colors',
                       filter === f.id
-                        ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                        : 'text-zinc-500 hover:text-zinc-300 border border-transparent hover:border-zinc-700'
+                        ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                        : 'text-(--nd-text-muted) hover:text-(--nd-text-secondary) border border-transparent hover:border-(--nd-border)'
                     )}
                   >
                     {f.label}
@@ -474,11 +474,11 @@ export function SerpAnalyzer({ jobId, sessionId }: SerpAnalyzerProps) {
 
             {filteredKw.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 gap-2">
-                <AlertTriangle className="w-8 h-8 text-zinc-700" />
-                <p className="text-sm text-zinc-500">No keywords match this filter.</p>
+                <AlertTriangle className="w-8 h-8 text-(--nd-text-muted)" />
+                <p className="text-sm text-(--nd-text-muted)">No keywords match this filter.</p>
               </div>
             ) : (
-              <div className="divide-y divide-zinc-800/60">
+              <div className="divide-y divide-(--nd-border)">
                 {filteredKw
                   .slice()
                   .sort((a, b) => (a.target_rank ?? 999) - (b.target_rank ?? 999))
@@ -534,7 +534,7 @@ function KeywordRow({
     <div>
       <button
         onClick={onToggle}
-        className="w-full text-left px-4 py-3 hover:bg-zinc-800/30 transition-colors cursor-pointer"
+        className="w-full text-left px-4 py-3 hover:bg-(--nd-bg) transition-colors cursor-pointer"
       >
         <div className="flex items-center gap-3 min-w-0">
 
@@ -547,12 +547,12 @@ function KeywordRow({
             {rankLabel(kw.target_rank)}
           </span>
 
-          <span className="flex-1 text-sm text-zinc-200 font-medium truncate min-w-0">
+          <span className="flex-1 text-sm text-(--nd-text-primary) font-medium truncate min-w-0">
             {kw.keyword}
           </span>
 
           {kw.target_url && (
-            <span className="hidden sm:block text-xs text-zinc-500 truncate max-w-48 lg:max-w-64 shrink-0">
+            <span className="hidden sm:block text-xs text-(--nd-text-muted) truncate max-w-48 lg:max-w-64 shrink-0">
               {kw.target_url.replace(/^https?:\/\//, '').slice(0, 60)}
             </span>
           )}
@@ -569,28 +569,28 @@ function KeywordRow({
             })}
           </div>
 
-          <span className="text-zinc-600 shrink-0">
+          <span className="text-(--nd-text-muted) shrink-0">
             {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
           </span>
         </div>
       </button>
 
       {isExpanded && (
-        <div className="px-4 pb-4 space-y-4 bg-zinc-900/30 border-t border-zinc-800/60">
+        <div className="px-4 pb-4 space-y-4 bg-(--nd-bg) border-t border-(--nd-border)">
 
           {(kw.target_url || kw.target_title) && (
             <div className="pt-3 space-y-1">
-              <p className="text-xs font-medium text-zinc-400 uppercase tracking-wide">Your Page</p>
-              {kw.target_title && <p className="text-sm text-zinc-200">{kw.target_title}</p>}
+              <p className="text-xs font-medium text-(--nd-text-secondary) uppercase tracking-wide">Your Page</p>
+              {kw.target_title && <p className="text-sm text-(--nd-text-primary)">{kw.target_title}</p>}
               {kw.target_description && (
-                <p className="text-xs text-zinc-500 line-clamp-2">{kw.target_description}</p>
+                <p className="text-xs text-(--nd-text-muted) line-clamp-2">{kw.target_description}</p>
               )}
               {kw.target_url && (
                 <a
                   href={kw.target_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-0.5 text-xs text-blue-400 hover:underline"
+                  className="inline-flex items-center gap-0.5 text-xs text-blue-600 hover:underline"
                   onClick={(e) => e.stopPropagation()}
                 >
                   {kw.target_url.slice(0, 70)}
@@ -602,17 +602,17 @@ function KeywordRow({
 
           {competitorEntries.length > 0 && (
             <div className="space-y-1.5">
-              <p className="text-xs font-medium text-zinc-400 uppercase tracking-wide">Competitor Ranks</p>
+              <p className="text-xs font-medium text-(--nd-text-secondary) uppercase tracking-wide">Competitor Ranks</p>
               <div className="flex flex-wrap gap-2">
                 {competitorEntries
                   .sort(([, a], [, b]) => a - b)
                   .map(([domain, rank]) => (
                     <span
                       key={domain}
-                      className="flex items-center gap-1.5 bg-zinc-800/70 border border-zinc-700 rounded-lg px-2.5 py-1 text-xs"
+                      className="flex items-center gap-1.5 bg-(--nd-bg) border border-(--nd-border) rounded-lg px-2.5 py-1 text-xs"
                     >
-                      <Globe className="w-3 h-3 text-zinc-500" />
-                      <span className="text-zinc-300">{domain}</span>
+                      <Globe className="w-3 h-3 text-(--nd-text-muted)" />
+                      <span className="text-(--nd-text-secondary)">{domain}</span>
                       <span className={cn('font-bold', rankBadgeClass(rank).split(' ')[1])}>
                         #{rank}
                       </span>
@@ -624,19 +624,19 @@ function KeywordRow({
 
           {hasPaa && (
             <div className="space-y-1.5">
-              <p className="text-xs font-medium text-zinc-400 uppercase tracking-wide flex items-center gap-1.5">
-                <HelpCircle className="w-3.5 h-3.5 text-blue-400" />
+              <p className="text-xs font-medium text-(--nd-text-secondary) uppercase tracking-wide flex items-center gap-1.5">
+                <HelpCircle className="w-3.5 h-3.5 text-blue-500" />
                 People Also Ask ({kw.paa_questions.length})
               </p>
               <div className="space-y-1.5">
                 {kw.paa_questions.slice(0, 4).map((q, i) => (
-                  <div key={i} className="bg-zinc-800/50 border border-zinc-700/50 rounded-lg px-3 py-2 space-y-0.5">
-                    <p className="text-xs text-zinc-200">{q.question}</p>
-                    {q.answer && <p className="text-xs text-zinc-500 line-clamp-1">{q.answer}</p>}
+                  <div key={i} className="bg-(--nd-bg) border border-(--nd-border) rounded-lg px-3 py-2 space-y-0.5">
+                    <p className="text-xs text-(--nd-text-primary)">{q.question}</p>
+                    {q.answer && <p className="text-xs text-(--nd-text-muted) line-clamp-1">{q.answer}</p>}
                   </div>
                 ))}
                 {kw.paa_questions.length > 4 && (
-                  <p className="text-xs text-zinc-600">+{kw.paa_questions.length - 4} more questions</p>
+                  <p className="text-xs text-(--nd-text-muted)">+{kw.paa_questions.length - 4} more questions</p>
                 )}
               </div>
             </div>
@@ -644,7 +644,7 @@ function KeywordRow({
 
           {kw.organic_results.length > 0 && (
             <div className="space-y-1.5">
-              <p className="text-xs font-medium text-zinc-400 uppercase tracking-wide">Top Results on Google</p>
+              <p className="text-xs font-medium text-(--nd-text-secondary) uppercase tracking-wide">Top Results on Google</p>
               <div className="space-y-1">
                 {kw.organic_results.slice(0, 5).map((r) => (
                   <div key={r.url} className="flex items-start gap-2 text-xs">
@@ -652,8 +652,8 @@ function KeywordRow({
                       #{r.rank_absolute}
                     </span>
                     <div className="min-w-0">
-                      <p className="text-zinc-300 truncate">{r.title || r.domain}</p>
-                      <p className="text-zinc-600 truncate">{r.domain}</p>
+                      <p className="text-(--nd-text-secondary) truncate">{r.title || r.domain}</p>
+                      <p className="text-(--nd-text-muted) truncate">{r.domain}</p>
                     </div>
                   </div>
                 ))}
@@ -673,30 +673,30 @@ function WhatToImprove({ gaps }: { gaps: ContentGap[] }) {
   const lowRanking = gaps.filter((g) => g.opportunity_type === 'low_ranking')
 
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-[#111113] overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800">
-        <Lightbulb className="w-4 h-4 text-amber-400" />
-        <h3 className="text-sm font-semibold text-zinc-200">What to Improve</h3>
-        <span className="text-xs text-zinc-500 ml-0.5">({gaps.length} opportunities)</span>
+    <div className="rounded-2xl border border-(--nd-border) bg-white overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-(--nd-border)">
+        <Lightbulb className="w-4 h-4 text-amber-500" />
+        <h3 className="text-sm font-semibold text-(--nd-text-primary)">What to Improve</h3>
+        <span className="text-xs text-(--nd-text-muted) ml-0.5">({gaps.length} opportunities)</span>
       </div>
 
-      <div className="divide-y divide-zinc-800/60">
+      <div className="divide-y divide-(--nd-border)">
         {notRanking.map((gap) => (
           <div key={gap.keyword} className="px-4 py-3 flex items-start gap-3">
-            <span className="shrink-0 mt-0.5 w-5 h-5 rounded-full bg-rose-500/15 border border-rose-500/30 flex items-center justify-center">
-              <XCircle className="w-3 h-3 text-rose-400" />
+            <span className="shrink-0 mt-0.5 w-5 h-5 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center">
+              <XCircle className="w-3 h-3 text-rose-600" />
             </span>
             <div className="flex-1 min-w-0 space-y-0.5">
-              <p className="text-sm font-medium text-zinc-200">
-                <span className="text-rose-400">{gap.keyword}</span> — not ranking
+              <p className="text-sm font-medium text-(--nd-text-primary)">
+                <span className="text-rose-600">{gap.keyword}</span> — not ranking
               </p>
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-(--nd-text-muted)">
                 {gap.top_ranking_domain
                   ? `${gap.top_ranking_domain} is ranking #1. Create a dedicated page for this topic.`
                   : 'Consider creating content targeting this keyword.'}
               </p>
               {gap.has_featured_snippet && (
-                <p className="text-xs text-amber-400 flex items-center gap-1 mt-1">
+                <p className="text-xs text-amber-600 flex items-center gap-1 mt-1">
                   <Crown className="w-3 h-3" />
                   A featured snippet exists — structured content could win it.
                 </p>
@@ -715,21 +715,21 @@ function WhatToImprove({ gaps }: { gaps: ContentGap[] }) {
           .sort((a, b) => (a.target_rank ?? 999) - (b.target_rank ?? 999))
           .map((gap) => (
             <div key={gap.keyword} className="px-4 py-3 flex items-start gap-3">
-              <span className="shrink-0 mt-0.5 w-5 h-5 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
-                <TrendingUp className="w-3 h-3 text-amber-400" />
+              <span className="shrink-0 mt-0.5 w-5 h-5 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center">
+                <TrendingUp className="w-3 h-3 text-amber-600" />
               </span>
               <div className="flex-1 min-w-0 space-y-0.5">
-                <p className="text-sm font-medium text-zinc-200">
-                  <span className="text-amber-400">{gap.keyword}</span>
-                  <span className="text-zinc-500 text-xs ml-1.5">position #{gap.target_rank}</span>
+                <p className="text-sm font-medium text-(--nd-text-primary)">
+                  <span className="text-amber-600">{gap.keyword}</span>
+                  <span className="text-(--nd-text-muted) text-xs ml-1.5">position #{gap.target_rank}</span>
                 </p>
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-(--nd-text-muted)">
                   {gap.top_ranking_domain
                     ? `${gap.top_ranking_domain} leads. Improve content depth, add internal links, and build backlinks.`
                     : "You're on page 2+. Strengthen your content to break into page 1."}
                 </p>
                 {gap.has_featured_snippet && (
-                  <p className="text-xs text-amber-400 flex items-center gap-1 mt-1">
+                  <p className="text-xs text-amber-600 flex items-center gap-1 mt-1">
                     <Crown className="w-3 h-3" />
                     Add a direct answer paragraph to target the featured snippet.
                   </p>
@@ -740,7 +740,7 @@ function WhatToImprove({ gaps }: { gaps: ContentGap[] }) {
                   href={gap.top_ranking_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="shrink-0 text-zinc-600 hover:text-blue-400 transition-colors"
+                  className="shrink-0 text-(--nd-text-muted) hover:text-blue-600 transition-colors"
                   title="View top result"
                 >
                   <ArrowUpRight className="w-3.5 h-3.5" />
@@ -769,11 +769,11 @@ function SerpFeaturesSummary({
   if (!entries.length) return null
 
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-[#111113] overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800">
-        <Zap className="w-4 h-4 text-violet-400" />
-        <h3 className="text-sm font-semibold text-zinc-200">SERP Features Detected</h3>
-        <span className="text-xs text-zinc-500 ml-0.5">across your keywords</span>
+    <div className="rounded-2xl border border-(--nd-border) bg-white overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-(--nd-border)">
+        <Zap className="w-4 h-4 text-violet-500" />
+        <h3 className="text-sm font-semibold text-(--nd-text-primary)">SERP Features Detected</h3>
+        <span className="text-xs text-(--nd-text-muted) ml-0.5">across your keywords</span>
       </div>
       <div className="p-4 flex flex-wrap gap-2">
         {entries.map(([ft, count]) => {
@@ -782,12 +782,12 @@ function SerpFeaturesSummary({
           return (
             <div
               key={ft}
-              className="flex items-center gap-2 bg-zinc-800/50 border border-zinc-700/50 rounded-xl px-3 py-2 text-xs"
+              className="flex items-center gap-2 bg-(--nd-bg) border border-(--nd-border) rounded-xl px-3 py-2 text-xs"
             >
-              <span className={meta?.color ?? 'text-zinc-400'}>{meta?.icon}</span>
-              <span className="text-zinc-300 font-medium">{meta?.label ?? ft}</span>
-              <span className="text-zinc-500">{count}×</span>
-              <span className="text-zinc-600">({pct}%)</span>
+              <span className={meta?.color ?? 'text-(--nd-text-muted)'}>{meta?.icon}</span>
+              <span className="text-(--nd-text-secondary) font-medium">{meta?.label ?? ft}</span>
+              <span className="text-(--nd-text-muted)">{count}×</span>
+              <span className="text-(--nd-text-muted)">({pct}%)</span>
             </div>
           )
         })}
@@ -833,23 +833,23 @@ function NewAnalysisForm({
   return createPortal(
     /* Backdrop */
     <div
-      className="fixed inset-0 z-9999 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+      className="fixed inset-0 z-9999 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}
     >
       {/* Modal panel */}
-      <div className="w-full max-w-lg rounded-2xl border border-zinc-800 bg-[#111113] shadow-2xl flex flex-col overflow-hidden">
+      <div className="w-full max-w-lg rounded-2xl border border-(--nd-border) bg-white shadow-2xl flex flex-col overflow-hidden">
 
         {/* Modal header */}
-        <div className="flex items-start justify-between gap-4 px-6 py-5 border-b border-zinc-800">
+        <div className="flex items-start justify-between gap-4 px-6 py-5 border-b border-(--nd-border)">
           <div>
-            <h3 className="text-base font-semibold text-white">New SERP Analysis</h3>
-            <p className="text-xs text-zinc-500 mt-0.5">
+            <h3 className="text-base font-semibold text-(--nd-text-primary)">New SERP Analysis</h3>
+            <p className="text-xs text-(--nd-text-muted) mt-0.5">
               Add keywords to track and optionally your competitors' domains.
             </p>
           </div>
           <button
             onClick={onCancel}
-            className="cursor-pointer shrink-0 text-zinc-500 hover:text-zinc-300 transition-colors mt-0.5"
+            className="cursor-pointer shrink-0 text-(--nd-text-muted) hover:text-(--nd-text-secondary) transition-colors mt-0.5"
           >
             <XCircle className="w-5 h-5" />
           </button>
@@ -860,10 +860,10 @@ function NewAnalysisForm({
 
           {/* Error */}
           {runError && (
-            <div className="flex items-start gap-3 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3">
-              <XCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-              <p className="text-sm text-red-300 flex-1">{runError}</p>
-              <button onClick={onClearError} className="cursor-pointer text-zinc-600 hover:text-zinc-400">
+            <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+              <XCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <p className="text-sm text-red-700 flex-1">{runError}</p>
+              <button onClick={onClearError} className="cursor-pointer text-(--nd-text-muted) hover:text-(--nd-text-secondary)">
                 <XCircle className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -871,8 +871,8 @@ function NewAnalysisForm({
 
           {/* Keywords */}
           <div className="space-y-2">
-            <label className="block text-xs font-medium text-zinc-400">
-              Keywords to track <span className="text-rose-400">*</span>
+            <label className="block text-xs font-medium text-(--nd-text-secondary)">
+              Keywords to track <span className="text-rose-500">*</span>
             </label>
             <div className="flex gap-2">
               <input
@@ -881,12 +881,12 @@ function NewAnalysisForm({
                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addKeyword())}
                 placeholder="e.g. best seo tools"
                 autoFocus
-                className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg text-sm text-white placeholder:text-zinc-600 px-3 py-2 focus:outline-none focus:border-rose-500/50 transition-colors"
+                className="flex-1 bg-white border border-(--nd-border) rounded-lg text-sm text-(--nd-text-primary) placeholder:text-(--nd-text-muted) px-3 py-2 focus:outline-none focus:border-rose-500/50 transition-colors"
               />
               <button
                 onClick={addKeyword}
                 disabled={!newKeyword.trim()}
-                className="cursor-pointer bg-zinc-700 hover:bg-zinc-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg px-4 py-2 text-sm transition-colors shrink-0"
+                className="cursor-pointer bg-(--nd-bg) hover:bg-(--nd-border) border border-(--nd-border) disabled:opacity-40 disabled:cursor-not-allowed text-(--nd-text-primary) rounded-lg px-4 py-2 text-sm transition-colors shrink-0"
               >
                 Add
               </button>
@@ -894,23 +894,23 @@ function NewAnalysisForm({
             {keywords.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
                 {keywords.map((kw) => (
-                  <span key={kw} className="flex items-center gap-1 bg-zinc-800 border border-zinc-700 text-zinc-300 text-xs rounded-full px-2.5 py-1">
+                  <span key={kw} className="flex items-center gap-1 bg-(--nd-bg) border border-(--nd-border) text-(--nd-text-secondary) text-xs rounded-full px-2.5 py-1">
                     {kw}
-                    <button onClick={() => removeKeyword(kw)} className="cursor-pointer text-zinc-500 hover:text-rose-400 transition-colors ml-0.5">
+                    <button onClick={() => removeKeyword(kw)} className="cursor-pointer text-(--nd-text-muted) hover:text-rose-500 transition-colors ml-0.5">
                       <Trash2 className="w-3 h-3" />
                     </button>
                   </span>
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-zinc-600">Press Enter or click Add after each keyword.</p>
+              <p className="text-xs text-(--nd-text-muted)">Press Enter or click Add after each keyword.</p>
             )}
           </div>
 
           {/* Competitors */}
           <div className="space-y-2">
-            <label className="block text-xs font-medium text-zinc-400">
-              Competitor domains <span className="text-zinc-600 font-normal">(optional)</span>
+            <label className="block text-xs font-medium text-(--nd-text-secondary)">
+              Competitor domains <span className="text-(--nd-text-muted) font-normal">(optional)</span>
             </label>
             <div className="flex gap-2">
               <input
@@ -918,12 +918,12 @@ function NewAnalysisForm({
                 onChange={(e) => setNewCompetitor(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCompetitor())}
                 placeholder="e.g. ahrefs.com"
-                className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg text-sm text-white placeholder:text-zinc-600 px-3 py-2 focus:outline-none focus:border-rose-500/50 transition-colors"
+                className="flex-1 bg-white border border-(--nd-border) rounded-lg text-sm text-(--nd-text-primary) placeholder:text-(--nd-text-muted) px-3 py-2 focus:outline-none focus:border-rose-500/50 transition-colors"
               />
               <button
                 onClick={addCompetitor}
                 disabled={!newCompetitor.trim()}
-                className="cursor-pointer bg-zinc-700 hover:bg-zinc-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg px-4 py-2 text-sm transition-colors shrink-0"
+                className="cursor-pointer bg-(--nd-bg) hover:bg-(--nd-border) border border-(--nd-border) disabled:opacity-40 disabled:cursor-not-allowed text-(--nd-text-primary) rounded-lg px-4 py-2 text-sm transition-colors shrink-0"
               >
                 Add
               </button>
@@ -931,9 +931,9 @@ function NewAnalysisForm({
             {competitors.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {competitors.map((c) => (
-                  <span key={c} className="flex items-center gap-1 bg-zinc-800 border border-zinc-700 text-zinc-300 text-xs rounded-full px-2.5 py-1">
+                  <span key={c} className="flex items-center gap-1 bg-(--nd-bg) border border-(--nd-border) text-(--nd-text-secondary) text-xs rounded-full px-2.5 py-1">
                     {c}
-                    <button onClick={() => removeCompetitor(c)} className="cursor-pointer text-zinc-500 hover:text-rose-400 transition-colors ml-0.5">
+                    <button onClick={() => removeCompetitor(c)} className="cursor-pointer text-(--nd-text-muted) hover:text-rose-500 transition-colors ml-0.5">
                       <Trash2 className="w-3 h-3" />
                     </button>
                   </span>
@@ -945,23 +945,23 @@ function NewAnalysisForm({
           {/* Location + Device — always side-by-side */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-zinc-400">Location</label>
+              <label className="block text-xs font-medium text-(--nd-text-secondary)">Location</label>
               <div className="relative">
                 <select
                   value={locationCode}
                   onChange={(e) => setLocationCode(Number(e.target.value))}
-                  className="cursor-pointer w-full appearance-none bg-zinc-900 border border-zinc-700 rounded-lg text-sm text-white pl-3 pr-8 py-2 focus:outline-none focus:border-rose-500/50 transition-colors"
+                  className="cursor-pointer w-full appearance-none bg-white border border-(--nd-border) rounded-lg text-sm text-(--nd-text-primary) pl-3 pr-8 py-2 focus:outline-none focus:border-rose-500/50 transition-colors"
                 >
                   {LOCATION_OPTIONS.map((o) => (
                     <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
                 </select>
-                <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
+                <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-(--nd-text-muted)" />
               </div>
             </div>
             <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-zinc-400">Device</label>
-              <div className="flex rounded-lg border border-zinc-700 overflow-hidden text-sm h-9.5">
+              <label className="block text-xs font-medium text-(--nd-text-secondary)">Device</label>
+              <div className="flex rounded-lg border border-(--nd-border) overflow-hidden text-sm h-9.5">
                 {(['desktop', 'mobile'] as const).map((d) => (
                   <button
                     key={d}
@@ -969,8 +969,8 @@ function NewAnalysisForm({
                     className={cn(
                       'cursor-pointer flex-1 capitalize transition-colors text-sm',
                       device === d
-                        ? 'bg-rose-500/20 text-rose-400'
-                        : 'bg-zinc-900 text-zinc-400 hover:text-white'
+                        ? 'bg-rose-500/20 text-rose-600'
+                        : 'bg-white text-(--nd-text-secondary) hover:text-(--nd-text-primary)'
                     )}
                   >
                     {d}
@@ -982,10 +982,10 @@ function NewAnalysisForm({
         </div>
 
         {/* Modal footer */}
-        <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-zinc-800 bg-zinc-900/50">
+        <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-(--nd-border) bg-(--nd-bg)">
           <button
             onClick={onCancel}
-            className="cursor-pointer text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
+            className="cursor-pointer text-sm text-(--nd-text-muted) hover:text-(--nd-text-secondary) transition-colors"
           >
             Cancel
           </button>
@@ -1018,11 +1018,11 @@ function StatCard({
   sub?: string
 }) {
   return (
-    <div className="bg-[#111113] border border-zinc-800 rounded-2xl p-4 space-y-1">
+    <div className="bg-white border border-(--nd-border) rounded-2xl p-4 space-y-1">
       <div className={cn('flex items-center gap-1.5', color)}>{icon}</div>
       <div className={cn('text-2xl font-bold', color)}>{value}</div>
-      <div className="text-[11px] text-zinc-500 leading-tight">{label}</div>
-      {sub && <div className="text-[10px] text-zinc-600">{sub}</div>}
+      <div className="text-[11px] text-(--nd-text-muted) leading-tight">{label}</div>
+      {sub && <div className="text-[10px] text-(--nd-text-muted)">{sub}</div>}
     </div>
   )
 }

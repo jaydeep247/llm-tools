@@ -42,11 +42,11 @@ const ALL_CATEGORIES: { id: CategoryFilter; label: string }[] = [
 
 // PDF spec model colour system
 const MODEL_COLORS: Record<string, string> = {
-  ChatGPT: 'bg-blue-500/15 text-blue-300 border border-blue-500/25',
-  Gemini: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/25',
-  Perplexity: 'bg-teal-500/15 text-teal-300 border border-teal-500/25',
-  Claude: 'bg-orange-500/15 text-orange-300 border border-orange-500/25',
-  Overall: 'bg-violet-500/15 text-violet-300 border border-violet-500/25',
+  ChatGPT: 'bg-blue-50 text-blue-700 border border-blue-200',
+  Gemini: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+  Perplexity: 'bg-teal-50 text-teal-700 border border-teal-200',
+  Claude: 'bg-orange-50 text-orange-700 border border-orange-200',
+  Overall: 'bg-violet-50 text-violet-700 border border-violet-200',
 }
 const MODEL_SOLID: Record<string, string> = {
   ChatGPT: 'bg-blue-500 text-white',
@@ -58,7 +58,7 @@ const MODEL_SOLID: Record<string, string> = {
 
 function modelColor(model: string, solid = false) {
   const base = solid ? MODEL_SOLID : MODEL_COLORS
-  return base[model] ?? (solid ? 'bg-zinc-500 text-white' : 'bg-zinc-700/50 text-zinc-300 border border-zinc-600/30')
+  return base[model] ?? (solid ? 'bg-zinc-500 text-white' : 'bg-zinc-100 text-zinc-600 border border-zinc-200')
 }
 
 function formatValue(value: number): string {
@@ -83,7 +83,7 @@ function SkeletonRows() {
   return (
     <div className="space-y-2 animate-pulse">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="h-14 rounded-xl bg-zinc-800/40" />
+        <div key={i} className="h-14 rounded-xl" style={{ background: 'var(--nd-border)' }} />
       ))}
     </div>
   )
@@ -113,12 +113,12 @@ function NoBaselineState({
 }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center gap-5">
-      <div className="w-14 h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center">
-        <Info className="h-7 w-7 text-amber-400" />
+      <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center">
+        <Info className="h-7 w-7 text-amber-600" />
       </div>
       <div className="space-y-2">
-        <h3 className="text-lg font-semibold text-white">No baseline yet</h3>
-        <p className="text-zinc-400 text-sm max-w-sm">
+        <h3 className="text-lg font-semibold" style={{ color: 'var(--nd-text-primary)' }}>No baseline yet</h3>
+        <p className="text-sm max-w-sm" style={{ color: 'var(--nd-text-secondary)' }}>
           {getNoBaselineCopy(reason)}
         </p>
       </div>
@@ -126,7 +126,7 @@ function NoBaselineState({
         <button
           onClick={onRun}
           disabled={isRunning}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500/15 border border-amber-500/25 text-amber-300 text-sm font-semibold hover:bg-amber-500/25 hover:border-amber-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-sm font-semibold hover:bg-amber-100 hover:border-amber-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isRunning ? (
             <><Loader2 className="h-4 w-4 animate-spin" />Queuing analysis…</>
@@ -136,7 +136,7 @@ function NoBaselineState({
         </button>
       )}
       {isRunning && (
-        <p className="text-zinc-500 text-xs">Analysis queued — refresh in a few minutes to see your first comparison.</p>
+        <p className="text-xs" style={{ color: 'var(--nd-text-muted)' }}>Analysis queued — refresh in a few minutes to see your first comparison.</p>
       )}
     </div>
   )
@@ -148,10 +148,10 @@ function NoBaselineState({
 function EmptyWins() {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
-      <div className="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center">
-        <Minus className="h-5 w-5 text-zinc-500" />
+      <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
+        <Minus className="h-5 w-5" style={{ color: 'var(--nd-text-muted)' }} />
       </div>
-      <p className="text-zinc-500 text-sm">No wins this period — take action on your losses below.</p>
+      <p className="text-sm" style={{ color: 'var(--nd-text-muted)' }}>No wins this period — take action on your losses below.</p>
     </div>
   )
 }
@@ -159,10 +159,10 @@ function EmptyWins() {
 function EmptyLosses() {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
-      <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-        <Trophy className="h-5 w-5 text-emerald-400" />
+      <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center">
+        <Trophy className="h-5 w-5 text-emerald-600" />
       </div>
-      <p className="text-zinc-400 text-sm">No losses this period. Maintain your current content and schema schedule.</p>
+      <p className="text-sm" style={{ color: 'var(--nd-text-secondary)' }}>No losses this period. Maintain your current content and schema schedule.</p>
     </div>
   )
 }
@@ -173,34 +173,34 @@ function EmptyLosses() {
 function FixChip({ fix, onNavigate }: { fix: WLFix; onNavigate?: (tab: string) => void }) {
   const [expanded, setExpanded] = useState(false)
   return (
-    <div className="mt-2 rounded-xl border border-rose-500/15 bg-rose-950/10 overflow-hidden">
+    <div className="mt-2 rounded-xl border border-rose-200 bg-rose-50 overflow-hidden">
       <button
         onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v) }}
-        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-rose-500/5 transition-colors"
+        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-rose-100 transition-colors"
       >
-        <span className="text-[11px] font-semibold text-rose-400 uppercase tracking-wide flex-1">
+        <span className="text-[11px] font-semibold text-rose-700 uppercase tracking-wide flex-1">
           Recommended Fix
         </span>
-        <ChevronDown className={cn('h-4 w-4 text-rose-400/60 transition-transform', expanded && 'rotate-180')} />
+        <ChevronDown className={cn('h-4 w-4 text-rose-500 transition-transform', expanded && 'rotate-180')} />
       </button>
       {expanded && (
         <div className="px-3 pb-3 space-y-2">
-          <p className="text-[13px] font-medium text-white">{fix.title}</p>
-          {fix.issue && <p className="text-[11px] text-zinc-400 leading-relaxed">{fix.issue}</p>}
+          <p className="text-[13px] font-medium" style={{ color: 'var(--nd-text-primary)' }}>{fix.title}</p>
+          {fix.issue && <p className="text-[11px] leading-relaxed" style={{ color: 'var(--nd-text-secondary)' }}>{fix.issue}</p>}
           <div className="flex items-center gap-2 flex-wrap">
             <span className={cn(
               'px-2 py-0.5 rounded-full text-[10px] font-bold uppercase',
-              fix.impact === 'HIGH' ? 'bg-rose-500/20 text-rose-300' :
-              fix.impact === 'MEDIUM' ? 'bg-amber-500/20 text-amber-300' :
-              'bg-zinc-700/60 text-zinc-400',
+              fix.impact === 'HIGH' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+              fix.impact === 'MEDIUM' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+              'bg-zinc-100 text-zinc-600 border border-zinc-200',
             )}>
               Impact: {fix.impact}
             </span>
             <span className={cn(
               'px-2 py-0.5 rounded-full text-[10px] font-bold uppercase',
-              fix.effort === 'LOW' ? 'bg-emerald-500/20 text-emerald-300' :
-              fix.effort === 'MEDIUM' ? 'bg-amber-500/20 text-amber-300' :
-              'bg-rose-500/20 text-rose-300',
+              fix.effort === 'LOW' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+              fix.effort === 'MEDIUM' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+              'bg-rose-50 text-rose-700 border border-rose-200',
             )}>
               Effort: {fix.effort}
             </span>
@@ -208,7 +208,7 @@ function FixChip({ fix, onNavigate }: { fix: WLFix; onNavigate?: (tab: string) =
           {onNavigate && fix.link && (
             <button
               onClick={(e) => { e.stopPropagation(); onNavigate(fix.link) }}
-              className="flex items-center gap-1 text-[12px] text-rose-400 hover:text-rose-300 transition-colors font-medium mt-1"
+              className="flex items-center gap-1 text-[12px] text-rose-700 hover:text-rose-900 transition-colors font-medium mt-1"
             >
               Go to fix location <ArrowRight className="h-3.5 w-3.5" />
             </button>
@@ -253,30 +253,31 @@ function WinRow({
       className={cn(
         'group rounded-xl border px-4 py-3 cursor-pointer transition-all duration-200',
         dimmed
-          ? 'border-zinc-800/30 bg-zinc-900/20 opacity-40'
-          : 'border-emerald-500/15 bg-emerald-950/10 hover:border-emerald-500/30 hover:bg-emerald-950/20',
+          ? 'opacity-40'
+          : 'border-emerald-200 bg-emerald-50 hover:border-emerald-300 hover:bg-emerald-100',
       )}
+      style={dimmed ? { border: '1px solid var(--nd-border)', background: 'var(--nd-bg)' } : undefined}
       onClick={handleClick}
       title={`This metric improved by ${row.delta > 0 ? '+' : ''}${formatValue(row.delta)} compared to the previous ${periodLabel}.`}
     >
       <div className="flex items-start gap-3">
-        <div className="mt-0.5 w-7 h-7 rounded-lg bg-emerald-500/15 flex items-center justify-center shrink-0">
-          <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
+        <div className="mt-0.5 w-7 h-7 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
+          <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            <span className="text-[13px] font-medium text-white leading-snug">{row.metric}</span>
+            <span className="text-[13px] font-medium leading-snug" style={{ color: 'var(--nd-text-primary)' }}>{row.metric}</span>
             <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-semibold', modelColor(row.model))}>
               {row.model}
             </span>
           </div>
-          <div className="flex items-center gap-2 text-[12px] text-zinc-400">
+          <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--nd-text-secondary)' }}>
             <span>{formatValue(row.prev)}</span>
-            <ChevronRight className="h-3 w-3 text-zinc-600" />
-            <span className="text-emerald-300 font-semibold">{formatValue(row.current)}</span>
+            <ChevronRight className="h-3 w-3" style={{ color: 'var(--nd-text-muted)' }} />
+            <span className="text-emerald-700 font-semibold">{formatValue(row.current)}</span>
           </div>
         </div>
-        <span className="shrink-0 px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[12px] font-bold">
+        <span className="shrink-0 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[12px] font-bold">
           +{formatValue(row.delta)}
         </span>
       </div>
@@ -304,44 +305,45 @@ function LossRow({
       className={cn(
         'rounded-xl border transition-all duration-200',
         dimmed
-          ? 'border-zinc-800/30 bg-zinc-900/20 opacity-40'
-          : 'border-rose-500/15 bg-rose-950/10 hover:border-rose-500/25 hover:bg-rose-950/15',
+          ? 'opacity-40'
+          : 'border-rose-200 bg-rose-50 hover:border-rose-300 hover:bg-rose-100',
       )}
+      style={dimmed ? { border: '1px solid var(--nd-border)', background: 'var(--nd-bg)' } : undefined}
     >
       <div
         className="px-4 py-3 cursor-pointer"
         onClick={() => setExpanded((v) => !v)}
       >
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 w-7 h-7 rounded-lg bg-rose-500/15 flex items-center justify-center shrink-0">
-            <TrendingDown className="h-3.5 w-3.5 text-rose-400" />
+          <div className="mt-0.5 w-7 h-7 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0">
+            <TrendingDown className="h-3.5 w-3.5 text-rose-600" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1">
-              <span className="text-[13px] font-medium text-white leading-snug">{row.metric}</span>
+              <span className="text-[13px] font-medium leading-snug" style={{ color: 'var(--nd-text-primary)' }}>{row.metric}</span>
               <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-semibold', modelColor(row.model))}>
                 {row.model}
               </span>
             </div>
-            <div className="flex items-center gap-2 text-[12px] text-zinc-400">
+            <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--nd-text-secondary)' }}>
               <span>{formatValue(row.prev)}</span>
-              <ChevronRight className="h-3 w-3 text-zinc-600" />
-              <span className="text-rose-300 font-semibold">{formatValue(row.current)}</span>
+              <ChevronRight className="h-3 w-3" style={{ color: 'var(--nd-text-muted)' }} />
+              <span className="text-rose-700 font-semibold">{formatValue(row.current)}</span>
             </div>
             {/* Collapsed fix preview */}
             {!expanded && row.fix && (
-              <div className="mt-2 inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-rose-500/10 border border-rose-500/15">
-                <span className="text-[10px] font-bold uppercase tracking-wide text-rose-400">Fix</span>
-                <span className="text-[11px] text-zinc-300 truncate max-w-[200px]">{row.fix.title}</span>
+              <div className="mt-2 inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-rose-50 border border-rose-200">
+                <span className="text-[10px] font-bold uppercase tracking-wide text-rose-700">Fix</span>
+                <span className="text-[11px] truncate max-w-50" style={{ color: 'var(--nd-text-secondary)' }}>{row.fix.title}</span>
               </div>
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <span className="px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-300 text-[12px] font-bold">
+            <span className="px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[12px] font-bold">
               {formatValue(row.delta)}
             </span>
             {row.fix && (
-              <ChevronDown className={cn('h-4 w-4 text-zinc-500 transition-transform', expanded && 'rotate-180')} />
+              <ChevronDown className={cn('h-4 w-4 transition-transform', expanded && 'rotate-180')} style={{ color: 'var(--nd-text-muted)' }} />
             )}
           </div>
         </div>
@@ -456,19 +458,18 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Wins &amp; Losses</h2>
-          <p className="text-zinc-400 text-sm mt-1">
+          <h2 className="nd-page-title">Wins &amp; Losses</h2>
+          <p className="text-sm mt-1" style={{ color: 'var(--nd-text-secondary)' }}>
             Track every metric that improved or declined since the previous period.
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          {/* Global period toggle — updates Redux store → all components refetch */}
           <DateRangeToggle />
-          {/* Manual refresh */}
           <button
             onClick={() => refetch()}
             disabled={loading}
-            className="p-2 rounded-xl border border-zinc-700/50 bg-zinc-900/60 text-zinc-400 hover:text-white hover:border-zinc-600 transition-colors disabled:opacity-50"
+            className="p-2 rounded-xl transition-colors disabled:opacity-50"
+            style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)', color: 'var(--nd-text-muted)' }}
             title="Refresh"
           >
             <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
@@ -478,11 +479,11 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
 
       {/* ── Period date context ──────────────────────────────────────────── */}
       {data?.prior_date && data?.current_date && (
-        <p className="text-[12px] text-zinc-500">
+        <p className="text-[12px]" style={{ color: 'var(--nd-text-muted)' }}>
           Comparing{' '}
-          <span className="text-zinc-400 font-medium">{data.prior_date.slice(0, 10)}</span>
+          <span className="font-medium" style={{ color: 'var(--nd-text-secondary)' }}>{data.prior_date.slice(0, 10)}</span>
           {' '}→{' '}
-          <span className="text-zinc-400 font-medium">{data.current_date.slice(0, 10)}</span>
+          <span className="font-medium" style={{ color: 'var(--nd-text-secondary)' }}>{data.current_date.slice(0, 10)}</span>
         </p>
       )}
 
@@ -490,7 +491,7 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
       {allModels.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] text-zinc-500 uppercase tracking-wide font-semibold mr-1">Model</span>
+            <span className="text-[11px] uppercase tracking-wide font-semibold mr-1" style={{ color: 'var(--nd-text-muted)' }}>Model</span>
             {allModels.map((model) => (
               <button
                 key={model}
@@ -509,11 +510,12 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
             ))}
           </div>
           {activeModel && (
-            <p className="text-[12px] text-zinc-500">
-              Showing <span className="text-zinc-300 font-medium">{activeModel}</span> data only. Click again to show all models.{' '}
+            <p className="text-[12px]" style={{ color: 'var(--nd-text-muted)' }}>
+              Showing <span className="font-medium" style={{ color: 'var(--nd-text-secondary)' }}>{activeModel}</span> data only. Click again to show all models.{' '}
               <button
                 onClick={() => setActiveModel(null)}
-                className="text-zinc-400 hover:text-white underline underline-offset-2 transition-colors"
+                className="underline underline-offset-2 transition-colors"
+                style={{ color: 'var(--nd-text-secondary)' }}
               >
                 Clear
               </button>
@@ -523,18 +525,17 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
       )}
 
       {/* ── Category pill tabs ───────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 flex-wrap border-b border-zinc-800/60 pb-4">
-        <Filter className="h-3.5 w-3.5 text-zinc-600 shrink-0" />
+      <div className="flex items-center gap-2 flex-wrap pb-4" style={{ borderBottom: '1px solid var(--nd-border)' }}>
+        <Filter className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--nd-text-muted)' }} />
         {ALL_CATEGORIES.map((cat) => (
           <button
             key={cat.id}
             onClick={() => setCategoryFilter(cat.id)}
-            className={cn(
-              'px-3.5 py-1.5 rounded-full text-[12px] font-semibold transition-all duration-200',
-              categoryFilter === cat.id
-                ? 'bg-white/10 text-white border border-white/15'
-                : 'text-zinc-500 border border-transparent hover:text-zinc-300 hover:border-zinc-700/50',
-            )}
+            className="px-3.5 py-1.5 rounded-full text-[12px] font-semibold transition-all duration-200"
+            style={categoryFilter === cat.id
+              ? { background: 'var(--nd-purple-subtle)', color: 'var(--nd-purple)', border: '1px solid var(--nd-purple)' }
+              : { color: 'var(--nd-text-muted)', border: '1px solid transparent' }
+            }
           >
             {cat.label}
           </button>
@@ -544,7 +545,7 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
       {/* ── Loading skeleton ─────────────────────────────────────────────── */}
       {loading && !data && (
         <div className="space-y-4">
-          <p className="text-zinc-500 text-sm text-center animate-pulse">Calculating your wins and losses...</p>
+          <p className="text-sm text-center animate-pulse" style={{ color: 'var(--nd-text-muted)' }}>Calculating your wins and losses...</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <SkeletonRows />
             <SkeletonRows />
@@ -555,11 +556,12 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
       {/* ── Error state ──────────────────────────────────────────────────── */}
       {isError && !loading && (
         <div className="flex flex-col items-center justify-center py-16 text-center gap-4">
-          <AlertTriangle className="h-8 w-8 text-rose-500/60" />
-          <p className="text-zinc-400 text-sm">We could not load wins &amp; losses data. Please retry.</p>
+          <AlertTriangle className="h-8 w-8 text-rose-500" />
+          <p className="text-sm" style={{ color: 'var(--nd-text-secondary)' }}>We could not load wins &amp; losses data. Please retry.</p>
           <button
             onClick={() => refetch()}
-            className="px-4 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-zinc-300 text-sm hover:bg-zinc-700 transition-colors"
+            className="px-4 py-2 rounded-xl text-sm transition-colors"
+            style={{ background: 'var(--nd-card-bg)', border: '1px solid var(--nd-border)', color: 'var(--nd-text-secondary)' }}
           >
             Retry
           </button>
@@ -578,19 +580,20 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
       {/* ── No movement at all ───────────────────────────────────────────── */}
       {!loading && data && data.has_baseline && data.wins.length === 0 && data.losses.length === 0 && !stableOnly && (
         <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-zinc-800 flex items-center justify-center">
-            <Minus className="h-7 w-7 text-zinc-500" />
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
+            <Minus className="h-7 w-7" style={{ color: 'var(--nd-text-muted)' }} />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-white mb-1">No movement detected this period</h3>
-            <p className="text-zinc-400 text-sm max-w-md">
+            <h3 className="text-lg font-semibold mb-1" style={{ color: 'var(--nd-text-primary)' }}>No movement detected this period</h3>
+            <p className="text-sm max-w-md" style={{ color: 'var(--nd-text-secondary)' }}>
               No movement detected this period. This means no data was collected. Ensure prompt tracking is active.
             </p>
           </div>
           {onNavigate && (
             <button
               onClick={() => onNavigate('keyword-intelligence')}
-              className="px-5 py-2.5 rounded-xl bg-white/10 border border-white/15 text-white text-sm font-semibold hover:bg-white/15 transition-all"
+              className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-all"
+              style={{ background: 'var(--nd-purple)', color: '#ffffff' }}
             >
               Set Up Prompt Tracking
             </button>
@@ -601,11 +604,11 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
       {/* ── Stable-only state (all metrics stable for current filter) ────── */}
       {!loading && stableOnly && (
         <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-zinc-800 flex items-center justify-center">
-            <Minus className="h-6 w-6 text-zinc-400" />
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'var(--nd-bg)', border: '1px solid var(--nd-border)' }}>
+            <Minus className="h-6 w-6" style={{ color: 'var(--nd-text-secondary)' }} />
           </div>
-          <h3 className="text-lg font-semibold text-white">All selected metrics are stable</h3>
-          <p className="text-zinc-400 text-sm max-w-xl">
+          <h3 className="text-lg font-semibold" style={{ color: 'var(--nd-text-primary)' }}>All selected metrics are stable</h3>
+          <p className="text-sm max-w-xl" style={{ color: 'var(--nd-text-secondary)' }}>
             {categoryFilter === 'Prompts'
               ? `Prompt visibility metrics are stable for the ${periodLabel} period.`
               : `No win/loss movement for the selected filters over the ${periodLabel} period.`}
@@ -619,11 +622,11 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
           {/* Wins column */}
           <div className="space-y-3">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-6 h-6 rounded-lg bg-emerald-500/15 flex items-center justify-center">
-                <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
+              <div className="w-6 h-6 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center">
+                <TrendingUp className="h-3.5 w-3.5 text-emerald-600" />
               </div>
-              <h3 className="text-sm font-semibold text-emerald-400 uppercase tracking-wide">Wins</h3>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[11px] font-bold">
+              <h3 className="text-sm font-semibold text-emerald-700 uppercase tracking-wide">Wins</h3>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold">
                 {filteredWins.length}
               </span>
             </div>
@@ -645,11 +648,11 @@ export default function WinsLossesPanel({ jobId, onNavigate }: WinsLossesPanelPr
           {/* Losses column */}
           <div className="space-y-3">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-6 h-6 rounded-lg bg-rose-500/15 flex items-center justify-center">
-                <TrendingDown className="h-3.5 w-3.5 text-rose-400" />
+              <div className="w-6 h-6 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-center">
+                <TrendingDown className="h-3.5 w-3.5 text-rose-600" />
               </div>
-              <h3 className="text-sm font-semibold text-rose-400 uppercase tracking-wide">Losses</h3>
-              <span className="px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 text-[11px] font-bold">
+              <h3 className="text-sm font-semibold text-rose-700 uppercase tracking-wide">Losses</h3>
+              <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[11px] font-bold">
                 {filteredLosses.length}
               </span>
             </div>

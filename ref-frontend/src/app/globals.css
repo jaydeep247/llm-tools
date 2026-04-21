@@ -1,6 +1,799 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 
 @custom-variant dark (&:is(.dark *));
+
+/* ── Font scale (global :root) ── */
+:root {
+  --font-xs:   11px;
+  --font-sm:   12px;
+  --font-base: 14px;
+  --font-md:   15px;
+  --font-lg:   18px;
+  --font-xl:   24px;
+  --font-2xl:  28px;
+  --font-3xl:  32px;
+
+  --font-weight-normal:   400;
+  --font-weight-medium:   500;
+  --font-weight-semibold: 600;
+
+  --lh-tight:   1.2;
+  --lh-normal:  1.5;
+  --lh-relaxed: 1.7;
+
+  --sidebar-width: 260px;
+  --sidebar-collapsed-width: 64px;
+  --nd-card-radius: 12px;
+}
+
+@media (max-width: 1280px) {
+  :root {
+    --font-xl:  22px;
+    --font-2xl: 24px;
+  }
+}
+@media (max-width: 1024px) {
+  :root {
+    --font-xl:  20px;
+    --font-2xl: 22px;
+    --font-base: 13px;
+  }
+}
+
+/* ── Global resets ── */
+*, *::before, *::after { box-sizing: border-box; }
+button { appearance: none; outline: none; font-family: inherit; }
+ul { list-style: none; margin: 0; padding: 0; }
+
+/* ── Global font — Inter everywhere ── */
+html,
+body,
+*,
+input,
+button,
+textarea,
+select {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.nexus-dashboard {
+  /* Force light color-scheme so native form controls (checkbox, input, select) render light */
+  color-scheme: light;
+
+  /* ── Override shadcn CSS vars to force light mode inside the dashboard ── */
+  --background:          #ffffff;
+  --foreground:          #1A1D2B;
+  --card:                #ffffff;
+  --card-foreground:     #1A1D2B;
+  --popover:             #ffffff;
+  --popover-foreground:  #1A1D2B;
+  --primary:             #5347CE;
+  --primary-foreground:  #ffffff;
+  --secondary:           #F8F8FC;
+  --secondary-foreground:#1A1D2B;
+  --muted:               #F8F8FC;
+  --muted-foreground:    #737890;
+  --accent:              #F8F8FC;
+  --accent-foreground:   #1A1D2B;
+  --destructive:         #EF4444;
+  --destructive-foreground: #ffffff;
+  --border:              #E8E9EF;
+  --input:               #E8E9EF;
+  --ring:                #5347CE;
+
+  /* Palette */
+  --nd-bg:           #F8F8FC;
+  --nd-sidebar-bg:   #FFFFFF;
+  --nd-card-bg:      #FFFFFF;
+  --nd-border:       #E8E9EF;
+  --nd-border-hover: #D0D2DC;
+
+  /* Text */
+  --nd-text-primary:   #1A1D2B;
+  --nd-text-secondary: #4A5068;
+  --nd-text-muted:     #737890;
+
+  /* Brand / Accent */
+  --nd-purple:         #5347CE;
+  --nd-purple-light:   #887CFD;
+  --nd-purple-subtle:  #EEEDFC;
+  --nd-blue:           #4896FE;
+  --nd-teal:           #16C8C7;
+
+  /* Sidebar nav active state */
+  --nd-nav-active-bg:   #EEEDFC;
+  --nd-nav-active-text: #5347CE;
+  --nd-nav-hover-bg:    #F5F5FA;
+  --nd-nav-inactive:    #545969;
+
+  /* Status — positive */
+  --nd-positive-bg:   #ECFDF5;
+  --nd-positive-text: #059669;
+
+  /* Status — negative */
+  --nd-negative-bg:   #FFF1F1;
+  --nd-negative-text: #EF4444;
+
+  /* Status — beta badge */
+  --nd-beta-bg:   #EEEDFC;
+  --nd-beta-text: #5347CE;
+
+  /* Chart — Sales Overview series */
+  --nd-chart-china:    #2D2694;
+  --nd-chart-ue:       #5347CE;
+  --nd-chart-usa:      #4896FE;
+  --nd-chart-canada:   #2DD4BF;
+  --nd-chart-other:    #67E8F9;
+  --nd-chart-flow-fill: rgba(221, 214, 254, 0.35);
+
+  /* Chart — Total Subscriber bars */
+  --nd-chart-bar-active-top:    #6D28D9;
+  --nd-chart-bar-active-bottom: #4F46E5;
+  --nd-chart-bar-inactive:      #DDD6FE;
+
+  /* Chart — Sales Distribution donut */
+  --nd-donut-website:    #5347CE;
+  --nd-donut-mobile:     #2DD4BF;
+  --nd-donut-other:      #E5E7EB;
+
+  /* Chart — Integration progress bars */
+  --nd-progress-fill-high: #1E3A8A;
+  --nd-progress-fill-mid:  #4896FE;
+  --nd-progress-track:     #E0E7EF;
+}
+
+/* ── Selection color (light theme override) ── */
+.nexus-dashboard ::selection {
+  background: var(--nd-purple-subtle);
+  color: var(--nd-text-primary);
+}
+.nexus-dashboard ::-moz-selection {
+  background: var(--nd-purple-subtle);
+  color: var(--nd-text-primary);
+}
+
+/* ── Dashboard page typography ── */
+.nexus-dashboard .nd-page-title {
+  font-size: var(--font-2xl);
+  font-weight: 700;
+  color: var(--nd-text-primary);
+  letter-spacing: -0.02em;
+  line-height: var(--lh-tight);
+  margin: 0;
+}
+.nexus-dashboard .nd-page-subtitle {
+  font-size: var(--font-base);
+  color: var(--nd-text-secondary);
+  margin: 6px 0 0;
+  line-height: var(--lh-normal);
+}
+.nexus-dashboard .nd-section-title {
+  font-size: var(--font-lg);
+  font-weight: 600;
+  color: var(--nd-text-primary);
+  margin: 0;
+}
+
+/* ── Dashboard cards ── */
+.nexus-dashboard .nd-card {
+  background: var(--nd-card-bg);
+  border: 1px solid var(--nd-border);
+  border-radius: var(--nd-card-radius);
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+.nexus-dashboard .nd-card:hover {
+  border-color: var(--nd-border-hover);
+}
+.nexus-dashboard .nd-card-clickable:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+/* ── Stat card ── */
+.nexus-dashboard .nd-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 22px 24px;
+}
+.nexus-dashboard .nd-stat-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.nexus-dashboard .nd-stat-value {
+  font-size: var(--font-2xl);
+  font-weight: 700;
+  color: var(--nd-text-primary);
+  line-height: 1;
+  margin: 0;
+}
+.nexus-dashboard .nd-stat-label {
+  font-size: var(--font-base);
+  color: var(--nd-text-secondary);
+  margin: 4px 0 0;
+}
+
+/* ── Project card ── */
+.nexus-dashboard .nd-project-card {
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.nexus-dashboard .nd-project-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-md);
+  font-weight: 600;
+  flex-shrink: 0;
+  color: #FFFFFF;
+}
+.nexus-dashboard .nd-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 99px;
+  line-height: 1.4;
+}
+.nexus-dashboard .nd-badge-active {
+  background: var(--nd-positive-bg);
+  color: var(--nd-positive-text);
+}
+.nexus-dashboard .nd-badge-inactive {
+  background: var(--nd-nav-hover-bg);
+  color: var(--nd-text-muted);
+}
+
+/* ── Quick action ── */
+.nexus-dashboard .nd-action-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px;
+  text-align: left;
+  cursor: pointer;
+}
+.nexus-dashboard .nd-action-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.nexus-dashboard .nd-action-title {
+  font-size: var(--font-md);
+  font-weight: 600;
+  color: var(--nd-text-primary);
+  margin: 0;
+}
+.nexus-dashboard .nd-action-desc {
+  font-size: var(--font-sm);
+  color: var(--nd-text-secondary);
+  margin: 3px 0 0;
+  line-height: var(--lh-normal);
+}
+
+/* ── Dashboard page layout ── */
+.nexus-dashboard .nd-dashboard-page {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+.nexus-dashboard .nd-stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+@media (max-width: 768px) {
+  .nexus-dashboard .nd-stats-row {
+    grid-template-columns: 1fr;
+  }
+}
+.nexus-dashboard .nd-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.nexus-dashboard .nd-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--font-base);
+  font-weight: 500;
+  color: var(--nd-purple);
+  background: none;
+  border: none;
+  padding: 0;
+  white-space: nowrap;
+}
+.nexus-dashboard .nd-link-btn:hover {
+  text-decoration: underline;
+}
+.nexus-dashboard .nd-project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}
+.nexus-dashboard .nd-project-name {
+  font-size: var(--font-md);
+  font-weight: 600;
+  color: var(--nd-text-primary);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nexus-dashboard .nd-project-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.nexus-dashboard .nd-meta-text {
+  font-size: var(--font-sm);
+  color: var(--nd-text-muted);
+  line-height: 1.4;
+}
+.nexus-dashboard .nd-project-arrow {
+  flex-shrink: 0;
+  color: var(--nd-text-muted);
+  align-self: center;
+}
+.nexus-dashboard .nd-menu-trigger {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--nd-text-muted);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.nexus-dashboard .nd-menu-trigger:hover {
+  background: var(--nd-nav-hover-bg);
+  color: var(--nd-text-primary);
+}
+/* Dropdown renders via portal outside .nexus-dashboard — use global selector */
+[data-slot="dropdown-menu-content"].nd-dropdown {
+  background: #FFFFFF !important;
+  border: 1px solid #E8E9EF !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
+  border-radius: 10px !important;
+  padding: 4px !important;
+  color: #1A1D2B !important;
+}
+[data-slot="dropdown-menu-item"].nd-dropdown-item {
+  font-size: 14px !important;
+  color: #1A1D2B !important;
+  border-radius: 6px !important;
+  padding: 8px 10px !important;
+  cursor: pointer !important;
+  gap: 10px !important;
+}
+[data-slot="dropdown-menu-item"].nd-dropdown-item:hover,
+[data-slot="dropdown-menu-item"].nd-dropdown-item:focus {
+  background: #F5F5FA !important;
+  color: #1A1D2B !important;
+}
+[data-slot="dropdown-menu-item"].nd-dropdown-item svg {
+  color: #6B7188 !important;
+}
+[data-slot="dropdown-menu-item"].nd-dropdown-item-danger {
+  color: #EF4444 !important;
+}
+[data-slot="dropdown-menu-item"].nd-dropdown-item-danger:hover,
+[data-slot="dropdown-menu-item"].nd-dropdown-item-danger:focus {
+  background: #FFF1F1 !important;
+  color: #EF4444 !important;
+}
+[data-slot="dropdown-menu-item"].nd-dropdown-item-danger svg {
+  color: #EF4444 !important;
+}
+
+/* ── Empty state ── */
+.nexus-dashboard .nd-empty-state {
+  padding: 48px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.nexus-dashboard .nd-empty-icon {
+  color: var(--nd-text-muted);
+  margin-bottom: 12px;
+}
+.nexus-dashboard .nd-empty-title {
+  font-size: var(--font-md);
+  font-weight: 600;
+  color: var(--nd-text-primary);
+  margin: 0 0 4px;
+}
+.nexus-dashboard .nd-empty-text {
+  font-size: var(--font-sm);
+  color: var(--nd-text-secondary);
+  margin: 0 0 20px;
+}
+.nexus-dashboard .nd-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  border-radius: 8px;
+  background: var(--nd-purple);
+  color: #FFFFFF;
+  font-size: var(--font-sm);
+  font-weight: 600;
+  border: none;
+  transition: opacity 150ms ease;
+}
+.nexus-dashboard .nd-btn-primary:hover {
+  opacity: 0.9;
+}
+
+/* ── Actions row ── */
+.nexus-dashboard .nd-actions-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+@media (max-width: 900px) {
+  .nexus-dashboard .nd-actions-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Projects page layout ── */
+.nexus-dashboard .nd-projects-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.nexus-dashboard .nd-projects-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── Project row card (list view) ── */
+.nexus-dashboard .nd-project-row {
+  padding: 0;
+  border-radius: var(--nd-card-radius);
+}
+.nexus-dashboard .nd-project-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px 14px;
+}
+.nexus-dashboard .nd-project-row-name {
+  font-size: var(--font-lg);
+  font-weight: 600;
+  color: var(--nd-text-primary);
+  margin: 0;
+}
+.nexus-dashboard .nd-project-row-desc {
+  font-size: var(--font-sm);
+  color: var(--nd-text-muted);
+  margin: 4px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nexus-dashboard .nd-project-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.nexus-dashboard .nd-project-row-divider {
+  height: 1px;
+  background: var(--nd-border);
+  margin: 0 20px;
+}
+.nexus-dashboard .nd-project-row-stats {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  padding: 14px 20px 18px;
+}
+.nexus-dashboard .nd-project-row-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.nexus-dashboard .nd-project-row-stat-label {
+  font-size: var(--font-xs);
+  font-weight: 500;
+  color: var(--nd-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.nexus-dashboard .nd-project-row-stat-value {
+  font-size: var(--font-base);
+  font-weight: 600;
+  color: var(--nd-text-primary);
+}
+
+/* ── Usage page ── */
+.nexus-dashboard .nd-page-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.nexus-dashboard .nd-usage-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--nd-border);
+}
+.nexus-dashboard .nd-usage-row:last-child {
+  border-bottom: none;
+}
+.nexus-dashboard .nd-usage-row-label {
+  font-size: var(--font-sm);
+  font-weight: 500;
+  color: var(--nd-text-secondary);
+  width: 7rem;
+  flex-shrink: 0;
+}
+.nexus-dashboard .nd-usage-row-value {
+  font-size: var(--font-sm);
+  font-weight: 500;
+  color: var(--nd-text-muted);
+  min-width: 3rem;
+  text-align: right;
+}
+.nexus-dashboard .nd-usage-row-pct {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--nd-text-primary);
+}
+
+/* ── Outline button ── */
+.nexus-dashboard .nd-btn-outline,
+.nd-dialog .nd-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  border-radius: 8px;
+  background: #FFFFFF;
+  color: #1A1D2B;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid #E8E9EF;
+  transition: background 150ms ease, border-color 150ms ease;
+  cursor: pointer;
+}
+.nexus-dashboard .nd-btn-outline:hover,
+.nd-dialog .nd-btn-outline:hover {
+  background: #F5F5FA;
+  border-color: #D0D2DC;
+}
+
+/* ── Danger button ── */
+.nexus-dashboard .nd-btn-danger,
+.nd-dialog .nd-btn-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  border-radius: 8px;
+  background: #EF4444;
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  transition: opacity 150ms ease;
+  cursor: pointer;
+}
+.nexus-dashboard .nd-btn-danger:hover,
+.nd-dialog .nd-btn-danger:hover {
+  opacity: 0.9;
+}
+.nexus-dashboard .nd-btn-danger:disabled,
+.nd-dialog .nd-btn-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Dialog light theme (portals outside .nexus-dashboard) ── */
+[data-slot="dialog-content"].nd-dialog {
+  background: #FFFFFF !important;
+  border: 1px solid #E8E9EF !important;
+  border-radius: 16px !important;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.12) !important;
+  color: #1A1D2B !important;
+  padding: 28px !important;
+  max-width: 480px !important;
+}
+[data-slot="dialog-content"].nd-dialog [data-slot="dialog-close"] {
+  color: #8B91A5 !important;
+  opacity: 1 !important;
+}
+[data-slot="dialog-content"].nd-dialog [data-slot="dialog-close"]:hover {
+  color: #1A1D2B !important;
+}
+.nd-dialog .nd-dialog-title,
+.nd-dialog-title {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  color: #1A1D2B !important;
+  line-height: 1.3 !important;
+}
+.nd-dialog .nd-dialog-desc,
+.nd-dialog-desc {
+  font-size: 14px !important;
+  color: #6B7188 !important;
+  margin-top: 4px !important;
+}
+.nd-dialog .nd-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 8px 0;
+}
+.nd-dialog .nd-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 8px;
+}
+
+/* ── Form elements (light theme) ── */
+.nd-dialog .nd-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.nd-dialog .nd-label,
+.nexus-dashboard .nd-label {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: #1A1D2B !important;
+}
+.nd-dialog .nd-input,
+.nexus-dashboard .nd-input {
+  height: 42px !important;
+  padding: 0 14px !important;
+  border: 1px solid #E8E9EF !important;
+  border-radius: 10px !important;
+  background: #FFFFFF !important;
+  color: #1A1D2B !important;
+  font-size: 14px !important;
+  outline: none !important;
+  transition: border-color 200ms ease !important;
+}
+.nd-dialog .nd-input:focus,
+.nexus-dashboard .nd-input:focus {
+  border-color: #5347CE !important;
+  box-shadow: 0 0 0 3px rgba(83, 71, 206, 0.1) !important;
+}
+.nd-dialog .nd-input::placeholder,
+.nexus-dashboard .nd-input::placeholder {
+  color: #8B91A5 !important;
+}
+.nd-dialog .nd-textarea,
+.nexus-dashboard .nd-textarea {
+  padding: 12px 14px !important;
+  border: 1px solid #E8E9EF !important;
+  border-radius: 10px !important;
+  background: #FFFFFF !important;
+  color: #1A1D2B !important;
+  font-size: 14px !important;
+  outline: none !important;
+  resize: vertical !important;
+  min-height: 80px !important;
+  transition: border-color 200ms ease !important;
+  field-sizing: auto !important;
+}
+.nd-dialog .nd-textarea:focus,
+.nexus-dashboard .nd-textarea:focus {
+  border-color: #5347CE !important;
+  box-shadow: 0 0 0 3px rgba(83, 71, 206, 0.1) !important;
+}
+.nd-dialog .nd-textarea::placeholder,
+.nexus-dashboard .nd-textarea::placeholder {
+  color: #8B91A5 !important;
+}
+
+/* ── nd-btn-primary also works inside portal dialogs ── */
+.nd-dialog .nd-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  border-radius: 8px;
+  background: #5347CE;
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  transition: opacity 150ms ease;
+  cursor: pointer;
+}
+.nd-dialog .nd-btn-primary:hover {
+  opacity: 0.9;
+}
+.nd-dialog .nd-btn-primary:disabled,
+.nexus-dashboard .nd-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Nexus sidebar nav icon inheritance ── */
+.nexus-dashboard .nd-nav-item svg {
+  color: inherit;
+  stroke: currentColor;
+}
+
+/* ── Nexus sidebar thin scrollbar ── */
+.nexus-dashboard .nd-sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--nd-border) transparent;
+}
+.nexus-dashboard .nd-sidebar-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.nexus-dashboard .nd-sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.nexus-dashboard .nd-sidebar-scroll::-webkit-scrollbar-thumb {
+  background: var(--nd-border);
+  border-radius: 2px;
+}
+
+/* ── Dashboard custom component animations ── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ── NdDialog light theme (portal) ── */
+.nd-dialog {
+  background: #FFFFFF;
+  border: 1px solid #E8E9EF;
+  border-radius: 16px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.12);
+  color: #1A1D2B;
+  padding: 28px;
+  max-width: 480px;
+  width: 100%;
+  position: relative;
+}
+
+/* ── NdDropdown item svg color ── */
+.nd-dropdown-item-custom svg {
+  color: #6B7188;
+}
+.nd-dropdown-item-custom-danger svg {
+  color: #EF4444;
+}
 
 :root {
   --background: oklch(0.05 0 0);
@@ -116,7 +909,7 @@
   --color-sidebar-ring: var(--sidebar-ring);
 
   /* ── Onboarding brand palette ── */
-  --color-brand-orange: #ED7D4B;
+  --color-brand-orange: #F07A3A;
   --color-brand-orange-hover: #C4633A;
   --color-brand-orange-light: #F5D0BC;
   --color-brand-orange-subtle: #FDF0E9;

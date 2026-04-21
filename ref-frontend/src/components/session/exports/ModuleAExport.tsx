@@ -185,38 +185,38 @@ export default function ModuleAExport({
   }
 
   return (
-    <div className="rounded-2xl border border-zinc-800 bg-[#111113] overflow-hidden">
+    <div className="rounded-2xl border border-(--nd-border) bg-white overflow-hidden">
       {/* Header */}
       <button
         onClick={() => setExpanded((v) => !v)}
-        className="w-full flex items-center justify-between px-5 py-4 hover:bg-zinc-800/30 transition-colors cursor-pointer"
+        className="w-full flex items-center justify-between px-5 py-4 hover:bg-(--nd-bg) transition-colors cursor-pointer"
       >
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
-            <Globe className="h-4 w-4 text-blue-400" />
+            <Globe className="h-4 w-4 text-blue-500" />
           </div>
           <div className="text-left">
-            <p className="text-sm font-semibold text-white">Technical SEO Audit (Module A)</p>
-            <p className="text-[11px] text-zinc-500 mt-0.5">
+            <p className="text-sm font-semibold text-(--nd-text-primary)">Technical SEO Audit (Module A)</p>
+            <p className="text-[11px] text-(--nd-text-muted) mt-0.5">
               Crawled data, page metrics, text quality, links analysis
             </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-[10px]">
+          <Badge className="bg-blue-500/10 text-blue-600 border-blue-200 text-[10px]">
             {pages.length} pages
           </Badge>
           {expanded ? (
-            <ChevronUp className="h-4 w-4 text-zinc-500" />
+            <ChevronUp className="h-4 w-4 text-(--nd-text-muted)" />
           ) : (
-            <ChevronDown className="h-4 w-4 text-zinc-500" />
+            <ChevronDown className="h-4 w-4 text-(--nd-text-muted)" />
           )}
         </div>
       </button>
 
       {/* Export options */}
       {expanded && (
-        <div className="border-t border-zinc-800/60 divide-y divide-zinc-800/40">
+        <div className="border-t border-(--nd-border) divide-y divide-(--nd-border)">
           {exportOptions.map((opt) => {
             const Icon = opt.icon
             const isDownloading = downloading === opt.id
@@ -232,12 +232,12 @@ export default function ModuleAExport({
                 <div className="flex items-center gap-3 min-w-0">
                   <Icon className={`h-4 w-4 shrink-0 ${opt.color}`} />
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-zinc-200">{opt.label}</p>
-                    <p className="text-[11px] text-zinc-500 truncate">{opt.description}</p>
+                    <p className="text-sm font-medium text-(--nd-text-primary)">{opt.label}</p>
+                    <p className="text-[11px] text-(--nd-text-muted) truncate">{opt.description}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-[11px] text-zinc-600">
+                  <span className="text-[11px] text-(--nd-text-muted)">
                     {opt.id === 'all'
                       ? `${opt.sheetNames.length} sheets`
                       : `${opt.count.toLocaleString()} rows`}
@@ -249,7 +249,7 @@ export default function ModuleAExport({
                     className={`h-8 px-3 text-xs rounded-xl cursor-pointer ${
                       opt.id === 'all'
                         ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/30'
-                        : 'bg-zinc-800 text-zinc-300 border border-zinc-700 hover:bg-zinc-700'
+                        : 'bg-white text-(--nd-text-secondary) border border-(--nd-border) hover:bg-(--nd-bg)'
                     }`}
                     variant="ghost"
                   >

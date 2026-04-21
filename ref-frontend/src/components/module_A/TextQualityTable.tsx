@@ -423,11 +423,11 @@ export function TextQualityTable({
   }
 
   const getScoreColor = (score: number | null | undefined): string => {
-    if (score == null) return 'bg-gray-500/20 text-gray-300'
-    if (score >= 80) return 'bg-green-500/20 text-green-300 border-green-500/30'
-    if (score >= 60) return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
-    if (score >= 40) return 'bg-orange-500/20 text-orange-300 border-orange-500/30'
-    return 'bg-red-500/20 text-red-300 border-red-500/30'
+    if (score == null) return 'bg-gray-100 text-gray-600'
+    if (score >= 80) return 'bg-green-50 text-green-700 border-green-200'
+    if (score >= 60) return 'bg-yellow-50 text-yellow-700 border-yellow-200'
+    if (score >= 40) return 'bg-orange-50 text-orange-700 border-orange-200'
+    return 'bg-red-50 text-red-700 border-red-200'
   }
 
   const renderTableHeader = (column: keyof TextQualityData) => {
@@ -436,7 +436,7 @@ export function TextQualityTable({
       <th
         key={String(column)}
         onClick={() => handleSort(column)}
-        className="px-3 py-2 text-left text-xs font-semibold text-zinc-200 uppercase tracking-wider cursor-pointer hover:bg-zinc-800 transition-colors whitespace-nowrap"
+        className="px-3 py-2 text-left text-xs font-semibold text-(--nd-text-secondary) uppercase tracking-wider cursor-pointer hover:bg-(--nd-bg) transition-colors whitespace-nowrap"
       >
         <div className="flex items-center gap-1">
           <span>{getColumnLabel(column)}</span>
@@ -451,13 +451,13 @@ export function TextQualityTable({
   const getBadgeClass = (level: 'good' | 'warning' | 'bad' | 'neutral') => {
     switch (level) {
       case 'good':
-        return 'bg-green-500/20 text-green-300 border-green-500/30'
+        return 'bg-green-50 text-green-700 border border-green-200'
       case 'warning':
-        return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
+        return 'bg-yellow-50 text-yellow-700 border border-yellow-200'
       case 'bad':
-        return 'bg-red-500/20 text-red-300 border-red-500/30'
+        return 'bg-red-50 text-red-700 border border-red-200'
       default:
-        return 'bg-gray-500/20 text-gray-300 border-gray-500/30'
+        return 'bg-zinc-100 text-zinc-600 border border-zinc-200'
     }
   }
 
@@ -471,7 +471,7 @@ export function TextQualityTable({
             href={page.url} 
             target="_blank" 
             rel="noopener noreferrer"
-            className="text-blue-400 hover:text-blue-300 flex items-center gap-1"
+            className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
           >
             <span className="truncate max-w-xs">{page.url}</span>
             <ExternalLink className="h-3 w-3 shrink-0" />
@@ -481,7 +481,7 @@ export function TextQualityTable({
         return <span title={page.title} className="line-clamp-2">{page.title || 'Untitled'}</span>
       case 'success':
         return (
-          <Badge className={page.success ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}>
+          <Badge className={page.success ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}>
             {page.success ? 'Yes' : 'No'}
           </Badge>
         )
@@ -495,12 +495,12 @@ export function TextQualityTable({
           <div className="flex flex-col gap-1 items-center">
             <Badge className={getBadgeClass(info.level)}>{info.label}</Badge>
             {page.averageSentenceLength != null && (
-              <span className="text-[10px] text-zinc-400">
+              <span className="text-[10px] text-(--nd-text-muted)">
                 {page.averageSentenceLength.toFixed(1)} words/sentence
               </span>
             )}
             {page.sentenceCount != null && (
-              <span className="text-[10px] text-zinc-500">
+              <span className="text-[10px] text-(--nd-text-muted)">
                 {page.sentenceCount} sentences
               </span>
             )}
@@ -514,12 +514,12 @@ export function TextQualityTable({
           <div className="flex flex-col gap-1 items-center">
             <Badge className={getBadgeClass(info.level)}>{info.label}</Badge>
             {page.averageParagraphLength != null && (
-              <span className="text-[10px] text-zinc-400">
+              <span className="text-[10px] text-(--nd-text-muted)">
                 {page.averageParagraphLength.toFixed(1)} words/paragraph
               </span>
             )}
             {page.paragraphCount != null && (
-              <span className="text-[10px] text-zinc-500">
+              <span className="text-[10px] text-(--nd-text-muted)">
                 {page.paragraphCount} paragraphs
               </span>
             )}
@@ -533,7 +533,7 @@ export function TextQualityTable({
           <div className="flex flex-col gap-1 items-center">
             <Badge className={getBadgeClass(info.level)}>{info.label}</Badge>
             {page.keywordDensity != null && (
-              <span className="text-[10px] text-zinc-400">
+              <span className="text-[10px] text-(--nd-text-muted)">
                 {page.keywordDensity.toFixed(2)}% density
               </span>
             )}
@@ -546,7 +546,7 @@ export function TextQualityTable({
         return (
           <div className="flex flex-col gap-1 items-center">
             <Badge className={getBadgeClass(clarity.level)}>{clarity.label}</Badge>
-            <span className="text-[10px] text-zinc-400">
+            <span className="text-[10px] text-(--nd-text-muted)">
               Score: {clarity.score}/100
             </span>
           </div>
@@ -566,7 +566,7 @@ export function TextQualityTable({
           <div className="flex flex-col gap-1 items-center">
             <Badge className={getBadgeClass(info.level)}>{info.label}</Badge>
             {page.textToHtmlRatio != null && (
-              <span className="text-[10px] text-zinc-400">
+              <span className="text-[10px] text-(--nd-text-muted)">
                 {page.textToHtmlRatio.toFixed(2)}% text
               </span>
             )}
@@ -581,7 +581,7 @@ export function TextQualityTable({
           <div className="flex flex-col gap-1 items-center">
             <Badge className={getBadgeClass(missingInfo.level)}>{missingInfo.label}</Badge>
             {page.thinContent && page.thinContentReason && (
-              <span className="text-[10px] text-red-300" title={page.thinContentReason}>
+              <span className="text-[10px] text-red-600" title={page.thinContentReason}>
                 {page.thinContentReason.substring(0, 30)}{page.thinContentReason.length > 30 ? '...' : ''}
               </span>
             )}
@@ -591,7 +591,7 @@ export function TextQualityTable({
       
       case 'duplicateContent':
         return value != null ? (
-          <Badge className={value ? 'bg-red-500/20 text-red-300' : 'bg-green-500/20 text-green-300'}>
+          <Badge className={value ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}>
             {value ? 'Yes' : 'No'}
           </Badge>
         ) : 'N/A'
@@ -615,7 +615,7 @@ export function TextQualityTable({
       // Array fields
       case 'duplicateWithUrls':
         return value && Array.isArray(value) && value.length > 0 ? (
-          <Badge className="bg-orange-500/20 text-orange-300">
+          <Badge className="bg-orange-50 text-orange-700 border border-orange-200">
             {value.length} URLs
           </Badge>
         ) : 'N/A'
@@ -625,7 +625,7 @@ export function TextQualityTable({
       case 'sectionWordCountBreakdown':
       case 'headingWordCountMapping':
         return value ? (
-          <Badge className="bg-blue-500/20 text-blue-300">
+          <Badge className="bg-blue-50 text-blue-700 border border-blue-200">
             View Data
           </Badge>
         ) : 'N/A'
@@ -669,14 +669,14 @@ export function TextQualityTable({
       {/* Sidebar Filter Panel */}
       <div className={`${sidebarOpen ? 'w-70' : 'w-0'} transition-all duration-300 overflow-hidden shrink-0`}>
         {sidebarOpen && (
-          <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-4 h-[calc(100vh-120px)] overflow-y-auto">
+          <div className="bg-white border border-(--nd-border) rounded-lg p-4 h-[calc(100vh-120px)] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-white">Column Filters</h3>
+              <h3 className="text-sm font-semibold text-(--nd-text-primary)">Column Filters</h3>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setSidebarOpen(false)}
-                className="text-zinc-400 hover:text-white p-1 h-auto"
+                className="text-(--nd-text-muted) hover:text-(--nd-text-primary) p-1 h-auto hover:bg-(--nd-bg)"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -684,7 +684,7 @@ export function TextQualityTable({
 
             {/* URL Filter */}
             <div className="mb-4">
-              <label className="text-xs text-zinc-400 mb-1 block">Filter by URL</label>
+              <label className="text-xs text-(--nd-text-secondary) mb-1 block">Filter by URL</label>
               <Input
                 placeholder="URL..."
                 value={urlFilter}
@@ -692,7 +692,7 @@ export function TextQualityTable({
                   setUrlFilter(e.target.value)
                   setCurrentPage(1)
                 }}
-                className="bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 text-xs h-8"
+                className="bg-(--nd-bg) border-(--nd-border) text-(--nd-text-primary) placeholder:text-(--nd-text-muted) text-xs h-8"
               />
             </div>
 
@@ -704,22 +704,22 @@ export function TextQualityTable({
                   <div key={category.name} className="space-y-2">
                     <button
                       onClick={() => toggleCategoryColumns(category)}
-                      className="flex items-center justify-between w-full text-xs font-medium text-zinc-200 hover:text-white"
+                      className="flex items-center justify-between w-full text-xs font-medium text-(--nd-text-primary) hover:text-(--nd-text-primary)"
                     >
                       <span>{category.name}</span>
-                      <span className="text-zinc-500">{visible}/{total}</span>
+                      <span className="text-(--nd-text-muted)">{visible}/{total}</span>
                     </button>
                     <div className="space-y-1 pl-2">
                       {category.columns.map((column) => (
                         <label
                           key={String(column)}
-                          className="flex items-center gap-2 text-xs text-zinc-300 hover:text-white cursor-pointer"
+                          className="flex items-center gap-2 text-xs text-(--nd-text-secondary) hover:text-(--nd-text-primary) cursor-pointer"
                         >
                           <input
                             type="checkbox"
                             checked={visibleColumns.has(column)}
                             onChange={() => toggleColumn(column)}
-                            className="rounded border-zinc-700 bg-zinc-800/50 text-blue-500 focus:ring-blue-500/50 focus:ring-offset-0"
+                            className="rounded border-(--nd-border) bg-white text-(--nd-purple) focus:ring-(--nd-purple)/50 focus:ring-offset-0"
                           />
                           <span className="truncate">{getColumnLabel(column)}</span>
                         </label>
@@ -742,7 +742,7 @@ export function TextQualityTable({
               variant="outline"
               size="sm"
               onClick={() => setSidebarOpen(true)}
-              className="bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800"
+              className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg)"
             >
               <ChevronRight className="h-4 w-4 mr-2" />
               Show Filters
@@ -754,7 +754,7 @@ export function TextQualityTable({
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between mb-4">
           <div className="flex-1 w-full sm:max-w-md">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-500" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-(--nd-text-muted)" />
               <Input
                 placeholder="Search by URL, title, or thin content reason..."
                 value={searchQuery}
@@ -762,7 +762,7 @@ export function TextQualityTable({
                   setSearchQuery(e.target.value)
                   setCurrentPage(1)
                 }}
-                className="pl-10 bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 text-sm"
+                className="pl-10 bg-(--nd-bg) border-(--nd-border) text-(--nd-text-primary) placeholder:text-(--nd-text-muted) text-sm"
               />
             </div>
           </div>
@@ -772,7 +772,7 @@ export function TextQualityTable({
                 onClick={onRefresh}
                 variant="outline"
                 size="sm"
-                className="bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800"
+                className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg)"
                 disabled={isLoading}
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
@@ -784,7 +784,7 @@ export function TextQualityTable({
                 onClick={onExport}
                 variant="outline"
                 size="sm"
-                className="bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800"
+                className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg)"
               >
                 <Download className="h-4 w-4 mr-2" />
                 Export
@@ -796,50 +796,50 @@ export function TextQualityTable({
         {/* Stats */}
         {averages && (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
-            <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-3">
-              <div className="text-xs text-zinc-400">Avg Total Words</div>
-              <div className="text-xl font-bold text-white mt-1">{averages.avgTotalWords}</div>
+            <div className="bg-white border border-(--nd-border) rounded-lg p-3">
+              <div className="text-xs text-(--nd-text-muted)">Avg Total Words</div>
+              <div className="text-xl font-bold text-(--nd-text-primary) mt-1">{averages.avgTotalWords}</div>
             </div>
-            <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-3">
-              <div className="text-xs text-zinc-400">Avg Sentence Length</div>
-              <div className="text-xl font-bold text-white mt-1">{averages.avgSentenceLength}</div>
+            <div className="bg-white border border-(--nd-border) rounded-lg p-3">
+              <div className="text-xs text-(--nd-text-muted)">Avg Sentence Length</div>
+              <div className="text-xl font-bold text-(--nd-text-primary) mt-1">{averages.avgSentenceLength}</div>
             </div>
-            <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-3">
-              <div className="text-xs text-zinc-400">Avg Paragraph Length</div>
-              <div className="text-xl font-bold text-white mt-1">{averages.avgParagraphLength}</div>
+            <div className="bg-white border border-(--nd-border) rounded-lg p-3">
+              <div className="text-xs text-(--nd-text-muted)">Avg Paragraph Length</div>
+              <div className="text-xl font-bold text-(--nd-text-primary) mt-1">{averages.avgParagraphLength}</div>
             </div>
-            <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-3">
-              <div className="text-xs text-zinc-400">Avg Text Ratio</div>
-              <div className="text-xl font-bold text-white mt-1">{averages.avgTextRatio}%</div>
+            <div className="bg-white border border-(--nd-border) rounded-lg p-3">
+              <div className="text-xs text-(--nd-text-muted)">Avg Text Ratio</div>
+              <div className="text-xl font-bold text-(--nd-text-primary) mt-1">{averages.avgTextRatio}%</div>
             </div>
-            <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-3">
-              <div className="text-xs text-zinc-400">Thin Content</div>
-              <div className="text-xl font-bold text-red-300 mt-1">{averages.thinContentCount}</div>
+            <div className="bg-white border border-(--nd-border) rounded-lg p-3">
+              <div className="text-xs text-(--nd-text-muted)">Thin Content</div>
+              <div className="text-xl font-bold text-red-600 mt-1">{averages.thinContentCount}</div>
             </div>
-            <div className="bg-zinc-800/50 border border-zinc-800 rounded-lg p-3">
-              <div className="text-xs text-zinc-400">Duplicate Content</div>
-              <div className="text-xl font-bold text-orange-300 mt-1">{averages.duplicateContentCount}</div>
+            <div className="bg-white border border-(--nd-border) rounded-lg p-3">
+              <div className="text-xs text-(--nd-text-muted)">Duplicate Content</div>
+              <div className="text-xl font-bold text-orange-600 mt-1">{averages.duplicateContentCount}</div>
             </div>
           </div>
         )}
 
         {/* Table */}
-        <div className="rounded-lg border border-zinc-700 bg-zinc-800/50 overflow-hidden flex-1">
+        <div className="rounded-lg border border-(--nd-border) bg-white overflow-hidden flex-1">
           <div 
             ref={tableContainerRef} 
             className="overflow-x-auto overflow-y-auto max-w-full h-full custom-scrollbar"
           >
             <table className="w-full text-sm">
-              <thead className="bg-gray-900 border-b border-zinc-700 sticky top-0 z-10">
+              <thead className="bg-(--nd-bg) border-b border-(--nd-border) sticky top-0 z-10">
                 <tr>
                   {orderedVisibleColumns.map(column => renderTableHeader(column))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-800">
+              <tbody className="divide-y divide-(--nd-border)">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={visibleColumns.size} className="px-4 py-12 text-center">
-                      <div className="flex items-center justify-center gap-2 text-zinc-400">
+                    <td colSpan={orderedVisibleColumns.length} className="px-4 py-12 text-center">
+                      <div className="flex items-center justify-center gap-2 text-(--nd-text-muted)">
                         <RefreshCw className="h-5 w-5 animate-spin" />
                         <span>Loading data...</span>
                       </div>
@@ -847,7 +847,7 @@ export function TextQualityTable({
                   </tr>
                 ) : paginatedData.length === 0 ? (
                   <tr>
-                    <td colSpan={visibleColumns.size} className="px-4 py-12 text-center text-zinc-400">
+                    <td colSpan={orderedVisibleColumns.length} className="px-4 py-12 text-center text-(--nd-text-muted)">
                       No data found. {(searchQuery || urlFilter) && 'Try adjusting your filters.'}
                     </td>
                   </tr>
@@ -855,10 +855,10 @@ export function TextQualityTable({
                   paginatedData.map((page) => (
                     <tr 
                       key={page.id}
-                      className="hover:bg-zinc-800/50 transition-colors"
+                      className="hover:bg-(--nd-bg) transition-colors"
                     >
                       {orderedVisibleColumns.map((column) => (
-                        <td key={String(column)} className="px-3 py-2 text-zinc-200 text-center whitespace-normal overflow-wrap-break-word">
+                        <td key={String(column)} className="px-3 py-2 text-(--nd-text-secondary) text-center whitespace-normal overflow-wrap-break-word">
                           {renderCellContent(page, column)}
                         </td>
                       ))}
@@ -873,7 +873,7 @@ export function TextQualityTable({
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between mt-4">
-            <div className="text-sm text-zinc-400">
+            <div className="text-sm text-(--nd-text-muted)">
               Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, sortedData.length)} of {sortedData.length} results
             </div>
             <div className="flex gap-2">
@@ -882,7 +882,7 @@ export function TextQualityTable({
                 size="sm"
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800 disabled:opacity-50"
+                className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) disabled:opacity-50 rounded-xl"
               >
                 Previous
               </Button>
@@ -907,8 +907,8 @@ export function TextQualityTable({
                       onClick={() => setCurrentPage(pageNum)}
                       className={`${
                         currentPage === pageNum
-                          ? 'bg-white text-black'
-                          : 'bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800'
+                          ? 'bg-(--nd-purple) text-white border-(--nd-purple)'
+                          : 'bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg)'
                       }`}
                     >
                       {pageNum}
@@ -921,7 +921,7 @@ export function TextQualityTable({
                 size="sm"
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
-                className="bg-zinc-800/50 border-zinc-700 text-white hover:bg-zinc-800 disabled:opacity-50"
+                className="bg-white border-(--nd-border) text-(--nd-text-secondary) hover:bg-(--nd-bg) disabled:opacity-50 rounded-xl"
               >
                 Next
               </Button>

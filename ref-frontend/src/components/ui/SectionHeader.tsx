@@ -15,22 +15,35 @@ export interface SectionHeaderProps {
 }
 
 /**
- * Reusable section heading — icon pill + title + description + optional action.
- * Matches the pattern used in 15+ module components across module_C, module_E,
- * module_F, and crawl components.
+ * Reusable section heading — Nexus light theme variant.
  */
 export function SectionHeader({ icon: Icon, title, description, action, className }: SectionHeaderProps) {
   return (
     <div className={cn('flex items-start justify-between gap-4', className)}>
       <div className="flex items-start gap-3 min-w-0">
         {Icon && (
-          <div className="shrink-0 p-2 rounded-xl bg-white/10 border border-white/10">
-            <Icon className="w-5 h-5 text-zinc-300" />
+          <div
+            className="shrink-0 p-2 rounded-xl border"
+            style={{
+              background: 'var(--nd-purple-subtle, #EEEDFC)',
+              borderColor: 'var(--nd-border, #E8E9EF)',
+            }}
+          >
+            <Icon className="w-5 h-5" style={{ color: 'var(--nd-purple, #5347CE)' }} />
           </div>
         )}
         <div className="min-w-0">
-          <h3 className="text-base sm:text-lg font-semibold text-white truncate">{title}</h3>
-          {description && <p className="text-xs text-white/60 mt-0.5">{description}</p>}
+          <h3
+            className="text-base sm:text-lg font-semibold truncate"
+            style={{ color: 'var(--nd-text-primary, #1A1D2B)' }}
+          >
+            {title}
+          </h3>
+          {description && (
+            <p className="text-xs mt-0.5" style={{ color: 'var(--nd-text-secondary, #6B7188)' }}>
+              {description}
+            </p>
+          )}
         </div>
       </div>
       {action && <div className="shrink-0">{action}</div>}
@@ -38,7 +51,7 @@ export function SectionHeader({ icon: Icon, title, description, action, classNam
   )
 }
 
-/** Compact card-header variant — title + border-b divider + optional action link */
+/** Compact card-header variant — Nexus light theme */
 export function CardHeader({
   title,
   description,
@@ -53,26 +66,32 @@ export function CardHeader({
   onAction?: () => void
   actionLabel?: string
   actionIcon?: LucideIcon
-  /** When set, replaces the default text link action (e.g. multiple buttons) */
   actionSlot?: ReactNode
   className?: string
 }) {
   return (
     <div
       className={cn(
-        'flex items-start justify-between gap-4 px-5 py-3.5 border-b border-zinc-800/60',
+        'flex items-start justify-between gap-4 px-5 py-3.5 border-b',
         className,
       )}
+      style={{ borderColor: 'var(--nd-border, #E8E9EF)' }}
     >
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
-          <h3 className="text-sm font-semibold text-zinc-200">{title}</h3>
+          <h3
+            className="text-sm font-semibold"
+            style={{ color: 'var(--nd-text-primary, #1A1D2B)' }}
+          >
+            {title}
+          </h3>
           {description && (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  className="inline-flex items-center justify-center text-zinc-500 hover:text-zinc-200 transition-colors focus:outline-none shrink-0 cursor-help"
+                  className="inline-flex items-center justify-center transition-colors focus:outline-none shrink-0 cursor-help"
+                  style={{ color: 'var(--nd-text-muted, #9DA3B3)' }}
                   onClick={(e) => e.stopPropagation()}
                   aria-label="Section description"
                 >
@@ -83,7 +102,7 @@ export function CardHeader({
                 side="top"
                 align="start"
                 sideOffset={10}
-                className="max-w-57.5 bg-zinc-800 border border-zinc-700/60 text-zinc-100 text-[11px] leading-relaxed rounded-2xl px-3 py-2.5"
+                className="max-w-57.5 bg-white border border-[#E8E9EF] text-[#1A1D2B] text-[11px] leading-relaxed rounded-xl px-3 py-2.5 shadow-lg"
               >
                 {description}
               </TooltipContent>
@@ -96,7 +115,8 @@ export function CardHeader({
       ) : onAction ? (
         <button
           onClick={onAction}
-          className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors cursor-pointer font-medium shrink-0"
+          className="inline-flex items-center gap-1.5 text-xs font-medium transition-colors cursor-pointer hover:underline shrink-0"
+          style={{ color: 'var(--nd-purple, #5347CE)' }}
         >
           {actionLabel}
           {ActionIcon && <ActionIcon className="w-3.5 h-3.5" />}

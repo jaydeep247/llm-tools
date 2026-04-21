@@ -16,22 +16,8 @@ import {
   Globe,
   ImageIcon,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog'
+import { NdDropdown, NdDropdownItem } from '@/components/dashboard/ui/nd-dropdown'
+import { NdDialog, NdDialogTitle, NdDialogDescription, NdDialogFooter } from '@/components/dashboard/ui/nd-dialog'
 import { useGetGeoContentQuery, useUpdateGeoContentTitleMutation } from '@/store/api/geoContentApi'
 
 // ─── Prose styles injected directly so we don't need @tailwindcss/typography ──
@@ -145,13 +131,13 @@ export default function GeoContentViewerPage() {
         <AlertCircle className="h-12 w-12 text-red-400 mb-3" />
         <h2 className="text-lg font-semibold text-white mb-1">Content not found</h2>
         <p className="text-zinc-500 text-sm mb-4">This article doesn't exist or you don't have access.</p>
-        <Button
+        <button
           onClick={() => router.push('/dashboard/geo-content')}
-          variant="outline"
-          className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+          className="inline-flex items-center gap-2 px-4 h-9 text-sm rounded-lg border cursor-pointer transition-colors"
+          style={{ borderColor: '#3f3f46', color: '#d4d4d8', background: 'transparent' }}
         >
           Back to Content List
-        </Button>
+        </button>
       </div>
     )
   }
@@ -183,78 +169,62 @@ export default function GeoContentViewerPage() {
 
           <div className="flex items-center gap-2 flex-wrap">
             {/* Copy dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
+            <NdDropdown
+              trigger={
+                <button
                   id="geo-copy-dropdown-btn"
-                  variant="outline"
-                  size="sm"
-                  className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white gap-1.5 cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 h-8 text-sm rounded-lg border cursor-pointer transition-colors"
+                  style={{ borderColor: '#3f3f46', color: '#d4d4d8', background: 'transparent' }}
                 >
                   {copiedFormat ? <Check className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
                   Copy
                   <ChevronDown className="h-3 w-3 opacity-60" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-[#161618] border-zinc-700">
-                <DropdownMenuItem
-                  id="geo-copy-html"
-                  className="text-zinc-200 focus:bg-zinc-800 focus:text-white cursor-pointer"
-                  onClick={() => handleCopy('html')}
-                >
-                  Copy as HTML
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  id="geo-copy-markdown"
-                  className="text-zinc-200 focus:bg-zinc-800 focus:text-white cursor-pointer"
-                  onClick={() => handleCopy('markdown')}
-                >
-                  Copy as Markdown
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  id="geo-copy-text"
-                  className="text-zinc-200 focus:bg-zinc-800 focus:text-white cursor-pointer"
-                  onClick={() => handleCopy('text')}
-                >
-                  Copy as Plain Text
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                </button>
+              }
+              align="end"
+            >
+              <NdDropdownItem id="geo-copy-html" onClick={() => handleCopy('html')}>
+                Copy as HTML
+              </NdDropdownItem>
+              <NdDropdownItem id="geo-copy-markdown" onClick={() => handleCopy('markdown')}>
+                Copy as Markdown
+              </NdDropdownItem>
+              <NdDropdownItem id="geo-copy-text" onClick={() => handleCopy('text')}>
+                Copy as Plain Text
+              </NdDropdownItem>
+            </NdDropdown>
 
             {/* WordPress */}
-            <Button
+            <button
               id="geo-wordpress-btn"
-              variant="outline"
-              size="sm"
-              className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white gap-1.5 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 h-8 text-sm rounded-lg border cursor-pointer transition-colors"
+              style={{ borderColor: '#3f3f46', color: '#d4d4d8', background: 'transparent' }}
               onClick={() => window.open('https://wordpress.com/post', '_blank')}
             >
               <Globe className="h-3.5 w-3.5" />
               WordPress
-            </Button>
+            </button>
 
             {/* LinkedIn Pulse */}
-            <Button
+            <button
               id="geo-linkedin-btn"
-              variant="outline"
-              size="sm"
-              className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white gap-1.5 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 h-8 text-sm rounded-lg border cursor-pointer transition-colors"
+              style={{ borderColor: '#3f3f46', color: '#d4d4d8', background: 'transparent' }}
               onClick={() => setLinkedinOpen(true)}
             >
               <Linkedin className="h-3.5 w-3.5" />
               LinkedIn Pulse
-            </Button>
+            </button>
 
             {/* Image Generator (placeholder) */}
-            <Button
+            <button
               id="geo-image-btn"
-              variant="outline"
-              size="sm"
-              className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white gap-1.5 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 h-8 text-sm rounded-lg border cursor-pointer transition-colors"
+              style={{ borderColor: '#3f3f46', color: '#d4d4d8', background: 'transparent' }}
             >
               <ImageIcon className="h-3.5 w-3.5" />
               Image Generator
-            </Button>
+            </button>
           </div>
         </div>
 
@@ -265,7 +235,7 @@ export default function GeoContentViewerPage() {
           <div className="group relative mb-6">
             {editingTitle ? (
               <div className="flex items-start gap-2">
-                <Input
+                <input
                   id="geo-title-input"
                   value={draftTitle}
                   onChange={(e) => setDraftTitle(e.target.value)}
@@ -274,25 +244,22 @@ export default function GeoContentViewerPage() {
                     if (e.key === 'Enter') handleSaveTitle()
                     if (e.key === 'Escape') handleCancelTitle()
                   }}
-                  className="text-2xl sm:text-3xl font-bold bg-zinc-800/50 border-zinc-700 text-white h-auto py-1"
+                  className="text-2xl sm:text-3xl font-bold h-auto py-1 flex-1 border px-3 rounded-lg outline-none"
+                  style={{ background: 'rgba(39,39,42,0.5)', borderColor: '#3f3f46', color: '#FFFFFF' }}
                 />
-                <Button
-                  size="icon"
-                  variant="ghost"
+                <button
                   disabled={isSavingTitle}
                   onClick={handleSaveTitle}
-                  className="shrink-0 h-9 w-9 text-green-400 hover:bg-green-500/10 cursor-pointer"
+                  className="shrink-0 h-9 w-9 flex items-center justify-center text-green-400 hover:bg-green-500/10 rounded-lg cursor-pointer disabled:opacity-50"
                 >
                   {isSavingTitle ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
+                </button>
+                <button
                   onClick={handleCancelTitle}
-                  className="shrink-0 h-9 w-9 text-red-400 hover:bg-red-500/10 cursor-pointer"
+                  className="shrink-0 h-9 w-9 flex items-center justify-center text-red-400 hover:bg-red-500/10 rounded-lg cursor-pointer"
                 >
                   <X className="h-4 w-4" />
-                </Button>
+                </button>
               </div>
             ) : (
               <div className="flex items-start gap-2">
@@ -334,19 +301,13 @@ export default function GeoContentViewerPage() {
       </div>
 
       {/* ── LinkedIn Pulse Modal ── */}
-      <Dialog open={linkedinOpen} onOpenChange={setLinkedinOpen}>
-        <DialogContent
-          id="linkedin-pulse-modal"
-          className="bg-[#111113] border-zinc-800 text-white max-w-lg"
-        >
-          <DialogHeader>
-            <DialogTitle className="text-white text-lg font-semibold">
-              Post to LinkedIn Article
-            </DialogTitle>
-            <DialogDescription className="text-zinc-500 text-sm">
-              Follow these steps to post your content as a LinkedIn Article (LinkedIn Pulse).
-            </DialogDescription>
-          </DialogHeader>
+      <NdDialog open={linkedinOpen} onOpenChange={setLinkedinOpen} className="bg-[#111113] border-zinc-800 text-white max-w-lg">
+        <NdDialogTitle className="text-white text-lg font-semibold">
+          Post to LinkedIn Article
+        </NdDialogTitle>
+        <NdDialogDescription className="text-zinc-500 text-sm">
+          Follow these steps to post your content as a LinkedIn Article (LinkedIn Pulse).
+        </NdDialogDescription>
 
           <div className="space-y-4 py-2">
             {/* Step 1 */}
@@ -357,17 +318,16 @@ export default function GeoContentViewerPage() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-zinc-300">Open LinkedIn Article Editor</p>
               </div>
-              <Button
+              <button
                 id="linkedin-open-editor-btn"
-                size="sm"
-                variant="outline"
-                className="shrink-0 border-zinc-700 text-zinc-300 hover:bg-zinc-700 gap-1.5 cursor-pointer"
+                className="shrink-0 inline-flex items-center gap-1.5 px-3 h-8 text-sm rounded-lg border cursor-pointer transition-colors"
+                style={{ borderColor: '#3f3f46', color: '#d4d4d8', background: 'transparent' }}
                 onClick={() =>
                   window.open('https://www.linkedin.com/pulse/new/', '_blank')
                 }
               >
                 Open <ExternalLink className="h-3 w-3" />
-              </Button>
+              </button>
             </div>
 
             {/* Step 2 */}
@@ -378,15 +338,14 @@ export default function GeoContentViewerPage() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-zinc-300">Paste title</p>
               </div>
-              <Button
+              <button
                 id="linkedin-copy-title-btn"
-                size="sm"
-                variant="outline"
-                className={`shrink-0 gap-1.5 cursor-pointer transition-all duration-200 ${
+                className={`shrink-0 inline-flex items-center gap-1.5 px-3 h-8 text-sm rounded-lg border cursor-pointer transition-all duration-200 ${
                   copiedLinkedin === 'title'
-                    ? 'border-green-500/50 text-green-400 bg-green-500/10 hover:bg-green-500/15'
-                    : 'border-zinc-700 text-zinc-300 hover:bg-zinc-700'
+                    ? 'border-green-500/50 text-green-400 bg-green-500/10'
+                    : ''
                 }`}
+                style={copiedLinkedin === 'title' ? {} : { borderColor: '#3f3f46', color: '#d4d4d8', background: 'transparent' }}
                 onClick={() => copyLinkedin('title')}
               >
                 {copiedLinkedin === 'title' ? (
@@ -394,7 +353,7 @@ export default function GeoContentViewerPage() {
                 ) : (
                   <><Copy className="h-3 w-3" /> Copy Title</>
                 )}
-              </Button>
+              </button>
             </div>
 
             {/* Step 3 */}
@@ -405,15 +364,14 @@ export default function GeoContentViewerPage() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-zinc-300">Paste body under the title</p>
               </div>
-              <Button
+              <button
                 id="linkedin-copy-body-btn"
-                size="sm"
-                variant="outline"
-                className={`shrink-0 gap-1.5 cursor-pointer transition-all duration-200 ${
+                className={`shrink-0 inline-flex items-center gap-1.5 px-3 h-8 text-sm rounded-lg border cursor-pointer transition-all duration-200 ${
                   copiedLinkedin === 'body'
-                    ? 'border-green-500/50 text-green-400 bg-green-500/10 hover:bg-green-500/15'
-                    : 'border-zinc-700 text-zinc-300 hover:bg-zinc-700'
+                    ? 'border-green-500/50 text-green-400 bg-green-500/10'
+                    : ''
                 }`}
+                style={copiedLinkedin === 'body' ? {} : { borderColor: '#3f3f46', color: '#d4d4d8', background: 'transparent' }}
                 onClick={() => copyLinkedin('body')}
               >
                 {copiedLinkedin === 'body' ? (
@@ -421,12 +379,12 @@ export default function GeoContentViewerPage() {
                 ) : (
                   <><Copy className="h-3 w-3" /> Copy Body</>
                 )}
-              </Button>
+              </button>
             </div>
 
           </div>
 
-          <DialogFooter className="flex items-center justify-between w-full mt-2">
+          <NdDialogFooter className="flex items-center justify-between w-full mt-2">
             <a
               href="https://www.linkedin.com/help/linkedin/answer/a548918"
               target="_blank"
@@ -435,17 +393,16 @@ export default function GeoContentViewerPage() {
             >
               Example Screenshot
             </a>
-            <Button
+            <button
               id="linkedin-close-btn"
-              variant="outline"
               onClick={() => setLinkedinOpen(false)}
-              className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 h-9 text-sm rounded-lg border cursor-pointer transition-colors"
+              style={{ borderColor: '#3f3f46', color: '#d4d4d8', background: 'transparent' }}
             >
               Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </button>
+          </NdDialogFooter>
+      </NdDialog>
     </>
   )
 }

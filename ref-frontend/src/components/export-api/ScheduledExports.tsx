@@ -87,20 +87,14 @@ export function ScheduledExports({ canAccess }: ScheduledExportsProps) {
   if (!canAccess) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center gap-4">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-800 ring-1 ring-zinc-700">
-          <Lock className="h-6 w-6 text-zinc-500" />
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border" style={{ background: 'var(--nd-purple-subtle)', borderColor: 'var(--nd-border)' }}>
+          <Lock className="h-6 w-6" style={{ color: 'var(--nd-purple)' }} />
         </div>
         <div className="space-y-1.5">
-          <p className="text-[14px] font-semibold text-white">Agency+ plan required</p>
-          <p className="text-[13px] text-zinc-500 max-w-sm">
-            Scheduled exports are available on Agency and Enterprise plans. Automate reporting with
-            weekly deliveries to your inbox.
-          </p>
+          <p className="text-[14px] font-semibold" style={{ color: 'var(--nd-text-primary)' }}>Agency+ plan required</p>
+          <p className="text-[13px] max-w-sm" style={{ color: 'var(--nd-text-secondary)' }}>Scheduled exports are available on Agency and Enterprise plans.</p>
         </div>
-        <Button
-          className="h-9 px-5 text-[13px] rounded-xl bg-amber-500 text-black font-semibold hover:bg-amber-400 transition-colors"
-          asChild
-        >
+        <Button className="h-9 px-5 text-[13px] rounded-xl text-white font-semibold" style={{ background: 'var(--nd-purple)' }} asChild>
           <a href="/dashboard/subscriptions">Upgrade Plan</a>
         </Button>
       </div>
@@ -111,9 +105,9 @@ export function ScheduledExports({ canAccess }: ScheduledExportsProps) {
     <div className="space-y-6">
       {/* Success confirmation */}
       {confirmation && (
-        <div className="flex items-start gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3.5">
-          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
-          <p className="text-[13px] text-emerald-300">{confirmation}</p>
+        <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3.5">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+          <p className="text-[13px] text-emerald-700">{confirmation}</p>
         </div>
       )}
 
@@ -121,47 +115,33 @@ export function ScheduledExports({ canAccess }: ScheduledExportsProps) {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Email */}
         <div className="sm:col-span-2 space-y-1.5">
-          <Label className="text-[12px] text-zinc-400 flex items-center gap-1.5">
+          <Label className="text-[12px] flex items-center gap-1.5" style={{ color: 'var(--nd-text-secondary)' }}>
             <Mail className="h-3 w-3" />
             Delivery Email
           </Label>
           <Input
-            type="email"
-            placeholder="you@company.com"
-            value={email}
-            onChange={(e) => {
-              setEmail(e.target.value)
-              if (emailError) validateEmail(e.target.value)
-            }}
+            type="email" placeholder="you@company.com" value={email}
+            onChange={(e) => { setEmail(e.target.value); if (emailError) validateEmail(e.target.value) }}
             onBlur={() => validateEmail(email)}
             disabled={isLoading}
             aria-invalid={!!emailError}
             aria-describedby={emailError ? 'email-error' : undefined}
-            className={cn(
-              'h-9 text-xs bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-600 rounded-xl',
-              'focus-visible:ring-amber-500/40 focus-visible:border-amber-500/40',
-              emailError && 'border-red-500/60 focus-visible:ring-red-500/40 focus-visible:border-red-500/40',
-            )}
+            className={cn('h-9 text-xs rounded-xl', emailError && 'border-red-400')}
+            style={{ background: 'var(--nd-bg)', borderColor: emailError ? undefined : 'var(--nd-border)', color: 'var(--nd-text-primary)' }}
           />
-          {emailError && (
-            <p id="email-error" className="text-[11px] text-red-400">
-              {emailError}
-            </p>
-          )}
+          {emailError && (<p id="email-error" className="text-[11px] text-red-500">{emailError}</p>)}
         </div>
 
         {/* Report type */}
         <div className="space-y-1.5">
-          <Label className="text-[12px] text-zinc-400">Report Type</Label>
+          <Label className="text-[12px]" style={{ color: 'var(--nd-text-secondary)' }}>Report Type</Label>
           <Select value={reportType} onValueChange={setReportType} disabled={isLoading}>
-            <SelectTrigger className="h-9 text-xs bg-zinc-800 border-zinc-700 text-white rounded-xl focus:ring-amber-500/40">
+            <SelectTrigger className="h-9 text-xs rounded-xl" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }}>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="bg-zinc-900 border-zinc-700 text-white">
+            <SelectContent className="bg-white border border-[#E8E9EF] rounded-xl">
               {REPORT_TYPES.map((r) => (
-                <SelectItem key={r.value} value={r.value} className="text-xs focus:bg-zinc-800 focus:text-white">
-                  {r.label}
-                </SelectItem>
+                <SelectItem key={r.value} value={r.value} className="text-xs cursor-pointer">{r.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -169,27 +149,25 @@ export function ScheduledExports({ canAccess }: ScheduledExportsProps) {
 
         {/* Frequency (static) */}
         <div className="space-y-1.5">
-          <Label className="text-[12px] text-zinc-400">Frequency</Label>
-          <div className="flex h-9 items-center rounded-xl border border-zinc-700 bg-zinc-800 px-3">
-            <span className="text-xs text-zinc-400">Weekly</span>
+          <Label className="text-[12px]" style={{ color: 'var(--nd-text-secondary)' }}>Frequency</Label>
+          <div className="flex h-9 items-center rounded-xl border px-3" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)' }}>
+            <span className="text-xs" style={{ color: 'var(--nd-text-muted)' }}>Weekly</span>
           </div>
         </div>
 
         {/* Day */}
         <div className="space-y-1.5">
-          <Label className="text-[12px] text-zinc-400 flex items-center gap-1.5">
+          <Label className="text-[12px] flex items-center gap-1.5" style={{ color: 'var(--nd-text-secondary)' }}>
             <Clock className="h-3 w-3" />
             Day of Week
           </Label>
           <Select value={day} onValueChange={setDay} disabled={isLoading}>
-            <SelectTrigger className="h-9 text-xs bg-zinc-800 border-zinc-700 text-white rounded-xl focus:ring-amber-500/40">
+            <SelectTrigger className="h-9 text-xs rounded-xl" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }}>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="bg-zinc-900 border-zinc-700 text-white">
+            <SelectContent className="bg-white border border-[#E8E9EF] rounded-xl">
               {DAYS_OF_WEEK.map((d) => (
-                <SelectItem key={d.value} value={d.value} className="text-xs focus:bg-zinc-800 focus:text-white">
-                  {d.label}
-                </SelectItem>
+                <SelectItem key={d.value} value={d.value} className="text-xs cursor-pointer">{d.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -197,16 +175,14 @@ export function ScheduledExports({ canAccess }: ScheduledExportsProps) {
 
         {/* Time */}
         <div className="space-y-1.5">
-          <Label className="text-[12px] text-zinc-400">Send Time</Label>
+          <Label className="text-[12px]" style={{ color: 'var(--nd-text-secondary)' }}>Send Time</Label>
           <Select value={hour} onValueChange={setHour} disabled={isLoading}>
-            <SelectTrigger className="h-9 text-xs bg-zinc-800 border-zinc-700 text-white rounded-xl focus:ring-amber-500/40">
+            <SelectTrigger className="h-9 text-xs rounded-xl" style={{ background: 'var(--nd-bg)', borderColor: 'var(--nd-border)', color: 'var(--nd-text-primary)' }}>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="bg-zinc-900 border-zinc-700 text-white">
+            <SelectContent className="bg-white border border-[#E8E9EF] rounded-xl">
               {HOURS.map((h) => (
-                <SelectItem key={h.value} value={h.value} className="text-xs focus:bg-zinc-800 focus:text-white">
-                  {h.label}
-                </SelectItem>
+                <SelectItem key={h.value} value={h.value} className="text-xs cursor-pointer">{h.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -214,28 +190,17 @@ export function ScheduledExports({ canAccess }: ScheduledExportsProps) {
       </div>
 
       {/* Preview label */}
-      <p className="text-[12px] text-zinc-500">
+      <p className="text-[12px]" style={{ color: 'var(--nd-text-secondary)' }}>
         Preview:{' '}
-        <span className="text-zinc-300">
-          Sent every {dayLabel} at {hourLabel}
-          {email ? ` → ${email}` : ''}
-        </span>
+        <span style={{ color: 'var(--nd-text-primary)' }}>Sent every {dayLabel} at {hourLabel}{email ? ` → ${email}` : ''}</span>
       </p>
 
-      <Button
-        onClick={handleSave}
-        disabled={isLoading}
-        className="h-10 px-6 text-[13px] font-medium rounded-xl bg-zinc-800 text-white border border-zinc-700 hover:bg-amber-500 hover:text-black hover:border-amber-500 transition-all duration-200"
+      <Button onClick={handleSave} disabled={isLoading}
+        className="h-10 px-6 text-[13px] font-medium rounded-xl text-white transition-all duration-200 cursor-pointer"
+        style={{ background: 'var(--nd-purple)' }}
         variant="ghost"
       >
-        {isLoading ? (
-          <>
-            <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-            Saving…
-          </>
-        ) : (
-          'Save Schedule'
-        )}
+        {isLoading ? <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />Saving…</> : 'Save Schedule'}
       </Button>
     </div>
   )

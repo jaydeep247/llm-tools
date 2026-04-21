@@ -34,7 +34,7 @@ function deltaClass(v: number | null | undefined, positiveGood = true): string {
   if (v === null || v === undefined || Number.isNaN(v) || v === 0) return 'text-zinc-500'
   const up = v > 0
   const good = positiveGood ? up : !up
-  return good ? 'text-emerald-400' : 'text-rose-400'
+  return good ? 'text-emerald-600' : 'text-rose-600'
 }
 
 /* ==========================================================================
@@ -58,9 +58,9 @@ function KpiCard({
   const isNeutral = delta === null || delta === undefined || delta === 0
 
   return (
-    <div className="rounded-2xl border border-zinc-800/90 bg-gradient-to-b from-[#191919] to-[#121212] p-4 shadow-[0_8px_24px_rgba(0,0,0,0.22)]">
-      <p className="text-[11px] text-zinc-500 uppercase tracking-wide font-semibold">{label}</p>
-      <p className="text-2xl font-bold text-white mt-1">{displayValue}</p>
+    <div className="rounded-2xl p-4" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+      <p className="text-[11px] uppercase tracking-wide font-semibold" style={{ color: 'var(--nd-text-secondary)' }}>{label}</p>
+      <p className="text-2xl font-bold mt-1" style={{ color: 'var(--nd-text-primary)' }}>{displayValue}</p>
       {/* Only show delta row when we have a value to compare */}
       {delta !== null && (
         <p className={cn('text-sm mt-1 inline-flex items-center gap-1', dClass)}>
@@ -148,19 +148,19 @@ export default function WeeklySummaryPanel({
 
         {/* ── History sidebar ────────────────────────────────────────────── */}
         <aside className="w-full lg:w-56 shrink-0 space-y-2">
-          <div className="flex items-center gap-2 text-yellow-400 text-xs font-semibold uppercase tracking-wide">
+          <div className="flex items-center gap-2 text-amber-600 text-xs font-semibold uppercase tracking-wide">
             <Calendar className="h-4 w-4" />
             Report history
           </div>
-          <p className="text-xs text-zinc-500">Last 12 weeks</p>
-          <div className="rounded-xl border border-zinc-800 bg-[#121212] p-2 max-h-[420px] overflow-y-auto space-y-1">
+          <p className="text-xs" style={{ color: 'var(--nd-text-muted)' }}>Last 12 weeks</p>
+          <div className="rounded-xl p-2 max-h-105 overflow-y-auto space-y-1" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
             {isLoading && (
-              <div className="flex items-center gap-2 text-zinc-500 text-sm p-2">
+              <div className="flex items-center gap-2 text-sm p-2" style={{ color: 'var(--nd-text-muted)' }}>
                 <Loader2 className="h-4 w-4 animate-spin" /> Loading…
               </div>
             )}
             {!isLoading && reports.length === 0 && (
-              <p className="text-sm text-zinc-500 p-2">
+              <p className="text-sm p-2" style={{ color: 'var(--nd-text-muted)' }}>
                 No reports yet. Run analysis, then click Generate now.
               </p>
             )}
@@ -169,12 +169,11 @@ export default function WeeklySummaryPanel({
                 key={r.id}
                 type="button"
                 onClick={() => setSelectedId(r.id)}
-                className={cn(
-                  'w-full text-left rounded-lg px-3 py-2 text-sm transition-colors',
-                  activeReport?.id === r.id
-                    ? 'bg-violet-950/80 text-white font-medium border border-violet-500/30'
-                    : 'text-zinc-400 hover:bg-zinc-800/60 border border-transparent',
-                )}
+                className="w-full text-left rounded-lg px-3 py-2 text-sm transition-colors"
+                style={activeReport?.id === r.id
+                  ? { background: 'var(--nd-purple-subtle)', color: 'var(--nd-purple)', border: '1px solid var(--nd-purple)', fontWeight: 600 }
+                  : { color: 'var(--nd-text-secondary)', border: '1px solid transparent' }
+                }
               >
                 {r.weekStart} → {r.weekEnd}
               </button>
@@ -188,10 +187,10 @@ export default function WeeklySummaryPanel({
           {/* Header */}
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-bold text-white tracking-tight">Weekly Summary</h2>
-              <p className="text-zinc-400 text-sm mt-1">{weekLabel}</p>
+              <h2 className="nd-page-title">Weekly Summary</h2>
+              <p className="text-sm mt-1" style={{ color: 'var(--nd-text-secondary)' }}>{weekLabel}</p>
               {(domainLabel || d?.meta.domain_label) && (
-                <p className="text-zinc-500 text-xs mt-0.5">
+                <p className="text-xs mt-0.5" style={{ color: 'var(--nd-text-muted)' }}>
                   {domainLabel ?? d?.meta.domain_label}
                 </p>
               )}
@@ -201,7 +200,8 @@ export default function WeeklySummaryPanel({
                 type="button"
                 disabled={!jobId || isGenerating}
                 onClick={onGenerate}
-                className="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium inline-flex items-center gap-2 disabled:opacity-50 transition-colors"
+                className="px-4 py-2 rounded-lg text-white text-sm font-medium inline-flex items-center gap-2 disabled:opacity-50 transition-colors"
+                style={{ background: 'var(--nd-purple)' }}
               >
                 {isGenerating
                   ? <Loader2 className="h-4 w-4 animate-spin" />
@@ -212,7 +212,8 @@ export default function WeeklySummaryPanel({
                 type="button"
                 onClick={() => refetch()}
                 disabled={isFetching}
-                className="px-3 py-2 rounded-lg border border-zinc-700 text-zinc-300 text-sm hover:bg-zinc-800/70 disabled:opacity-50 transition-colors"
+                className="px-3 py-2 rounded-lg text-sm disabled:opacity-50 transition-colors"
+                style={{ border: '1px solid var(--nd-border)', color: 'var(--nd-text-secondary)', background: 'var(--nd-card-bg)' }}
               >
                 Refresh list
               </button>
@@ -221,7 +222,7 @@ export default function WeeklySummaryPanel({
 
           {/* Generating banner */}
           {isGenerating && (
-            <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
               <span className="inline-flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Generating your weekly summary… This usually takes about 30 seconds.
@@ -231,9 +232,9 @@ export default function WeeklySummaryPanel({
 
           {/* No reports yet */}
           {!activeReport && !isLoading && (
-            <div className="rounded-2xl border border-zinc-800 bg-[#121212] p-10 text-center text-zinc-400">
+            <div className="rounded-2xl p-10 text-center" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)', color: 'var(--nd-text-secondary)' }}>
               No weekly report for this project yet. Run analysis then click{' '}
-              <strong className="text-zinc-200">Generate now</strong>.
+              <strong style={{ color: 'var(--nd-text-primary)' }}>Generate now</strong>.
             </div>
           )}
 
@@ -242,7 +243,7 @@ export default function WeeklySummaryPanel({
             <>
               {/* First-week info banner (meta.is_first_week: true) */}
               {d.meta.is_first_week && (
-                <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-100">
+                <div className="rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-800">
                   This is your first week report. Comparison data will appear from Week 2 onwards
                   once more snapshots exist.
                 </div>
@@ -280,11 +281,11 @@ export default function WeeklySummaryPanel({
               {/* ── Wins & Losses tables ────────────────────────────────── */}
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                 {/* Wins */}
-                <div className="rounded-2xl border border-zinc-800 bg-[#121212] p-4 overflow-x-auto">
-                  <h3 className="text-sm font-semibold text-white mb-3">Top wins</h3>
+                <div className="rounded-2xl p-4 overflow-x-auto" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+                  <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--nd-text-primary)' }}>Top wins</h3>
                   <table className="min-w-full text-sm">
-                    <thead className="text-zinc-500 border-b border-zinc-800">
-                      <tr>
+                    <thead style={{ borderBottom: '1px solid var(--nd-border)' }}>
+                      <tr style={{ color: 'var(--nd-text-secondary)' }}>
                         <th className="text-left py-2 pr-2">Metric</th>
                         <th className="text-left py-2 pr-2">Model</th>
                         <th className="text-right py-2 pr-2">Prev</th>
@@ -294,12 +295,12 @@ export default function WeeklySummaryPanel({
                     </thead>
                     <tbody>
                       {d.wins.map((w, i) => (
-                        <tr key={i} className="border-b border-zinc-900/80">
-                          <td className="py-2 pr-2 text-zinc-200">{w.metric}</td>
-                          <td className="py-2 pr-2 text-zinc-400 text-xs">{w.model}</td>
-                          <td className="py-2 pr-2 text-right text-zinc-400">{w.previous.toFixed(1)}</td>
-                          <td className="py-2 pr-2 text-right text-zinc-300">{w.current.toFixed(1)}</td>
-                          <td className="py-2 text-right text-emerald-400 font-medium">
+                        <tr key={i} style={{ borderBottom: '1px solid var(--nd-border)' }}>
+                          <td className="py-2 pr-2" style={{ color: 'var(--nd-text-primary)' }}>{w.metric}</td>
+                          <td className="py-2 pr-2 text-xs" style={{ color: 'var(--nd-text-secondary)' }}>{w.model}</td>
+                          <td className="py-2 pr-2 text-right" style={{ color: 'var(--nd-text-secondary)' }}>{w.previous.toFixed(1)}</td>
+                          <td className="py-2 pr-2 text-right" style={{ color: 'var(--nd-text-primary)' }}>{w.current.toFixed(1)}</td>
+                          <td className="py-2 text-right text-emerald-600 font-medium">
                             +{w.delta.toFixed(1)}
                           </td>
                         </tr>
@@ -307,16 +308,16 @@ export default function WeeklySummaryPanel({
                     </tbody>
                   </table>
                   {d.wins.length === 0 && (
-                    <p className="text-zinc-500 text-sm py-3">No wins in this period.</p>
+                    <p className="text-sm py-3" style={{ color: 'var(--nd-text-muted)' }}>No wins in this period.</p>
                   )}
                 </div>
 
                 {/* Losses */}
-                <div className="rounded-2xl border border-zinc-800 bg-[#121212] p-4 overflow-x-auto">
-                  <h3 className="text-sm font-semibold text-white mb-3">Top losses</h3>
+                <div className="rounded-2xl p-4 overflow-x-auto" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+                  <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--nd-text-primary)' }}>Top losses</h3>
                   <table className="min-w-full text-sm">
-                    <thead className="text-zinc-500 border-b border-zinc-800">
-                      <tr>
+                    <thead style={{ borderBottom: '1px solid var(--nd-border)' }}>
+                      <tr style={{ color: 'var(--nd-text-secondary)' }}>
                         <th className="text-left py-2 pr-2">Metric</th>
                         <th className="text-left py-2 pr-2">Model</th>
                         <th className="text-right py-2 pr-2">Δ</th>
@@ -325,10 +326,10 @@ export default function WeeklySummaryPanel({
                     </thead>
                     <tbody>
                       {d.losses.map((w, i) => (
-                        <tr key={i} className="border-b border-zinc-900/80">
-                          <td className="py-2 pr-2 text-zinc-200">{w.metric}</td>
-                          <td className="py-2 pr-2 text-zinc-400 text-xs">{w.model}</td>
-                          <td className="py-2 pr-2 text-right text-rose-400 font-medium">
+                        <tr key={i} style={{ borderBottom: '1px solid var(--nd-border)' }}>
+                          <td className="py-2 pr-2" style={{ color: 'var(--nd-text-primary)' }}>{w.metric}</td>
+                          <td className="py-2 pr-2 text-xs" style={{ color: 'var(--nd-text-secondary)' }}>{w.model}</td>
+                          <td className="py-2 pr-2 text-right text-rose-600 font-medium">
                             {w.delta.toFixed(1)}
                           </td>
                           <td className="py-2">
@@ -336,12 +337,12 @@ export default function WeeklySummaryPanel({
                               <button
                                 type="button"
                                 onClick={() => onNavigate?.(w.fix_link!)}
-                                className="text-amber-300 hover:text-amber-200 text-xs underline text-left transition-colors"
+                                className="text-amber-700 hover:text-amber-900 text-xs underline text-left transition-colors"
                               >
                                 {w.fix_title}
                               </button>
                             ) : (
-                              <span className="text-zinc-600">—</span>
+                              <span style={{ color: 'var(--nd-text-muted)' }}>—</span>
                             )}
                           </td>
                         </tr>
@@ -349,16 +350,16 @@ export default function WeeklySummaryPanel({
                     </tbody>
                   </table>
                   {d.losses.length === 0 && (
-                    <p className="text-zinc-500 text-sm py-3">No losses in this period.</p>
+                    <p className="text-sm py-3" style={{ color: 'var(--nd-text-muted)' }}>No losses in this period.</p>
                   )}
                 </div>
               </div>
 
               {/* ── Top cited pages ─────────────────────────────────────── */}
-              <div className="rounded-2xl border border-zinc-800 bg-[#121212] p-4">
-                <h3 className="text-sm font-semibold text-white mb-3">Top cited pages</h3>
+              <div className="rounded-2xl p-4" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+                <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--nd-text-primary)' }}>Top cited pages</h3>
                 {d.top_pages.length === 0 ? (
-                  <p className="text-zinc-500 text-sm">No cited URLs in the last 7 days.</p>
+                  <p className="text-sm" style={{ color: 'var(--nd-text-muted)' }}>No cited URLs in the last 7 days.</p>
                 ) : (
                   <ul className="space-y-2">
                     {d.top_pages.map((p, i) => (
@@ -369,12 +370,13 @@ export default function WeeklySummaryPanel({
                         <button
                           type="button"
                           onClick={() => onNavigate?.('ai-visibility-scorecards')}
-                          className="text-cyan-300 hover:text-cyan-200 text-left truncate max-w-[min(100%,28rem)] transition-colors inline-flex items-center gap-1"
+                          className="text-left truncate max-w-[min(100%,28rem)] transition-colors inline-flex items-center gap-1"
+                          style={{ color: 'var(--nd-blue)' }}
                         >
                           {p.url}
                           <ExternalLink className="h-3 w-3 shrink-0" />
                         </button>
-                        <span className="text-zinc-500 text-xs shrink-0">
+                        <span className="text-xs shrink-0" style={{ color: 'var(--nd-text-muted)' }}>
                           {p.citations} cites · {p.primary_model}
                         </span>
                       </li>
@@ -384,10 +386,10 @@ export default function WeeklySummaryPanel({
               </div>
 
               {/* ── Priority actions ────────────────────────────────────── */}
-              <div className="rounded-2xl border border-zinc-800 bg-[#121212] p-4">
-                <h3 className="text-sm font-semibold text-white mb-3">Priority actions</h3>
+              <div className="rounded-2xl p-4" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+                <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--nd-text-primary)' }}>Priority actions</h3>
                 {d.recommendations.length === 0 ? (
-                  <p className="text-zinc-500 text-sm">No ranked recommendations for this job yet.</p>
+                  <p className="text-sm" style={{ color: 'var(--nd-text-muted)' }}>No ranked recommendations for this job yet.</p>
                 ) : (
                   <ul className="space-y-3">
                     {d.recommendations.map((r, i) => (
@@ -395,10 +397,13 @@ export default function WeeklySummaryPanel({
                         <button
                           type="button"
                           onClick={() => onNavigate?.(r.module_link)}
-                          className="text-left w-full rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2 hover:border-zinc-600 transition-colors"
+                          className="text-left w-full rounded-lg px-3 py-2 transition-colors"
+                          style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-bg)' }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--nd-border-hover)' }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--nd-border)' }}
                         >
-                          <span className="text-zinc-100 font-medium text-sm">{r.action}</span>
-                          <span className="block text-xs text-zinc-500 mt-1">
+                          <span className="font-medium text-sm" style={{ color: 'var(--nd-text-primary)' }}>{r.action}</span>
+                          <span className="block text-xs mt-1" style={{ color: 'var(--nd-text-muted)' }}>
                             Impact: {r.impact} · Effort: {r.effort}
                           </span>
                         </button>
@@ -409,23 +414,23 @@ export default function WeeklySummaryPanel({
               </div>
 
               {/* ── Competitor snapshot ─────────────────────────────────── */}
-              <div className="rounded-2xl border border-zinc-800 bg-[#121212] p-4 overflow-x-auto">
-                <h3 className="text-sm font-semibold text-white mb-3">Competitor snapshot</h3>
+              <div className="rounded-2xl p-4 overflow-x-auto" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)' }}>
+                <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--nd-text-primary)' }}>Competitor snapshot</h3>
                 {d.competitor_movements.length === 0 ? (
-                  <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 px-3 py-4 text-sm text-zinc-500">
+                  <div className="rounded-lg px-3 py-4 text-sm" style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-bg)', color: 'var(--nd-text-muted)' }}>
                     No competitor movement data.{' '}
                     <button
                       type="button"
                       onClick={() => onNavigate?.('visibility-comparision')}
-                      className="text-amber-300 hover:text-amber-200 underline transition-colors"
+                      className="text-amber-700 hover:text-amber-900 underline transition-colors"
                     >
                       Add competitors
                     </button>
                   </div>
                 ) : (
                   <table className="min-w-full text-sm">
-                    <thead className="text-zinc-500 border-b border-zinc-800">
-                      <tr>
+                    <thead style={{ borderBottom: '1px solid var(--nd-border)' }}>
+                      <tr style={{ color: 'var(--nd-text-secondary)' }}>
                         <th className="text-left py-2 pr-2">Competitor</th>
                         <th className="text-right py-2 pr-2">SoV Δ</th>
                         <th className="text-right py-2 pr-2">Prompts +</th>
@@ -434,24 +439,24 @@ export default function WeeklySummaryPanel({
                     </thead>
                     <tbody>
                       {d.competitor_movements.map((c, i) => (
-                        <tr key={i} className="border-b border-zinc-900/80">
-                          <td className="py-2 pr-2 text-zinc-200">{c.name}</td>
+                        <tr key={i} style={{ borderBottom: '1px solid var(--nd-border)' }}>
+                          <td className="py-2 pr-2" style={{ color: 'var(--nd-text-primary)' }}>{c.name}</td>
                           <td
                             className={cn(
                               'py-2 pr-2 text-right',
                               c.sov_change === null
                                 ? 'text-zinc-500'
                                 : c.sov_change > 0
-                                ? 'text-rose-400'   // competitor gaining — inverted colour
-                                : 'text-emerald-400',
+                                ? 'text-rose-600'   // competitor gaining — inverted colour
+                                : 'text-emerald-600',
                             )}
                           >
                             {c.sov_change !== null ? fmtDelta(c.sov_change) : '—'}
                           </td>
-                          <td className="py-2 pr-2 text-right text-emerald-400">
+                          <td className="py-2 pr-2 text-right text-emerald-600">
                             {c.prompts_gained}
                           </td>
-                          <td className="py-2 text-right text-rose-400">{c.prompts_lost}</td>
+                          <td className="py-2 text-right text-rose-600">{c.prompts_lost}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -465,7 +470,8 @@ export default function WeeklySummaryPanel({
                   type="button"
                   onClick={() => onExport('pdf')}
                   disabled={!activeReport}
-                  className="px-3 py-2 rounded-lg border border-zinc-700 bg-zinc-900/60 text-zinc-200 text-sm inline-flex items-center gap-2 disabled:opacity-50 hover:bg-zinc-800/70 transition-colors"
+                  className="px-3 py-2 rounded-lg text-sm inline-flex items-center gap-2 disabled:opacity-50 transition-colors"
+                  style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)', color: 'var(--nd-text-secondary)' }}
                 >
                   <Download className="h-4 w-4" />
                   Download PDF
@@ -474,7 +480,8 @@ export default function WeeklySummaryPanel({
                   type="button"
                   onClick={() => onExport('csv')}
                   disabled={!activeReport}
-                  className="px-3 py-2 rounded-lg border border-zinc-700 bg-zinc-900/60 text-zinc-200 text-sm inline-flex items-center gap-2 disabled:opacity-50 hover:bg-zinc-800/70 transition-colors"
+                  className="px-3 py-2 rounded-lg text-sm inline-flex items-center gap-2 disabled:opacity-50 transition-colors"
+                  style={{ border: '1px solid var(--nd-border)', background: 'var(--nd-card-bg)', color: 'var(--nd-text-secondary)' }}
                 >
                   <Download className="h-4 w-4" />
                   Download CSV
@@ -488,7 +495,8 @@ export default function WeeklySummaryPanel({
                         'Weekly summary email sends when your account has weekly notifications enabled in preferences.',
                     })
                   }
-                  className="px-3 py-2 rounded-lg border border-zinc-700 text-zinc-300 text-sm inline-flex items-center gap-2 hover:bg-zinc-800/70 transition-colors"
+                  className="px-3 py-2 rounded-lg text-sm inline-flex items-center gap-2 transition-colors"
+                  style={{ border: '1px solid var(--nd-border)', color: 'var(--nd-text-secondary)' }}
                 >
                   <Mail className="h-4 w-4" />
                   Email report
