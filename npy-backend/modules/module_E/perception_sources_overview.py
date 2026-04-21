@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
 from utils.mongo import mongo_manager
-from .perception_sources import _classify_property, _normalize_model_filter, _to_dt
+from .perception_sources import _classify_property, _classify_source_type, _normalize_model_filter, _to_dt
 
 
 def _extract_domain(url: str) -> str:
@@ -74,10 +74,16 @@ def get_perception_sources_overview(
                 continue
 
         owned = _is_owned_domain(dom, customer_root_domain)
-        if type_filter == "owned" and not owned:
-            continue
-        if type_filter == "third-party" and owned:
-            continue
+        if type_filter and type_filter != "all":
+            if type_filter in ("owned", "third-party"):
+                if type_filter == "owned" and not owned:
+                    continue
+                if type_filter == "third-party" and owned:
+                    continue
+            else:
+                norm_for_type = str(e.get("cited_url") or raw or "").strip()
+                if _classify_source_type(norm_for_type) != type_filter:
+                    continue
 
         ts = e.get("event_timestamp")
         if not isinstance(ts, datetime):

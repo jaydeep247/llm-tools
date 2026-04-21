@@ -7,7 +7,43 @@ from urllib.parse import urlparse
 from utils.mongo import mongo_manager
 
 
-PerceptionSourceType = Literal["owned", "third-party", "all"]
+PerceptionSourceType = Literal[
+    "all",
+    "owned",
+    "third-party",
+    "article",
+    "blog",
+    "case-study",
+    "forum-community",
+    "guide-tutorial",
+    "homepage",
+    "marketing-listing",
+    "product-comparison",
+    "product-page",
+    "research",
+]
+
+
+_MARKETING_LISTING_DOMAINS = {
+    "g2.com",
+    "www.g2.com",
+    "capterra.com",
+    "www.capterra.com",
+    "getapp.com",
+    "www.getapp.com",
+    "trustpilot.com",
+    "www.trustpilot.com",
+    "crunchbase.com",
+    "www.crunchbase.com",
+    "producthunt.com",
+    "www.producthunt.com",
+    "trustradius.com",
+    "www.trustradius.com",
+    "sourceforge.net",
+    "www.sourceforge.net",
+    "alternativeto.net",
+    "www.alternativeto.net",
+}
 
 
 def _extract_domain(url: str) -> str:
@@ -71,6 +107,67 @@ def _is_owned_domain(domain: str, root_domain: str) -> bool:
     if not d or not r:
         return False
     return d == r or d.endswith("." + r)
+
+
+def _classify_source_type(url: str) -> PerceptionSourceType:
+    """
+    Best-effort classifier for cited URLs.
+
+    This intentionally uses simple heuristics (domain + path keywords) so the
+    filter works without requiring extra schema or crawl metadata.
+    """
+    try:
+        parsed = urlparse((url or "").strip())
+        domain = (parsed.netloc or "").lower()
+        path = (parsed.path or "").lower()
+        query = (parsed.query or "").lower()
+    except Exception:
+        domain = ""
+        path = ""
+        query = ""
+
+    if not domain:
+        return "article"
+
+    if domain in _MARKETING_LISTING_DOMAINS:
+        return "marketing-listing"
+
+    # Homepage: root or near-root URLs.
+    if path in ("", "/"):
+        return "homepage"
+
+    # Forum / community pages.
+    if any(d in domain for d in ("reddit.com", "stackoverflow.com", "stackexchange.com", "quora.com")):
+        return "forum-community"
+    if any(tok in path for tok in ("/forum", "/forums", "/community", "/communities", "/discuss", "/discussion")):
+        return "forum-community"
+
+    # Case studies.
+    if any(tok in path for tok in ("case-study", "case_study", "case-studies", "customer-stories", "success-stories")):
+        return "case-study"
+
+    # Guides / tutorials.
+    if any(tok in path for tok in ("/guide", "/guides", "/tutorial", "/tutorials", "/how-to", "/howto")):
+        return "guide-tutorial"
+
+    # Blog posts.
+    if domain.startswith("blog.") or "/blog" in path:
+        return "blog"
+
+    # Research / whitepapers / reports.
+    if any(tok in path for tok in ("/research", "whitepaper", "white-paper", "/papers", "/paper", "/report", "/reports", "/study")):
+        return "research"
+
+    # Product comparisons.
+    if any(tok in path for tok in ("/compare", "comparison", "/vs", "-vs-", "/alternatives")) or "vs=" in query:
+        return "product-comparison"
+
+    # Product / marketing pages.
+    if any(tok in path for tok in ("/product", "/products", "/features", "/pricing", "/solution", "/solutions", "/platform")):
+        return "product-page"
+
+    # Default bucket.
+    return "article"
 
 
 def _to_dt(val: Optional[str]) -> Optional[datetime]:
@@ -183,11 +280,18 @@ def get_perception_sources(
                 continue
 
         if type_filter != "all":
-            owned = _is_owned_domain(dom, customer_root_domain)
-            if type_filter == "owned" and not owned:
-                continue
-            if type_filter == "third-party" and owned:
-                continue
+            # Back-compat: owned vs third-party based on domain relationship.
+            if type_filter in ("owned", "third-party"):
+                owned = _is_owned_domain(dom, customer_root_domain)
+                if type_filter == "owned" and not owned:
+                    continue
+                if type_filter == "third-party" and owned:
+                    continue
+            else:
+                # Content type classification based on the cited URL.
+                norm_for_type = (ev.cited_url or raw or "").strip()
+                if _classify_source_type(norm_for_type) != type_filter:
+                    continue
 
         norm_url = (ev.cited_url or raw or "").strip()
         if not norm_url:
@@ -283,11 +387,16 @@ def get_perception_source_responses(
                 continue
 
         if type_filter != "all":
-            owned = _is_owned_domain(dom, customer_root_domain)
-            if type_filter == "owned" and not owned:
-                continue
-            if type_filter == "third-party" and owned:
-                continue
+            if type_filter in ("owned", "third-party"):
+                owned = _is_owned_domain(dom, customer_root_domain)
+                if type_filter == "owned" and not owned:
+                    continue
+                if type_filter == "third-party" and owned:
+                    continue
+            else:
+                norm_for_type = (ev.cited_url or raw or "").strip()
+                if _classify_source_type(norm_for_type) != type_filter:
+                    continue
 
         if ev.response_id in seen:
             continue

@@ -96,7 +96,13 @@ async def get_perception_sources_endpoint(
     search: str = Query("", description="Free-text search for domain or URL"),
     llm: str = Query("All Models", description="All Models | ChatGPT | Gemini | Claude | or exact model_version"),
     property: str = Query("All Properties", description="All Properties | Pricing | Data Security | Integrations | ..."),
-    type: str = Query("all", description="all | owned | third-party"),
+    type: str = Query(
+        "all",
+        description=(
+            "all | owned | third-party | article | blog | case-study | forum-community | "
+            "guide-tutorial | homepage | marketing-listing | product-comparison | product-page | research"
+        ),
+    ),
     date_from: str | None = Query(None, description="ISO date or datetime, inclusive"),
     date_to: str | None = Query(None, description="ISO date or datetime, inclusive"),
     limit_domains: int = Query(200, ge=1, le=1000),
@@ -122,7 +128,13 @@ async def get_perception_sources_overview_endpoint(
     customer_root_domain: str = Query(..., min_length=1, description="Root domain (used for Owned/Third-party filter)"),
     llm: str = Query("All Models"),
     property: str = Query("All Topics"),
-    type: str = Query("all"),
+    type: str = Query(
+        "all",
+        description=(
+            "all | owned | third-party | article | blog | case-study | forum-community | "
+            "guide-tutorial | homepage | marketing-listing | product-comparison | product-page | research"
+        ),
+    ),
     date_from: str | None = Query(None),
     date_to: str | None = Query(None),
     top_n_domains: int = Query(7, ge=1, le=20),
@@ -148,7 +160,13 @@ async def get_perception_source_responses_endpoint(
     customer_root_domain: str = Query(..., min_length=1),
     llm: str = Query("All Models"),
     property: str = Query("All Properties"),
-    type: str = Query("all"),
+    type: str = Query(
+        "all",
+        description=(
+            "all | owned | third-party | article | blog | case-study | forum-community | "
+            "guide-tutorial | homepage | marketing-listing | product-comparison | product-page | research"
+        ),
+    ),
     date_from: str | None = Query(None),
     date_to: str | None = Query(None),
     limit: int = Query(250, ge=1, le=2000),

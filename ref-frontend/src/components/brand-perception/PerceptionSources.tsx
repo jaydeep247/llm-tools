@@ -28,6 +28,32 @@ type ResponseRow = {
   score: 'Good' | 'Great' | 'Exceptional'
 }
 
+function escapeCsvCell(value: unknown) {
+  const s = String(value ?? '')
+  const needsQuotes = /[",\n\r]/.test(s)
+  const escaped = s.replace(/"/g, '""')
+  return needsQuotes ? `"${escaped}"` : escaped
+}
+
+function downloadCsv(filename: string, rows: Array<Record<string, unknown>>) {
+  if (!rows.length) return
+  const headers = Object.keys(rows[0])
+  const lines = [
+    headers.map(escapeCsvCell).join(','),
+    ...rows.map((row) => headers.map((h) => escapeCsvCell(row[h])).join(',')),
+  ]
+  const csv = lines.join('\r\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
 const LLM_OPTIONS = ['All Models', 'ChatGPT', 'Gemini', 'Claude']
 const PROPERTY_OPTIONS = [
   'All Properties',
@@ -40,10 +66,32 @@ const PROPERTY_OPTIONS = [
   'User Experience',
   'Other',
 ]
-const TYPE_OPTIONS: Array<{ label: string; value: 'all' | 'owned' | 'third-party' }> = [
+const TYPE_OPTIONS: Array<{
+  label: string
+  value:
+    | 'all'
+    | 'article'
+    | 'blog'
+    | 'case-study'
+    | 'forum-community'
+    | 'guide-tutorial'
+    | 'homepage'
+    | 'marketing-listing'
+    | 'product-comparison'
+    | 'product-page'
+    | 'research'
+}> = [
   { label: 'All Types', value: 'all' },
-  { label: 'Owned', value: 'owned' },
-  { label: 'Third-party', value: 'third-party' },
+  { label: 'Article', value: 'article' },
+  { label: 'Blog', value: 'blog' },
+  { label: 'Case study', value: 'case-study' },
+  { label: 'Forum/Community', value: 'forum-community' },
+  { label: 'Guide/Tutorial', value: 'guide-tutorial' },
+  { label: 'Homepage', value: 'homepage' },
+  { label: 'Marketing listing', value: 'marketing-listing' },
+  { label: 'Product comparison', value: 'product-comparison' },
+  { label: 'Product page', value: 'product-page' },
+  { label: 'Research', value: 'research' },
 ]
 
 export default function PerceptionSources({
@@ -56,7 +104,7 @@ export default function PerceptionSources({
   const [search, setSearch] = useState('')
   const [llmFilter, setLlmFilter] = useState('All Models')
   const [propertyFilter, setPropertyFilter] = useState('All Properties')
-  const [typeFilter, setTypeFilter] = useState<'all' | 'owned' | 'third-party'>('all')
+  const [typeFilter, setTypeFilter] = useState<(typeof TYPE_OPTIONS)[number]['value']>('all')
   const [expandedDomain, setExpandedDomain] = useState<string | null>(null)
   const [responsesPanelDomain, setResponsesPanelDomain] = useState<string | null>(null)
 
@@ -76,6 +124,24 @@ export default function PerceptionSources({
   const filteredData: SourceDomain[] = useMemo(() => data?.data?.domains ?? [], [data])
   const totalResponses = data?.data?.totals?.responses ?? 0
   const totalUrls = data?.data?.totals?.unique_urls ?? 0
+
+  const exportRows = useMemo(() => {
+    return filteredData.flatMap((d) =>
+      (d.urls ?? []).map((u) => ({
+        domain: d.domain,
+        domain_total_urls: d.totalUrls,
+        domain_responses: d.responses,
+        url: u.url,
+        url_responses: u.responses,
+      }))
+    )
+  }, [filteredData])
+
+  const handleExportCsv = () => {
+    const stamp = new Date().toISOString().slice(0, 10)
+    const safeJob = jobId?.trim() ? jobId.trim() : 'job'
+    downloadCsv(`perception-sources_${safeJob}_${stamp}.csv`, exportRows)
+  }
 
   const { data: responsesData, isFetching: isResponsesFetching } = useGetPerceptionSourceResponsesQuery(
     {
@@ -123,6 +189,8 @@ export default function PerceptionSources({
         <Button
           variant="outline"
           className="shrink-0 border-zinc-700 bg-zinc-900/50 text-zinc-200 hover:bg-zinc-800"
+          onClick={handleExportCsv}
+          disabled={!canQuery || exportRows.length === 0}
         >
           <Download className="w-4 h-4 mr-2" />
           Export CSV
@@ -160,9 +228,7 @@ export default function PerceptionSources({
             <FilterSelect
               label="Filter by Type"
               value={TYPE_OPTIONS.find((option) => option.value === typeFilter)?.label ?? 'All Types'}
-              onChange={(value) =>
-                setTypeFilter(TYPE_OPTIONS.find((option) => option.label === value)?.value ?? 'all')
-              }
+              onChange={(value) => setTypeFilter(TYPE_OPTIONS.find((option) => option.label === value)?.value ?? 'all')}
               options={TYPE_OPTIONS.map((option) => option.label)}
             />
           </div>

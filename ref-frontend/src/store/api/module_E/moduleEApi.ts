@@ -337,7 +337,20 @@ export interface PerceptionSourcesQuery {
   search?: string
   llm?: string
   property?: string
-  type?: 'all' | 'owned' | 'third-party'
+  type?:
+    | 'all'
+    | 'owned'
+    | 'third-party'
+    | 'article'
+    | 'blog'
+    | 'case-study'
+    | 'forum-community'
+    | 'guide-tutorial'
+    | 'homepage'
+    | 'marketing-listing'
+    | 'product-comparison'
+    | 'product-page'
+    | 'research'
 }
 
 export interface PerceptionSourceResponsesQuery {
@@ -346,7 +359,20 @@ export interface PerceptionSourceResponsesQuery {
   customer_root_domain: string
   llm?: string
   property?: string
-  type?: 'all' | 'owned' | 'third-party'
+  type?:
+    | 'all'
+    | 'owned'
+    | 'third-party'
+    | 'article'
+    | 'blog'
+    | 'case-study'
+    | 'forum-community'
+    | 'guide-tutorial'
+    | 'homepage'
+    | 'marketing-listing'
+    | 'product-comparison'
+    | 'product-page'
+    | 'research'
 }
 
 export interface PerceptionCell {
@@ -439,7 +465,20 @@ export interface PerceptionSourcesOverviewQuery {
   customer_root_domain: string
   llm?: string
   property?: string
-  type?: 'all' | 'owned' | 'third-party'
+  type?:
+    | 'all'
+    | 'owned'
+    | 'third-party'
+    | 'article'
+    | 'blog'
+    | 'case-study'
+    | 'forum-community'
+    | 'guide-tutorial'
+    | 'homepage'
+    | 'marketing-listing'
+    | 'product-comparison'
+    | 'product-page'
+    | 'research'
 }
 
 export const moduleEApi = baseApi.injectEndpoints({
