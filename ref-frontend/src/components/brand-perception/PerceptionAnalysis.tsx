@@ -15,6 +15,8 @@ import { cn } from '@/lib/utils'
 import { useGetPerceptionAnalysisQuery, useRunPerceptionAnalysisMutation } from '@/store/api/module_E/moduleEApi'
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 type PerceptionRow = {
   id: number
@@ -49,6 +51,52 @@ function formatTrendLabel(value: string | undefined): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '-'
   return date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' })
+}
+
+function normalizeModelResponse(text: string) {
+  // Keep markdown, but normalize whitespace for better readability.
+  // Common model outputs sometimes come as a single huge paragraph.
+  const t = (text || '').replace(/\r\n/g, '\n')
+  return t
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+function ResponseContent({ text }: { text: string }) {
+  const normalized = useMemo(() => normalizeModelResponse(text), [text])
+  return (
+    <div className="rounded-md bg-zinc-950/50 border border-zinc-800 p-3 sm:p-4">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          a: ({ href, children }) => (
+            <a
+              href={href}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sky-300 hover:text-sky-200 underline underline-offset-2 break-words"
+            >
+              {children}
+            </a>
+          ),
+          p: ({ children }) => <p className="text-sm text-zinc-200 leading-relaxed mb-3 last:mb-0">{children}</p>,
+          ul: ({ children }) => <ul className="list-disc pl-5 space-y-1 mb-3 last:mb-0">{children}</ul>,
+          ol: ({ children }) => <ol className="list-decimal pl-5 space-y-1 mb-3 last:mb-0">{children}</ol>,
+          li: ({ children }) => <li className="text-sm text-zinc-200 leading-relaxed">{children}</li>,
+          strong: ({ children }) => <strong className="text-zinc-100 font-semibold">{children}</strong>,
+          em: ({ children }) => <em className="text-zinc-200 italic">{children}</em>,
+          code: ({ children }) => (
+            <code className="px-1 py-0.5 rounded bg-zinc-900/70 border border-zinc-800 text-[12px] text-zinc-200">
+              {children}
+            </code>
+          ),
+        }}
+      >
+        {normalized || 'No response text available.'}
+      </ReactMarkdown>
+    </div>
+  )
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -557,15 +605,17 @@ export default function PerceptionAnalysis({
                 </div>
                 <div>
                   <p className="text-xs text-zinc-500 mb-1">Response</p>
-                  <div className="rounded-md bg-zinc-950/50 border border-zinc-800 p-3 text-sm text-zinc-300 leading-relaxed">
-                    {rows.find((r) => r.property === selectedInsight.property)?.[
-                      selectedInsight.model === 'ChatGPT'
-                        ? 'chatgpt'
-                        : selectedInsight.model === 'Gemini'
-                          ? 'gemini'
-                          : 'claude'
-                    ]?.response || 'No response text available.'}
-                  </div>
+                  <ResponseContent
+                    text={
+                      rows.find((r) => r.property === selectedInsight.property)?.[
+                        selectedInsight.model === 'ChatGPT'
+                          ? 'chatgpt'
+                          : selectedInsight.model === 'Gemini'
+                            ? 'gemini'
+                            : 'claude'
+                      ]?.response || ''
+                    }
+                  />
                 </div>
               </div>
 
